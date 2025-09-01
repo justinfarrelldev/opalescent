@@ -17,11 +17,40 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Comment handling (single # and multi-line ##)
 
 ### ✅ Parser Foundation (Name: parser-foundation-plan.md)
-- [x] Create AST node definitions
-- [x] Implement recursive descent parser
-- [x] Expression parsing with proper precedence
-- [x] Statement parsing
-- [x] Error recovery and reporting with miette
+
+#### AST Node Definitions
+- [x] Core AST Infrastructure (base trait, source location, visitor pattern)
+- [x] Expression AST Nodes (literals, identifiers, binary/unary ops, calls, casts)
+- [x] Statement AST Nodes (let bindings, assignments, returns, blocks)
+- [x] Declaration AST Nodes (functions, public/entry declarations)
+- [x] Control Flow AST Nodes (if, for, while, break/continue)
+- [ ] Type AST Nodes (generics, function types, custom types)
+- [ ] String interpolation expressions
+- [ ] Type checking expressions (type_of)
+
+#### Parser Implementation
+- [x] Core Parser Structure (token stream, lookahead, error collection)
+- [x] Expression Parsing (Pratt parser, operator precedence)
+- [x] Statement Parsing (declarations, assignments, blocks)
+- [x] Declaration Parsing (functions)
+- [ ] Type Parsing (basic, generic, array, function types)
+- [ ] Import statement parsing
+- [ ] Type declaration parsing
+
+#### Error Handling
+- [ ] Parse Errors (unexpected/missing tokens, invalid syntax)
+- [ ] Error Recovery (panic mode, synchronization points)
+- [ ] Error Reporting (miette integration, source context, suggestions)
+
+#### Advanced Features
+- [ ] String Interpolation parsing
+- [ ] Comments and Documentation preservation
+- [ ] Operator Precedence refinement
+
+#### Testing & Validation
+- [ ] Unit Tests (AST nodes, expression/statement/declaration parsing)
+- [ ] Integration Tests (example files, round-trip, error recovery)
+- [ ] Property-Based Tests (random generation, invariants)
 
 ### ☐ Type System Core (Name: type-system-core-plan.md)
 - [ ] Basic type representation (int32, string, boolean, etc.)
