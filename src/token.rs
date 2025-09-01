@@ -5,7 +5,7 @@
 
 #![expect(dead_code, reason = "Token types are being developed incrementally")]
 
-use std::fmt;
+use core::fmt;
 
 /// Represents a position in the source code
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,114 +50,214 @@ impl Span {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Literals
+    /// Integer number literal (e.g., 42, -17, 0)
     IntegerLiteral(i64),
+    /// Floating-point number literal (e.g., 3.14, -2.5, 1.0)
     FloatLiteral(f64),
+    /// String literal enclosed in quotes (e.g., "hello", "world")
     StringLiteral(String),
+    /// Boolean literal (true or false)
     BooleanLiteral(bool),
 
     // Identifiers and Keywords
+    /// User-defined identifier (e.g., variable names, function names)
     Identifier(String),
 
     // Keywords
+    /// The 'let' keyword for variable declarations
     Let,
+    /// The 'mutable' keyword for mutable variable declarations
     Mutable,
+    /// The 'f' keyword for function declarations
     Function, // f
+    /// The 'return' keyword for returning values from functions
     Return,
+    /// The 'void' type keyword indicating no return value
     Void,
+    /// The 'if' keyword for conditional statements
     If,
+    /// The 'else' keyword for alternative branches in conditionals
     Else,
+    /// The 'for' keyword for for-loop statements
     For,
+    /// The 'while' keyword for while-loop statements
     While,
+    /// The 'loop' keyword for infinite loop statements
     Loop,
+    /// The 'in' keyword used in for-loops and membership tests
     In,
+    /// The 'break' keyword to exit loops early
     Break,
+    /// The 'continue' keyword to skip to the next loop iteration
     Continue,
 
     // Type keywords
+    /// 8-bit signed integer type
     Int8,
+    /// 16-bit signed integer type
     Int16,
+    /// 32-bit signed integer type
     Int32,
+    /// 64-bit signed integer type
     Int64,
+    /// 8-bit unsigned integer type
     UInt8,
+    /// 16-bit unsigned integer type
     UInt16,
+    /// 32-bit unsigned integer type
     UInt32,
+    /// 64-bit unsigned integer type
     UInt64,
+    /// 32-bit floating-point type
     Float32,
+    /// 64-bit floating-point type
     Float64,
+    /// String type keyword
     String,
+    /// Boolean type keyword
     Boolean,
 
     // Visibility
+    /// The 'public' keyword for public visibility
     Public,
+    /// The 'entry' keyword marking program entry points
     Entry,
 
     // Import/Export
+    /// The 'import' keyword for importing modules
     Import,
+    /// The 'from' keyword used in import statements
     From,
+    /// The 'as' keyword for aliasing in imports and casts
     As,
+    /// The 'type' keyword for type declarations
     Type,
 
     // Operators
+    /// Addition operator (+)
     Plus,
+    /// Subtraction operator (-)
     Minus,
+    /// Multiplication operator (*)
     Multiply,
+    /// Division operator (/)
     Divide,
+    /// Exponentiation operator (^)
     Power,  // ^
+    /// Modulo operator (%)
     Modulo, // %
 
     // Assignment
+    /// Assignment operator (=)
     Assign, // =
 
     // Comparison
+    /// Less-than comparison operator (<)
     Less,
+    /// Less-than-or-equal comparison operator (<=)
     LessEqual,
+    /// Greater-than comparison operator (>)
     Greater,
+    /// Greater-than-or-equal comparison operator (>=)
     GreaterEqual,
+    /// Equality comparison operator (is)
     Is,
+    /// Inequality comparison operator (is not)
     IsNot,
 
     // Logical
+    /// Logical AND operator (and)
     And,
+    /// Logical OR operator (or)
     Or,
+    /// Logical NOT operator (not)
     Not,
+    /// Logical XOR operator (xor)
     Xor,
 
     // Bitwise
+    /// Bitwise AND operator (band)
     BitAnd,                // band
+    /// Bitwise OR operator (bor)
     BitOr,                 // bor
+    /// Bitwise XOR operator (bxor)
     BitXor,                // bxor
+    /// Bitwise NOT operator (bnot)
     BitNot,                // bnot
+    /// Bitwise left shift operator (bshl)
     BitShiftLeft,          // bshl
+    /// Bitwise right shift operator (bshr)
     BitShiftRight,         // bshr
+    /// Bitwise unsigned right shift operator (bushr)
     BitUnsignedShiftRight, // bushr
 
     // Cast
+    /// Type casting operator (as)
     Cast, // as
 
     // Type checking
+    /// Type inspection function (type_of)
     TypeOf,
 
     // Punctuation
+    /// Left parenthesis '('
     LeftParen,
+    /// Right parenthesis ')'
     RightParen,
+    /// Left square bracket '['
     LeftBracket,
+    /// Right square bracket ']'
     RightBracket,
+    /// Left curly brace '{'
     LeftBrace,
+    /// Right curly brace '}'
     RightBrace,
+    /// Colon punctuation ':'
     Colon,
+    /// Comma punctuation ','
     Comma,
+    /// Arrow punctuation '=>' used in function definitions
     Arrow, // =>
+    /// Dot punctuation '.' for member access
     Dot,
 
     // Comments
+    /// Single-line or multi-line comment
     Comment(String),
+    /// Documentation comment for generating docs
     DocComment(String),
 
     // Special
+    /// Newline character marking end of line
     Newline,
+    /// Indentation increase token
     Indent,
+    /// Indentation decrease token
     Dedent,
+    /// End of file marker
     EndOfFile,
+}
+
+impl TokenType {
+    /// Returns the raw type name for type tokens, used in parsing
+    pub fn type_name(&self) -> Option<&'static str> {
+        match self {
+            Self::Int8 => Some("int8"),
+            Self::Int16 => Some("int16"),
+            Self::Int32 => Some("int32"),
+            Self::Int64 => Some("int64"),
+            Self::UInt8 => Some("uint8"),
+            Self::UInt16 => Some("uint16"),
+            Self::UInt32 => Some("uint32"),
+            Self::UInt64 => Some("uint64"),
+            Self::Float32 => Some("float32"),
+            Self::Float64 => Some("float64"),
+            Self::String => Some("string"),
+            Self::Boolean => Some("boolean"),
+            Self::Void => Some("void"),
+            _ => None,
+        }
+    }
 }
 
 /// A token with its type, value, and location information
@@ -181,84 +281,84 @@ impl Token {
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TokenType::IntegerLiteral(n) => write!(f, "integer literal '{}'", n),
-            TokenType::FloatLiteral(n) => write!(f, "float literal '{}'", n),
-            TokenType::StringLiteral(s) => write!(f, "string literal '{}'", s),
-            TokenType::BooleanLiteral(b) => write!(f, "boolean literal '{}'", b),
-            TokenType::Identifier(name) => write!(f, "identifier '{}'", name),
-            TokenType::Let => write!(f, "keyword 'let'"),
-            TokenType::Mutable => write!(f, "keyword 'mutable'"),
-            TokenType::Function => write!(f, "keyword 'f'"),
-            TokenType::Return => write!(f, "keyword 'return'"),
-            TokenType::Void => write!(f, "keyword 'void'"),
-            TokenType::If => write!(f, "keyword 'if'"),
-            TokenType::Else => write!(f, "keyword 'else'"),
-            TokenType::For => write!(f, "keyword 'for'"),
-            TokenType::While => write!(f, "keyword 'while'"),
-            TokenType::Loop => write!(f, "keyword 'loop'"),
-            TokenType::In => write!(f, "keyword 'in'"),
-            TokenType::Break => write!(f, "keyword 'break'"),
-            TokenType::Continue => write!(f, "keyword 'continue'"),
-            TokenType::Int8 => write!(f, "type 'int8'"),
-            TokenType::Int16 => write!(f, "type 'int16'"),
-            TokenType::Int32 => write!(f, "type 'int32'"),
-            TokenType::Int64 => write!(f, "type 'int64'"),
-            TokenType::UInt8 => write!(f, "type 'uint8'"),
-            TokenType::UInt16 => write!(f, "type 'uint16'"),
-            TokenType::UInt32 => write!(f, "type 'uint32'"),
-            TokenType::UInt64 => write!(f, "type 'uint64'"),
-            TokenType::Float32 => write!(f, "type 'float32'"),
-            TokenType::Float64 => write!(f, "type 'float64'"),
-            TokenType::String => write!(f, "type 'string'"),
-            TokenType::Boolean => write!(f, "type 'boolean'"),
-            TokenType::Public => write!(f, "keyword 'public'"),
-            TokenType::Entry => write!(f, "keyword 'entry'"),
-            TokenType::Import => write!(f, "keyword 'import'"),
-            TokenType::From => write!(f, "keyword 'from'"),
-            TokenType::As => write!(f, "keyword 'as'"),
-            TokenType::Type => write!(f, "keyword 'type'"),
-            TokenType::Plus => write!(f, "operator '+'"),
-            TokenType::Minus => write!(f, "operator '-'"),
-            TokenType::Multiply => write!(f, "operator '*'"),
-            TokenType::Divide => write!(f, "operator '/'"),
-            TokenType::Power => write!(f, "operator '^'"),
-            TokenType::Modulo => write!(f, "operator '%'"),
-            TokenType::Assign => write!(f, "operator '='"),
-            TokenType::Less => write!(f, "operator '<'"),
-            TokenType::LessEqual => write!(f, "operator '<='"),
-            TokenType::Greater => write!(f, "operator '>'"),
-            TokenType::GreaterEqual => write!(f, "operator '>='"),
-            TokenType::Is => write!(f, "operator 'is'"),
-            TokenType::IsNot => write!(f, "operator 'is not'"),
-            TokenType::And => write!(f, "operator 'and'"),
-            TokenType::Or => write!(f, "operator 'or'"),
-            TokenType::Not => write!(f, "operator 'not'"),
-            TokenType::Xor => write!(f, "operator 'xor'"),
-            TokenType::BitAnd => write!(f, "operator 'band'"),
-            TokenType::BitOr => write!(f, "operator 'bor'"),
-            TokenType::BitXor => write!(f, "operator 'bxor'"),
-            TokenType::BitNot => write!(f, "operator 'bnot'"),
-            TokenType::BitShiftLeft => write!(f, "operator 'bshl'"),
-            TokenType::BitShiftRight => write!(f, "operator 'bshr'"),
-            TokenType::BitUnsignedShiftRight => write!(f, "operator 'bushr'"),
-            TokenType::Cast => write!(f, "operator 'as'"),
-            TokenType::TypeOf => write!(f, "function 'type_of'"),
-            TokenType::LeftParen => write!(f, "'('"),
-            TokenType::RightParen => write!(f, "')'"),
-            TokenType::LeftBracket => write!(f, "'['"),
-            TokenType::RightBracket => write!(f, "']'"),
-            TokenType::LeftBrace => write!(f, "'{{'"),
-            TokenType::RightBrace => write!(f, "'}}'"),
-            TokenType::Colon => write!(f, "':'"),
-            TokenType::Comma => write!(f, "','"),
-            TokenType::Arrow => write!(f, "'=>'"),
-            TokenType::Dot => write!(f, "'.'"),
-            TokenType::Comment(_) => write!(f, "comment"),
-            TokenType::DocComment(_) => write!(f, "documentation comment"),
-            TokenType::Newline => write!(f, "newline"),
-            TokenType::Indent => write!(f, "indent"),
-            TokenType::Dedent => write!(f, "dedent"),
-            TokenType::EndOfFile => write!(f, "end of file"),
+            Self::IntegerLiteral(n) => write!(f, "integer literal '{}'", n),
+            Self::FloatLiteral(n) => write!(f, "float literal '{}'", n),
+            Self::StringLiteral(s) => write!(f, "string literal '{}'", s),
+            Self::BooleanLiteral(b) => write!(f, "boolean literal '{}'", b),
+            Self::Identifier(name) => write!(f, "identifier '{}'", name),
+            Self::Let => write!(f, "keyword 'let'"),
+            Self::Mutable => write!(f, "keyword 'mutable'"),
+            Self::Function => write!(f, "keyword 'f'"),
+            Self::Return => write!(f, "keyword 'return'"),
+            Self::Void => write!(f, "keyword 'void'"),
+            Self::If => write!(f, "keyword 'if'"),
+            Self::Else => write!(f, "keyword 'else'"),
+            Self::For => write!(f, "keyword 'for'"),
+            Self::While => write!(f, "keyword 'while'"),
+            Self::Loop => write!(f, "keyword 'loop'"),
+            Self::In => write!(f, "keyword 'in'"),
+            Self::Break => write!(f, "keyword 'break'"),
+            Self::Continue => write!(f, "keyword 'continue'"),
+            Self::Int8 => write!(f, "type 'int8'"),
+            Self::Int16 => write!(f, "type 'int16'"),
+            Self::Int32 => write!(f, "type 'int32'"),
+            Self::Int64 => write!(f, "type 'int64'"),
+            Self::UInt8 => write!(f, "type 'uint8'"),
+            Self::UInt16 => write!(f, "type 'uint16'"),
+            Self::UInt32 => write!(f, "type 'uint32'"),
+            Self::UInt64 => write!(f, "type 'uint64'"),
+            Self::Float32 => write!(f, "type 'float32'"),
+            Self::Float64 => write!(f, "type 'float64'"),
+            Self::String => write!(f, "type 'string'"),
+            Self::Boolean => write!(f, "type 'boolean'"),
+            Self::Public => write!(f, "keyword 'public'"),
+            Self::Entry => write!(f, "keyword 'entry'"),
+            Self::Import => write!(f, "keyword 'import'"),
+            Self::From => write!(f, "keyword 'from'"),
+            Self::As => write!(f, "keyword 'as'"),
+            Self::Type => write!(f, "keyword 'type'"),
+            Self::Plus => write!(f, "operator '+'"),
+            Self::Minus => write!(f, "operator '-'"),
+            Self::Multiply => write!(f, "operator '*'"),
+            Self::Divide => write!(f, "operator '/'"),
+            Self::Power => write!(f, "operator '^'"),
+            Self::Modulo => write!(f, "operator '%'"),
+            Self::Assign => write!(f, "operator '='"),
+            Self::Less => write!(f, "operator '<'"),
+            Self::LessEqual => write!(f, "operator '<='"),
+            Self::Greater => write!(f, "operator '>'"),
+            Self::GreaterEqual => write!(f, "operator '>='"),
+            Self::Is => write!(f, "operator 'is'"),
+            Self::IsNot => write!(f, "operator 'is not'"),
+            Self::And => write!(f, "operator 'and'"),
+            Self::Or => write!(f, "operator 'or'"),
+            Self::Not => write!(f, "operator 'not'"),
+            Self::Xor => write!(f, "operator 'xor'"),
+            Self::BitAnd => write!(f, "operator 'band'"),
+            Self::BitOr => write!(f, "operator 'bor'"),
+            Self::BitXor => write!(f, "operator 'bxor'"),
+            Self::BitNot => write!(f, "operator 'bnot'"),
+            Self::BitShiftLeft => write!(f, "operator 'bshl'"),
+            Self::BitShiftRight => write!(f, "operator 'bshr'"),
+            Self::BitUnsignedShiftRight => write!(f, "operator 'bushr'"),
+            Self::Cast => write!(f, "operator 'as'"),
+            Self::TypeOf => write!(f, "function 'type_of'"),
+            Self::LeftParen => write!(f, "'('"),
+            Self::RightParen => write!(f, "')'"),
+            Self::LeftBracket => write!(f, "'['"),
+            Self::RightBracket => write!(f, "']'"),
+            Self::LeftBrace => write!(f, "'{{'"),
+            Self::RightBrace => write!(f, "'}}'"),
+            Self::Colon => write!(f, "':'"),
+            Self::Comma => write!(f, "','"),
+            Self::Arrow => write!(f, "'=>'"),
+            Self::Dot => write!(f, "'.'"),
+            Self::Comment(_) => write!(f, "comment"),
+            Self::DocComment(_) => write!(f, "documentation comment"),
+            Self::Newline => write!(f, "newline"),
+            Self::Indent => write!(f, "indent"),
+            Self::Dedent => write!(f, "dedent"),
+            Self::EndOfFile => write!(f, "end of file"),
         }
     }
 }

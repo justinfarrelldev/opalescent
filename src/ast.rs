@@ -8,7 +8,7 @@
 )]
 
 use crate::token::{Span, TokenType};
-use std::fmt;
+use core::fmt;
 
 /// A unique identifier for AST nodes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -27,92 +27,135 @@ pub trait AstNode {
 pub enum Expr {
     /// Literal values (42, 3.14, "hello", true)
     Literal {
+        /// The actual value of the literal
         value: LiteralValue,
+        /// Source code location of this literal
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Identifiers (variable names, function names)
     Identifier {
+        /// The name of the identifier
         name: String,
+        /// Source code location of this identifier
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Binary operations (a + b, x < y, p and q)
     Binary {
+        /// Left operand expression
         left: Box<Expr>,
+        /// Binary operator type
         operator: BinaryOp,
+        /// Right operand expression
         right: Box<Expr>,
+        /// Source code location of this binary operation
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Unary operations (-x, not p, bnot flags)
     Unary {
+        /// Unary operator type
         operator: UnaryOp,
+        /// Expression being operated on
         operand: Box<Expr>,
+        /// Source code location of this unary operation
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Function calls (print("hello"), math.sqrt(x))
     Call {
+        /// Expression that resolves to the function being called
         callee: Box<Expr>,
+        /// Arguments passed to the function
         args: Vec<Expr>,
+        /// Source code location of this function call
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Array/collection access (arr[0], map["key"])
     Index {
+        /// Expression being indexed
         object: Box<Expr>,
+        /// Index expression
         index: Box<Expr>,
+        /// Source code location of this index operation
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Member access (obj.field, module.function)
     Member {
+        /// Expression being accessed
         object: Box<Expr>,
+        /// Name of the member being accessed
         member: String,
+        /// Source code location of this member access
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Type casts (expr as Type)
     Cast {
+        /// Expression being cast
         expr: Box<Expr>,
+        /// Type to cast to
         target_type: Type,
+        /// Source code location of this type cast
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Type checking (type_of(expr))
     TypeOf {
+        /// Expression whose type is being queried
         expr: Box<Expr>,
+        /// Source code location of this type query
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// String interpolation ('Hello {name}')
     StringInterpolation {
+        /// String literal and expression parts
         parts: Vec<StringPart>,
+        /// Source code location of this string interpolation
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Parenthesized expressions ((expr))
     Parenthesized {
+        /// Expression inside the parentheses
         expr: Box<Expr>,
+        /// Source code location of this parenthesized expression
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Array literals ([1, 2, 3])
     Array {
+        /// Elements contained in the array
         elements: Vec<Expr>,
+        /// Source code location of this array literal
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 }
@@ -122,85 +165,139 @@ pub enum Expr {
 pub enum Stmt {
     /// Let bindings (let x = 5)
     Let {
+        /// Name of the variable being bound
         name: String,
+        /// Optional type annotation
         type_annotation: Option<Type>,
+        /// Optional initial value expression
         initializer: Option<Expr>,
+        /// Source code location of this let binding
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Mutable variable declarations (let mutable x = 5)
     Mutable {
+        /// Name of the mutable variable
         name: String,
+        /// Optional type annotation
         type_annotation: Option<Type>,
+        /// Optional initial value expression
         initializer: Option<Expr>,
+        /// Source code location of this mutable declaration
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Assignment statements (x = 10)
     Assignment {
+        /// Left-hand side expression being assigned to
         target: Expr,
+        /// Right-hand side value expression
         value: Expr,
+        /// Source code location of this assignment
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Return statements (return expr)
     Return {
+        /// Optional expression to return
         value: Option<Expr>,
+        /// Source code location of this return statement
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Expression statements (function_call())
-    Expression { expr: Expr, span: Span, id: NodeId },
+    Expression {
+        /// Expression being executed as a statement
+        expr: Expr,
+        /// Source code location of this expression statement
+        span: Span,
+        /// Unique identifier for this AST node
+        id: NodeId,
+    },
 
     /// Block statements ({ stmt1; stmt2; })
     Block {
+        /// Statements contained in this block
         statements: Vec<Stmt>,
+        /// Source code location of this block
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// If statements/expressions
     If {
+        /// Boolean condition expression
         condition: Expr,
+        /// Statement to execute if condition is true
         then_branch: Box<Stmt>,
+        /// Optional statement to execute if condition is false
         else_branch: Option<Box<Stmt>>,
+        /// Source code location of this if statement
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// For loops (for item in collection)
     For {
+        /// Loop variable name
         variable: String,
+        /// Expression that provides the collection to iterate over
         iterable: Expr,
+        /// Loop body statement
         body: Box<Stmt>,
+        /// Source code location of this for loop
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// While loops (while condition)
     While {
+        /// Boolean condition expression
         condition: Expr,
+        /// Loop body statement
         body: Box<Stmt>,
+        /// Source code location of this while loop
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Loop statements (loop => body)
     Loop {
+        /// Infinite loop body statement
         body: Box<Stmt>,
+        /// Source code location of this loop statement
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Break statements
-    Break { span: Span, id: NodeId },
+    Break {
+        /// Source code location of this break statement
+        span: Span,
+        /// Unique identifier for this AST node
+        id: NodeId,
+    },
 
     /// Continue statements
-    Continue { span: Span, id: NodeId },
+    Continue {
+        /// Source code location of this continue statement
+        span: Span,
+        /// Unique identifier for this AST node
+        id: NodeId,
+    },
 }
 
 /// Top-level declaration AST nodes
@@ -208,32 +305,51 @@ pub enum Stmt {
 pub enum Decl {
     /// Function declarations
     Function {
+        /// Name of the function
         name: String,
+        /// Function parameters
         parameters: Vec<Parameter>,
+        /// Optional return type annotation
         return_type: Option<Type>,
+        /// Function body statement
         body: Stmt,
+        /// Visibility modifier (public/private)
         visibility: Visibility,
+        /// Whether this is an entry point function
         is_entry: bool,
+        /// Optional documentation comment
         doc_comment: Option<String>,
+        /// Source code location of this function declaration
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Type declarations
     Type {
+        /// Name of the type being declared
         name: String,
+        /// Type definition (sum, product, or alias)
         type_def: TypeDef,
+        /// Visibility modifier (public/private)
         visibility: Visibility,
+        /// Optional documentation comment
         doc_comment: Option<String>,
+        /// Source code location of this type declaration
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 
     /// Import declarations
     Import {
+        /// Items being imported from the source
         items: Vec<ImportItem>,
+        /// Source module or file path
         source: String,
+        /// Source code location of this import declaration
         span: Span,
+        /// Unique identifier for this AST node
         id: NodeId,
     },
 }
@@ -241,10 +357,15 @@ pub enum Decl {
 /// Literal values
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
+    /// 64-bit signed integer literal
     Integer(i64),
+    /// 64-bit floating point literal
     Float(f64),
+    /// String literal value
     String(String),
+    /// Boolean literal (true or false)
     Boolean(bool),
+    /// Void/unit literal
     Void,
 }
 
@@ -252,69 +373,113 @@ pub enum LiteralValue {
 #[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOp {
     // Arithmetic
+    /// Addition operator (+)
     Add,
+    /// Subtraction operator (-)
     Subtract,
+    /// Multiplication operator (*)
     Multiply,
+    /// Division operator (/)
     Divide,
+    /// Modulo operator (%)
     Modulo,
+    /// Exponentiation operator (^)
     Power,
 
     // Comparison
+    /// Equality operator (is)
     Equal,
+    /// Inequality operator (is not)
     NotEqual,
+    /// Less than operator (<)
     Less,
+    /// Less than or equal operator (<=)
     LessEqual,
+    /// Greater than operator (>)
     Greater,
+    /// Greater than or equal operator (>=)
     GreaterEqual,
+    /// Identity comparison operator (is)
     Is,
+    /// Negative identity comparison operator (is not)
     IsNot,
 
     // Logical
+    /// Logical AND operator (and)
     And,
+    /// Logical OR operator (or)
     Or,
+    /// Logical XOR operator (xor)
     Xor,
 
     // Bitwise
+    /// Bitwise AND operator (band)
     BitAnd,
+    /// Bitwise OR operator (bor)
     BitOr,
+    /// Bitwise XOR operator (bxor)
     BitXor,
+    /// Bitwise left shift operator (bshl)
     BitShiftLeft,
+    /// Bitwise right shift operator (bshr)
     BitShiftRight,
+    /// Bitwise unsigned right shift operator (bushr)
     BitUnsignedShiftRight,
 
     // Assignment
+    /// Assignment operator (=)
     Assign,
 }
 
 /// Unary operators
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOp {
-    Negate, // -x
-    Not,    // not x
-    BitNot, // bnot x
-    Plus,   // +x
+    /// Numeric negation operator (-x)
+    Negate,
+    /// Logical negation operator (not x)
+    Not,
+    /// Bitwise negation operator (bnot x)
+    BitNot,
+    /// Unary plus operator (+x)
+    Plus,
 }
 
 /// Type representations
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     /// Basic types
-    Basic { name: String, span: Span },
+    Basic {
+        /// Name of the basic type
+        name: String,
+        /// Source code location of this type
+        span: Span,
+    },
 
     /// Generic types (Array<T>, Result<T, E>)
     Generic {
+        /// Name of the generic type
         name: String,
+        /// Type arguments for the generic
         type_args: Vec<Type>,
+        /// Source code location of this type
         span: Span,
     },
 
     /// Array types (T[])
-    Array { element_type: Box<Type>, span: Span },
+    Array {
+        /// Type of elements in the array
+        element_type: Box<Type>,
+        /// Source code location of this type
+        span: Span,
+    },
 
     /// Function types (f(int32, string): boolean)
     Function {
+        /// Parameter types of the function
         parameters: Vec<Type>,
+        /// Return type of the function
         return_type: Box<Type>,
+        /// Source code location of this type
         span: Span,
     },
 }
@@ -322,8 +487,11 @@ pub enum Type {
 /// Function parameters
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parameter {
+    /// Name of the parameter
     pub name: String,
+    /// Type of the parameter
     pub param_type: Type,
+    /// Source code location of this parameter
     pub span: Span,
 }
 
@@ -331,28 +499,49 @@ pub struct Parameter {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeDef {
     /// Sum types (enums with variants)
-    Sum { variants: Vec<Variant>, span: Span },
+    Sum {
+        /// Variants of the sum type
+        variants: Vec<Variant>,
+        /// Source code location of this type definition
+        span: Span,
+    },
 
     /// Product types (structs)
-    Product { fields: Vec<Field>, span: Span },
+    Product {
+        /// Fields of the product type
+        fields: Vec<Field>,
+        /// Source code location of this type definition
+        span: Span,
+    },
 
     /// Type aliases
-    Alias { target_type: Type, span: Span },
+    Alias {
+        /// Target type that this alias refers to
+        target_type: Type,
+        /// Source code location of this type definition
+        span: Span,
+    },
 }
 
 /// Variant for sum types
 #[derive(Debug, Clone, PartialEq)]
 pub struct Variant {
+    /// Name of the variant
     pub name: String,
+    /// Fields associated with this variant
     pub fields: Vec<Field>,
+    /// Source code location of this variant
     pub span: Span,
 }
 
 /// Field for product types and variants
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field {
+    /// Name of the field
     pub name: String,
+    /// Type of the field
     pub field_type: Type,
+    /// Source code location of this field
     pub span: Span,
 }
 
@@ -361,18 +550,27 @@ pub struct Field {
 pub enum ImportItem {
     /// Import specific item (import foo from bar)
     Named {
+        /// Name of the item being imported
         name: String,
+        /// Optional alias for the imported item
         alias: Option<String>,
+        /// Source code location of this import item
         span: Span,
     },
 
     /// Import all (import * from bar)
-    Glob { span: Span },
+    Glob {
+        /// Source code location of this glob import
+        span: Span,
+    },
 
     /// Import type (import type Foo from bar)
     Type {
+        /// Name of the type being imported
         name: String,
+        /// Optional alias for the imported type
         alias: Option<String>,
+        /// Source code location of this type import
         span: Span,
     },
 }
@@ -380,59 +578,64 @@ pub enum ImportItem {
 /// Visibility modifiers
 #[derive(Debug, Clone, PartialEq)]
 pub enum Visibility {
+    /// Public visibility (accessible from outside the module)
     Public,
+    /// Private visibility (only accessible within the module)
     Private,
 }
 
 /// String interpolation parts
 #[derive(Debug, Clone, PartialEq)]
 pub enum StringPart {
-    /// Literal string part
+    /// Literal string part (plain text)
     Literal(String),
-    /// Expression part ({expr})
+    /// Expression part that gets evaluated and interpolated
     Expression(Expr),
 }
 
 /// Complete program AST
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
+    /// Top-level declarations in the program
     pub declarations: Vec<Decl>,
+    /// Source code location of the entire program
     pub span: Span,
+    /// Unique identifier for this AST node
     pub id: NodeId,
 }
 
 impl AstNode for Expr {
     fn span(&self) -> Span {
         match self {
-            Expr::Literal { span, .. } => *span,
-            Expr::Identifier { span, .. } => *span,
-            Expr::Binary { span, .. } => *span,
-            Expr::Unary { span, .. } => *span,
-            Expr::Call { span, .. } => *span,
-            Expr::Index { span, .. } => *span,
-            Expr::Member { span, .. } => *span,
-            Expr::Cast { span, .. } => *span,
-            Expr::TypeOf { span, .. } => *span,
-            Expr::StringInterpolation { span, .. } => *span,
-            Expr::Parenthesized { span, .. } => *span,
-            Expr::Array { span, .. } => *span,
+            Self::Literal { span, .. }
+            | Self::Identifier { span, .. }
+            | Self::Binary { span, .. }
+            | Self::Unary { span, .. }
+            | Self::Call { span, .. }
+            | Self::Index { span, .. }
+            | Self::Member { span, .. }
+            | Self::Cast { span, .. }
+            | Self::TypeOf { span, .. }
+            | Self::StringInterpolation { span, .. }
+            | Self::Parenthesized { span, .. }
+            | Self::Array { span, .. } => *span,
         }
     }
 
     fn node_id(&self) -> NodeId {
         match self {
-            Expr::Literal { id, .. } => *id,
-            Expr::Identifier { id, .. } => *id,
-            Expr::Binary { id, .. } => *id,
-            Expr::Unary { id, .. } => *id,
-            Expr::Call { id, .. } => *id,
-            Expr::Index { id, .. } => *id,
-            Expr::Member { id, .. } => *id,
-            Expr::Cast { id, .. } => *id,
-            Expr::TypeOf { id, .. } => *id,
-            Expr::StringInterpolation { id, .. } => *id,
-            Expr::Parenthesized { id, .. } => *id,
-            Expr::Array { id, .. } => *id,
+            Self::Literal { id, .. }
+            | Self::Identifier { id, .. }
+            | Self::Binary { id, .. }
+            | Self::Unary { id, .. }
+            | Self::Call { id, .. }
+            | Self::Index { id, .. }
+            | Self::Member { id, .. }
+            | Self::Cast { id, .. }
+            | Self::TypeOf { id, .. }
+            | Self::StringInterpolation { id, .. }
+            | Self::Parenthesized { id, .. }
+            | Self::Array { id, .. } => *id,
         }
     }
 }
@@ -440,35 +643,35 @@ impl AstNode for Expr {
 impl AstNode for Stmt {
     fn span(&self) -> Span {
         match self {
-            Stmt::Let { span, .. } => *span,
-            Stmt::Mutable { span, .. } => *span,
-            Stmt::Assignment { span, .. } => *span,
-            Stmt::Return { span, .. } => *span,
-            Stmt::Expression { span, .. } => *span,
-            Stmt::Block { span, .. } => *span,
-            Stmt::If { span, .. } => *span,
-            Stmt::For { span, .. } => *span,
-            Stmt::While { span, .. } => *span,
-            Stmt::Loop { span, .. } => *span,
-            Stmt::Break { span, .. } => *span,
-            Stmt::Continue { span, .. } => *span,
+            Self::Let { span, .. }
+            | Self::Mutable { span, .. }
+            | Self::Assignment { span, .. }
+            | Self::Return { span, .. }
+            | Self::Expression { span, .. }
+            | Self::Block { span, .. }
+            | Self::If { span, .. }
+            | Self::For { span, .. }
+            | Self::While { span, .. }
+            | Self::Loop { span, .. }
+            | Self::Break { span, .. }
+            | Self::Continue { span, .. } => *span,
         }
     }
 
     fn node_id(&self) -> NodeId {
         match self {
-            Stmt::Let { id, .. } => *id,
-            Stmt::Mutable { id, .. } => *id,
-            Stmt::Assignment { id, .. } => *id,
-            Stmt::Return { id, .. } => *id,
-            Stmt::Expression { id, .. } => *id,
-            Stmt::Block { id, .. } => *id,
-            Stmt::If { id, .. } => *id,
-            Stmt::For { id, .. } => *id,
-            Stmt::While { id, .. } => *id,
-            Stmt::Loop { id, .. } => *id,
-            Stmt::Break { id, .. } => *id,
-            Stmt::Continue { id, .. } => *id,
+            Self::Let { id, .. }
+            | Self::Mutable { id, .. }
+            | Self::Assignment { id, .. }
+            | Self::Return { id, .. }
+            | Self::Expression { id, .. }
+            | Self::Block { id, .. }
+            | Self::If { id, .. }
+            | Self::For { id, .. }
+            | Self::While { id, .. }
+            | Self::Loop { id, .. }
+            | Self::Break { id, .. }
+            | Self::Continue { id, .. } => *id,
         }
     }
 }
@@ -476,17 +679,17 @@ impl AstNode for Stmt {
 impl AstNode for Decl {
     fn span(&self) -> Span {
         match self {
-            Decl::Function { span, .. } => *span,
-            Decl::Type { span, .. } => *span,
-            Decl::Import { span, .. } => *span,
+            Self::Function { span, .. }
+            | Self::Type { span, .. }
+            | Self::Import { span, .. } => *span,
         }
     }
 
     fn node_id(&self) -> NodeId {
         match self {
-            Decl::Function { id, .. } => *id,
-            Decl::Type { id, .. } => *id,
-            Decl::Import { id, .. } => *id,
+            Self::Function { id, .. }
+            | Self::Type { id, .. }
+            | Self::Import { id, .. } => *id,
         }
     }
 }
@@ -504,30 +707,30 @@ impl AstNode for Program {
 impl fmt::Display for BinaryOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let symbol = match self {
-            BinaryOp::Add => "+",
-            BinaryOp::Subtract => "-",
-            BinaryOp::Multiply => "*",
-            BinaryOp::Divide => "/",
-            BinaryOp::Modulo => "%",
-            BinaryOp::Power => "^",
-            BinaryOp::Equal => "is",
-            BinaryOp::NotEqual => "is not",
-            BinaryOp::Less => "<",
-            BinaryOp::LessEqual => "<=",
-            BinaryOp::Greater => ">",
-            BinaryOp::GreaterEqual => ">=",
-            BinaryOp::Is => "is",
-            BinaryOp::IsNot => "is not",
-            BinaryOp::And => "and",
-            BinaryOp::Or => "or",
-            BinaryOp::Xor => "xor",
-            BinaryOp::BitAnd => "band",
-            BinaryOp::BitOr => "bor",
-            BinaryOp::BitXor => "bxor",
-            BinaryOp::BitShiftLeft => "bshl",
-            BinaryOp::BitShiftRight => "bshr",
-            BinaryOp::BitUnsignedShiftRight => "bushr",
-            BinaryOp::Assign => "=",
+            Self::Add => "+",
+            Self::Subtract => "-",
+            Self::Multiply => "*",
+            Self::Divide => "/",
+            Self::Modulo => "%",
+            Self::Power => "^",
+            Self::Equal => "is",
+            Self::NotEqual => "is not",
+            Self::Less => "<",
+            Self::LessEqual => "<=",
+            Self::Greater => ">",
+            Self::GreaterEqual => ">=",
+            Self::Is => "is",
+            Self::IsNot => "is not",
+            Self::And => "and",
+            Self::Or => "or",
+            Self::Xor => "xor",
+            Self::BitAnd => "band",
+            Self::BitOr => "bor",
+            Self::BitXor => "bxor",
+            Self::BitShiftLeft => "bshl",
+            Self::BitShiftRight => "bshr",
+            Self::BitUnsignedShiftRight => "bushr",
+            Self::Assign => "=",
         };
         write!(f, "{symbol}")
     }
@@ -536,10 +739,10 @@ impl fmt::Display for BinaryOp {
 impl fmt::Display for UnaryOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let symbol = match self {
-            UnaryOp::Negate => "-",
-            UnaryOp::Not => "not",
-            UnaryOp::BitNot => "bnot",
-            UnaryOp::Plus => "+",
+            Self::Negate => "-",
+            Self::Not => "not",
+            Self::BitNot => "bnot",
+            Self::Plus => "+",
         };
         write!(f, "{symbol}")
     }
@@ -548,28 +751,28 @@ impl fmt::Display for UnaryOp {
 impl From<TokenType> for BinaryOp {
     fn from(token_type: TokenType) -> Self {
         match token_type {
-            TokenType::Plus => BinaryOp::Add,
-            TokenType::Minus => BinaryOp::Subtract,
-            TokenType::Multiply => BinaryOp::Multiply,
-            TokenType::Divide => BinaryOp::Divide,
-            TokenType::Modulo => BinaryOp::Modulo,
-            TokenType::Power => BinaryOp::Power,
-            TokenType::Less => BinaryOp::Less,
-            TokenType::LessEqual => BinaryOp::LessEqual,
-            TokenType::Greater => BinaryOp::Greater,
-            TokenType::GreaterEqual => BinaryOp::GreaterEqual,
-            TokenType::Is => BinaryOp::Is,
-            TokenType::IsNot => BinaryOp::IsNot,
-            TokenType::And => BinaryOp::And,
-            TokenType::Or => BinaryOp::Or,
-            TokenType::Xor => BinaryOp::Xor,
-            TokenType::BitAnd => BinaryOp::BitAnd,
-            TokenType::BitOr => BinaryOp::BitOr,
-            TokenType::BitXor => BinaryOp::BitXor,
-            TokenType::BitShiftLeft => BinaryOp::BitShiftLeft,
-            TokenType::BitShiftRight => BinaryOp::BitShiftRight,
-            TokenType::BitUnsignedShiftRight => BinaryOp::BitUnsignedShiftRight,
-            TokenType::Assign => BinaryOp::Assign,
+            TokenType::Plus => Self::Add,
+            TokenType::Minus => Self::Subtract,
+            TokenType::Multiply => Self::Multiply,
+            TokenType::Divide => Self::Divide,
+            TokenType::Modulo => Self::Modulo,
+            TokenType::Power => Self::Power,
+            TokenType::Less => Self::Less,
+            TokenType::LessEqual => Self::LessEqual,
+            TokenType::Greater => Self::Greater,
+            TokenType::GreaterEqual => Self::GreaterEqual,
+            TokenType::Is => Self::Is,
+            TokenType::IsNot => Self::IsNot,
+            TokenType::And => Self::And,
+            TokenType::Or => Self::Or,
+            TokenType::Xor => Self::Xor,
+            TokenType::BitAnd => Self::BitAnd,
+            TokenType::BitOr => Self::BitOr,
+            TokenType::BitXor => Self::BitXor,
+            TokenType::BitShiftLeft => Self::BitShiftLeft,
+            TokenType::BitShiftRight => Self::BitShiftRight,
+            TokenType::BitUnsignedShiftRight => Self::BitUnsignedShiftRight,
+            TokenType::Assign => Self::Assign,
             _ => panic!("Cannot convert {token_type:?} to BinaryOp"),
         }
     }
@@ -578,10 +781,10 @@ impl From<TokenType> for BinaryOp {
 impl From<TokenType> for UnaryOp {
     fn from(token_type: TokenType) -> Self {
         match token_type {
-            TokenType::Minus => UnaryOp::Negate,
-            TokenType::Plus => UnaryOp::Plus,
-            TokenType::Not => UnaryOp::Not,
-            TokenType::BitNot => UnaryOp::BitNot,
+            TokenType::Minus => Self::Negate,
+            TokenType::Plus => Self::Plus,
+            TokenType::Not => Self::Not,
+            TokenType::BitNot => Self::BitNot,
             _ => panic!("Cannot convert {token_type:?} to UnaryOp"),
         }
     }

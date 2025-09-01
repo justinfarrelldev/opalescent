@@ -12,6 +12,7 @@ use thiserror::Error;
 /// Errors that can occur during lexical analysis
 #[derive(Error, Debug, Diagnostic)]
 pub enum LexError {
+    /// Encountered a character that cannot be tokenized in the current context
     #[error("Unexpected character '{character}' at position {position:?}")]
     #[diagnostic(
         code(opalescent::lexer::unexpected_character),
@@ -24,6 +25,7 @@ pub enum LexError {
         span: SourceSpan,
     },
 
+    /// String literal was started but never closed with a matching quote
     #[error("Unterminated string literal starting at position {start:?}")]
     #[diagnostic(
         code(opalescent::lexer::unterminated_string),
@@ -35,6 +37,7 @@ pub enum LexError {
         span: SourceSpan,
     },
 
+    /// Invalid escape sequence found within a string literal
     #[error("Invalid escape sequence '\\{sequence}' in string at position {position:?}")]
     #[diagnostic(
         code(opalescent::lexer::invalid_escape),
@@ -47,6 +50,7 @@ pub enum LexError {
         span: SourceSpan,
     },
 
+    /// Both spaces and tabs are used for indentation in the same file
     #[error("Mixed whitespace detected: both spaces and tabs are used in this file")]
     #[diagnostic(
         code(opalescent::lexer::mixed_whitespace),
@@ -59,6 +63,7 @@ pub enum LexError {
         space_span: SourceSpan,
     },
 
+    /// Number literal has invalid format or cannot be parsed
     #[error("Invalid number format '{number}' at position {position:?}")]
     #[diagnostic(
         code(opalescent::lexer::invalid_number),
@@ -71,6 +76,7 @@ pub enum LexError {
         span: SourceSpan,
     },
 
+    /// Multi-line comment was started but never closed
     #[error("Unterminated multi-line comment starting at position {start:?}")]
     #[diagnostic(
         code(opalescent::lexer::unterminated_comment),
@@ -82,6 +88,7 @@ pub enum LexError {
         span: SourceSpan,
     },
 
+    /// Identifier does not follow the required snake_case naming convention
     #[error("Invalid identifier '{identifier}' at position {position:?}")]
     #[diagnostic(
         code(opalescent::lexer::invalid_identifier),
@@ -94,6 +101,7 @@ pub enum LexError {
         span: SourceSpan,
     },
 
+    /// Type identifier does not follow the required PascalCase naming convention
     #[error("Invalid type identifier '{identifier}' at position {position:?}")]
     #[diagnostic(
         code(opalescent::lexer::invalid_type_identifier),
@@ -136,14 +144,17 @@ impl LexErrors {
         }
     }
 
+    /// Add a lexical error to the collection
     pub fn push(&mut self, error: LexError) {
         self.errors.push(error);
     }
 
+    /// Check if there are no errors in the collection
     pub fn is_empty(&self) -> bool {
         self.errors.is_empty()
     }
 
+    /// Get the number of errors in the collection
     pub fn len(&self) -> usize {
         self.errors.len()
     }

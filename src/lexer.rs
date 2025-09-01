@@ -19,9 +19,14 @@ pub struct Lexer<'input> {
     whitespace_type: Option<WhitespaceType>,
 }
 
+/// Type of whitespace detected in the source code
+/// 
+/// Used to track consistent whitespace usage and detect mixing of spaces and tabs
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum WhitespaceType {
+    /// Whitespace using space characters
     Spaces,
+    /// Whitespace using tab characters
     Tabs,
 }
 
@@ -248,7 +253,7 @@ impl<'input> Lexer<'input> {
             self.current.unwrap().0
         };
 
-        let content = self.input[start_offset + 1..end_offset].trim().to_string();
+        let content = self.input[start_offset + 1..end_offset].trim().to_owned();
         let span = Span::new(start_pos, self.position);
 
         Some(Token::new(
@@ -300,9 +305,9 @@ impl<'input> Lexer<'input> {
 
         let span = Span::new(start_pos, self.position);
         let token_type = if content.trim_start().starts_with("Description:") {
-            TokenType::DocComment(content.trim().to_string())
+            TokenType::DocComment(content.trim().to_owned())
         } else {
-            TokenType::Comment(content.trim().to_string())
+            TokenType::Comment(content.trim().to_owned())
         };
 
         Some(Token::new(

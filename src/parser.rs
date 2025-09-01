@@ -18,6 +18,7 @@ use thiserror::Error;
 /// Errors that can occur during parsing
 #[derive(Error, Debug, Diagnostic)]
 pub enum ParseError {
+    /// Found a token that doesn't match what was expected at this position
     #[error("Unexpected token: expected {expected}, found {found}")]
     #[diagnostic(
         code(opalescent::parser::unexpected_token),
@@ -30,6 +31,7 @@ pub enum ParseError {
         span: SourceSpan,
     },
 
+    /// Expected a specific token but it was not found
     #[error("Missing token: expected {expected}")]
     #[diagnostic(
         code(opalescent::parser::missing_token),
@@ -41,6 +43,7 @@ pub enum ParseError {
         span: SourceSpan,
     },
 
+    /// The syntax is invalid according to the language grammar
     #[error("Invalid syntax: {message}")]
     #[diagnostic(
         code(opalescent::parser::invalid_syntax),
@@ -52,6 +55,7 @@ pub enum ParseError {
         span: SourceSpan,
     },
 
+    /// Reached end of file while expecting more tokens
     #[error("Unexpected end of file: expected {expected}")]
     #[diagnostic(
         code(opalescent::parser::unexpected_eof),
@@ -136,25 +140,45 @@ impl Precedence {
     pub fn from_token(token_type: &TokenType) -> Self {
         match token_type {
             // Remove assignment from expression precedence since it's a statement
-            TokenType::Or => Precedence::Or,
-            TokenType::Xor => Precedence::Xor,
-            TokenType::And => Precedence::And,
-            TokenType::BitOr => Precedence::BitOr,
-            TokenType::BitXor => Precedence::BitXor,
-            TokenType::BitAnd => Precedence::BitAnd,
-            TokenType::Is | TokenType::IsNot => Precedence::Equality,
+            TokenType::Or => Self::Or,
+            TokenType::Xor => Self::Xor,
+            TokenType::And => Self::And,
+            TokenType::BitOr => Self::BitOr,
+            TokenType::BitXor => Self::BitXor,
+            TokenType::BitAnd => Self::BitAnd,
+            TokenType::Is | TokenType::IsNot => Self::Equality,
             TokenType::Less
             | TokenType::LessEqual
             | TokenType::Greater
-            | TokenType::GreaterEqual => Precedence::Comparison,
+            | TokenType::GreaterEqual => Self::Comparison,
             TokenType::BitShiftLeft
             | TokenType::BitShiftRight
-            | TokenType::BitUnsignedShiftRight => Precedence::Shift,
-            TokenType::Plus | TokenType::Minus => Precedence::Term,
-            TokenType::Multiply | TokenType::Divide | TokenType::Modulo => Precedence::Factor,
-            TokenType::Power => Precedence::Power,
-            TokenType::LeftParen | TokenType::LeftBracket | TokenType::Dot => Precedence::Call,
-            _ => Precedence::None,
+            | TokenType::BitUnsignedShiftRight => Self::Shift,
+            TokenType::Plus | TokenType::Minus => Self::Term,
+            TokenType::Multiply | TokenType::Divide | TokenType::Modulo => Self::Factor,
+            TokenType::Power => Self::Power,
+            TokenType::LeftParen | TokenType::LeftBracket | TokenType::Dot => Self::Call,
+            _ => Self::None,
+        }
+    }
+
+    /// Get the next higher precedence level for left-associative operators
+    pub fn next(self) -> Self {
+        match self {
+            Self::Assignment => Self::Or,
+            Self::Or => Self::Xor,
+            Self::Xor => Self::And,
+            Self::And => Self::BitOr,
+            Self::BitOr => Self::BitXor,
+            Self::BitXor => Self::BitAnd,
+            Self::BitAnd => Self::Equality,
+            Self::Equality => Self::Comparison,
+            Self::Comparison => Self::Shift,
+            Self::Shift => Self::Term,
+            Self::Term => Self::Factor,
+            Self::Factor => Self::Power,
+            Self::Power => Self::Unary,
+            _ => self,
         }
     }
 }
@@ -475,57 +499,10 @@ impl Parser {
                 self.advance();
                 name
             }
-            TokenType::Int8 => {
+            token if token.type_name().is_some() => {
+                let name = token.type_name().expect("Already checked").to_string();
                 self.advance();
-                "int8".to_string()
-            }
-            TokenType::Int16 => {
-                self.advance();
-                "int16".to_string()
-            }
-            TokenType::Int32 => {
-                self.advance();
-                "int32".to_string()
-            }
-            TokenType::Int64 => {
-                self.advance();
-                "int64".to_string()
-            }
-            TokenType::UInt8 => {
-                self.advance();
-                "uint8".to_string()
-            }
-            TokenType::UInt16 => {
-                self.advance();
-                "uint16".to_string()
-            }
-            TokenType::UInt32 => {
-                self.advance();
-                "uint32".to_string()
-            }
-            TokenType::UInt64 => {
-                self.advance();
-                "uint64".to_string()
-            }
-            TokenType::Float32 => {
-                self.advance();
-                "float32".to_string()
-            }
-            TokenType::Float64 => {
-                self.advance();
-                "float64".to_string()
-            }
-            TokenType::String => {
-                self.advance();
-                "string".to_string()
-            }
-            TokenType::Boolean => {
-                self.advance();
-                "boolean".to_string()
-            }
-            TokenType::Void => {
-                self.advance();
-                "void".to_string()
+                name
             }
             _ => {
                 return Err(ParseError::UnexpectedToken {
@@ -717,7 +694,7 @@ impl Parser {
             None
         };
 
-        let end_span = if let Some(ref else_stmt) = else_branch {
+        let end_span = if let Some(else_stmt) = &else_branch {
             else_stmt.span()
         } else {
             then_branch.span()
@@ -1049,22 +1026,7 @@ impl Parser {
                     precedence
                 } else {
                     // Left-associative: one level higher precedence to ensure left-to-right grouping
-                    match precedence {
-                        Precedence::Assignment => Precedence::Or,
-                        Precedence::Or => Precedence::Xor,
-                        Precedence::Xor => Precedence::And,
-                        Precedence::And => Precedence::BitOr,
-                        Precedence::BitOr => Precedence::BitXor,
-                        Precedence::BitXor => Precedence::BitAnd,
-                        Precedence::BitAnd => Precedence::Equality,
-                        Precedence::Equality => Precedence::Comparison,
-                        Precedence::Comparison => Precedence::Shift,
-                        Precedence::Shift => Precedence::Term,
-                        Precedence::Term => Precedence::Factor,
-                        Precedence::Factor => Precedence::Power,
-                        Precedence::Power => Precedence::Unary,
-                        _ => precedence,
-                    }
+                    precedence.next()
                 };
 
                 let right = self.parse_precedence(right_precedence)?;
@@ -1142,15 +1104,15 @@ impl Parser {
             return false;
         }
 
-        match &self.current_token().token_type {
+        matches!(
+            &self.current_token().token_type,
             TokenType::Public
-            | TokenType::Entry
-            | TokenType::Function
-            | TokenType::Type
-            | TokenType::Import => true,
-            TokenType::DocComment(_) => true,
-            _ => false,
-        }
+                | TokenType::Entry
+                | TokenType::Function
+                | TokenType::Type
+                | TokenType::Import
+                | TokenType::DocComment(_)
+        )
     }
 
     fn check(&self, token_type: &TokenType) -> bool {
