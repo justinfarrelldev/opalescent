@@ -110,7 +110,7 @@ pub enum LexError {
         help("Identifiers must be in snake_case and start with a letter or underscore")
     )]
     InvalidIdentifier {
-        /// The invalid identifier that does not follow snake_case convention
+        /// The invalid identifier that does not follow `snake_case` convention
         identifier: String,
         /// The position in the source where the invalid identifier was found
         position: Position,
@@ -119,14 +119,14 @@ pub enum LexError {
         span: SourceSpan,
     },
 
-    /// Type identifier does not follow the required PascalCase naming convention
+    /// Type identifier does not follow the required `PascalCase` naming convention
     #[error("Invalid type identifier '{identifier}' at position {position:?}")]
     #[diagnostic(
         code(opalescent::lexer::invalid_type_identifier),
         help("Type identifiers must be in PascalCase and start with a capital letter")
     )]
     InvalidTypeIdentifier {
-        /// The invalid type identifier that does not follow PascalCase convention
+        /// The invalid type identifier that does not follow `PascalCase` convention
         identifier: String,
         /// The position in the source where the invalid type identifier was found
         position: Position,
@@ -180,9 +180,7 @@ impl LexErrors {
     /// # Returns
     /// A new LexErrors instance with an empty error vector
     pub fn new() -> Self {
-        Self {
-            errors: Vec::new(),
-        }
+        Self { errors: Vec::new() }
     }
 
     /// Add a lexical error to the collection
@@ -222,7 +220,7 @@ mod tests {
             position: Position::start(),
             span: SourceSpan::new(0.into(), 1),
         };
-        
+
         errors.push(error);
         assert!(!errors.is_empty());
         assert_eq!(errors.len(), 1);
@@ -241,7 +239,7 @@ mod tests {
         let start = Position::new(1, 1, 5);
         let end = Position::new(1, 8, 12);
         let span = Span::new(start, end);
-        
+
         let source_span = LexError::span_from_span(span);
         assert_eq!(source_span.offset(), 5);
         assert_eq!(source_span.len(), 8); // 12 - 5 + 1

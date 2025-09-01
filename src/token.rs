@@ -271,7 +271,10 @@ impl TokenType {
 
 /// A token with its type, value, and location information
 #[derive(Debug, Clone, PartialEq)]
-#[allow(clippy::struct_field_names)]
+#[expect(
+    clippy::struct_field_names,
+    reason = "Field names follow domain naming convention"
+)]
 pub struct Token {
     /// The semantic token type
     pub token_type: TokenType,
@@ -295,7 +298,7 @@ impl Token {
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            &Self::IntegerLiteral(n) => write!(f, "integer literal '{n}'"),
+            Self::IntegerLiteral(n) => write!(f, "integer literal '{n}'"),
             Self::FloatLiteral(n) => write!(f, "float literal '{n}'"),
             Self::StringLiteral(s) => write!(f, "string literal '{s}'"),
             Self::BooleanLiteral(b) => write!(f, "boolean literal '{b}'"),

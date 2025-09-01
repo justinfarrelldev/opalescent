@@ -8,7 +8,7 @@
     reason = "Parser features are being developed incrementally"
 )]
 
-use crate::ast::*;
+use crate::ast::{AstNode, BinaryOp, Decl, Expr, LiteralValue, NodeId, Parameter, Program, Stmt, Type, UnaryOp, Visibility};
 use crate::error::LexError;
 use crate::token::{Span, Token, TokenType};
 use miette::{Diagnostic, SourceSpan};
@@ -78,6 +78,8 @@ pub enum ParseError {
 }
 
 impl ParseError {
+    /// Creates a source span from a token's span information
+    /// Used for error reporting to highlight the token location in source code
     pub fn span_from_token(token: &Token) -> SourceSpan {
         LexError::span_from_span(token.span)
     }
@@ -94,7 +96,8 @@ pub struct ParseErrors {
 }
 
 impl ParseErrors {
-    pub fn new() -> Self {
+    /// Creates a new empty collection of parse errors
+    pub const fn new() -> Self {
         Self { errors: Vec::new() }
     }
 
@@ -123,6 +126,8 @@ impl Default for ParseErrors {
 /// Node ID generator for unique AST node identification
 static NEXT_NODE_ID: AtomicUsize = AtomicUsize::new(1);
 
+/// Generates a unique node ID for AST nodes
+/// Each call returns a monotonically increasing ID
 fn next_node_id() -> NodeId {
     NodeId(NEXT_NODE_ID.fetch_add(1, Ordering::Relaxed))
 }
@@ -150,7 +155,9 @@ pub enum Precedence {
 }
 
 impl Precedence {
-    pub fn from_token(token_type: &TokenType) -> Self {
+    /// Determines the precedence level for a given token type
+    /// Returns the appropriate precedence for binary operators
+    pub const fn from_token(token_type: &TokenType) -> Self {
         match *token_type {
             // Remove assignment from expression precedence since it's a statement
             TokenType::Or => Self::Or,
@@ -176,7 +183,8 @@ impl Precedence {
     }
 
     /// Get the next higher precedence level for left-associative operators
-    pub fn next(self) -> Self {
+    /// Used in precedence climbing to determine when to stop parsing at current level
+    pub const fn next(self) -> Self {
         match self {
             Self::Assignment => Self::Or,
             Self::Or => Self::Xor,
@@ -199,8 +207,11 @@ impl Precedence {
 /// The main parser struct
 #[derive(Debug)]
 pub struct Parser {
+    /// Vector of tokens to parse
     tokens: Vec<Token>,
+    /// Current position in the token stream
     current: usize,
+    /// Collection of parse errors encountered during parsing
     errors: ParseErrors,
 }
 
@@ -239,23 +250,15 @@ impl Parser {
             }
         }
 
-        let end_span = if let Some(last_token) = self.tokens.last() {
-            last_token.span
-        } else {
-            start_span
-        };
+        let end_span = self.tokens.last().map_or(start_span, |last_token| last_token.span);
 
         let program_span = Span::new(start_span.start, end_span.end);
 
-        let program = if self.errors.is_empty() {
-            Some(Program {
+        let program = self.errors.is_empty().then(|| Program {
                 declarations,
                 span: program_span,
                 id: next_node_id(),
-            })
-        } else {
-            None
-        };
+            });
 
         (program, self.errors)
     }
@@ -294,7 +297,7 @@ impl Parser {
 
         // For entry and public functions, expect identifier next
         // For regular functions, expect 'f' keyword
-        match &self.current_token().token_type {
+        match self.current_token().token_type {
             TokenType::Function => {
                 self.parse_function_declaration(visibility, is_entry, doc_comment)
             }
@@ -378,12 +381,10 @@ impl Parser {
         self.consume(&TokenType::RightParen, "Expected ')' after parameters")?;
 
         // Parse optional return type
-        let return_type = if self.check(&TokenType::Colon) {
+        let return_type = self.check(&TokenType::Colon).then(|| {
             self.advance();
-            Some(self.parse_type()?)
-        } else {
-            None
-        };
+            self.parse_type()
+        }).transpose()?;
 
         // Expect '=>'
         self.consume(&TokenType::Arrow, "Expected '=>' after function signature")?;
@@ -412,17 +413,9 @@ impl Parser {
                 }
             }
 
-            let body_start = if let Some(first_stmt) = statements.first() {
-                first_stmt.span().start
-            } else {
-                self.previous_token().span.start
-            };
+            let body_start = statements.first().map_or_else(|| self.previous_token().span.start, |first_stmt| first_stmt.span().start);
 
-            let body_end = if let Some(last_stmt) = statements.last() {
-                last_stmt.span().end
-            } else {
-                self.previous_token().span.end
-            };
+            let body_end = statements.last().map_or_else(|| self.previous_token().span.end, |last_stmt| last_stmt.span().end);
 
             let body_span = Span::new(body_start, body_end);
 
@@ -493,7 +486,7 @@ impl Parser {
     ) -> ParseResult<Decl> {
         // TODO: Implement type declaration parsing
         Err(ParseError::InvalidSyntax {
-            message: "Type declarations not yet implemented".to_string(),
+            message: "Type declarations not yet implemented".to_owned(),
             span: ParseError::span_from_token(self.current_token()),
         })
     }
@@ -502,7 +495,7 @@ impl Parser {
     fn parse_import_declaration(&self) -> ParseResult<Decl> {
         // TODO: Implement import declaration parsing
         Err(ParseError::InvalidSyntax {
-            message: "Import declarations not yet implemented".to_string(),
+            message: "Import declarations not yet implemented".to_owned(),
             span: ParseError::span_from_token(self.current_token()),
         })
     }
@@ -519,13 +512,13 @@ impl Parser {
                 name
             }
             token if token.type_name().is_some() => {
-                let name = token.type_name().expect("Already checked").to_string();
+                let name = token.type_name().unwrap_or("unknown").to_owned();
                 self.advance();
                 name
             }
             _ => {
                 return Err(ParseError::UnexpectedToken {
-                    expected: "type name".to_string(),
+                    expected: "type name".to_owned(),
                     found: format!("{}", self.current_token().token_type),
                     span: ParseError::span_from_token(self.current_token()),
                 });
@@ -556,7 +549,7 @@ impl Parser {
     fn parse_statement(&mut self) -> ParseResult<Stmt> {
         self.skip_newlines_and_comments();
 
-        match &self.current_token().token_type {
+        match self.current_token().token_type {
             TokenType::Let => self.parse_let_statement(),
             TokenType::Return => self.parse_return_statement(),
             TokenType::LeftBrace => self.parse_block_statement(),
@@ -564,8 +557,8 @@ impl Parser {
             TokenType::For => self.parse_for_statement(),
             TokenType::While => self.parse_while_statement(),
             TokenType::Loop => self.parse_loop_statement(),
-            TokenType::Break => self.parse_break_statement(),
-            TokenType::Continue => self.parse_continue_statement(),
+            TokenType::Break => Ok(self.parse_break_statement()),
+            TokenType::Continue => Ok(self.parse_continue_statement()),
             _ => self.parse_expression_statement(),
         }
     }
@@ -590,33 +583,29 @@ impl Parser {
                 name.clone()
             } else {
                 return Err(ParseError::InvalidSyntax {
-                    message: "Expected identifier for variable name".to_string(),
+                    message: "Expected identifier for variable name".to_owned(),
                     span: ParseError::span_from_token(token),
                 });
             }
         } else {
             return Err(ParseError::UnexpectedToken {
-                expected: "variable name".to_string(),
+                expected: "variable name".to_owned(),
                 found: format!("{}", self.current_token().token_type),
                 span: ParseError::span_from_token(self.current_token()),
             });
         };
 
         // Parse optional type annotation
-        let type_annotation = if self.check(&TokenType::Colon) {
+        let type_annotation = self.check(&TokenType::Colon).then(|| {
             self.advance();
-            Some(self.parse_type()?)
-        } else {
-            None
-        };
+            self.parse_type()
+        }).transpose()?;
 
         // Parse optional initializer
-        let initializer = if self.check(&TokenType::Assign) {
+        let initializer = self.check(&TokenType::Assign).then(|| {
             self.advance();
-            Some(self.parse_expression()?)
-        } else {
-            None
-        };
+            self.parse_expression()
+        }).transpose()?;
 
         let end_span = self.previous_token().span;
         let span = Span::new(start_span.start, end_span.end);
@@ -709,18 +698,12 @@ impl Parser {
         let then_branch = Box::new(self.parse_block_statement()?);
 
         // Parse optional else branch
-        let else_branch = if self.check(&TokenType::Else) {
+        let else_branch = self.check(&TokenType::Else).then(|| {
             self.advance(); // consume 'else'
-            Some(Box::new(self.parse_statement()?))
-        } else {
-            None
-        };
+            self.parse_statement().map(Box::new)
+        }).transpose()?;
 
-        let end_span = if let Some(else_stmt) = &else_branch {
-            else_stmt.span()
-        } else {
-            then_branch.span()
-        };
+        let end_span = else_branch.as_ref().map_or_else(|| then_branch.span(), |else_stmt| else_stmt.span());
 
         let span = Span::new(start_span.start, end_span.end);
 
@@ -745,10 +728,13 @@ impl Parser {
                 name.clone()
             } else {
                 // This should never happen since check_identifier validates the pattern
-                debug_assert!(matches!(
-                    self.current_token().token_type,
-                    TokenType::Identifier(_)
-                ));
+                debug_assert!(
+                    matches!(
+                        self.current_token().token_type,
+                        TokenType::Identifier(_)
+                    ),
+                    "check_identifier should have validated this is an identifier token"
+                );
                 String::new() // fallback value
             }
         } else {
@@ -831,25 +817,25 @@ impl Parser {
     }
 
     /// Parse a break statement
-    fn parse_break_statement(&mut self) -> ParseResult<Stmt> {
+    fn parse_break_statement(&mut self) -> Stmt {
         let span = self.current_token().span;
         self.advance(); // consume 'break'
 
-        Ok(Stmt::Break {
+        Stmt::Break {
             span,
             id: next_node_id(),
-        })
+        }
     }
 
     /// Parse a continue statement
-    fn parse_continue_statement(&mut self) -> ParseResult<Stmt> {
+    fn parse_continue_statement(&mut self) -> Stmt {
         let span = self.current_token().span;
         self.advance(); // consume 'continue'
 
-        Ok(Stmt::Continue {
+        Stmt::Continue {
             span,
             id: next_node_id(),
-        })
+        }
     }
 
     /// Parse an expression statement or assignment statement
@@ -866,7 +852,7 @@ impl Parser {
             let span = Span::new(start_span.start, end_span.end);
 
             // Validate that the target is assignable
-            match &expr {
+            match expr {
                 Expr::Identifier { .. } | Expr::Index { .. } | Expr::Member { .. } => {
                     // Valid assignment targets
                 }
@@ -926,7 +912,8 @@ impl Parser {
         let span = token.span;
 
         match &token.token_type {
-            &TokenType::IntegerLiteral(value) => {
+            TokenType::IntegerLiteral(value) => {
+                let value = *value;
                 self.advance();
                 Ok(Expr::Literal {
                     value: LiteralValue::Integer(value),
@@ -994,7 +981,11 @@ impl Parser {
                 })
             }
             TokenType::Minus | TokenType::Plus | TokenType::Not | TokenType::BitNot => {
-                let operator = UnaryOp::from(token.token_type.clone());
+                let operator = UnaryOp::try_from(token.token_type.clone())
+                    .map_err(|_| ParseError::InvalidSyntax {
+                        message: format!("Invalid unary operator: {}", token.token_type),
+                        span: ParseError::span_from_token(token),
+                    })?;
                 self.advance();
                 let operand = self.parse_precedence(Precedence::Unary)?;
 
@@ -1042,7 +1033,11 @@ impl Parser {
             | &TokenType::BitShiftLeft
             | &TokenType::BitShiftRight
             | &TokenType::BitUnsignedShiftRight => {
-                let operator = BinaryOp::from(token.token_type.clone());
+                let operator = BinaryOp::try_from(token.token_type.clone())
+                    .map_err(|_| ParseError::InvalidSyntax {
+                        message: format!("Invalid binary operator: {}", token.token_type),
+                        span: ParseError::span_from_token(token),
+                    })?;
                 let precedence = Precedence::from_token(&token.token_type);
                 self.advance();
 
@@ -1105,33 +1100,40 @@ impl Parser {
     }
 
     /// Utility methods for parser state management
+    /// Get the current token without advancing the parser position
     fn current_token(&self) -> &Token {
         &self.tokens[self.current]
     }
 
+    /// Get the previous token (the one before current position) 
+    /// Uses saturating subtraction to avoid underflow
     fn previous_token(&self) -> &Token {
-        &self.tokens[self.current - 1]
+        &self.tokens[self.current.saturating_sub(1)]
     }
 
+    /// Advance to the next token and return the previous token
+    /// Uses saturating addition to avoid overflow
     fn advance(&mut self) -> &Token {
         if !self.is_at_end() {
-            self.current += 1;
+            self.current = self.current.saturating_add(1);
         }
         self.previous_token()
     }
 
+    /// Check if the parser has reached the end of the token stream
     fn is_at_end(&self) -> bool {
         self.current >= self.tokens.len()
             || matches!(self.current_token().token_type, TokenType::EndOfFile)
     }
 
+    /// Check if the current token starts a declaration
     fn is_declaration_start(&self) -> bool {
         if self.is_at_end() {
             return false;
         }
 
         matches!(
-            &self.current_token().token_type,
+            self.current_token().token_type,
             TokenType::Public
                 | TokenType::Entry
                 | TokenType::Function
@@ -1141,6 +1143,7 @@ impl Parser {
         )
     }
 
+    /// Check if the current token matches the expected token type
     fn check(&self, token_type: &TokenType) -> bool {
         if self.is_at_end() {
             false
@@ -1150,6 +1153,7 @@ impl Parser {
         }
     }
 
+    /// Check if the current token is an identifier
     fn check_identifier(&self) -> bool {
         if self.is_at_end() {
             false
@@ -1158,6 +1162,7 @@ impl Parser {
         }
     }
 
+    /// Consume a token of the expected type or return an error
     fn consume(&mut self, token_type: &TokenType, _message: &str) -> ParseResult<&Token> {
         if self.check(token_type) {
             Ok(self.advance())
@@ -1169,9 +1174,10 @@ impl Parser {
         }
     }
 
+    /// Skip newlines and comments in the token stream
     fn skip_newlines_and_comments(&mut self) {
         while !self.is_at_end() {
-            match &self.current_token().token_type {
+            match self.current_token().token_type {
                 TokenType::Newline | TokenType::Comment(_) | TokenType::DocComment(_) => {
                     self.advance();
                 }
@@ -1180,6 +1186,7 @@ impl Parser {
         }
     }
 
+    /// Synchronize the parser after an error by advancing to the next statement
     fn synchronize(&mut self) {
         self.advance();
 
@@ -1188,7 +1195,7 @@ impl Parser {
                 return;
             }
 
-            match &self.current_token().token_type {
+            match self.current_token().token_type {
                 TokenType::Function
                 | TokenType::Let
                 | TokenType::For
@@ -1226,6 +1233,10 @@ mod tests {
 
     #[test]
     fn test_literal_expressions() {
+        // Test value for floating point comparison - define at top to avoid items after statements
+        #[expect(clippy::approx_constant, reason = "Test value intentionally matches pi approximation")]
+        const TEST_VALUE: f64 = 3.14;
+        
         let integer_expr = parse_expression_from_string("42").unwrap();
         assert!(matches!(
             integer_expr,
@@ -1236,8 +1247,6 @@ mod tests {
         ));
 
         let float_expr = parse_expression_from_string("3.14").unwrap();
-        #[allow(clippy::approx_constant)]
-        const TEST_VALUE: f64 = 3.14;
         assert!(
             matches!(float_expr, Expr::Literal { value: LiteralValue::Float(f), .. } if (f - TEST_VALUE).abs() < f64::EPSILON)
         );
@@ -1479,6 +1488,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::cognitive_complexity, reason = "Complex test covering multiple loop scenarios")]
     fn test_loop_statements() {
         // Test simple loop statement
         let simple_loop = parse_statement_from_string("loop => { break }").unwrap();
@@ -1486,7 +1496,7 @@ mod tests {
             // Check body
             if let Stmt::Block { statements, .. } = *body {
                 assert_eq!(statements.len(), 1);
-                if let Stmt::Break { .. } = &statements[0] {
+                if let Stmt::Break { .. } = statements[0] {
                     // Good, break statement
                 } else {
                     unreachable!("Expected break statement in loop body");
@@ -1520,13 +1530,13 @@ mod tests {
             if let Stmt::Block { statements, .. } = *body {
                 assert_eq!(statements.len(), 2);
                 // First statement should be a nested loop
-                if let Stmt::Loop { .. } = &statements[0] {
+                if let Stmt::Loop { .. } = statements[0] {
                     // Good, nested loop
                 } else {
                     unreachable!("Expected nested loop statement");
                 }
                 // Second statement should be continue
-                if let Stmt::Continue { .. } = &statements[1] {
+                if let Stmt::Continue { .. } = statements[1] {
                     // Good, continue statement
                 } else {
                     unreachable!("Expected continue statement");
@@ -1546,9 +1556,9 @@ mod tests {
             if let Stmt::Block { statements, .. } = *body {
                 assert_eq!(statements.len(), 3);
                 // Check that we have let, assignment, and if statements
-                assert!(matches!(&statements[0], Stmt::Let { .. }));
-                assert!(matches!(&statements[1], Stmt::Assignment { .. }));
-                assert!(matches!(&statements[2], Stmt::If { .. }));
+                assert!(matches!(statements[0], Stmt::Let { .. }));
+                assert!(matches!(statements[1], Stmt::Assignment { .. }));
+                assert!(matches!(statements[2], Stmt::If { .. }));
             } else {
                 unreachable!("Expected block statement in loop body");
             }
@@ -1570,7 +1580,7 @@ mod tests {
                     unreachable!("Expected expression statement with function call");
                 }
                 // Second should be an if statement
-                assert!(matches!(&statements[1], Stmt::If { .. }));
+                assert!(matches!(statements[1], Stmt::If { .. }));
             } else {
                 unreachable!("Expected block statement in loop body");
             }
@@ -1629,13 +1639,13 @@ mod tests {
         if let Stmt::Loop { body, .. } = comprehensive_loop {
             if let Stmt::Block { statements, .. } = *body {
                 assert_eq!(statements.len(), 7);
-                assert!(matches!(&statements[0], Stmt::Let { .. }));
-                assert!(matches!(&statements[1], Stmt::Mutable { .. }));
-                assert!(matches!(&statements[2], Stmt::Assignment { .. }));
-                assert!(matches!(&statements[3], Stmt::For { .. }));
-                assert!(matches!(&statements[4], Stmt::While { .. }));
-                assert!(matches!(&statements[5], Stmt::If { .. }));
-                assert!(matches!(&statements[6], Stmt::Return { .. }));
+                assert!(matches!(statements[0], Stmt::Let { .. }));
+                assert!(matches!(statements[1], Stmt::Mutable { .. }));
+                assert!(matches!(statements[2], Stmt::Assignment { .. }));
+                assert!(matches!(statements[3], Stmt::For { .. }));
+                assert!(matches!(statements[4], Stmt::While { .. }));
+                assert!(matches!(statements[5], Stmt::If { .. }));
+                assert!(matches!(statements[6], Stmt::Return { .. }));
             } else {
                 unreachable!("Expected block statement in loop body");
             }

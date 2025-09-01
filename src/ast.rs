@@ -83,7 +83,7 @@ pub enum Expr {
         id: NodeId,
     },
 
-    /// Array/collection access (arr[0], map["key"])
+    /// Array/collection access (arr[0], map\[`"key"`\])
     Index {
         /// Expression being indexed
         object: Box<Expr>,
@@ -370,7 +370,7 @@ pub enum LiteralValue {
 }
 
 /// Binary operators
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BinaryOp {
     // Arithmetic
     /// Addition operator (+)
@@ -432,7 +432,7 @@ pub enum BinaryOp {
 }
 
 /// Unary operators
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnaryOp {
     /// Numeric negation operator (-x)
     Negate,
@@ -445,7 +445,7 @@ pub enum UnaryOp {
 }
 
 /// Type representations
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     /// Basic types
     Basic {
@@ -485,7 +485,7 @@ pub enum Type {
 }
 
 /// Function parameters
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parameter {
     /// Name of the parameter
     pub name: String,
@@ -496,7 +496,7 @@ pub struct Parameter {
 }
 
 /// Type definitions for custom types
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeDef {
     /// Sum types (enums with variants)
     Sum {
@@ -524,7 +524,7 @@ pub enum TypeDef {
 }
 
 /// Variant for sum types
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Variant {
     /// Name of the variant
     pub name: String,
@@ -535,18 +535,18 @@ pub struct Variant {
 }
 
 /// Field for product types and variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Field {
     /// Name of the field
     pub name: String,
     /// Type of the field
-    pub field_type: Type,
+    pub type_annotation: Type,
     /// Source code location of this field
     pub span: Span,
 }
 
 /// Import items
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImportItem {
     /// Import specific item (import foo from bar)
     Named {
@@ -576,7 +576,7 @@ pub enum ImportItem {
 }
 
 /// Visibility modifiers
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Visibility {
     /// Public visibility (accessible from outside the module)
     Public,
@@ -713,14 +713,12 @@ impl fmt::Display for BinaryOp {
             Self::Divide => "/",
             Self::Modulo => "%",
             Self::Power => "^",
-            Self::Equal => "is",
-            Self::NotEqual => "is not",
+            Self::Equal | Self::Is => "is",
+            Self::NotEqual | Self::IsNot => "is not",
             Self::Less => "<",
             Self::LessEqual => "<=",
             Self::Greater => ">",
             Self::GreaterEqual => ">=",
-            Self::Is => "is",
-            Self::IsNot => "is not",
             Self::And => "and",
             Self::Or => "or",
             Self::Xor => "xor",
@@ -748,44 +746,48 @@ impl fmt::Display for UnaryOp {
     }
 }
 
-impl From<TokenType> for BinaryOp {
-    fn from(token_type: TokenType) -> Self {
+impl TryFrom<TokenType> for BinaryOp {
+    type Error = String;
+
+    fn try_from(token_type: TokenType) -> Result<Self, Self::Error> {
         match token_type {
-            TokenType::Plus => Self::Add,
-            TokenType::Minus => Self::Subtract,
-            TokenType::Multiply => Self::Multiply,
-            TokenType::Divide => Self::Divide,
-            TokenType::Modulo => Self::Modulo,
-            TokenType::Power => Self::Power,
-            TokenType::Less => Self::Less,
-            TokenType::LessEqual => Self::LessEqual,
-            TokenType::Greater => Self::Greater,
-            TokenType::GreaterEqual => Self::GreaterEqual,
-            TokenType::Is => Self::Is,
-            TokenType::IsNot => Self::IsNot,
-            TokenType::And => Self::And,
-            TokenType::Or => Self::Or,
-            TokenType::Xor => Self::Xor,
-            TokenType::BitAnd => Self::BitAnd,
-            TokenType::BitOr => Self::BitOr,
-            TokenType::BitXor => Self::BitXor,
-            TokenType::BitShiftLeft => Self::BitShiftLeft,
-            TokenType::BitShiftRight => Self::BitShiftRight,
-            TokenType::BitUnsignedShiftRight => Self::BitUnsignedShiftRight,
-            TokenType::Assign => Self::Assign,
-            _ => panic!("Cannot convert {token_type:?} to BinaryOp"),
+            TokenType::Plus => Ok(Self::Add),
+            TokenType::Minus => Ok(Self::Subtract),
+            TokenType::Multiply => Ok(Self::Multiply),
+            TokenType::Divide => Ok(Self::Divide),
+            TokenType::Modulo => Ok(Self::Modulo),
+            TokenType::Power => Ok(Self::Power),
+            TokenType::Less => Ok(Self::Less),
+            TokenType::LessEqual => Ok(Self::LessEqual),
+            TokenType::Greater => Ok(Self::Greater),
+            TokenType::GreaterEqual => Ok(Self::GreaterEqual),
+            TokenType::Is => Ok(Self::Is),
+            TokenType::IsNot => Ok(Self::IsNot),
+            TokenType::And => Ok(Self::And),
+            TokenType::Or => Ok(Self::Or),
+            TokenType::Xor => Ok(Self::Xor),
+            TokenType::BitAnd => Ok(Self::BitAnd),
+            TokenType::BitOr => Ok(Self::BitOr),
+            TokenType::BitXor => Ok(Self::BitXor),
+            TokenType::BitShiftLeft => Ok(Self::BitShiftLeft),
+            TokenType::BitShiftRight => Ok(Self::BitShiftRight),
+            TokenType::BitUnsignedShiftRight => Ok(Self::BitUnsignedShiftRight),
+            TokenType::Assign => Ok(Self::Assign),
+            _ => Err(format!("Cannot convert {token_type:?} to BinaryOp")),
         }
     }
 }
 
-impl From<TokenType> for UnaryOp {
-    fn from(token_type: TokenType) -> Self {
+impl TryFrom<TokenType> for UnaryOp {
+    type Error = String;
+
+    fn try_from(token_type: TokenType) -> Result<Self, Self::Error> {
         match token_type {
-            TokenType::Minus => Self::Negate,
-            TokenType::Plus => Self::Plus,
-            TokenType::Not => Self::Not,
-            TokenType::BitNot => Self::BitNot,
-            _ => panic!("Cannot convert {token_type:?} to UnaryOp"),
+            TokenType::Minus => Ok(Self::Negate),
+            TokenType::Plus => Ok(Self::Plus),
+            TokenType::Not => Ok(Self::Not),
+            TokenType::BitNot => Ok(Self::BitNot),
+            _ => Err(format!("Cannot convert {token_type:?} to UnaryOp")),
         }
     }
 }
@@ -857,18 +859,18 @@ mod tests {
 
     #[test]
     fn test_token_to_binary_op() {
-        assert_eq!(BinaryOp::from(TokenType::Plus), BinaryOp::Add);
-        assert_eq!(BinaryOp::from(TokenType::And), BinaryOp::And);
+        assert_eq!(BinaryOp::try_from(TokenType::Plus).unwrap(), BinaryOp::Add);
+        assert_eq!(BinaryOp::try_from(TokenType::And).unwrap(), BinaryOp::And);
         assert_eq!(
-            BinaryOp::from(TokenType::BitShiftLeft),
+            BinaryOp::try_from(TokenType::BitShiftLeft).unwrap(),
             BinaryOp::BitShiftLeft
         );
     }
 
     #[test]
     fn test_token_to_unary_op() {
-        assert_eq!(UnaryOp::from(TokenType::Minus), UnaryOp::Negate);
-        assert_eq!(UnaryOp::from(TokenType::Not), UnaryOp::Not);
-        assert_eq!(UnaryOp::from(TokenType::BitNot), UnaryOp::BitNot);
+        assert_eq!(UnaryOp::try_from(TokenType::Minus).unwrap(), UnaryOp::Negate);
+        assert_eq!(UnaryOp::try_from(TokenType::Not).unwrap(), UnaryOp::Not);
+        assert_eq!(UnaryOp::try_from(TokenType::BitNot).unwrap(), UnaryOp::BitNot);
     }
 }
