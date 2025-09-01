@@ -1,5 +1,7 @@
 **CRITICAL: Always output the results of any commands you run to temp.log (in the root directory), then read that to get the results of the previous command. This ensures that you can read it - there is a bug at the moment that will prevent you from reading commands directly. Use tee when doing this so I can see the command running without having to open temp.log. You should NOT have to run "echo "Starting header test creation" | tee temp.log" or similar - only do it for test runs and other important commands. Echo should almost never be present.**
 
+**CRITICAL: Prefer making changes to entire sections of each file - individual replacements take a lot of time. For example, if there are a lot of lint issues in the last 500 lines of a file, replace all of those lines at the same time rather than fixing each individual lint issue. Additionally, if you can mass-replace values with commands, do that rather than replacing them manually**
+
 See the "Steps" section at the bottom for your task.
 
 # Common Commands
