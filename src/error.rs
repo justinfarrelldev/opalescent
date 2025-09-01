@@ -19,9 +19,12 @@ pub enum LexError {
         help("Remove or replace this character with a valid token")
     )]
     UnexpectedCharacter {
+        /// The character that could not be tokenized
         character: char,
+        /// The position in the source where the character was found
         position: Position,
         #[label("unexpected character here")]
+        /// Source span highlighting the unexpected character location
         span: SourceSpan,
     },
 
@@ -32,8 +35,10 @@ pub enum LexError {
         help("Add a closing quote to terminate the string literal")
     )]
     UnterminatedString {
+        /// The position where the unterminated string literal started
         start: Position,
         #[label("string starts here")]
+        /// Source span highlighting where the string literal begins
         span: SourceSpan,
     },
 
@@ -44,9 +49,12 @@ pub enum LexError {
         help("Use a valid escape sequence like \\n, \\t, \\\\, or \\\"")
     )]
     InvalidEscapeSequence {
+        /// The invalid escape sequence that was found
         sequence: String,
+        /// The position in the source where the invalid escape sequence was found
         position: Position,
         #[label("invalid escape sequence")]
+        /// Source span highlighting the invalid escape sequence location
         span: SourceSpan,
     },
 
@@ -58,8 +66,10 @@ pub enum LexError {
     )]
     MixedWhitespace {
         #[label("first tab found here")]
+        /// Source span highlighting the location of the first tab character
         tab_span: SourceSpan,
         #[label("first space found here")]
+        /// Source span highlighting the location of the first space character
         space_span: SourceSpan,
     },
 
@@ -70,9 +80,12 @@ pub enum LexError {
         help("Check the number format - it may be too large or have invalid characters")
     )]
     InvalidNumber {
+        /// The string representation of the invalid number literal
         number: String,
+        /// The position in the source where the invalid number was found
         position: Position,
         #[label("invalid number")]
+        /// Source span highlighting the invalid number location
         span: SourceSpan,
     },
 
@@ -83,21 +96,26 @@ pub enum LexError {
         help("Add '##' to close the multi-line comment")
     )]
     UnterminatedComment {
+        /// The position where the unterminated comment started
         start: Position,
         #[label("comment starts here")]
+        /// Source span highlighting where the comment begins
         span: SourceSpan,
     },
 
-    /// Identifier does not follow the required snake_case naming convention
+    /// Identifier does not follow the required `snake_case` naming convention
     #[error("Invalid identifier '{identifier}' at position {position:?}")]
     #[diagnostic(
         code(opalescent::lexer::invalid_identifier),
         help("Identifiers must be in snake_case and start with a letter or underscore")
     )]
     InvalidIdentifier {
+        /// The invalid identifier that does not follow snake_case convention
         identifier: String,
+        /// The position in the source where the invalid identifier was found
         position: Position,
         #[label("invalid identifier")]
+        /// Source span highlighting the invalid identifier location
         span: SourceSpan,
     },
 
@@ -108,18 +126,36 @@ pub enum LexError {
         help("Type identifiers must be in PascalCase and start with a capital letter")
     )]
     InvalidTypeIdentifier {
+        /// The invalid type identifier that does not follow PascalCase convention
         identifier: String,
+        /// The position in the source where the invalid type identifier was found
         position: Position,
         #[label("invalid type identifier")]
+        /// Source span highlighting the invalid type identifier location
         span: SourceSpan,
     },
 }
 
 impl LexError {
+    /// Create a SourceSpan from a Position and length
+    ///
+    /// # Arguments
+    /// * `pos` - The starting position in the source text
+    /// * `len` - The length of the span in bytes
+    ///
+    /// # Returns
+    /// A SourceSpan that can be used for error reporting
     pub fn span_from_position(pos: Position, len: usize) -> SourceSpan {
         SourceSpan::new(pos.offset.into(), len)
     }
 
+    /// Convert a parser Span to a miette SourceSpan
+    ///
+    /// # Arguments
+    /// * `span` - The span from the parser containing start and end positions
+    ///
+    /// # Returns
+    /// A SourceSpan that can be used for error reporting with miette
     pub fn span_from_span(span: Span) -> SourceSpan {
         let start = span.start.offset;
         let end = span.end.offset;
@@ -134,10 +170,15 @@ pub type LexResult<T> = Result<T, LexError>;
 /// Collection of lexer errors for multiple error reporting
 #[derive(Debug)]
 pub struct LexErrors {
+    /// Collection of lexical analysis errors
     pub errors: Vec<LexError>,
 }
 
 impl LexErrors {
+    /// Create a new empty collection of lexical errors
+    ///
+    /// # Returns
+    /// A new LexErrors instance with an empty error vector
     pub fn new() -> Self {
         Self {
             errors: Vec::new(),

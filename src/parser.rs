@@ -25,9 +25,12 @@ pub enum ParseError {
         help("Check the syntax around this location")
     )]
     UnexpectedToken {
+        /// The token type that was expected at this position
         expected: String,
+        /// The actual token that was found instead
         found: String,
         #[label("unexpected token")]
+        /// Source span highlighting the unexpected token location
         span: SourceSpan,
     },
 
@@ -38,8 +41,10 @@ pub enum ParseError {
         help("Add the missing {expected}")
     )]
     MissingToken {
+        /// The token type that was expected but not found
         expected: String,
         #[label("expected {expected} here")]
+        /// Source span indicating where the missing token should be
         span: SourceSpan,
     },
 
@@ -50,8 +55,10 @@ pub enum ParseError {
         help("Check the language specification for correct syntax")
     )]
     InvalidSyntax {
+        /// Description of what makes the syntax invalid
         message: String,
         #[label("invalid syntax")]
+        /// Source span highlighting the location of invalid syntax
         span: SourceSpan,
     },
 
@@ -62,8 +69,10 @@ pub enum ParseError {
         help("Complete the {expected}")
     )]
     UnexpectedEof {
+        /// The token or construct that was expected before EOF
         expected: String,
         #[label("file ends here")]
+        /// Source span indicating the end of file location
         span: SourceSpan,
     },
 }
@@ -80,6 +89,7 @@ pub type ParseResult<T> = Result<T, ParseError>;
 /// Collection of parse errors for multiple error reporting
 #[derive(Debug)]
 pub struct ParseErrors {
+    /// Vector containing all parse errors encountered during parsing
     pub errors: Vec<ParseError>,
 }
 
@@ -88,14 +98,17 @@ impl ParseErrors {
         Self { errors: Vec::new() }
     }
 
+    /// Add a parse error to the collection
     pub fn push(&mut self, error: ParseError) {
         self.errors.push(error);
     }
 
+    /// Check if there are no errors in the collection
     pub fn is_empty(&self) -> bool {
         self.errors.is_empty()
     }
 
+    /// Get the number of errors in the collection
     pub fn len(&self) -> usize {
         self.errors.len()
     }
@@ -138,7 +151,7 @@ pub enum Precedence {
 
 impl Precedence {
     pub fn from_token(token_type: &TokenType) -> Self {
-        match token_type {
+        match *token_type {
             // Remove assignment from expression precedence since it's a statement
             TokenType::Or => Self::Or,
             TokenType::Xor => Self::Xor,
@@ -324,7 +337,10 @@ impl Parser {
             if let TokenType::Identifier(name) = &token.token_type {
                 name.clone()
             } else {
-                unreachable!("check_identifier should guarantee this")
+                return Err(ParseError::InvalidSyntax {
+                    message: "Expected identifier after check_identifier passed".to_string(),
+                    span: ParseError::span_from_token(token),
+                });
             }
         } else {
             return Err(ParseError::UnexpectedToken {
@@ -442,7 +458,10 @@ impl Parser {
             if let TokenType::Identifier(name) = &token.token_type {
                 name.clone()
             } else {
-                unreachable!()
+                return Err(ParseError::InvalidSyntax {
+                    message: "Expected identifier for parameter name".to_string(),
+                    span: ParseError::span_from_token(token),
+                });
             }
         } else {
             return Err(ParseError::UnexpectedToken {
@@ -570,7 +589,10 @@ impl Parser {
             if let TokenType::Identifier(name) = &token.token_type {
                 name.clone()
             } else {
-                unreachable!()
+                return Err(ParseError::InvalidSyntax {
+                    message: "Expected identifier for variable name".to_string(),
+                    span: ParseError::span_from_token(token),
+                });
             }
         } else {
             return Err(ParseError::UnexpectedToken {

@@ -119,7 +119,7 @@ pub enum Expr {
         id: NodeId,
     },
 
-    /// Type checking (type_of(expr))
+    /// Type checking (`type_of(expr)`)
     TypeOf {
         /// Expression whose type is being queried
         expr: Box<Expr>,
@@ -213,7 +213,7 @@ pub enum Stmt {
         id: NodeId,
     },
 
-    /// Expression statements (function_call())
+    /// Expression statements (`function_call()`)
     Expression {
         /// Expression being executed as a statement
         expr: Expr,
@@ -606,7 +606,7 @@ pub struct Program {
 
 impl AstNode for Expr {
     fn span(&self) -> Span {
-        match self {
+        match *self {
             Self::Literal { span, .. }
             | Self::Identifier { span, .. }
             | Self::Binary { span, .. }
@@ -618,12 +618,12 @@ impl AstNode for Expr {
             | Self::TypeOf { span, .. }
             | Self::StringInterpolation { span, .. }
             | Self::Parenthesized { span, .. }
-            | Self::Array { span, .. } => *span,
+            | Self::Array { span, .. } => span,
         }
     }
 
     fn node_id(&self) -> NodeId {
-        match self {
+        match *self {
             Self::Literal { id, .. }
             | Self::Identifier { id, .. }
             | Self::Binary { id, .. }
@@ -635,14 +635,14 @@ impl AstNode for Expr {
             | Self::TypeOf { id, .. }
             | Self::StringInterpolation { id, .. }
             | Self::Parenthesized { id, .. }
-            | Self::Array { id, .. } => *id,
+            | Self::Array { id, .. } => id,
         }
     }
 }
 
 impl AstNode for Stmt {
     fn span(&self) -> Span {
-        match self {
+        match *self {
             Self::Let { span, .. }
             | Self::Mutable { span, .. }
             | Self::Assignment { span, .. }
@@ -654,12 +654,12 @@ impl AstNode for Stmt {
             | Self::While { span, .. }
             | Self::Loop { span, .. }
             | Self::Break { span, .. }
-            | Self::Continue { span, .. } => *span,
+            | Self::Continue { span, .. } => span,
         }
     }
 
     fn node_id(&self) -> NodeId {
-        match self {
+        match *self {
             Self::Let { id, .. }
             | Self::Mutable { id, .. }
             | Self::Assignment { id, .. }
@@ -671,25 +671,25 @@ impl AstNode for Stmt {
             | Self::While { id, .. }
             | Self::Loop { id, .. }
             | Self::Break { id, .. }
-            | Self::Continue { id, .. } => *id,
+            | Self::Continue { id, .. } => id,
         }
     }
 }
 
 impl AstNode for Decl {
     fn span(&self) -> Span {
-        match self {
+        match *self {
             Self::Function { span, .. }
             | Self::Type { span, .. }
-            | Self::Import { span, .. } => *span,
+            | Self::Import { span, .. } => span,
         }
     }
 
     fn node_id(&self) -> NodeId {
-        match self {
+        match *self {
             Self::Function { id, .. }
             | Self::Type { id, .. }
-            | Self::Import { id, .. } => *id,
+            | Self::Import { id, .. } => id,
         }
     }
 }
@@ -706,7 +706,7 @@ impl AstNode for Program {
 
 impl fmt::Display for BinaryOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let symbol = match self {
+        let symbol = match *self {
             Self::Add => "+",
             Self::Subtract => "-",
             Self::Multiply => "*",
@@ -738,7 +738,7 @@ impl fmt::Display for BinaryOp {
 
 impl fmt::Display for UnaryOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let symbol = match self {
+        let symbol = match *self {
             Self::Negate => "-",
             Self::Not => "not",
             Self::BitNot => "bnot",

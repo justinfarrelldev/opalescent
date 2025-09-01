@@ -10,12 +10,19 @@ use unicode_xid::UnicodeXID;
 /// The main lexer struct that tokenizes Opalescent source code
 #[derive(Debug)]
 pub struct Lexer<'input> {
+    /// The input source code to tokenize
     input: &'input str,
+    /// Character iterator with byte position information
     chars: std::str::CharIndices<'input>,
+    /// Current character and its position, if not at end
     current: Option<(usize, char)>,
+    /// Current position in the source code
     position: Position,
+    /// Collection of lexical analysis errors
     errors: LexErrors,
+    /// Map of keyword strings to their token types
     keywords: HashMap<&'static str, TokenType>,
+    /// Type of whitespace detected for consistency checking
     whitespace_type: Option<WhitespaceType>,
 }
 
