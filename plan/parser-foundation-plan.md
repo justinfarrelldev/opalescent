@@ -44,7 +44,7 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 - [x] For loop statements
 - [x] While loop statements
 - [ ] Loop statement (seen in language-spec/requirements/simple_quiz.op)
-- [ ] Break/continue statements
+- [x] Break/continue statements
 
 ### ☐ Type AST Nodes
 - [x] Basic types (int32, string, etc.)
@@ -73,7 +73,7 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 ### ✅ Statement Parsing
 - [x] Statement dispatcher
 - [x] Variable declaration parsing
-- [ ] Assignment parsing
+- [x] Assignment parsing
 - [x] Return statement parsing
 - [x] Block parsing with scope
 

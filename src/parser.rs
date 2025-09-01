@@ -564,6 +564,8 @@ impl Parser {
             TokenType::If => self.parse_if_statement(),
             TokenType::For => self.parse_for_statement(),
             TokenType::While => self.parse_while_statement(),
+            TokenType::Break => self.parse_break_statement(),
+            TokenType::Continue => self.parse_continue_statement(),
             _ => self.parse_expression_statement(),
         }
     }
@@ -787,6 +789,28 @@ impl Parser {
         Ok(Stmt::While {
             condition,
             body,
+            span,
+            id: next_node_id(),
+        })
+    }
+
+    /// Parse a break statement
+    fn parse_break_statement(&mut self) -> ParseResult<Stmt> {
+        let span = self.current_token().span;
+        self.advance(); // consume 'break'
+
+        Ok(Stmt::Break {
+            span,
+            id: next_node_id(),
+        })
+    }
+
+    /// Parse a continue statement
+    fn parse_continue_statement(&mut self) -> ParseResult<Stmt> {
+        let span = self.current_token().span;
+        self.advance(); // consume 'continue'
+
+        Ok(Stmt::Continue {
             span,
             id: next_node_id(),
         })
@@ -1307,6 +1331,25 @@ mod tests {
             ));
         } else {
             unreachable!("Expected addition with multiplication on right side");
+        }
+    }
+
+    #[test]
+    fn test_break_continue_statements() {
+        // Test break statement
+        let break_stmt = parse_statement_from_string("break").unwrap();
+        if let Stmt::Break { .. } = break_stmt {
+            // Good, break statement
+        } else {
+            unreachable!("Expected break statement, got {break_stmt:?}");
+        }
+
+        // Test continue statement  
+        let continue_stmt = parse_statement_from_string("continue").unwrap();
+        if let Stmt::Continue { .. } = continue_stmt {
+            // Good, continue statement
+        } else {
+            unreachable!("Expected continue statement, got {continue_stmt:?}");
         }
     }
 
