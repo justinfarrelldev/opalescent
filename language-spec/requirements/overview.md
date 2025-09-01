@@ -46,3 +46,7 @@ Cast syntax: (expr as T)
   - Widening within signed or within unsigned families (e.g., int8→int32) require `as` and are well-defined.
   - Signed↔unsigned require `as` and follow two’s-complement reinterpretation rules only via explicit APIs (e.g., to_{int32,uint32}).
   - Float↔int and int↔float casts require `as`; out-of-range results are compile errors for constants and runtime traps unless the `checked_` or `saturating_` APIs are used.
+
+# Compiler Output
+
+Use miette for formatting of the output.
