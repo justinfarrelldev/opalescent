@@ -233,10 +233,10 @@ impl<'input> Lexer<'input> {
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
-            self.current.unwrap().0
+            self.current.map_or(self.input.len(), |(offset, _)| offset)
         };
 
-        let lexeme = self.input[start_offset..end_offset].to_string();
+        let lexeme = self.input.get(start_offset..end_offset).unwrap_or_default().to_owned();
         let span = Span::new(start_pos, end_pos);
 
         Token::new(token_type, span, lexeme)
@@ -257,16 +257,16 @@ impl<'input> Lexer<'input> {
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
-            self.current.unwrap().0
+            self.current.map_or(self.input.len(), |(offset, _)| offset)
         };
 
-        let content = self.input[start_offset + 1..end_offset].trim().to_owned();
+        let content = self.input.get(start_offset.saturating_add(1)..end_offset).unwrap_or_default().trim().to_owned();
         let span = Span::new(start_pos, self.position);
 
         Some(Token::new(
             TokenType::Comment(content),
             span,
-            self.input[start_offset..end_offset].to_string(),
+            self.input.get(start_offset..end_offset).unwrap_or_default().to_owned(),
         ))
     }
 
@@ -278,13 +278,13 @@ impl<'input> Lexer<'input> {
         self.advance();
 
         let mut content = String::new();
-        let mut nesting_level = 1;
+        let mut nesting_level = 1_i32;
 
         while !self.is_at_end() && nesting_level > 0 {
             if self.current_char() == '#' && self.peek() == Some('#') {
                 self.advance(); // Skip first #
                 self.advance(); // Skip second #
-                nesting_level -= 1;
+                nesting_level = nesting_level.saturating_sub(1_i32);
             } else if self.current_char() == '\n' {
                 content.push(self.current_char());
                 self.advance_line();
@@ -294,7 +294,7 @@ impl<'input> Lexer<'input> {
             }
         }
 
-        if nesting_level > 0 {
+        if nesting_level > 0_i32 {
             let span = LexError::span_from_position(start_pos, 2);
             self.errors.push(LexError::UnterminatedComment {
                 start: start_pos,
@@ -320,7 +320,7 @@ impl<'input> Lexer<'input> {
         Some(Token::new(
             token_type,
             span,
-            self.input[start_offset..end_offset].to_string(),
+            self.input.get(start_offset..end_offset).unwrap_or_default().to_owned(),
         ))
     }
 
@@ -382,7 +382,7 @@ impl<'input> Lexer<'input> {
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
-            self.current.unwrap().0
+            self.current.map_or(self.input.len(), |(offset, _)| offset)
         };
 
         let span = Span::new(start_pos, self.position);
@@ -390,7 +390,7 @@ impl<'input> Lexer<'input> {
         Some(Token::new(
             TokenType::StringLiteral(value),
             span,
-            self.input[start_offset..end_offset].to_string(),
+            self.input.get(start_offset..end_offset).unwrap_or_default().to_owned(),
         ))
     }
 
@@ -422,10 +422,10 @@ impl<'input> Lexer<'input> {
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
-            self.current.unwrap().0
+            self.current.map_or(self.input.len(), |(offset, _)| offset)
         };
 
-        let number_str = &self.input[start_offset..end_offset];
+        let number_str = self.input.get(start_offset..end_offset).unwrap_or_default();
         let span = Span::new(start_pos, self.position);
 
         if is_float {
@@ -438,7 +438,7 @@ impl<'input> Lexer<'input> {
                 Err(_) => {
                     let err_span = LexError::span_from_position(start_pos, number_str.len());
                     self.errors.push(LexError::InvalidNumber {
-                        number: number_str.to_string(),
+                        number: number_str.to_owned(),
                         position: start_pos,
                         span: err_span,
                     });
@@ -455,7 +455,7 @@ impl<'input> Lexer<'input> {
                 Err(_) => {
                     let err_span = LexError::span_from_position(start_pos, number_str.len());
                     self.errors.push(LexError::InvalidNumber {
-                        number: number_str.to_string(),
+                        number: number_str.to_owned(),
                         position: start_pos,
                         span: err_span,
                     });
@@ -485,20 +485,19 @@ impl<'input> Lexer<'input> {
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
-            self.current.unwrap().0
+            self.current.map_or(self.input.len(), |(offset, _)| offset)
         };
 
-        let identifier = &self.input[start_offset..end_offset];
+        let identifier = self.input.get(start_offset..end_offset).unwrap_or_default();
         let span = Span::new(start_pos, self.position);
 
         // Check if it's a keyword
-        let token_type = if let Some(keyword_type) = self.keywords.get(identifier) {
-            keyword_type.clone()
-        } else {
-            TokenType::Identifier(identifier.to_string())
-        };
+        let token_type = self.keywords.get(identifier).map_or_else(
+            || TokenType::Identifier(identifier.to_owned()),
+            |keyword_type| keyword_type.clone(),
+        );
 
-        Some(Token::new(token_type, span, identifier.to_string()))
+        Some(Token::new(token_type, span, identifier.to_owned()))
     }
 
     /// Skip whitespace and track whitespace type
@@ -540,8 +539,11 @@ impl<'input> Lexer<'input> {
     }
 
     /// Get the current character
-    fn current_char(&self) -> char {
-        self.current.map(|(_, c)| c).unwrap_or('\0')
+    const fn current_char(&self) -> char {
+        match self.current {
+            Some((_, c)) => c,
+            None => '\0',
+        }
     }
 
     /// Peek at the next character
@@ -551,15 +553,15 @@ impl<'input> Lexer<'input> {
     }
 
     /// Check if we're at the end of input
-    fn is_at_end(&self) -> bool {
+    const fn is_at_end(&self) -> bool {
         self.current.is_none()
     }
 
     /// Advance to the next character
     fn advance(&mut self) {
         if self.current.is_some() {
-            self.position.column += 1;
-            self.position.offset += 1;
+            self.position.column = self.position.column.saturating_add(1_usize);
+            self.position.offset = self.position.offset.saturating_add(1_usize);
         }
 
         self.current = self.chars.next();
@@ -567,9 +569,9 @@ impl<'input> Lexer<'input> {
 
     /// Advance to the next line
     fn advance_line(&mut self) {
-        self.position.line += 1;
-        self.position.column = 1;
-        self.position.offset += 1;
+        self.position.line = self.position.line.saturating_add(1_usize);
+        self.position.column = 1_usize;
+        self.position.offset = self.position.offset.saturating_add(1_usize);
         self.current = self.chars.next();
     }
 }
