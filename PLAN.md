@@ -16,12 +16,12 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Whitespace consistency checking (spaces vs tabs)
 - [x] Comment handling (single # and multi-line ##)
 
-### ☐ Parser Foundation (Name: parser-foundation-plan.md)
-- [ ] Create AST node definitions
-- [ ] Implement recursive descent parser
-- [ ] Expression parsing with proper precedence
-- [ ] Statement parsing
-- [ ] Error recovery and reporting with miette
+### ✅ Parser Foundation (Name: parser-foundation-plan.md)
+- [x] Create AST node definitions
+- [x] Implement recursive descent parser
+- [x] Expression parsing with proper precedence
+- [x] Statement parsing
+- [x] Error recovery and reporting with miette
 
 ### ☐ Type System Core (Name: type-system-core-plan.md)
 - [ ] Basic type representation (int32, string, boolean, etc.)
