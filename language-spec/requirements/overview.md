@@ -1,4 +1,4 @@
-The language will be compiled, statically and strongly typed, and is aiming for a fantastic developer experience. This means it should support hot module reloading and hot reloading, as well as have a reasonable build time. The build time should NOT come at the expense of safety - error checking is more important. 
+The Opalescent programming language will be compiled, statically and strongly typed, and is aiming for a fantastic developer experience. This means it should support hot module reloading and hot reloading, as well as have a reasonable build time. The build time should NOT come at the expense of safety - error checking is more important. 
 
 # Hot Reloading
 
