@@ -95,6 +95,7 @@ Once you have read them:
 - Once the tests pass, satisfying parts of the plan file, check items off of the list.
 - Fix any linting errors.
 - Once all tests pass for the feature and the feature is complete, check off all remaining tests and check off the feature in PLAN.md in the root.
+- Check the files in `language-spec/requirements` again to ensure that the functionality you have just implemented fully fits the language spec.
 - Make SURE you have edited PLAN.md before the next step - it is critical.
 - Stage all relevant items and commit them. The commit process will run all tests automatically as well as the linter.
 
