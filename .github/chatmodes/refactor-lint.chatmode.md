@@ -147,9 +147,9 @@ This strict linting setup will help maintain high code quality, safety, and main
 
 Follow these steps to fix the linting issues.
 
-- KEEP THE LINTING RULES IN MIND (STATED ABOVE). THIS IS ABSOLUTELY VITAL AND WILL DEFINITELY PREVENT YOU FROM COMPLETING YOUR WORK IF YOU DO NOT HEED IT.
+- KEEP THE LINTING RULES IN MIND (STATED ABOVE). THIS IS ABSOLUTELY VITAL AND WILL DEFINITELY PREVENT YOU FROM COMPLETING YOUR WORK IF YOU DO NOT HEED IT. LOOK AT THE LINTING RULES IN Makefile.toml BEFORE CONTINUING SO YOU KNOW WHAT TO AVOID.
 - Fix any linting errors, running the test suite often to ensure no issues are occurring. Follow error-handling best practices - maintainability is the end goal. _Prefer making changes to entire sections of each file_ - individual replacements take a lot of time. For example, if there are a lot of lint issues in the last 500 lines of a file, replace all of those lines at the same time rather than fixing each individual lint issue. For large documentation tasks or tasks that will span small changes across an entire file, tell me to invoke Claude Code and what prompt you will need, and then run an echo statement (which will pause the editor for me) and I will do it.
 - Run the tests and build the application once you have finished fixing the lint issues.
-- Stage all relevant items and commit them. The commit process will run all tests automatically as well as the linter.
+- Stage all relevant items and commit them. The commit process will run all tests automatically as well as the linter and will reject your commit if either do not pass. **YOU ARE NOT ALLOWED TO USE --no-verify!**
 
 You do not stop until there are no linting issues remaining.
