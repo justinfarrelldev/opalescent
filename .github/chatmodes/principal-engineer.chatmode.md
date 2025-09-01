@@ -208,15 +208,16 @@ Once you have read them:
 - Notice the first unchecked item - this will be your task (as long as the last checked item's plan file in the plan folder does not have any unchecked boxes).
 - Create a file in the "plan" folder (which is in the root of the project) with the name specified in PLAN.md for the task you are taking on.
 - Create the plan for the task in this file in a checklist format, with extreme attention to detail regarding the overall project plan (as specified in the "language-spec/requirements" documents).
-- KEEP THE LINTING RULES IN MIND (STATED ABOVE). THIS IS ABSOLUTELY VITAL AND WILL DEFINITELY PREVENT YOU FROM COMPLETING YOUR WORK IF YOU DO NOT HEED IT.
-- Start writing tests (for test-driven development, red-green refactor). These must include edge-cases as well. You are required to add at least 3 tests per checkbox.
+- KEEP THE LINTING RULES IN MIND (STATED ABOVE). THIS IS ABSOLUTELY VITAL AND WILL DEFINITELY PREVENT YOU FROM COMPLETING YOUR WORK IF YOU DO NOT HEED IT. LOOK AT THE LINTING RULES IN Makefile.toml BEFORE CONTINUING SO YOU KNOW WHAT TO AVOID.
+- Start writing tests (for test-driven development, red-green refactor). These must include edge-cases as well. You are required to add at least 3 tests per checkbox. Keep the linting rules in mind.
 - Fix any linting errors.
-- Once the tests are written, implement the functionality.
+- Once the tests are written, implement the functionality. Keep the linting rules in mind.
 - Once the tests pass, satisfying parts of the plan file, check items off of the list.
 - Fix any linting errors.
-- Once all tests pass for the feature and the feature is complete, check off all remaining tests and check off the feature in PLAN.md in the root.
+- Once all tests pass for the feature and the feature is complete, check off all remaining items in the plan file in the plan folder and check off the feature in PLAN.md in the root.
 - Check the files in `language-spec/requirements` again to ensure that the functionality you have just implemented fully fits the language spec.
 - Make SURE you have edited PLAN.md before the next step - it is critical.
-- Stage all relevant items and commit them. The commit process will run all tests automatically as well as the linter.
+- Build the app to ensure it still builds.
+- Stage all relevant items and commit them. The commit process will run all tests automatically as well as the linter and will reject your commit if either do not pass. **YOU ARE NOT ALLOWED TO USE --no-verify!**
 
 You do not stop until the programming language is finished.
