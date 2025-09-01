@@ -89,7 +89,7 @@ Once you have read them:
 - Notice the first unchecked item - this will be your task.
 - Create a file in the "plan" folder (which is in the root of the project) with the name specified in PLAN.md for the task you are taking on.
 - Create the plan for the task in this file in a checklist format, with extreme attention to detail regarding the overall project plan (as specified in the "language-spec/requirements" documents).
-- Start writing tests (for test-driven development, red-green refactor).
+- Start writing tests (for test-driven development, red-green refactor). These should include edge-cases as well.
 - Fix any linting errors.
 - Once the tests are written, implement the functionality.
 - Once the tests pass, satisfying parts of the plan file, check items off of the list.
