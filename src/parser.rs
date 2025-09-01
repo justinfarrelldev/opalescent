@@ -3,7 +3,10 @@
 //! This module implements a recursive descent parser that converts tokens
 //! into an Abstract Syntax Tree (AST).
 
-#![expect(dead_code, reason = "Parser features are being developed incrementally")]
+#![expect(
+    dead_code,
+    reason = "Parser features are being developed incrementally"
+)]
 
 use crate::ast::*;
 use crate::error::LexError;
@@ -872,12 +875,12 @@ impl Parser {
         // Parse infix expressions
         while !self.is_at_end() {
             let token_precedence = Precedence::from_token(&self.current_token().token_type);
-            
+
             // Break if the current token has lower precedence or is not an infix operator
             if precedence > token_precedence || token_precedence == Precedence::None {
                 break;
             }
-            
+
             expr = self.parse_infix(expr)?;
         }
 
@@ -1344,7 +1347,7 @@ mod tests {
             unreachable!("Expected break statement, got {break_stmt:?}");
         }
 
-        // Test continue statement  
+        // Test continue statement
         let continue_stmt = parse_statement_from_string("continue").unwrap();
         if let Stmt::Continue { .. } = continue_stmt {
             // Good, continue statement
@@ -1356,18 +1359,25 @@ mod tests {
     #[test]
     fn test_for_statements() {
         // Test simple for loop
-        let simple_for = parse_statement_from_string("for item in collection { print(item) }").unwrap();
-        if let Stmt::For { variable, iterable, body, .. } = simple_for {
+        let simple_for =
+            parse_statement_from_string("for item in collection { print(item) }").unwrap();
+        if let Stmt::For {
+            variable,
+            iterable,
+            body,
+            ..
+        } = simple_for
+        {
             // Check variable
             assert_eq!(variable, "item");
-            
+
             // Check iterable
             if let Expr::Identifier { name, .. } = iterable {
                 assert_eq!(name, "collection");
             } else {
                 unreachable!("Expected identifier in for iterable");
             }
-            
+
             // Check body
             if let Stmt::Block { .. } = *body {
                 // Good, block statement
@@ -1384,13 +1394,13 @@ mod tests {
         let array_for = parse_statement_from_string("for i in [1, 2, 3] { sum = sum + i }").unwrap();
         if let Stmt::For { variable, iterable, body, .. } = array_for {
             assert_eq!(variable, "i");
-            
+
             if let Expr::Array { .. } = iterable {
                 // Good, array literal
             } else {
                 unreachable!("Expected array in for iterable");
             }
-            
+
             if let Stmt::Block { .. } = *body {
                 // Good, block statement
             } else {
@@ -1406,14 +1416,17 @@ mod tests {
     fn test_while_statements() {
         // Test simple while loop
         let simple_while = parse_statement_from_string("while x < 10 { x = x + 1 }").unwrap();
-        if let Stmt::While { condition, body, .. } = simple_while {
+        if let Stmt::While {
+            condition, body, ..
+        } = simple_while
+        {
             // Check condition
             if let Expr::Binary { .. } = condition {
                 // Good, binary comparison
             } else {
                 unreachable!("Expected binary expression in while condition");
             }
-            
+
             // Check body
             if let Stmt::Block { .. } = *body {
                 // Good, block statement
@@ -1426,13 +1439,16 @@ mod tests {
 
         // Test while with boolean variable
         let bool_while = parse_statement_from_string("while running { update() }").unwrap();
-        if let Stmt::While { condition, body, .. } = bool_while {
+        if let Stmt::While {
+            condition, body, ..
+        } = bool_while
+        {
             if let Expr::Identifier { name, .. } = condition {
                 assert_eq!(name, "running");
             } else {
                 unreachable!("Expected identifier in while condition");
             }
-            
+
             if let Stmt::Block { .. } = *body {
                 // Good, block statement
             } else {
@@ -1447,21 +1463,27 @@ mod tests {
     fn test_if_statements() {
         // Test simple if statement
         let simple_if = parse_statement_from_string("if x < 5 { return true }").unwrap();
-        if let Stmt::If { condition, then_branch, else_branch, .. } = simple_if {
+        if let Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+            ..
+        } = simple_if
+        {
             // Check condition
             if let Expr::Binary { .. } = condition {
                 // Good, binary comparison
             } else {
                 unreachable!("Expected binary expression in if condition");
             }
-            
+
             // Check then branch
             if let Stmt::Block { .. } = *then_branch {
                 // Good, block statement
             } else {
                 unreachable!("Expected block statement in then branch");
             }
-            
+
             // Check no else branch
             assert!(else_branch.is_none());
         } else {
@@ -1470,21 +1492,27 @@ mod tests {
 
         // Test if-else statement
         let if_else = parse_statement_from_string("if x { y = 1 } else { y = 2 }").unwrap();
-        if let Stmt::If { condition, then_branch, else_branch, .. } = if_else {
+        if let Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+            ..
+        } = if_else
+        {
             // Check condition
             if let Expr::Identifier { name, .. } = condition {
                 assert_eq!(name, "x");
             } else {
                 unreachable!("Expected identifier in if condition");
             }
-            
+
             // Check then branch
             if let Stmt::Block { .. } = *then_branch {
                 // Good, block statement
             } else {
                 unreachable!("Expected block statement in then branch");
             }
-            
+
             // Check else branch exists
             assert!(else_branch.is_some());
             if let Some(else_stmt) = else_branch {
@@ -1507,7 +1535,7 @@ mod tests {
         let (tokens, _) = lexer.tokenize();
         let mut parser = Parser::new(tokens);
         let simple_expr = parser.parse_statement().unwrap();
-        
+
         if let Stmt::Assignment { target, value, .. } = simple_expr {
             if let Expr::Identifier { name, .. } = target {
                 assert_eq!(name, "x");
