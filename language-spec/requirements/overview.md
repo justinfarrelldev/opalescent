@@ -50,3 +50,7 @@ Cast syntax: (expr as T)
 # Compiler Output
 
 Use miette for formatting of the output.
+
+# Whitespace
+
+Mixed whitespace is not allowed. Only either spaces or tabs are allowed in a project, and all files must match. This will eventually be enforced with a formatter.
