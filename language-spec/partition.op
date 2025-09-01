@@ -1,0 +1,9 @@
+##
+  Description: partition: split into (trues, falses) without mutating.
+##
+let partition = f<T>(xs: T[], pred: f(T): boolean): Pair<T[]> =>
+    let mutable left: T[] = []
+    let mutable right: T[] = []
+    for x in xs:
+        if pred(x): left.push(x) else: right.push(x)
+    return Pair<T[]>{ first: left, second: right }

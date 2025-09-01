@@ -1,0 +1,20 @@
+
+# All public functions (of which "entry" falls under) need to have doc
+# comments that are more than 30 chars long or it fails to compile
+
+# entry keyword implies public, impure and untested. Can only have one
+# "entry" keyword used in the entire app - it specifies the app's
+# entry point
+
+# The double-hashtag are for multi-line comments
+##
+  Description: starting point of the application
+##
+entry main = f(args: string[]): void =>
+	# No type, since it is obvious from the start (but immutable)
+	let world = 'world'
+
+	print('Hello {world}') # Prints "Hello world"
+
+	# return void is necessary (specifically) due to no semicolons
+	return void

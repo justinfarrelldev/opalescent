@@ -1,0 +1,23 @@
+##
+  Description: unique_adjacent on a sorted array (pure). Removes adjacent items that are the same.
+
+  Example:
+  ```
+	let nums = [1, 1, 2, 2, 2, 3, 5, 5, 7]
+	
+	# Here is the result after this function is ran on it:
+	[1, 2, 3, 5, 7]
+  ```
+##
+let unique_adjacent_sorted = f<T>(xs: T[], cmp: f(T, T): int32): T[] =>
+    if length(xs) is 0: return xs
+    let mutable out: T[] = []
+    out.push(xs[0])
+    let mutable i = 1
+    while i < length(xs):
+        if cmp(xs[i], xs[i - 1]) is 0:
+            i = i + 1
+            continue
+        out.push(xs[i])
+        i = i + 1
+    return out

@@ -1,0 +1,66 @@
+##
+Usage: 
+
+```
+# build once with a mutable local, then treat as readonly everywhere
+let mutable tmp: int32[] = []
+tmp.push(5); tmp.push(2); tmp.push(9); tmp.push(9); tmp.push(1)
+let nums: int32[] = tmp  # nums is readonly by convention / type
+
+# map
+let squares = map<int32, int32>(nums, f(n: int32): int32 => n * n)
+
+# filter
+let evens = filter<int32>(nums, f(n: int32): boolean => (n % 2) is 0)
+
+# reduce (sum)
+let sum = reduce<int32, int32>(nums, 0, f(acc: int32, n: int32): int32 => acc + n)
+
+# slice
+let mid = slice<int32>(nums, 1, 4)  # [2, 9, 9]
+```
+##
+
+##
+  Description: map over a readonly array (pure). Returns a new array.
+##
+let map = f<T, U>(xs: T[], fn: f(T): U): U[] =>
+    let mutable out: U[] = []
+    for x in xs:
+        out.push(fn(x))
+    return out
+
+
+##
+  Description: filter a readonly array (pure). Returns a new array.
+##
+let filter = f<T>(xs: T[], pred: f(T): boolean): T[] =>
+    let mutable out: T[] = []
+    for x in xs:
+        if pred(x):
+            out.push(x)
+    return out
+
+
+##
+  Description: reduce a readonly array to a value (pure).
+##
+let reduce = f<T, U>(xs: T[], init: U, step: f(U, T): U): U =>
+    let mutable acc = init
+    for x in xs:
+        acc = step(acc, x)
+    return acc
+
+
+##
+  Description: non-mutating slice [start, end) (pure).
+##
+let slice = f<T>(xs: T[], start: int32, end_exclusive: int32): T[] =>
+    let mutable out: T[] = []
+    let mutable i = start
+    while i < end_exclusive:
+        out.push(xs[i])
+        i = i + 1
+    return out
+
+

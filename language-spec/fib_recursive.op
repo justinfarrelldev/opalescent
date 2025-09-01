@@ -1,0 +1,21 @@
+##
+  Description: Recursive implementation of fibonacci
+  Returns the nth fibonacci number, where fib(0) = 0 and fib(1) = 1
+##
+let fib_recursive = f(n: int32): int32 =>
+    if n is 0:
+        return 0
+    if n is 1:
+        return 1
+    return fib_recursive(n - 1) + fib_recursive(n - 2)
+
+
+##
+  Description: starting point of the application
+##
+entry main = f(args: string[]): void =>
+    let n = 10
+    let result = fib_recursive(n)
+    print('fib({n}) = {result}')
+
+    return void

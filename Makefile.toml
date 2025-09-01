@@ -1,0 +1,332 @@
+[tasks.install-deps-debian]
+description = "Install build dependencies on Debian/Ubuntu"
+command = "sudo"
+args = [
+    "apt-get",
+    "update",
+    "&&",
+    "sudo",
+    "apt-get",
+    "install",
+    "-y",
+    "gcc-multilib",
+    "g++-multilib",
+]
+condition = { platforms = ["linux"], files_exist = ["/etc/debian_version"] }
+
+[tasks.install-deps-arch]
+description = "Install build dependencies on Arch Linux"
+command = "sudo"
+args = ["pacman", "-S", "--needed", "multilib-devel"]
+condition = { platforms = ["linux"], files_exist = ["/etc/arch-release"] }
+
+[tasks.add-targets]
+description = "Add required compilation targets"
+script = [
+    "rustup target add i686-pc-windows-msvc",
+    "rustup target add x86_64-pc-windows-msvc",
+    "rustup target add i686-unknown-linux-gnu",
+    "rustup target add x86_64-unknown-linux-gnu",
+]
+
+[tasks.build-x86-windows]
+description = "Build for Windows x86"
+command = "cargo"
+args = ["build", "--target", "i686-pc-windows-msvc", "--release"]
+condition = { platforms = ["windows"] }
+
+[tasks.build-x64-windows]
+description = "Build for Windows x64"
+command = "cargo"
+args = ["build", "--target", "x86_64-pc-windows-msvc", "--release"]
+condition = { platforms = ["windows"] }
+
+[tasks.build-x86-linux]
+description = "Build for Linux x86"
+command = "cargo"
+args = ["build", "--target", "i686-unknown-linux-gnu", "--release"]
+condition = { platforms = ["linux"] }
+
+[tasks.build-x64-linux]
+description = "Build for Linux x64"
+command = "cargo"
+args = ["build", "--target", "x86_64-unknown-linux-gnu", "--release"]
+condition = { platforms = ["linux"] }
+
+[tasks.build-all-windows]
+description = "Build all Windows targets"
+dependencies = ["build-x86-windows", "build-x64-windows"]
+condition = { platforms = ["windows"] }
+
+[tasks.build-all-linux]
+description = "Build all Linux targets"
+dependencies = ["build-x86-linux", "build-x64-linux"]
+condition = { platforms = ["linux"] }
+
+[tasks.build-all]
+description = "Build all targets for current platform"
+dependencies = ["build-all-windows", "build-all-linux"]
+
+[tasks.build-cross-all]
+description = "Build all targets for all platforms (requires cross-compilation setup)"
+script = [
+    "cargo build --target i686-pc-windows-msvc --release",
+    "cargo build --target x86_64-pc-windows-msvc --release",
+    "cargo build --target i686-unknown-linux-gnu --release",
+    "cargo build --target x86_64-unknown-linux-gnu --release",
+]
+
+[tasks.test]
+description = "Run the test suite"
+command = "cargo"
+args = ["test"]
+
+[tasks.test-verbose]
+description = "Run the test suite with verbose output"
+command = "cargo"
+args = ["test", "--", "--nocapture"]
+
+[tasks.test-release]
+description = "Run the test suite in release mode"
+command = "cargo"
+args = ["test", "--release"]
+
+[tasks.coverage-check]
+description = "Check test coverage and fail if below 80%"
+command = "cargo"
+args = ["tarpaulin", "--out", "Stdout", "--fail-under", "80"]
+install_crate = "cargo-tarpaulin"
+
+[tasks.coverage-html]
+description = "Generate HTML coverage report"
+command = "cargo"
+args = ["tarpaulin", "--out", "Html", "--output-dir", "coverage"]
+install_crate = "cargo-tarpaulin"
+
+[tasks.bench]
+description = "Run benchmarks"
+command = "cargo"
+args = ["bench"]
+
+[tasks.clean]
+description = "Clean build artifacts"
+command = "cargo"
+args = ["clean"]
+
+[tasks.lint]
+description = "Run clippy linting on the whole project"
+command = "cargo"
+args = [
+    "clippy",
+    "--all-targets",
+    "--all-features",
+    "--",
+    "-D",
+    "warnings",
+    "-D",
+    "clippy::all",
+    "-D",
+    "clippy::pedantic",
+    "-D",
+    "clippy::nursery",
+    "-A",
+    "clippy::cargo",
+    "-D",
+    "clippy::undocumented_unsafe_blocks",
+    "-A",
+    "clippy::multiple_unsafe_ops_per_block",
+    "-D",
+    "clippy::missing_docs_in_private_items",
+    "-D",
+    "clippy::missing_safety_doc",
+    "-D",
+    "clippy::panic",
+    "-D",
+    "clippy::todo",
+    "-D",
+    "clippy::unimplemented",
+    "-D",
+    "clippy::unreachable",
+    "-A",
+    "clippy::indexing_slicing",
+    "-D",
+    "clippy::arithmetic_side_effects",
+    "-D",
+    "clippy::integer_division",
+    "-D",
+    "clippy::lossy_float_literal",
+    "-D",
+    "clippy::dbg_macro",
+    "-D",
+    "clippy::empty_drop",
+    "-D",
+    "clippy::exit",
+    "-D",
+    "clippy::filetype_is_file",
+    "-D",
+    "clippy::float_cmp_const",
+    "-D",
+    "clippy::get_unwrap",
+    "-D",
+    "clippy::shadow_unrelated",
+    "-D",
+    "clippy::string_slice",
+    "-D",
+    "clippy::try_err",
+    "-D",
+    "clippy::clone_on_ref_ptr",
+    "-D",
+    "clippy::create_dir",
+    "-D",
+    "clippy::decimal_literal_representation",
+    "-D",
+    "clippy::deref_by_slicing",
+    "-D",
+    "clippy::float_arithmetic",
+    "-D",
+    "clippy::if_then_some_else_none",
+    "-D",
+    "clippy::let_underscore_must_use",
+    "-D",
+    "clippy::map_err_ignore",
+    "-D",
+    "clippy::mem_forget",
+    "-D",
+    "clippy::missing_assert_message",
+    "-D",
+    "clippy::mod_module_files",
+    "-D",
+    "clippy::partial_pub_fields",
+    "-D",
+    "clippy::pub_use",
+    "-D",
+    "clippy::rc_buffer",
+    "-D",
+    "clippy::rc_mutex",
+    "-D",
+    "clippy::ref_patterns",
+    "-D",
+    "clippy::rest_pat_in_fully_bound_structs",
+    "-D",
+    "clippy::same_name_method",
+    "-D",
+    "clippy::self_named_module_files",
+    "-D",
+    "clippy::single_char_lifetime_names",
+    "-D",
+    "clippy::str_to_string",
+    "-D",
+    "clippy::string_add",
+    "-D",
+    "clippy::string_to_string",
+    "-D",
+    "clippy::suspicious_xor_used_as_pow",
+    "-D",
+    "clippy::tests_outside_test_module",
+    "-D",
+    "clippy::unseparated_literal_suffix",
+    "-D",
+    "clippy::use_debug",
+    "-D",
+    "clippy::verbose_file_reads",
+    "-A",
+    "clippy::absolute_paths",
+    "-D",
+    "clippy::allow_attributes",
+    "-D",
+    "clippy::allow_attributes_without_reason",
+    "-D",
+    "clippy::as_conversions",
+    "-A",
+    "clippy::assertions_on_result_states",
+    "-D",
+    "clippy::big_endian_bytes",
+    "-D",
+    "clippy::default_numeric_fallback",
+    "-D",
+    "clippy::empty_enum_variants_with_brackets",
+    "-D",
+    "clippy::empty_structs_with_brackets",
+    "-D",
+    "clippy::error_impl_error",
+    "-A",
+    "clippy::exhaustive_enums",
+    "-A",
+    "clippy::exhaustive_structs",
+    "-D",
+    "clippy::fn_to_numeric_cast_any",
+    "-D",
+    "clippy::format_push_string",
+    "-D",
+    "clippy::host_endian_bytes",
+    "-D",
+    "clippy::infinite_loop",
+    "-D",
+    "clippy::large_include_file",
+    "-D",
+    "clippy::let_underscore_untyped",
+    "-D",
+    "clippy::little_endian_bytes",
+    "-D",
+    "clippy::macro_use_imports",
+    "-A",
+    "clippy::min_ident_chars",
+    "-A",
+    "clippy::missing_trait_methods",
+    "-D",
+    "clippy::mixed_read_write_in_expression",
+    "-D",
+    "clippy::multiple_inherent_impl",
+    "-D",
+    "clippy::mutex_atomic",
+    "-D",
+    "clippy::needless_raw_strings",
+    "-D",
+    "clippy::panic_in_result_fn",
+    "-D",
+    "clippy::pattern_type_mismatch",
+    "-D",
+    "clippy::print_literal",
+    "-D",
+    "clippy::redundant_type_annotations",
+    "-D",
+    "clippy::renamed_function_params",
+    "-D",
+    "clippy::semicolon_inside_block",
+    "-A",
+    "clippy::semicolon_outside_block",
+    "-D",
+    "clippy::std_instead_of_alloc",
+    "-A",
+    "clippy::std_instead_of_core",
+    "-D",
+    "clippy::tuple_array_conversions",
+    "-D",
+    "clippy::unneeded_field_pattern",
+    "-D",
+    "clippy::unwrap_in_result",
+]
+
+[tasks.lint-fix]
+description = "Run clippy with automatic fixes on the whole project"
+command = "cargo"
+args = [
+    "clippy",
+    "--all-targets",
+    "--all-features",
+    "--fix",
+    "--allow-dirty",
+    "--",
+    "-D",
+    "warnings",
+]
+
+[tasks.setup]
+description = "Setup development environment"
+dependencies = ["add-targets"]
+
+[tasks.dev]
+description = "Run the application with RUST_LOG=info"
+command = "cargo"
+args = ["run"]
+env = { RUST_LOG = "info" }

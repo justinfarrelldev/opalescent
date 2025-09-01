@@ -1,0 +1,100 @@
+# Types must be defined in their own file ending in .types.(ending for the language)
+
+
+# The documentation comment is necessary for every type
+##
+	Description: A simple message type
+##
+type Message:
+    Text:
+        sender: string
+        body: string
+    Join:
+        user: string
+    Leave:
+        user: string
+    Error:
+        code: int32
+        description: string
+
+##
+	Description: represents a person with a name and age
+##
+type Person:
+    name: string
+    age: int32
+
+##
+	Description: returns T when Ok and E when Error. A generic ADT
+##
+type Result<T, E>:
+    Ok:
+        value: T
+    Error:
+        error: E
+
+
+##
+	Description: An enum implementation
+##
+type Direction:
+    North
+    East
+    South
+    West
+
+##
+	Description: Expressions example for AST
+##
+type Expr:
+    Lit:
+        value: int32
+    Add:
+        left: Expr
+        right: Expr
+    Neg:
+        inner: Expr
+
+
+
+##
+	Description: File system entity
+##
+type FileSystemNode:
+    File:
+        name: string
+        size: int64
+    Directory:
+        name: string
+        children: FileSystemNode[]
+    Symlink        # no payload
+
+##
+	Description: A generic pair record
+##
+type Pair<T>:
+    first: T
+    second: T
+
+##
+	Description: Tree type with generic
+##
+type Tree<T>:
+    Node:
+        value: T
+        children: Tree<T>[]
+    Leaf
+
+
+## 
+	Usage of generics: 
+
+# map: carry the callee’s effects (Err is inferred; no need to name it at call sites)
+let map = f<A, B, Err>(items: A[], mapper: f(A): B errors Err): B[] errors Err =>
+    let mutable out: B[] = []
+    for x in items:
+        let y = propagate mapper(x)
+        out.push(y)
+    return out
+
+##
