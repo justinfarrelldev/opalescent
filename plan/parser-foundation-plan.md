@@ -28,7 +28,7 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 ### ✅ Statement AST Nodes
 - [x] Let bindings (immutable variables)
 - [x] Mutable variable declarations
-- [ ] Assignment statements
+- [x] Assignment statements
 - [x] Return statements
 - [x] Expression statements
 - [x] Block statements
@@ -39,10 +39,11 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 - [ ] Import declarations
 - [x] Public/entry declarations
 
-### ☐ Control Flow AST Nodes
-- [ ] If expressions/statements
-- [ ] For loop statements
-- [ ] While loop statements
+### ✅ Control Flow AST Nodes
+- [x] If expressions/statements
+- [x] For loop statements
+- [x] While loop statements
+- [ ] Loop statement (seen in language-spec/requirements/simple_quiz.op)
 - [ ] Break/continue statements
 
 ### ☐ Type AST Nodes

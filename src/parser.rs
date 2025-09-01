@@ -132,7 +132,7 @@ pub enum Precedence {
 impl Precedence {
     pub fn from_token(token_type: &TokenType) -> Self {
         match token_type {
-            TokenType::Assign => Precedence::Assignment,
+            // Remove assignment from expression precedence since it's a statement
             TokenType::Or => Precedence::Or,
             TokenType::Xor => Precedence::Xor,
             TokenType::And => Precedence::And,
@@ -561,6 +561,9 @@ impl Parser {
             TokenType::Let => self.parse_let_statement(),
             TokenType::Return => self.parse_return_statement(),
             TokenType::LeftBrace => self.parse_block_statement(),
+            TokenType::If => self.parse_if_statement(),
+            TokenType::For => self.parse_for_statement(),
+            TokenType::While => self.parse_while_statement(),
             _ => self.parse_expression_statement(),
         }
     }
@@ -689,16 +692,147 @@ impl Parser {
         })
     }
 
-    /// Parse an expression statement
-    fn parse_expression_statement(&mut self) -> ParseResult<Stmt> {
-        let expr = self.parse_expression()?;
-        let span = expr.span();
+    /// Parse an if statement
+    fn parse_if_statement(&mut self) -> ParseResult<Stmt> {
+        let start_span = self.current_token().span;
+        self.advance(); // consume 'if'
 
-        Ok(Stmt::Expression {
-            expr,
+        // Parse condition
+        let condition = self.parse_expression()?;
+
+        // Parse then branch (must be a block)
+        let then_branch = Box::new(self.parse_block_statement()?);
+
+        // Parse optional else branch
+        let else_branch = if self.check(&TokenType::Else) {
+            self.advance(); // consume 'else'
+            Some(Box::new(self.parse_statement()?))
+        } else {
+            None
+        };
+
+        let end_span = if let Some(ref else_stmt) = else_branch {
+            else_stmt.span()
+        } else {
+            then_branch.span()
+        };
+
+        let span = Span::new(start_span.start, end_span.end);
+
+        Ok(Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
             span,
             id: next_node_id(),
         })
+    }
+
+    /// Parse a for statement
+    fn parse_for_statement(&mut self) -> ParseResult<Stmt> {
+        let start_span = self.current_token().span;
+        self.advance(); // consume 'for'
+
+        // Parse variable name
+        let variable = if self.check_identifier() {
+            let token = self.advance();
+            if let TokenType::Identifier(name) = &token.token_type {
+                name.clone()
+            } else {
+                unreachable!("check_identifier should guarantee this")
+            }
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                expected: "variable name".to_string(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        };
+
+        // Parse 'in' keyword
+        self.consume(&TokenType::In, "Expected 'in' after for variable")?;
+
+        // Parse iterable expression
+        let iterable = self.parse_expression()?;
+
+        // Parse body (must be a block)
+        let body = Box::new(self.parse_block_statement()?);
+
+        let end_span = body.span();
+        let span = Span::new(start_span.start, end_span.end);
+
+        Ok(Stmt::For {
+            variable,
+            iterable,
+            body,
+            span,
+            id: next_node_id(),
+        })
+    }
+
+    /// Parse a while statement
+    fn parse_while_statement(&mut self) -> ParseResult<Stmt> {
+        let start_span = self.current_token().span;
+        self.advance(); // consume 'while'
+
+        // Parse condition
+        let condition = self.parse_expression()?;
+
+        // Parse body (must be a block)
+        let body = Box::new(self.parse_block_statement()?);
+
+        let end_span = body.span();
+        let span = Span::new(start_span.start, end_span.end);
+
+        Ok(Stmt::While {
+            condition,
+            body,
+            span,
+            id: next_node_id(),
+        })
+    }
+
+    /// Parse an expression statement or assignment statement
+    fn parse_expression_statement(&mut self) -> ParseResult<Stmt> {
+        let expr = self.parse_expression()?;
+
+        // Check if this is an assignment
+        if self.check(&TokenType::Assign) {
+            let start_span = expr.span();
+            self.advance(); // consume '='
+
+            let value = self.parse_expression()?;
+            let end_span = value.span();
+            let span = Span::new(start_span.start, end_span.end);
+
+            // Validate that the target is assignable
+            match &expr {
+                Expr::Identifier { .. } | Expr::Index { .. } | Expr::Member { .. } => {
+                    // Valid assignment targets
+                }
+                _ => {
+                    return Err(ParseError::InvalidSyntax {
+                        message: "Invalid assignment target".to_string(),
+                        span: LexError::span_from_span(start_span),
+                    });
+                }
+            }
+
+            Ok(Stmt::Assignment {
+                target: expr,
+                value,
+                span,
+                id: next_node_id(),
+            })
+        } else {
+            // Regular expression statement
+            let span = expr.span();
+            Ok(Stmt::Expression {
+                expr,
+                span,
+                id: next_node_id(),
+            })
+        }
     }
 
     /// Parse an expression using Pratt parsing
@@ -714,9 +848,12 @@ impl Parser {
         // Parse infix expressions
         while !self.is_at_end() {
             let token_precedence = Precedence::from_token(&self.current_token().token_type);
-            if precedence > token_precedence {
+            
+            // Break if the current token has lower precedence or is not an infix operator
+            if precedence > token_precedence || token_precedence == Precedence::None {
                 break;
             }
+            
             expr = self.parse_infix(expr)?;
         }
 
@@ -1036,6 +1173,13 @@ mod tests {
         parser.parse_expression()
     }
 
+    fn parse_statement_from_string(input: &str) -> ParseResult<Stmt> {
+        let lexer = Lexer::new(input);
+        let (tokens, _) = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        parser.parse_statement()
+    }
+
     #[test]
     fn test_literal_expressions() {
         let integer_expr = parse_expression_from_string("42").unwrap();
@@ -1164,6 +1308,227 @@ mod tests {
         } else {
             unreachable!("Expected addition with multiplication on right side");
         }
+    }
+
+    #[test]
+    fn test_for_statements() {
+        // Test simple for loop
+        let simple_for = parse_statement_from_string("for item in collection { print(item) }").unwrap();
+        if let Stmt::For { variable, iterable, body, .. } = simple_for {
+            // Check variable
+            assert_eq!(variable, "item");
+            
+            // Check iterable
+            if let Expr::Identifier { name, .. } = iterable {
+                assert_eq!(name, "collection");
+            } else {
+                unreachable!("Expected identifier in for iterable");
+            }
+            
+            // Check body
+            if let Stmt::Block { .. } = *body {
+                // Good, block statement
+            } else {
+                unreachable!("Expected block statement in for body");
+            }
+        } else {
+            unreachable!("Expected for statement, got {simple_for:?}");
+        }
+
+        // TODO: Add test for array literal when array expressions are implemented
+        /*
+        // Test for loop with array literal
+        let array_for = parse_statement_from_string("for i in [1, 2, 3] { sum = sum + i }").unwrap();
+        if let Stmt::For { variable, iterable, body, .. } = array_for {
+            assert_eq!(variable, "i");
+            
+            if let Expr::Array { .. } = iterable {
+                // Good, array literal
+            } else {
+                unreachable!("Expected array in for iterable");
+            }
+            
+            if let Stmt::Block { .. } = *body {
+                // Good, block statement
+            } else {
+                unreachable!("Expected block statement in for body");
+            }
+        } else {
+            unreachable!("Expected for statement");
+        }
+        */
+    }
+
+    #[test]
+    fn test_while_statements() {
+        // Test simple while loop
+        let simple_while = parse_statement_from_string("while x < 10 { x = x + 1 }").unwrap();
+        if let Stmt::While { condition, body, .. } = simple_while {
+            // Check condition
+            if let Expr::Binary { .. } = condition {
+                // Good, binary comparison
+            } else {
+                unreachable!("Expected binary expression in while condition");
+            }
+            
+            // Check body
+            if let Stmt::Block { .. } = *body {
+                // Good, block statement
+            } else {
+                unreachable!("Expected block statement in while body");
+            }
+        } else {
+            unreachable!("Expected while statement, got {simple_while:?}");
+        }
+
+        // Test while with boolean variable
+        let bool_while = parse_statement_from_string("while running { update() }").unwrap();
+        if let Stmt::While { condition, body, .. } = bool_while {
+            if let Expr::Identifier { name, .. } = condition {
+                assert_eq!(name, "running");
+            } else {
+                unreachable!("Expected identifier in while condition");
+            }
+            
+            if let Stmt::Block { .. } = *body {
+                // Good, block statement
+            } else {
+                unreachable!("Expected block statement in while body");
+            }
+        } else {
+            unreachable!("Expected while statement");
+        }
+    }
+
+    #[test]
+    fn test_if_statements() {
+        // Test simple if statement
+        let simple_if = parse_statement_from_string("if x < 5 { return true }").unwrap();
+        if let Stmt::If { condition, then_branch, else_branch, .. } = simple_if {
+            // Check condition
+            if let Expr::Binary { .. } = condition {
+                // Good, binary comparison
+            } else {
+                unreachable!("Expected binary expression in if condition");
+            }
+            
+            // Check then branch
+            if let Stmt::Block { .. } = *then_branch {
+                // Good, block statement
+            } else {
+                unreachable!("Expected block statement in then branch");
+            }
+            
+            // Check no else branch
+            assert!(else_branch.is_none());
+        } else {
+            unreachable!("Expected if statement, got {simple_if:?}");
+        }
+
+        // Test if-else statement
+        let if_else = parse_statement_from_string("if x { y = 1 } else { y = 2 }").unwrap();
+        if let Stmt::If { condition, then_branch, else_branch, .. } = if_else {
+            // Check condition
+            if let Expr::Identifier { name, .. } = condition {
+                assert_eq!(name, "x");
+            } else {
+                unreachable!("Expected identifier in if condition");
+            }
+            
+            // Check then branch
+            if let Stmt::Block { .. } = *then_branch {
+                // Good, block statement
+            } else {
+                unreachable!("Expected block statement in then branch");
+            }
+            
+            // Check else branch exists
+            assert!(else_branch.is_some());
+            if let Some(else_stmt) = else_branch {
+                if let Stmt::Block { .. } = *else_stmt {
+                    // Good, block statement
+                } else {
+                    unreachable!("Expected block statement in else branch");
+                }
+            }
+        } else {
+            unreachable!("Expected if statement");
+        }
+    }
+
+    #[test]
+    fn test_assignment_statements() {
+        // Test simple assignment
+        let input = "x = 5";
+        let lexer = Lexer::new(input);
+        let (tokens, _) = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        let simple_expr = parser.parse_statement().unwrap();
+        
+        if let Stmt::Assignment { target, value, .. } = simple_expr {
+            if let Expr::Identifier { name, .. } = target {
+                assert_eq!(name, "x");
+            } else {
+                unreachable!("Expected identifier in assignment target, got {target:?}");
+            }
+            if let Expr::Literal {
+                value: LiteralValue::Integer(n),
+                ..
+            } = value
+            {
+                assert_eq!(n, 5);
+            } else {
+                unreachable!("Expected integer literal in assignment value, got {value:?}");
+            }
+        } else {
+            unreachable!("Expected assignment statement, got {simple_expr:?}");
+        }
+
+        // TODO: Add tests for array index and member access assignments
+        // when those expression types are fully implemented
+        /*
+        // Test assignment to array index
+        let array_assignment = parse_statement_from_string("arr[0] = 10").unwrap();
+        if let Stmt::Assignment { target, value, .. } = array_assignment {
+            if let Expr::Index { .. } = target {
+                // Correct target type
+            } else {
+                unreachable!("Expected index expression in assignment target");
+            }
+            if let Expr::Literal {
+                value: LiteralValue::Integer(n),
+                ..
+            } = value
+            {
+                assert_eq!(n, 10);
+            } else {
+                unreachable!("Expected integer literal in assignment value");
+            }
+        } else {
+            unreachable!("Expected assignment statement");
+        }
+
+        // Test assignment to member access
+        let member_assignment = parse_statement_from_string("obj.field = 'value'").unwrap();
+        if let Stmt::Assignment { target, value, .. } = member_assignment {
+            if let Expr::Member { .. } = target {
+                // Correct target type
+            } else {
+                unreachable!("Expected member expression in assignment target");
+            }
+            if let Expr::Literal {
+                value: LiteralValue::String(s),
+                ..
+            } = value
+            {
+                assert_eq!(s, "value");
+            } else {
+                unreachable!("Expected string literal in assignment value");
+            }
+        } else {
+            unreachable!("Expected assignment statement");
+        }
+        */
     }
 
     #[test]
