@@ -1,5 +1,5 @@
 //! Opalescent Programming Language Compiler
-//! 
+//!
 //! This is the main entry point for the Opalescent compiler.
 //! Currently supports lexical analysis and parsing.
 
@@ -54,9 +54,17 @@ fn main() {
                 println!("Program with {} declarations", program.declarations.len());
                 for (i, decl) in program.declarations.iter().enumerate() {
                     match decl {
-                        ast::Decl::Function { name, parameters, is_entry, .. } => {
+                        ast::Decl::Function {
+                            name,
+                            parameters,
+                            is_entry,
+                            ..
+                        } => {
                             let entry_str = if *is_entry { "entry " } else { "" };
-                            println!("  {i}: {entry_str}function {name} with {} parameters", parameters.len());
+                            println!(
+                                "  {i}: {entry_str}function {name} with {} parameters",
+                                parameters.len()
+                            );
                         }
                         _ => {
                             println!("  {i}: Other declaration");
