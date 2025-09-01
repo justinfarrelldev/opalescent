@@ -1,3 +1,10 @@
+//! Parser for the Opalescent programming language
+//!
+//! This module implements a recursive descent parser that converts tokens
+//! into an Abstract Syntax Tree (AST).
+
+#![expect(dead_code, reason = "Parser features are being developed incrementally")]
+
 use crate::ast::*;
 use crate::error::LexError;
 use crate::token::{Span, Token, TokenType};
@@ -434,7 +441,7 @@ impl Parser {
 
     /// Parse a type declaration (placeholder)
     fn parse_type_declaration(
-        &mut self,
+        &self,
         _visibility: Visibility,
         _doc_comment: Option<String>,
     ) -> ParseResult<Decl> {
@@ -446,7 +453,7 @@ impl Parser {
     }
 
     /// Parse an import declaration (placeholder)
-    fn parse_import_declaration(&mut self) -> ParseResult<Decl> {
+    fn parse_import_declaration(&self) -> ParseResult<Decl> {
         // TODO: Implement import declaration parsing
         Err(ParseError::InvalidSyntax {
             message: "Import declarations not yet implemented".to_string(),
@@ -1031,28 +1038,28 @@ mod tests {
 
     #[test]
     fn test_literal_expressions() {
-        let expr = parse_expression_from_string("42").unwrap();
+        let integer_expr = parse_expression_from_string("42").unwrap();
         assert!(matches!(
-            expr,
+            integer_expr,
             Expr::Literal {
                 value: LiteralValue::Integer(42),
                 ..
             }
         ));
 
-        let expr = parse_expression_from_string("3.14").unwrap();
+        let float_expr = parse_expression_from_string("3.14").unwrap();
         assert!(
-            matches!(expr, Expr::Literal { value: LiteralValue::Float(f), .. } if (f - 3.14).abs() < f64::EPSILON)
+            matches!(float_expr, Expr::Literal { value: LiteralValue::Float(f), .. } if (f - 3.14).abs() < f64::EPSILON)
         );
 
-        let expr = parse_expression_from_string("'hello'").unwrap();
+        let string_expr = parse_expression_from_string("'hello'").unwrap();
         assert!(
-            matches!(expr, Expr::Literal { value: LiteralValue::String(s), .. } if s == "hello")
+            matches!(string_expr, Expr::Literal { value: LiteralValue::String(s), .. } if s == "hello")
         );
 
-        let expr = parse_expression_from_string("true").unwrap();
+        let bool_expr = parse_expression_from_string("true").unwrap();
         assert!(matches!(
-            expr,
+            bool_expr,
             Expr::Literal {
                 value: LiteralValue::Boolean(true),
                 ..
@@ -1062,33 +1069,33 @@ mod tests {
 
     #[test]
     fn test_identifier_expressions() {
-        let expr = parse_expression_from_string("hello_world").unwrap();
-        assert!(matches!(expr, Expr::Identifier { name, .. } if name == "hello_world"));
+        let identifier_expr = parse_expression_from_string("hello_world").unwrap();
+        assert!(matches!(identifier_expr, Expr::Identifier { name, .. } if name == "hello_world"));
     }
 
     #[test]
     fn test_binary_expressions() {
-        let expr = parse_expression_from_string("1 + 2").unwrap();
+        let add_expr = parse_expression_from_string("1 + 2").unwrap();
         assert!(matches!(
-            expr,
+            add_expr,
             Expr::Binary {
                 operator: BinaryOp::Add,
                 ..
             }
         ));
 
-        let expr = parse_expression_from_string("x < y").unwrap();
+        let less_than_expr = parse_expression_from_string("x < y").unwrap();
         assert!(matches!(
-            expr,
+            less_than_expr,
             Expr::Binary {
                 operator: BinaryOp::Less,
                 ..
             }
         ));
 
-        let expr = parse_expression_from_string("a and b").unwrap();
+        let logical_and_expr = parse_expression_from_string("a and b").unwrap();
         assert!(matches!(
-            expr,
+            logical_and_expr,
             Expr::Binary {
                 operator: BinaryOp::And,
                 ..
@@ -1098,18 +1105,18 @@ mod tests {
 
     #[test]
     fn test_unary_expressions() {
-        let expr = parse_expression_from_string("-42").unwrap();
+        let negate_expr = parse_expression_from_string("-42").unwrap();
         assert!(matches!(
-            expr,
+            negate_expr,
             Expr::Unary {
                 operator: UnaryOp::Negate,
                 ..
             }
         ));
 
-        let expr = parse_expression_from_string("not true").unwrap();
+        let not_expr = parse_expression_from_string("not true").unwrap();
         assert!(matches!(
-            expr,
+            not_expr,
             Expr::Unary {
                 operator: UnaryOp::Not,
                 ..
@@ -1119,43 +1126,43 @@ mod tests {
 
     #[test]
     fn test_parenthesized_expressions() {
-        let expr = parse_expression_from_string("(1 + 2)").unwrap();
-        assert!(matches!(expr, Expr::Parenthesized { .. }));
+        let paren_expr = parse_expression_from_string("(1 + 2)").unwrap();
+        assert!(matches!(paren_expr, Expr::Parenthesized { .. }));
     }
 
     #[test]
     fn test_function_calls() {
-        let expr = parse_expression_from_string("print('hello')").unwrap();
-        assert!(matches!(expr, Expr::Call { .. }));
+        let call_expr = parse_expression_from_string("print('hello')").unwrap();
+        assert!(matches!(call_expr, Expr::Call { .. }));
     }
 
     #[test]
     fn test_operator_precedence() {
         // Test that multiplication has higher precedence than addition
-        let expr = parse_expression_from_string("1 + 2 * 3").unwrap();
+        let precedence_expr = parse_expression_from_string("1 + 2 * 3").unwrap();
         if let Expr::Binary {
             left,
             operator: BinaryOp::Add,
             right,
             ..
-        } = expr
+        } = precedence_expr
         {
             assert!(matches!(
-                left.as_ref(),
+                *left,
                 Expr::Literal {
                     value: LiteralValue::Integer(1),
                     ..
                 }
             ));
             assert!(matches!(
-                right.as_ref(),
+                *right,
                 Expr::Binary {
                     operator: BinaryOp::Multiply,
                     ..
                 }
             ));
         } else {
-            panic!("Expected addition with multiplication on right side");
+            unreachable!("Expected addition with multiplication on right side");
         }
     }
 
@@ -1179,15 +1186,15 @@ mod tests {
             return_type,
             is_entry,
             ..
-        } = &program.declarations[0]
+        } = program.declarations[0].clone()
         {
             assert_eq!(name, "main");
             assert_eq!(parameters.len(), 1);
             assert_eq!(parameters[0].name, "args");
             assert!(return_type.is_some());
-            assert!(*is_entry);
+            assert!(is_entry);
         } else {
-            panic!("Expected function declaration");
+            unreachable!("Expected function declaration");
         }
     }
 }

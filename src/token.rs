@@ -1,3 +1,10 @@
+//! Token definitions and utilities for the Opalescent programming language
+//!
+//! This module defines the token types, positions, and spans used by the lexer
+//! and parser.
+
+#![expect(dead_code, reason = "Token types are being developed incrementally")]
+
 use std::fmt;
 
 /// Represents a position in the source code

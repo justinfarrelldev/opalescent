@@ -1,3 +1,9 @@
+//! Abstract Syntax Tree (AST) definitions for the Opalescent language
+//! 
+//! This module contains all AST node types and related functionality.
+
+#![expect(dead_code, reason = "AST nodes are partially implemented during language development")]
+
 use crate::token::{Span, TokenType};
 use std::fmt;
 
@@ -7,7 +13,9 @@ pub struct NodeId(pub usize);
 
 /// Base trait for all AST nodes
 pub trait AstNode {
+    /// Returns the source span of this AST node
     fn span(&self) -> Span;
+    /// Returns the unique node ID of this AST node
     fn node_id(&self) -> NodeId;
 }
 

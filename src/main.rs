@@ -1,3 +1,8 @@
+//! Opalescent Programming Language Compiler
+//! 
+//! This is the main entry point for the Opalescent compiler.
+//! Currently supports lexical analysis and parsing.
+
 mod ast;
 mod error;
 mod lexer;
@@ -46,7 +51,18 @@ fn main() {
 
             if let Some(program) = program {
                 println!("\nParsed AST:");
-                println!("{program:#?}");
+                println!("Program with {} declarations", program.declarations.len());
+                for (i, decl) in program.declarations.iter().enumerate() {
+                    match decl {
+                        ast::Decl::Function { name, parameters, is_entry, .. } => {
+                            let entry_str = if *is_entry { "entry " } else { "" };
+                            println!("  {i}: {entry_str}function {name} with {} parameters", parameters.len());
+                        }
+                        _ => {
+                            println!("  {i}: Other declaration");
+                        }
+                    }
+                }
             } else {
                 println!("Failed to parse program");
             }

@@ -1,3 +1,7 @@
+//! Lexical analysis for the Opalescent programming language
+//!
+//! This module contains the lexer implementation that tokenizes Opalescent source code.
+
 use crate::error::{LexError, LexErrors};
 use crate::token::{Position, Span, Token, TokenType};
 use std::collections::HashMap;
@@ -5,9 +9,9 @@ use unicode_xid::UnicodeXID;
 
 /// The main lexer struct that tokenizes Opalescent source code
 #[derive(Debug)]
-pub struct Lexer<'a> {
-    input: &'a str,
-    chars: std::str::CharIndices<'a>,
+pub struct Lexer<'input> {
+    input: &'input str,
+    chars: std::str::CharIndices<'input>,
     current: Option<(usize, char)>,
     position: Position,
     errors: LexErrors,
@@ -21,9 +25,9 @@ enum WhitespaceType {
     Tabs,
 }
 
-impl<'a> Lexer<'a> {
+impl<'input> Lexer<'input> {
     /// Create a new lexer for the given input
-    pub fn new(input: &'a str) -> Self {
+    pub fn new(input: &'input str) -> Self {
         let mut chars = input.char_indices();
         let current = chars.next();
 
@@ -656,10 +660,10 @@ mod tests {
         assert!(errors.is_empty());
         assert_eq!(tokens.len(), 4); // 3 identifiers + EOF
 
-        if let TokenType::Identifier(name) = &tokens[0].token_type {
+        if let TokenType::Identifier(name) = tokens[0].token_type.clone() {
             assert_eq!(name, "hello_world");
         } else {
-            panic!("Expected identifier");
+            unreachable!("Expected identifier");
         }
     }
 
@@ -688,23 +692,23 @@ mod tests {
 
     #[test]
     fn test_string_literals() {
-        let input = r#"'hello' 'world with spaces' 'with\nescapes'"#;
+        let input = r"'hello' 'world with spaces' 'with\nescapes'";
         let lexer = Lexer::new(input);
         let (tokens, errors) = lexer.tokenize();
 
         assert!(errors.is_empty());
         assert_eq!(tokens.len(), 4); // 3 strings + EOF
 
-        if let TokenType::StringLiteral(s) = &tokens[0].token_type {
+        if let TokenType::StringLiteral(s) = tokens[0].token_type.clone() {
             assert_eq!(s, "hello");
         } else {
-            panic!("Expected string literal");
+            unreachable!("Expected string literal");
         }
 
-        if let TokenType::StringLiteral(s) = &tokens[2].token_type {
+        if let TokenType::StringLiteral(s) = tokens[2].token_type.clone() {
             assert_eq!(s, "with\nescapes");
         } else {
-            panic!("Expected string literal with escape");
+            unreachable!("Expected string literal with escape");
         }
     }
 
@@ -716,19 +720,21 @@ mod tests {
 
         if !errors.is_empty() {
             for error in &errors.errors {
-                println!("Error: {:?}", error);
+                println!("Error: {error}");
             }
         }
 
-        println!("Tokens: {:?}", tokens);
+        if !tokens.is_empty() {
+            println!("Found {} tokens", tokens.len());
+        }
 
         assert!(errors.is_empty());
         assert_eq!(tokens.len(), 2); // comment + EOF
 
-        if let TokenType::Comment(content) = &tokens[0].token_type {
+        if let TokenType::Comment(content) = tokens[0].token_type.clone() {
             assert_eq!(content, "hello world");
         } else {
-            panic!("Expected comment token");
+            unreachable!("Expected comment token");
         }
     }
 
@@ -740,11 +746,13 @@ mod tests {
 
         if !errors.is_empty() {
             for error in &errors.errors {
-                println!("Error: {:?}", error);
+                println!("Error: {error}");
             }
         }
 
-        println!("Tokens: {:?}", tokens);
+        if !tokens.is_empty() {
+            println!("Found {} tokens in test", tokens.len());
+        }
 
         assert!(errors.is_empty());
         // single comment + newline + multiline comment + EOF

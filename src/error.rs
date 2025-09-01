@@ -1,3 +1,10 @@
+//! Error types and utilities for the Opalescent compiler
+//!
+//! This module defines error types for lexical analysis and parsing,
+//! using the miette crate for rich error reporting.
+
+#![expect(dead_code, reason = "Error types are being developed incrementally")]
+
 use crate::token::{Position, Span};
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
