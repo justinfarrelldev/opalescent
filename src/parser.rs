@@ -217,7 +217,7 @@ pub struct Parser {
 
 impl Parser {
     /// Create a new parser with the given tokens
-    pub fn new(tokens: Vec<Token>) -> Self {
+    pub const fn new(tokens: Vec<Token>) -> Self {
         Self {
             tokens,
             current: 0,
@@ -297,7 +297,7 @@ impl Parser {
 
         // For entry and public functions, expect identifier next
         // For regular functions, expect 'f' keyword
-        match self.current_token().token_type {
+        match &self.current_token().token_type {
             TokenType::Function => {
                 self.parse_function_declaration(visibility, is_entry, doc_comment)
             }
@@ -549,7 +549,7 @@ impl Parser {
     fn parse_statement(&mut self) -> ParseResult<Stmt> {
         self.skip_newlines_and_comments();
 
-        match self.current_token().token_type {
+        match &self.current_token().token_type {
             TokenType::Let => self.parse_let_statement(),
             TokenType::Return => self.parse_return_statement(),
             TokenType::LeftBrace => self.parse_block_statement(),
@@ -982,7 +982,7 @@ impl Parser {
             }
             TokenType::Minus | TokenType::Plus | TokenType::Not | TokenType::BitNot => {
                 let operator = UnaryOp::try_from(token.token_type.clone())
-                    .map_err(|_| ParseError::InvalidSyntax {
+                    .map_err(|_original_error| ParseError::InvalidSyntax {
                         message: format!("Invalid unary operator: {}", token.token_type),
                         span: ParseError::span_from_token(token),
                     })?;
@@ -1012,29 +1012,29 @@ impl Parser {
         let token = self.current_token();
 
         match &token.token_type {
-            &TokenType::Plus
-            | &TokenType::Minus
-            | &TokenType::Multiply
-            | &TokenType::Divide
-            | &TokenType::Modulo
-            | &TokenType::Power
-            | &TokenType::Less
-            | &TokenType::LessEqual
-            | &TokenType::Greater
-            | &TokenType::GreaterEqual
-            | &TokenType::Is
-            | &TokenType::IsNot
-            | &TokenType::And
-            | &TokenType::Or
-            | &TokenType::Xor
-            | &TokenType::BitAnd
-            | &TokenType::BitOr
-            | &TokenType::BitXor
-            | &TokenType::BitShiftLeft
-            | &TokenType::BitShiftRight
-            | &TokenType::BitUnsignedShiftRight => {
+            TokenType::Plus
+            | TokenType::Minus
+            | TokenType::Multiply
+            | TokenType::Divide
+            | TokenType::Modulo
+            | TokenType::Power
+            | TokenType::Less
+            | TokenType::LessEqual
+            | TokenType::Greater
+            | TokenType::GreaterEqual
+            | TokenType::Is
+            | TokenType::IsNot
+            | TokenType::And
+            | TokenType::Or
+            | TokenType::Xor
+            | TokenType::BitAnd
+            | TokenType::BitOr
+            | TokenType::BitXor
+            | TokenType::BitShiftLeft
+            | TokenType::BitShiftRight
+            | TokenType::BitUnsignedShiftRight => {
                 let operator = BinaryOp::try_from(token.token_type.clone())
-                    .map_err(|_| ParseError::InvalidSyntax {
+                    .map_err(|_original_error| ParseError::InvalidSyntax {
                         message: format!("Invalid binary operator: {}", token.token_type),
                         span: ParseError::span_from_token(token),
                     })?;
@@ -1248,12 +1248,12 @@ mod tests {
 
         let float_expr = parse_expression_from_string("3.14").unwrap();
         assert!(
-            matches!(float_expr, Expr::Literal { value: LiteralValue::Float(f), .. } if (f - TEST_VALUE).abs() < f64::EPSILON)
+            matches!(&float_expr, Expr::Literal { value: LiteralValue::Float(f), .. } if (*f - TEST_VALUE).abs() < f64::EPSILON)
         );
 
         let string_expr = parse_expression_from_string("'hello'").unwrap();
         assert!(
-            matches!(string_expr, Expr::Literal { value: LiteralValue::String(s), .. } if s == "hello")
+            matches!(&string_expr, Expr::Literal { value: LiteralValue::String(s), .. } if s == "hello")
         );
 
         let bool_expr = parse_expression_from_string("true").unwrap();
@@ -1269,7 +1269,7 @@ mod tests {
     #[test]
     fn test_identifier_expressions() {
         let identifier_expr = parse_expression_from_string("hello_world").unwrap();
-        assert!(matches!(identifier_expr, Expr::Identifier { name, .. } if name == "hello_world"));
+        assert!(matches!(&identifier_expr, Expr::Identifier { name, .. } if name == "hello_world"));
     }
 
     #[test]
