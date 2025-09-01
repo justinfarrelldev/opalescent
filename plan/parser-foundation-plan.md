@@ -22,7 +22,7 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 - [x] Function call expressions
 - [x] Array/collection access expressions
 - [x] Cast expressions (expr as Type)
-- [ ] Type checking expressions (type_of)
+- [x] Type checking expressions (type_of)
 - [ ] String interpolation expressions
 
 ### ✅ Statement AST Nodes

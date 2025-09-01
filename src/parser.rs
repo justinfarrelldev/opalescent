@@ -917,96 +917,144 @@ impl Parser {
         let span = token.span;
 
         match &token.token_type {
-            &TokenType::IntegerLiteral(value) => {
-                self.advance();
-                Ok(Expr::Literal {
-                    value: LiteralValue::Integer(value),
-                    span,
-                    id: next_node_id(),
-                })
-            }
-            &TokenType::FloatLiteral(value) => {
-                self.advance();
-                Ok(Expr::Literal {
-                    value: LiteralValue::Float(value),
-                    span,
-                    id: next_node_id(),
-                })
-            }
-            &TokenType::StringLiteral(ref value) => {
-                let value = value.clone();
-                self.advance();
-                Ok(Expr::Literal {
-                    value: LiteralValue::String(value),
-                    span,
-                    id: next_node_id(),
-                })
-            }
-            &TokenType::BooleanLiteral(value) => {
-                self.advance();
-                Ok(Expr::Literal {
-                    value: LiteralValue::Boolean(value),
-                    span,
-                    id: next_node_id(),
-                })
-            }
-            &TokenType::Void => {
-                // Treat 'void' as a special literal value
-                self.advance();
-                Ok(Expr::Literal {
-                    value: LiteralValue::Void,
-                    span,
-                    id: next_node_id(),
-                })
-            }
-            &TokenType::Identifier(ref name) => {
-                let name = name.clone();
-                self.advance();
-                Ok(Expr::Identifier {
-                    name,
-                    span,
-                    id: next_node_id(),
-                })
-            }
-            &TokenType::LeftParen => {
-                self.advance();
-                let expr = self.parse_precedence(Precedence::Assignment)?;
-                self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
-
-                let end_span = self.previous_token().span;
-                let paren_span = Span::new(span.start, end_span.end);
-
-                Ok(Expr::Parenthesized {
-                    expr: Box::new(expr),
-                    span: paren_span,
-                    id: next_node_id(),
-                })
-            }
+            &TokenType::IntegerLiteral(value) => Ok(self.parse_integer_literal(value, span)),
+            &TokenType::FloatLiteral(value) => Ok(self.parse_float_literal(value, span)),
+            &TokenType::StringLiteral(ref value) => Ok(self.parse_string_literal(value.clone(), span)),
+            &TokenType::BooleanLiteral(value) => Ok(self.parse_boolean_literal(value, span)),
+            &TokenType::Void => Ok(self.parse_void_literal(span)),
+            &TokenType::Identifier(ref name) => Ok(self.parse_identifier(name.clone(), span)),
+            &TokenType::LeftParen => self.parse_parenthesized_expression(span),
             &TokenType::Minus | &TokenType::Plus | &TokenType::Not | &TokenType::BitNot => {
-                let operator = UnaryOp::try_from(token.token_type.clone())
-                    .map_err(|_original_error| ParseError::InvalidSyntax {
-                        message: format!("Invalid unary operator: {}", token.token_type),
-                        span: ParseError::span_from_token(token),
-                    })?;
-                self.advance();
-                let operand = self.parse_precedence(Precedence::Unary)?;
-
-                let end_span = operand.span();
-                let unary_span = Span::new(span.start, end_span.end);
-
-                Ok(Expr::Unary {
-                    operator,
-                    operand: Box::new(operand),
-                    span: unary_span,
-                    id: next_node_id(),
-                })
+                let token_type = token.token_type.clone();
+                self.parse_unary_expression(&token_type, span)
             }
+            &TokenType::TypeOf => self.parse_type_of_expression(span),
             _ => Err(ParseError::UnexpectedToken {
                 expected: "expression".to_owned(),
                 found: format!("{}", token.token_type),
                 span: ParseError::span_from_token(token),
             }),
         }
+    }
+
+    /// Parse integer literal expressions
+    fn parse_integer_literal(&mut self, value: i64, span: Span) -> Expr {
+        self.advance();
+        Expr::Literal {
+            value: LiteralValue::Integer(value),
+            span,
+            id: next_node_id(),
+        }
+    }
+
+    /// Parse float literal expressions
+    fn parse_float_literal(&mut self, value: f64, span: Span) -> Expr {
+        self.advance();
+        Expr::Literal {
+            value: LiteralValue::Float(value),
+            span,
+            id: next_node_id(),
+        }
+    }
+
+    /// Parse string literal expressions
+    fn parse_string_literal(&mut self, value: String, span: Span) -> Expr {
+        self.advance();
+        Expr::Literal {
+            value: LiteralValue::String(value),
+            span,
+            id: next_node_id(),
+        }
+    }
+
+    /// Parse boolean literal expressions
+    fn parse_boolean_literal(&mut self, value: bool, span: Span) -> Expr {
+        self.advance();
+        Expr::Literal {
+            value: LiteralValue::Boolean(value),
+            span,
+            id: next_node_id(),
+        }
+    }
+
+    /// Parse void literal expressions
+    fn parse_void_literal(&mut self, span: Span) -> Expr {
+        self.advance();
+        Expr::Literal {
+            value: LiteralValue::Void,
+            span,
+            id: next_node_id(),
+        }
+    }
+
+    /// Parse identifier expressions
+    fn parse_identifier(&mut self, name: String, span: Span) -> Expr {
+        self.advance();
+        Expr::Identifier {
+            name,
+            span,
+            id: next_node_id(),
+        }
+    }
+
+    /// Parse parenthesized expressions
+    fn parse_parenthesized_expression(&mut self, span: Span) -> ParseResult<Expr> {
+        self.advance();
+        let expr = self.parse_precedence(Precedence::Assignment)?;
+        self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
+
+        let end_span = self.previous_token().span;
+        let paren_span = Span::new(span.start, end_span.end);
+
+        Ok(Expr::Parenthesized {
+            expr: Box::new(expr),
+            span: paren_span,
+            id: next_node_id(),
+        })
+    }
+
+    /// Parse unary expressions
+    fn parse_unary_expression(&mut self, token_type: &TokenType, span: Span) -> ParseResult<Expr> {
+        let operator = UnaryOp::try_from(token_type.clone())
+            .map_err(|_original_error| ParseError::InvalidSyntax {
+                message: format!("Invalid unary operator: {token_type}"),
+                span: LexError::span_from_span(span),
+            })?;
+        self.advance();
+        let operand = self.parse_precedence(Precedence::Unary)?;
+
+        let end_span = operand.span();
+        let unary_span = Span::new(span.start, end_span.end);
+
+        Ok(Expr::Unary {
+            operator,
+            operand: Box::new(operand),
+            span: unary_span,
+            id: next_node_id(),
+        })
+    }
+
+    /// Parse `type_of` expressions
+    fn parse_type_of_expression(&mut self, span: Span) -> ParseResult<Expr> {
+        self.advance(); // consume 'type_of'
+        
+        // Expect '('
+        self.consume(&TokenType::LeftParen, "Expected '(' after 'type_of'")?;
+        
+        // Parse the expression inside
+        let expr = self.parse_expression()?;
+        
+        // Expect ')'
+        self.consume(&TokenType::RightParen, "Expected ')' after type_of expression")?;
+        
+        let end_span = self.previous_token().span;
+        let type_of_span = Span::new(span.start, end_span.end);
+        
+        Ok(Expr::TypeOf {
+            expr: Box::new(expr),
+            span: type_of_span,
+            id: next_node_id(),
+        })
     }
 
     /// Parse infix expressions (binary operations, calls, etc.)
@@ -1828,6 +1876,109 @@ mod tests {
             assert!(is_entry);
         } else {
             unreachable!("Expected function declaration");
+        }
+    }
+
+    #[test]
+    fn test_type_of_expressions() {
+        // Test type_of with literal
+        let type_of_literal = parse_expression_from_string("type_of(42)").unwrap();
+        if let Expr::TypeOf { expr, .. } = type_of_literal {
+            if let Expr::Literal { value: LiteralValue::Integer(42), .. } = *expr {
+                // Good, correct structure
+            } else {
+                unreachable!("Expected integer literal inside type_of");
+            }
+        } else {
+            unreachable!("Expected type_of expression, got {type_of_literal:?}");
+        }
+
+        // Test type_of with variable
+        let type_of_var = parse_expression_from_string("type_of(my_variable)").unwrap();
+        if let Expr::TypeOf { expr, .. } = type_of_var {
+            if let Expr::Identifier { name, .. } = *expr {
+                assert_eq!(name, "my_variable");
+            } else {
+                unreachable!("Expected identifier inside type_of");
+            }
+        } else {
+            unreachable!("Expected type_of expression");
+        }
+
+        // Test type_of with expression
+        let type_of_expr = parse_expression_from_string("type_of(x + y)").unwrap();
+        if let Expr::TypeOf { expr, .. } = type_of_expr {
+            if let Expr::Binary { operator: BinaryOp::Add, .. } = *expr {
+                // Good, binary expression inside type_of
+            } else {
+                unreachable!("Expected binary expression inside type_of");
+            }
+        } else {
+            unreachable!("Expected type_of expression");
+        }
+
+        // Test nested type_of (though semantically questionable)
+        let nested_type_of = parse_expression_from_string("type_of(type_of(x))").unwrap();
+        if let Expr::TypeOf { expr, .. } = nested_type_of {
+            if let Expr::TypeOf { .. } = *expr {
+                // Good, nested type_of
+            } else {
+                unreachable!("Expected nested type_of inside outer type_of");
+            }
+        } else {
+            unreachable!("Expected type_of expression");
+        }
+    }
+
+    #[test]
+    fn test_type_of_error_cases() {
+        // Test type_of without parentheses - should fail
+        let missing_parens = parse_expression_from_string("type_of x");
+        assert!(missing_parens.is_err());
+
+        // Test type_of without expression - should fail
+        let missing_expr = parse_expression_from_string("type_of()");
+        assert!(missing_expr.is_err());
+
+        // Test type_of with unclosed parentheses - should fail
+        let unclosed_parens = parse_expression_from_string("type_of(x");
+        assert!(unclosed_parens.is_err());
+
+        // Test empty type_of call - should fail
+        let empty_call = parse_expression_from_string("type_of( )");
+        assert!(empty_call.is_err());
+    }
+
+    #[test]
+    fn test_type_of_in_complex_expressions() {
+        // Test type_of in binary expressions
+        let binary_with_type_of = parse_expression_from_string("type_of(x) is type_of(y)").unwrap();
+        if let Expr::Binary { left, operator: BinaryOp::Is, right, .. } = binary_with_type_of {
+            assert!(matches!(*left, Expr::TypeOf { .. }));
+            assert!(matches!(*right, Expr::TypeOf { .. }));
+        } else {
+            unreachable!("Expected binary expression with type_of operands");
+        }
+
+        // Test type_of as function argument
+        let type_of_as_arg = parse_expression_from_string("print(type_of(value))").unwrap();
+        if let Expr::Call { args, .. } = type_of_as_arg {
+            assert_eq!(args.len(), 1);
+            assert!(matches!(args[0], Expr::TypeOf { .. }));
+        } else {
+            unreachable!("Expected function call with type_of argument");
+        }
+
+        // Test type_of with parenthesized expression
+        let type_of_paren = parse_expression_from_string("type_of((x + y))").unwrap();
+        if let Expr::TypeOf { expr, .. } = type_of_paren {
+            if let Expr::Parenthesized { expr: inner, .. } = *expr {
+                assert!(matches!(*inner, Expr::Binary { .. }));
+            } else {
+                unreachable!("Expected parenthesized expression inside type_of");
+            }
+        } else {
+            unreachable!("Expected type_of expression");
         }
     }
 }
