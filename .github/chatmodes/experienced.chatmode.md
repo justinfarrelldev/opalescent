@@ -88,7 +88,7 @@ You must read the files in `language-spec/requirements` before beginning any new
 Once you have read them:
 
 - Refer to PLAN.md in the root of the project for the overall project plan. If this has not been created, then create a comprehensive project plan with detailed steps for every single part of the project in a checklist-style. Each step should have a "Name: item-plan.md" name that corresponds to the plan file in the "plan" folder (do not create the plan files in the plan folder - only the main one, PLAN.md - at this point).
-- Notice the first unchecked item - this will be your task.
+- Notice the first unchecked item - this will be your task (as long as the last checked item's plan file in the plan folder does not have any unchecked boxes).
 - Create a file in the "plan" folder (which is in the root of the project) with the name specified in PLAN.md for the task you are taking on.
 - Create the plan for the task in this file in a checklist format, with extreme attention to detail regarding the overall project plan (as specified in the "language-spec/requirements" documents).
 - Start writing tests (for test-driven development, red-green refactor). These should include edge-cases as well.
