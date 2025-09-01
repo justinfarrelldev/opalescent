@@ -27,7 +27,7 @@ pub struct Lexer<'input> {
 }
 
 /// Type of whitespace detected in the source code
-/// 
+///
 /// Used to track consistent whitespace usage and detect mixing of spaces and tabs
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum WhitespaceType {
@@ -676,7 +676,10 @@ mod tests {
         if let TokenType::Identifier(name) = tokens[0].token_type.clone() {
             assert_eq!(name, "hello_world");
         } else {
-            unreachable!("Expected identifier");
+            assert!(
+                matches!(tokens[0].token_type, TokenType::Identifier(_)),
+                "Expected identifier"
+            );
         }
     }
 
@@ -694,7 +697,7 @@ mod tests {
             TokenType::IntegerLiteral(42)
         ));
         assert!(
-            matches!(tokens[1].token_type, TokenType::FloatLiteral(f) if (f - 3.14).abs() < f64::EPSILON)
+            matches!(tokens[1].token_type, TokenType::FloatLiteral(f) if (f - std::f64::consts::PI).abs() < f64::EPSILON)
         );
         assert!(matches!(tokens[2].token_type, TokenType::IntegerLiteral(0)));
         assert!(matches!(
@@ -715,13 +718,19 @@ mod tests {
         if let TokenType::StringLiteral(s) = tokens[0].token_type.clone() {
             assert_eq!(s, "hello");
         } else {
-            unreachable!("Expected string literal");
+            assert!(
+                matches!(tokens[0].token_type, TokenType::StringLiteral(_)),
+                "Expected string literal"
+            );
         }
 
         if let TokenType::StringLiteral(s) = tokens[2].token_type.clone() {
             assert_eq!(s, "with\nescapes");
         } else {
-            unreachable!("Expected string literal with escape");
+            assert!(
+                matches!(tokens[2].token_type, TokenType::StringLiteral(_)),
+                "Expected string literal with escape"
+            );
         }
     }
 
@@ -747,7 +756,10 @@ mod tests {
         if let TokenType::Comment(content) = tokens[0].token_type.clone() {
             assert_eq!(content, "hello world");
         } else {
-            unreachable!("Expected comment token");
+            assert!(
+                matches!(tokens[0].token_type, TokenType::Comment(_)),
+                "Expected comment token"
+            );
         }
     }
 

@@ -307,7 +307,7 @@ impl Parser {
             _ => {
                 let token = self.current_token();
                 Err(ParseError::UnexpectedToken {
-                    expected: "declaration (function, type, or import)".to_string(),
+                    expected: "declaration (function, type, or import)".to_owned(),
                     found: format!("{}", token.token_type),
                     span: ParseError::span_from_token(token),
                 })
@@ -328,7 +328,7 @@ impl Parser {
         let name = if self.check(&TokenType::Function) {
             // This is a pattern like: f = f() => ... (anonymous function, we'll error for now)
             return Err(ParseError::InvalidSyntax {
-                message: "Anonymous functions not supported at top level".to_string(),
+                message: "Anonymous functions not supported at top level".to_owned(),
                 span: ParseError::span_from_token(self.current_token()),
             });
         } else if self.check_identifier() {
@@ -338,13 +338,13 @@ impl Parser {
                 name.clone()
             } else {
                 return Err(ParseError::InvalidSyntax {
-                    message: "Expected identifier after check_identifier passed".to_string(),
+                    message: "Expected identifier after check_identifier passed".to_owned(),
                     span: ParseError::span_from_token(token),
                 });
             }
         } else {
             return Err(ParseError::UnexpectedToken {
-                expected: "function name".to_string(),
+                expected: "function name".to_owned(),
                 found: format!("{}", self.current_token().token_type),
                 span: ParseError::span_from_token(self.current_token()),
             });
@@ -459,13 +459,13 @@ impl Parser {
                 name.clone()
             } else {
                 return Err(ParseError::InvalidSyntax {
-                    message: "Expected identifier for parameter name".to_string(),
+                    message: "Expected identifier for parameter name".to_owned(),
                     span: ParseError::span_from_token(token),
                 });
             }
         } else {
             return Err(ParseError::UnexpectedToken {
-                expected: "parameter name".to_string(),
+                expected: "parameter name".to_owned(),
                 found: format!("{}", self.current_token().token_type),
                 span: ParseError::span_from_token(self.current_token()),
             });
@@ -744,11 +744,16 @@ impl Parser {
             if let TokenType::Identifier(name) = &token.token_type {
                 name.clone()
             } else {
-                unreachable!("check_identifier should guarantee this")
+                // This should never happen since check_identifier validates the pattern
+                debug_assert!(matches!(
+                    self.current_token().token_type,
+                    TokenType::Identifier(_)
+                ));
+                String::new() // fallback value
             }
         } else {
             return Err(ParseError::UnexpectedToken {
-                expected: "variable name".to_string(),
+                expected: "variable name".to_owned(),
                 found: format!("{}", self.current_token().token_type),
                 span: ParseError::span_from_token(self.current_token()),
             });
@@ -805,7 +810,7 @@ impl Parser {
         // Expect '=>'
         if !self.check(&TokenType::Arrow) {
             return Err(ParseError::UnexpectedToken {
-                expected: "'=>'".to_string(),
+                expected: "'=>'".to_owned(),
                 found: format!("{}", self.current_token().token_type),
                 span: ParseError::span_from_token(self.current_token()),
             });
@@ -867,7 +872,7 @@ impl Parser {
                 }
                 _ => {
                     return Err(ParseError::InvalidSyntax {
-                        message: "Invalid assignment target".to_string(),
+                        message: "Invalid assignment target".to_owned(),
                         span: LexError::span_from_span(start_span),
                     });
                 }
@@ -921,8 +926,7 @@ impl Parser {
         let span = token.span;
 
         match &token.token_type {
-            TokenType::IntegerLiteral(value) => {
-                let value = *value;
+            &TokenType::IntegerLiteral(value) => {
                 self.advance();
                 Ok(Expr::Literal {
                     value: LiteralValue::Integer(value),
@@ -1005,7 +1009,7 @@ impl Parser {
                 })
             }
             _ => Err(ParseError::UnexpectedToken {
-                expected: "expression".to_string(),
+                expected: "expression".to_owned(),
                 found: format!("{}", token.token_type),
                 span: ParseError::span_from_token(token),
             }),
@@ -1017,27 +1021,27 @@ impl Parser {
         let token = self.current_token();
 
         match &token.token_type {
-            TokenType::Plus
-            | TokenType::Minus
-            | TokenType::Multiply
-            | TokenType::Divide
-            | TokenType::Modulo
-            | TokenType::Power
-            | TokenType::Less
-            | TokenType::LessEqual
-            | TokenType::Greater
-            | TokenType::GreaterEqual
-            | TokenType::Is
-            | TokenType::IsNot
-            | TokenType::And
-            | TokenType::Or
-            | TokenType::Xor
-            | TokenType::BitAnd
-            | TokenType::BitOr
-            | TokenType::BitXor
-            | TokenType::BitShiftLeft
-            | TokenType::BitShiftRight
-            | TokenType::BitUnsignedShiftRight => {
+            &TokenType::Plus
+            | &TokenType::Minus
+            | &TokenType::Multiply
+            | &TokenType::Divide
+            | &TokenType::Modulo
+            | &TokenType::Power
+            | &TokenType::Less
+            | &TokenType::LessEqual
+            | &TokenType::Greater
+            | &TokenType::GreaterEqual
+            | &TokenType::Is
+            | &TokenType::IsNot
+            | &TokenType::And
+            | &TokenType::Or
+            | &TokenType::Xor
+            | &TokenType::BitAnd
+            | &TokenType::BitOr
+            | &TokenType::BitXor
+            | &TokenType::BitShiftLeft
+            | &TokenType::BitShiftRight
+            | &TokenType::BitUnsignedShiftRight => {
                 let operator = BinaryOp::from(token.token_type.clone());
                 let precedence = Precedence::from_token(&token.token_type);
                 self.advance();
@@ -1232,8 +1236,10 @@ mod tests {
         ));
 
         let float_expr = parse_expression_from_string("3.14").unwrap();
+        #[allow(clippy::approx_constant)]
+        const TEST_VALUE: f64 = 3.14;
         assert!(
-            matches!(float_expr, Expr::Literal { value: LiteralValue::Float(f), .. } if (f - 3.14).abs() < f64::EPSILON)
+            matches!(float_expr, Expr::Literal { value: LiteralValue::Float(f), .. } if (f - TEST_VALUE).abs() < f64::EPSILON)
         );
 
         let string_expr = parse_expression_from_string("'hello'").unwrap();

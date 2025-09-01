@@ -10,13 +10,17 @@ use core::fmt;
 /// Represents a position in the source code
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position {
+    /// 1-based line number in the source file
     pub line: usize,
+    /// 1-based column number within the current line
     pub column: usize,
+    /// Byte offset from the start of the source
     pub offset: usize,
 }
 
 impl Position {
-    pub fn new(line: usize, column: usize, offset: usize) -> Self {
+    /// Create a new Position
+    pub const fn new(line: usize, column: usize, offset: usize) -> Self {
         Self {
             line,
             column,
@@ -24,7 +28,8 @@ impl Position {
         }
     }
 
-    pub fn start() -> Self {
+    /// Starting position at the beginning of a source file
+    pub const fn start() -> Self {
         Self::new(1, 1, 0)
     }
 }
@@ -32,16 +37,20 @@ impl Position {
 /// Represents a span in the source code
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
+    /// Start position (inclusive)
     pub start: Position,
+    /// End position (exclusive)
     pub end: Position,
 }
 
 impl Span {
-    pub fn new(start: Position, end: Position) -> Self {
+    /// Create a new Span from start to end
+    pub const fn new(start: Position, end: Position) -> Self {
         Self { start, end }
     }
 
-    pub fn single(pos: Position) -> Self {
+    /// Create a zero-length span at `pos`
+    pub const fn single(pos: Position) -> Self {
         Self::new(pos, pos)
     }
 }
@@ -143,7 +152,7 @@ pub enum TokenType {
     /// Division operator (/)
     Divide,
     /// Exponentiation operator (^)
-    Power,  // ^
+    Power, // ^
     /// Modulo operator (%)
     Modulo, // %
 
@@ -177,17 +186,17 @@ pub enum TokenType {
 
     // Bitwise
     /// Bitwise AND operator (band)
-    BitAnd,                // band
+    BitAnd, // band
     /// Bitwise OR operator (bor)
-    BitOr,                 // bor
+    BitOr, // bor
     /// Bitwise XOR operator (bxor)
-    BitXor,                // bxor
+    BitXor, // bxor
     /// Bitwise NOT operator (bnot)
-    BitNot,                // bnot
+    BitNot, // bnot
     /// Bitwise left shift operator (bshl)
-    BitShiftLeft,          // bshl
+    BitShiftLeft, // bshl
     /// Bitwise right shift operator (bshr)
-    BitShiftRight,         // bshr
+    BitShiftRight, // bshr
     /// Bitwise unsigned right shift operator (bushr)
     BitUnsignedShiftRight, // bushr
 
@@ -196,7 +205,7 @@ pub enum TokenType {
     Cast, // as
 
     // Type checking
-    /// Type inspection function (type_of)
+    /// Type inspection function (`type_of`)
     TypeOf,
 
     // Punctuation
@@ -240,8 +249,8 @@ pub enum TokenType {
 
 impl TokenType {
     /// Returns the raw type name for type tokens, used in parsing
-    pub fn type_name(&self) -> Option<&'static str> {
-        match self {
+    pub const fn type_name(&self) -> Option<&'static str> {
+        match *self {
             Self::Int8 => Some("int8"),
             Self::Int16 => Some("int16"),
             Self::Int32 => Some("int32"),
@@ -262,14 +271,19 @@ impl TokenType {
 
 /// A token with its type, value, and location information
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_field_names)]
 pub struct Token {
+    /// The semantic token type
     pub token_type: TokenType,
+    /// Source span covered by this token
     pub span: Span,
+    /// Raw lexeme text
     pub lexeme: String,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, span: Span, lexeme: String) -> Self {
+    /// Create a new token
+    pub const fn new(token_type: TokenType, span: Span, lexeme: String) -> Self {
         Self {
             token_type,
             span,
@@ -281,11 +295,11 @@ impl Token {
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::IntegerLiteral(n) => write!(f, "integer literal '{}'", n),
-            Self::FloatLiteral(n) => write!(f, "float literal '{}'", n),
-            Self::StringLiteral(s) => write!(f, "string literal '{}'", s),
-            Self::BooleanLiteral(b) => write!(f, "boolean literal '{}'", b),
-            Self::Identifier(name) => write!(f, "identifier '{}'", name),
+            &Self::IntegerLiteral(n) => write!(f, "integer literal '{n}'"),
+            Self::FloatLiteral(n) => write!(f, "float literal '{n}'"),
+            Self::StringLiteral(s) => write!(f, "string literal '{s}'"),
+            Self::BooleanLiteral(b) => write!(f, "boolean literal '{b}'"),
+            Self::Identifier(name) => write!(f, "identifier '{name}'"),
             Self::Let => write!(f, "keyword 'let'"),
             Self::Mutable => write!(f, "keyword 'mutable'"),
             Self::Function => write!(f, "keyword 'f'"),
@@ -404,7 +418,7 @@ mod tests {
     fn test_token_creation() {
         let token_type = TokenType::IntegerLiteral(42);
         let span = Span::single(Position::new(1, 1, 0));
-        let lexeme = "42".to_string();
+        let lexeme = "42".to_owned();
 
         let token = Token::new(token_type.clone(), span, lexeme.clone());
         assert_eq!(token.token_type, token_type);

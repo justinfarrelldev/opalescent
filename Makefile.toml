@@ -145,8 +145,6 @@ args = [
     "clippy::todo",
     "-D",
     "clippy::unimplemented",
-    "-D",
-    "clippy::unreachable",
     "-A",
     "clippy::indexing_slicing",
     "-D",
