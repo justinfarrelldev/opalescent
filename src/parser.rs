@@ -13,7 +13,10 @@
     reason = "Using ref patterns for consistent pattern matching style throughout parser"
 )]
 
-use crate::ast::{AstNode, BinaryOp, Decl, Expr, LiteralValue, NodeId, Parameter, Program, Stmt, Type, UnaryOp, Visibility};
+use crate::ast::{
+    AstNode, BinaryOp, Decl, Expr, LiteralValue, NodeId, Parameter, Program, Stmt, Type, UnaryOp,
+    Visibility,
+};
 use crate::error::LexError;
 use crate::token::{Span, Token, TokenType};
 use miette::{Diagnostic, SourceSpan};
@@ -255,15 +258,18 @@ impl Parser {
             }
         }
 
-        let end_span = self.tokens.last().map_or(start_span, |last_token| last_token.span);
+        let end_span = self
+            .tokens
+            .last()
+            .map_or(start_span, |last_token| last_token.span);
 
         let program_span = Span::new(start_span.start, end_span.end);
 
         let program = self.errors.is_empty().then(|| Program {
-                declarations,
-                span: program_span,
-                id: next_node_id(),
-            });
+            declarations,
+            span: program_span,
+            id: next_node_id(),
+        });
 
         (program, self.errors)
     }
@@ -386,10 +392,13 @@ impl Parser {
         self.consume(&TokenType::RightParen, "Expected ')' after parameters")?;
 
         // Parse optional return type
-        let return_type = self.check(&TokenType::Colon).then(|| {
-            self.advance();
-            self.parse_type()
-        }).transpose()?;
+        let return_type = self
+            .check(&TokenType::Colon)
+            .then(|| {
+                self.advance();
+                self.parse_type()
+            })
+            .transpose()?;
 
         // Expect '=>'
         self.consume(&TokenType::Arrow, "Expected '=>' after function signature")?;
@@ -418,9 +427,15 @@ impl Parser {
                 }
             }
 
-            let body_start = statements.first().map_or_else(|| self.previous_token().span.start, |first_stmt| first_stmt.span().start);
+            let body_start = statements.first().map_or_else(
+                || self.previous_token().span.start,
+                |first_stmt| first_stmt.span().start,
+            );
 
-            let body_end = statements.last().map_or_else(|| self.previous_token().span.end, |last_stmt| last_stmt.span().end);
+            let body_end = statements.last().map_or_else(
+                || self.previous_token().span.end,
+                |last_stmt| last_stmt.span().end,
+            );
 
             let body_span = Span::new(body_start, body_end);
 
@@ -601,16 +616,22 @@ impl Parser {
         };
 
         // Parse optional type annotation
-        let type_annotation = self.check(&TokenType::Colon).then(|| {
-            self.advance();
-            self.parse_type()
-        }).transpose()?;
+        let type_annotation = self
+            .check(&TokenType::Colon)
+            .then(|| {
+                self.advance();
+                self.parse_type()
+            })
+            .transpose()?;
 
         // Parse optional initializer
-        let initializer = self.check(&TokenType::Assign).then(|| {
-            self.advance();
-            self.parse_expression()
-        }).transpose()?;
+        let initializer = self
+            .check(&TokenType::Assign)
+            .then(|| {
+                self.advance();
+                self.parse_expression()
+            })
+            .transpose()?;
 
         let end_span = self.previous_token().span;
         let span = Span::new(start_span.start, end_span.end);
@@ -703,12 +724,17 @@ impl Parser {
         let then_branch = Box::new(self.parse_block_statement()?);
 
         // Parse optional else branch
-        let else_branch = self.check(&TokenType::Else).then(|| {
-            self.advance(); // consume 'else'
-            self.parse_statement().map(Box::new)
-        }).transpose()?;
+        let else_branch = self
+            .check(&TokenType::Else)
+            .then(|| {
+                self.advance(); // consume 'else'
+                self.parse_statement().map(Box::new)
+            })
+            .transpose()?;
 
-        let end_span = else_branch.as_ref().map_or_else(|| then_branch.span(), |else_stmt| else_stmt.span());
+        let end_span = else_branch
+            .as_ref()
+            .map_or_else(|| then_branch.span(), |else_stmt| else_stmt.span());
 
         let span = Span::new(start_span.start, end_span.end);
 
@@ -734,10 +760,7 @@ impl Parser {
             } else {
                 // This should never happen since check_identifier validates the pattern
                 debug_assert!(
-                    matches!(
-                        self.current_token().token_type,
-                        TokenType::Identifier(_)
-                    ),
+                    matches!(self.current_token().token_type, TokenType::Identifier(_)),
                     "check_identifier should have validated this is an identifier token"
                 );
                 String::new() // fallback value
@@ -919,7 +942,9 @@ impl Parser {
         match &token.token_type {
             &TokenType::IntegerLiteral(value) => Ok(self.parse_integer_literal(value, span)),
             &TokenType::FloatLiteral(value) => Ok(self.parse_float_literal(value, span)),
-            &TokenType::StringLiteral(ref value) => Ok(self.parse_string_literal(value.clone(), span)),
+            &TokenType::StringLiteral(ref value) => {
+                Ok(self.parse_string_literal(value.clone(), span))
+            }
             &TokenType::BooleanLiteral(value) => Ok(self.parse_boolean_literal(value, span)),
             &TokenType::Void => Ok(self.parse_void_literal(span)),
             &TokenType::Identifier(ref name) => Ok(self.parse_identifier(name.clone(), span)),
@@ -1015,11 +1040,12 @@ impl Parser {
 
     /// Parse unary expressions
     fn parse_unary_expression(&mut self, token_type: &TokenType, span: Span) -> ParseResult<Expr> {
-        let operator = UnaryOp::try_from(token_type.clone())
-            .map_err(|_original_error| ParseError::InvalidSyntax {
+        let operator = UnaryOp::try_from(token_type.clone()).map_err(|_original_error| {
+            ParseError::InvalidSyntax {
                 message: format!("Invalid unary operator: {token_type}"),
                 span: LexError::span_from_span(span),
-            })?;
+            }
+        })?;
         self.advance();
         let operand = self.parse_precedence(Precedence::Unary)?;
 
@@ -1037,19 +1063,22 @@ impl Parser {
     /// Parse `type_of` expressions
     fn parse_type_of_expression(&mut self, span: Span) -> ParseResult<Expr> {
         self.advance(); // consume 'type_of'
-        
+
         // Expect '('
         self.consume(&TokenType::LeftParen, "Expected '(' after 'type_of'")?;
-        
+
         // Parse the expression inside
         let expr = self.parse_expression()?;
-        
+
         // Expect ')'
-        self.consume(&TokenType::RightParen, "Expected ')' after type_of expression")?;
-        
+        self.consume(
+            &TokenType::RightParen,
+            "Expected ')' after type_of expression",
+        )?;
+
         let end_span = self.previous_token().span;
         let type_of_span = Span::new(span.start, end_span.end);
-        
+
         Ok(Expr::TypeOf {
             expr: Box::new(expr),
             span: type_of_span,
@@ -1083,10 +1112,12 @@ impl Parser {
             | &TokenType::BitShiftLeft
             | &TokenType::BitShiftRight
             | &TokenType::BitUnsignedShiftRight => {
-                let operator = BinaryOp::try_from(token.token_type.clone())
-                    .map_err(|_original_error| ParseError::InvalidSyntax {
-                        message: format!("Invalid binary operator: {}", token.token_type),
-                        span: ParseError::span_from_token(token),
+                let operator =
+                    BinaryOp::try_from(token.token_type.clone()).map_err(|_original_error| {
+                        ParseError::InvalidSyntax {
+                            message: format!("Invalid binary operator: {}", token.token_type),
+                            span: ParseError::span_from_token(token),
+                        }
                     })?;
                 let precedence = Precedence::from_token(&token.token_type);
                 self.advance();
@@ -1155,7 +1186,7 @@ impl Parser {
         &self.tokens[self.current]
     }
 
-    /// Get the previous token (the one before current position) 
+    /// Get the previous token (the one before current position)
     /// Uses saturating subtraction to avoid underflow
     fn previous_token(&self) -> &Token {
         &self.tokens[self.current.saturating_sub(1)]
@@ -1284,9 +1315,12 @@ mod tests {
     #[test]
     fn test_literal_expressions() {
         // Test value for floating point comparison - define at top to avoid items after statements
-        #[expect(clippy::approx_constant, reason = "Test value intentionally matches pi approximation")]
+        #[expect(
+            clippy::approx_constant,
+            reason = "Test value intentionally matches pi approximation"
+        )]
         const TEST_VALUE: f64 = 3.14;
-        
+
         let integer_expr = parse_expression_from_string("42").unwrap();
         assert!(matches!(
             integer_expr,
@@ -1538,7 +1572,10 @@ mod tests {
     }
 
     #[test]
-    #[expect(clippy::cognitive_complexity, reason = "Complex test covering multiple loop scenarios")]
+    #[expect(
+        clippy::cognitive_complexity,
+        reason = "Complex test covering multiple loop scenarios"
+    )]
     fn test_loop_statements() {
         // Test simple loop statement
         let simple_loop = parse_statement_from_string("loop => { break }").unwrap();
@@ -1884,7 +1921,11 @@ mod tests {
         // Test type_of with literal
         let type_of_literal = parse_expression_from_string("type_of(42)").unwrap();
         if let Expr::TypeOf { expr, .. } = type_of_literal {
-            if let Expr::Literal { value: LiteralValue::Integer(42), .. } = *expr {
+            if let Expr::Literal {
+                value: LiteralValue::Integer(42),
+                ..
+            } = *expr
+            {
                 // Good, correct structure
             } else {
                 unreachable!("Expected integer literal inside type_of");
@@ -1908,7 +1949,11 @@ mod tests {
         // Test type_of with expression
         let type_of_expr = parse_expression_from_string("type_of(x + y)").unwrap();
         if let Expr::TypeOf { expr, .. } = type_of_expr {
-            if let Expr::Binary { operator: BinaryOp::Add, .. } = *expr {
+            if let Expr::Binary {
+                operator: BinaryOp::Add,
+                ..
+            } = *expr
+            {
                 // Good, binary expression inside type_of
             } else {
                 unreachable!("Expected binary expression inside type_of");
@@ -1953,7 +1998,13 @@ mod tests {
     fn test_type_of_in_complex_expressions() {
         // Test type_of in binary expressions
         let binary_with_type_of = parse_expression_from_string("type_of(x) is type_of(y)").unwrap();
-        if let Expr::Binary { left, operator: BinaryOp::Is, right, .. } = binary_with_type_of {
+        if let Expr::Binary {
+            left,
+            operator: BinaryOp::Is,
+            right,
+            ..
+        } = binary_with_type_of
+        {
             assert!(matches!(*left, Expr::TypeOf { .. }));
             assert!(matches!(*right, Expr::TypeOf { .. }));
         } else {
