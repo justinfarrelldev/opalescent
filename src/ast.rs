@@ -1,8 +1,11 @@
 //! Abstract Syntax Tree (AST) definitions for the Opalescent language
-//! 
+//!
 //! This module contains all AST node types and related functionality.
 
-#![expect(dead_code, reason = "AST nodes are partially implemented during language development")]
+#![expect(
+    dead_code,
+    reason = "AST nodes are partially implemented during language development"
+)]
 
 use crate::token::{Span, TokenType};
 use std::fmt;

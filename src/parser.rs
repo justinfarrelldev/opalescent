@@ -1510,8 +1510,9 @@ mod tests {
 
         // Test loop with multiple statements
         let complex_loop = parse_statement_from_string(
-            "loop => { let x = 1; if x > 10 { break } else { continue } }"
-        ).unwrap();
+            "loop => { let x = 1; if x > 10 { break } else { continue } }",
+        )
+        .unwrap();
         if let Stmt::Loop { body, .. } = complex_loop {
             if let Stmt::Block { statements, .. } = *body {
                 assert_eq!(statements.len(), 2);
@@ -1523,9 +1524,8 @@ mod tests {
         }
 
         // Test loop with nested loops
-        let nested_loop = parse_statement_from_string(
-            "loop => { loop => { break }; continue }"
-        ).unwrap();
+        let nested_loop =
+            parse_statement_from_string("loop => { loop => { break }; continue }").unwrap();
         if let Stmt::Loop { body, .. } = nested_loop {
             if let Stmt::Block { statements, .. } = *body {
                 assert_eq!(statements.len(), 2);
@@ -1549,9 +1549,9 @@ mod tests {
         }
 
         // Test loop with variable assignments and conditions
-        let assignment_loop = parse_statement_from_string(
-            "loop => { let i = 0; i = i + 1; if i > 5 { break } }"
-        ).unwrap();
+        let assignment_loop =
+            parse_statement_from_string("loop => { let i = 0; i = i + 1; if i > 5 { break } }")
+                .unwrap();
         if let Stmt::Loop { body, .. } = assignment_loop {
             if let Stmt::Block { statements, .. } = *body {
                 assert_eq!(statements.len(), 3);
@@ -1567,9 +1567,9 @@ mod tests {
         }
 
         // Test loop with function calls
-        let function_call_loop = parse_statement_from_string(
-            "loop => { process_item(); if should_exit() { break } }"
-        ).unwrap();
+        let function_call_loop =
+            parse_statement_from_string("loop => { process_item(); if should_exit() { break } }")
+                .unwrap();
         if let Stmt::Loop { body, .. } = function_call_loop {
             if let Stmt::Block { statements, .. } = *body {
                 assert_eq!(statements.len(), 2);
@@ -1607,7 +1607,7 @@ mod tests {
         let missing_arrow = parse_statement_from_string("loop { break }");
         assert!(missing_arrow.is_err());
 
-        // Test loop without body - should fail  
+        // Test loop without body - should fail
         let missing_body = parse_statement_from_string("loop =>");
         assert!(missing_body.is_err());
 
@@ -1620,7 +1620,7 @@ mod tests {
         assert!(unclosed_body.is_err());
     }
 
-    #[test] 
+    #[test]
     fn test_loop_with_various_statements() {
         // Test loop containing all types of statements
         let comprehensive_loop = parse_statement_from_string(
@@ -1632,9 +1632,10 @@ mod tests {
                 while running { update() };
                 if done { break };
                 return void
-            }"
-        ).unwrap();
-        
+            }",
+        )
+        .unwrap();
+
         if let Stmt::Loop { body, .. } = comprehensive_loop {
             if let Stmt::Block { statements, .. } = *body {
                 assert_eq!(statements.len(), 7);
