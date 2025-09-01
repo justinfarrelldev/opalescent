@@ -26,7 +26,7 @@ impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
         let mut chars = input.char_indices();
         let current = chars.next();
-        
+
         let mut keywords = HashMap::new();
         keywords.insert("let", TokenType::Let);
         keywords.insert("mutable", TokenType::Mutable);
@@ -88,33 +88,33 @@ impl<'a> Lexer<'a> {
     /// Get all tokens from the input
     pub fn tokenize(mut self) -> (Vec<Token>, LexErrors) {
         let mut tokens = Vec::new();
-        
+
         while !self.is_at_end() {
             if let Some(token) = self.next_token() {
                 tokens.push(token);
             }
         }
-        
+
         // Add EOF token
         tokens.push(Token::new(
             TokenType::EndOfFile,
             Span::single(self.position),
             String::new(),
         ));
-        
+
         (tokens, self.errors)
     }
 
     /// Get the next token from the input
     fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace();
-        
+
         if self.is_at_end() {
             return None;
         }
-        
+
         let start_pos = self.position;
-        
+
         match self.current_char() {
             // Single character tokens
             '(' => Some(self.make_token(TokenType::LeftParen, start_pos)),
@@ -132,7 +132,7 @@ impl<'a> Lexer<'a> {
             '/' => Some(self.make_token(TokenType::Divide, start_pos)),
             '^' => Some(self.make_token(TokenType::Power, start_pos)),
             '%' => Some(self.make_token(TokenType::Modulo, start_pos)),
-            
+
             // Two character tokens
             '=' => {
                 if self.peek() == Some('>') {
@@ -142,7 +142,7 @@ impl<'a> Lexer<'a> {
                     Some(self.make_token(TokenType::Assign, start_pos))
                 }
             }
-            
+
             '<' => {
                 if self.peek() == Some('=') {
                     self.advance();
@@ -151,7 +151,7 @@ impl<'a> Lexer<'a> {
                     Some(self.make_token(TokenType::Less, start_pos))
                 }
             }
-            
+
             '>' => {
                 if self.peek() == Some('=') {
                     self.advance();
@@ -160,7 +160,7 @@ impl<'a> Lexer<'a> {
                     Some(self.make_token(TokenType::Greater, start_pos))
                 }
             }
-            
+
             // Comments
             '#' => {
                 if self.peek() == Some('#') {
@@ -170,23 +170,23 @@ impl<'a> Lexer<'a> {
                     self.scan_single_line_comment(start_pos)
                 }
             }
-            
+
             // String literals
             '\'' => self.scan_string_literal(start_pos),
-            
+
             // Numbers
             c if c.is_ascii_digit() => self.scan_number(start_pos),
-            
+
             // Identifiers and keywords
             c if c.is_alphabetic() || c == '_' => self.scan_identifier(start_pos),
-            
+
             // Newlines
             '\n' => {
                 let token = self.make_token(TokenType::Newline, start_pos);
                 // Note: make_token already calls advance_line for '\n'
                 Some(token)
             }
-            
+
             // Unknown character
             c => {
                 let span = LexError::span_from_position(start_pos, 1);
@@ -205,47 +205,47 @@ impl<'a> Lexer<'a> {
     fn make_token(&mut self, token_type: TokenType, start_pos: Position) -> Token {
         let start_offset = start_pos.offset;
         let current_char = self.current_char();
-        
+
         if current_char == '\n' {
             self.advance_line();
         } else {
             self.advance();
         }
-        
+
         let end_pos = self.position;
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
             self.current.unwrap().0
         };
-        
+
         let lexeme = self.input[start_offset..end_offset].to_string();
         let span = Span::new(start_pos, end_pos);
-        
+
         Token::new(token_type, span, lexeme)
     }
 
     /// Scan a single-line comment
     fn scan_single_line_comment(&mut self, start_pos: Position) -> Option<Token> {
         let start_offset = start_pos.offset;
-        
+
         // Skip the '#'
         self.advance();
-        
+
         // Read until end of line
         while !self.is_at_end() && self.current_char() != '\n' {
             self.advance();
         }
-        
+
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
             self.current.unwrap().0
         };
-        
+
         let content = self.input[start_offset + 1..end_offset].trim().to_string();
         let span = Span::new(start_pos, self.position);
-        
+
         Some(Token::new(
             TokenType::Comment(content),
             span,
@@ -256,13 +256,13 @@ impl<'a> Lexer<'a> {
     /// Scan a multi-line comment
     fn scan_multiline_comment(&mut self, start_pos: Position) -> Option<Token> {
         let start_offset = start_pos.offset;
-        
+
         // Skip the second '#' (first was already skipped in next_token)
         self.advance();
-        
+
         let mut content = String::new();
         let mut nesting_level = 1;
-        
+
         while !self.is_at_end() && nesting_level > 0 {
             if self.current_char() == '#' && self.peek() == Some('#') {
                 self.advance(); // Skip first #
@@ -276,7 +276,7 @@ impl<'a> Lexer<'a> {
                 self.advance();
             }
         }
-        
+
         if nesting_level > 0 {
             let span = LexError::span_from_position(start_pos, 2);
             self.errors.push(LexError::UnterminatedComment {
@@ -284,20 +284,22 @@ impl<'a> Lexer<'a> {
                 span,
             });
         }
-        
+
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
-            self.current.map(|(offset, _)| offset).unwrap_or(self.input.len())
+            self.current
+                .map(|(offset, _)| offset)
+                .unwrap_or(self.input.len())
         };
-        
+
         let span = Span::new(start_pos, self.position);
         let token_type = if content.trim_start().starts_with("Description:") {
             TokenType::DocComment(content.trim().to_string())
         } else {
             TokenType::Comment(content.trim().to_string())
         };
-        
+
         Some(Token::new(
             token_type,
             span,
@@ -308,19 +310,19 @@ impl<'a> Lexer<'a> {
     /// Scan a string literal
     fn scan_string_literal(&mut self, start_pos: Position) -> Option<Token> {
         let start_offset = start_pos.offset;
-        
+
         // Skip opening quote
         self.advance();
-        
+
         let mut value = String::new();
-        
+
         while !self.is_at_end() && self.current_char() != '\'' {
             if self.current_char() == '\\' {
                 self.advance();
                 if self.is_at_end() {
                     break;
                 }
-                
+
                 match self.current_char() {
                     'n' => value.push('\n'),
                     't' => value.push('\t'),
@@ -348,7 +350,7 @@ impl<'a> Lexer<'a> {
                 self.advance();
             }
         }
-        
+
         if self.is_at_end() {
             let span = LexError::span_from_position(start_pos, 1);
             self.errors.push(LexError::UnterminatedString {
@@ -359,15 +361,15 @@ impl<'a> Lexer<'a> {
             // Skip closing quote
             self.advance();
         }
-        
+
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
             self.current.unwrap().0
         };
-        
+
         let span = Span::new(start_pos, self.position);
-        
+
         Some(Token::new(
             TokenType::StringLiteral(value),
             span,
@@ -378,35 +380,37 @@ impl<'a> Lexer<'a> {
     /// Scan a number literal
     fn scan_number(&mut self, start_pos: Position) -> Option<Token> {
         let start_offset = start_pos.offset;
-        
+
         // Scan integer part
         while !self.is_at_end() && self.current_char().is_ascii_digit() {
             self.advance();
         }
-        
+
         let mut is_float = false;
-        
+
         // Check for decimal point
-        if !self.is_at_end() && self.current_char() == '.' && 
-           self.peek().is_some_and(|c| c.is_ascii_digit()) {
+        if !self.is_at_end()
+            && self.current_char() == '.'
+            && self.peek().is_some_and(|c| c.is_ascii_digit())
+        {
             is_float = true;
             self.advance(); // consume '.'
-            
+
             // Scan fractional part
             while !self.is_at_end() && self.current_char().is_ascii_digit() {
                 self.advance();
             }
         }
-        
+
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
             self.current.unwrap().0
         };
-        
+
         let number_str = &self.input[start_offset..end_offset];
         let span = Span::new(start_pos, self.position);
-        
+
         if is_float {
             match number_str.parse::<f64>() {
                 Ok(value) => Some(Token::new(
@@ -447,10 +451,10 @@ impl<'a> Lexer<'a> {
     /// Scan an identifier or keyword
     fn scan_identifier(&mut self, start_pos: Position) -> Option<Token> {
         let start_offset = start_pos.offset;
-        
+
         // First character is already validated
         self.advance();
-        
+
         // Continue with identifier characters
         while !self.is_at_end() {
             let c = self.current_char();
@@ -460,28 +464,24 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
-        
+
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
             self.current.unwrap().0
         };
-        
+
         let identifier = &self.input[start_offset..end_offset];
         let span = Span::new(start_pos, self.position);
-        
+
         // Check if it's a keyword
         let token_type = if let Some(keyword_type) = self.keywords.get(identifier) {
             keyword_type.clone()
         } else {
             TokenType::Identifier(identifier.to_string())
         };
-        
-        Some(Token::new(
-            token_type,
-            span,
-            identifier.to_string(),
-        ))
+
+        Some(Token::new(token_type, span, identifier.to_string()))
     }
 
     /// Skip whitespace and track whitespace type
@@ -544,7 +544,7 @@ impl<'a> Lexer<'a> {
             self.position.column += 1;
             self.position.offset += 1;
         }
-        
+
         self.current = self.chars.next();
     }
 
@@ -565,7 +565,7 @@ mod tests {
     fn test_empty_input() {
         let lexer = Lexer::new("");
         let (tokens, errors) = lexer.tokenize();
-        
+
         assert!(errors.is_empty());
         assert_eq!(tokens.len(), 1);
         assert!(matches!(tokens[0].token_type, TokenType::EndOfFile));
@@ -576,10 +576,10 @@ mod tests {
         let input = "()[]{}:,";
         let lexer = Lexer::new(input);
         let (tokens, errors) = lexer.tokenize();
-        
+
         assert!(errors.is_empty());
         assert_eq!(tokens.len(), 9); // 8 tokens + EOF
-        
+
         let expected = [
             TokenType::LeftParen,
             TokenType::RightParen,
@@ -590,7 +590,7 @@ mod tests {
             TokenType::Colon,
             TokenType::Comma,
         ];
-        
+
         for (i, expected_type) in expected.iter().enumerate() {
             assert_eq!(tokens[i].token_type, *expected_type);
         }
@@ -601,9 +601,9 @@ mod tests {
         let input = "+ - * / ^ % = < <= > >= =>";
         let lexer = Lexer::new(input);
         let (tokens, errors) = lexer.tokenize();
-        
+
         assert!(errors.is_empty());
-        
+
         let expected = [
             TokenType::Plus,
             TokenType::Minus,
@@ -618,7 +618,7 @@ mod tests {
             TokenType::GreaterEqual,
             TokenType::Arrow,
         ];
-        
+
         for (i, expected_type) in expected.iter().enumerate() {
             assert_eq!(tokens[i].token_type, *expected_type);
         }
@@ -629,9 +629,9 @@ mod tests {
         let input = "let mutable f return void if else";
         let lexer = Lexer::new(input);
         let (tokens, errors) = lexer.tokenize();
-        
+
         assert!(errors.is_empty());
-        
+
         let expected = [
             TokenType::Let,
             TokenType::Mutable,
@@ -641,7 +641,7 @@ mod tests {
             TokenType::If,
             TokenType::Else,
         ];
-        
+
         for (i, expected_type) in expected.iter().enumerate() {
             assert_eq!(tokens[i].token_type, *expected_type);
         }
@@ -652,10 +652,10 @@ mod tests {
         let input = "hello_world _private snake_case";
         let lexer = Lexer::new(input);
         let (tokens, errors) = lexer.tokenize();
-        
+
         assert!(errors.is_empty());
         assert_eq!(tokens.len(), 4); // 3 identifiers + EOF
-        
+
         if let TokenType::Identifier(name) = &tokens[0].token_type {
             assert_eq!(name, "hello_world");
         } else {
@@ -668,14 +668,22 @@ mod tests {
         let input = "42 3.14 0 999";
         let lexer = Lexer::new(input);
         let (tokens, errors) = lexer.tokenize();
-        
+
         assert!(errors.is_empty());
         assert_eq!(tokens.len(), 5); // 4 numbers + EOF
-        
-        assert!(matches!(tokens[0].token_type, TokenType::IntegerLiteral(42)));
-        assert!(matches!(tokens[1].token_type, TokenType::FloatLiteral(f) if (f - 3.14).abs() < f64::EPSILON));
+
+        assert!(matches!(
+            tokens[0].token_type,
+            TokenType::IntegerLiteral(42)
+        ));
+        assert!(
+            matches!(tokens[1].token_type, TokenType::FloatLiteral(f) if (f - 3.14).abs() < f64::EPSILON)
+        );
         assert!(matches!(tokens[2].token_type, TokenType::IntegerLiteral(0)));
-        assert!(matches!(tokens[3].token_type, TokenType::IntegerLiteral(999)));
+        assert!(matches!(
+            tokens[3].token_type,
+            TokenType::IntegerLiteral(999)
+        ));
     }
 
     #[test]
@@ -683,16 +691,16 @@ mod tests {
         let input = r#"'hello' 'world with spaces' 'with\nescapes'"#;
         let lexer = Lexer::new(input);
         let (tokens, errors) = lexer.tokenize();
-        
+
         assert!(errors.is_empty());
         assert_eq!(tokens.len(), 4); // 3 strings + EOF
-        
+
         if let TokenType::StringLiteral(s) = &tokens[0].token_type {
             assert_eq!(s, "hello");
         } else {
             panic!("Expected string literal");
         }
-        
+
         if let TokenType::StringLiteral(s) = &tokens[2].token_type {
             assert_eq!(s, "with\nescapes");
         } else {
@@ -705,18 +713,18 @@ mod tests {
         let input = "## hello world ##";
         let lexer = Lexer::new(input);
         let (tokens, errors) = lexer.tokenize();
-        
+
         if !errors.is_empty() {
             for error in &errors.errors {
                 println!("Error: {:?}", error);
             }
         }
-        
+
         println!("Tokens: {:?}", tokens);
-        
+
         assert!(errors.is_empty());
         assert_eq!(tokens.len(), 2); // comment + EOF
-        
+
         if let TokenType::Comment(content) = &tokens[0].token_type {
             assert_eq!(content, "hello world");
         } else {
@@ -729,19 +737,19 @@ mod tests {
         let input = "# single line comment\n##\nmulti-line\ncomment\n##";
         let lexer = Lexer::new(input);
         let (tokens, errors) = lexer.tokenize();
-        
+
         if !errors.is_empty() {
             for error in &errors.errors {
                 println!("Error: {:?}", error);
             }
         }
-        
+
         println!("Tokens: {:?}", tokens);
-        
+
         assert!(errors.is_empty());
         // single comment + newline + multiline comment + EOF
         assert_eq!(tokens.len(), 4);
-        
+
         assert!(matches!(tokens[0].token_type, TokenType::Comment(_)));
         assert!(matches!(tokens[1].token_type, TokenType::Newline));
         assert!(matches!(tokens[2].token_type, TokenType::Comment(_)));
@@ -752,9 +760,12 @@ mod tests {
         let input = "'unterminated string";
         let lexer = Lexer::new(input);
         let (_tokens, errors) = lexer.tokenize();
-        
+
         assert_eq!(errors.len(), 1);
-        assert!(matches!(errors.errors[0], LexError::UnterminatedString { .. }));
+        assert!(matches!(
+            errors.errors[0],
+            LexError::UnterminatedString { .. }
+        ));
     }
 
     #[test]
@@ -762,8 +773,11 @@ mod tests {
         let input = "hello @ world";
         let lexer = Lexer::new(input);
         let (_tokens, errors) = lexer.tokenize();
-        
+
         assert_eq!(errors.len(), 1);
-        assert!(matches!(errors.errors[0], LexError::UnexpectedCharacter { character: '@', .. }));
+        assert!(matches!(
+            errors.errors[0],
+            LexError::UnexpectedCharacter { character: '@', .. }
+        ));
     }
 }

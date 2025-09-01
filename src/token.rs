@@ -10,7 +10,11 @@ pub struct Position {
 
 impl Position {
     pub fn new(line: usize, column: usize, offset: usize) -> Self {
-        Self { line, column, offset }
+        Self {
+            line,
+            column,
+            offset,
+        }
     }
 
     pub fn start() -> Self {
@@ -43,14 +47,14 @@ pub enum TokenType {
     FloatLiteral(f64),
     StringLiteral(String),
     BooleanLiteral(bool),
-    
+
     // Identifiers and Keywords
     Identifier(String),
-    
+
     // Keywords
     Let,
     Mutable,
-    Function,     // f
+    Function, // f
     Return,
     Void,
     If,
@@ -60,7 +64,7 @@ pub enum TokenType {
     In,
     Break,
     Continue,
-    
+
     // Type keywords
     Int8,
     Int16,
@@ -74,28 +78,28 @@ pub enum TokenType {
     Float64,
     String,
     Boolean,
-    
+
     // Visibility
     Public,
     Entry,
-    
+
     // Import/Export
     Import,
     From,
     As,
     Type,
-    
+
     // Operators
     Plus,
     Minus,
     Multiply,
     Divide,
-    Power,      // ^
-    Modulo,     // %
-    
+    Power,  // ^
+    Modulo, // %
+
     // Assignment
-    Assign,     // =
-    
+    Assign, // =
+
     // Comparison
     Less,
     LessEqual,
@@ -103,28 +107,28 @@ pub enum TokenType {
     GreaterEqual,
     Is,
     IsNot,
-    
+
     // Logical
     And,
     Or,
     Not,
     Xor,
-    
+
     // Bitwise
-    BitAnd,     // band
-    BitOr,      // bor
-    BitXor,     // bxor
-    BitNot,     // bnot
-    BitShiftLeft,   // bshl
-    BitShiftRight,  // bshr
-    BitUnsignedShiftRight,  // bushr
-    
+    BitAnd,                // band
+    BitOr,                 // bor
+    BitXor,                // bxor
+    BitNot,                // bnot
+    BitShiftLeft,          // bshl
+    BitShiftRight,         // bshr
+    BitUnsignedShiftRight, // bushr
+
     // Cast
-    Cast,       // as
-    
+    Cast, // as
+
     // Type checking
     TypeOf,
-    
+
     // Punctuation
     LeftParen,
     RightParen,
@@ -134,13 +138,13 @@ pub enum TokenType {
     RightBrace,
     Colon,
     Comma,
-    Arrow,      // =>
+    Arrow, // =>
     Dot,
-    
+
     // Comments
     Comment(String),
     DocComment(String),
-    
+
     // Special
     Newline,
     Indent,
@@ -292,7 +296,7 @@ mod tests {
         let token_type = TokenType::IntegerLiteral(42);
         let span = Span::single(Position::new(1, 1, 0));
         let lexeme = "42".to_string();
-        
+
         let token = Token::new(token_type.clone(), span, lexeme.clone());
         assert_eq!(token.token_type, token_type);
         assert_eq!(token.span, span);
@@ -302,7 +306,10 @@ mod tests {
     #[test]
     fn test_token_type_display() {
         assert_eq!(format!("{}", TokenType::Let), "keyword 'let'");
-        assert_eq!(format!("{}", TokenType::IntegerLiteral(42)), "integer literal '42'");
+        assert_eq!(
+            format!("{}", TokenType::IntegerLiteral(42)),
+            "integer literal '42'"
+        );
         assert_eq!(format!("{}", TokenType::Plus), "operator '+'");
         assert_eq!(format!("{}", TokenType::LeftParen), "'('");
     }
