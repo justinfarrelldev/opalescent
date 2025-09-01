@@ -137,29 +137,29 @@ pub enum LexError {
 }
 
 impl LexError {
-    /// Create a SourceSpan from a Position and length
+    /// Create a `SourceSpan` from a Position and length
     ///
     /// # Arguments
     /// * `pos` - The starting position in the source text
     /// * `len` - The length of the span in bytes
     ///
     /// # Returns
-    /// A SourceSpan that can be used for error reporting
+    /// A `SourceSpan` that can be used for error reporting
     pub fn span_from_position(pos: Position, len: usize) -> SourceSpan {
         SourceSpan::new(pos.offset.into(), len)
     }
 
-    /// Convert a parser Span to a miette SourceSpan
+    /// Convert a parser Span to a miette `SourceSpan`
     ///
     /// # Arguments
     /// * `span` - The span from the parser containing start and end positions
     ///
     /// # Returns
-    /// A SourceSpan that can be used for error reporting with miette
+    /// A `SourceSpan` that can be used for error reporting with miette
     pub fn span_from_span(span: Span) -> SourceSpan {
         let start = span.start.offset;
         let end = span.end.offset;
-        let len = if end >= start { end - start + 1 } else { 1 };
+        let len = if end >= start { end.saturating_sub(start).saturating_add(1) } else { 1 };
         SourceSpan::new(start.into(), len)
     }
 }
@@ -178,8 +178,8 @@ impl LexErrors {
     /// Create a new empty collection of lexical errors
     ///
     /// # Returns
-    /// A new LexErrors instance with an empty error vector
-    pub fn new() -> Self {
+    /// A new `LexErrors` instance with an empty error vector
+    pub const fn new() -> Self {
         Self { errors: Vec::new() }
     }
 
