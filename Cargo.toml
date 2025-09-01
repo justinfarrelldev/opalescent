@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+miette = { version = "7.0", features = ["fancy"] }
+thiserror = "1.0"
+unicode-xid = "0.2"
