@@ -7,6 +7,11 @@
     dead_code,
     reason = "Parser features are being developed incrementally"
 )]
+#![allow(
+    clippy::ref_patterns,
+    clippy::needless_borrowed_reference,
+    reason = "Using ref patterns for consistent pattern matching style throughout parser"
+)]
 
 use crate::ast::{AstNode, BinaryOp, Decl, Expr, LiteralValue, NodeId, Parameter, Program, Stmt, Type, UnaryOp, Visibility};
 use crate::error::LexError;
@@ -267,7 +272,7 @@ impl Parser {
     fn parse_declaration(&mut self) -> ParseResult<Decl> {
         // Check for documentation comment
         let doc_comment = if self.check(&TokenType::DocComment(String::new())) {
-            if let TokenType::DocComment(content) = &self.current_token().token_type {
+            if let &TokenType::DocComment(ref content) = &self.current_token().token_type {
                 let comment = content.clone();
                 self.advance();
                 self.skip_newlines_and_comments();
@@ -297,7 +302,7 @@ impl Parser {
 
         // For entry and public functions, expect identifier next
         // For regular functions, expect 'f' keyword
-        match &self.current_token().token_type {
+        match self.current_token().token_type {
             TokenType::Function => {
                 self.parse_function_declaration(visibility, is_entry, doc_comment)
             }
@@ -337,7 +342,7 @@ impl Parser {
         } else if self.check_identifier() {
             // This is a pattern like: main = f() => ... or entry main = f() => ...
             let token = self.advance();
-            if let TokenType::Identifier(name) = &token.token_type {
+            if let &TokenType::Identifier(ref name) = &token.token_type {
                 name.clone()
             } else {
                 return Err(ParseError::InvalidSyntax {
@@ -448,7 +453,7 @@ impl Parser {
 
         let name = if self.check_identifier() {
             let token = self.advance();
-            if let TokenType::Identifier(name) = &token.token_type {
+            if let &TokenType::Identifier(ref name) = &token.token_type {
                 name.clone()
             } else {
                 return Err(ParseError::InvalidSyntax {
@@ -506,7 +511,7 @@ impl Parser {
 
         // For now, just parse basic types
         let name = match &self.current_token().token_type {
-            TokenType::Identifier(name) => {
+            &TokenType::Identifier(ref name) => {
                 let name = name.clone();
                 self.advance();
                 name
@@ -549,7 +554,7 @@ impl Parser {
     fn parse_statement(&mut self) -> ParseResult<Stmt> {
         self.skip_newlines_and_comments();
 
-        match &self.current_token().token_type {
+        match self.current_token().token_type {
             TokenType::Let => self.parse_let_statement(),
             TokenType::Return => self.parse_return_statement(),
             TokenType::LeftBrace => self.parse_block_statement(),
@@ -579,7 +584,7 @@ impl Parser {
         // Parse variable name
         let name = if self.check_identifier() {
             let token = self.advance();
-            if let TokenType::Identifier(name) = &token.token_type {
+            if let &TokenType::Identifier(ref name) = &token.token_type {
                 name.clone()
             } else {
                 return Err(ParseError::InvalidSyntax {
@@ -724,7 +729,7 @@ impl Parser {
         // Parse variable name
         let variable = if self.check_identifier() {
             let token = self.advance();
-            if let TokenType::Identifier(name) = &token.token_type {
+            if let &TokenType::Identifier(ref name) = &token.token_type {
                 name.clone()
             } else {
                 // This should never happen since check_identifier validates the pattern
@@ -912,8 +917,7 @@ impl Parser {
         let span = token.span;
 
         match &token.token_type {
-            TokenType::IntegerLiteral(value) => {
-                let value = *value;
+            &TokenType::IntegerLiteral(value) => {
                 self.advance();
                 Ok(Expr::Literal {
                     value: LiteralValue::Integer(value),
@@ -921,8 +925,7 @@ impl Parser {
                     id: next_node_id(),
                 })
             }
-            TokenType::FloatLiteral(value) => {
-                let value = *value;
+            &TokenType::FloatLiteral(value) => {
                 self.advance();
                 Ok(Expr::Literal {
                     value: LiteralValue::Float(value),
@@ -930,7 +933,7 @@ impl Parser {
                     id: next_node_id(),
                 })
             }
-            TokenType::StringLiteral(value) => {
+            &TokenType::StringLiteral(ref value) => {
                 let value = value.clone();
                 self.advance();
                 Ok(Expr::Literal {
@@ -939,8 +942,7 @@ impl Parser {
                     id: next_node_id(),
                 })
             }
-            TokenType::BooleanLiteral(value) => {
-                let value = *value;
+            &TokenType::BooleanLiteral(value) => {
                 self.advance();
                 Ok(Expr::Literal {
                     value: LiteralValue::Boolean(value),
@@ -948,7 +950,7 @@ impl Parser {
                     id: next_node_id(),
                 })
             }
-            TokenType::Void => {
+            &TokenType::Void => {
                 // Treat 'void' as a special literal value
                 self.advance();
                 Ok(Expr::Literal {
@@ -957,7 +959,7 @@ impl Parser {
                     id: next_node_id(),
                 })
             }
-            TokenType::Identifier(name) => {
+            &TokenType::Identifier(ref name) => {
                 let name = name.clone();
                 self.advance();
                 Ok(Expr::Identifier {
@@ -966,7 +968,7 @@ impl Parser {
                     id: next_node_id(),
                 })
             }
-            TokenType::LeftParen => {
+            &TokenType::LeftParen => {
                 self.advance();
                 let expr = self.parse_precedence(Precedence::Assignment)?;
                 self.consume(&TokenType::RightParen, "Expected ')' after expression")?;
@@ -980,7 +982,7 @@ impl Parser {
                     id: next_node_id(),
                 })
             }
-            TokenType::Minus | TokenType::Plus | TokenType::Not | TokenType::BitNot => {
+            &TokenType::Minus | &TokenType::Plus | &TokenType::Not | &TokenType::BitNot => {
                 let operator = UnaryOp::try_from(token.token_type.clone())
                     .map_err(|_original_error| ParseError::InvalidSyntax {
                         message: format!("Invalid unary operator: {}", token.token_type),
@@ -1012,27 +1014,27 @@ impl Parser {
         let token = self.current_token();
 
         match &token.token_type {
-            TokenType::Plus
-            | TokenType::Minus
-            | TokenType::Multiply
-            | TokenType::Divide
-            | TokenType::Modulo
-            | TokenType::Power
-            | TokenType::Less
-            | TokenType::LessEqual
-            | TokenType::Greater
-            | TokenType::GreaterEqual
-            | TokenType::Is
-            | TokenType::IsNot
-            | TokenType::And
-            | TokenType::Or
-            | TokenType::Xor
-            | TokenType::BitAnd
-            | TokenType::BitOr
-            | TokenType::BitXor
-            | TokenType::BitShiftLeft
-            | TokenType::BitShiftRight
-            | TokenType::BitUnsignedShiftRight => {
+            &TokenType::Plus
+            | &TokenType::Minus
+            | &TokenType::Multiply
+            | &TokenType::Divide
+            | &TokenType::Modulo
+            | &TokenType::Power
+            | &TokenType::Less
+            | &TokenType::LessEqual
+            | &TokenType::Greater
+            | &TokenType::GreaterEqual
+            | &TokenType::Is
+            | &TokenType::IsNot
+            | &TokenType::And
+            | &TokenType::Or
+            | &TokenType::Xor
+            | &TokenType::BitAnd
+            | &TokenType::BitOr
+            | &TokenType::BitXor
+            | &TokenType::BitShiftLeft
+            | &TokenType::BitShiftRight
+            | &TokenType::BitUnsignedShiftRight => {
                 let operator = BinaryOp::try_from(token.token_type.clone())
                     .map_err(|_original_error| ParseError::InvalidSyntax {
                         message: format!("Invalid binary operator: {}", token.token_type),
@@ -1064,7 +1066,7 @@ impl Parser {
                     id: next_node_id(),
                 })
             }
-            TokenType::LeftParen => {
+            &TokenType::LeftParen => {
                 // Function call
                 self.advance();
                 let mut args = Vec::new();
@@ -1248,12 +1250,12 @@ mod tests {
 
         let float_expr = parse_expression_from_string("3.14").unwrap();
         assert!(
-            matches!(&float_expr, Expr::Literal { value: LiteralValue::Float(f), .. } if (*f - TEST_VALUE).abs() < f64::EPSILON)
+            matches!(float_expr, Expr::Literal { value: LiteralValue::Float(f), .. } if (f - TEST_VALUE).abs() < f64::EPSILON)
         );
 
         let string_expr = parse_expression_from_string("'hello'").unwrap();
         assert!(
-            matches!(&string_expr, Expr::Literal { value: LiteralValue::String(s), .. } if s == "hello")
+            matches!(string_expr, Expr::Literal { value: LiteralValue::String(s), .. } if s == "hello")
         );
 
         let bool_expr = parse_expression_from_string("true").unwrap();
@@ -1269,7 +1271,7 @@ mod tests {
     #[test]
     fn test_identifier_expressions() {
         let identifier_expr = parse_expression_from_string("hello_world").unwrap();
-        assert!(matches!(&identifier_expr, Expr::Identifier { name, .. } if name == "hello_world"));
+        assert!(matches!(identifier_expr, Expr::Identifier { name, .. } if name == "hello_world"));
     }
 
     #[test]
@@ -1574,8 +1576,8 @@ mod tests {
             if let Stmt::Block { statements, .. } = *body {
                 assert_eq!(statements.len(), 2);
                 // First should be an expression statement with function call
-                if let Stmt::Expression { expr, .. } = &statements[0] {
-                    assert!(matches!(expr, Expr::Call { .. }));
+                if let &Stmt::Expression { ref expr, .. } = &statements[0] {
+                    assert!(matches!(*expr, Expr::Call { .. }));
                 } else {
                     unreachable!("Expected expression statement with function call");
                 }

@@ -3,6 +3,11 @@
 //! This is the main entry point for the Opalescent compiler.
 //! Currently supports lexical analysis and parsing.
 
+#![allow(
+    clippy::ref_patterns,
+    reason = "Using ref patterns for consistency with other modules"
+)]
+
 mod ast;
 mod error;
 mod lexer;
@@ -54,13 +59,13 @@ fn main() {
                 println!("Program with {} declarations", program.declarations.len());
                 for (i, decl) in program.declarations.iter().enumerate() {
                     match decl {
-                        ast::Decl::Function {
-                            name,
-                            parameters,
+                        &ast::Decl::Function {
+                            ref name,
+                            ref parameters,
                             is_entry,
                             ..
                         } => {
-                            let entry_str = if *is_entry { "entry " } else { "" };
+                            let entry_str = if is_entry { "entry " } else { "" };
                             println!(
                                 "  {i}: {entry_str}function {name} with {} parameters",
                                 parameters.len()

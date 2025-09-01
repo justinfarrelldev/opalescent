@@ -3,7 +3,7 @@
 //! This module contains the lexer implementation that tokenizes Opalescent source code.
 
 use crate::error::{LexError, LexErrors};
-use crate::token::{Position, Span, Token, TokenType};
+use crate::token::{self, Position, Span, Token, TokenType};
 use std::collections::HashMap;
 use unicode_xid::UnicodeXID;
 
@@ -182,20 +182,20 @@ impl<'input> Lexer<'input> {
             '#' => {
                 if self.peek() == Some('#') {
                     self.advance(); // Skip first #
-                    self.scan_multiline_comment(start_pos)
+                    Some(self.scan_multiline_comment(start_pos))
                 } else {
-                    self.scan_single_line_comment(start_pos)
+                    Some(self.scan_single_line_comment(start_pos))
                 }
             }
 
             // String literals
-            '\'' => self.scan_string_literal(start_pos),
+            '\'' => Some(self.scan_string_literal(start_pos)),
 
             // Numbers
             c if c.is_ascii_digit() => self.scan_number(start_pos),
 
             // Identifiers and keywords
-            c if c.is_alphabetic() || c == '_' => self.scan_identifier(start_pos),
+            c if c.is_alphabetic() || c == '_' => Some(self.scan_identifier(start_pos)),
 
             // Newlines
             '\n' => {
@@ -236,14 +236,18 @@ impl<'input> Lexer<'input> {
             self.current.map_or(self.input.len(), |(offset, _)| offset)
         };
 
-        let lexeme = self.input.get(start_offset..end_offset).unwrap_or_default().to_owned();
+        let lexeme = self
+            .input
+            .get(start_offset..end_offset)
+            .unwrap_or_default()
+            .to_owned();
         let span = Span::new(start_pos, end_pos);
 
         Token::new(token_type, span, lexeme)
     }
 
     /// Scan a single-line comment
-    fn scan_single_line_comment(&mut self, start_pos: Position) -> Option<Token> {
+    fn scan_single_line_comment(&mut self, start_pos: Position) -> token::Token {
         let start_offset = start_pos.offset;
 
         // Skip the '#'
@@ -260,18 +264,26 @@ impl<'input> Lexer<'input> {
             self.current.map_or(self.input.len(), |(offset, _)| offset)
         };
 
-        let content = self.input.get(start_offset.saturating_add(1)..end_offset).unwrap_or_default().trim().to_owned();
+        let content = self
+            .input
+            .get(start_offset.saturating_add(1)..end_offset)
+            .unwrap_or_default()
+            .trim()
+            .to_owned();
         let span = Span::new(start_pos, self.position);
 
-        Some(Token::new(
+        Token::new(
             TokenType::Comment(content),
             span,
-            self.input.get(start_offset..end_offset).unwrap_or_default().to_owned(),
-        ))
+            self.input
+                .get(start_offset..end_offset)
+                .unwrap_or_default()
+                .to_owned(),
+        )
     }
 
     /// Scan a multi-line comment
-    fn scan_multiline_comment(&mut self, start_pos: Position) -> Option<Token> {
+    fn scan_multiline_comment(&mut self, start_pos: Position) -> token::Token {
         let start_offset = start_pos.offset;
 
         // Skip the second '#' (first was already skipped in next_token)
@@ -280,7 +292,7 @@ impl<'input> Lexer<'input> {
         let mut content = String::new();
         let mut nesting_level = 1_i32;
 
-        while !self.is_at_end() && nesting_level > 0 {
+        while !self.is_at_end() && nesting_level > 0_i32 {
             if self.current_char() == '#' && self.peek() == Some('#') {
                 self.advance(); // Skip first #
                 self.advance(); // Skip second #
@@ -305,9 +317,7 @@ impl<'input> Lexer<'input> {
         let end_offset = if self.is_at_end() {
             self.input.len()
         } else {
-            self.current
-                .map(|(offset, _)| offset)
-                .unwrap_or(self.input.len())
+            self.current.map_or(self.input.len(), |(offset, _)| offset)
         };
 
         let span = Span::new(start_pos, self.position);
@@ -317,15 +327,18 @@ impl<'input> Lexer<'input> {
             TokenType::Comment(content.trim().to_owned())
         };
 
-        Some(Token::new(
+        Token::new(
             token_type,
             span,
-            self.input.get(start_offset..end_offset).unwrap_or_default().to_owned(),
-        ))
+            self.input
+                .get(start_offset..end_offset)
+                .unwrap_or_default()
+                .to_owned(),
+        )
     }
 
     /// Scan a string literal
-    fn scan_string_literal(&mut self, start_pos: Position) -> Option<Token> {
+    fn scan_string_literal(&mut self, start_pos: Position) -> token::Token {
         let start_offset = start_pos.offset;
 
         // Skip opening quote
@@ -387,11 +400,14 @@ impl<'input> Lexer<'input> {
 
         let span = Span::new(start_pos, self.position);
 
-        Some(Token::new(
+        Token::new(
             TokenType::StringLiteral(value),
             span,
-            self.input.get(start_offset..end_offset).unwrap_or_default().to_owned(),
-        ))
+            self.input
+                .get(start_offset..end_offset)
+                .unwrap_or_default()
+                .to_owned(),
+        )
     }
 
     /// Scan a number literal
@@ -429,44 +445,40 @@ impl<'input> Lexer<'input> {
         let span = Span::new(start_pos, self.position);
 
         if is_float {
-            match number_str.parse::<f64>() {
-                Ok(value) => Some(Token::new(
+            if let Ok(value) = number_str.parse::<f64>() {
+                Some(Token::new(
                     TokenType::FloatLiteral(value),
                     span,
-                    number_str.to_string(),
-                )),
-                Err(_) => {
-                    let err_span = LexError::span_from_position(start_pos, number_str.len());
-                    self.errors.push(LexError::InvalidNumber {
-                        number: number_str.to_owned(),
-                        position: start_pos,
-                        span: err_span,
-                    });
-                    None
-                }
+                    number_str.to_owned(),
+                ))
+            } else {
+                let err_span = LexError::span_from_position(start_pos, number_str.len());
+                self.errors.push(LexError::InvalidNumber {
+                    number: number_str.to_owned(),
+                    position: start_pos,
+                    span: err_span,
+                });
+                None
             }
+        } else if let Ok(value) = number_str.parse::<i64>() {
+            Some(Token::new(
+                TokenType::IntegerLiteral(value),
+                span,
+                number_str.to_owned(),
+            ))
         } else {
-            match number_str.parse::<i64>() {
-                Ok(value) => Some(Token::new(
-                    TokenType::IntegerLiteral(value),
-                    span,
-                    number_str.to_string(),
-                )),
-                Err(_) => {
-                    let err_span = LexError::span_from_position(start_pos, number_str.len());
-                    self.errors.push(LexError::InvalidNumber {
-                        number: number_str.to_owned(),
-                        position: start_pos,
-                        span: err_span,
-                    });
-                    None
-                }
-            }
+            let err_span = LexError::span_from_position(start_pos, number_str.len());
+            self.errors.push(LexError::InvalidNumber {
+                number: number_str.to_owned(),
+                position: start_pos,
+                span: err_span,
+            });
+            None
         }
     }
 
     /// Scan an identifier or keyword
-    fn scan_identifier(&mut self, start_pos: Position) -> Option<Token> {
+    fn scan_identifier(&mut self, start_pos: Position) -> token::Token {
         let start_offset = start_pos.offset;
 
         // First character is already validated
@@ -494,10 +506,10 @@ impl<'input> Lexer<'input> {
         // Check if it's a keyword
         let token_type = self.keywords.get(identifier).map_or_else(
             || TokenType::Identifier(identifier.to_owned()),
-            |keyword_type| keyword_type.clone(),
+            std::clone::Clone::clone,
         );
 
-        Some(Token::new(token_type, span, identifier.to_owned()))
+        Token::new(token_type, span, identifier.to_owned())
     }
 
     /// Skip whitespace and track whitespace type
@@ -505,7 +517,7 @@ impl<'input> Lexer<'input> {
         while !self.is_at_end() {
             match self.current_char() {
                 ' ' => {
-                    if let Some(WhitespaceType::Tabs) = self.whitespace_type {
+                    if self.whitespace_type == Some(WhitespaceType::Tabs) {
                         let tab_span = LexError::span_from_position(self.position, 1);
                         let space_span = LexError::span_from_position(self.position, 1);
                         self.errors.push(LexError::MixedWhitespace {
@@ -518,7 +530,7 @@ impl<'input> Lexer<'input> {
                     self.advance();
                 }
                 '\t' => {
-                    if let Some(WhitespaceType::Spaces) = self.whitespace_type {
+                    if self.whitespace_type == Some(WhitespaceType::Spaces) {
                         let tab_span = LexError::span_from_position(self.position, 1);
                         let space_span = LexError::span_from_position(self.position, 1);
                         self.errors.push(LexError::MixedWhitespace {
@@ -686,6 +698,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::approx_constant,
+        reason = "3.14 is not pi, just a test float value"
+    )]
     fn test_numbers() {
         let input = "42 3.14 0 999";
         let lexer = Lexer::new(input);
@@ -698,9 +714,10 @@ mod tests {
             tokens[0].token_type,
             TokenType::IntegerLiteral(42)
         ));
-        assert!(
-            matches!(tokens[1].token_type, TokenType::FloatLiteral(f) if (f - std::f64::consts::PI).abs() < f64::EPSILON)
-        );
+        assert!(matches!(
+            tokens[1].token_type,
+            TokenType::FloatLiteral(f) if (f - 3.14).abs() < f64::EPSILON
+        ));
         assert!(matches!(tokens[2].token_type, TokenType::IntegerLiteral(0)));
         assert!(matches!(
             tokens[3].token_type,

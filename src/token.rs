@@ -4,6 +4,12 @@
 //! and parser.
 
 #![expect(dead_code, reason = "Token types are being developed incrementally")]
+#![allow(
+    clippy::ref_patterns,
+    clippy::needless_borrowed_reference,
+    clippy::pattern_type_mismatch,
+    reason = "Using ref patterns for consistent pattern matching style with String data"
+)]
 
 use core::fmt;
 
@@ -298,15 +304,15 @@ impl Token {
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::IntegerLiteral(n) => write!(f, "integer literal '{n}'"),
-            Self::FloatLiteral(n) => write!(f, "float literal '{n}'"),
-            Self::StringLiteral(s) => write!(f, "string literal '{s}'"),
-            Self::BooleanLiteral(b) => write!(f, "boolean literal '{b}'"),
-            Self::Identifier(name) => write!(f, "identifier '{name}'"),
-            Self::Let => write!(f, "keyword 'let'"),
-            Self::Mutable => write!(f, "keyword 'mutable'"),
-            Self::Function => write!(f, "keyword 'f'"),
-            Self::Return => write!(f, "keyword 'return'"),
+            &Self::IntegerLiteral(n) => write!(f, "integer literal '{n}'"),
+            &Self::FloatLiteral(n) => write!(f, "float literal '{n}'"),
+            &Self::StringLiteral(ref s) => write!(f, "string literal '{s}'"),
+            &Self::BooleanLiteral(b) => write!(f, "boolean literal '{b}'"),
+            &Self::Identifier(ref name) => write!(f, "identifier '{name}'"),
+            &Self::Let => write!(f, "keyword 'let'"),
+            &Self::Mutable => write!(f, "keyword 'mutable'"),
+            &Self::Function => write!(f, "keyword 'f'"),
+            &Self::Return => write!(f, "keyword 'return'"),
             Self::Void => write!(f, "keyword 'void'"),
             Self::If => write!(f, "keyword 'if'"),
             Self::Else => write!(f, "keyword 'else'"),
