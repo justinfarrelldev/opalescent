@@ -240,6 +240,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Community tools
 - [ ] IDE plugins
 - [ ] Documentation hosting
+- [ ] Compiler "Help" commands work to get command clarifications
 
 ---
 
