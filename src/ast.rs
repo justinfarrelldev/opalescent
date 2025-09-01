@@ -186,6 +186,13 @@ pub enum Stmt {
         id: NodeId,
     },
 
+    /// Loop statements (loop => body)
+    Loop {
+        body: Box<Stmt>,
+        span: Span,
+        id: NodeId,
+    },
+
     /// Break statements
     Break { span: Span, id: NodeId },
 
@@ -439,6 +446,7 @@ impl AstNode for Stmt {
             Stmt::If { span, .. } => *span,
             Stmt::For { span, .. } => *span,
             Stmt::While { span, .. } => *span,
+            Stmt::Loop { span, .. } => *span,
             Stmt::Break { span, .. } => *span,
             Stmt::Continue { span, .. } => *span,
         }
@@ -455,6 +463,7 @@ impl AstNode for Stmt {
             Stmt::If { id, .. } => *id,
             Stmt::For { id, .. } => *id,
             Stmt::While { id, .. } => *id,
+            Stmt::Loop { id, .. } => *id,
             Stmt::Break { id, .. } => *id,
             Stmt::Continue { id, .. } => *id,
         }

@@ -41,6 +41,7 @@ impl<'input> Lexer<'input> {
         keywords.insert("else", TokenType::Else);
         keywords.insert("for", TokenType::For);
         keywords.insert("while", TokenType::While);
+        keywords.insert("loop", TokenType::Loop);
         keywords.insert("in", TokenType::In);
         keywords.insert("break", TokenType::Break);
         keywords.insert("continue", TokenType::Continue);

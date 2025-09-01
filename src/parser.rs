@@ -567,6 +567,7 @@ impl Parser {
             TokenType::If => self.parse_if_statement(),
             TokenType::For => self.parse_for_statement(),
             TokenType::While => self.parse_while_statement(),
+            TokenType::Loop => self.parse_loop_statement(),
             TokenType::Break => self.parse_break_statement(),
             TokenType::Continue => self.parse_continue_statement(),
             _ => self.parse_expression_statement(),
@@ -791,6 +792,34 @@ impl Parser {
 
         Ok(Stmt::While {
             condition,
+            body,
+            span,
+            id: next_node_id(),
+        })
+    }
+
+    /// Parse a loop statement
+    fn parse_loop_statement(&mut self) -> ParseResult<Stmt> {
+        let start_span = self.current_token().span;
+        self.advance(); // consume 'loop'
+
+        // Expect '=>'
+        if !self.check(&TokenType::Arrow) {
+            return Err(ParseError::UnexpectedToken {
+                expected: "'=>'".to_string(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        }
+        self.advance(); // consume '=>'
+
+        // Parse body (must be a block)
+        let body = Box::new(self.parse_block_statement()?);
+
+        let end_span = body.span();
+        let span = Span::new(start_span.start, end_span.end);
+
+        Ok(Stmt::Loop {
             body,
             span,
             id: next_node_id(),
@@ -1456,6 +1485,171 @@ mod tests {
             }
         } else {
             unreachable!("Expected while statement");
+        }
+    }
+
+    #[test]
+    fn test_loop_statements() {
+        // Test simple loop statement
+        let simple_loop = parse_statement_from_string("loop => { break }").unwrap();
+        if let Stmt::Loop { body, .. } = simple_loop {
+            // Check body
+            if let Stmt::Block { statements, .. } = *body {
+                assert_eq!(statements.len(), 1);
+                if let Stmt::Break { .. } = &statements[0] {
+                    // Good, break statement
+                } else {
+                    unreachable!("Expected break statement in loop body");
+                }
+            } else {
+                unreachable!("Expected block statement in loop body");
+            }
+        } else {
+            unreachable!("Expected loop statement, got {simple_loop:?}");
+        }
+
+        // Test loop with multiple statements
+        let complex_loop = parse_statement_from_string(
+            "loop => { let x = 1; if x > 10 { break } else { continue } }"
+        ).unwrap();
+        if let Stmt::Loop { body, .. } = complex_loop {
+            if let Stmt::Block { statements, .. } = *body {
+                assert_eq!(statements.len(), 2);
+            } else {
+                unreachable!("Expected block statement in loop body");
+            }
+        } else {
+            unreachable!("Expected loop statement");
+        }
+
+        // Test loop with nested loops
+        let nested_loop = parse_statement_from_string(
+            "loop => { loop => { break }; continue }"
+        ).unwrap();
+        if let Stmt::Loop { body, .. } = nested_loop {
+            if let Stmt::Block { statements, .. } = *body {
+                assert_eq!(statements.len(), 2);
+                // First statement should be a nested loop
+                if let Stmt::Loop { .. } = &statements[0] {
+                    // Good, nested loop
+                } else {
+                    unreachable!("Expected nested loop statement");
+                }
+                // Second statement should be continue
+                if let Stmt::Continue { .. } = &statements[1] {
+                    // Good, continue statement
+                } else {
+                    unreachable!("Expected continue statement");
+                }
+            } else {
+                unreachable!("Expected block statement in loop body");
+            }
+        } else {
+            unreachable!("Expected loop statement");
+        }
+
+        // Test loop with variable assignments and conditions
+        let assignment_loop = parse_statement_from_string(
+            "loop => { let i = 0; i = i + 1; if i > 5 { break } }"
+        ).unwrap();
+        if let Stmt::Loop { body, .. } = assignment_loop {
+            if let Stmt::Block { statements, .. } = *body {
+                assert_eq!(statements.len(), 3);
+                // Check that we have let, assignment, and if statements
+                assert!(matches!(&statements[0], Stmt::Let { .. }));
+                assert!(matches!(&statements[1], Stmt::Assignment { .. }));
+                assert!(matches!(&statements[2], Stmt::If { .. }));
+            } else {
+                unreachable!("Expected block statement in loop body");
+            }
+        } else {
+            unreachable!("Expected loop statement");
+        }
+
+        // Test loop with function calls
+        let function_call_loop = parse_statement_from_string(
+            "loop => { process_item(); if should_exit() { break } }"
+        ).unwrap();
+        if let Stmt::Loop { body, .. } = function_call_loop {
+            if let Stmt::Block { statements, .. } = *body {
+                assert_eq!(statements.len(), 2);
+                // First should be an expression statement with function call
+                if let Stmt::Expression { expr, .. } = &statements[0] {
+                    assert!(matches!(expr, Expr::Call { .. }));
+                } else {
+                    unreachable!("Expected expression statement with function call");
+                }
+                // Second should be an if statement
+                assert!(matches!(&statements[1], Stmt::If { .. }));
+            } else {
+                unreachable!("Expected block statement in loop body");
+            }
+        } else {
+            unreachable!("Expected loop statement");
+        }
+
+        // Test empty loop (just for syntax, though not practical)
+        let empty_loop = parse_statement_from_string("loop => { }").unwrap();
+        if let Stmt::Loop { body, .. } = empty_loop {
+            if let Stmt::Block { statements, .. } = *body {
+                assert_eq!(statements.len(), 0);
+            } else {
+                unreachable!("Expected block statement in loop body");
+            }
+        } else {
+            unreachable!("Expected loop statement");
+        }
+    }
+
+    #[test]
+    fn test_loop_error_cases() {
+        // Test loop without arrow - should fail
+        let missing_arrow = parse_statement_from_string("loop { break }");
+        assert!(missing_arrow.is_err());
+
+        // Test loop without body - should fail  
+        let missing_body = parse_statement_from_string("loop =>");
+        assert!(missing_body.is_err());
+
+        // Test loop with malformed arrow - should fail
+        let bad_arrow = parse_statement_from_string("loop = { break }");
+        assert!(bad_arrow.is_err());
+
+        // Test loop with unclosed body - should fail
+        let unclosed_body = parse_statement_from_string("loop => { break");
+        assert!(unclosed_body.is_err());
+    }
+
+    #[test] 
+    fn test_loop_with_various_statements() {
+        // Test loop containing all types of statements
+        let comprehensive_loop = parse_statement_from_string(
+            "loop => { 
+                let x = 0;
+                let mutable counter = 1;
+                counter = counter + 1;
+                for i in items { process(i) };
+                while running { update() };
+                if done { break };
+                return void
+            }"
+        ).unwrap();
+        
+        if let Stmt::Loop { body, .. } = comprehensive_loop {
+            if let Stmt::Block { statements, .. } = *body {
+                assert_eq!(statements.len(), 7);
+                assert!(matches!(&statements[0], Stmt::Let { .. }));
+                assert!(matches!(&statements[1], Stmt::Mutable { .. }));
+                assert!(matches!(&statements[2], Stmt::Assignment { .. }));
+                assert!(matches!(&statements[3], Stmt::For { .. }));
+                assert!(matches!(&statements[4], Stmt::While { .. }));
+                assert!(matches!(&statements[5], Stmt::If { .. }));
+                assert!(matches!(&statements[6], Stmt::Return { .. }));
+            } else {
+                unreachable!("Expected block statement in loop body");
+            }
+        } else {
+            unreachable!("Expected loop statement");
         }
     }
 
