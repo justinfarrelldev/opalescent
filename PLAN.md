@@ -53,14 +53,20 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Error handling validation
 
 ### ⏳ Type System Core (Name: type-system-core-plan.md)
-- [x] Basic type representation (int32, string, boolean, etc.) - Core infrastructure complete
+- [x] Basic type representation (all int32/64, uint32/64, int8/16, uint8/16, float32/64, string, boolean, unit)
+- [x] Extended integer and floating point type support
 - [x] Basic type environment and context management
 - [x] Type checking framework foundation
 - [x] Error reporting framework with miette integration
 - [x] AST Type to CoreType conversion
-- [ ] Generic type support
-- [ ] Type inference engine
-- [ ] Complete type checking framework
+- [x] Type variable system for inference
+- [x] Substitution system for type variables
+- [x] Complete unification algorithm with occurs check
+- [x] Array, Function, and Generic type infrastructure
+- [x] Comprehensive test suite (31 tests passing)
+- [ ] Generic type support (runtime instantiation)
+- [ ] Type inference engine (constraint collection)
+- [ ] Complete type checking framework (expression/statement checking)
 - [ ] Cast validation and safety
 
 ## Phase 2: Language Features

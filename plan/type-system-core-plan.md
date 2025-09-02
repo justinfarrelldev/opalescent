@@ -18,20 +18,21 @@ The type system provides static type checking, type inference, and type safety g
 - [ ] Type substitution for generics
 - [ ] Complete source location integration
 
-### ⏳ Primitive Types
+### ✅ Primitive Types
 
 - [x] Core integer types (int32, int64, uint32, uint64)
+- [x] Extended integer types (int8, int16, uint8, uint16)
 - [x] Floating point types (float32, float64)
 - [x] Boolean type (boolean)
 - [x] String type (string)
 - [x] Unit/void type (unit)
-- [ ] Extended integer types (int8, int16, uint8, uint16)
 - [ ] Character type (char) if needed
 
-### ☐ Composite Types
+### ✅ Composite Types
 
-- [ ] Array types ([T], fixed-size arrays)
-- [ ] Function types ((param_types) -> return_type)
+- [x] Array types ([T], fixed-size arrays)
+- [x] Function types ((param_types) -> return_type)
+- [x] Generic types (Type\<T\>) with type arguments
 - [ ] Tuple types (if supported)
 - [ ] Reference types (for memory management)
 
@@ -44,15 +45,18 @@ The type system provides static type checking, type inference, and type safety g
 
 ## Generic Type Support
 
-### ☐ Generic Type Parameters
+### ⏳ Generic Type Parameters
 
-- [ ] Type parameter declarations (T, U, V, etc.)
-- [ ] Type parameter bounds/constraints
+- [x] Type parameter representation (TypeVar struct with id and name)
+- [x] Type parameter bounds/constraints (basic infrastructure in TypeEnvironment)
 - [ ] Variance annotations (covariant, contravariant, invariant)
 - [ ] Higher-kinded types (Type\<Type\<T\>\>)
 
-### ☐ Generic Type Instantiation
+### ⏳ Generic Type Instantiation
 
+- [x] Generic type representation (Generic variant in CoreType)
+- [x] Type argument storage (type_args field)
+- [x] Generic type unification support
 - [ ] Type argument inference at call sites
 - [ ] Explicit type argument specification
 - [ ] Generic type checking and validation
@@ -74,12 +78,13 @@ The type system provides static type checking, type inference, and type safety g
 
 ## Type Inference Engine
 
-### ☐ Hindley-Milner Type Inference
+### ⏳ Hindley-Milner Type Inference
 
-- [ ] Type variable generation and management
+- [x] Type variable generation and management (TypeVar struct)
+- [x] Unification algorithm implementation (complete with occurs check)
+- [x] Occurs check for infinite types
+- [x] Substitution system for type variables
 - [ ] Constraint collection during AST traversal
-- [ ] Unification algorithm implementation
-- [ ] Occurs check for infinite types
 - [ ] Principal type inference
 
 ### ☐ Local Type Inference
@@ -258,16 +263,21 @@ The type system provides static type checking, type inference, and type safety g
 ### ✅ Phase 1: Basic Infrastructure
 
 - [x] Define core type representation (CoreType enum)
-- [x] Implement basic type checking for primitives (int32, string, boolean, etc.)
+- [x] Implement basic type checking for primitives (all int/uint/float types)
+- [x] Extended integer and float type support (int8, int16, uint8, uint16)
 - [x] Set up type environment and context (TypeEnvironment struct)
 - [x] Basic error reporting framework (TypeError with miette integration)
 - [x] TypeChecker infrastructure with environment management
 - [x] Core type compatibility checking
 - [x] AST Type to CoreType conversion for basic types
-- [x] Comprehensive test suite (10 tests covering core functionality)
-- [ ] Complete primitive type support (missing some integer sizes)
-- [ ] Add proper type context management
+- [x] Type variable system (TypeVar) for inference
+- [x] Substitution system for type variables
+- [x] Full unification algorithm with occurs check
+- [x] Array, Function, and Generic type support in CoreType
+- [x] Comprehensive test suite (31 tests covering all functionality)
 - [ ] Integration with parser for type annotations
+- [ ] Complete primitive type support (char type if needed)
+- [ ] Add proper type context management
 
 ### ☐ Phase 2: Type Inference
 
