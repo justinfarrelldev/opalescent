@@ -277,6 +277,8 @@ args = [
     "clippy::mutex_atomic",
     "-D",
     "clippy::needless_raw_strings",
+    "-A",
+    "clippy::needless_borrowed_reference",
     "-D",
     "clippy::panic_in_result_fn",
     "-D",
