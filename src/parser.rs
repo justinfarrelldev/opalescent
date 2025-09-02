@@ -942,9 +942,7 @@ impl Parser {
         match &token.token_type {
             &TokenType::IntegerLiteral(value) => Ok(self.parse_integer_literal(value, span)),
             &TokenType::FloatLiteral(value) => Ok(self.parse_float_literal(value, span)),
-            &TokenType::StringLiteral(ref value) => {
-                self.parse_string_literal(value.clone(), span)
-            }
+            &TokenType::StringLiteral(ref value) => self.parse_string_literal(value.clone(), span),
             &TokenType::BooleanLiteral(value) => Ok(self.parse_boolean_literal(value, span)),
             &TokenType::Void => Ok(self.parse_void_literal(span)),
             &TokenType::Identifier(ref name) => Ok(self.parse_identifier(name.clone(), span)),
@@ -985,7 +983,7 @@ impl Parser {
     /// Parse string literal expressions and string interpolation
     fn parse_string_literal(&mut self, value: String, span: Span) -> ParseResult<Expr> {
         self.advance();
-        
+
         // Check if the string contains interpolation syntax
         if value.contains('{') {
             Self::parse_string_interpolation(&value, span)
@@ -1003,7 +1001,7 @@ impl Parser {
         let mut parts = Vec::new();
         let mut current_str = String::new();
         let mut chars = value.chars();
-        
+
         while let Some(ch) = chars.next() {
             if ch == '{' {
                 // Add the current string part if not empty
@@ -1014,27 +1012,31 @@ impl Parser {
                     // Add empty literal for strings starting with interpolation
                     parts.push(StringPart::Literal(String::new()));
                 }
-                
+
                 // Parse the expression inside {}
                 let mut expr_str = String::new();
                 let mut brace_count = 1_i32;
                 let mut found_closing_brace = false;
-                
+
                 for expr_ch in chars.by_ref() {
                     match expr_ch {
                         '{' => {
-                            brace_count = brace_count.checked_add(1_i32)
-                                .ok_or_else(|| ParseError::InvalidSyntax {
-                                    message: "Too many nested braces in string interpolation".to_owned(),
+                            brace_count = brace_count.checked_add(1_i32).ok_or_else(|| {
+                                ParseError::InvalidSyntax {
+                                    message: "Too many nested braces in string interpolation"
+                                        .to_owned(),
                                     span: LexError::span_from_span(span),
-                                })?;
+                                }
+                            })?;
                         }
                         '}' => {
-                            brace_count = brace_count.checked_sub(1_i32)
-                                .ok_or_else(|| ParseError::InvalidSyntax {
-                                    message: "Unmatched closing brace in string interpolation".to_owned(),
+                            brace_count = brace_count.checked_sub(1_i32).ok_or_else(|| {
+                                ParseError::InvalidSyntax {
+                                    message: "Unmatched closing brace in string interpolation"
+                                        .to_owned(),
                                     span: LexError::span_from_span(span),
-                                })?;
+                                }
+                            })?;
                             if brace_count == 0_i32 {
                                 found_closing_brace = true;
                                 break;
@@ -1044,7 +1046,7 @@ impl Parser {
                     }
                     expr_str.push(expr_ch);
                 }
-                
+
                 // Check for unclosed braces
                 if !found_closing_brace {
                     return Err(ParseError::InvalidSyntax {
@@ -1052,7 +1054,7 @@ impl Parser {
                         span: LexError::span_from_span(span),
                     });
                 }
-                
+
                 // Parse the expression string
                 if expr_str.trim().is_empty() {
                     return Err(ParseError::InvalidSyntax {
@@ -1060,19 +1062,21 @@ impl Parser {
                         span: LexError::span_from_span(span),
                     });
                 }
-                
+
                 // Create a mini lexer/parser for the expression
                 let expr_lexer = crate::lexer::Lexer::new(&expr_str);
                 let (expr_tokens, _) = expr_lexer.tokenize();
                 let mut expr_parser = Self::new(expr_tokens);
-                
+
                 match expr_parser.parse_expression() {
                     Ok(expr) => {
                         parts.push(StringPart::Expression(expr));
                     }
                     Err(_) => {
                         return Err(ParseError::InvalidSyntax {
-                            message: format!("Invalid expression in string interpolation: {expr_str}"),
+                            message: format!(
+                                "Invalid expression in string interpolation: {expr_str}"
+                            ),
                             span: LexError::span_from_span(span),
                         });
                     }
@@ -1081,10 +1085,10 @@ impl Parser {
                 current_str.push(ch);
             }
         }
-        
+
         // Add any remaining string content
         parts.push(StringPart::Literal(current_str));
-        
+
         Ok(Expr::StringInterpolation {
             parts,
             span,
@@ -2139,21 +2143,21 @@ mod tests {
         let simple = parse_expression_from_string("'Hello {world}'").unwrap();
         if let Expr::StringInterpolation { parts, .. } = simple {
             assert_eq!(parts.len(), 3);
-            
+
             // First part should be literal "Hello "
             if let StringPart::Literal(ref text) = parts[0] {
                 assert_eq!(text, "Hello ");
             } else {
                 unreachable!("Expected literal part, got {:?}", parts[0]);
             }
-            
+
             // Second part should be identifier expression
             if let StringPart::Expression(Expr::Identifier { ref name, .. }) = parts[1] {
                 assert_eq!(name, "world");
             } else {
                 unreachable!("Expected identifier expression, got {:?}", parts[1]);
             }
-            
+
             // Third part should be empty literal (trailing string after last interpolation)
             if let StringPart::Literal(ref text) = parts[2] {
                 assert_eq!(text, "");
@@ -2171,32 +2175,32 @@ mod tests {
         let multiple = parse_expression_from_string("'fib({n}) = {result}'").unwrap();
         if let Expr::StringInterpolation { parts, .. } = multiple {
             assert_eq!(parts.len(), 5);
-            
+
             // Should be: literal("fib("), expr(n), literal(") = "), expr(result), literal("")
             if let StringPart::Literal(ref text) = parts[0] {
                 assert_eq!(text, "fib(");
             } else {
                 unreachable!("Expected literal part");
             }
-            
+
             if let StringPart::Expression(Expr::Identifier { ref name, .. }) = parts[1] {
                 assert_eq!(name, "n");
             } else {
                 unreachable!("Expected identifier expression");
             }
-            
+
             if let StringPart::Literal(ref text) = parts[2] {
                 assert_eq!(text, ") = ");
             } else {
                 unreachable!("Expected literal part");
             }
-            
+
             if let StringPart::Expression(Expr::Identifier { ref name, .. }) = parts[3] {
                 assert_eq!(name, "result");
             } else {
                 unreachable!("Expected identifier expression");
             }
-            
+
             if let StringPart::Literal(ref text) = parts[4] {
                 assert_eq!(text, "");
             } else {
@@ -2213,13 +2217,13 @@ mod tests {
         let complex = parse_expression_from_string("'Result: {a + b * c}'").unwrap();
         if let Expr::StringInterpolation { parts, .. } = complex {
             assert_eq!(parts.len(), 3);
-            
+
             if let StringPart::Literal(ref text) = parts[0] {
                 assert_eq!(text, "Result: ");
             } else {
                 unreachable!("Expected literal part");
             }
-            
+
             if let StringPart::Expression(Expr::Binary { .. }) = parts[1] {
                 // Good, binary expression
             } else {
@@ -2236,7 +2240,7 @@ mod tests {
         let func_call = parse_expression_from_string("'Value: {get_value()}'").unwrap();
         if let Expr::StringInterpolation { parts, .. } = func_call {
             assert_eq!(parts.len(), 3);
-            
+
             if let StringPart::Expression(Expr::Call { .. }) = parts[1] {
                 // Good, function call expression
             } else {
@@ -2253,7 +2257,7 @@ mod tests {
         let type_of_interp = parse_expression_from_string("'Type: {type_of(x)}'").unwrap();
         if let Expr::StringInterpolation { parts, .. } = type_of_interp {
             assert_eq!(parts.len(), 3);
-            
+
             if let StringPart::Expression(Expr::TypeOf { .. }) = parts[1] {
                 // Good, type_of expression
             } else {
@@ -2270,20 +2274,20 @@ mod tests {
         let only_expr = parse_expression_from_string("'{value}'").unwrap();
         if let Expr::StringInterpolation { parts, .. } = only_expr {
             assert_eq!(parts.len(), 3);
-            
+
             // Should be: literal(""), expr(value), literal("")
             if let StringPart::Literal(ref text) = parts[0] {
                 assert_eq!(text, "");
             } else {
                 unreachable!("Expected empty literal part");
             }
-            
+
             if let StringPart::Expression(Expr::Identifier { ref name, .. }) = parts[1] {
                 assert_eq!(name, "value");
             } else {
                 unreachable!("Expected identifier expression");
             }
-            
+
             if let StringPart::Literal(ref text) = parts[2] {
                 assert_eq!(text, "");
             } else {
@@ -2300,32 +2304,32 @@ mod tests {
         let no_spaces = parse_expression_from_string("'a{b}c{d}e'").unwrap();
         if let Expr::StringInterpolation { parts, .. } = no_spaces {
             assert_eq!(parts.len(), 5);
-            
+
             // Should be: literal("a"), expr(b), literal("c"), expr(d), literal("e")
             if let StringPart::Literal(ref text) = parts[0] {
                 assert_eq!(text, "a");
             } else {
                 unreachable!("Expected literal 'a'");
             }
-            
+
             if let StringPart::Expression(Expr::Identifier { ref name, .. }) = parts[1] {
                 assert_eq!(name, "b");
             } else {
                 unreachable!("Expected identifier 'b'");
             }
-            
+
             if let StringPart::Literal(ref text) = parts[2] {
                 assert_eq!(text, "c");
             } else {
                 unreachable!("Expected literal 'c'");
             }
-            
+
             if let StringPart::Expression(Expr::Identifier { ref name, .. }) = parts[3] {
                 assert_eq!(name, "d");
             } else {
                 unreachable!("Expected identifier 'd'");
             }
-            
+
             if let StringPart::Literal(ref text) = parts[4] {
                 assert_eq!(text, "e");
             } else {
@@ -2341,11 +2345,11 @@ mod tests {
         // Test unclosed interpolation brace
         let result = parse_expression_from_string("'Hello {world'");
         assert!(result.is_err(), "Should fail on unclosed brace");
-        
+
         // Test empty interpolation
         let empty_result = parse_expression_from_string("'Hello {}'");
         assert!(empty_result.is_err(), "Should fail on empty interpolation");
-        
+
         // Test unmatched closing brace
         let _unmatched_result = parse_expression_from_string("'Hello world}'");
         // This should actually be a regular string literal with '}' in it
