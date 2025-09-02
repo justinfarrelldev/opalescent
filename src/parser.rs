@@ -553,9 +553,9 @@ impl Parser {
         // Check for generic arguments and create appropriate type
         let current_type = if self.check(&TokenType::Less) {
             self.advance(); // consume '<'
-            
+
             let mut type_args = Vec::new();
-            
+
             // Handle empty generic arguments (error case)
             if self.check(&TokenType::Greater) {
                 return Err(ParseError::InvalidSyntax {
@@ -563,11 +563,11 @@ impl Parser {
                     span: ParseError::span_from_token(self.current_token()),
                 });
             }
-            
+
             // Parse comma-separated type arguments
             loop {
                 type_args.push(self.parse_type()?);
-                
+
                 if self.check(&TokenType::Comma) {
                     self.advance(); // consume ','
                 } else if self.check(&TokenType::Greater) {
@@ -580,22 +580,22 @@ impl Parser {
                     });
                 }
             }
-            
+
             // Consume closing '>'
             self.consume(&TokenType::Greater, "Expected '>' after generic arguments")?;
-            
+
             let generic_end_span = self.previous_token().span;
             let generic_span = Span::new(start_span.start, generic_end_span.end);
-            
+
             Type::Generic {
                 name,
                 type_args,
                 span: generic_span,
             }
         } else {
-            Type::Basic { 
-                name, 
-                span: Span::new(start_span.start, self.previous_token().span.end) 
+            Type::Basic {
+                name,
+                span: Span::new(start_span.start, self.previous_token().span.end),
             }
         };
 
@@ -620,18 +620,21 @@ impl Parser {
     fn parse_function_type(&mut self, start_span: Span) -> ParseResult<Type> {
         // Consume the 'f' keyword
         self.advance();
-        
+
         // Expect opening parenthesis
-        self.consume(&TokenType::LeftParen, "Expected '(' after 'f' in function type")?;
-        
+        self.consume(
+            &TokenType::LeftParen,
+            "Expected '(' after 'f' in function type",
+        )?;
+
         let mut parameters = Vec::new();
-        
+
         // Handle empty parameter list: f(): return_type
         if !self.check(&TokenType::RightParen) {
             loop {
                 // Parse parameter type
                 parameters.push(self.parse_type()?);
-                
+
                 if self.check(&TokenType::Comma) {
                     self.advance(); // consume ','
                 } else if self.check(&TokenType::RightParen) {
@@ -645,19 +648,22 @@ impl Parser {
                 }
             }
         }
-        
+
         // Consume closing parenthesis
-        self.consume(&TokenType::RightParen, "Expected ')' after function parameters")?;
-        
+        self.consume(
+            &TokenType::RightParen,
+            "Expected ')' after function parameters",
+        )?;
+
         // Expect colon for return type
         self.consume(&TokenType::Colon, "Expected ':' after function parameters")?;
-        
+
         // Parse return type
         let return_type = Box::new(self.parse_type()?);
-        
+
         let end_span = self.previous_token().span;
         let function_span = Span::new(start_span.start, end_span.end);
-        
+
         Ok(Type::Function {
             parameters,
             return_type,
@@ -2467,10 +2473,16 @@ mod tests {
     fn test_generic_type_parsing_simple() {
         // Test simple generic type: Array<T>
         let simple_generic = parse_type_from_string("Array<T>").unwrap();
-        if let Type::Generic { name, type_args, .. } = simple_generic {
+        if let Type::Generic {
+            name, type_args, ..
+        } = simple_generic
+        {
             assert_eq!(name, "Array");
             assert_eq!(type_args.len(), 1);
-            if let &Type::Basic { name: ref arg_name, .. } = &type_args[0] {
+            if let &Type::Basic {
+                name: ref arg_name, ..
+            } = &type_args[0]
+            {
                 assert_eq!(arg_name, "T");
             } else {
                 unreachable!("Expected basic type T as argument");
@@ -2484,17 +2496,28 @@ mod tests {
     fn test_generic_type_parsing_multiple_params() {
         // Test multiple type parameters: Result<T, E>
         let multiple_params = parse_type_from_string("Result<T, E>").unwrap();
-        if let Type::Generic { name, type_args, .. } = multiple_params {
+        if let Type::Generic {
+            name, type_args, ..
+        } = multiple_params
+        {
             assert_eq!(name, "Result");
             assert_eq!(type_args.len(), 2);
-            
-            if let &Type::Basic { name: ref first_arg, .. } = &type_args[0] {
+
+            if let &Type::Basic {
+                name: ref first_arg,
+                ..
+            } = &type_args[0]
+            {
                 assert_eq!(first_arg, "T");
             } else {
                 unreachable!("Expected basic type T as first argument");
             }
-            
-            if let &Type::Basic { name: ref second_arg, .. } = &type_args[1] {
+
+            if let &Type::Basic {
+                name: ref second_arg,
+                ..
+            } = &type_args[1]
+            {
                 assert_eq!(second_arg, "E");
             } else {
                 unreachable!("Expected basic type E as second argument");
@@ -2508,10 +2531,16 @@ mod tests {
     fn test_generic_type_parsing_concrete_args() {
         // Test concrete type arguments: Array<int32>
         let concrete_args = parse_type_from_string("Array<int32>").unwrap();
-        if let Type::Generic { name, type_args, .. } = concrete_args {
+        if let Type::Generic {
+            name, type_args, ..
+        } = concrete_args
+        {
             assert_eq!(name, "Array");
             assert_eq!(type_args.len(), 1);
-            if let &Type::Basic { name: ref arg_name, .. } = &type_args[0] {
+            if let &Type::Basic {
+                name: ref arg_name, ..
+            } = &type_args[0]
+            {
                 assert_eq!(arg_name, "int32");
             } else {
                 unreachable!("Expected basic type int32 as argument");
@@ -2525,21 +2554,35 @@ mod tests {
     fn test_generic_type_parsing_nested() {
         // Test nested generic types: Array<Result<T, E>>
         let nested_generic = parse_type_from_string("Array<Result<T, E>>").unwrap();
-        if let Type::Generic { name, type_args, .. } = nested_generic {
+        if let Type::Generic {
+            name, type_args, ..
+        } = nested_generic
+        {
             assert_eq!(name, "Array");
             assert_eq!(type_args.len(), 1);
-            
-            if let &Type::Generic { name: ref inner_name, type_args: ref inner_args, .. } = &type_args[0] {
+
+            if let &Type::Generic {
+                name: ref inner_name,
+                type_args: ref inner_args,
+                ..
+            } = &type_args[0]
+            {
                 assert_eq!(inner_name, "Result");
                 assert_eq!(inner_args.len(), 2);
-                
-                if let &Type::Basic { name: ref t_name, .. } = &inner_args[0] {
+
+                if let &Type::Basic {
+                    name: ref t_name, ..
+                } = &inner_args[0]
+                {
                     assert_eq!(t_name, "T");
                 } else {
                     unreachable!("Expected T in nested generic");
                 }
-                
-                if let &Type::Basic { name: ref e_name, .. } = &inner_args[1] {
+
+                if let &Type::Basic {
+                    name: ref e_name, ..
+                } = &inner_args[1]
+                {
                     assert_eq!(e_name, "E");
                 } else {
                     unreachable!("Expected E in nested generic");
@@ -2557,11 +2600,19 @@ mod tests {
         // Test generic type with array suffix: Array<T>[]
         let generic_array = parse_type_from_string("Array<T>[]").unwrap();
         if let Type::Array { element_type, .. } = generic_array {
-            if let &Type::Generic { ref name, ref type_args, .. } = element_type.as_ref() {
+            if let &Type::Generic {
+                ref name,
+                ref type_args,
+                ..
+            } = element_type.as_ref()
+            {
                 assert_eq!(name, "Array");
                 assert_eq!(type_args.len(), 1);
-                
-                if let &Type::Basic { name: ref arg_name, .. } = &type_args[0] {
+
+                if let &Type::Basic {
+                    name: ref arg_name, ..
+                } = &type_args[0]
+                {
                     assert_eq!(arg_name, "T");
                 } else {
                     unreachable!("Expected T as type argument");
@@ -2578,29 +2629,43 @@ mod tests {
     fn test_generic_type_parsing_error_cases() {
         // Test unclosed angle bracket
         let unclosed_result = parse_type_from_string("Array<T");
-        assert!(unclosed_result.is_err(), "Should fail on unclosed angle bracket");
-        
-        // Test empty generic arguments  
+        assert!(
+            unclosed_result.is_err(),
+            "Should fail on unclosed angle bracket"
+        );
+
+        // Test empty generic arguments
         let empty_result = parse_type_from_string("Array<>");
-        assert!(empty_result.is_err(), "Should fail on empty generic arguments");
-        
+        assert!(
+            empty_result.is_err(),
+            "Should fail on empty generic arguments"
+        );
+
         // Test missing comma between arguments
         let missing_comma_result = parse_type_from_string("Result<T E>");
-        assert!(missing_comma_result.is_err(), "Should fail on missing comma");
+        assert!(
+            missing_comma_result.is_err(),
+            "Should fail on missing comma"
+        );
     }
 
     #[test]
     fn test_function_type_parsing_simple() {
         // Test simple function type: f(int32): string
         let simple_func = parse_type_from_string("f(int32): string").unwrap();
-        if let Type::Function { parameters, return_type, .. } = simple_func {
+        if let Type::Function {
+            parameters,
+            return_type,
+            ..
+        } = simple_func
+        {
             assert_eq!(parameters.len(), 1);
             if let &Type::Basic { ref name, .. } = &parameters[0] {
                 assert_eq!(name, "int32");
             } else {
                 unreachable!("Expected basic type int32 as parameter");
             }
-            
+
             if let &Type::Basic { ref name, .. } = return_type.as_ref() {
                 assert_eq!(name, "string");
             } else {
@@ -2615,27 +2680,32 @@ mod tests {
     fn test_function_type_parsing_multiple_params() {
         // Test multiple parameters: f(int32, string, boolean): void
         let multi_param = parse_type_from_string("f(int32, string, boolean): void").unwrap();
-        if let Type::Function { parameters, return_type, .. } = multi_param {
+        if let Type::Function {
+            parameters,
+            return_type,
+            ..
+        } = multi_param
+        {
             assert_eq!(parameters.len(), 3);
-            
+
             if let &Type::Basic { ref name, .. } = &parameters[0] {
                 assert_eq!(name, "int32");
             } else {
                 unreachable!("Expected int32 as first parameter");
             }
-            
+
             if let &Type::Basic { ref name, .. } = &parameters[1] {
                 assert_eq!(name, "string");
             } else {
                 unreachable!("Expected string as second parameter");
             }
-            
+
             if let &Type::Basic { ref name, .. } = &parameters[2] {
                 assert_eq!(name, "boolean");
             } else {
                 unreachable!("Expected boolean as third parameter");
             }
-            
+
             if let &Type::Basic { ref name, .. } = return_type.as_ref() {
                 assert_eq!(name, "void");
             } else {
@@ -2650,9 +2720,14 @@ mod tests {
     fn test_function_type_parsing_no_params() {
         // Test function with no parameters: f(): void
         let no_params = parse_type_from_string("f(): void").unwrap();
-        if let Type::Function { parameters, return_type, .. } = no_params {
+        if let Type::Function {
+            parameters,
+            return_type,
+            ..
+        } = no_params
+        {
             assert_eq!(parameters.len(), 0);
-            
+
             if let &Type::Basic { ref name, .. } = return_type.as_ref() {
                 assert_eq!(name, "void");
             } else {
@@ -2667,23 +2742,38 @@ mod tests {
     fn test_function_type_parsing_generic_params() {
         // Test function with generic parameters: f(Array<T>, Result<T, E>): boolean
         let generic_params = parse_type_from_string("f(Array<T>, Result<T, E>): boolean").unwrap();
-        if let Type::Function { parameters, return_type, .. } = generic_params {
+        if let Type::Function {
+            parameters,
+            return_type,
+            ..
+        } = generic_params
+        {
             assert_eq!(parameters.len(), 2);
-            
-            if let &Type::Generic { ref name, ref type_args, .. } = &parameters[0] {
+
+            if let &Type::Generic {
+                ref name,
+                ref type_args,
+                ..
+            } = &parameters[0]
+            {
                 assert_eq!(name, "Array");
                 assert_eq!(type_args.len(), 1);
             } else {
                 unreachable!("Expected generic type Array<T> as first parameter");
             }
-            
-            if let &Type::Generic { ref name, ref type_args, .. } = &parameters[1] {
+
+            if let &Type::Generic {
+                ref name,
+                ref type_args,
+                ..
+            } = &parameters[1]
+            {
                 assert_eq!(name, "Result");
                 assert_eq!(type_args.len(), 2);
             } else {
                 unreachable!("Expected generic type Result<T, E> as second parameter");
             }
-            
+
             if let &Type::Basic { ref name, .. } = return_type.as_ref() {
                 assert_eq!(name, "boolean");
             } else {
@@ -2698,10 +2788,18 @@ mod tests {
     fn test_function_type_parsing_array_suffix() {
         // Test function type with array suffix: f(int32): string[]
         let array_return = parse_type_from_string("f(int32): string[]").unwrap();
-        if let Type::Function { parameters, return_type, .. } = array_return {
+        if let Type::Function {
+            parameters,
+            return_type,
+            ..
+        } = array_return
+        {
             assert_eq!(parameters.len(), 1);
-            
-            if let &Type::Array { ref element_type, .. } = return_type.as_ref() {
+
+            if let &Type::Array {
+                ref element_type, ..
+            } = return_type.as_ref()
+            {
                 if let &Type::Basic { ref name, .. } = element_type.as_ref() {
                     assert_eq!(name, "string");
                 } else {
@@ -2720,15 +2818,18 @@ mod tests {
         // Test function without parentheses - should fail
         let no_parens = parse_type_from_string("f int32: string");
         assert!(no_parens.is_err(), "Should fail on missing parentheses");
-        
+
         // Test function without return type - should fail
         let no_return = parse_type_from_string("f(int32)");
         assert!(no_return.is_err(), "Should fail on missing return type");
-        
+
         // Test function with unclosed parameters - should fail
         let unclosed_params = parse_type_from_string("f(int32: string");
-        assert!(unclosed_params.is_err(), "Should fail on unclosed parameters");
-        
+        assert!(
+            unclosed_params.is_err(),
+            "Should fail on unclosed parameters"
+        );
+
         // Test function with malformed parameters - should fail
         let bad_params = parse_type_from_string("f(int32 string): void");
         assert!(bad_params.is_err(), "Should fail on malformed parameters");
