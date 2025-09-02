@@ -23,7 +23,7 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 - [x] Array/collection access expressions
 - [x] Cast expressions (expr as Type)
 - [x] Type checking expressions (type_of)
-- [ ] String interpolation expressions
+- [x] String interpolation expressions
 
 ### ✅ Statement AST Nodes
 - [x] Let bindings (immutable variables)
@@ -43,8 +43,9 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 - [x] If expressions/statements
 - [x] For loop statements
 - [x] While loop statements
-- [ ] Loop statement (seen in language-spec/requirements/simple_quiz.op)
+- [x] Loop statement (seen in language-spec/requirements/simple_quiz.op)
 - [x] Break/continue statements
+- [ ] Labeled break/continue with multiple return values (break label: value1, value2)
 
 ### ☐ Type AST Nodes
 - [x] Basic types (int32, string, etc.)
