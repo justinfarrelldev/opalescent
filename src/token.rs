@@ -59,6 +59,20 @@ impl Span {
     pub const fn single(pos: Position) -> Self {
         Self::new(pos, pos)
     }
+
+    /// Get the length of this span in bytes
+    pub const fn len(&self) -> usize {
+        if self.end.offset >= self.start.offset {
+            self.end.offset.saturating_sub(self.start.offset)
+        } else {
+            0
+        }
+    }
+
+    /// Check if this span is empty
+    pub const fn is_empty(&self) -> bool {
+        self.start.offset == self.end.offset
+    }
 }
 
 /// The different types of tokens in Opalescent

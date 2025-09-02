@@ -52,11 +52,15 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Integration Tests (comprehensive test coverage, 89 tests passing)
 - [x] Error handling validation
 
-### ☐ Type System Core (Name: type-system-core-plan.md)
-- [ ] Basic type representation (int32, string, boolean, etc.)
+### ⏳ Type System Core (Name: type-system-core-plan.md)
+- [x] Basic type representation (int32, string, boolean, etc.) - Core infrastructure complete
+- [x] Basic type environment and context management
+- [x] Type checking framework foundation
+- [x] Error reporting framework with miette integration
+- [x] AST Type to CoreType conversion
 - [ ] Generic type support
 - [ ] Type inference engine
-- [ ] Type checking framework
+- [ ] Complete type checking framework
 - [ ] Cast validation and safety
 
 ## Phase 2: Language Features

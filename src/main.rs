@@ -13,6 +13,7 @@ mod error;
 mod lexer;
 mod parser;
 mod token;
+mod type_system;
 
 use lexer::Lexer;
 use parser::Parser;
