@@ -787,7 +787,7 @@ impl Parser {
     /// - `import type Item1, Item2 from source`
     fn parse_import_declaration(&mut self) -> ParseResult<Decl> {
         let start_span = self.current_token().span;
-        
+
         // Consume 'import' keyword
         self.advance();
 
@@ -808,7 +808,7 @@ impl Parser {
             // Parse additional items if there's a comma
             while self.check(&TokenType::Comma) {
                 self.advance(); // consume ','
-                
+
                 // Check for trailing comma (not allowed)
                 if self.check(&TokenType::From) {
                     return Err(ParseError::InvalidSyntax {
@@ -816,7 +816,7 @@ impl Parser {
                         span: ParseError::span_from_token(self.previous_token()),
                     });
                 }
-                
+
                 let additional_item = self.parse_import_item(is_type_import)?;
                 items.push(additional_item);
             }
@@ -855,7 +855,7 @@ impl Parser {
     /// Parse a single import item (either Named or Type)
     fn parse_import_item(&mut self, is_type: bool) -> ParseResult<ImportItem> {
         let start_span = self.current_token().span;
-        
+
         // Parse item name
         let name = match self.current_token().token_type {
             TokenType::Identifier(ref name) => {
@@ -875,7 +875,7 @@ impl Parser {
         // Check for 'as' alias
         let alias = if self.check(&TokenType::As) {
             self.advance(); // consume 'as'
-            
+
             match self.current_token().token_type {
                 TokenType::Identifier(ref alias_name) => {
                     let alias_name = alias_name.clone();
@@ -924,23 +924,23 @@ impl Parser {
                 self.advance();
                 Ok(path)
             }
-            
+
             // Bare identifiers for stdlib (math, etc.)
             TokenType::Identifier(ref name) => {
                 let path = name.clone();
                 self.advance();
                 Ok(path)
             }
-            
+
             // Relative paths starting with ./
             TokenType::Dot => {
                 let mut path = String::from(".");
                 self.advance(); // consume '.'
-                
+
                 if self.check(&TokenType::Divide) {
                     path.push('/');
                     self.advance(); // consume '/'
-                    
+
                     // Parse path components
                     path.push_str(&self.parse_path_components()?);
                 } else {
@@ -950,15 +950,15 @@ impl Parser {
                         span: ParseError::span_from_token(self.current_token()),
                     });
                 }
-                
+
                 Ok(path)
             }
-            
+
             _ => Err(ParseError::UnexpectedToken {
                 expected: "import path (string, identifier, or '.')".to_owned(),
                 found: format!("{}", self.current_token().token_type),
                 span: ParseError::span_from_token(self.current_token()),
-            })
+            }),
         }
     }
 
@@ -966,7 +966,7 @@ impl Parser {
     /// Also handles file extensions like .types, .op
     fn parse_path_components(&mut self) -> ParseResult<String> {
         let mut components = Vec::new();
-        
+
         // Parse first component
         match self.current_token().token_type {
             TokenType::Identifier(ref component) => {
@@ -981,11 +981,11 @@ impl Parser {
                 });
             }
         }
-        
+
         // Parse additional components
         while self.check(&TokenType::Divide) {
             self.advance(); // consume '/'
-            
+
             match self.current_token().token_type {
                 TokenType::Identifier(ref component) => {
                     components.push(component.clone());
@@ -1000,11 +1000,11 @@ impl Parser {
                 }
             }
         }
-        
+
         // Handle file extensions (e.g., .types, .op)
         if self.check(&TokenType::Dot) {
             self.advance(); // consume '.'
-            
+
             match self.current_token().token_type {
                 TokenType::Identifier(ref extension) => {
                     let last_component = components.pop().unwrap_or_default();
@@ -1020,7 +1020,7 @@ impl Parser {
                 }
             }
         }
-        
+
         Ok(components.join("/"))
     }
 
@@ -3793,7 +3793,7 @@ mod tests {
         if let Decl::Import { items, source, .. } = &program.declarations[0] {
             assert_eq!(source, "./nums");
             assert_eq!(items.len(), 1);
-            
+
             if let ImportItem::Named { name, alias, .. } = &items[0] {
                 assert_eq!(name, "is_prime");
                 assert!(alias.is_none());
@@ -3821,7 +3821,7 @@ mod tests {
         if let Decl::Import { items, source, .. } = &program.declarations[0] {
             assert_eq!(source, "./nums");
             assert_eq!(items.len(), 1);
-            
+
             if let ImportItem::Named { name, alias, .. } = &items[0] {
                 assert_eq!(name, "is_prime");
                 assert_eq!(alias.as_ref().unwrap(), "is_prime_new");
@@ -3849,7 +3849,7 @@ mod tests {
         if let Decl::Import { items, source, .. } = &program.declarations[0] {
             assert_eq!(source, "./nums");
             assert_eq!(items.len(), 3);
-            
+
             let expected_names = ["is_prime", "gcd", "pi"];
             for (i, expected_name) in expected_names.iter().enumerate() {
                 if let ImportItem::Named { name, alias, .. } = &items[i] {
@@ -3880,7 +3880,7 @@ mod tests {
         if let Decl::Import { items, source, .. } = &program.declarations[0] {
             assert_eq!(source, "./models.types");
             assert_eq!(items.len(), 1);
-            
+
             if let ImportItem::Type { name, alias, .. } = &items[0] {
                 assert_eq!(name, "User");
                 assert!(alias.is_none());
@@ -3908,14 +3908,14 @@ mod tests {
         if let Decl::Import { items, source, .. } = &program.declarations[0] {
             assert_eq!(source, "./nums");
             assert_eq!(items.len(), 2);
-            
+
             if let ImportItem::Named { name, alias, .. } = &items[0] {
                 assert_eq!(name, "is_prime");
                 assert_eq!(alias.as_ref().unwrap(), "is_prime_new");
             } else {
                 panic!("Expected first ImportItem::Named with alias");
             }
-            
+
             if let ImportItem::Named { name, alias, .. } = &items[1] {
                 assert_eq!(name, "gcd");
                 assert_eq!(alias.as_ref().unwrap(), "greatest_cd");
@@ -3943,7 +3943,7 @@ mod tests {
         if let Decl::Import { items, source, .. } = &program.declarations[0] {
             assert_eq!(source, "./models.types");
             assert_eq!(items.len(), 2);
-            
+
             let expected_names = ["User", "Address"];
             for (i, expected_name) in expected_names.iter().enumerate() {
                 if let ImportItem::Type { name, alias, .. } = &items[i] {
