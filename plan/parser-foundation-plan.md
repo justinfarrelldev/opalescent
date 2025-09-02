@@ -88,7 +88,7 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 - [ ] Basic type parsing
 - [x] Generic type parsing
 - [x] Array type parsing
-- [ ] Function type parsing
+- [x] Function type parsing
 
 ## Error Handling
 

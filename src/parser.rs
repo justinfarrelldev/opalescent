@@ -524,6 +524,11 @@ impl Parser {
     fn parse_type(&mut self) -> ParseResult<Type> {
         let start_span = self.current_token().span;
 
+        // Check for function type syntax: f(param1, param2): return_type
+        if self.check(&TokenType::Function) {
+            return self.parse_function_type(start_span);
+        }
+
         // Parse the base type name
         let name = match &self.current_token().token_type {
             &TokenType::Identifier(ref name) => {
@@ -609,6 +614,55 @@ impl Parser {
         } else {
             Ok(current_type)
         }
+    }
+
+    /// Parse a function type: `f(param1, param2): return_type`
+    fn parse_function_type(&mut self, start_span: Span) -> ParseResult<Type> {
+        // Consume the 'f' keyword
+        self.advance();
+        
+        // Expect opening parenthesis
+        self.consume(&TokenType::LeftParen, "Expected '(' after 'f' in function type")?;
+        
+        let mut parameters = Vec::new();
+        
+        // Handle empty parameter list: f(): return_type
+        if !self.check(&TokenType::RightParen) {
+            loop {
+                // Parse parameter type
+                parameters.push(self.parse_type()?);
+                
+                if self.check(&TokenType::Comma) {
+                    self.advance(); // consume ','
+                } else if self.check(&TokenType::RightParen) {
+                    break;
+                } else {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "',' or ')'".to_owned(),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                }
+            }
+        }
+        
+        // Consume closing parenthesis
+        self.consume(&TokenType::RightParen, "Expected ')' after function parameters")?;
+        
+        // Expect colon for return type
+        self.consume(&TokenType::Colon, "Expected ':' after function parameters")?;
+        
+        // Parse return type
+        let return_type = Box::new(self.parse_type()?);
+        
+        let end_span = self.previous_token().span;
+        let function_span = Span::new(start_span.start, end_span.end);
+        
+        Ok(Type::Function {
+            parameters,
+            return_type,
+            span: function_span,
+        })
     }
 
     /// Parse a statement
@@ -2533,5 +2587,150 @@ mod tests {
         // Test missing comma between arguments
         let missing_comma_result = parse_type_from_string("Result<T E>");
         assert!(missing_comma_result.is_err(), "Should fail on missing comma");
+    }
+
+    #[test]
+    fn test_function_type_parsing_simple() {
+        // Test simple function type: f(int32): string
+        let simple_func = parse_type_from_string("f(int32): string").unwrap();
+        if let Type::Function { parameters, return_type, .. } = simple_func {
+            assert_eq!(parameters.len(), 1);
+            if let &Type::Basic { ref name, .. } = &parameters[0] {
+                assert_eq!(name, "int32");
+            } else {
+                unreachable!("Expected basic type int32 as parameter");
+            }
+            
+            if let &Type::Basic { ref name, .. } = return_type.as_ref() {
+                assert_eq!(name, "string");
+            } else {
+                unreachable!("Expected basic type string as return type");
+            }
+        } else {
+            unreachable!("Expected function type, got {simple_func:?}");
+        }
+    }
+
+    #[test]
+    fn test_function_type_parsing_multiple_params() {
+        // Test multiple parameters: f(int32, string, boolean): void
+        let multi_param = parse_type_from_string("f(int32, string, boolean): void").unwrap();
+        if let Type::Function { parameters, return_type, .. } = multi_param {
+            assert_eq!(parameters.len(), 3);
+            
+            if let &Type::Basic { ref name, .. } = &parameters[0] {
+                assert_eq!(name, "int32");
+            } else {
+                unreachable!("Expected int32 as first parameter");
+            }
+            
+            if let &Type::Basic { ref name, .. } = &parameters[1] {
+                assert_eq!(name, "string");
+            } else {
+                unreachable!("Expected string as second parameter");
+            }
+            
+            if let &Type::Basic { ref name, .. } = &parameters[2] {
+                assert_eq!(name, "boolean");
+            } else {
+                unreachable!("Expected boolean as third parameter");
+            }
+            
+            if let &Type::Basic { ref name, .. } = return_type.as_ref() {
+                assert_eq!(name, "void");
+            } else {
+                unreachable!("Expected void as return type");
+            }
+        } else {
+            unreachable!("Expected function type");
+        }
+    }
+
+    #[test]
+    fn test_function_type_parsing_no_params() {
+        // Test function with no parameters: f(): void
+        let no_params = parse_type_from_string("f(): void").unwrap();
+        if let Type::Function { parameters, return_type, .. } = no_params {
+            assert_eq!(parameters.len(), 0);
+            
+            if let &Type::Basic { ref name, .. } = return_type.as_ref() {
+                assert_eq!(name, "void");
+            } else {
+                unreachable!("Expected void as return type");
+            }
+        } else {
+            unreachable!("Expected function type");
+        }
+    }
+
+    #[test]
+    fn test_function_type_parsing_generic_params() {
+        // Test function with generic parameters: f(Array<T>, Result<T, E>): boolean
+        let generic_params = parse_type_from_string("f(Array<T>, Result<T, E>): boolean").unwrap();
+        if let Type::Function { parameters, return_type, .. } = generic_params {
+            assert_eq!(parameters.len(), 2);
+            
+            if let &Type::Generic { ref name, ref type_args, .. } = &parameters[0] {
+                assert_eq!(name, "Array");
+                assert_eq!(type_args.len(), 1);
+            } else {
+                unreachable!("Expected generic type Array<T> as first parameter");
+            }
+            
+            if let &Type::Generic { ref name, ref type_args, .. } = &parameters[1] {
+                assert_eq!(name, "Result");
+                assert_eq!(type_args.len(), 2);
+            } else {
+                unreachable!("Expected generic type Result<T, E> as second parameter");
+            }
+            
+            if let &Type::Basic { ref name, .. } = return_type.as_ref() {
+                assert_eq!(name, "boolean");
+            } else {
+                unreachable!("Expected boolean as return type");
+            }
+        } else {
+            unreachable!("Expected function type");
+        }
+    }
+
+    #[test]
+    fn test_function_type_parsing_array_suffix() {
+        // Test function type with array suffix: f(int32): string[]
+        let array_return = parse_type_from_string("f(int32): string[]").unwrap();
+        if let Type::Function { parameters, return_type, .. } = array_return {
+            assert_eq!(parameters.len(), 1);
+            
+            if let &Type::Array { ref element_type, .. } = return_type.as_ref() {
+                if let &Type::Basic { ref name, .. } = element_type.as_ref() {
+                    assert_eq!(name, "string");
+                } else {
+                    unreachable!("Expected string as array element type");
+                }
+            } else {
+                unreachable!("Expected array type as return type");
+            }
+        } else {
+            unreachable!("Expected function type");
+        }
+    }
+
+    #[test]
+    fn test_function_type_parsing_error_cases() {
+        // Test function without parentheses - should fail
+        let no_parens = parse_type_from_string("f int32: string");
+        assert!(no_parens.is_err(), "Should fail on missing parentheses");
+        
+        // Test function without return type - should fail
+        let no_return = parse_type_from_string("f(int32)");
+        assert!(no_return.is_err(), "Should fail on missing return type");
+        
+        // Test function with unclosed parameters - should fail
+        let unclosed_params = parse_type_from_string("f(int32: string");
+        assert!(unclosed_params.is_err(), "Should fail on unclosed parameters");
+        
+        // Test function with malformed parameters - should fail
+        let bad_params = parse_type_from_string("f(int32 string): void");
+        assert!(bad_params.is_err(), "Should fail on malformed parameters");
     }
 }
