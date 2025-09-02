@@ -208,8 +208,6 @@ args = [
     "-D",
     "clippy::same_name_method",
     "-D",
-    "clippy::self_named_module_files",
-    "-D",
     "clippy::single_char_lifetime_names",
     "-D",
     "clippy::str_to_string",
