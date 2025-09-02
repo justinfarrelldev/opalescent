@@ -51,7 +51,7 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 - [x] Basic types (int32, string, etc.)
 - [x] Generic types
 - [x] Array types
-- [ ] Function types
+- [x] Function types
 - [ ] Custom types
 
 ## Parser Implementation
