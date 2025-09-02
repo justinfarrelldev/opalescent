@@ -81,7 +81,7 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 ### ✅ Declaration Parsing
 - [x] Function declaration parsing
 - [ ] Type declaration parsing
-- [ ] Import statement parsing
+- [x] Import statement parsing
 - [ ] Visibility modifier parsing
 
 ### ☐ Type Parsing

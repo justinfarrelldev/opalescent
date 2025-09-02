@@ -34,7 +34,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Statement Parsing (declarations, assignments, blocks)
 - [x] Declaration Parsing (functions)
 - [ ] Type Parsing (basic, generic, array, function types)
-- [ ] Import statement parsing
+- [x] Import statement parsing
 - [ ] Type declaration parsing
 
 #### Error Handling

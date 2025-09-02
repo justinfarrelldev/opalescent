@@ -14,8 +14,8 @@
 )]
 
 use crate::ast::{
-    AstNode, BinaryOp, Decl, Expr, Field, LiteralValue, NodeId, Parameter, Program, Stmt,
-    StringPart, Type, TypeDef, UnaryOp, Variant, Visibility,
+    AstNode, BinaryOp, Decl, Expr, Field, ImportItem, LiteralValue, NodeId, Parameter, Program,
+    Stmt, StringPart, Type, TypeDef, UnaryOp, Variant, Visibility,
 };
 use crate::error::LexError;
 use crate::token::{Span, Token, TokenType};
@@ -778,13 +778,250 @@ impl Parser {
         )
     }
 
-    /// Parse an import declaration (placeholder)
-    fn parse_import_declaration(&self) -> ParseResult<Decl> {
-        // TODO: Implement import declaration parsing
-        Err(ParseError::InvalidSyntax {
-            message: "Import declarations not yet implemented".to_owned(),
-            span: ParseError::span_from_token(self.current_token()),
+    /// Parse an import declaration
+    /// Supports multiple syntax forms:
+    /// - `import item from source`
+    /// - `import item as alias from source`
+    /// - `import item1, item2 from source`
+    /// - `import type Item from source`
+    /// - `import type Item1, Item2 from source`
+    fn parse_import_declaration(&mut self) -> ParseResult<Decl> {
+        let start_span = self.current_token().span;
+        
+        // Consume 'import' keyword
+        self.advance();
+
+        let mut items = Vec::new();
+        let mut is_type_import = false;
+
+        // Check for 'type' keyword
+        if self.check(&TokenType::Type) {
+            is_type_import = true;
+            self.advance();
+        }
+
+        // Parse first import item
+        if self.check_identifier() {
+            let item = self.parse_import_item(is_type_import)?;
+            items.push(item);
+
+            // Parse additional items if there's a comma
+            while self.check(&TokenType::Comma) {
+                self.advance(); // consume ','
+                
+                // Check for trailing comma (not allowed)
+                if self.check(&TokenType::From) {
+                    return Err(ParseError::InvalidSyntax {
+                        message: "Trailing comma in import list not allowed".to_owned(),
+                        span: ParseError::span_from_token(self.previous_token()),
+                    });
+                }
+                
+                let additional_item = self.parse_import_item(is_type_import)?;
+                items.push(additional_item);
+            }
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                expected: "identifier".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        }
+
+        // Expect 'from' keyword
+        if !self.check(&TokenType::From) {
+            return Err(ParseError::UnexpectedToken {
+                expected: "'from'".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        }
+        self.advance(); // consume 'from'
+
+        // Parse source path (handles various import path formats)
+        let source = self.parse_import_path()?;
+
+        let end_span = self.previous_token().span;
+        let import_span = Span::new(start_span.start, end_span.end);
+
+        Ok(Decl::Import {
+            items,
+            source,
+            span: import_span,
+            id: next_node_id(),
         })
+    }
+
+    /// Parse a single import item (either Named or Type)
+    fn parse_import_item(&mut self, is_type: bool) -> ParseResult<ImportItem> {
+        let start_span = self.current_token().span;
+        
+        // Parse item name
+        let name = match self.current_token().token_type {
+            TokenType::Identifier(ref name) => {
+                let name = name.clone();
+                self.advance();
+                name
+            }
+            _ => {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "identifier".to_owned(),
+                    found: format!("{}", self.current_token().token_type),
+                    span: ParseError::span_from_token(self.current_token()),
+                });
+            }
+        };
+
+        // Check for 'as' alias
+        let alias = if self.check(&TokenType::As) {
+            self.advance(); // consume 'as'
+            
+            match self.current_token().token_type {
+                TokenType::Identifier(ref alias_name) => {
+                    let alias_name = alias_name.clone();
+                    self.advance();
+                    Some(alias_name)
+                }
+                _ => {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "identifier".to_owned(),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                }
+            }
+        } else {
+            None
+        };
+
+        let end_span = self.previous_token().span;
+        let item_span = Span::new(start_span.start, end_span.end);
+
+        if is_type {
+            Ok(ImportItem::Type {
+                name,
+                alias,
+                span: item_span,
+            })
+        } else {
+            Ok(ImportItem::Named {
+                name,
+                alias,
+                span: item_span,
+            })
+        }
+    }
+
+    /// Parse import path supporting different formats:
+    /// - String literals: "./path/to/module"
+    /// - Relative paths: ./path/to/module  
+    /// - Bare specifiers: math (stdlib only)
+    fn parse_import_path(&mut self) -> ParseResult<String> {
+        match self.current_token().token_type {
+            // String literals are the simplest case
+            TokenType::StringLiteral(ref path) => {
+                let path = path.clone();
+                self.advance();
+                Ok(path)
+            }
+            
+            // Bare identifiers for stdlib (math, etc.)
+            TokenType::Identifier(ref name) => {
+                let path = name.clone();
+                self.advance();
+                Ok(path)
+            }
+            
+            // Relative paths starting with ./
+            TokenType::Dot => {
+                let mut path = String::from(".");
+                self.advance(); // consume '.'
+                
+                if self.check(&TokenType::Divide) {
+                    path.push('/');
+                    self.advance(); // consume '/'
+                    
+                    // Parse path components
+                    path.push_str(&self.parse_path_components()?);
+                } else {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "'/' after '.'".to_owned(),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                }
+                
+                Ok(path)
+            }
+            
+            _ => Err(ParseError::UnexpectedToken {
+                expected: "import path (string, identifier, or '.')".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            })
+        }
+    }
+
+    /// Parse path components separated by '/' (foo/bar/baz)
+    /// Also handles file extensions like .types, .op
+    fn parse_path_components(&mut self) -> ParseResult<String> {
+        let mut components = Vec::new();
+        
+        // Parse first component
+        match self.current_token().token_type {
+            TokenType::Identifier(ref component) => {
+                components.push(component.clone());
+                self.advance();
+            }
+            _ => {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "path component".to_owned(),
+                    found: format!("{}", self.current_token().token_type),
+                    span: ParseError::span_from_token(self.current_token()),
+                });
+            }
+        }
+        
+        // Parse additional components
+        while self.check(&TokenType::Divide) {
+            self.advance(); // consume '/'
+            
+            match self.current_token().token_type {
+                TokenType::Identifier(ref component) => {
+                    components.push(component.clone());
+                    self.advance();
+                }
+                _ => {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "path component after '/'".to_owned(),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                }
+            }
+        }
+        
+        // Handle file extensions (e.g., .types, .op)
+        if self.check(&TokenType::Dot) {
+            self.advance(); // consume '.'
+            
+            match self.current_token().token_type {
+                TokenType::Identifier(ref extension) => {
+                    let last_component = components.pop().unwrap_or_default();
+                    components.push(format!("{last_component}.{extension}"));
+                    self.advance();
+                }
+                _ => {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "file extension after '.'".to_owned(),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                }
+            }
+        }
+        
+        Ok(components.join("/"))
     }
 
     /// Parse a type annotation
@@ -3538,5 +3775,209 @@ mod tests {
         // Test invalid variant syntax
         let result = parse_program_from_string("type Bad:\n    123Invalid");
         assert!(result.is_err(), "Should fail on invalid variant name");
+    }
+
+    #[test]
+    fn test_import_single_item() {
+        let input = "import is_prime from ./nums";
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Should parse single import successfully: {:?}",
+            result.err()
+        );
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Import { items, source, .. } = &program.declarations[0] {
+            assert_eq!(source, "./nums");
+            assert_eq!(items.len(), 1);
+            
+            if let ImportItem::Named { name, alias, .. } = &items[0] {
+                assert_eq!(name, "is_prime");
+                assert!(alias.is_none());
+            } else {
+                panic!("Expected ImportItem::Named");
+            }
+        } else {
+            panic!("Expected import declaration");
+        }
+    }
+
+    #[test]
+    fn test_import_with_alias() {
+        let input = "import is_prime as is_prime_new from ./nums";
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Should parse import with alias successfully: {:?}",
+            result.err()
+        );
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Import { items, source, .. } = &program.declarations[0] {
+            assert_eq!(source, "./nums");
+            assert_eq!(items.len(), 1);
+            
+            if let ImportItem::Named { name, alias, .. } = &items[0] {
+                assert_eq!(name, "is_prime");
+                assert_eq!(alias.as_ref().unwrap(), "is_prime_new");
+            } else {
+                panic!("Expected ImportItem::Named with alias");
+            }
+        } else {
+            panic!("Expected import declaration");
+        }
+    }
+
+    #[test]
+    fn test_import_multiple_items() {
+        let input = "import is_prime, gcd, pi from ./nums";
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Should parse multiple imports successfully: {:?}",
+            result.err()
+        );
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Import { items, source, .. } = &program.declarations[0] {
+            assert_eq!(source, "./nums");
+            assert_eq!(items.len(), 3);
+            
+            let expected_names = ["is_prime", "gcd", "pi"];
+            for (i, expected_name) in expected_names.iter().enumerate() {
+                if let ImportItem::Named { name, alias, .. } = &items[i] {
+                    assert_eq!(name, expected_name);
+                    assert!(alias.is_none());
+                } else {
+                    panic!("Expected ImportItem::Named for {}", expected_name);
+                }
+            }
+        } else {
+            panic!("Expected import declaration");
+        }
+    }
+
+    #[test]
+    fn test_import_type() {
+        let input = "import type User from ./models.types";
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Should parse type import successfully: {:?}",
+            result.err()
+        );
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Import { items, source, .. } = &program.declarations[0] {
+            assert_eq!(source, "./models.types");
+            assert_eq!(items.len(), 1);
+            
+            if let ImportItem::Type { name, alias, .. } = &items[0] {
+                assert_eq!(name, "User");
+                assert!(alias.is_none());
+            } else {
+                panic!("Expected ImportItem::Type");
+            }
+        } else {
+            panic!("Expected import declaration");
+        }
+    }
+
+    #[test]
+    fn test_import_mixed_with_aliases() {
+        let input = "import is_prime as is_prime_new, gcd as greatest_cd from ./nums";
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Should parse mixed imports with aliases successfully: {:?}",
+            result.err()
+        );
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Import { items, source, .. } = &program.declarations[0] {
+            assert_eq!(source, "./nums");
+            assert_eq!(items.len(), 2);
+            
+            if let ImportItem::Named { name, alias, .. } = &items[0] {
+                assert_eq!(name, "is_prime");
+                assert_eq!(alias.as_ref().unwrap(), "is_prime_new");
+            } else {
+                panic!("Expected first ImportItem::Named with alias");
+            }
+            
+            if let ImportItem::Named { name, alias, .. } = &items[1] {
+                assert_eq!(name, "gcd");
+                assert_eq!(alias.as_ref().unwrap(), "greatest_cd");
+            } else {
+                panic!("Expected second ImportItem::Named with alias");
+            }
+        } else {
+            panic!("Expected import declaration");
+        }
+    }
+
+    #[test]
+    fn test_import_mixed_types_and_items() {
+        let input = "import type User, Address from ./models.types";
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Should parse multiple type imports successfully: {:?}",
+            result.err()
+        );
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Import { items, source, .. } = &program.declarations[0] {
+            assert_eq!(source, "./models.types");
+            assert_eq!(items.len(), 2);
+            
+            let expected_names = ["User", "Address"];
+            for (i, expected_name) in expected_names.iter().enumerate() {
+                if let ImportItem::Type { name, alias, .. } = &items[i] {
+                    assert_eq!(name, expected_name);
+                    assert!(alias.is_none());
+                } else {
+                    panic!("Expected ImportItem::Type for {}", expected_name);
+                }
+            }
+        } else {
+            panic!("Expected import declaration");
+        }
+    }
+
+    #[test]
+    fn test_import_error_cases() {
+        // Test missing 'from' keyword
+        let result = parse_program_from_string("import is_prime ./nums");
+        assert!(result.is_err(), "Should fail on missing 'from' keyword");
+
+        // Test missing source path
+        let result = parse_program_from_string("import is_prime from");
+        assert!(result.is_err(), "Should fail on missing source path");
+
+        // Test empty import list
+        let result = parse_program_from_string("import from ./nums");
+        assert!(result.is_err(), "Should fail on empty import list");
+
+        // Test invalid alias syntax
+        let result = parse_program_from_string("import is_prime as from ./nums");
+        assert!(result.is_err(), "Should fail on invalid alias syntax");
+
+        // Test missing item name
+        let result = parse_program_from_string("import , gcd from ./nums");
+        assert!(result.is_err(), "Should fail on missing item name");
     }
 }
