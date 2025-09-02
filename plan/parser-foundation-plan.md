@@ -49,7 +49,7 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 
 ### ☐ Type AST Nodes
 - [x] Basic types (int32, string, etc.)
-- [ ] Generic types
+- [x] Generic types
 - [x] Array types
 - [ ] Function types
 - [ ] Custom types
@@ -86,8 +86,8 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 
 ### ☐ Type Parsing
 - [ ] Basic type parsing
-- [ ] Generic type parsing
-- [ ] Array type parsing
+- [x] Generic type parsing
+- [x] Array type parsing
 - [ ] Function type parsing
 
 ## Error Handling
@@ -121,9 +121,9 @@ The parser takes the stream of tokens from the lexer and builds an Abstract Synt
 - [ ] Left-associative operators
 - [ ] Non-associative operators
 
-### ☐ String Interpolation
-- [ ] Parse interpolated expressions
-- [ ] Handle nested braces
+### ✅ String Interpolation
+- [x] Parse interpolated expressions
+- [x] Handle nested braces
 - [ ] Type checking for interpolated values
 - [ ] Escape sequence handling
 

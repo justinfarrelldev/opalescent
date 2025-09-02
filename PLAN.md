@@ -25,8 +25,8 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Declaration AST Nodes (functions, public/entry declarations)
 - [x] Control Flow AST Nodes (if, for, while, break/continue)
 - [ ] Type AST Nodes (generics, function types, custom types)
-- [ ] String interpolation expressions
-- [ ] Type checking expressions (type_of)
+- [x] String interpolation expressions
+- [x] Type checking expressions (type_of)
 
 #### Parser Implementation
 - [x] Core Parser Structure (token stream, lookahead, error collection)
@@ -43,7 +43,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Error Reporting (miette integration, source context, suggestions)
 
 #### Advanced Features
-- [ ] String Interpolation parsing
+- [x] String Interpolation parsing
 - [ ] Comments and Documentation preservation
 - [ ] Operator Precedence refinement
 

@@ -524,7 +524,7 @@ impl Parser {
     fn parse_type(&mut self) -> ParseResult<Type> {
         let start_span = self.current_token().span;
 
-        // For now, just parse basic types
+        // Parse the base type name
         let name = match &self.current_token().token_type {
             &TokenType::Identifier(ref name) => {
                 let name = name.clone();
@@ -545,23 +545,69 @@ impl Parser {
             }
         };
 
-        let end_span = self.previous_token().span;
-        let span = Span::new(start_span.start, end_span.end);
+        // Check for generic arguments and create appropriate type
+        let current_type = if self.check(&TokenType::Less) {
+            self.advance(); // consume '<'
+            
+            let mut type_args = Vec::new();
+            
+            // Handle empty generic arguments (error case)
+            if self.check(&TokenType::Greater) {
+                return Err(ParseError::InvalidSyntax {
+                    message: "Empty generic argument list".to_owned(),
+                    span: ParseError::span_from_token(self.current_token()),
+                });
+            }
+            
+            // Parse comma-separated type arguments
+            loop {
+                type_args.push(self.parse_type()?);
+                
+                if self.check(&TokenType::Comma) {
+                    self.advance(); // consume ','
+                } else if self.check(&TokenType::Greater) {
+                    break;
+                } else {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "',' or '>'".to_owned(),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                }
+            }
+            
+            // Consume closing '>'
+            self.consume(&TokenType::Greater, "Expected '>' after generic arguments")?;
+            
+            let generic_end_span = self.previous_token().span;
+            let generic_span = Span::new(start_span.start, generic_end_span.end);
+            
+            Type::Generic {
+                name,
+                type_args,
+                span: generic_span,
+            }
+        } else {
+            Type::Basic { 
+                name, 
+                span: Span::new(start_span.start, self.previous_token().span.end) 
+            }
+        };
 
-        // Check for array type syntax (type[])
+        // Check for array type syntax (type[] or Generic<T>[])
         if self.check(&TokenType::LeftBracket) {
-            self.advance();
+            self.advance(); // consume '['
             self.consume(&TokenType::RightBracket, "Expected ']' after '['")?;
 
             let array_end_span = self.previous_token().span;
             let array_span = Span::new(start_span.start, array_end_span.end);
 
             Ok(Type::Array {
-                element_type: Box::new(Type::Basic { name, span }),
+                element_type: Box::new(current_type),
                 span: array_span,
             })
         } else {
-            Ok(Type::Basic { name, span })
+            Ok(current_type)
         }
     }
 
@@ -1414,6 +1460,13 @@ mod tests {
         let (tokens, _) = lexer.tokenize();
         let mut parser = Parser::new(tokens);
         parser.parse_statement()
+    }
+
+    fn parse_type_from_string(input: &str) -> ParseResult<Type> {
+        let lexer = Lexer::new(input);
+        let (tokens, _) = lexer.tokenize();
+        let mut parser = Parser::new(tokens);
+        parser.parse_type()
     }
 
     #[test]
@@ -2354,5 +2407,131 @@ mod tests {
         let _unmatched_result = parse_expression_from_string("'Hello world}'");
         // This should actually be a regular string literal with '}' in it
         // So it might not be an error, depending on implementation
+    }
+
+    #[test]
+    fn test_generic_type_parsing_simple() {
+        // Test simple generic type: Array<T>
+        let simple_generic = parse_type_from_string("Array<T>").unwrap();
+        if let Type::Generic { name, type_args, .. } = simple_generic {
+            assert_eq!(name, "Array");
+            assert_eq!(type_args.len(), 1);
+            if let &Type::Basic { name: ref arg_name, .. } = &type_args[0] {
+                assert_eq!(arg_name, "T");
+            } else {
+                unreachable!("Expected basic type T as argument");
+            }
+        } else {
+            unreachable!("Expected generic type, got {simple_generic:?}");
+        }
+    }
+
+    #[test]
+    fn test_generic_type_parsing_multiple_params() {
+        // Test multiple type parameters: Result<T, E>
+        let multiple_params = parse_type_from_string("Result<T, E>").unwrap();
+        if let Type::Generic { name, type_args, .. } = multiple_params {
+            assert_eq!(name, "Result");
+            assert_eq!(type_args.len(), 2);
+            
+            if let &Type::Basic { name: ref first_arg, .. } = &type_args[0] {
+                assert_eq!(first_arg, "T");
+            } else {
+                unreachable!("Expected basic type T as first argument");
+            }
+            
+            if let &Type::Basic { name: ref second_arg, .. } = &type_args[1] {
+                assert_eq!(second_arg, "E");
+            } else {
+                unreachable!("Expected basic type E as second argument");
+            }
+        } else {
+            unreachable!("Expected generic type, got {multiple_params:?}");
+        }
+    }
+
+    #[test]
+    fn test_generic_type_parsing_concrete_args() {
+        // Test concrete type arguments: Array<int32>
+        let concrete_args = parse_type_from_string("Array<int32>").unwrap();
+        if let Type::Generic { name, type_args, .. } = concrete_args {
+            assert_eq!(name, "Array");
+            assert_eq!(type_args.len(), 1);
+            if let &Type::Basic { name: ref arg_name, .. } = &type_args[0] {
+                assert_eq!(arg_name, "int32");
+            } else {
+                unreachable!("Expected basic type int32 as argument");
+            }
+        } else {
+            unreachable!("Expected generic type");
+        }
+    }
+
+    #[test]
+    fn test_generic_type_parsing_nested() {
+        // Test nested generic types: Array<Result<T, E>>
+        let nested_generic = parse_type_from_string("Array<Result<T, E>>").unwrap();
+        if let Type::Generic { name, type_args, .. } = nested_generic {
+            assert_eq!(name, "Array");
+            assert_eq!(type_args.len(), 1);
+            
+            if let &Type::Generic { name: ref inner_name, type_args: ref inner_args, .. } = &type_args[0] {
+                assert_eq!(inner_name, "Result");
+                assert_eq!(inner_args.len(), 2);
+                
+                if let &Type::Basic { name: ref t_name, .. } = &inner_args[0] {
+                    assert_eq!(t_name, "T");
+                } else {
+                    unreachable!("Expected T in nested generic");
+                }
+                
+                if let &Type::Basic { name: ref e_name, .. } = &inner_args[1] {
+                    assert_eq!(e_name, "E");
+                } else {
+                    unreachable!("Expected E in nested generic");
+                }
+            } else {
+                unreachable!("Expected nested generic type as argument");
+            }
+        } else {
+            unreachable!("Expected generic type");
+        }
+    }
+
+    #[test]
+    fn test_generic_type_parsing_with_array_suffix() {
+        // Test generic type with array suffix: Array<T>[]
+        let generic_array = parse_type_from_string("Array<T>[]").unwrap();
+        if let Type::Array { element_type, .. } = generic_array {
+            if let &Type::Generic { ref name, ref type_args, .. } = element_type.as_ref() {
+                assert_eq!(name, "Array");
+                assert_eq!(type_args.len(), 1);
+                
+                if let &Type::Basic { name: ref arg_name, .. } = &type_args[0] {
+                    assert_eq!(arg_name, "T");
+                } else {
+                    unreachable!("Expected T as type argument");
+                }
+            } else {
+                unreachable!("Expected generic type as array element");
+            }
+        } else {
+            unreachable!("Expected array type with generic element");
+        }
+    }
+
+    #[test]
+    fn test_generic_type_parsing_error_cases() {
+        // Test unclosed angle bracket
+        let unclosed_result = parse_type_from_string("Array<T");
+        assert!(unclosed_result.is_err(), "Should fail on unclosed angle bracket");
+        
+        // Test empty generic arguments  
+        let empty_result = parse_type_from_string("Array<>");
+        assert!(empty_result.is_err(), "Should fail on empty generic arguments");
+        
+        // Test missing comma between arguments
+        let missing_comma_result = parse_type_from_string("Result<T E>");
+        assert!(missing_comma_result.is_err(), "Should fail on missing comma");
     }
 }
