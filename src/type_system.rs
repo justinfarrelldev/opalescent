@@ -215,10 +215,7 @@ pub struct Substitution {
 
 impl Substitution {
     /// Create an empty substitution
-    #[expect(
-        clippy::missing_const_for_fn,
-        reason = "BTreeMap::new() is not const"
-    )]
+    #[expect(clippy::missing_const_for_fn, reason = "BTreeMap::new() is not const")]
     pub fn empty() -> Self {
         Self {
             mappings: BTreeMap::new(),
