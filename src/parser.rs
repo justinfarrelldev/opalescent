@@ -462,6 +462,9 @@ impl Parser {
             doc_comment,
             span,
             id: next_node_id(),
+            abi_symbol: None,
+            dependencies: Vec::new(),
+            hot_reloadable: false,
         })
     }
 
@@ -552,6 +555,9 @@ impl Parser {
             doc_comment,
             span,
             id: next_node_id(),
+            abi_symbol: None,
+            dependencies: Vec::new(),
+            hot_reloadable: false,
         })
     }
 
@@ -852,6 +858,9 @@ impl Parser {
             source,
             span: import_span,
             id: next_node_id(),
+            abi_symbol: None,
+            dependencies: Vec::new(),
+            hot_reloadable: false,
         })
     }
 

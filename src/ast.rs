@@ -7,6 +7,7 @@
     reason = "AST nodes are partially implemented during language development"
 )]
 
+extern crate alloc;
 use crate::token::{Span, TokenType};
 use core::fmt;
 
@@ -14,13 +15,71 @@ use core::fmt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(pub usize);
 
-/// Base trait for all AST nodes
+/// Base trait for all AST nodes, extended for hot-reload metadata
+///
+/// # Hot Reload Metadata
+/// This trait is designed to support Opalescent's hot-reloading architecture.
+/// It provides ABI symbol info, dependency tracking, and reloadable status for each node.
+///
+/// All core methods are required for ABI signature generation and dynamic reload.
 pub trait AstNode {
     /// Returns the source span of this AST node
     fn span(&self) -> Span;
     /// Returns the unique node ID of this AST node
     fn node_id(&self) -> NodeId;
+    /// Returns ABI-relevant symbol info for this node (for ABI signature generation)
+    fn abi_symbols(&self) -> alloc::vec::Vec<SymbolInfo> {
+        alloc::vec::Vec::new()
+    }
+    /// Returns a list of module dependencies for this node
+    fn dependencies(&self) -> alloc::vec::Vec<ModulePath> {
+        alloc::vec::Vec::new()
+    }
+    /// Returns true if this node is hot-reloadable (eligible for dynamic reload)
+    fn is_hot_reloadable(&self) -> bool {
+        false
+    }
 }
+
+/// Symbol information for ABI signature generation
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SymbolInfo {
+    /// Name of the symbol (function/type/variable/constant)
+    pub name: alloc::string::String,
+    /// Type of the symbol
+    pub symbol_type: SymbolType,
+    /// Type signature for ABI compatibility
+    pub signature: TypeSignature,
+    /// Visibility of the symbol
+    pub visibility: Visibility,
+    /// Source location of the symbol
+    pub source_location: Span,
+}
+
+/// Symbol type for ABI signature
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Symbol type for ABI signature
+pub enum SymbolType {
+    /// Function symbol (represents a function declaration)
+    Function,
+    /// Type symbol (represents a type declaration)
+    Type,
+    /// Variable symbol (represents a variable declaration)
+    Variable,
+    /// Constant symbol (represents a constant declaration)
+    Constant,
+}
+
+/// ABI type signature for hot-reload compatibility
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeSignature {
+    /// String representation of the type signature
+    pub signature: alloc::string::String,
+}
+
+/// Module path for dependency tracking
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ModulePath(pub alloc::string::String);
 
 /// Expression AST nodes
 #[derive(Debug, Clone, PartialEq)]
@@ -323,6 +382,12 @@ pub enum Decl {
         span: Span,
         /// Unique identifier for this AST node
         id: NodeId,
+        /// ABI symbol info for hot-reload
+        abi_symbol: Option<SymbolInfo>,
+        /// List of module dependencies
+        dependencies: Vec<ModulePath>,
+        /// Hot-reloadable flag
+        hot_reloadable: bool,
     },
 
     /// Type declarations
@@ -339,6 +404,12 @@ pub enum Decl {
         span: Span,
         /// Unique identifier for this AST node
         id: NodeId,
+        /// ABI symbol info for hot-reload
+        abi_symbol: Option<SymbolInfo>,
+        /// List of module dependencies
+        dependencies: Vec<ModulePath>,
+        /// Hot-reloadable flag
+        hot_reloadable: bool,
     },
 
     /// Import declarations
@@ -351,6 +422,12 @@ pub enum Decl {
         span: Span,
         /// Unique identifier for this AST node
         id: NodeId,
+        /// ABI symbol info for hot-reload
+        abi_symbol: Option<SymbolInfo>,
+        /// List of module dependencies
+        dependencies: Vec<ModulePath>,
+        /// Hot-reloadable flag
+        hot_reloadable: bool,
     },
 }
 
@@ -679,17 +756,15 @@ impl AstNode for Stmt {
 impl AstNode for Decl {
     fn span(&self) -> Span {
         match *self {
-            Self::Function { span, .. }
-            | Self::Type { span, .. }
-            | Self::Import { span, .. } => span,
+            Self::Function { span, .. } | Self::Type { span, .. } | Self::Import { span, .. } => {
+                span
+            }
         }
     }
 
     fn node_id(&self) -> NodeId {
         match *self {
-            Self::Function { id, .. }
-            | Self::Type { id, .. }
-            | Self::Import { id, .. } => id,
+            Self::Function { id, .. } | Self::Type { id, .. } | Self::Import { id, .. } => id,
         }
     }
 }
@@ -869,8 +944,14 @@ mod tests {
 
     #[test]
     fn test_token_to_unary_op() {
-        assert_eq!(UnaryOp::try_from(TokenType::Minus).unwrap(), UnaryOp::Negate);
+        assert_eq!(
+            UnaryOp::try_from(TokenType::Minus).unwrap(),
+            UnaryOp::Negate
+        );
         assert_eq!(UnaryOp::try_from(TokenType::Not).unwrap(), UnaryOp::Not);
-        assert_eq!(UnaryOp::try_from(TokenType::BitNot).unwrap(), UnaryOp::BitNot);
+        assert_eq!(
+            UnaryOp::try_from(TokenType::BitNot).unwrap(),
+            UnaryOp::BitNot
+        );
     }
 }
