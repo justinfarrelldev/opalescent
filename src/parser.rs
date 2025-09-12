@@ -19,8 +19,11 @@ use crate::ast::{
 };
 use crate::error::LexError;
 use crate::token::{Span, Token, TokenType};
+use core::{
+    mem,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 use miette::{Diagnostic, SourceSpan};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
 
 /// Errors that can occur during parsing
@@ -1944,8 +1947,7 @@ impl Parser {
         if self.is_at_end() {
             false
         } else {
-            std::mem::discriminant(&self.current_token().token_type)
-                == std::mem::discriminant(token_type)
+            mem::discriminant(&self.current_token().token_type) == mem::discriminant(token_type)
         }
     }
 

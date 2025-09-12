@@ -2,9 +2,11 @@
 //!
 //! This module contains the lexer implementation that tokenizes Opalescent source code.
 
+extern crate alloc;
+
 use crate::error::{LexError, LexErrors};
 use crate::token::{self, Position, Span, Token, TokenType};
-use std::collections::HashMap;
+use alloc::collections::BTreeMap;
 use unicode_xid::UnicodeXID;
 
 /// The main lexer struct that tokenizes Opalescent source code
@@ -13,7 +15,7 @@ pub struct Lexer<'input> {
     /// The input source code to tokenize
     input: &'input str,
     /// Character iterator with byte position information
-    chars: std::str::CharIndices<'input>,
+    chars: core::str::CharIndices<'input>,
     /// Current character and its position, if not at end
     current: Option<(usize, char)>,
     /// Current position in the source code
@@ -21,7 +23,7 @@ pub struct Lexer<'input> {
     /// Collection of lexical analysis errors
     errors: LexErrors,
     /// Map of keyword strings to their token types
-    keywords: HashMap<&'static str, TokenType>,
+    keywords: BTreeMap<&'static str, TokenType>,
     /// Type of whitespace detected for consistency checking
     whitespace_type: Option<WhitespaceType>,
 }
@@ -43,7 +45,7 @@ impl<'input> Lexer<'input> {
         let mut chars = input.char_indices();
         let current = chars.next();
 
-        let mut keywords = HashMap::new();
+        let mut keywords = BTreeMap::new();
         keywords.insert("let", TokenType::Let);
         keywords.insert("mutable", TokenType::Mutable);
         keywords.insert("f", TokenType::Function);
@@ -506,7 +508,7 @@ impl<'input> Lexer<'input> {
         // Check if it's a keyword
         let token_type = self.keywords.get(identifier).map_or_else(
             || TokenType::Identifier(identifier.to_owned()),
-            std::clone::Clone::clone,
+            Clone::clone,
         );
 
         Token::new(token_type, span, identifier.to_owned())
