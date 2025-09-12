@@ -236,6 +236,7 @@ Once you have read them:
 - Create a file in the "plan" folder (which is in the root of the project) with the name specified in PLAN.md for the task you are taking on.
 - Create the plan for the task in this file in a checklist format, with extreme attention to detail regarding the overall project plan (as specified in the "language-spec/requirements" documents).
 - KEEP THE LINTING RULES IN MIND (STATED ABOVE). THIS IS ABSOLUTELY VITAL AND WILL DEFINITELY PREVENT YOU FROM COMPLETING YOUR WORK IF YOU DO NOT HEED IT. LOOK AT THE LINTING RULES IN Makefile.toml BEFORE CONTINUING SO YOU KNOW WHAT TO AVOID.
+- If they will be relevant for your task, see ERROR_HANDLING_STANDARDS.md, HOT_RELOAD_ARCHITECTURE.md and INTEGRATION_DEPENDENCIES.md in the root and read the entire file to ensure that you are in alignment with those requirements. If you are in doubt of whether they are relevant, read them just in case.
 - Start writing tests (for test-driven development, red-green refactor). These must include edge-cases as well. You are required to add at least 3 tests per checkbox. Keep the linting rules in mind.
 - Fix any linting errors.
 - Once the tests are written, implement the functionality. Keep the linting rules in mind.
