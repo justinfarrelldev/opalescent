@@ -42,6 +42,12 @@ All new code should be well-tested. All tests should NEVER, UNDER ANY CIRCUMSTAN
 
 You cannot use allow attributes, and must use expect instead.
 
+## Architectural Consistency
+
+- **Follow established dependency patterns**: Before adding new dependencies or imports, check existing modules for the established pattern (e.g., `alloc` vs `std` usage)
+- **Document infrastructure decisions**: Major architectural choices should be documented in code comments explaining the rationale
+- **Consider cross-compilation targets**: Core language components should work in both `std` and `no_std` environments
+
 # Bug Fixes
 
 If you find bugs in original source code:
@@ -78,6 +84,30 @@ This folder contains several .op files that are valid language files. These file
 # LINTING
 
 The linting rules are intentionally very strict. It is vital that you develop features with them in mind. Here are pointers to ensure you do not run into issues with them:
+
+## Architectural Consistency & Infrastructure Standards
+
+- **Maintain consistent dependency patterns**: Follow established patterns in the codebase - if core modules use `alloc` instead of `std`, continue this pattern
+- **Preserve no_std compatibility**: When adding new features, ensure core language components (lexer, parser, type system, AST) remain compatible with `no_std` environments
+- **Use `alloc::collections::BTreeMap` instead of `std::collections::HashMap`**: For deterministic iteration order and no_std compatibility in core modules
+- **Use `core::` imports over `std::` when equivalent**: Prefer `core::mem`, `core::fmt`, `core::sync::atomic` for foundational components
+- **Document architectural decisions**: When making infrastructure changes, explain the rationale in code comments (e.g., "using BTreeMap for deterministic builds and LLVM backend compatibility")
+- **Consider future phases**: Infrastructure changes should support upcoming features (hot reloading, LLVM backend, cross-compilation)
+- **Maintain separation of concerns**: Binary targets (`main.rs`) can use `std`, but library components should prefer `alloc`/`core`
+- **Validate compatibility**: Test that core components work in constrained environments before committing
+- **Follow existing patterns**: Check similar modules for dependency patterns before adding new imports
+- **Document breaking changes**: If architectural changes are unavoidable, document the reasoning and migration path
+
+### **Rationale for no_std Compatibility:**
+
+The Opalescent language is designed to support:
+
+- LLVM backend compilation to embedded targets (Phase 5)
+- Hot reloading with dynamic libraries (Phase 6)
+- Cross-platform compilation including constrained environments
+- Runtime library generation that may not have full `std` access
+
+This architectural decision ensures the core language implementation remains portable and doesn't introduce unexpected dependencies during code generation.
 
 ## Documentation Requirements
 
