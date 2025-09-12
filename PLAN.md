@@ -64,14 +64,26 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Complete unification algorithm with occurs check
 - [x] Array, Function, and Generic type infrastructure
 - [x] Comprehensive test suite (31 tests passing)
-- [ ] Generic type support (runtime instantiation)
-- [ ] Type inference engine (constraint collection)
-- [ ] Complete type checking framework (expression/statement checking)
-- [ ] Cast validation and safety
+- [ ] **CRITICAL FOR PHASE 2:** Generic type support (runtime instantiation)
+- [ ] **CRITICAL FOR PHASE 2:** Type inference engine (constraint collection and solving)
+- [ ] **CRITICAL FOR PHASE 2:** Complete type checking framework
+  - [ ] Expression type checking (literals, identifiers, binary/unary ops, calls, casts)
+  - [ ] Statement type checking (let bindings, assignments, returns, blocks)
+  - [ ] Declaration type checking (functions, types, imports)
+  - [ ] Scope management and variable resolution
+  - [ ] Type checking integration with parser AST
+- [ ] **CRITICAL FOR PHASE 2:** Cast validation and safety
+  - [ ] Safe cast checking (widening vs narrowing)
+  - [ ] Runtime cast validation planning
+  - [ ] Arithmetic overflow handling strategy
+  - [ ] Integration with error handling
 
 ## Phase 2: Language Features
 
+**NOTE: Phase 2 CANNOT BEGIN until Type System Core is 100% complete. All items below require functional type checking, type inference, and cast validation.**
+
 ### ☐ Function System (Name: function-system-plan.md)
+
 - [ ] Function declaration and definition parsing
 - [ ] Parameter and return type handling
 - [ ] Lambda expressions (f(): type => ...)
@@ -79,6 +91,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Entry point validation (single entry keyword)
 
 ### ☐ Variable System (Name: variable-system-plan.md)
+
 - [ ] Let bindings (immutable by default)
 - [ ] Mutable variables
 - [ ] Scope management
@@ -86,6 +99,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Type inference for variables
 
 ### ☐ Control Flow (Name: control-flow-plan.md)
+
 - [ ] If expressions (Rust-style)
 - [ ] For loops with iterators
 - [ ] While loops
@@ -93,6 +107,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Break/continue semantics
 
 ### ☐ Arithmetic & Logic (Name: arithmetic-logic-plan.md)
+
 - [ ] Basic operators (+, -, *, /, ^)
 - [ ] Comparison operators with type safety
 - [ ] Boolean operators (and, or, not, xor)
@@ -103,6 +118,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ## Phase 3: Advanced Type Features
 
 ### ☐ ADT Implementation (Name: adt-implementation-plan.md)
+
 - [ ] Sum types (enum-like with variants)
 - [ ] Product types (struct-like)
 - [ ] Pattern matching
@@ -110,6 +126,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Type validation and checking
 
 ### ☐ Array & Collection Support (Name: collections-plan.md)
+
 - [ ] Array types and literals
 - [ ] String handling and interpolation
 - [ ] Collection operations
@@ -117,6 +134,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Memory management for collections
 
 ### ☐ Generic System (Name: generics-plan.md)
+
 - [ ] Generic function definitions
 - [ ] Generic type constraints
 - [ ] Type parameter inference
@@ -145,6 +163,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ## Phase 5: Code Generation
 
 ### ☐ LLVM Backend Setup (Name: llvm-backend-plan.md)
+
 - [ ] LLVM integration
 - [ ] Target platform support
 - [ ] Code generation for basic expressions
@@ -152,6 +171,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Memory management
 
 ### ☐ Runtime System (Name: runtime-system-plan.md)
+
 - [ ] Runtime library foundation
 - [ ] Memory allocator
 - [ ] Garbage collection (if needed)
@@ -159,6 +179,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Error handling runtime
 
 ### ☐ Optimization (Name: optimization-plan.md)
+
 - [ ] Basic optimizations
 - [ ] Dead code elimination
 - [ ] Constant folding
@@ -285,13 +306,60 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 
 ## Current Status
 
-The project is in Phase 1, and the lexical analysis system has been completed. The next task is to implement the parser foundation.
+The project is in **Phase 1**, and the lexical analysis system has been completed. The **Type System Core** is partially complete but missing critical components required for Phase 2.
+
+**CRITICAL BLOCKER**: Phase 2 cannot begin until the Type System Core is 100% complete, specifically:
+- Generic type runtime instantiation
+- Type inference engine (constraint collection and solving)
+- Complete type checking framework
+- Cast validation and safety
+
+## Architectural Decisions & Dependencies
+
+### Type System Dependencies
+- **Phase 2 Blocker**: All language features require functional type checking
+- **Hot Reload Planning**: AST and type system must preserve metadata for ABI signature generation
+- **LLVM Backend Planning**: Type system design must support code generation requirements
+- **Error Handling**: Consistent miette integration across all modules (lexer, parser, type system)
+
+### Hot Reload Architecture Requirements
+All phases must consider hot reload compatibility:
+- **Symbol Tables**: Must support ABI signature generation and change detection
+- **AST Metadata**: Must preserve all information needed for incremental compilation
+- **Memory Layout**: Type system must plan for cross-module state preservation
+- **Change Detection**: Build graph analysis requires dependency tracking from Phase 1
+
+### Code Generation Preparation
+- **Type Information Preservation**: Must survive through compilation pipeline
+- **Memory Management Strategy**: Plan for LLVM backend memory allocation
+- **Cross-compilation Support**: no_std compatibility maintained in core modules
+
+## Quality & Testing Standards
+
+### Error Handling Standards
+- **Consistent Patterns**: All modules use miette for beautiful error reporting
+- **Source Location Preservation**: All AST nodes maintain span information
+- **Multiple Error Collection**: Support for reporting multiple errors simultaneously
+- **Recovery Strategies**: Graceful degradation and continued processing after errors
+
+### Test Coverage Requirements
+- **Test-Driven Development**: Red-green-refactor for all new features
+- **Integration Testing**: Cross-module compatibility validation
+- **Hot Reload Testing**: Framework for testing hot reload scenarios (Phase 6)
+- **Performance Benchmarks**: Establish baselines for optimization tracking
+
+### Development Workflow
+- **Linting First**: All code must pass strict linting before commits
+- **No Shortcuts**: `--no-verify` is never allowed in git commits
+- **Documentation**: Comprehensive inline documentation for future maintainers
+- **Architectural Decisions**: Document rationale for infrastructure choices
 
 ## Notes
 
-- Each phase builds upon the previous ones
+- Each phase builds upon the previous ones - **no exceptions**
 - Test-driven development should be used throughout
 - All code must pass linting before commits
 - Hot reloading is a key differentiator and should be prioritized
 - Safety and type checking are more important than compile speed
 - Developer experience is paramount
+- **Type System Core completion is the immediate priority**
