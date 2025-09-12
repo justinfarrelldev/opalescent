@@ -413,7 +413,8 @@ impl TypeChecker {
         self.fresh_type_var(format!("t{}", self.next_var_id))
     }
 
-    /// Convert an AST Type to a `CoreType` for basic validation
+    /// Convert an AST Type to a `CoreType` for validation and instantiation
+    /// Supports generics, arrays, and function types.
     pub fn ast_type_to_core_type(ast_type: &Type) -> Result<CoreType, TypeError> {
         match *ast_type {
             Type::Basic { ref name, .. } => match name.as_str() {
@@ -434,28 +435,100 @@ impl TypeChecker {
                     type_name: name.clone(),
                 }),
             },
-            Type::Array { .. } => {
-                // Arrays are more complex and will be handled in later phases
-                Err(TypeError::InvalidOperation {
-                    operation: "array type resolution".to_owned(),
-                    type_name: "array".to_owned(),
+            Type::Array {
+                ref element_type, ..
+            } => {
+                let elem_core = Self::ast_type_to_core_type(element_type)?;
+                Ok(CoreType::Array(Box::new(elem_core)))
+            }
+            Type::Function {
+                ref parameters,
+                ref return_type,
+                ..
+            } => {
+                let param_types = parameters
+                    .iter()
+                    .map(Self::ast_type_to_core_type)
+                    .collect::<Result<Vec<_>, _>>()?;
+                let ret_type = Self::ast_type_to_core_type(return_type)?;
+                Ok(CoreType::Function {
+                    parameters: param_types,
+                    return_type: Box::new(ret_type),
                 })
             }
-            Type::Function { .. } => {
-                // Function types are more complex and will be handled in later phases
-                Err(TypeError::InvalidOperation {
-                    operation: "function type resolution".to_owned(),
-                    type_name: "function".to_owned(),
-                })
-            }
-            Type::Generic { .. } => {
-                // Generic types will be handled in later phases
-                Err(TypeError::InvalidOperation {
-                    operation: "generic type resolution".to_owned(),
-                    type_name: "generic".to_owned(),
+            Type::Generic {
+                ref name,
+                ref type_args,
+                ..
+            } => {
+                let args = type_args
+                    .iter()
+                    .map(Self::ast_type_to_core_type)
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(CoreType::Generic {
+                    name: name.clone(),
+                    type_args: args,
                 })
             }
         }
+    }
+    /// Validate ADT (sum/product) type definitions for correctness
+    /// Returns Ok if all variants/fields are valid, or `TypeError` if not
+    pub fn validate_adt_type(&self, type_def: &crate::ast::TypeDef) -> Result<(), TypeError> {
+        match *type_def {
+            crate::ast::TypeDef::Sum { ref variants, .. } => {
+                for variant in variants {
+                    for field in &variant.fields {
+                        let core_field_type = Self::ast_type_to_core_type(&field.type_annotation)?;
+                        self.validate_type_name(&field.name, &core_field_type)?;
+                    }
+                }
+                Ok(())
+            }
+            crate::ast::TypeDef::Product { ref fields, .. } => {
+                for field in fields {
+                    let core_field_type = Self::ast_type_to_core_type(&field.type_annotation)?;
+                    self.validate_type_name(&field.name, &core_field_type)?;
+                }
+                Ok(())
+            }
+            crate::ast::TypeDef::Alias {
+                ref target_type, ..
+            } => {
+                let _: CoreType = Self::ast_type_to_core_type(target_type)?;
+                Ok(())
+            }
+        }
+    }
+    /// Type check a pattern match expression
+    /// Ensures all patterns and arms are type compatible
+    pub fn type_check_pattern_match(
+        &self,
+        matched_type: &CoreType,
+        patterns: &[CoreType],
+        arm_types: &[CoreType],
+    ) -> Result<(), TypeError> {
+        // Each pattern must be compatible with matched_type
+        for pat in patterns {
+            if !self.types_compatible(matched_type, pat) {
+                return Err(TypeError::TypeMismatch {
+                    expected: matched_type.to_string(),
+                    found: pat.to_string(),
+                });
+            }
+        }
+        // All arm types must be compatible with each other
+        if let Some(first) = arm_types.first() {
+            for arm in arm_types {
+                if !self.types_compatible(first, arm) {
+                    return Err(TypeError::TypeMismatch {
+                        expected: first.to_string(),
+                        found: arm.to_string(),
+                    });
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Check if two core types are structurally compatible (including nested types)
@@ -700,6 +773,106 @@ impl Default for TypeChecker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::{Field, Type, TypeDef, Variant};
+    use crate::token::{Position, Span};
+    #[test]
+    fn test_generic_type_instantiation() {
+        let span = Span::single(Position::start());
+        let ast_type = Type::Generic {
+            name: "Result".to_owned(),
+            type_args: vec![
+                Type::Basic {
+                    name: "int32".to_owned(),
+                    span,
+                },
+                Type::Basic {
+                    name: "string".to_owned(),
+                    span,
+                },
+            ],
+            span,
+        };
+        let core_type = TypeChecker::ast_type_to_core_type(&ast_type).unwrap();
+        if let CoreType::Generic { name, type_args } = core_type {
+            assert_eq!(name, "Result");
+            assert_eq!(type_args.len(), 2);
+            assert_eq!(type_args[0], CoreType::Int32);
+            assert_eq!(type_args[1], CoreType::String);
+        } else {
+            unreachable!("Expected CoreType::Generic");
+        }
+    }
+
+    #[test]
+    fn test_adt_type_validation_sum() {
+        let span = Span::single(Position::start());
+        let variant = Variant {
+            name: "Some".to_owned(),
+            fields: vec![Field {
+                name: "value".to_owned(),
+                type_annotation: Type::Basic {
+                    name: "int32".to_owned(),
+                    span,
+                },
+                span,
+            }],
+            span,
+        };
+        let type_def = TypeDef::Sum {
+            variants: vec![variant],
+            span,
+        };
+        let checker = TypeChecker::new();
+        assert!(checker.validate_adt_type(&type_def).is_ok());
+    }
+
+    #[test]
+    fn test_adt_type_validation_product() {
+        let span = Span::single(Position::start());
+        let field = Field {
+            name: "count".to_owned(),
+            type_annotation: Type::Basic {
+                name: "int32".to_owned(),
+                span,
+            },
+            span,
+        };
+        let type_def = TypeDef::Product {
+            fields: vec![field],
+            span,
+        };
+        let checker = TypeChecker::new();
+        assert!(checker.validate_adt_type(&type_def).is_ok());
+    }
+
+    #[test]
+    fn test_pattern_match_type_check() {
+        let checker = TypeChecker::new();
+        let matched_type = CoreType::Int32;
+        let patterns = vec![CoreType::Int32, CoreType::Int32];
+        let arm_types = vec![CoreType::String, CoreType::String];
+        assert!(
+            checker
+                .type_check_pattern_match(&matched_type, &patterns, &arm_types)
+                .is_ok()
+        );
+
+        // Incompatible pattern
+        let bad_patterns = vec![CoreType::String];
+        assert!(
+            checker
+                .type_check_pattern_match(&matched_type, &bad_patterns, &arm_types)
+                .is_err()
+        );
+
+        // Incompatible arm types
+        let bad_arms = vec![CoreType::String, CoreType::Int32];
+        assert!(
+            checker
+                .type_check_pattern_match(&matched_type, &patterns, &bad_arms)
+                .is_err()
+        );
+    }
 
     #[test]
     fn test_type_environment_creation() {
@@ -915,7 +1088,7 @@ mod tests {
         let end_pos = Position::new(1, 6, 5);
         let span = Span::new(start_pos, end_pos);
 
-        // Test that complex types return appropriate errors
+        // Test that complex types now succeed
         let array_type = Type::Array {
             element_type: Box::new(Type::Basic {
                 name: "int32".to_owned(),
@@ -923,19 +1096,12 @@ mod tests {
             }),
             span,
         };
-
         let array_result = TypeChecker::ast_type_to_core_type(&array_type);
-        assert!(array_result.is_err());
-        if let Err(TypeError::InvalidOperation {
-            operation,
-            type_name,
-        }) = array_result
-        {
-            assert_eq!(operation, "array type resolution");
-            assert_eq!(type_name, "array");
-        } else {
-            unreachable!("Expected InvalidOperation error for array type");
-        }
+        assert!(array_result.is_ok());
+        assert_eq!(
+            array_result.unwrap(),
+            CoreType::Array(Box::new(CoreType::Int32))
+        );
 
         let function_type = Type::Function {
             parameters: vec![],
@@ -945,19 +1111,15 @@ mod tests {
             }),
             span,
         };
-
         let function_result = TypeChecker::ast_type_to_core_type(&function_type);
-        assert!(function_result.is_err());
-        if let Err(TypeError::InvalidOperation {
-            operation,
-            type_name,
-        }) = function_result
-        {
-            assert_eq!(operation, "function type resolution");
-            assert_eq!(type_name, "function");
-        } else {
-            unreachable!("Expected InvalidOperation error for function type");
-        }
+        assert!(function_result.is_ok());
+        assert_eq!(
+            function_result.unwrap(),
+            CoreType::Function {
+                parameters: vec![],
+                return_type: Box::new(CoreType::Unit),
+            }
+        );
 
         let generic_type = Type::Generic {
             name: "Array".to_owned(),
@@ -967,19 +1129,15 @@ mod tests {
             }],
             span,
         };
-
         let generic_result = TypeChecker::ast_type_to_core_type(&generic_type);
-        assert!(generic_result.is_err());
-        if let Err(TypeError::InvalidOperation {
-            operation,
-            type_name,
-        }) = generic_result
-        {
-            assert_eq!(operation, "generic type resolution");
-            assert_eq!(type_name, "generic");
-        } else {
-            unreachable!("Expected InvalidOperation error for generic type");
-        }
+        assert!(generic_result.is_ok());
+        assert_eq!(
+            generic_result.unwrap(),
+            CoreType::Generic {
+                name: "Array".to_owned(),
+                type_args: vec![CoreType::Int32],
+            }
+        );
     }
 
     #[test]
