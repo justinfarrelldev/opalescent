@@ -13,8 +13,7 @@
 extern crate alloc;
 
 use crate::ast::Type;
-use alloc::fmt;
-use std::collections::HashMap;
+use alloc::{collections::BTreeMap, fmt, string::String, vec::Vec};
 use thiserror::Error;
 
 /// Represents type variables used in type inference
@@ -211,20 +210,24 @@ pub enum TypeError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Substitution {
     /// Map from type variable IDs to their substituted types
-    mappings: HashMap<usize, CoreType>,
+    mappings: BTreeMap<usize, CoreType>,
 }
 
 impl Substitution {
     /// Create an empty substitution
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "BTreeMap::new() is not const"
+    )]
     pub fn empty() -> Self {
         Self {
-            mappings: HashMap::new(),
+            mappings: BTreeMap::new(),
         }
     }
 
     /// Create a substitution with a single mapping
     pub fn single(var_id: usize, type_value: CoreType) -> Self {
-        let mut mappings = HashMap::new();
+        let mut mappings = BTreeMap::new();
         mappings.insert(var_id, type_value);
         Self { mappings }
     }
@@ -260,7 +263,7 @@ impl Substitution {
 
     /// Compose this substitution with another (self after other)
     pub fn compose(self, other: &Self) -> Self {
-        let mut result_mappings = HashMap::new();
+        let mut result_mappings = BTreeMap::new();
 
         // Apply self to all mappings in other
         for (var_id, type_value) in &other.mappings {
@@ -283,7 +286,7 @@ impl Substitution {
     }
 
     /// Get the mappings for testing
-    pub const fn mappings(&self) -> &HashMap<usize, CoreType> {
+    pub const fn mappings(&self) -> &BTreeMap<usize, CoreType> {
         &self.mappings
     }
 }
@@ -292,17 +295,17 @@ impl Substitution {
 #[derive(Debug, Clone)]
 pub struct TypeEnvironment {
     /// Map of type names to their definitions
-    types: HashMap<String, CoreType>,
+    types: BTreeMap<String, CoreType>,
     /// Map of generic type parameters to their constraints
-    generic_params: HashMap<String, Vec<String>>,
+    generic_params: BTreeMap<String, Vec<String>>,
 }
 
 impl TypeEnvironment {
     /// Create a new type environment with built-in types
     pub fn new() -> Self {
         let mut env = Self {
-            types: HashMap::new(),
-            generic_params: HashMap::new(),
+            types: BTreeMap::new(),
+            generic_params: BTreeMap::new(),
         };
 
         // Register built-in types
@@ -1148,7 +1151,7 @@ mod tests {
             return_type: Box::new(var2_type),
         };
 
-        let mut mappings = HashMap::new();
+        let mut mappings = BTreeMap::new();
         mappings.insert(var1.id, CoreType::Int32);
         mappings.insert(var2.id, CoreType::String);
         let subst = Substitution { mappings };
