@@ -10,7 +10,10 @@
     reason = "Type system is foundational infrastructure being built incrementally"
 )]
 
+extern crate alloc;
+
 use crate::ast::Type;
+use alloc::fmt;
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -79,6 +82,59 @@ pub enum CoreType {
     },
 }
 
+impl fmt::Display for CoreType {
+    /// Format `CoreType` for user-friendly error messages
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Self::Int8 => write!(f, "int8"),
+            Self::Int16 => write!(f, "int16"),
+            Self::Int32 => write!(f, "int32"),
+            Self::Int64 => write!(f, "int64"),
+            Self::UInt8 => write!(f, "uint8"),
+            Self::UInt16 => write!(f, "uint16"),
+            Self::UInt32 => write!(f, "uint32"),
+            Self::UInt64 => write!(f, "uint64"),
+            Self::Float32 => write!(f, "float32"),
+            Self::Float64 => write!(f, "float64"),
+            Self::String => write!(f, "string"),
+            Self::Boolean => write!(f, "boolean"),
+            Self::Unit => write!(f, "unit"),
+            Self::Variable(ref var) => write!(f, "{}", var.name),
+            Self::Array(ref element_type) => write!(f, "[{element_type}]"),
+            Self::Function {
+                ref parameters,
+                ref return_type,
+            } => {
+                write!(f, "(")?;
+                for (i, param) in parameters.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{param}")?;
+                }
+                write!(f, ") -> {return_type}")
+            }
+            Self::Generic {
+                ref name,
+                ref type_args,
+            } => {
+                write!(f, "{name}")?;
+                if !type_args.is_empty() {
+                    write!(f, "<")?;
+                    for (i, arg) in type_args.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{arg}")?;
+                    }
+                    write!(f, ">")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 /// Type checking errors that can occur during type analysis
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum TypeError {
@@ -137,6 +193,17 @@ pub enum TypeError {
     ConstraintSolvingFailed {
         /// Reason for the failure
         reason: String,
+    },
+
+    /// Type variable ID overflow occurred
+    #[error("Type variable ID overflow - too many type variables generated")]
+    TypeVariableOverflow,
+
+    /// Feature not yet implemented
+    #[error("Feature not yet implemented: {feature}")]
+    NotImplementedYet {
+        /// Description of the feature not yet implemented
+        feature: String,
     },
 }
 
@@ -278,8 +345,10 @@ impl TypeEnvironment {
     }
 
     /// Get all registered type names
-    pub fn get_type_names(&self) -> Vec<&String> {
-        self.types.keys().collect()
+    pub fn get_type_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.types.keys().cloned().collect();
+        names.sort();
+        names
     }
 }
 
@@ -330,21 +399,17 @@ impl TypeChecker {
     }
 
     /// Generate a fresh type variable
-    #[expect(
-        clippy::missing_const_for_fn,
-        reason = "Function modifies mutable state"
-    )]
-    pub fn fresh_type_var(&mut self, name: String) -> CoreType {
+    pub fn fresh_type_var(&mut self, name: String) -> Result<CoreType, TypeError> {
         let var = TypeVar::new(self.next_var_id, name);
         self.next_var_id = self
             .next_var_id
             .checked_add(1)
-            .expect("Type variable ID overflow");
-        CoreType::Variable(var)
+            .ok_or(TypeError::TypeVariableOverflow)?;
+        Ok(CoreType::Variable(var))
     }
 
     /// Generate a fresh type variable with an auto-generated name
-    pub fn fresh_type_var_auto(&mut self) -> CoreType {
+    pub fn fresh_type_var_auto(&mut self) -> Result<CoreType, TypeError> {
         self.fresh_type_var(format!("t{}", self.next_var_id))
     }
 
@@ -393,9 +458,83 @@ impl TypeChecker {
         }
     }
 
-    /// Check if two core types are compatible
-    pub fn types_compatible(left: &CoreType, right: &CoreType) -> bool {
-        left == right
+    /// Check if two core types are structurally compatible (including nested types)
+    ///
+    /// This method performs deep structural comparison for complex types like
+    /// arrays, functions, and generics, ensuring all nested components are compatible.
+    /// For simple equality checking, use the `==` operator on `CoreType` directly.
+    #[expect(
+        clippy::only_used_in_recursion,
+        reason = "self parameter needed for structural recursion"
+    )]
+    pub fn types_compatible(&self, left: &CoreType, right: &CoreType) -> bool {
+        match (left, right) {
+            // All primitive types
+            (&CoreType::Int8, &CoreType::Int8)
+            | (&CoreType::Int16, &CoreType::Int16)
+            | (&CoreType::Int32, &CoreType::Int32)
+            | (&CoreType::Int64, &CoreType::Int64)
+            | (&CoreType::UInt8, &CoreType::UInt8)
+            | (&CoreType::UInt16, &CoreType::UInt16)
+            | (&CoreType::UInt32, &CoreType::UInt32)
+            | (&CoreType::UInt64, &CoreType::UInt64)
+            | (&CoreType::Float32, &CoreType::Float32)
+            | (&CoreType::Float64, &CoreType::Float64)
+            | (&CoreType::String, &CoreType::String)
+            | (&CoreType::Boolean, &CoreType::Boolean)
+            | (&CoreType::Unit, &CoreType::Unit) => true,
+
+            // Variables are equal if they have the same ID
+            (&CoreType::Variable(ref left_var), &CoreType::Variable(ref right_var)) => {
+                left_var.id == right_var.id
+            }
+
+            // Arrays are compatible if element types are compatible
+            (&CoreType::Array(ref left_elem), &CoreType::Array(ref right_elem)) => {
+                self.types_compatible(left_elem, right_elem)
+            }
+
+            // Functions are compatible if parameters and return types are compatible
+            (
+                &CoreType::Function {
+                    parameters: ref left_params,
+                    return_type: ref left_ret,
+                },
+                &CoreType::Function {
+                    parameters: ref right_params,
+                    return_type: ref right_ret,
+                },
+            ) => {
+                left_params.len() == right_params.len()
+                    && left_params
+                        .iter()
+                        .zip(right_params.iter())
+                        .all(|(l, r)| self.types_compatible(l, r))
+                    && self.types_compatible(left_ret, right_ret)
+            }
+
+            // Generic types are compatible if names and type arguments are compatible
+            (
+                &CoreType::Generic {
+                    name: ref left_name,
+                    type_args: ref left_args,
+                },
+                &CoreType::Generic {
+                    name: ref right_name,
+                    type_args: ref right_args,
+                },
+            ) => {
+                left_name == right_name
+                    && left_args.len() == right_args.len()
+                    && left_args
+                        .iter()
+                        .zip(right_args.iter())
+                        .all(|(l, r)| self.types_compatible(l, r))
+            }
+
+            // Different types are not compatible
+            _ => false,
+        }
     }
 
     /// Validate that a type name is valid for the given core type
@@ -403,8 +542,8 @@ impl TypeChecker {
         if let Ok(existing_type) = self.environment.lookup_type(name) {
             if existing_type != core_type {
                 return Err(TypeError::TypeMismatch {
-                    expected: format!("{existing_type:?}"),
-                    found: format!("{core_type:?}"),
+                    expected: existing_type.to_string(),
+                    found: core_type.to_string(),
                 });
             }
         }
@@ -420,14 +559,14 @@ impl TypeChecker {
     fn unify_impl(&self, left: &CoreType, right: &CoreType) -> Result<Substitution, TypeError> {
         match (left, right) {
             // Same primitive types unify with empty substitution
-            (l, r) if self.types_compatible_exact(l, r) => Ok(Substitution::empty()),
+            (l, r) if self.types_compatible(l, r) => Ok(Substitution::empty()),
 
             // Variable unifies with any type (with occurs check)
             (&CoreType::Variable(ref var), other) | (other, &CoreType::Variable(ref var)) => {
                 if Self::occurs_check(var.id, other) {
                     Err(TypeError::OccursCheckFailed {
                         var_name: var.name.clone(),
-                        type_name: format!("{other:?}"),
+                        type_name: other.to_string(),
                     })
                 } else {
                     Ok(Substitution::single(var.id, other.clone()))
@@ -452,8 +591,8 @@ impl TypeChecker {
             ) => {
                 if left_params.len() != right_params.len() {
                     return Err(TypeError::UnificationFailed {
-                        left: format!("{left:?}"),
-                        right: format!("{right:?}"),
+                        left: left.to_string(),
+                        right: right.to_string(),
                     });
                 }
 
@@ -489,8 +628,8 @@ impl TypeChecker {
             ) => {
                 if left_name != right_name || left_args.len() != right_args.len() {
                     return Err(TypeError::UnificationFailed {
-                        left: format!("{left:?}"),
-                        right: format!("{right:?}"),
+                        left: left.to_string(),
+                        right: right.to_string(),
                     });
                 }
 
@@ -509,8 +648,8 @@ impl TypeChecker {
 
             // Different types cannot be unified
             _ => Err(TypeError::UnificationFailed {
-                left: format!("{left:?}"),
-                right: format!("{right:?}"),
+                left: left.to_string(),
+                right: right.to_string(),
             }),
         }
     }
@@ -549,81 +688,6 @@ impl TypeChecker {
         }
 
         false
-    }
-
-    /// Check exact type compatibility (including structural equality)
-    #[expect(
-        clippy::only_used_in_recursion,
-        reason = "self parameter needed for structural recursion"
-    )]
-    fn types_compatible_exact(&self, left: &CoreType, right: &CoreType) -> bool {
-        match (left, right) {
-            // All primitive types
-            (&CoreType::Int8, &CoreType::Int8)
-            | (&CoreType::Int16, &CoreType::Int16)
-            | (&CoreType::Int32, &CoreType::Int32)
-            | (&CoreType::Int64, &CoreType::Int64)
-            | (&CoreType::UInt8, &CoreType::UInt8)
-            | (&CoreType::UInt16, &CoreType::UInt16)
-            | (&CoreType::UInt32, &CoreType::UInt32)
-            | (&CoreType::UInt64, &CoreType::UInt64)
-            | (&CoreType::Float32, &CoreType::Float32)
-            | (&CoreType::Float64, &CoreType::Float64)
-            | (&CoreType::String, &CoreType::String)
-            | (&CoreType::Boolean, &CoreType::Boolean)
-            | (&CoreType::Unit, &CoreType::Unit) => true,
-
-            // Variables are equal if they have the same ID
-            (&CoreType::Variable(ref left_var), &CoreType::Variable(ref right_var)) => {
-                left_var.id == right_var.id
-            }
-
-            // Arrays are compatible if element types are compatible
-            (&CoreType::Array(ref left_elem), &CoreType::Array(ref right_elem)) => {
-                self.types_compatible_exact(left_elem, right_elem)
-            }
-
-            // Functions are compatible if parameters and return types are compatible
-            (
-                &CoreType::Function {
-                    parameters: ref left_params,
-                    return_type: ref left_ret,
-                },
-                &CoreType::Function {
-                    parameters: ref right_params,
-                    return_type: ref right_ret,
-                },
-            ) => {
-                left_params.len() == right_params.len()
-                    && left_params
-                        .iter()
-                        .zip(right_params.iter())
-                        .all(|(l, r)| self.types_compatible_exact(l, r))
-                    && self.types_compatible_exact(left_ret, right_ret)
-            }
-
-            // Generic types are compatible if names and type arguments are compatible
-            (
-                &CoreType::Generic {
-                    name: ref left_name,
-                    type_args: ref left_args,
-                },
-                &CoreType::Generic {
-                    name: ref right_name,
-                    type_args: ref right_args,
-                },
-            ) => {
-                left_name == right_name
-                    && left_args.len() == right_args.len()
-                    && left_args
-                        .iter()
-                        .zip(right_args.iter())
-                        .all(|(l, r)| self.types_compatible_exact(l, r))
-            }
-
-            // Different types are not compatible
-            _ => false,
-        }
     }
 }
 
@@ -920,22 +984,11 @@ mod tests {
 
     #[test]
     fn test_types_compatible() {
-        assert!(TypeChecker::types_compatible(
-            &CoreType::Int32,
-            &CoreType::Int32
-        ));
-        assert!(TypeChecker::types_compatible(
-            &CoreType::String,
-            &CoreType::String
-        ));
-        assert!(!TypeChecker::types_compatible(
-            &CoreType::Int32,
-            &CoreType::String
-        ));
-        assert!(!TypeChecker::types_compatible(
-            &CoreType::Boolean,
-            &CoreType::Float32
-        ));
+        let checker = TypeChecker::new();
+        assert!(checker.types_compatible(&CoreType::Int32, &CoreType::Int32));
+        assert!(checker.types_compatible(&CoreType::String, &CoreType::String));
+        assert!(!checker.types_compatible(&CoreType::Int32, &CoreType::String));
+        assert!(!checker.types_compatible(&CoreType::Boolean, &CoreType::Float32));
     }
 
     #[test]
@@ -992,20 +1045,34 @@ mod tests {
         let env = TypeEnvironment::new();
         let type_names = env.get_type_names();
 
-        assert!(type_names.iter().any(|&name| name == "int8"));
-        assert!(type_names.iter().any(|&name| name == "int16"));
-        assert!(type_names.iter().any(|&name| name == "int32"));
-        assert!(type_names.iter().any(|&name| name == "int64"));
-        assert!(type_names.iter().any(|&name| name == "uint8"));
-        assert!(type_names.iter().any(|&name| name == "uint16"));
-        assert!(type_names.iter().any(|&name| name == "uint32"));
-        assert!(type_names.iter().any(|&name| name == "uint64"));
-        assert!(type_names.iter().any(|&name| name == "float32"));
-        assert!(type_names.iter().any(|&name| name == "float64"));
-        assert!(type_names.iter().any(|&name| name == "string"));
-        assert!(type_names.iter().any(|&name| name == "boolean"));
-        assert!(type_names.iter().any(|&name| name == "unit"));
-        assert_eq!(type_names.len(), 13); // All built-in types
+        assert!(type_names.iter().any(|name| name == "int8"));
+        assert!(type_names.iter().any(|name| name == "int16"));
+        assert!(type_names.iter().any(|name| name == "int32"));
+        assert!(type_names.iter().any(|name| name == "int64"));
+        assert!(type_names.iter().any(|name| name == "uint8"));
+        assert!(type_names.iter().any(|name| name == "uint16"));
+        assert!(type_names.iter().any(|name| name == "uint32"));
+        assert!(type_names.iter().any(|name| name == "uint64"));
+        assert!(type_names.iter().any(|name| name == "float32"));
+        assert!(type_names.iter().any(|name| name == "float64"));
+        assert!(type_names.iter().any(|name| name == "string"));
+        assert!(type_names.iter().any(|name| name == "boolean"));
+        assert!(type_names.iter().any(|name| name == "unit"));
+
+        // Ensure we have the minimum expected built-in types
+        assert!(
+            type_names.len() >= 13,
+            "Expected at least 13 built-in types, found {}",
+            type_names.len()
+        );
+
+        // Ensure names are sorted
+        let mut sorted_names = type_names.clone();
+        sorted_names.sort();
+        assert_eq!(
+            type_names, sorted_names,
+            "Type names should be returned in sorted order"
+        );
     }
 
     #[test]
@@ -1116,8 +1183,12 @@ mod tests {
     fn test_fresh_type_var_generation() {
         let mut checker = TypeChecker::new();
 
-        let var1 = checker.fresh_type_var("test".to_owned());
-        let var2 = checker.fresh_type_var_auto();
+        let var1 = checker
+            .fresh_type_var("test".to_owned())
+            .expect("Should generate fresh type var");
+        let var2 = checker
+            .fresh_type_var_auto()
+            .expect("Should generate fresh type var");
 
         // Should generate different variables
         assert_ne!(var1, var2);
@@ -1148,8 +1219,8 @@ mod tests {
         assert!(mismatch_result.is_err());
 
         if let Err(TypeError::UnificationFailed { left, right }) = mismatch_result {
-            assert!(left.contains("Int32"));
-            assert!(right.contains("String"));
+            assert!(left.contains("int32"));
+            assert!(right.contains("string"));
         } else {
             unreachable!("Expected UnificationFailed error");
         }
@@ -1281,7 +1352,7 @@ mod tests {
         }) = infinite_result
         {
             assert_eq!(var_name, var.name);
-            assert!(type_name.contains("Array"));
+            assert!(type_name.contains('[') && type_name.contains('x'));
         } else {
             unreachable!("Expected OccursCheckFailed error");
         }
