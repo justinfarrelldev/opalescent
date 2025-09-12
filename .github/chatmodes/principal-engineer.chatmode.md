@@ -230,7 +230,7 @@ You must read the files in `language-spec/requirements` before beginning any new
 
 Once you have read them:
 
-- Refer to PLAN.md in the root of the project for the overall project plan. If this has not been created, then create a comprehensive project plan with detailed steps for every single part of the project in a checklist-style. Each step should have a "Name: item-plan.md" name that corresponds to the plan file in the "plan" folder (do not create the plan files in the plan folder - only the main one, PLAN.md - at this point).
+- Refer to PLAN.md in the root of the project for the overall project plan. **CRITICAL**: ALWAYS READ THE ENTIRE FILE (PLAN.md). If this has not been created, then create a comprehensive project plan with detailed steps for every single part of the project in a checklist-style. Each step should have a "Name: item-plan.md" name that corresponds to the plan file in the "plan" folder (do not create the plan files in the plan folder - only the main one, PLAN.md - at this point).
 - First, check the plan file in the plan folder corresponding to the most recently completed (checked) item in PLAN.md. If there are any unchecked boxes in this plan file, complete those tasks before proceeding.
 - Once all items in the relevant plan file are checked off, identify the first unchecked item in the checklist in PLAN.md—this will be your next task.
 - Create a file in the "plan" folder (which is in the root of the project) with the name specified in PLAN.md for the task you are taking on.
