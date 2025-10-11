@@ -5,11 +5,13 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ## Phase 1: Foundation & Core Infrastructure
 
 ### ✅ Project Setup
+
 - [x] Initialize Rust project structure
 - [x] Set up cargo-make configuration
 - [x] Configure linting and testing infrastructure
 
 ### ✅ Lexical Analysis (Name: lexer-plan.md)
+
 - [x] Implement tokenization for keywords, identifiers, literals
 - [x] Handle operators and punctuation
 - [x] Support string interpolation syntax
@@ -19,6 +21,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ### ✅ Parser Foundation (Name: parser-foundation-plan.md)
 
 #### AST Node Definitions
+
 - [x] Core AST Infrastructure (base trait, source location, visitor pattern)
 - [x] Expression AST Nodes (literals, identifiers, binary/unary ops, calls, casts)
 - [x] Statement AST Nodes (let bindings, assignments, returns, blocks)
@@ -29,6 +32,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Type checking expressions (type_of)
 
 #### Parser Implementation
+
 - [x] Core Parser Structure (token stream, lookahead, error collection)
 - [x] Expression Parsing (Pratt parser, operator precedence)
 - [x] Statement Parsing (declarations, assignments, blocks)
@@ -38,21 +42,25 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Type declaration parsing
 
 #### Error Handling
+
 - [x] Parse Errors (unexpected/missing tokens, invalid syntax)
 - [x] Error Recovery (panic mode, synchronization points)
 - [x] Error Reporting (miette integration, source context, suggestions)
 
 #### Advanced Features
+
 - [x] String Interpolation parsing
 - [x] Comments and Documentation preservation (doc comments)
 - [x] Operator Precedence (Pratt parser with precedence table)
 
 #### Testing & Validation
+
 - [x] Unit Tests (AST nodes, expression/statement/declaration parsing)
 - [x] Integration Tests (comprehensive test coverage, 89 tests passing)
 - [x] Error handling validation
 
 ### ⏳ Type System Core (Name: type-system-core-plan.md)
+
 - [x] Basic type representation (all int32/64, uint32/64, int8/16, uint8/16, float32/64, string, boolean, unit)
 - [x] Extended integer and floating point type support
 - [x] Basic type environment and context management
@@ -82,13 +90,26 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 
 **NOTE: Phase 2 CANNOT BEGIN until Type System Core is 100% complete. All items below require functional type checking, type inference, and cast validation.**
 
-### ☐ Function System (Name: function-system-plan.md)
+### ⏳ Function System (Name: function-system-plan.md)
 
-- [ ] Function declaration and definition parsing
-- [ ] Parameter and return type handling
-- [ ] Lambda expressions (f(): type => ...)
+- [x] Function declaration and definition parsing
+- [x] Parameter and return type handling
+- [x] Lambda expressions (f(): type => ...)
 - [ ] Function call resolution
 - [ ] Entry point validation (single entry keyword)
+- [ ] Shared let binding infrastructure for declarations and statements
+- [ ] Standardized hot-reload metadata defaults across AST nodes
+- [ ] Lambda body normalization strategy for downstream simplicity
+- [ ] Context-aware parameter parsing (function vs lambda)
+- [ ] Structured parser lookahead for lambda constructs
+- [ ] Context-specific parse error messaging
+- [ ] Type checking for function bodies and calls
+- [ ] Scope management for parameters and local variables
+- [ ] Integration with type system (type inference, generics)
+- [ ] Hot-reload metadata propagation for functions
+- [ ] Comprehensive unit and integration tests
+- [ ] Documentation for function system maintainability changes
+- [ ] Lint and test compliance before commit
 
 ### ☐ Variable System (Name: variable-system-plan.md)
 
@@ -144,6 +165,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ## Phase 4: Module System
 
 ### ☐ Import/Export System (Name: module-system-plan.md)
+
 - [ ] Public keyword for exports
 - [ ] Import statement parsing
 - [ ] Local file imports (./path)
@@ -154,6 +176,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Dependency resolution
 
 ### ☐ Module Validation (Name: module-validation-plan.md)
+
 - [ ] Circular dependency detection
 - [ ] Name clash resolution
 - [ ] Symbol visibility rules
@@ -189,6 +212,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ## Phase 6: Hot Reloading System
 
 ### ☐ Hot Reload Infrastructure (Name: hot-reload-infrastructure-plan.md)
+
 - [ ] Dynamic library compilation
 - [ ] ABI signature generation
 - [ ] Version management system
@@ -196,6 +220,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Module hot-swap mechanism
 
 ### ☐ Change Detection (Name: change-detection-plan.md)
+
 - [ ] File watching system
 - [ ] Build graph analysis
 - [ ] ABI compatibility checking
@@ -203,6 +228,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Incremental compilation
 
 ### ☐ Hot Reload Safety (Name: hot-reload-safety-plan.md)
+
 - [ ] ABI guard implementation
 - [ ] Automatic fallback restart
 - [ ] State preservation
@@ -212,6 +238,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ## Phase 7: Developer Experience
 
 ### ☐ Error Reporting (Name: error-reporting-plan.md)
+
 - [ ] Miette integration for beautiful errors
 - [ ] Source location tracking
 - [ ] Helpful error messages
@@ -219,6 +246,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Multi-error reporting
 
 ### ☐ Documentation System (Name: documentation-plan.md)
+
 - [ ] Doc comment parsing
 - [ ] Documentation generation
 - [ ] API documentation
@@ -226,6 +254,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Language reference
 
 ### ☐ Build System (Name: build-system-plan.md)
+
 - [ ] Project configuration
 - [ ] Dependency management
 - [ ] Build caching
@@ -235,6 +264,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ## Phase 8: Standard Library
 
 ### ☐ Core Library (Name: core-library-plan.md)
+
 - [ ] Basic data types
 - [ ] String operations
 - [ ] Math functions
@@ -242,6 +272,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] File system access
 
 ### ☐ Collections Library (Name: collections-library-plan.md)
+
 - [ ] Array operations
 - [ ] Hash maps
 - [ ] Sets
@@ -249,6 +280,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Iterators
 
 ### ☐ System Library (Name: system-library-plan.md)
+
 - [ ] Operating system interfaces
 - [ ] Network operations
 - [ ] Threading support
@@ -258,6 +290,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ## Phase 9: Testing & Quality
 
 ### ☐ Test Framework (Name: test-framework-plan.md)
+
 - [ ] Unit testing support
 - [ ] Integration testing
 - [ ] Property-based testing
@@ -265,6 +298,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Coverage reporting
 
 ### ☐ Language Server (Name: language-server-plan.md)
+
 - [ ] LSP implementation
 - [ ] Syntax highlighting
 - [ ] Auto-completion
@@ -272,6 +306,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Refactoring support
 
 ### ☐ Formatter (Name: formatter-plan.md)
+
 - [ ] Code formatting rules
 - [ ] Whitespace enforcement
 - [ ] Style consistency
@@ -281,6 +316,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ## Phase 10: Production Readiness
 
 ### ☐ Performance Optimization (Name: performance-plan.md)
+
 - [ ] Compile time optimization
 - [ ] Runtime performance
 - [ ] Memory usage optimization
@@ -288,6 +324,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Benchmark suite
 
 ### ☐ Platform Support (Name: platform-support-plan.md)
+
 - [ ] Windows support
 - [ ] macOS support
 - [ ] Linux support
@@ -295,6 +332,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Package distribution
 
 ### ☐ Ecosystem (Name: ecosystem-plan.md)
+
 - [ ] Package manager
 - [ ] Registry system
 - [ ] Community tools
@@ -309,6 +347,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 The project is in **Phase 1**, and the lexical analysis system has been completed. The **Type System Core** is partially complete but missing critical components required for Phase 2.
 
 **CRITICAL BLOCKER**: Phase 2 cannot begin until the Type System Core is 100% complete, specifically:
+
 - Generic type runtime instantiation
 - Type inference engine (constraint collection and solving)
 - Complete type checking framework
@@ -317,19 +356,23 @@ The project is in **Phase 1**, and the lexical analysis system has been complete
 ## Architectural Decisions & Dependencies
 
 ### Type System Dependencies
+
 - **Phase 2 Blocker**: All language features require functional type checking
 - **Hot Reload Planning**: AST and type system must preserve metadata for ABI signature generation
 - **LLVM Backend Planning**: Type system design must support code generation requirements
 - **Error Handling**: Consistent miette integration across all modules (lexer, parser, type system)
 
 ### Hot Reload Architecture Requirements
+
 All phases must consider hot reload compatibility:
+
 - **Symbol Tables**: Must support ABI signature generation and change detection
 - **AST Metadata**: Must preserve all information needed for incremental compilation
 - **Memory Layout**: Type system must plan for cross-module state preservation
 - **Change Detection**: Build graph analysis requires dependency tracking from Phase 1
 
 ### Code Generation Preparation
+
 - **Type Information Preservation**: Must survive through compilation pipeline
 - **Memory Management Strategy**: Plan for LLVM backend memory allocation
 - **Cross-compilation Support**: no_std compatibility maintained in core modules
@@ -337,18 +380,21 @@ All phases must consider hot reload compatibility:
 ## Quality & Testing Standards
 
 ### Error Handling Standards
+
 - **Consistent Patterns**: All modules use miette for beautiful error reporting
 - **Source Location Preservation**: All AST nodes maintain span information
 - **Multiple Error Collection**: Support for reporting multiple errors simultaneously
 - **Recovery Strategies**: Graceful degradation and continued processing after errors
 
 ### Test Coverage Requirements
+
 - **Test-Driven Development**: Red-green-refactor for all new features
 - **Integration Testing**: Cross-module compatibility validation
 - **Hot Reload Testing**: Framework for testing hot reload scenarios (Phase 6)
 - **Performance Benchmarks**: Establish baselines for optimization tracking
 
 ### Development Workflow
+
 - **Linting First**: All code must pass strict linting before commits
 - **No Shortcuts**: `--no-verify` is never allowed in git commits
 - **Documentation**: Comprehensive inline documentation for future maintainers

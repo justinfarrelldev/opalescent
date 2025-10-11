@@ -159,7 +159,11 @@ impl LexError {
     pub fn span_from_span(span: Span) -> SourceSpan {
         let start = span.start.offset;
         let end = span.end.offset;
-        let len = if end >= start { end.saturating_sub(start).saturating_add(1) } else { 1 };
+        let len = if end >= start {
+            end.saturating_sub(start).saturating_add(1)
+        } else {
+            1
+        };
         SourceSpan::new(start.into(), len)
     }
 }

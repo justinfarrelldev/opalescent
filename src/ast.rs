@@ -81,6 +81,64 @@ pub struct TypeSignature {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ModulePath(pub alloc::string::String);
 
+/// Reusable metadata for hot-reload aware AST nodes
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct HotReloadMetadata {
+    /// Optional ABI symbol information for this node
+    pub abi_symbol: Option<SymbolInfo>,
+    /// Other modules this node depends on for hot-reload safety
+    pub dependencies: alloc::vec::Vec<ModulePath>,
+    /// Whether this node is eligible for hot reload without restart
+    pub is_hot_reloadable: bool,
+}
+
+impl HotReloadMetadata {
+    /// Metadata with defaults for functions (not hot-reloadable until validated)
+    pub const fn for_function() -> Self {
+        Self {
+            abi_symbol: None,
+            dependencies: alloc::vec::Vec::new(),
+            is_hot_reloadable: false,
+        }
+    }
+
+    /// Metadata with defaults for top-level `let` declarations
+    pub const fn for_let_declaration() -> Self {
+        Self {
+            abi_symbol: None,
+            dependencies: alloc::vec::Vec::new(),
+            is_hot_reloadable: true,
+        }
+    }
+
+    /// Metadata with defaults for expressions (e.g., lambdas)
+    pub const fn for_expression() -> Self {
+        Self {
+            abi_symbol: None,
+            dependencies: alloc::vec::Vec::new(),
+            is_hot_reloadable: false,
+        }
+    }
+
+    /// Metadata defaults for type declarations (not hot-reloadable by default)
+    pub const fn for_type_declaration() -> Self {
+        Self {
+            abi_symbol: None,
+            dependencies: alloc::vec::Vec::new(),
+            is_hot_reloadable: false,
+        }
+    }
+
+    /// Metadata defaults for imports (never hot-reloadable)
+    pub const fn for_import() -> Self {
+        Self {
+            abi_symbol: None,
+            dependencies: alloc::vec::Vec::new(),
+            is_hot_reloadable: false,
+        }
+    }
+}
+
 /// Expression AST nodes
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -217,36 +275,104 @@ pub enum Expr {
         /// Unique identifier for this AST node
         id: NodeId,
     },
+
+    /// Lambda expressions (f(x: T): U => expr, f<T, U>(x: T): U => block)
+    ///
+    /// Lambda expressions represent first-class functions in Opalescent. They can be:
+    /// - Assigned to variables: `let add = f(x: int32, y: int32): int32 => x + y`
+    /// - Passed as arguments: `map(arr, f(x: int32): int32 => x * 2)`
+    /// - Used inline: `filter(items, f(item: T): boolean => item.is_valid())`
+    ///
+    /// Syntax variations:
+    /// - Simple lambda: `f(x: T): U => expression`
+    /// - Generic lambda: `f<T, U>(x: T, fn: f(T): U): U => fn(x)`
+    /// - No parameters: `f(): T => constant_value`
+    /// - Block body: `f(x: T): U => { statements; return result; }`
+    ///
+    /// Integration with type system:
+    /// - Parameters are fully typed (no inference across lambda boundaries)
+    /// - Return type is explicit (required for clarity and hot-reload compatibility)
+    /// - Generic parameters are resolved at call site
+    /// - Function types can be used as parameter types: `f(callback: f(T): U)`
+    ///
+    /// Hot-reload considerations:
+    /// - Lambda expressions maintain ABI compatibility through explicit typing
+    /// - Generic instantiations are tracked for dependency management
+    /// - Closure captures (if implemented) affect hot-reload boundaries
+    Lambda {
+        /// Optional generic type parameters (<T, U>)
+        ///
+        /// When present, these define type variables that can be used in parameter
+        /// and return types. Generic parameters are resolved at the call site.
+        /// Example: `f<T, U>(mapper: f(T): U, value: T): U`
+        generic_params: Option<Vec<String>>,
+        /// Function parameters with types
+        ///
+        /// All parameters must have explicit types. Parameter names follow
+        /// `snake_case` convention. Types can reference generic parameters.
+        /// Example: `[Parameter { name: "x", param_type: Type::Basic("T") }]`
+        params: Vec<Parameter>,
+        /// Return type of the lambda
+        ///
+        /// Explicitly required for all lambdas to ensure type safety and
+        /// hot-reload compatibility. Can be a primitive, generic, or complex type.
+        /// Example: `Type::Basic("int32")` or `Type::Generic("U")`
+        return_type: Type,
+        /// Lambda body (expression or block)
+        ///
+        /// Single expressions are more common for functional programming patterns.
+        /// Block bodies are used for complex logic with multiple statements.
+        /// See `LambdaBody` for details on each variant.
+        body: LambdaBody,
+        /// Captured variables from enclosing scope (TODO: implement in closure phase)
+        ///
+        /// When closures are implemented, this will track which variables from
+        /// the enclosing scope are captured by this lambda. Critical for:
+        /// - Hot-reload dependency tracking
+        /// - Memory management in LLVM backend
+        /// - ABI signature generation for module boundaries
+        captured_variables: Vec<String>, // TODO: Phase 4-5
+        /// ABI compatibility metadata for hot-reload (TODO: implement in hot-reload phase)  
+        ///
+        /// Metadata needed for hot-reload compatibility, including:
+        /// - Function signature hash for ABI compatibility checks
+        /// - Dependency tracking for incremental compilation
+        /// - Symbol information for dynamic linking
+        metadata: HotReloadMetadata,
+        /// Source code location of this lambda expression
+        span: Span,
+        /// Unique identifier for this AST node
+        id: NodeId,
+    },
+}
+
+/// Shared metadata for `let` bindings used in statements and declarations
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LetBinding {
+    /// Name of the variable being bound
+    pub name: String,
+    /// Optional explicit type annotation
+    pub type_annotation: Option<Type>,
+    /// Whether the binding is mutable
+    pub is_mutable: bool,
+    /// Source code location of this binding
+    pub span: Span,
+    /// Unique identifier for this binding
+    pub id: NodeId,
 }
 
 /// Statement AST nodes
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    /// Let bindings (let x = 5)
+    /// Let bindings (let x = 5, let mutable y = 10)
     Let {
-        /// Name of the variable being bound
-        name: String,
-        /// Optional type annotation
-        type_annotation: Option<Type>,
+        /// Shared binding metadata
+        binding: LetBinding,
         /// Optional initial value expression
         initializer: Option<Expr>,
-        /// Source code location of this let binding
+        /// Source code span for the full statement
         span: Span,
-        /// Unique identifier for this AST node
-        id: NodeId,
-    },
-
-    /// Mutable variable declarations (let mutable x = 5)
-    Mutable {
-        /// Name of the mutable variable
-        name: String,
-        /// Optional type annotation
-        type_annotation: Option<Type>,
-        /// Optional initial value expression
-        initializer: Option<Expr>,
-        /// Source code location of this mutable declaration
-        span: Span,
-        /// Unique identifier for this AST node
+        /// Unique identifier for this statement node
         id: NodeId,
     },
 
@@ -382,12 +508,8 @@ pub enum Decl {
         span: Span,
         /// Unique identifier for this AST node
         id: NodeId,
-        /// ABI symbol info for hot-reload
-        abi_symbol: Option<SymbolInfo>,
-        /// List of module dependencies
-        dependencies: Vec<ModulePath>,
-        /// Hot-reloadable flag
-        hot_reloadable: bool,
+        /// Hot-reload metadata
+        metadata: HotReloadMetadata,
     },
 
     /// Type declarations
@@ -404,12 +526,8 @@ pub enum Decl {
         span: Span,
         /// Unique identifier for this AST node
         id: NodeId,
-        /// ABI symbol info for hot-reload
-        abi_symbol: Option<SymbolInfo>,
-        /// List of module dependencies
-        dependencies: Vec<ModulePath>,
-        /// Hot-reloadable flag
-        hot_reloadable: bool,
+        /// Hot-reload metadata
+        metadata: HotReloadMetadata,
     },
 
     /// Import declarations
@@ -422,12 +540,49 @@ pub enum Decl {
         span: Span,
         /// Unique identifier for this AST node
         id: NodeId,
-        /// ABI symbol info for hot-reload
-        abi_symbol: Option<SymbolInfo>,
-        /// List of module dependencies
-        dependencies: Vec<ModulePath>,
-        /// Hot-reloadable flag
-        hot_reloadable: bool,
+        /// Hot-reload metadata
+        metadata: HotReloadMetadata,
+    },
+
+    /// Let declarations (variable declarations that can include lambda expressions)
+    ///
+    /// Let declarations create immutable bindings by default, with optional mutability.
+    /// They are commonly used to assign lambda expressions to named variables,
+    /// creating reusable functions within the module scope.
+    ///
+    /// Syntax variations:
+    /// - Simple binding: `let x = 42`
+    /// - With type annotation: `let x: int32 = 42`
+    /// - Mutable binding: `let mutable x = 42`
+    /// - Lambda assignment: `let add = f(x: int32, y: int32): int32 => x + y`
+    /// - Generic lambda: `let map = f<T, U>(arr: T[], fn: f(T): U): U[] => ...`
+    /// - Public declaration: `public let utility_fn = f(...): ... => ...`
+    ///
+    /// Type inference:
+    /// - Type annotations are optional when the type can be inferred from initializer
+    /// - Lambda expressions have explicit types, making inference straightforward
+    /// - Complex expressions may require explicit annotations for clarity
+    ///
+    /// Hot-reload integration:
+    /// - Public let declarations become part of the module's ABI
+    /// - Lambda assignments are tracked for dependency analysis
+    /// - Mutable bindings may affect hot-reload compatibility
+    /// - Generic lambdas require special handling for type instantiation tracking
+    Let {
+        /// Shared binding metadata
+        binding: LetBinding,
+        /// Initializer expression (required for let declarations)
+        initializer: Expr,
+        /// Visibility modifier (public/private)
+        visibility: Visibility,
+        /// Optional documentation comment
+        doc_comment: Option<String>,
+        /// Source span for this declaration
+        span: Span,
+        /// Unique identifier for this declaration node
+        id: NodeId,
+        /// Hot-reload metadata
+        metadata: HotReloadMetadata,
     },
 }
 
@@ -561,6 +716,19 @@ pub enum Type {
     },
 }
 
+impl Type {
+    /// Convenience accessor for the span associated with this type node
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        match *self {
+            Self::Basic { span, .. }
+            | Self::Generic { span, .. }
+            | Self::Array { span, .. }
+            | Self::Function { span, .. } => span,
+        }
+    }
+}
+
 /// Function parameters
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parameter {
@@ -670,6 +838,45 @@ pub enum StringPart {
     Expression(Expr),
 }
 
+/// Lambda body representation
+///
+/// Lambda bodies can be either single expressions or blocks of statements.
+/// The choice affects both syntax and semantics:
+///
+/// Expression bodies:
+/// - Syntax: `f(x: T): U => expression`
+/// - Direct evaluation of the expression as the return value
+/// - Common for functional programming patterns (map, filter, reduce)
+/// - More concise for simple transformations
+/// - Example: `f(x: int32): int32 => x * 2`
+///
+/// Block bodies:
+/// - Syntax: `f(x: T): U => { statements; return result; }`
+/// - Multiple statements with explicit `return` required
+/// - Used for complex logic, local variables, control flow
+/// - Better for imperative-style implementations
+/// - Example: `f(x: int32): int32 => { let doubled = x * 2; return doubled + 1; }`
+///
+/// Type checking considerations:
+/// - Expression bodies: the expression's type must match the return type
+/// - Block bodies: all return statements must have compatible types
+/// - Both forms must have explicit return types (no inference across lambda boundaries)
+#[derive(Debug, Clone, PartialEq)]
+pub enum LambdaBody {
+    /// Single expression body (f(x): T => expr)
+    ///
+    /// The expression is evaluated and its result becomes the lambda's return value.
+    /// The expression's type must be assignable to the declared return type.
+    /// This is the preferred form for functional programming patterns.
+    Expression(Box<Expr>),
+    /// Block body with statements (f(x): T => { statements; return expr; })
+    ///
+    /// A sequence of statements that must end with a `return` statement.
+    /// Allows for local variable declarations, control flow, and complex logic.
+    /// All `return` statements within the block must have compatible types.
+    Block(Vec<Stmt>),
+}
+
 /// Complete program AST
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
@@ -695,7 +902,8 @@ impl AstNode for Expr {
             | Self::TypeOf { span, .. }
             | Self::StringInterpolation { span, .. }
             | Self::Parenthesized { span, .. }
-            | Self::Array { span, .. } => span,
+            | Self::Array { span, .. }
+            | Self::Lambda { span, .. } => span,
         }
     }
 
@@ -712,8 +920,27 @@ impl AstNode for Expr {
             | Self::TypeOf { id, .. }
             | Self::StringInterpolation { id, .. }
             | Self::Parenthesized { id, .. }
-            | Self::Array { id, .. } => id,
+            | Self::Array { id, .. }
+            | Self::Lambda { id, .. } => id,
         }
+    }
+
+    fn abi_symbols(&self) -> alloc::vec::Vec<SymbolInfo> {
+        match *self {
+            Self::Lambda { ref metadata, .. } => metadata.abi_symbol.iter().cloned().collect(),
+            _ => alloc::vec::Vec::new(),
+        }
+    }
+
+    fn dependencies(&self) -> alloc::vec::Vec<ModulePath> {
+        match *self {
+            Self::Lambda { ref metadata, .. } => metadata.dependencies.clone(),
+            _ => alloc::vec::Vec::new(),
+        }
+    }
+
+    fn is_hot_reloadable(&self) -> bool {
+        matches!(*self, Self::Lambda { ref metadata, .. } if metadata.is_hot_reloadable)
     }
 }
 
@@ -721,7 +948,6 @@ impl AstNode for Stmt {
     fn span(&self) -> Span {
         match *self {
             Self::Let { span, .. }
-            | Self::Mutable { span, .. }
             | Self::Assignment { span, .. }
             | Self::Return { span, .. }
             | Self::Expression { span, .. }
@@ -738,7 +964,6 @@ impl AstNode for Stmt {
     fn node_id(&self) -> NodeId {
         match *self {
             Self::Let { id, .. }
-            | Self::Mutable { id, .. }
             | Self::Assignment { id, .. }
             | Self::Return { id, .. }
             | Self::Expression { id, .. }
@@ -756,15 +981,46 @@ impl AstNode for Stmt {
 impl AstNode for Decl {
     fn span(&self) -> Span {
         match *self {
-            Self::Function { span, .. } | Self::Type { span, .. } | Self::Import { span, .. } => {
-                span
-            }
+            Self::Function { span, .. }
+            | Self::Type { span, .. }
+            | Self::Import { span, .. }
+            | Self::Let { span, .. } => span,
         }
     }
 
     fn node_id(&self) -> NodeId {
         match *self {
-            Self::Function { id, .. } | Self::Type { id, .. } | Self::Import { id, .. } => id,
+            Self::Function { id, .. }
+            | Self::Type { id, .. }
+            | Self::Import { id, .. }
+            | Self::Let { id, .. } => id,
+        }
+    }
+
+    fn abi_symbols(&self) -> alloc::vec::Vec<SymbolInfo> {
+        match *self {
+            Self::Function { ref metadata, .. }
+            | Self::Type { ref metadata, .. }
+            | Self::Import { ref metadata, .. }
+            | Self::Let { ref metadata, .. } => metadata.abi_symbol.iter().cloned().collect(),
+        }
+    }
+
+    fn dependencies(&self) -> alloc::vec::Vec<ModulePath> {
+        match *self {
+            Self::Function { ref metadata, .. }
+            | Self::Type { ref metadata, .. }
+            | Self::Import { ref metadata, .. }
+            | Self::Let { ref metadata, .. } => metadata.dependencies.clone(),
+        }
+    }
+
+    fn is_hot_reloadable(&self) -> bool {
+        match *self {
+            Self::Function { ref metadata, .. }
+            | Self::Type { ref metadata, .. }
+            | Self::Import { ref metadata, .. }
+            | Self::Let { ref metadata, .. } => metadata.is_hot_reloadable,
         }
     }
 }

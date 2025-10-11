@@ -14,8 +14,9 @@
 )]
 
 use crate::ast::{
-    AstNode, BinaryOp, Decl, Expr, Field, ImportItem, LiteralValue, NodeId, Parameter, Program,
-    Stmt, StringPart, Type, TypeDef, UnaryOp, Variant, Visibility,
+    AstNode, BinaryOp, Decl, Expr, Field, HotReloadMetadata, ImportItem, LambdaBody, LetBinding,
+    LiteralValue, NodeId, Parameter, Program, Stmt, StringPart, Type, TypeDef, UnaryOp, Variant,
+    Visibility,
 };
 use crate::error::LexError;
 use crate::token::{Span, Token, TokenType};
@@ -317,6 +318,7 @@ impl Parser {
             }
             TokenType::Type => self.parse_type_declaration(visibility, doc_comment),
             TokenType::Import => self.parse_import_declaration(),
+            TokenType::Let => self.parse_let_declaration(visibility, doc_comment),
             TokenType::Identifier(_) if is_entry || visibility == Visibility::Public => {
                 // This is a function declaration starting with identifier (entry main = f() or public foo = f())
                 self.parse_function_declaration(visibility, is_entry, doc_comment)
@@ -324,7 +326,7 @@ impl Parser {
             _ => {
                 let token = self.current_token();
                 Err(ParseError::UnexpectedToken {
-                    expected: "declaration (function, type, or import)".to_owned(),
+                    expected: "declaration (function, type, import, or let)".to_owned(),
                     found: format!("{}", token.token_type),
                     span: ParseError::span_from_token(token),
                 })
@@ -332,7 +334,37 @@ impl Parser {
         }
     }
 
-    /// Parse a function declaration
+    /// Construct a `LetBinding` with consistent span calculation and node id assignment
+    fn create_let_binding(
+        name: String,
+        name_span: Span,
+        type_annotation: Option<Type>,
+        is_mutable: bool,
+    ) -> LetBinding {
+        let binding_end = type_annotation
+            .as_ref()
+            .map_or(name_span.end, |ty| ty.span().end);
+
+        LetBinding {
+            name,
+            type_annotation,
+            is_mutable,
+            span: Span::new(name_span.start, binding_end),
+            id: next_node_id(),
+        }
+    }
+
+    /// Parse a function declaration, supporting entry/public/visibility, parameter/return type parsing, and block/single-statement bodies.
+    /// Integrates hot-reload metadata and ABI symbol info into the AST node.
+    ///
+    /// # Supported Syntaxes
+    /// - `entry main = f(args: string[]): void => ...`
+    /// - `public foo = f(x: int32, y: int32): int32 => ...`
+    /// - `main = f(): void => ...`
+    /// - `foo = f(x: int32): int32 => ...`
+    ///
+    /// # Errors
+    /// Returns detailed parse errors for missing tokens, invalid syntax, and unsupported patterns.
     fn parse_function_declaration(
         &mut self,
         visibility: Visibility,
@@ -341,27 +373,20 @@ impl Parser {
     ) -> ParseResult<Decl> {
         let start_span = self.current_token().span;
 
-        // Parse function name - could start with 'f' keyword or identifier
-        let name = if self.check(&TokenType::Function) {
-            // This is a pattern like: f = f() => ... (anonymous function, we'll error for now)
-            return Err(ParseError::InvalidSyntax {
-                message: "Anonymous functions not supported at top level".to_owned(),
-                span: ParseError::span_from_token(self.current_token()),
-            });
-        } else if self.check_identifier() {
-            // This is a pattern like: main = f() => ... or entry main = f() => ...
+        // Parse function name (identifier)
+        let name = if self.check_identifier() {
             let token = self.advance();
             if let &TokenType::Identifier(ref name) = &token.token_type {
                 name.clone()
             } else {
                 return Err(ParseError::InvalidSyntax {
-                    message: "Expected identifier after check_identifier passed".to_owned(),
+                    message: "Expected identifier for function name".to_owned(),
                     span: ParseError::span_from_token(token),
                 });
             }
         } else {
             return Err(ParseError::UnexpectedToken {
-                expected: "function name".to_owned(),
+                expected: "function name (identifier)".to_owned(),
                 found: format!("{}", self.current_token().token_type),
                 span: ParseError::span_from_token(self.current_token()),
             });
@@ -370,26 +395,14 @@ impl Parser {
         // Expect '='
         self.consume(&TokenType::Assign, "Expected '=' after function name")?;
 
-        // Expect 'f'
+        // Expect 'f' keyword
         self.consume(&TokenType::Function, "Expected 'f' after '='")?;
 
         // Expect '('
         self.consume(&TokenType::LeftParen, "Expected '(' after 'f'")?;
 
-        // Parse parameters
-        let mut parameters = Vec::new();
-        if !self.check(&TokenType::RightParen) {
-            loop {
-                let param = self.parse_parameter()?;
-                parameters.push(param);
-
-                if self.check(&TokenType::Comma) {
-                    self.advance();
-                } else {
-                    break;
-                }
-            }
-        }
+        // Parse parameters (support zero or more)
+        let parameters = self.parse_parameter_list()?;
 
         // Expect ')'
         self.consume(&TokenType::RightParen, "Expected ')' after parameters")?;
@@ -406,20 +419,17 @@ impl Parser {
         // Expect '=>'
         self.consume(&TokenType::Arrow, "Expected '=>' after function signature")?;
 
-        // Parse function body - can be a single statement or block
+        // Parse function body (block or single statement)
         let body = if self.check(&TokenType::LeftBrace) {
             self.parse_block_statement()?
         } else {
-            // Parse statements until we reach the end or a new declaration
+            // Parse statements until end or new declaration
             let mut statements = Vec::new();
-
             while !self.is_at_end() && !self.is_declaration_start() {
                 self.skip_newlines_and_comments();
-
                 if self.is_at_end() || self.is_declaration_start() {
                     break;
                 }
-
                 match self.parse_statement() {
                     Ok(stmt) => statements.push(stmt),
                     Err(error) => {
@@ -429,19 +439,15 @@ impl Parser {
                     }
                 }
             }
-
             let body_start = statements.first().map_or_else(
                 || self.previous_token().span.start,
                 |first_stmt| first_stmt.span().start,
             );
-
             let body_end = statements.last().map_or_else(
                 || self.previous_token().span.end,
                 |last_stmt| last_stmt.span().end,
             );
-
             let body_span = Span::new(body_start, body_end);
-
             Stmt::Block {
                 statements,
                 span: body_span,
@@ -451,6 +457,11 @@ impl Parser {
 
         let end_span = self.previous_token().span;
         let span = Span::new(start_span.start, end_span.end);
+
+        let mut metadata = HotReloadMetadata::for_function();
+        if is_entry {
+            metadata.is_hot_reloadable = false;
+        }
 
         Ok(Decl::Function {
             name,
@@ -462,9 +473,7 @@ impl Parser {
             doc_comment,
             span,
             id: next_node_id(),
-            abi_symbol: None,
-            dependencies: Vec::new(),
-            hot_reloadable: false,
+            metadata,
         })
     }
 
@@ -484,7 +493,7 @@ impl Parser {
             }
         } else {
             return Err(ParseError::UnexpectedToken {
-                expected: "parameter name".to_owned(),
+                expected: "parameter name (identifier)".to_owned(),
                 found: format!("{}", self.current_token().token_type),
                 span: ParseError::span_from_token(self.current_token()),
             });
@@ -502,6 +511,26 @@ impl Parser {
             param_type,
             span,
         })
+    }
+
+    /// Parse a comma-separated list of parameters within parentheses
+    /// Used by both function declarations and lambda expressions for consistency
+    fn parse_parameter_list(&mut self) -> ParseResult<Vec<Parameter>> {
+        let mut parameters = Vec::new();
+
+        if !self.check(&TokenType::RightParen) {
+            loop {
+                let param = self.parse_parameter()?;
+                parameters.push(param);
+                if self.check(&TokenType::Comma) {
+                    self.advance();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        Ok(parameters)
     }
 
     /// Parse a type declaration (placeholder)
@@ -555,9 +584,7 @@ impl Parser {
             doc_comment,
             span,
             id: next_node_id(),
-            abi_symbol: None,
-            dependencies: Vec::new(),
-            hot_reloadable: false,
+            metadata: HotReloadMetadata::for_type_declaration(),
         })
     }
 
@@ -858,9 +885,7 @@ impl Parser {
             source,
             span: import_span,
             id: next_node_id(),
-            abi_symbol: None,
-            dependencies: Vec::new(),
-            hot_reloadable: false,
+            metadata: HotReloadMetadata::for_import(),
         })
     }
 
@@ -1188,6 +1213,84 @@ impl Parser {
         })
     }
 
+    /// Parse a let declaration (variable declarations that can include lambda expressions)
+    fn parse_let_declaration(
+        &mut self,
+        visibility: Visibility,
+        doc_comment: Option<String>,
+    ) -> ParseResult<Decl> {
+        let start_span = self.current_token().span;
+        self.advance(); // consume 'let'
+
+        // Check for 'mutable' keyword
+        let is_mutable = if self.check(&TokenType::Mutable) {
+            self.advance();
+            true
+        } else {
+            false
+        };
+
+        // Parse variable name
+        let (name, name_span) = if self.check_identifier() {
+            let token = self.advance();
+            if let &TokenType::Identifier(ref name) = &token.token_type {
+                (name.clone(), token.span)
+            } else {
+                return Err(ParseError::InvalidSyntax {
+                    message: "Expected identifier for variable name".to_owned(),
+                    span: ParseError::span_from_token(token),
+                });
+            }
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                expected: "variable name (identifier)".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        };
+
+        // Parse optional type annotation
+        #[expect(
+            clippy::if_then_some_else_none,
+            reason = "Result type makes bool::then inappropriate"
+        )]
+        let type_annotation = if self.check(&TokenType::Colon) {
+            self.advance(); // consume ':'
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        // Expect '='
+        self.consume(
+            &TokenType::Assign,
+            "Expected '=' after variable name or type",
+        )?;
+
+        // Parse initializer expression
+        let initializer = self.parse_expression()?;
+
+        let end_span = self.previous_token().span;
+        let let_span = Span::new(start_span.start, end_span.end);
+
+        let binding = Self::create_let_binding(name, name_span, type_annotation, is_mutable);
+
+        let mut metadata = HotReloadMetadata::for_let_declaration();
+        if binding.is_mutable {
+            metadata.is_hot_reloadable = false;
+        }
+
+        Ok(Decl::Let {
+            binding,
+            initializer,
+            visibility,
+            doc_comment,
+            span: let_span,
+            id: next_node_id(),
+            metadata,
+        })
+    }
+
     /// Parse a statement
     fn parse_statement(&mut self) -> ParseResult<Stmt> {
         self.skip_newlines_and_comments();
@@ -1220,10 +1323,10 @@ impl Parser {
         };
 
         // Parse variable name
-        let name = if self.check_identifier() {
+        let (name, name_span) = if self.check_identifier() {
             let token = self.advance();
             if let &TokenType::Identifier(ref name) = &token.token_type {
-                name.clone()
+                (name.clone(), token.span)
             } else {
                 return Err(ParseError::InvalidSyntax {
                     message: "Expected identifier for variable name".to_owned(),
@@ -1259,23 +1362,14 @@ impl Parser {
         let end_span = self.previous_token().span;
         let span = Span::new(start_span.start, end_span.end);
 
-        if is_mutable {
-            Ok(Stmt::Mutable {
-                name,
-                type_annotation,
-                initializer,
-                span,
-                id: next_node_id(),
-            })
-        } else {
-            Ok(Stmt::Let {
-                name,
-                type_annotation,
-                initializer,
-                span,
-                id: next_node_id(),
-            })
-        }
+        let binding = Self::create_let_binding(name, name_span, type_annotation, is_mutable);
+
+        Ok(Stmt::Let {
+            binding,
+            initializer,
+            span,
+            id: next_node_id(),
+        })
     }
 
     /// Parse a return statement
@@ -1575,8 +1669,9 @@ impl Parser {
                 self.parse_unary_expression(&token_type, span)
             }
             &TokenType::TypeOf => self.parse_type_of_expression(span),
+            &TokenType::Function => self.parse_lambda_expression(span),
             _ => Err(ParseError::UnexpectedToken {
-                expected: "expression".to_owned(),
+                expected: "expression (literal, identifier, function call, lambda, or parenthesized expression)".to_owned(),
                 found: format!("{}", token.token_type),
                 span: ParseError::span_from_token(token),
             }),
@@ -1811,6 +1906,135 @@ impl Parser {
             span: type_of_span,
             id: next_node_id(),
         })
+    }
+
+    /// Parse lambda expressions (f(x: T): U => expr, f<T, U>(x: T): U => block)
+    fn parse_lambda_expression(&mut self, span: Span) -> ParseResult<Expr> {
+        self.advance(); // consume 'f'
+
+        // Parse optional generic parameters (<T, U>)
+        #[expect(
+            clippy::if_then_some_else_none,
+            reason = "Result type makes bool::then inappropriate"
+        )]
+        let generic_params = if self.check(&TokenType::Less) {
+            Some(self.parse_lambda_generic_parameters()?)
+        } else {
+            None
+        };
+
+        // Expect '('
+        self.consume(&TokenType::LeftParen, "Expected '(' after 'f'")?;
+
+        // Parse parameters (support zero or more)
+        let params = self.parse_parameter_list()?;
+
+        // Expect ')'
+        self.consume(
+            &TokenType::RightParen,
+            "Expected ')' after lambda parameters",
+        )?;
+
+        // Expect ':'
+        self.consume(&TokenType::Colon, "Expected ':' after lambda parameters")?;
+
+        // Parse return type
+        let return_type = self.parse_type()?;
+
+        // Expect '=>'
+        self.consume(&TokenType::Arrow, "Expected '=>' after lambda return type")?;
+
+        // Parse lambda body
+        let body = self.parse_lambda_body()?;
+
+        let end_span = self.previous_token().span;
+        let lambda_span = Span::new(span.start, end_span.end);
+
+        Ok(Expr::Lambda {
+            generic_params,
+            params,
+            return_type,
+            body,
+            captured_variables: Vec::new(), // TODO: Implement closure capture analysis
+            metadata: HotReloadMetadata::for_expression(),
+            span: lambda_span,
+            id: next_node_id(),
+        })
+    }
+
+    /// Parse generic parameters for lambda expressions (<T, U>)
+    fn parse_lambda_generic_parameters(&mut self) -> ParseResult<Vec<String>> {
+        self.advance(); // consume '<'
+
+        let mut generic_params = Vec::new();
+
+        // Handle empty generic arguments (error case)
+        if self.check(&TokenType::Greater) {
+            return Err(ParseError::InvalidSyntax {
+                message: "Empty generic parameter list".to_owned(),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        }
+
+        // Parse comma-separated generic parameter names
+        loop {
+            if self.check_identifier() {
+                let token = self.advance();
+                if let &TokenType::Identifier(ref name) = &token.token_type {
+                    generic_params.push(name.clone());
+                } else {
+                    return Err(ParseError::InvalidSyntax {
+                        message: "Expected identifier for generic parameter".to_owned(),
+                        span: ParseError::span_from_token(token),
+                    });
+                }
+            } else {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "generic parameter name".to_owned(),
+                    found: format!("{}", self.current_token().token_type),
+                    span: ParseError::span_from_token(self.current_token()),
+                });
+            }
+
+            if self.check(&TokenType::Comma) {
+                self.advance(); // consume ','
+            } else if self.check(&TokenType::Greater) {
+                break;
+            } else {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "',' or '>'".to_owned(),
+                    found: format!("{}", self.current_token().token_type),
+                    span: ParseError::span_from_token(self.current_token()),
+                });
+            }
+        }
+
+        // Expect '>'
+        self.consume(&TokenType::Greater, "Expected '>' after generic parameters")?;
+
+        Ok(generic_params)
+    }
+
+    /// Parse lambda body (expression or block)
+    fn parse_lambda_body(&mut self) -> ParseResult<LambdaBody> {
+        // Check if this is a block body (starts with '{') or a single expression
+        if self.check(&TokenType::LeftBrace) {
+            // Use existing block parsing for consistency with function bodies
+            let block_stmt = self.parse_block_statement()?;
+            if let Stmt::Block { statements, .. } = block_stmt {
+                Ok(LambdaBody::Block(statements))
+            } else {
+                // This should never happen since parse_block_statement always returns Block
+                Err(ParseError::InvalidSyntax {
+                    message: "Expected block statement from parse_block_statement".to_owned(),
+                    span: ParseError::span_from_token(self.current_token()),
+                })
+            }
+        } else {
+            // Parse as single expression
+            let expr = self.parse_expression()?;
+            Ok(LambdaBody::Expression(Box::new(expr)))
+        }
     }
 
     /// Parse infix expressions (binary operations, calls, etc.)
@@ -2600,7 +2824,12 @@ mod tests {
             if let Stmt::Block { statements, .. } = *body {
                 assert_eq!(statements.len(), 7);
                 assert!(matches!(statements[0], Stmt::Let { .. }));
-                assert!(matches!(statements[1], Stmt::Mutable { .. }));
+                assert!(matches!(statements[1], Stmt::Let { .. }));
+                if let Stmt::Let { binding, .. } = &statements[1] {
+                    assert!(binding.is_mutable);
+                } else {
+                    unreachable!("Expected let statement with mutable binding");
+                }
                 assert!(matches!(statements[2], Stmt::Assignment { .. }));
                 assert!(matches!(statements[3], Stmt::For { .. }));
                 assert!(matches!(statements[4], Stmt::While { .. }));
@@ -3990,5 +4219,698 @@ mod tests {
         // Test missing item name
         let result = parse_program_from_string("import , gcd from ./nums");
         assert!(result.is_err(), "Should fail on missing item name");
+    }
+
+    #[test]
+    fn test_function_parameter_edge_cases() {
+        // Test function with generic parameter types
+        let input = "entry main = f(items: Array<string>, result: Result<int32, string>): void => return void";
+        let lexer = Lexer::new(input);
+        let (tokens, _) = lexer.tokenize();
+        let parser = Parser::new(tokens);
+        let (program, errors) = parser.parse();
+
+        assert!(errors.is_empty(), "Parse errors: {errors:?}");
+        assert!(program.is_some());
+
+        let program = program.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Function { parameters, .. } = &program.declarations[0] {
+            assert_eq!(parameters.len(), 2);
+
+            // Check first parameter (items: Array<string>)
+            assert_eq!(parameters[0].name, "items");
+            if let Type::Generic {
+                name, type_args, ..
+            } = &parameters[0].param_type
+            {
+                assert_eq!(name, "Array");
+                assert_eq!(type_args.len(), 1);
+                if let Type::Basic { name, .. } = &type_args[0] {
+                    assert_eq!(name, "string");
+                } else {
+                    unreachable!("Expected string type argument");
+                }
+            } else {
+                unreachable!("Expected generic type for first parameter");
+            }
+
+            // Check second parameter (result: Result<int32, string>)
+            assert_eq!(parameters[1].name, "result");
+            if let Type::Generic {
+                name, type_args, ..
+            } = &parameters[1].param_type
+            {
+                assert_eq!(name, "Result");
+                assert_eq!(type_args.len(), 2);
+            } else {
+                unreachable!("Expected generic type for second parameter");
+            }
+        } else {
+            unreachable!("Expected function declaration");
+        }
+    }
+
+    #[test]
+    fn test_function_array_parameter_types() {
+        // Test function with array parameter types
+        let input =
+            "public process = f(numbers: int32[], names: string[][]): boolean[] => return void";
+        let lexer = Lexer::new(input);
+        let (tokens, _) = lexer.tokenize();
+        let parser = Parser::new(tokens);
+        let (program, errors) = parser.parse();
+
+        assert!(errors.is_empty(), "Parse errors: {errors:?}");
+        assert!(program.is_some());
+
+        let program = program.unwrap();
+        if let Decl::Function {
+            parameters,
+            return_type,
+            ..
+        } = &program.declarations[0]
+        {
+            assert_eq!(parameters.len(), 2);
+
+            // Check first parameter (numbers: int32[])
+            assert_eq!(parameters[0].name, "numbers");
+            if let Type::Array { element_type, .. } = &parameters[0].param_type {
+                if let Type::Basic { name, .. } = element_type.as_ref() {
+                    assert_eq!(name, "int32");
+                } else {
+                    unreachable!("Expected int32 element type");
+                }
+            } else {
+                unreachable!("Expected array type for first parameter");
+            }
+
+            // Check second parameter (names: string[][])
+            assert_eq!(parameters[1].name, "names");
+            if let Type::Array { element_type, .. } = &parameters[1].param_type {
+                if let Type::Array {
+                    element_type: inner,
+                    ..
+                } = element_type.as_ref()
+                {
+                    if let Type::Basic { name, .. } = inner.as_ref() {
+                        assert_eq!(name, "string");
+                    } else {
+                        unreachable!("Expected string inner element type");
+                    }
+                } else {
+                    unreachable!("Expected nested array type");
+                }
+            } else {
+                unreachable!("Expected array type for second parameter");
+            }
+
+            // Check return type (boolean[])
+            assert!(return_type.is_some());
+            if let Some(Type::Array { element_type, .. }) = return_type {
+                if let Type::Basic { name, .. } = element_type.as_ref() {
+                    assert_eq!(name, "boolean");
+                } else {
+                    unreachable!("Expected boolean element type in return");
+                }
+            } else {
+                unreachable!("Expected array return type");
+            }
+        } else {
+            unreachable!("Expected function declaration");
+        }
+    }
+
+    #[test]
+    fn test_function_complex_return_types() {
+        // Test function with complex return types
+        let input = "entry compute = f(x: int32): Result<Array<string>, string> => return void";
+        let lexer = Lexer::new(input);
+        let (tokens, _) = lexer.tokenize();
+        let parser = Parser::new(tokens);
+        let (program, errors) = parser.parse();
+
+        assert!(errors.is_empty(), "Parse errors: {errors:?}");
+        assert!(program.is_some());
+
+        let program = program.unwrap();
+        if let Decl::Function { return_type, .. } = &program.declarations[0] {
+            assert!(return_type.is_some());
+            if let Some(Type::Generic {
+                name, type_args, ..
+            }) = return_type
+            {
+                assert_eq!(name, "Result");
+                assert_eq!(type_args.len(), 2);
+
+                // First type arg should be Array<string>
+                if let Type::Generic {
+                    name,
+                    type_args: inner_args,
+                    ..
+                } = &type_args[0]
+                {
+                    assert_eq!(name, "Array");
+                    assert_eq!(inner_args.len(), 1);
+                    if let Type::Basic { name, .. } = &inner_args[0] {
+                        assert_eq!(name, "string");
+                    } else {
+                        unreachable!("Expected string type in Array");
+                    }
+                } else {
+                    unreachable!("Expected Array<string> as first type arg");
+                }
+
+                // Second type arg should be string
+                if let Type::Basic { name, .. } = &type_args[1] {
+                    assert_eq!(name, "string");
+                } else {
+                    unreachable!("Expected string as second type arg");
+                }
+            } else {
+                unreachable!("Expected generic return type");
+            }
+        } else {
+            unreachable!("Expected function declaration");
+        }
+    }
+
+    #[test]
+    fn test_function_parameter_error_cases() {
+        // Test invalid parameter syntax
+        let result1 = parse_program_from_string("entry test = f(x y: int32): void => return void");
+        assert!(
+            result1.is_err(),
+            "Should fail on missing colon in parameter"
+        );
+
+        // Test missing parameter type
+        let result2 = parse_program_from_string("entry test = f(x:): void => return void");
+        assert!(result2.is_err(), "Should fail on missing parameter type");
+
+        // Test invalid parameter name
+        let result3 = parse_program_from_string("entry test = f(123: int32): void => return void");
+        assert!(result3.is_err(), "Should fail on numeric parameter name");
+
+        // Test missing parameter name
+        let result4 = parse_program_from_string("entry test = f(: int32): void => return void");
+        assert!(result4.is_err(), "Should fail on missing parameter name");
+
+        // Test malformed generic parameter type
+        let result5 = parse_program_from_string("entry test = f(x: Array<>): void => return void");
+        assert!(result5.is_err(), "Should fail on empty generic type args");
+    }
+
+    #[test]
+    fn test_lambda_expression_basic() {
+        // Test basic lambda expression as let declaration
+        let input = "let add = f(x: int32, y: int32): int32 => x + y";
+        let result = parse_program_from_string(input);
+        assert!(result.is_ok(), "Failed to parse basic lambda: {result:?}");
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Let {
+            binding,
+            initializer,
+            visibility,
+            ..
+        } = &program.declarations[0]
+        {
+            assert_eq!(binding.name, "add");
+            assert!(!binding.is_mutable);
+            assert!(binding.type_annotation.is_none());
+            assert_eq!(*visibility, Visibility::Private);
+
+            // Check that initializer is a lambda expression
+            if let Expr::Lambda {
+                generic_params,
+                params,
+                return_type,
+                body,
+                ..
+            } = initializer
+            {
+                assert!(generic_params.is_none());
+                assert_eq!(params.len(), 2);
+                assert_eq!(params[0].name, "x");
+                assert_eq!(params[1].name, "y");
+
+                if let Type::Basic { name, .. } = &return_type {
+                    assert_eq!(name, "int32");
+                } else {
+                    unreachable!("Expected basic return type");
+                }
+
+                if let LambdaBody::Expression(expr) = body {
+                    if let Expr::Binary { .. } = expr.as_ref() {
+                        // Binary expression is expected for x + y
+                    } else {
+                        unreachable!("Expected binary expression in lambda body");
+                    }
+                } else {
+                    unreachable!("Expected expression body");
+                }
+            } else {
+                unreachable!("Expected lambda expression");
+            }
+        } else {
+            unreachable!("Expected let declaration");
+        }
+    }
+
+    #[test]
+    fn test_lambda_expression_generic() {
+        // Test generic lambda expression as let declaration
+        let input = "let identity = f<T>(x: T): T => x";
+        let result = parse_program_from_string(input);
+        assert!(result.is_ok(), "Failed to parse generic lambda: {result:?}");
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Let {
+            binding,
+            initializer,
+            visibility,
+            ..
+        } = &program.declarations[0]
+        {
+            assert_eq!(binding.name, "identity");
+            assert!(!binding.is_mutable);
+            assert!(binding.type_annotation.is_none());
+            assert_eq!(*visibility, Visibility::Private);
+
+            // Check that initializer is a lambda expression
+            if let Expr::Lambda {
+                generic_params,
+                params,
+                return_type,
+                body,
+                ..
+            } = initializer
+            {
+                assert!(generic_params.is_some());
+                let generics = generic_params.as_ref().unwrap();
+                assert_eq!(generics.len(), 1);
+                assert_eq!(generics[0], "T");
+
+                assert_eq!(params.len(), 1);
+                assert_eq!(params[0].name, "x");
+
+                // Check parameter type is generic
+                if let Type::Basic { name, .. } = &params[0].param_type {
+                    assert_eq!(name, "T");
+                } else {
+                    unreachable!("Expected generic parameter type");
+                }
+
+                if let Type::Basic { name, .. } = &return_type {
+                    assert_eq!(name, "T");
+                } else {
+                    unreachable!("Expected generic return type");
+                }
+
+                if let LambdaBody::Expression(expr) = body {
+                    if let Expr::Identifier { name, .. } = expr.as_ref() {
+                        assert_eq!(name, "x");
+                    } else {
+                        unreachable!("Expected identifier in lambda body");
+                    }
+                } else {
+                    unreachable!("Expected expression body");
+                }
+            } else {
+                unreachable!("Expected lambda expression");
+            }
+        } else {
+            unreachable!("Expected let declaration");
+        }
+    }
+
+    #[test]
+    fn test_lambda_expression_no_params() {
+        // Test lambda with no parameters as let declaration
+        let input = "let get_42 = f(): int32 => 42";
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Failed to parse no-param lambda: {result:?}"
+        );
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Let {
+            binding,
+            initializer,
+            visibility,
+            ..
+        } = &program.declarations[0]
+        {
+            assert_eq!(binding.name, "get_42");
+            assert!(!binding.is_mutable);
+            assert!(binding.type_annotation.is_none());
+            assert_eq!(*visibility, Visibility::Private);
+
+            // Check that initializer is a lambda expression
+            if let Expr::Lambda {
+                generic_params,
+                params,
+                return_type,
+                body,
+                ..
+            } = initializer
+            {
+                assert!(generic_params.is_none());
+                assert_eq!(params.len(), 0);
+
+                if let Type::Basic { name, .. } = &return_type {
+                    assert_eq!(name, "int32");
+                } else {
+                    unreachable!("Expected basic return type");
+                }
+
+                if let LambdaBody::Expression(expr) = body {
+                    if let Expr::Literal { value, .. } = expr.as_ref() {
+                        if let LiteralValue::Integer(n) = value {
+                            assert_eq!(*n, 42);
+                        } else {
+                            unreachable!("Expected integer literal");
+                        }
+                    } else {
+                        unreachable!("Expected literal in lambda body");
+                    }
+                } else {
+                    unreachable!("Expected expression body");
+                }
+            } else {
+                unreachable!("Expected lambda expression");
+            }
+        } else {
+            unreachable!("Expected let declaration");
+        }
+    }
+
+    #[test]
+    fn test_lambda_expression_multiple_generics() {
+        // Test lambda with multiple generic parameters as let declaration
+        let input = "let map_fn = f<T, U>(transform: f(T): U, value: T): U => transform(value)";
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Failed to parse multi-generic lambda: {result:?}"
+        );
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        let let_decl = match &program.declarations[0] {
+            Decl::Let {
+                binding,
+                initializer,
+                visibility,
+                ..
+            } => {
+                assert_eq!(binding.name, "map_fn");
+                assert!(!binding.is_mutable);
+                assert!(binding.type_annotation.is_none());
+                assert_eq!(*visibility, Visibility::Private);
+                initializer
+            }
+            _ => unreachable!("Expected let declaration"),
+        };
+
+        // Check that initializer is a lambda expression
+        if let Expr::Lambda {
+            generic_params,
+            params,
+            return_type,
+            ..
+        } = let_decl
+        {
+            validate_lambda_generics(generic_params.as_ref());
+            validate_lambda_parameters(params);
+            validate_lambda_return_type(return_type);
+        } else {
+            unreachable!("Expected lambda expression");
+        }
+    }
+
+    /// Helper function to validate generic parameters in lambda expressions
+    fn validate_lambda_generics(generic_params: Option<&Vec<String>>) {
+        assert!(generic_params.is_some());
+        let generics = generic_params.unwrap();
+        assert_eq!(generics.len(), 2);
+        assert_eq!(generics[0], "T");
+        assert_eq!(generics[1], "U");
+    }
+
+    /// Helper function to validate lambda parameters in complex generic scenarios
+    fn validate_lambda_parameters(params: &[Parameter]) {
+        assert_eq!(params.len(), 2);
+        assert_eq!(params[0].name, "transform");
+        assert_eq!(params[1].name, "value");
+
+        // Check first parameter is a function type
+        if let Type::Function {
+            parameters: fn_params,
+            return_type: fn_return,
+            ..
+        } = &params[0].param_type
+        {
+            assert_eq!(fn_params.len(), 1);
+            if let Type::Basic { name, .. } = &fn_params[0] {
+                assert_eq!(name, "T");
+            } else {
+                unreachable!("Expected T parameter type");
+            }
+
+            if let Type::Basic { name, .. } = fn_return.as_ref() {
+                assert_eq!(name, "U");
+            } else {
+                unreachable!("Expected U return type");
+            }
+        } else {
+            unreachable!("Expected function type for transform parameter");
+        }
+
+        // Check second parameter type
+        if let Type::Basic { name, .. } = &params[1].param_type {
+            assert_eq!(name, "T");
+        } else {
+            unreachable!("Expected generic parameter type");
+        }
+    }
+
+    /// Helper function to validate lambda return type
+    fn validate_lambda_return_type(return_type: &Type) {
+        if let Type::Basic { name, .. } = return_type {
+            assert_eq!(name, "U");
+        } else {
+            unreachable!("Expected generic return type");
+        }
+    }
+
+    #[test]
+    fn test_lambda_expression_error_cases() {
+        // Test missing parameters parentheses
+        let result1 = parse_expression_from_string("f x: int32 => x");
+        assert!(result1.is_err(), "Should fail on missing parentheses");
+
+        // Test missing colon before return type
+        let result2 = parse_expression_from_string("f() int32 => 42");
+        assert!(result2.is_err(), "Should fail on missing colon");
+
+        // Test missing arrow
+        let result3 = parse_expression_from_string("f(): int32 42");
+        assert!(result3.is_err(), "Should fail on missing arrow");
+
+        // Test empty generic parameters
+        let result4 = parse_expression_from_string("f<>(): void => void");
+        assert!(result4.is_err(), "Should fail on empty generics");
+
+        // Test malformed generic parameters
+        let result5 = parse_expression_from_string("f<T,>(): void => void");
+        assert!(
+            result5.is_err(),
+            "Should fail on trailing comma in generics"
+        );
+    }
+
+    #[test]
+    fn test_lambda_as_function_parameter() {
+        // Test lambda as function parameter type
+        let input = "entry test = f(callback: f(int32): boolean): void => return void";
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Failed to parse lambda as parameter: {result:?}"
+        );
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Function {
+            parameters: params, ..
+        } = &program.declarations[0]
+        {
+            assert_eq!(params.len(), 1);
+            assert_eq!(params[0].name, "callback");
+
+            if let Type::Function {
+                parameters: fn_params,
+                return_type: fn_return,
+                ..
+            } = &params[0].param_type
+            {
+                assert_eq!(fn_params.len(), 1);
+                if let Type::Basic { name, .. } = &fn_params[0] {
+                    assert_eq!(name, "int32");
+                } else {
+                    unreachable!("Expected int32 parameter type");
+                }
+
+                if let Type::Basic { name, .. } = fn_return.as_ref() {
+                    assert_eq!(name, "boolean");
+                } else {
+                    unreachable!("Expected boolean return type");
+                }
+            } else {
+                unreachable!("Expected function type");
+            }
+        } else {
+            unreachable!("Expected function declaration");
+        }
+    }
+
+    #[test]
+    fn test_lambda_expression_nested() {
+        // Test nested lambda expressions
+        let input = "let curry_add = f(x: int32): f(int32): int32 => f(y: int32): int32 => x + y";
+        let result = parse_program_from_string(input);
+        assert!(result.is_ok(), "Failed to parse nested lambda: {result:?}");
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Let { initializer, .. } = &program.declarations[0] {
+            if let Expr::Lambda {
+                params,
+                return_type,
+                body,
+                ..
+            } = initializer
+            {
+                assert_eq!(params.len(), 1);
+                assert_eq!(params[0].name, "x");
+
+                // Check return type is a function type
+                if let Type::Function { .. } = return_type {
+                    // Good
+                } else {
+                    unreachable!("Expected function return type for curried function");
+                }
+
+                // Check body contains another lambda
+                if let LambdaBody::Expression(expr) = body {
+                    if let Expr::Lambda { .. } = expr.as_ref() {
+                        // Good, nested lambda found
+                    } else {
+                        unreachable!("Expected nested lambda in body");
+                    }
+                } else {
+                    unreachable!("Expected expression body");
+                }
+            } else {
+                unreachable!("Expected lambda expression");
+            }
+        } else {
+            unreachable!("Expected let declaration");
+        }
+    }
+
+    #[test]
+    fn test_lambda_expression_block_body() {
+        // Test lambda with block body
+        let input =
+            "let complex_fn = f(x: int32): int32 => { let doubled = x * 2; return doubled + 1; }";
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Failed to parse block body lambda: {result:?}"
+        );
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Let { initializer, .. } = &program.declarations[0] {
+            if let Expr::Lambda { body, .. } = initializer {
+                if let LambdaBody::Block(statements) = body {
+                    assert_eq!(statements.len(), 2);
+                    // First statement should be a let binding
+                    if let Stmt::Let { binding, .. } = &statements[0] {
+                        assert_eq!(binding.name, "doubled");
+                    } else {
+                        unreachable!("Expected let statement");
+                    }
+                    // Second statement should be a return
+                    if let Stmt::Return { .. } = &statements[1] {
+                        // Good
+                    } else {
+                        unreachable!("Expected return statement");
+                    }
+                } else {
+                    unreachable!("Expected block body");
+                }
+            } else {
+                unreachable!("Expected lambda expression");
+            }
+        } else {
+            unreachable!("Expected let declaration");
+        }
+    }
+
+    #[test]
+    fn test_lambda_expression_complex_generics() {
+        // Test lambda with complex generic constraints
+        let input = "let transform = f<T, U, V>(data: T[], mapper: f(T): U, reducer: f(U[]): V): V => reducer(map(data, mapper))";
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Failed to parse complex generic lambda: {result:?}"
+        );
+
+        let program = result.unwrap();
+        assert_eq!(program.declarations.len(), 1);
+
+        if let Decl::Let { initializer, .. } = &program.declarations[0] {
+            if let Expr::Lambda {
+                generic_params,
+                params,
+                ..
+            } = initializer
+            {
+                // Check generic parameters
+                assert!(generic_params.is_some());
+                let generics = generic_params.as_ref().unwrap();
+                assert_eq!(generics.len(), 3);
+                assert_eq!(generics[0], "T");
+                assert_eq!(generics[1], "U");
+                assert_eq!(generics[2], "V");
+
+                // Check parameters
+                assert_eq!(params.len(), 3);
+                assert_eq!(params[0].name, "data");
+                assert_eq!(params[1].name, "mapper");
+                assert_eq!(params[2].name, "reducer");
+            } else {
+                unreachable!("Expected lambda expression");
+            }
+        } else {
+            unreachable!("Expected let declaration");
+        }
     }
 }
