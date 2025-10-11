@@ -558,24 +558,24 @@ impl TypeChecker {
             | (&CoreType::Unit, &CoreType::Unit) => true,
 
             // Variables are equal if they have the same ID
-            (CoreType::Variable(left_var), CoreType::Variable(right_var)) => {
+            (&CoreType::Variable(ref left_var), &CoreType::Variable(ref right_var)) => {
                 left_var.id == right_var.id
             }
 
             // Arrays are compatible if element types are compatible
-            (CoreType::Array(left_elem), CoreType::Array(right_elem)) => {
+            (&CoreType::Array(ref left_elem), &CoreType::Array(ref right_elem)) => {
                 self.types_compatible(left_elem, right_elem)
             }
 
             // Functions are compatible if parameters and return types are compatible
             (
-                CoreType::Function {
-                    parameters: left_params,
-                    return_type: left_ret,
+                &CoreType::Function {
+                    parameters: ref left_params,
+                    return_type: ref left_ret,
                 },
-                CoreType::Function {
-                    parameters: right_params,
-                    return_type: right_ret,
+                &CoreType::Function {
+                    parameters: ref right_params,
+                    return_type: ref right_ret,
                 },
             ) => {
                 left_params.len() == right_params.len()
@@ -588,13 +588,13 @@ impl TypeChecker {
 
             // Generic types are compatible if names and type arguments are compatible
             (
-                CoreType::Generic {
-                    name: left_name,
-                    type_args: left_args,
+                &CoreType::Generic {
+                    name: ref left_name,
+                    type_args: ref left_args,
                 },
-                CoreType::Generic {
-                    name: right_name,
-                    type_args: right_args,
+                &CoreType::Generic {
+                    name: ref right_name,
+                    type_args: ref right_args,
                 },
             ) => {
                 left_name == right_name
@@ -647,19 +647,19 @@ impl TypeChecker {
             }
 
             // Arrays unify if their element types unify
-            (CoreType::Array(left_elem), CoreType::Array(right_elem)) => {
+            (&CoreType::Array(ref left_elem), &CoreType::Array(ref right_elem)) => {
                 self.unify_impl(left_elem, right_elem)
             }
 
             // Functions unify if parameters and return types unify
             (
-                CoreType::Function {
-                    parameters: left_params,
-                    return_type: left_ret,
+                &CoreType::Function {
+                    parameters: ref left_params,
+                    return_type: ref left_ret,
                 },
-                CoreType::Function {
-                    parameters: right_params,
-                    return_type: right_ret,
+                &CoreType::Function {
+                    parameters: ref right_params,
+                    return_type: ref right_ret,
                 },
             ) => {
                 if left_params.len() != right_params.len() {
@@ -690,13 +690,13 @@ impl TypeChecker {
 
             // Generic types unify if names match and type arguments unify
             (
-                CoreType::Generic {
-                    name: left_name,
-                    type_args: left_args,
+                &CoreType::Generic {
+                    name: ref left_name,
+                    type_args: ref left_args,
                 },
-                CoreType::Generic {
-                    name: right_name,
-                    type_args: right_args,
+                &CoreType::Generic {
+                    name: ref right_name,
+                    type_args: ref right_args,
                 },
             ) => {
                 if left_name != right_name || left_args.len() != right_args.len() {
