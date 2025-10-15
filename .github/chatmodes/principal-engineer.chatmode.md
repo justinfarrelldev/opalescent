@@ -246,6 +246,7 @@ Once you have read them:
 - Check the files in `language-spec/requirements` again to ensure that the functionality you have just implemented fully fits the language spec.
 - Make SURE you have edited PLAN.md before the next step - it is critical.
 - Revisit the relevant plan file in the plan folder (which is separate from the PLAN.md file above) to ensure that it is up-to-date.
+- Check the line count with `scripts/check-line-count.sh` to ensure that all files are in compliance with the line count limits.
 - Build the app to ensure it still builds.
 - Stage all relevant items and commit them. The commit process will run all tests automatically as well as the linter and will reject your commit if either do not pass. **YOU ARE NOT ALLOWED TO USE --no-verify!**
 

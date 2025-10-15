@@ -14,8 +14,8 @@ The type system provides static type checking, type inference, and type safety g
 - [x] Type context/environment for managing type definitions (TypeEnvironment)
 - [x] Basic type validation and compatibility checking
 - [x] Source location preservation preparation (TypeError with structured error info)
-- [ ] Type unification algorithms for inference
-- [ ] Type substitution for generics
+- [x] Type unification algorithms for inference
+- [x] Type substitution for generics
 - [ ] Complete source location integration
 
 ### ✅ Primitive Types
@@ -84,7 +84,7 @@ The type system provides static type checking, type inference, and type safety g
 - [x] Unification algorithm implementation (complete with occurs check)
 - [x] Occurs check for infinite types
 - [x] Substitution system for type variables
-- [ ] Constraint collection during AST traversal
+- [x] Constraint collection during AST traversal
 - [ ] Principal type inference
 
 ### ☐ Local Type Inference
@@ -103,27 +103,27 @@ The type system provides static type checking, type inference, and type safety g
 
 ## Type Checking Framework
 
-### ☐ Expression Type Checking
+### ✅ Expression Type Checking
 
-- [ ] Literal expression type checking
-- [ ] Identifier type lookup and resolution
-- [ ] Binary operation type compatibility
-- [ ] Unary operation type checking
-- [ ] Function call type checking (parameter/argument matching)
-- [ ] Array access type checking
-- [ ] Cast expression validation
+- [x] Literal expression type checking
+- [x] Identifier type lookup and resolution
+- [x] Binary operation type compatibility
+- [x] Unary operation type checking
+- [x] Function call type checking (parameter/argument matching)
+- [x] Array access type checking
+- [x] Cast expression validation
 
-### ☐ Statement Type Checking
+### ✅ Statement Type Checking
 
-- [ ] Variable declaration type checking
-- [ ] Assignment type compatibility
-- [ ] Return statement type checking
-- [ ] Control flow type checking (if, loops)
-- [ ] Block statement scoping
+- [x] Variable declaration type checking
+- [x] Assignment type compatibility
+- [x] Return statement type checking
+- [x] Control flow type checking (if, loops)
+- [x] Block statement scoping
 
 ### ☐ Declaration Type Checking
 
-- [ ] Function declaration type validation
+- [x] Function declaration type validation
 - [ ] Type declaration validation (no circular dependencies)
 - [ ] Import statement type resolution
 - [ ] Public/entry declaration type checking
@@ -274,12 +274,86 @@ The type system provides static type checking, type inference, and type safety g
 - [x] Substitution system for type variables
 - [x] Full unification algorithm with occurs check
 - [x] Array, Function, and Generic type support in CoreType
-- [x] Comprehensive test suite (31 tests covering all functionality)
+- [x] Comprehensive test suite (141 tests covering all functionality)
+- [x] Hierarchical scope management (ScopeId, Scope struct, parent chain lookup)
+- [x] Span threading for error reporting (lookup_type, validate_type_name, fresh_type_var with Span)
+- [x] Pattern matching consistency in unification algorithm
 - [ ] Integration with parser for type annotations
 - [ ] Complete primitive type support (char type if needed)
 - [ ] Add proper type context management
 
-### ☐ Phase 2: Type Inference
+### ⏳ Phase 2: Type Inference
+
+**Phase 2 Preparation (Completed):**
+
+- [x] Scope Management Infrastructure
+  - [x] ScopeId struct for unique scope identification
+  - [x] Scope struct with parent tracking and symbol map
+  - [x] Hierarchical SymbolTable with scope stack
+  - [x] enter_scope() / exit_scope() for nested scopes
+  - [x] lookup() with parent chain traversal
+  - [x] lookup_local() for current scope only
+  - [x] register_in_scope() for specific scope registration
+  - [x] Comprehensive scope management tests (4 tests)
+  
+- [x] Span Threading for Error Reporting
+  - [x] Updated lookup_type(name, span) signature
+  - [x] Updated validate_type_name(name, core_type, span) signature
+  - [x] Updated fresh_type_var(name, span) signature
+  - [x] Updated fresh_type_var_auto(span) signature
+  - [x] Updated validate_adt_type to use field.span
+  - [x] test_span() helper for consistent test spans
+  - [x] All test call sites updated with span parameters
+  - [x] Pattern matching consistency fixes in unification
+
+**Phase 2 Implementation (In Progress):**
+
+- [x] AST Integration Methods (8-12 hours) - NEXT PRIORITY
+  - [x] Implement type_check_expr(expr: Expr, span: Span) result CoreType or TypeError
+  - [x] Implement type_check_stmt(stmt: Stmt) result unit or TypeError
+  - [x] Implement type_check_decl(decl: Decl) result unit or TypeError
+  - [x] Implement type_check_program(program: Program) result unit or errors
+  - [x] Add constraint collection during expr traversal
+  - [x] Use fresh_type_var_auto() for implicit type variables
+  - [x] Use symbol_table for variable resolution
+
+- [x] Program Checking Sprint
+  - [x] Pre-register top-level declarations before body checking
+  - [x] Type check function declarations including parameters, body, and return types
+  - [x] Type check top-level let declarations with optional annotations
+  - [x] Validate type declarations for ADT correctness and register signatures
+  - [x] Provide import declaration handling stubs with clear Phase 4 notes
+  - [x] Collect multi-error results during program checking
+  - [x] Add failing tests for declaration checking before implementation (≥3)
+  - [x] Implement functionality and make tests pass
+  - [x] Update plan checkboxes and documentation after verification
+
+- [ ] Constraint Solver Implementation (12-16 hours)
+  - [ ] Replace solve_constraints() stub with actual algorithm
+  - [ ] Unify all collected constraints
+  - [ ] Generate final substitution
+  - [ ] Apply substitution to get concrete types
+
+- [ ] Cast Validation (4-6 hours)
+  - [ ] Define safe casts (widening: int32 -> int64, int32 -> float64)
+  - [ ] Define unsafe casts (narrowing: int64 -> int32, float64 -> int32)
+  - [ ] Implement is_safe_cast(from: CoreType, to: CoreType) result bool
+  - [ ] Add overflow detection strategy documentation
+
+- [ ] Lambda and Closure Sprint
+  - [ ] Add tests covering lambda expression type checking (expression + block bodies)
+  - [ ] Implement parameter scope handling within lambdas
+  - [ ] Enforce return type compatibility for lambdas
+  - [ ] Document future capture analysis requirements in code comments
+  - [ ] Ensure symbol tables unwind correctly after lambda scopes
+
+- [ ] Integration Tests (6-8 hours)
+  - [ ] Create tests/type_checking_integration.rs
+  - [ ] Parser + type checker integration tests
+  - [ ] Error message quality tests (miette formatting)
+  - [ ] Multi-error collection tests
+
+**Original Phase 2 Goals:**
 
 - [ ] Implement Hindley-Milner inference
 - [ ] Add constraint collection and solving

@@ -13,8 +13,9 @@
     reason = "Using ref patterns for consistent pattern matching style throughout parser"
 )]
 
+use crate::ast::AstNode;
 use crate::ast::{
-    AstNode, BinaryOp, Decl, Expr, Field, HotReloadMetadata, ImportItem, LambdaBody, LetBinding,
+    BinaryOp, Decl, Expr, Field, HotReloadMetadata, ImportItem, LambdaBody, LetBinding,
     LiteralValue, NodeId, Parameter, Program, Stmt, StringPart, Type, TypeDef, UnaryOp, Variant,
     Visibility,
 };

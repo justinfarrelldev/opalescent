@@ -40,7 +40,7 @@ entry main = f(args: string[]): void =>
 
 			   Note that you can use 'mutable', 'public', etc (things you would normally put after let) in front of n in the guard clause to narrow things down
 			##
-			guard string_to_int32(s) into n else e =>
+				guard string_to_int32(s) into n else e =>
     				print('Error: {e}')
     				continue  # loop jumps here, no value expected
 

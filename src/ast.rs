@@ -41,6 +41,47 @@ pub trait AstNode {
     }
 }
 
+impl Expr {
+    /// Retrieve the source span associated with this expression in const contexts.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
+        match *self {
+            Self::Literal { span, .. }
+            | Self::Identifier { span, .. }
+            | Self::Binary { span, .. }
+            | Self::Unary { span, .. }
+            | Self::Call { span, .. }
+            | Self::Index { span, .. }
+            | Self::Member { span, .. }
+            | Self::Cast { span, .. }
+            | Self::TypeOf { span, .. }
+            | Self::StringInterpolation { span, .. }
+            | Self::Parenthesized { span, .. }
+            | Self::Array { span, .. }
+            | Self::Lambda { span, .. } => span,
+        }
+    }
+
+    /// Retrieve the unique identifier associated with this expression in const contexts.
+    #[must_use]
+    pub const fn node_id_const(&self) -> NodeId {
+        match *self {
+            Self::Literal { id, .. }
+            | Self::Identifier { id, .. }
+            | Self::Binary { id, .. }
+            | Self::Unary { id, .. }
+            | Self::Call { id, .. }
+            | Self::Index { id, .. }
+            | Self::Member { id, .. }
+            | Self::Cast { id, .. }
+            | Self::TypeOf { id, .. }
+            | Self::StringInterpolation { id, .. }
+            | Self::Parenthesized { id, .. }
+            | Self::Array { id, .. }
+            | Self::Lambda { id, .. } => id,
+        }
+    }
+}
 /// Symbol information for ABI signature generation
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SymbolInfo {
@@ -56,6 +97,43 @@ pub struct SymbolInfo {
     pub source_location: Span,
 }
 
+impl Stmt {
+    /// Retrieve the source span associated with this statement in const contexts.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
+        match *self {
+            Self::Let { span, .. }
+            | Self::Assignment { span, .. }
+            | Self::Return { span, .. }
+            | Self::Expression { span, .. }
+            | Self::Block { span, .. }
+            | Self::If { span, .. }
+            | Self::For { span, .. }
+            | Self::While { span, .. }
+            | Self::Loop { span, .. }
+            | Self::Break { span, .. }
+            | Self::Continue { span, .. } => span,
+        }
+    }
+
+    /// Retrieve the unique identifier associated with this statement in const contexts.
+    #[must_use]
+    pub const fn node_id_const(&self) -> NodeId {
+        match *self {
+            Self::Let { id, .. }
+            | Self::Assignment { id, .. }
+            | Self::Return { id, .. }
+            | Self::Expression { id, .. }
+            | Self::Block { id, .. }
+            | Self::If { id, .. }
+            | Self::For { id, .. }
+            | Self::While { id, .. }
+            | Self::Loop { id, .. }
+            | Self::Break { id, .. }
+            | Self::Continue { id, .. } => id,
+        }
+    }
+}
 /// Symbol type for ABI signature
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// Symbol type for ABI signature
@@ -70,6 +148,29 @@ pub enum SymbolType {
     Constant,
 }
 
+impl Decl {
+    /// Retrieve the source span associated with this declaration in const contexts.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
+        match *self {
+            Self::Function { span, .. }
+            | Self::Type { span, .. }
+            | Self::Import { span, .. }
+            | Self::Let { span, .. } => span,
+        }
+    }
+
+    /// Retrieve the unique identifier associated with this declaration in const contexts.
+    #[must_use]
+    pub const fn node_id_const(&self) -> NodeId {
+        match *self {
+            Self::Function { id, .. }
+            | Self::Type { id, .. }
+            | Self::Import { id, .. }
+            | Self::Let { id, .. } => id,
+        }
+    }
+}
 /// ABI type signature for hot-reload compatibility
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeSignature {
@@ -77,6 +178,19 @@ pub struct TypeSignature {
     pub signature: alloc::string::String,
 }
 
+impl LetBinding {
+    /// Retrieve the source span associated with this binding.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
+        self.span
+    }
+
+    /// Runtime helper for retrieving the span outside of const contexts.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        self.span_const()
+    }
+}
 /// Module path for dependency tracking
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ModulePath(pub alloc::string::String);
@@ -92,6 +206,19 @@ pub struct HotReloadMetadata {
     pub is_hot_reloadable: bool,
 }
 
+impl Parameter {
+    /// Retrieve the source span associated with this parameter in const contexts.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
+        self.span
+    }
+
+    /// Runtime helper for retrieving the parameter span.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        self.span_const()
+    }
+}
 impl HotReloadMetadata {
     /// Metadata with defaults for functions (not hot-reloadable until validated)
     pub const fn for_function() -> Self {
@@ -139,6 +266,19 @@ impl HotReloadMetadata {
     }
 }
 
+impl Variant {
+    /// Retrieve the source span associated with this variant in const contexts.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
+        self.span
+    }
+
+    /// Runtime helper for retrieving the variant span.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        self.span_const()
+    }
+}
 /// Expression AST nodes
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -346,6 +486,19 @@ pub enum Expr {
     },
 }
 
+impl Field {
+    /// Retrieve the source span associated with this field definition.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
+        self.span
+    }
+
+    /// Runtime helper returning the field span.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        self.span_const()
+    }
+}
 /// Shared metadata for `let` bindings used in statements and declarations
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LetBinding {
@@ -361,6 +514,21 @@ pub struct LetBinding {
     pub id: NodeId,
 }
 
+impl ImportItem {
+    /// Retrieve the source span associated with this import item.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
+        match *self {
+            Self::Named { span, .. } | Self::Glob { span, .. } | Self::Type { span, .. } => span,
+        }
+    }
+
+    /// Runtime helper for retrieving the import span.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        self.span_const()
+    }
+}
 /// Statement AST nodes
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -485,6 +653,19 @@ pub enum Stmt {
     },
 }
 
+impl Program {
+    /// Retrieve the source span associated with the entire program in const contexts.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
+        self.span
+    }
+
+    /// Retrieve the unique identifier associated with this program in const contexts.
+    #[must_use]
+    pub const fn node_id_const(&self) -> NodeId {
+        self.id
+    }
+}
 /// Top-level declaration AST nodes
 #[derive(Debug, Clone, PartialEq)]
 pub enum Decl {
@@ -719,13 +900,19 @@ pub enum Type {
 impl Type {
     /// Convenience accessor for the span associated with this type node
     #[must_use]
-    pub const fn span(&self) -> Span {
+    pub const fn span_const(&self) -> Span {
         match *self {
             Self::Basic { span, .. }
             | Self::Generic { span, .. }
             | Self::Array { span, .. }
             | Self::Function { span, .. } => span,
         }
+    }
+
+    /// Runtime-friendly span accessor delegating to the const variant.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        self.span_const()
     }
 }
 
@@ -1209,5 +1396,51 @@ mod tests {
             UnaryOp::try_from(TokenType::BitNot).unwrap(),
             UnaryOp::BitNot
         );
+    }
+
+    #[test]
+    fn test_statement_span_and_node_id() {
+        let binding = LetBinding {
+            name: "value".to_owned(),
+            type_annotation: None,
+            is_mutable: false,
+            span: dummy_span(),
+            id: dummy_node_id(),
+        };
+
+        let stmt = Stmt::Let {
+            binding,
+            initializer: None,
+            span: dummy_span(),
+            id: dummy_node_id(),
+        };
+
+        assert_eq!(stmt.span(), dummy_span());
+        assert_eq!(stmt.node_id(), dummy_node_id());
+    }
+
+    #[test]
+    fn test_declaration_span_and_node_id() {
+        let decl = Decl::Import {
+            items: alloc::vec![ImportItem::Glob { span: dummy_span() }],
+            source: "./module".to_owned(),
+            span: dummy_span(),
+            id: dummy_node_id(),
+            metadata: HotReloadMetadata::for_import(),
+        };
+
+        assert_eq!(decl.span(), dummy_span());
+        assert_eq!(decl.node_id(), dummy_node_id());
+    }
+
+    #[test]
+    fn test_import_item_span_accessor() {
+        let item = ImportItem::Named {
+            name: "value".to_owned(),
+            alias: Some("alias".to_owned()),
+            span: dummy_span(),
+        };
+
+        assert_eq!(item.span(), dummy_span());
     }
 }
