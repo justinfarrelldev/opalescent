@@ -6,10 +6,20 @@
     dead_code,
     reason = "AST nodes are partially implemented during language development"
 )]
+#![expect(
+    clippy::pub_use,
+    reason = "Re-exporting from submodules maintains a clean public API - submodules are implementation details"
+)]
+
+mod helpers;
+mod node_impls;
+mod operators;
 
 extern crate alloc;
-use crate::token::{Span, TokenType};
-use core::fmt;
+use crate::token::Span;
+
+// Re-export operators from the operators module for public use
+pub use self::operators::{BinaryOp, UnaryOp};
 
 /// A unique identifier for AST nodes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -178,19 +188,6 @@ pub struct TypeSignature {
     pub signature: alloc::string::String,
 }
 
-impl LetBinding {
-    /// Retrieve the source span associated with this binding.
-    #[must_use]
-    pub const fn span_const(&self) -> Span {
-        self.span
-    }
-
-    /// Runtime helper for retrieving the span outside of const contexts.
-    #[must_use]
-    pub const fn span(&self) -> Span {
-        self.span_const()
-    }
-}
 /// Module path for dependency tracking
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ModulePath(pub alloc::string::String);
@@ -206,79 +203,6 @@ pub struct HotReloadMetadata {
     pub is_hot_reloadable: bool,
 }
 
-impl Parameter {
-    /// Retrieve the source span associated with this parameter in const contexts.
-    #[must_use]
-    pub const fn span_const(&self) -> Span {
-        self.span
-    }
-
-    /// Runtime helper for retrieving the parameter span.
-    #[must_use]
-    pub const fn span(&self) -> Span {
-        self.span_const()
-    }
-}
-impl HotReloadMetadata {
-    /// Metadata with defaults for functions (not hot-reloadable until validated)
-    pub const fn for_function() -> Self {
-        Self {
-            abi_symbol: None,
-            dependencies: alloc::vec::Vec::new(),
-            is_hot_reloadable: false,
-        }
-    }
-
-    /// Metadata with defaults for top-level `let` declarations
-    pub const fn for_let_declaration() -> Self {
-        Self {
-            abi_symbol: None,
-            dependencies: alloc::vec::Vec::new(),
-            is_hot_reloadable: true,
-        }
-    }
-
-    /// Metadata with defaults for expressions (e.g., lambdas)
-    pub const fn for_expression() -> Self {
-        Self {
-            abi_symbol: None,
-            dependencies: alloc::vec::Vec::new(),
-            is_hot_reloadable: false,
-        }
-    }
-
-    /// Metadata defaults for type declarations (not hot-reloadable by default)
-    pub const fn for_type_declaration() -> Self {
-        Self {
-            abi_symbol: None,
-            dependencies: alloc::vec::Vec::new(),
-            is_hot_reloadable: false,
-        }
-    }
-
-    /// Metadata defaults for imports (never hot-reloadable)
-    pub const fn for_import() -> Self {
-        Self {
-            abi_symbol: None,
-            dependencies: alloc::vec::Vec::new(),
-            is_hot_reloadable: false,
-        }
-    }
-}
-
-impl Variant {
-    /// Retrieve the source span associated with this variant in const contexts.
-    #[must_use]
-    pub const fn span_const(&self) -> Span {
-        self.span
-    }
-
-    /// Runtime helper for retrieving the variant span.
-    #[must_use]
-    pub const fn span(&self) -> Span {
-        self.span_const()
-    }
-}
 /// Expression AST nodes
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -486,19 +410,6 @@ pub enum Expr {
     },
 }
 
-impl Field {
-    /// Retrieve the source span associated with this field definition.
-    #[must_use]
-    pub const fn span_const(&self) -> Span {
-        self.span
-    }
-
-    /// Runtime helper returning the field span.
-    #[must_use]
-    pub const fn span(&self) -> Span {
-        self.span_const()
-    }
-}
 /// Shared metadata for `let` bindings used in statements and declarations
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LetBinding {
@@ -514,21 +425,6 @@ pub struct LetBinding {
     pub id: NodeId,
 }
 
-impl ImportItem {
-    /// Retrieve the source span associated with this import item.
-    #[must_use]
-    pub const fn span_const(&self) -> Span {
-        match *self {
-            Self::Named { span, .. } | Self::Glob { span, .. } | Self::Type { span, .. } => span,
-        }
-    }
-
-    /// Runtime helper for retrieving the import span.
-    #[must_use]
-    pub const fn span(&self) -> Span {
-        self.span_const()
-    }
-}
 /// Statement AST nodes
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -782,81 +678,6 @@ pub enum LiteralValue {
     Void,
 }
 
-/// Binary operators
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BinaryOp {
-    // Arithmetic
-    /// Addition operator (+)
-    Add,
-    /// Subtraction operator (-)
-    Subtract,
-    /// Multiplication operator (*)
-    Multiply,
-    /// Division operator (/)
-    Divide,
-    /// Modulo operator (%)
-    Modulo,
-    /// Exponentiation operator (^)
-    Power,
-
-    // Comparison
-    /// Equality operator (is)
-    Equal,
-    /// Inequality operator (is not)
-    NotEqual,
-    /// Less than operator (<)
-    Less,
-    /// Less than or equal operator (<=)
-    LessEqual,
-    /// Greater than operator (>)
-    Greater,
-    /// Greater than or equal operator (>=)
-    GreaterEqual,
-    /// Identity comparison operator (is)
-    Is,
-    /// Negative identity comparison operator (is not)
-    IsNot,
-
-    // Logical
-    /// Logical AND operator (and)
-    And,
-    /// Logical OR operator (or)
-    Or,
-    /// Logical XOR operator (xor)
-    Xor,
-
-    // Bitwise
-    /// Bitwise AND operator (band)
-    BitAnd,
-    /// Bitwise OR operator (bor)
-    BitOr,
-    /// Bitwise XOR operator (bxor)
-    BitXor,
-    /// Bitwise left shift operator (bshl)
-    BitShiftLeft,
-    /// Bitwise right shift operator (bshr)
-    BitShiftRight,
-    /// Bitwise unsigned right shift operator (bushr)
-    BitUnsignedShiftRight,
-
-    // Assignment
-    /// Assignment operator (=)
-    Assign,
-}
-
-/// Unary operators
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum UnaryOp {
-    /// Numeric negation operator (-x)
-    Negate,
-    /// Logical negation operator (not x)
-    Not,
-    /// Bitwise negation operator (bnot x)
-    BitNot,
-    /// Unary plus operator (+x)
-    Plus,
-}
-
 /// Type representations
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
@@ -1075,241 +896,6 @@ pub struct Program {
     pub id: NodeId,
 }
 
-impl AstNode for Expr {
-    fn span(&self) -> Span {
-        match *self {
-            Self::Literal { span, .. }
-            | Self::Identifier { span, .. }
-            | Self::Binary { span, .. }
-            | Self::Unary { span, .. }
-            | Self::Call { span, .. }
-            | Self::Index { span, .. }
-            | Self::Member { span, .. }
-            | Self::Cast { span, .. }
-            | Self::TypeOf { span, .. }
-            | Self::StringInterpolation { span, .. }
-            | Self::Parenthesized { span, .. }
-            | Self::Array { span, .. }
-            | Self::Lambda { span, .. } => span,
-        }
-    }
-
-    fn node_id(&self) -> NodeId {
-        match *self {
-            Self::Literal { id, .. }
-            | Self::Identifier { id, .. }
-            | Self::Binary { id, .. }
-            | Self::Unary { id, .. }
-            | Self::Call { id, .. }
-            | Self::Index { id, .. }
-            | Self::Member { id, .. }
-            | Self::Cast { id, .. }
-            | Self::TypeOf { id, .. }
-            | Self::StringInterpolation { id, .. }
-            | Self::Parenthesized { id, .. }
-            | Self::Array { id, .. }
-            | Self::Lambda { id, .. } => id,
-        }
-    }
-
-    fn abi_symbols(&self) -> alloc::vec::Vec<SymbolInfo> {
-        match *self {
-            Self::Lambda { ref metadata, .. } => metadata.abi_symbol.iter().cloned().collect(),
-            _ => alloc::vec::Vec::new(),
-        }
-    }
-
-    fn dependencies(&self) -> alloc::vec::Vec<ModulePath> {
-        match *self {
-            Self::Lambda { ref metadata, .. } => metadata.dependencies.clone(),
-            _ => alloc::vec::Vec::new(),
-        }
-    }
-
-    fn is_hot_reloadable(&self) -> bool {
-        matches!(*self, Self::Lambda { ref metadata, .. } if metadata.is_hot_reloadable)
-    }
-}
-
-impl AstNode for Stmt {
-    fn span(&self) -> Span {
-        match *self {
-            Self::Let { span, .. }
-            | Self::Assignment { span, .. }
-            | Self::Return { span, .. }
-            | Self::Expression { span, .. }
-            | Self::Block { span, .. }
-            | Self::If { span, .. }
-            | Self::For { span, .. }
-            | Self::While { span, .. }
-            | Self::Loop { span, .. }
-            | Self::Break { span, .. }
-            | Self::Continue { span, .. } => span,
-        }
-    }
-
-    fn node_id(&self) -> NodeId {
-        match *self {
-            Self::Let { id, .. }
-            | Self::Assignment { id, .. }
-            | Self::Return { id, .. }
-            | Self::Expression { id, .. }
-            | Self::Block { id, .. }
-            | Self::If { id, .. }
-            | Self::For { id, .. }
-            | Self::While { id, .. }
-            | Self::Loop { id, .. }
-            | Self::Break { id, .. }
-            | Self::Continue { id, .. } => id,
-        }
-    }
-}
-
-impl AstNode for Decl {
-    fn span(&self) -> Span {
-        match *self {
-            Self::Function { span, .. }
-            | Self::Type { span, .. }
-            | Self::Import { span, .. }
-            | Self::Let { span, .. } => span,
-        }
-    }
-
-    fn node_id(&self) -> NodeId {
-        match *self {
-            Self::Function { id, .. }
-            | Self::Type { id, .. }
-            | Self::Import { id, .. }
-            | Self::Let { id, .. } => id,
-        }
-    }
-
-    fn abi_symbols(&self) -> alloc::vec::Vec<SymbolInfo> {
-        match *self {
-            Self::Function { ref metadata, .. }
-            | Self::Type { ref metadata, .. }
-            | Self::Import { ref metadata, .. }
-            | Self::Let { ref metadata, .. } => metadata.abi_symbol.iter().cloned().collect(),
-        }
-    }
-
-    fn dependencies(&self) -> alloc::vec::Vec<ModulePath> {
-        match *self {
-            Self::Function { ref metadata, .. }
-            | Self::Type { ref metadata, .. }
-            | Self::Import { ref metadata, .. }
-            | Self::Let { ref metadata, .. } => metadata.dependencies.clone(),
-        }
-    }
-
-    fn is_hot_reloadable(&self) -> bool {
-        match *self {
-            Self::Function { ref metadata, .. }
-            | Self::Type { ref metadata, .. }
-            | Self::Import { ref metadata, .. }
-            | Self::Let { ref metadata, .. } => metadata.is_hot_reloadable,
-        }
-    }
-}
-
-impl AstNode for Program {
-    fn span(&self) -> Span {
-        self.span
-    }
-
-    fn node_id(&self) -> NodeId {
-        self.id
-    }
-}
-
-impl fmt::Display for BinaryOp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let symbol = match *self {
-            Self::Add => "+",
-            Self::Subtract => "-",
-            Self::Multiply => "*",
-            Self::Divide => "/",
-            Self::Modulo => "%",
-            Self::Power => "^",
-            Self::Equal | Self::Is => "is",
-            Self::NotEqual | Self::IsNot => "is not",
-            Self::Less => "<",
-            Self::LessEqual => "<=",
-            Self::Greater => ">",
-            Self::GreaterEqual => ">=",
-            Self::And => "and",
-            Self::Or => "or",
-            Self::Xor => "xor",
-            Self::BitAnd => "band",
-            Self::BitOr => "bor",
-            Self::BitXor => "bxor",
-            Self::BitShiftLeft => "bshl",
-            Self::BitShiftRight => "bshr",
-            Self::BitUnsignedShiftRight => "bushr",
-            Self::Assign => "=",
-        };
-        write!(f, "{symbol}")
-    }
-}
-
-impl fmt::Display for UnaryOp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let symbol = match *self {
-            Self::Negate => "-",
-            Self::Not => "not",
-            Self::BitNot => "bnot",
-            Self::Plus => "+",
-        };
-        write!(f, "{symbol}")
-    }
-}
-
-impl TryFrom<TokenType> for BinaryOp {
-    type Error = String;
-
-    fn try_from(token_type: TokenType) -> Result<Self, Self::Error> {
-        match token_type {
-            TokenType::Plus => Ok(Self::Add),
-            TokenType::Minus => Ok(Self::Subtract),
-            TokenType::Multiply => Ok(Self::Multiply),
-            TokenType::Divide => Ok(Self::Divide),
-            TokenType::Modulo => Ok(Self::Modulo),
-            TokenType::Power => Ok(Self::Power),
-            TokenType::Less => Ok(Self::Less),
-            TokenType::LessEqual => Ok(Self::LessEqual),
-            TokenType::Greater => Ok(Self::Greater),
-            TokenType::GreaterEqual => Ok(Self::GreaterEqual),
-            TokenType::Is => Ok(Self::Is),
-            TokenType::IsNot => Ok(Self::IsNot),
-            TokenType::And => Ok(Self::And),
-            TokenType::Or => Ok(Self::Or),
-            TokenType::Xor => Ok(Self::Xor),
-            TokenType::BitAnd => Ok(Self::BitAnd),
-            TokenType::BitOr => Ok(Self::BitOr),
-            TokenType::BitXor => Ok(Self::BitXor),
-            TokenType::BitShiftLeft => Ok(Self::BitShiftLeft),
-            TokenType::BitShiftRight => Ok(Self::BitShiftRight),
-            TokenType::BitUnsignedShiftRight => Ok(Self::BitUnsignedShiftRight),
-            TokenType::Assign => Ok(Self::Assign),
-            _ => Err(format!("Cannot convert {token_type:?} to BinaryOp")),
-        }
-    }
-}
-
-impl TryFrom<TokenType> for UnaryOp {
-    type Error = String;
-
-    fn try_from(token_type: TokenType) -> Result<Self, Self::Error> {
-        match token_type {
-            TokenType::Minus => Ok(Self::Negate),
-            TokenType::Plus => Ok(Self::Plus),
-            TokenType::Not => Ok(Self::Not),
-            TokenType::BitNot => Ok(Self::BitNot),
-            _ => Err(format!("Cannot convert {token_type:?} to UnaryOp")),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1359,43 +945,6 @@ mod tests {
 
         assert_eq!(expr.span(), dummy_span());
         assert_eq!(expr.node_id(), dummy_node_id());
-    }
-
-    #[test]
-    fn test_binary_op_display() {
-        assert_eq!(format!("{}", BinaryOp::Add), "+");
-        assert_eq!(format!("{}", BinaryOp::And), "and");
-        assert_eq!(format!("{}", BinaryOp::BitShiftLeft), "bshl");
-    }
-
-    #[test]
-    fn test_unary_op_display() {
-        assert_eq!(format!("{}", UnaryOp::Negate), "-");
-        assert_eq!(format!("{}", UnaryOp::Not), "not");
-        assert_eq!(format!("{}", UnaryOp::BitNot), "bnot");
-    }
-
-    #[test]
-    fn test_token_to_binary_op() {
-        assert_eq!(BinaryOp::try_from(TokenType::Plus).unwrap(), BinaryOp::Add);
-        assert_eq!(BinaryOp::try_from(TokenType::And).unwrap(), BinaryOp::And);
-        assert_eq!(
-            BinaryOp::try_from(TokenType::BitShiftLeft).unwrap(),
-            BinaryOp::BitShiftLeft
-        );
-    }
-
-    #[test]
-    fn test_token_to_unary_op() {
-        assert_eq!(
-            UnaryOp::try_from(TokenType::Minus).unwrap(),
-            UnaryOp::Negate
-        );
-        assert_eq!(UnaryOp::try_from(TokenType::Not).unwrap(), UnaryOp::Not);
-        assert_eq!(
-            UnaryOp::try_from(TokenType::BitNot).unwrap(),
-            UnaryOp::BitNot
-        );
     }
 
     #[test]
