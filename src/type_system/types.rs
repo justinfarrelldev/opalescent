@@ -3,6 +3,8 @@
 //! This module defines the fundamental types used throughout the language,
 //! including primitives, composites, and type variables for inference.
 
+extern crate alloc;
+
 use alloc::{boxed::Box, fmt, string::String, vec::Vec};
 
 /// Represents type variables used in type inference
