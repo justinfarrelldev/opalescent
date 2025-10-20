@@ -73,7 +73,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Substitution system for type variables
 - [x] Complete unification algorithm with occurs check
 - [x] Array, Function, and Generic type infrastructure
-- [x] Comprehensive test suite (31 tests passing)
+- [x] Comprehensive test suite
 
 #### Enhanced Error Handling (✅ Complete)
 
@@ -95,7 +95,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
   - [x] HasField constraints for struct field checking
   - [x] Callable constraints for function type checking
   - [x] add_constraint() method for constraint tracking
-  - [x] solve_constraints() stub for future type inference engine
+  - [x] Initial solve_constraints() implementation (equality constraints; placeholders for additional variants)
 - [x] **Test maintainability improvements**
   - [x] Replace magic numbers with semantic constants
   - [x] TEST_VAR_ID, ANOTHER_TEST_VAR_ID, THIRD_TEST_VAR_ID constants
@@ -125,13 +125,20 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] **CRITICAL FOR PHASE 2:** Type inference engine implementation
   - [x] Constraint collection infrastructure (TypeConstraint)
   - [ ] Constraint solving algorithm implementation
+    - [x] Equality constraint solving via unification
+    - [ ] HasField constraint handling
+    - [ ] Callable constraint handling
   - [ ] Integration with unification system
 - [ ] **CRITICAL FOR PHASE 2:** Complete type checking framework
   - [x] Expression type checking (literals, identifiers, binary/unary ops, calls, casts)
   - [x] Statement type checking (let bindings, assignments, returns, blocks)
-  - [ ] Declaration type checking (functions, types, imports)
+  - [ ] Declaration type checking
+    - [x] Function declarations
+    - [x] Let declarations
+    - [x] Type declarations
+    - [ ] Import declarations
   - [x] Scope management infrastructure (SymbolTable)
-  - [ ] Variable resolution implementation
+  - [x] Variable resolution implementation
   - [ ] Type checking integration with parser AST
 - [ ] **CRITICAL FOR PHASE 2:** Cast validation and safety
   - [ ] Safe cast checking (widening vs narrowing)
