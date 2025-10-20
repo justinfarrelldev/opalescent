@@ -5,9 +5,9 @@ use alloc::collections::BTreeMap;
 
 use super::checker::TypeChecker;
 use super::constraints::TypeConstraint;
+use super::environment::TypeEnvironment;
 use super::errors::TypeError;
 use super::substitution::Substitution;
-use super::environment::TypeEnvironment;
 use super::symbol_table::{ScopeId, SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::types::{CoreType, TypeVar};
 use crate::ast::{
@@ -164,8 +164,8 @@ fn test_adt_type_validation_sum() {
         variants: vec![variant],
         span,
     };
-    let checker = TypeChecker::new();
-    assert!(checker.validate_adt_type(&type_def).is_ok());
+    let _checker = TypeChecker::new();
+    assert!(TypeChecker::validate_adt_type(&type_def).is_ok());
 }
 
 #[test]
@@ -183,8 +183,8 @@ fn test_adt_type_validation_product() {
         fields: vec![field],
         span,
     };
-    let checker = TypeChecker::new();
-    assert!(checker.validate_adt_type(&type_def).is_ok());
+    let _checker = TypeChecker::new();
+    assert!(TypeChecker::validate_adt_type(&type_def).is_ok());
 }
 
 #[test]

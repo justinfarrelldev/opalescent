@@ -18,6 +18,7 @@
 //! ## Current Status & Future Enhancements
 //!
 //! ### Error Categories
+
 //!
 //! - [`TypeError::TypeNotFound`]: Type reference not in scope
 //! - [`TypeError::TypeMismatch`]: Incompatible types in expression
