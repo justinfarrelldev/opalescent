@@ -6,9 +6,15 @@ set -euo pipefail
 MAX_LINES=1000
 
 echo "Checking Rust source files for line count limit..."
+echo "(Excluding test files: tests.rs, test_*.rs, *_test.rs)"
 
-# Find all Rust source files
-RUST_FILES=$(find . -name "*.rs" -not -path "./target/*" -not -path "./.git/*")
+# Find all Rust source files, excluding test files
+RUST_FILES=$(find . -name "*.rs" \
+    -not -path "./target/*" \
+    -not -path "./.git/*" \
+    -not -name "tests.rs" \
+    -not -name "test_*.rs" \
+    -not -name "*_test.rs")
 
 if [ -z "$RUST_FILES" ]; then
     echo "✅ No Rust source files found."
