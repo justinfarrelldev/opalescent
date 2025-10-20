@@ -163,24 +163,64 @@ impl TypeChecker {
                     });
                 }
                 TypeConstraint::Callable {
+                    callee,
+                    arguments,
+                    return_type,
                     callee_span,
                     argument_spans,
                     return_span,
-                    ..
                 } => {
-                    // Try to find any available span from callee, arguments, or return
-                    // NOTE: Callable constraints should always have at least the callee span
-                    let diagnostic_span = callee_span
-                        .into_iter()
-                        .chain(argument_spans.into_iter().flatten())
-                        .chain(return_span.into_iter())
-                        .map(TypeError::span_from_span)
-                        .next()
-                        .unwrap_or_else(TypeError::unknown_span);
-                    return Err(TypeError::NotImplementedYet {
-                        feature: "constraint type Callable".to_owned(),
-                        span: diagnostic_span,
-                    });
+                    // Apply current substitution to callee type
+                    let callee_applied = substitution.apply(&callee);
+
+                    // Extract function signature from callee type
+                    if let CoreType::Function {
+                        parameters,
+                        return_type: fn_return,
+                    } = callee_applied
+                    {
+                        // Check arity (number of arguments)
+                        if parameters.len() != arguments.len() {
+                            let diagnostic_span = callee_span
+                                .map_or_else(TypeError::unknown_span, TypeError::span_from_span);
+                            return Err(TypeError::ArityMismatch {
+                                expected: parameters.len(),
+                                found: arguments.len(),
+                                span: diagnostic_span,
+                            });
+                        }
+
+                        // Unify each parameter with corresponding argument
+                        for (i, (param_type, arg_type)) in
+                            parameters.iter().zip(arguments.iter()).enumerate()
+                        {
+                            let param_applied = substitution.apply(param_type);
+                            let arg_applied = substitution.apply(arg_type);
+                            let arg_span = argument_spans.get(i).and_then(|s| *s).or(callee_span);
+                            let param_subst =
+                                self.unify(&param_applied, &arg_applied, None, arg_span)?;
+                            substitution = substitution.compose(&param_subst);
+                        }
+
+                        // Unify return type
+                        let fn_return_applied = substitution.apply(&fn_return);
+                        let return_type_applied = substitution.apply(&return_type);
+                        let return_subst = self.unify(
+                            &fn_return_applied,
+                            &return_type_applied,
+                            callee_span,
+                            return_span,
+                        )?;
+                        substitution = substitution.compose(&return_subst);
+                    } else {
+                        // Callee is not a function type
+                        let diagnostic_span = callee_span
+                            .map_or_else(TypeError::unknown_span, TypeError::span_from_span);
+                        return Err(TypeError::NotCallable {
+                            type_name: format!("{callee_applied}"),
+                            span: diagnostic_span,
+                        });
+                    }
                 }
             }
         }

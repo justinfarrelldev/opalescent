@@ -124,11 +124,11 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] **CRITICAL FOR PHASE 2:** Generic type support (runtime instantiation)
 - [ ] **CRITICAL FOR PHASE 2:** Type inference engine implementation
   - [x] Constraint collection infrastructure (TypeConstraint)
-  - [ ] Constraint solving algorithm implementation
+  - [x] Constraint solving algorithm implementation
     - [x] Equality constraint solving via unification
-    - [ ] HasField constraint handling
-    - [ ] Callable constraint handling
-  - [ ] Integration with unification system
+    - [x] Callable constraint handling (function arity and parameter type checking)
+    - [ ] HasField constraint handling (deferred to Phase 3 - requires ADT Product types)
+  - [x] Integration with unification system
 - [ ] **CRITICAL FOR PHASE 2:** Complete type checking framework
   - [x] Expression type checking (literals, identifiers, binary/unary ops, calls, casts)
   - [x] Statement type checking (let bindings, assignments, returns, blocks)

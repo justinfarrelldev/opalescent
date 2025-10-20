@@ -1796,3 +1796,90 @@ fn test_solve_constraints_occurs_check_reports_span() {
         }
     }
 }
+
+// Note: HasField constraint tests are deferred to Phase 3 when ADT (Product/Sum types) are implemented
+// HasField constraints require Product types with named fields, which are part of the advanced type features
+
+#[test]
+fn test_solve_constraints_callable_with_function_type() {
+    let mut checker = TypeChecker::new();
+    let span = test_span();
+
+    // Create a function type
+    let function_type = CoreType::Function {
+        parameters: vec![CoreType::Int32, CoreType::String],
+        return_type: Box::new(CoreType::Boolean),
+    };
+
+    // Add Callable constraint that matches the function signature
+    checker.add_constraint(TypeConstraint::Callable {
+        callee: function_type,
+        arguments: vec![CoreType::Int32, CoreType::String],
+        return_type: CoreType::Boolean,
+        callee_span: Some(span),
+        argument_spans: vec![Some(span), Some(span)],
+        return_span: Some(span),
+    });
+
+    let result = checker.solve_constraints();
+    assert!(
+        result.is_ok(),
+        "Callable constraint should succeed for matching function type: {result:?}"
+    );
+}
+
+#[test]
+fn test_solve_constraints_callable_wrong_arity() {
+    let mut checker = TypeChecker::new();
+    let span = test_span();
+
+    // Create a function type with 2 parameters
+    let function_type = CoreType::Function {
+        parameters: vec![CoreType::Int32, CoreType::String],
+        return_type: Box::new(CoreType::Boolean),
+    };
+
+    // Add Callable constraint with wrong number of arguments
+    checker.add_constraint(TypeConstraint::Callable {
+        callee: function_type,
+        arguments: vec![CoreType::Int32], // Only 1 argument, but function expects 2
+        return_type: CoreType::Boolean,
+        callee_span: Some(span),
+        argument_spans: vec![Some(span)],
+        return_span: Some(span),
+    });
+
+    let result = checker.solve_constraints();
+    assert!(
+        result.is_err(),
+        "Callable constraint should fail for wrong arity"
+    );
+}
+
+#[test]
+fn test_solve_constraints_callable_wrong_argument_type() {
+    let mut checker = TypeChecker::new();
+    let span = test_span();
+
+    // Create a function type
+    let function_type = CoreType::Function {
+        parameters: vec![CoreType::Int32, CoreType::String],
+        return_type: Box::new(CoreType::Boolean),
+    };
+
+    // Add Callable constraint with wrong argument type
+    checker.add_constraint(TypeConstraint::Callable {
+        callee: function_type,
+        arguments: vec![CoreType::String, CoreType::String], // First arg should be Int32
+        return_type: CoreType::Boolean,
+        callee_span: Some(span),
+        argument_spans: vec![Some(span), Some(span)],
+        return_span: Some(span),
+    });
+
+    let result = checker.solve_constraints();
+    assert!(
+        result.is_err(),
+        "Callable constraint should fail for wrong argument type"
+    );
+}

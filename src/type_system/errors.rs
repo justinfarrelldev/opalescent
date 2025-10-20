@@ -175,6 +175,38 @@ pub enum TypeError {
         /// Source span highlighting where the unimplemented feature was used
         span: SourceSpan,
     },
+
+    /// Function arity mismatch (wrong number of arguments)
+    #[error("Function arity mismatch: expected {expected} argument(s), found {found}")]
+    #[diagnostic(
+        code(opalescent::type_system::arity_mismatch),
+        help("Ensure the number of arguments matches the function signature")
+    )]
+    ArityMismatch {
+        /// Expected number of arguments
+        expected: usize,
+        /// Actual number of arguments provided
+        found: usize,
+        #[label("wrong number of arguments")]
+        /// Source span highlighting where the call occurred
+        span: SourceSpan,
+    },
+
+    /// Type is not callable
+    #[error("Type '{type_name}' is not callable")]
+    #[diagnostic(
+        code(opalescent::type_system::not_callable),
+        help(
+            "Only function types can be called. Check that this is a function or function-typed variable"
+        )
+    )]
+    NotCallable {
+        /// Name of the non-callable type
+        type_name: String,
+        #[label("not a function")]
+        /// Source span highlighting where the call was attempted
+        span: SourceSpan,
+    },
 }
 
 impl TypeError {

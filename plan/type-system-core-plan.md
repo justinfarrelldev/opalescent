@@ -337,11 +337,15 @@ The type system provides static type checking, type inference, and type safety g
   - [x] Implement functionality and make tests pass
   - [x] Update plan checkboxes and documentation after verification
 
-- [ ] Constraint Solver Implementation (12-16 hours)
-  - [ ] Replace solve_constraints() stub with actual algorithm
-  - [ ] Unify all collected constraints
-  - [ ] Generate final substitution
-  - [ ] Apply substitution to get concrete types
+- [x] Constraint Solver Implementation (12-16 hours)
+  - [x] Replace solve_constraints() stub with actual algorithm
+  - [x] Unify all collected constraints
+  - [x] Generate final substitution
+  - [x] Apply substitution to get concrete types
+  - [x] Implement Callable constraint handling
+  - [x] Add ArityMismatch and NotCallable error variants
+  - [x] Add 3 tests for Callable constraint scenarios
+  - [ ] HasField constraint handling (deferred to Phase 3 - requires ADT Product types)
 
 - [ ] Cast Validation (4-6 hours)
   - [ ] Define safe casts (widening: int32 -> int64, int32 -> float64)
