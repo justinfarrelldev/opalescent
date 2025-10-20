@@ -1,0 +1,135 @@
+//! Core type representations for the Opalescent type system
+//!
+//! This module defines the fundamental types used throughout the language,
+//! including primitives, composites, and type variables for inference.
+
+use alloc::{boxed::Box, fmt, string::String, vec::Vec};
+
+/// Represents type variables used in type inference
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TypeVar {
+    /// Unique identifier for this type variable
+    pub id: usize,
+    /// Human-readable name for debugging
+    pub name: String,
+}
+
+impl TypeVar {
+    /// Create a new type variable with the given id and name for debugging context.
+    pub const fn new(id: usize, name: String) -> Self {
+        Self { id, name }
+    }
+}
+
+/// Represents the core types supported by the Opalescent language.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CoreType {
+    /// 8-bit signed integer
+    Int8,
+    /// 16-bit signed integer
+    Int16,
+    /// 32-bit signed integer
+    Int32,
+    /// 64-bit signed integer
+    Int64,
+    /// 8-bit unsigned integer
+    UInt8,
+    /// 16-bit unsigned integer
+    UInt16,
+    /// 32-bit unsigned integer
+    UInt32,
+    /// 64-bit unsigned integer
+    UInt64,
+    /// 32-bit floating point
+    Float32,
+    /// 64-bit floating point
+    Float64,
+    /// Unicode string
+    String,
+    /// Boolean type
+    Boolean,
+    /// Unit type (empty value)
+    Unit,
+    /// Type variable for inference
+    Variable(TypeVar),
+    /// Array type with element type
+    Array(Box<CoreType>),
+    /// Function type with parameter types and return type
+    Function {
+        /// Parameter types
+        parameters: Vec<CoreType>,
+        /// Return type
+        return_type: Box<CoreType>,
+    },
+    /// Generic type with name and type arguments
+    Generic {
+        /// Name of the generic type
+        name: String,
+        /// Type arguments
+        type_args: Vec<CoreType>,
+    },
+}
+
+impl fmt::Display for CoreType {
+    /// Format `CoreType` for user-friendly error messages
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Self::Int8 => write!(f, "int8"),
+            Self::Int16 => write!(f, "int16"),
+            Self::Int32 => write!(f, "int32"),
+            Self::Int64 => write!(f, "int64"),
+            Self::UInt8 => write!(f, "uint8"),
+            Self::UInt16 => write!(f, "uint16"),
+            Self::UInt32 => write!(f, "uint32"),
+            Self::UInt64 => write!(f, "uint64"),
+            Self::Float32 => write!(f, "float32"),
+            Self::Float64 => write!(f, "float64"),
+            Self::String => write!(f, "string"),
+            Self::Boolean => write!(f, "boolean"),
+            Self::Unit => write!(f, "unit"),
+            Self::Variable(ref var) => write!(f, "{}", var.name.as_str()),
+            Self::Array(ref element_type) => write!(f, "[{element_type}]"),
+            Self::Function {
+                ref parameters,
+                ref return_type,
+            } => {
+                write!(f, "(")?;
+                for (i, param) in parameters.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{param}")?;
+                }
+                write!(f, ") -> {return_type}")
+            }
+            Self::Generic {
+                ref name,
+                ref type_args,
+            } => {
+                write!(f, "{name}")?;
+                if !type_args.is_empty() {
+                    write!(f, "<")?;
+                    for (i, arg) in type_args.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{arg}")?;
+                    }
+                    write!(f, ">")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+/// Classification of numeric types used for cast and operation validation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NumericKind {
+    /// Signed integer family (int8, int16, int32, int64).
+    SignedInt,
+    /// Unsigned integer family (uint8, uint16, uint32, uint64).
+    UnsignedInt,
+    /// Floating point family (float32, float64).
+    Float,
+}
