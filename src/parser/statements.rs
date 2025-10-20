@@ -8,7 +8,9 @@
 //! - Block statements
 //! - Control flow (if, for, while, loop, break, continue)
 
-use crate::ast::{AstNode, Expr, Stmt};
+extern crate alloc;
+
+use crate::ast::{AstNode, Expr, LabeledValue, Stmt};
 use crate::error::LexError;
 use crate::parser::{ParseError, ParseResult, Parser, next_node_id};
 use crate::token::{Span, TokenType};
@@ -35,8 +37,8 @@ impl Parser {
             TokenType::For => self.parse_for_statement(),
             TokenType::While => self.parse_while_statement(),
             TokenType::Loop => self.parse_loop_statement(),
-            TokenType::Break => Ok(self.parse_break_statement()),
-            TokenType::Continue => Ok(self.parse_continue_statement()),
+            TokenType::Break => self.parse_break_statement(),
+            TokenType::Continue => self.parse_continue_statement(),
             _ => self.parse_expression_statement(),
         }
     }
@@ -359,19 +361,74 @@ impl Parser {
         })
     }
 
-    /// Parse a break statement
-    ///
-    /// Syntax: `break`
-    ///
-    /// Breaks out of the nearest enclosing loop (for, while, or loop).
-    fn parse_break_statement(&mut self) -> Stmt {
-        let span = self.current_token().span;
+    /// Parse labeled value payloads used by `break` and `continue` statements.
+    fn parse_labeled_control_flow_values(&mut self) -> ParseResult<Vec<LabeledValue>> {
+        let mut values = Vec::new();
+        let mut seen_labels = alloc::collections::BTreeSet::new();
+
+        while self.check_identifier() {
+            let label_token = self.advance().clone();
+            let label_span = label_token.span;
+            let label = match label_token.token_type.clone() {
+                TokenType::Identifier(label_text) => label_text,
+                other => {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "identifier".to_owned(),
+                        found: format!("{other}"),
+                        span: ParseError::span_from_token(&label_token),
+                    });
+                }
+            };
+
+            // Check for duplicate labels
+            if !seen_labels.insert(label.clone()) {
+                return Err(ParseError::DuplicateLabel {
+                    label,
+                    span: ParseError::span_from_token(&label_token),
+                });
+            }
+
+            self.consume(
+                &TokenType::Colon,
+                "Expected ':' after label in break/continue payload",
+            )?;
+
+            let value_expr = self.parse_expression()?;
+            let value_span = value_expr.span();
+            let payload_span = Span::new(label_span.start, value_span.end);
+
+            values.push(LabeledValue {
+                label,
+                value: value_expr,
+                span: payload_span,
+                id: next_node_id(),
+            });
+
+            if self.check(&TokenType::Comma) {
+                self.advance();
+                continue;
+            }
+
+            break;
+        }
+
+        Ok(values)
+    }
+
+    /// Parse a break statement with optional labeled payload values.
+    fn parse_break_statement(&mut self) -> ParseResult<Stmt> {
+        let start_span = self.current_token().span;
         self.advance(); // consume 'break'
 
-        Stmt::Break {
+        let values = self.parse_labeled_control_flow_values()?;
+        let statement_end = values.last().map_or(start_span.end, |value| value.span.end);
+        let span = Span::new(start_span.start, statement_end);
+
+        Ok(Stmt::Break {
+            values,
             span,
             id: next_node_id(),
-        }
+        })
     }
 
     /// Parse a continue statement
@@ -379,14 +436,19 @@ impl Parser {
     /// Syntax: `continue`
     ///
     /// Skips to the next iteration of the nearest enclosing loop.
-    fn parse_continue_statement(&mut self) -> Stmt {
-        let span = self.current_token().span;
+    fn parse_continue_statement(&mut self) -> ParseResult<Stmt> {
+        let start_span = self.current_token().span;
         self.advance(); // consume 'continue'
 
-        Stmt::Continue {
+        let values = self.parse_labeled_control_flow_values()?;
+        let statement_end = values.last().map_or(start_span.end, |value| value.span.end);
+        let span = Span::new(start_span.start, statement_end);
+
+        Ok(Stmt::Continue {
+            values,
             span,
             id: next_node_id(),
-        }
+        })
     }
 
     /// Parse an expression statement or assignment statement

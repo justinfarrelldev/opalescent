@@ -25,15 +25,19 @@ impl TypeChecker {
     }
 
     /// Register a declaration's symbol signature prior to body checking so forward references succeed.
+    #[expect(
+        clippy::pattern_type_mismatch,
+        reason = "Matching on &Decl requires referencing the variant while avoiding clones"
+    )]
     fn register_declaration_signature(&mut self, decl: &Decl) -> Result<(), TypeError> {
         match decl {
             &Decl::Function {
-                ref name,
+                name: ref function_name,
                 ref parameters,
                 ref return_type,
-                ref visibility,
+                visibility: ref decl_visibility,
                 is_entry,
-                ref span,
+                span,
                 ..
             } => {
                 let mut parameter_types = Vec::with_capacity(parameters.len());
@@ -52,19 +56,19 @@ impl TypeChecker {
                     return_type: Box::new(return_core),
                 };
 
-                let visibility = Self::convert_visibility(visibility, is_entry);
+                let resolved_visibility = Self::convert_visibility(decl_visibility, is_entry);
                 self.symbol_table.register(SymbolInfo {
-                    name: name.clone(),
+                    name: function_name.clone(),
                     symbol_type: SymbolType::Function,
                     core_type: function_type,
-                    visibility,
-                    source_location: *span,
+                    visibility: resolved_visibility,
+                    source_location: span,
                 });
                 Ok(())
             }
-            &Decl::Let {
-                ref binding,
-                ref visibility,
+            Decl::Let {
+                binding,
+                visibility,
                 ..
             } => {
                 if let Some(annotation) = binding.type_annotation.as_ref() {
@@ -74,25 +78,30 @@ impl TypeChecker {
                     } else {
                         SymbolType::Constant
                     };
-                    let visibility = Self::convert_visibility(visibility, false);
+                    let resolved_visibility = Self::convert_visibility(visibility, false);
                     self.symbol_table.register(SymbolInfo {
                         name: binding.name.clone(),
                         symbol_type,
                         core_type: annotated_type,
-                        visibility,
+                        visibility: resolved_visibility,
                         source_location: binding.span,
                     });
                 }
                 Ok(())
             }
-            &Decl::Type { .. } | &Decl::Import { .. } => Ok(()),
+            Decl::Type { .. } | Decl::Import { .. } => Ok(()),
         }
     }
 
     /// Type check a top-level declaration and update symbol/type environments accordingly.
+    #[expect(
+        clippy::pattern_type_mismatch,
+        clippy::ref_patterns,
+        reason = "Borrowing declaration fields from &Decl variants avoids cloning complex AST nodes"
+    )]
     fn type_check_declaration(&mut self, decl: &Decl) -> Result<(), TypeError> {
-        match *decl {
-            Decl::Function {
+        match decl {
+            &Decl::Function {
                 ref parameters,
                 ref return_type,
                 ref body,
@@ -102,13 +111,13 @@ impl TypeChecker {
                 return_type.as_ref(),
                 body,
             ),
-            Decl::Let {
+            &Decl::Let {
                 ref binding,
                 ref initializer,
                 ref visibility,
                 ..
             } => self.type_check_let_declaration(binding, initializer, visibility),
-            Decl::Type { ref type_def, .. } => Self::validate_adt_type(type_def),
+            &Decl::Type { ref type_def, .. } => Self::validate_adt_type(type_def),
             Decl::Import { .. } => {
                 // Phase 4 will introduce full import validation; until then we simply acknowledge the declaration.
                 Ok(())

@@ -1,0 +1,13 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc d9f8905641e07b8b8fd8ba897d482f8662095d86da4af8584d0e8b2bd5a0a022 # shrinks to input = "break f a"
+cc 98da230e63c8dfa4792740c6f5161b7967a4710b9c891338f70e98fe8f45e316 # shrinks to expr = "0 + 0 + 0 + -3304730)"
+cc fe02d64e5159c531af24492bd9ed234c0aeeefb909f25bbf6f0477e7019eebcd # shrinks to expr = "true and true and true or f"
+cc 8bc23f4ab12e0342f84a5b4a3ed9cd6f5bdc57062dd323a8c8dd370144cad2f6 # shrinks to expr = "a < -1"
+cc 19e6a1997d4fffb424f0ba0dc5114bacdabda0429dfe17498083138515d86530 # shrinks to expr = "(0 + 0)"
+cc 336e732034c4b190b5ddbc9647ce106b6c67fd0d0c1ed42f2271d85057d4ce34 # shrinks to expr = "0 + 2340385 + (-907848150) * 1513988152"
+cc 4da9579c5113f022a887cd90b3be523a2eb306462a68ceb3d149ebf0ffed1680 # shrinks to expr = "true or true and in"

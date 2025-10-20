@@ -26,6 +26,14 @@ fn test_span() -> Span {
     Span::single(Position::start())
 }
 
+/// Create a `Span` that begins at the provided byte offset and spans `len` bytes.
+fn span_with_offset(offset: usize, len: usize) -> Span {
+    let start = Position::new(1, offset.saturating_add(1), offset);
+    let end_offset = offset.saturating_add(len);
+    let end = Position::new(1, end_offset.saturating_add(1), end_offset);
+    Span::new(start, end)
+}
+
 fn node_id(id: usize) -> NodeId {
     NodeId(id)
 }
@@ -191,29 +199,121 @@ fn test_adt_type_validation_product() {
 fn test_pattern_match_type_check() {
     let checker = TypeChecker::new();
     let matched_type = CoreType::Int32;
-    let patterns = vec![CoreType::Int32, CoreType::Int32];
-    let arm_types = vec![CoreType::String, CoreType::String];
+    let matched_span = span_with_offset(1, 1);
+    let patterns = vec![
+        (CoreType::Int32, span_with_offset(2, 1)),
+        (CoreType::Int32, span_with_offset(3, 1)),
+    ];
+    let arm_types = vec![
+        (CoreType::String, span_with_offset(4, 1)),
+        (CoreType::String, span_with_offset(5, 1)),
+    ];
     assert!(
         checker
-            .type_check_pattern_match(&matched_type, &patterns, &arm_types)
+            .type_check_pattern_match(&matched_type, matched_span, &patterns, &arm_types)
             .is_ok()
     );
 
     // Incompatible pattern
-    let bad_patterns = vec![CoreType::String];
+    let bad_patterns = vec![(CoreType::String, span_with_offset(6, 1))];
     assert!(
         checker
-            .type_check_pattern_match(&matched_type, &bad_patterns, &arm_types)
+            .type_check_pattern_match(&matched_type, matched_span, &bad_patterns, &arm_types)
             .is_err()
     );
 
     // Incompatible arm types
-    let bad_arms = vec![CoreType::String, CoreType::Int32];
+    let bad_arms = vec![
+        (CoreType::String, span_with_offset(7, 1)),
+        (CoreType::Int32, span_with_offset(8, 1)),
+    ];
     assert!(
         checker
-            .type_check_pattern_match(&matched_type, &patterns, &bad_arms)
+            .type_check_pattern_match(&matched_type, matched_span, &patterns, &bad_arms)
             .is_err()
     );
+}
+
+#[test]
+fn test_pattern_match_incompatible_pattern_reports_span() {
+    let checker = TypeChecker::new();
+    let matched_type = CoreType::Int32;
+    let matched_span = span_with_offset(100, 2);
+    let pattern_span = span_with_offset(200, 3);
+    let patterns = vec![(CoreType::String, pattern_span)];
+    let arm_span = span_with_offset(300, 3);
+    let arm_types = vec![(CoreType::String, arm_span)];
+
+    let result =
+        checker.type_check_pattern_match(&matched_type, matched_span, &patterns, &arm_types);
+
+    match result {
+        Err(TypeError::TypeMismatch {
+            expected_span,
+            found_span,
+            ..
+        }) => {
+            assert_eq!(
+                expected_span,
+                Some(TypeError::span_from_span(matched_span)),
+                "expected span should reflect matched expression"
+            );
+            assert_eq!(
+                found_span,
+                TypeError::span_from_span(pattern_span),
+                "found span should highlight pattern location"
+            );
+        }
+        other => {
+            assert!(
+                matches!(other, Err(TypeError::TypeMismatch { .. })),
+                "expected TypeMismatch with spans, got {other:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_pattern_match_incompatible_arm_reports_span() {
+    let checker = TypeChecker::new();
+    let matched_type = CoreType::Int32;
+    let matched_span = span_with_offset(400, 2);
+    let pattern_span = span_with_offset(500, 2);
+    let patterns = vec![(CoreType::Int32, pattern_span)];
+    let first_arm_span = span_with_offset(600, 2);
+    let second_arm_span = span_with_offset(700, 2);
+    let arm_types = vec![
+        (CoreType::String, first_arm_span),
+        (CoreType::Int32, second_arm_span),
+    ];
+
+    let result =
+        checker.type_check_pattern_match(&matched_type, matched_span, &patterns, &arm_types);
+
+    match result {
+        Err(TypeError::TypeMismatch {
+            expected_span,
+            found_span,
+            ..
+        }) => {
+            assert_eq!(
+                expected_span,
+                Some(TypeError::span_from_span(first_arm_span)),
+                "expected span should reference first arm"
+            );
+            assert_eq!(
+                found_span,
+                TypeError::span_from_span(second_arm_span),
+                "found span should reference mismatched arm"
+            );
+        }
+        other => {
+            assert!(
+                matches!(other, Err(TypeError::TypeMismatch { .. })),
+                "expected TypeMismatch with spans, got {other:?}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -724,11 +824,11 @@ fn test_fresh_type_var_generation() {
 fn test_unify_identical_primitives() {
     let checker = TypeChecker::new();
 
-    let int_result = checker.unify(&CoreType::Int32, &CoreType::Int32);
+    let int_result = checker.unify(&CoreType::Int32, &CoreType::Int32, None, None);
     assert!(int_result.is_ok());
     assert!(int_result.unwrap().is_empty());
 
-    let string_result = checker.unify(&CoreType::String, &CoreType::String);
+    let string_result = checker.unify(&CoreType::String, &CoreType::String, None, None);
     assert!(string_result.is_ok());
     assert!(string_result.unwrap().is_empty());
 }
@@ -737,7 +837,7 @@ fn test_unify_identical_primitives() {
 fn test_unify_different_primitives() {
     let checker = TypeChecker::new();
 
-    let mismatch_result = checker.unify(&CoreType::Int32, &CoreType::String);
+    let mismatch_result = checker.unify(&CoreType::Int32, &CoreType::String, None, None);
     assert!(mismatch_result.is_err());
 
     if let Err(TypeError::UnificationFailed { left, right, .. }) = mismatch_result {
@@ -755,7 +855,7 @@ fn test_unify_variable_with_type() {
     let var_type = CoreType::Variable(var.clone());
     let int_type = CoreType::Int32;
 
-    let result = checker.unify(&var_type, &int_type);
+    let result = checker.unify(&var_type, &int_type, None, None);
     assert!(result.is_ok());
 
     let subst = result.unwrap();
@@ -771,7 +871,7 @@ fn test_unify_variable_with_variable() {
     let var1_type = CoreType::Variable(var1.clone());
     let var2_type = CoreType::Variable(var2.clone());
 
-    let result = checker.unify(&var1_type, &var2_type);
+    let result = checker.unify(&var1_type, &var2_type, None, None);
     assert!(result.is_ok());
 
     let subst = result.unwrap();
@@ -787,12 +887,12 @@ fn test_unify_arrays() {
     let array_string = CoreType::Array(Box::new(CoreType::String));
 
     // Arrays with same element type should unify
-    let same_result = checker.unify(&array_int, &array_int);
+    let same_result = checker.unify(&array_int, &array_int, None, None);
     assert!(same_result.is_ok());
     assert!(same_result.unwrap().is_empty());
 
     // Arrays with different element types should not unify
-    let different_result = checker.unify(&array_int, &array_string);
+    let different_result = checker.unify(&array_int, &array_string, None, None);
     assert!(different_result.is_err());
 }
 
@@ -804,7 +904,7 @@ fn test_unify_arrays_with_variables() {
     let array_var = CoreType::Array(Box::new(var_type));
     let array_int = CoreType::Array(Box::new(CoreType::Int32));
 
-    let result = checker.unify(&array_var, &array_int);
+    let result = checker.unify(&array_var, &array_int, None, None);
     assert!(result.is_ok());
 
     let subst = result.unwrap();
@@ -828,12 +928,12 @@ fn test_unify_functions() {
     };
 
     // Identical functions should unify
-    let same_result = checker.unify(&func1, &func2);
+    let same_result = checker.unify(&func1, &func2, None, None);
     assert!(same_result.is_ok());
     assert!(same_result.unwrap().is_empty());
 
     // Different functions should not unify
-    let different_result = checker.unify(&func1, &func3);
+    let different_result = checker.unify(&func1, &func3, None, None);
     assert!(different_result.is_err());
 }
 
@@ -865,7 +965,7 @@ fn test_occurs_check_prevents_infinite_types() {
     let array_var = CoreType::Array(Box::new(var_type));
 
     // Trying to unify x with Array<x> should fail
-    let infinite_result = checker.unify(&CoreType::Variable(var.clone()), &array_var);
+    let infinite_result = checker.unify(&CoreType::Variable(var.clone()), &array_var, None, None);
     assert!(infinite_result.is_err());
 
     if let Err(TypeError::OccursCheckFailed {
@@ -1539,8 +1639,18 @@ fn test_solve_constraints_unifies_equalities() {
         .fresh_type_var_auto(span)
         .expect("should create type variable");
 
-    checker.add_constraint(TypeConstraint::Equality(var_a.clone(), CoreType::Int32));
-    checker.add_constraint(TypeConstraint::Equality(var_b.clone(), var_a.clone()));
+    checker.add_constraint(TypeConstraint::equality(
+        var_a.clone(),
+        CoreType::Int32,
+        None,
+        None,
+    ));
+    checker.add_constraint(TypeConstraint::equality(
+        var_b.clone(),
+        var_a.clone(),
+        None,
+        None,
+    ));
 
     let subst = checker
         .solve_constraints()
@@ -1553,12 +1663,59 @@ fn test_solve_constraints_unifies_equalities() {
 #[test]
 fn test_solve_constraints_detects_conflicts() {
     let mut checker = TypeChecker::new();
-    checker.add_constraint(TypeConstraint::Equality(CoreType::Int32, CoreType::String));
+    checker.add_constraint(TypeConstraint::equality(
+        CoreType::Int32,
+        CoreType::String,
+        None,
+        None,
+    ));
     let result = checker.solve_constraints();
     assert!(
         matches!(result, Err(TypeError::UnificationFailed { .. })),
         "conflicting constraints must fail"
     );
+}
+
+#[test]
+fn test_solve_constraints_conflict_reports_spans() {
+    let mut checker = TypeChecker::new();
+    let left_span = span_with_offset(820, 3);
+    let right_span = span_with_offset(940, 4);
+    checker.add_constraint(TypeConstraint::equality(
+        CoreType::Int32,
+        CoreType::String,
+        Some(left_span),
+        Some(right_span),
+    ));
+
+    let result = checker
+        .solve_constraints()
+        .expect_err("conflict should produce error");
+
+    match result {
+        TypeError::UnificationFailed {
+            left_span: reported_left,
+            right_span: reported_right,
+            ..
+        } => {
+            assert_eq!(
+                reported_left,
+                TypeError::span_from_span(left_span),
+                "left span should match constraint origin"
+            );
+            assert_eq!(
+                reported_right,
+                TypeError::span_from_span(right_span),
+                "right span should match constraint origin"
+            );
+        }
+        other => {
+            assert!(
+                matches!(other, TypeError::UnificationFailed { .. }),
+                "expected UnificationFailed with spans, got {other:?}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -1575,9 +1732,24 @@ fn test_solve_constraints_composes_substitutions() {
         .fresh_type_var_auto(span)
         .expect("should create type variable");
 
-    checker.add_constraint(TypeConstraint::Equality(var_a.clone(), CoreType::Int32));
-    checker.add_constraint(TypeConstraint::Equality(var_b.clone(), var_a.clone()));
-    checker.add_constraint(TypeConstraint::Equality(var_c.clone(), CoreType::Boolean));
+    checker.add_constraint(TypeConstraint::equality(
+        var_a.clone(),
+        CoreType::Int32,
+        None,
+        None,
+    ));
+    checker.add_constraint(TypeConstraint::equality(
+        var_b.clone(),
+        var_a.clone(),
+        None,
+        None,
+    ));
+    checker.add_constraint(TypeConstraint::equality(
+        var_c.clone(),
+        CoreType::Boolean,
+        None,
+        None,
+    ));
 
     let subst = checker
         .solve_constraints()
@@ -1586,4 +1758,41 @@ fn test_solve_constraints_composes_substitutions() {
     assert_eq!(subst.apply(&var_a), CoreType::Int32);
     assert_eq!(subst.apply(&var_b), CoreType::Int32);
     assert_eq!(subst.apply(&var_c), CoreType::Boolean);
+}
+
+#[test]
+fn test_solve_constraints_occurs_check_reports_span() {
+    let mut checker = TypeChecker::new();
+    let var_span = span_with_offset(1000, 2);
+    let var_type = checker
+        .fresh_type_var_auto(var_span)
+        .expect("should allocate type variable");
+
+    let array_type = CoreType::Array(Box::new(var_type.clone()));
+    checker.add_constraint(TypeConstraint::equality(
+        var_type,
+        array_type,
+        Some(var_span),
+        Some(var_span),
+    ));
+
+    let result = checker
+        .solve_constraints()
+        .expect_err("occurs check should fail");
+
+    match result {
+        TypeError::OccursCheckFailed { span, .. } => {
+            assert_eq!(
+                span,
+                TypeError::span_from_span(var_span),
+                "occurs check diagnostics should use variable span"
+            );
+        }
+        other => {
+            assert!(
+                matches!(other, TypeError::OccursCheckFailed { .. }),
+                "expected OccursCheckFailed with span, got {other:?}"
+            );
+        }
+    }
 }

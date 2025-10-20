@@ -165,6 +165,18 @@ impl Parser {
         }
     }
 
+    /// Skip trivia tokens while preserving documentation comments for subsequent parsing.
+    pub(super) fn skip_trivia_preserving_doc_comments(&mut self) {
+        while !self.is_at_end() {
+            match self.current_token().token_type {
+                TokenType::Newline | TokenType::Comment(_) => {
+                    self.advance();
+                }
+                _ => break,
+            }
+        }
+    }
+
     /// Synchronize the parser after an error by advancing to the next statement
     ///
     /// Implements panic-mode error recovery: after encountering a parse error,

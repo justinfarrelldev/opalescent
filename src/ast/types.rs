@@ -1,0 +1,128 @@
+//! Type representations and related structures for the AST
+//!
+//! This module contains all type-related structures including type definitions,
+//! parameters, variants, and fields.
+
+extern crate alloc;
+use crate::token::Span;
+use alloc::string::String;
+
+/// Type representations
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Type {
+    /// Basic types
+    Basic {
+        /// Name of the basic type
+        name: String,
+        /// Source code location of this type
+        span: Span,
+    },
+
+    /// Generic types (Array<T>, Result<T, E>)
+    Generic {
+        /// Name of the generic type
+        name: String,
+        /// Type arguments for the generic
+        type_args: alloc::vec::Vec<Type>,
+        /// Source code location of this type
+        span: Span,
+    },
+
+    /// Array types (T[])
+    Array {
+        /// Type of elements in the array
+        element_type: Box<Type>,
+        /// Source code location of this type
+        span: Span,
+    },
+
+    /// Function types (f(int32, string): boolean)
+    Function {
+        /// Parameter types of the function
+        parameters: alloc::vec::Vec<Type>,
+        /// Return type of the function
+        return_type: Box<Type>,
+        /// Source code location of this type
+        span: Span,
+    },
+}
+
+impl Type {
+    /// Convenience accessor for the span associated with this type node
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
+        match *self {
+            Self::Basic { span, .. }
+            | Self::Generic { span, .. }
+            | Self::Array { span, .. }
+            | Self::Function { span, .. } => span,
+        }
+    }
+
+    /// Runtime-friendly span accessor delegating to the const variant.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        self.span_const()
+    }
+}
+
+/// Function parameters
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Parameter {
+    /// Name of the parameter
+    pub name: String,
+    /// Type of the parameter
+    pub param_type: Type,
+    /// Source code location of this parameter
+    pub span: Span,
+}
+
+/// Type definitions for custom types
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TypeDef {
+    /// Sum types (enums with variants)
+    Sum {
+        /// Variants of the sum type
+        variants: alloc::vec::Vec<Variant>,
+        /// Source code location of this type definition
+        span: Span,
+    },
+
+    /// Product types (structs)
+    Product {
+        /// Fields of the product type
+        fields: alloc::vec::Vec<Field>,
+        /// Source code location of this type definition
+        span: Span,
+    },
+
+    /// Type aliases
+    Alias {
+        /// Target type that this alias refers to
+        target_type: Type,
+        /// Source code location of this type definition
+        span: Span,
+    },
+}
+
+/// Variant for sum types
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Variant {
+    /// Name of the variant
+    pub name: String,
+    /// Fields associated with this variant
+    pub fields: alloc::vec::Vec<Field>,
+    /// Source code location of this variant
+    pub span: Span,
+}
+
+/// Field for product types and variants
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Field {
+    /// Name of the field
+    pub name: String,
+    /// Type of the field
+    pub type_annotation: Type,
+    /// Source code location of this field
+    pub span: Span,
+}

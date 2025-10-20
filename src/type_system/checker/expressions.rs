@@ -129,7 +129,12 @@ impl TypeChecker {
                 ensure_numeric_type(&right_type, right.span(), op_name)?;
                 ensure_same_type(&left_type, left.span(), &right_type, right.span())?;
                 let result_type = left_type.clone();
-                self.add_constraint(TypeConstraint::Equality(left_type, right_type));
+                self.add_constraint(TypeConstraint::equality(
+                    left_type,
+                    right_type,
+                    Some(left.span()),
+                    Some(right.span()),
+                ));
                 Ok(result_type)
             }
             BinaryOp::Modulo => {
@@ -137,7 +142,12 @@ impl TypeChecker {
                 ensure_integer_type(&right_type, right.span(), op_name)?;
                 ensure_same_type(&left_type, left.span(), &right_type, right.span())?;
                 let result_type = left_type.clone();
-                self.add_constraint(TypeConstraint::Equality(left_type, right_type));
+                self.add_constraint(TypeConstraint::equality(
+                    left_type,
+                    right_type,
+                    Some(left.span()),
+                    Some(right.span()),
+                ));
                 Ok(result_type)
             }
             BinaryOp::Equal | BinaryOp::NotEqual | BinaryOp::Is | BinaryOp::IsNot => {
@@ -149,7 +159,12 @@ impl TypeChecker {
                         right.span(),
                     ));
                 }
-                self.add_constraint(TypeConstraint::Equality(left_type, right_type));
+                self.add_constraint(TypeConstraint::equality(
+                    left_type,
+                    right_type,
+                    Some(left.span()),
+                    Some(right.span()),
+                ));
                 Ok(CoreType::Boolean)
             }
             BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => {
@@ -168,7 +183,12 @@ impl TypeChecker {
                 ensure_integer_type(&right_type, right.span(), op_name)?;
                 ensure_same_type(&left_type, left.span(), &right_type, right.span())?;
                 let result_type = left_type.clone();
-                self.add_constraint(TypeConstraint::Equality(left_type, right_type));
+                self.add_constraint(TypeConstraint::equality(
+                    left_type,
+                    right_type,
+                    Some(left.span()),
+                    Some(right.span()),
+                ));
                 Ok(result_type)
             }
             BinaryOp::BitShiftLeft | BinaryOp::BitShiftRight | BinaryOp::BitUnsignedShiftRight => {
@@ -249,9 +269,11 @@ impl TypeChecker {
                             arg_expr.span(),
                         ));
                     };
-                    self.add_constraint(TypeConstraint::Equality(
+                    self.add_constraint(TypeConstraint::equality(
                         param_type.clone(),
                         reconciled_type,
+                        None,
+                        Some(arg_expr.span()),
                     ));
                 }
 
@@ -332,29 +354,34 @@ impl TypeChecker {
         elements: &[Expr],
         span: Span,
     ) -> Result<CoreType, TypeError> {
-        let mut element_type: Option<CoreType> = None;
+        let mut element_type: Option<(CoreType, Span)> = None;
         for element in elements {
+            let element_span = element.span();
             let element_core_type = self.type_check_expr(element)?;
-            if let Some(existing_type) = element_type.as_ref() {
+            if let Some(existing) = element_type.as_ref() {
+                let existing_type = &existing.0;
+                let existing_span = existing.1;
                 if !self.types_compatible(existing_type, &element_core_type) {
                     return Err(type_mismatch_error(
                         existing_type,
-                        Some(element.span()),
+                        Some(existing_span),
                         &element_core_type,
-                        element.span(),
+                        element_span,
                     ));
                 }
-                self.add_constraint(TypeConstraint::Equality(
+                self.add_constraint(TypeConstraint::equality(
                     existing_type.clone(),
                     element_core_type,
+                    Some(existing_span),
+                    Some(element_span),
                 ));
             } else {
-                element_type = Some(element_core_type);
+                element_type = Some((element_core_type, element_span));
             }
         }
 
         let resolved = match element_type {
-            Some(core_type) => core_type,
+            Some((core_type, _)) => core_type,
             None => self.fresh_type_var_auto(span)?,
         };
 
@@ -409,8 +436,12 @@ impl TypeChecker {
                             expr.span(),
                         ));
                     }
-                    checker
-                        .add_constraint(TypeConstraint::Equality(return_core.clone(), expr_type));
+                    checker.add_constraint(TypeConstraint::equality(
+                        return_core.clone(),
+                        expr_type,
+                        Some(return_span),
+                        Some(expr.span()),
+                    ));
                     Ok(())
                 }
                 LambdaBody::Block(ref statements) => {

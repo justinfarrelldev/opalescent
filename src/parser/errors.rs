@@ -68,6 +68,20 @@ pub enum ParseError {
         /// Source span indicating the end of file location
         span: SourceSpan,
     },
+
+    /// Duplicate label in a break or continue statement
+    #[error("Duplicate label '{label}' in control flow statement")]
+    #[diagnostic(
+        code(opalescent::parser::duplicate_label),
+        help("Each label must be unique within a single break or continue statement")
+    )]
+    DuplicateLabel {
+        /// The duplicated label name
+        label: String,
+        #[label("duplicate label here")]
+        /// Source span indicating where the duplicate label appears
+        span: SourceSpan,
+    },
 }
 
 impl ParseError {

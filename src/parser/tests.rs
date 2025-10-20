@@ -16,27 +16,62 @@ use crate::ast::{
     BinaryOp, Decl, Expr, ImportItem, LambdaBody, LiteralValue, Parameter, Stmt, StringPart, Type,
     TypeDef, UnaryOp, Visibility,
 };
-use crate::lexer::Lexer;
+use crate::lexer::{Lexer, RESERVED_KEYWORDS};
+use crate::parser::errors::ParseError;
+use proptest::prelude::*;
+use proptest::proptest;
+use proptest::strategy::Strategy;
+use proptest::string::string_regex;
 
 fn parse_expression_from_string(input: &str) -> ParseResult<Expr> {
     let lexer = Lexer::new(input);
     let (tokens, _) = lexer.tokenize();
     let mut parser = Parser::new(tokens);
-    parser.parse_expression()
+    let expr = parser.parse_expression()?;
+    parser.skip_newlines_and_comments();
+    if !parser.is_at_end() {
+        let token = parser.current_token();
+        return Err(ParseError::UnexpectedToken {
+            expected: "end of input".to_owned(),
+            found: format!("{}", token.token_type),
+            span: ParseError::span_from_token(token),
+        });
+    }
+    Ok(expr)
 }
 
 fn parse_statement_from_string(input: &str) -> ParseResult<Stmt> {
     let lexer = Lexer::new(input);
     let (tokens, _) = lexer.tokenize();
     let mut parser = Parser::new(tokens);
-    parser.parse_statement()
+    let statement = parser.parse_statement()?;
+    parser.skip_newlines_and_comments();
+    if !parser.is_at_end() {
+        let token = parser.current_token();
+        return Err(ParseError::UnexpectedToken {
+            expected: "end of input".to_owned(),
+            found: format!("{}", token.token_type),
+            span: ParseError::span_from_token(token),
+        });
+    }
+    Ok(statement)
 }
 
 fn parse_type_from_string(input: &str) -> ParseResult<Type> {
     let lexer = Lexer::new(input);
     let (tokens, _) = lexer.tokenize();
     let mut parser = Parser::new(tokens);
-    parser.parse_type()
+    let ty = parser.parse_type()?;
+    parser.skip_newlines_and_comments();
+    if !parser.is_at_end() {
+        let token = parser.current_token();
+        return Err(ParseError::UnexpectedToken {
+            expected: "end of input".to_owned(),
+            found: format!("{}", token.token_type),
+            span: ParseError::span_from_token(token),
+        });
+    }
+    Ok(ty)
 }
 
 fn parse_program_from_string(input: &str) -> Result<Program, Vec<ParseError>> {
@@ -49,6 +84,139 @@ fn parse_program_from_string(input: &str) -> Result<Program, Vec<ParseError>> {
         Ok(program_opt.unwrap())
     } else {
         Err(errors.errors)
+    }
+}
+
+fn identifier_strategy() -> impl Strategy<Value = String> {
+    string_regex("[a-z]{1,8}")
+        .expect("regex is valid")
+        .prop_filter("identifiers must avoid reserved keywords", |candidate| {
+            !RESERVED_KEYWORDS.contains(&candidate.as_str())
+        })
+}
+
+fn integer_literal_strategy() -> impl Strategy<Value = String> {
+    proptest::num::i32::ANY.prop_map(|value| value.to_string())
+}
+
+fn arithmetic_expr_strategy() -> impl Strategy<Value = String> {
+    integer_literal_strategy().prop_recursive(3, 32, 2, |inner| {
+        prop_oneof![
+            (inner.clone(), inner.clone()).prop_map(|(a, b)| format!("{a} + {b}")),
+            (inner.clone(), inner.clone()).prop_map(|(a, b)| format!("{a} * {b}")),
+            inner.prop_map(|expr| format!("({expr})")),
+        ]
+    })
+}
+
+fn parenthesized_arithmetic_expr_strategy() -> impl Strategy<Value = String> {
+    arithmetic_expr_strategy().prop_map(|expr| format!("({expr})"))
+}
+
+fn boolean_leaf_strategy() -> impl Strategy<Value = String> {
+    prop_oneof![
+        Just("true".to_owned()),
+        Just("false".to_owned()),
+        identifier_strategy(),
+    ]
+}
+
+fn boolean_expr_strategy() -> impl Strategy<Value = String> {
+    boolean_leaf_strategy().prop_recursive(3, 32, 2, |inner| {
+        prop_oneof![
+            (inner.clone(), inner.clone()).prop_map(|(a, b)| format!("{a} and {b}")),
+            (inner.clone(), inner.clone()).prop_map(|(a, b)| format!("{a} or {b}")),
+            inner.prop_map(|expr| format!("not ({expr})")),
+        ]
+    })
+}
+
+fn simple_operand_strategy() -> impl Strategy<Value = String> {
+    prop_oneof![identifier_strategy(), integer_literal_strategy()]
+}
+
+fn comparison_expr_strategy() -> impl Strategy<Value = String> {
+    (
+        simple_operand_strategy(),
+        prop_oneof![
+            Just("<".to_owned()),
+            Just(">".to_owned()),
+            Just("<=".to_owned()),
+            Just(">=".to_owned())
+        ],
+        simple_operand_strategy(),
+    )
+        .prop_map(|(left, op, right)| format!("{left} {op} {right}"))
+}
+
+fn dangling_operator_strategy() -> impl Strategy<Value = String> {
+    simple_operand_strategy().prop_map(|expr| format!("{expr} +"))
+}
+
+fn mismatched_parentheses_strategy() -> impl Strategy<Value = String> {
+    prop_oneof![
+        arithmetic_expr_strategy().prop_map(|expr| format!("({expr}")),
+        arithmetic_expr_strategy().prop_map(|expr| format!("{expr})")),
+    ]
+}
+
+fn invalid_break_payload_strategy() -> impl Strategy<Value = String> {
+    (identifier_strategy(), identifier_strategy())
+        .prop_map(|(label, value)| format!("break {label} {value}"))
+}
+
+fn canonicalize_simple_expression(expr: &Expr) -> Option<String> {
+    match expr {
+        Expr::Literal {
+            value: LiteralValue::Integer(value),
+            ..
+        } => Some(value.to_string()),
+        Expr::Binary {
+            operator,
+            left,
+            right,
+            ..
+        } => {
+            let left = canonicalize_simple_expression(left)?;
+            let right = canonicalize_simple_expression(right)?;
+            match operator {
+                BinaryOp::Add => Some(format!("({left} + {right})")),
+                BinaryOp::Multiply => Some(format!("({left} * {right})")),
+                _ => None,
+            }
+        }
+        Expr::Parenthesized { expr: inner, .. } => {
+            let inner = canonicalize_simple_expression(inner)?;
+            Some(inner)
+        }
+        Expr::Unary {
+            operator, operand, ..
+        } => {
+            let operand = canonicalize_simple_expression(operand)?;
+            match operator {
+                UnaryOp::Negate => Some(format!("-{operand}")),
+                UnaryOp::Plus => Some(format!("+{operand}")),
+                _ => None,
+            }
+        }
+        Expr::Identifier { name, .. } => Some(name.clone()),
+        _ => None,
+    }
+}
+
+fn canonicalize_comparison_expression(expr: &Expr) -> Option<String> {
+    if let Expr::Binary {
+        operator,
+        left,
+        right,
+        ..
+    } = expr
+    {
+        let left = canonicalize_simple_expression(left)?;
+        let right = canonicalize_simple_expression(right)?;
+        Some(format!("{left} {operator} {right}"))
+    } else {
+        None
     }
 }
 
@@ -310,21 +478,139 @@ fn test_operator_precedence() {
 }
 
 #[test]
-fn test_break_continue_statements() {
-    // Test break statement
+fn test_break_continue_without_values() {
     let break_stmt = parse_statement_from_string("break").unwrap();
-    if let Stmt::Break { .. } = break_stmt {
-        // Good, break statement
+    if let Stmt::Break { values, .. } = break_stmt {
+        assert!(
+            values.is_empty(),
+            "Break without payload should have no labeled values"
+        );
     } else {
         unreachable!("Expected break statement, got {break_stmt:?}");
     }
 
-    // Test continue statement
     let continue_stmt = parse_statement_from_string("continue").unwrap();
-    if let Stmt::Continue { .. } = continue_stmt {
-        // Good, continue statement
+    if let Stmt::Continue { values, .. } = continue_stmt {
+        assert!(
+            values.is_empty(),
+            "Continue without payload should have no labeled values"
+        );
     } else {
         unreachable!("Expected continue statement, got {continue_stmt:?}");
+    }
+}
+
+#[test]
+fn test_break_with_single_labeled_value() {
+    let break_stmt = parse_statement_from_string("break result: value").unwrap();
+    if let Stmt::Break { values, .. } = break_stmt {
+        assert_eq!(values.len(), 1, "Expected exactly one labeled break value");
+        let labeled = &values[0];
+        assert_eq!(labeled.label, "result");
+        assert!(matches!(&labeled.value, Expr::Identifier { name, .. } if name == "value"));
+    } else {
+        unreachable!("Expected labeled break statement, got {break_stmt:?}");
+    }
+}
+
+#[test]
+fn test_break_with_multiple_labeled_values() {
+    let input = "break first: a, second: b + c";
+    let break_stmt = parse_statement_from_string(input).unwrap();
+
+    if let Stmt::Break { values, .. } = break_stmt {
+        assert_eq!(values.len(), 2, "Expected two labeled break values");
+
+        assert_eq!(values[0].label, "first");
+        assert!(matches!(
+            &values[0].value,
+            Expr::Identifier { name, .. } if name == "a"
+        ));
+
+        assert_eq!(values[1].label, "second");
+        assert!(matches!(
+            &values[1].value,
+            Expr::Binary {
+                operator: BinaryOp::Add,
+                ..
+            }
+        ));
+    } else {
+        unreachable!("Expected labeled break statement, got {break_stmt:?}");
+    }
+}
+
+#[test]
+fn test_continue_with_labeled_values() {
+    let continue_stmt = parse_statement_from_string("continue accumulator: sum").unwrap();
+
+    if let Stmt::Continue { values, .. } = continue_stmt {
+        assert_eq!(values.len(), 1, "Expected one labeled continue value");
+        assert_eq!(values[0].label, "accumulator");
+        assert!(matches!(
+            &values[0].value,
+            Expr::Identifier { name, .. } if name == "sum"
+        ));
+    } else {
+        unreachable!("Expected continue with labeled payload, got {continue_stmt:?}");
+    }
+}
+
+#[test]
+fn test_break_labeled_value_requires_colon() {
+    let result = parse_statement_from_string("break result value");
+    assert!(
+        result.is_err(),
+        "Break labeled values must use ':' separator"
+    );
+}
+
+#[test]
+fn test_break_duplicate_labels_rejected() {
+    let result = parse_statement_from_string("break result: 5, result: 10");
+    assert!(
+        result.is_err(),
+        "Duplicate labels in break statement should be rejected"
+    );
+
+    if let Err(ParseError::DuplicateLabel { label, .. }) = result {
+        assert_eq!(label, "result", "Error should identify the duplicate label");
+    } else {
+        panic!("Expected DuplicateLabel error, got {:?}", result);
+    }
+}
+
+#[test]
+fn test_continue_duplicate_labels_rejected() {
+    let result = parse_statement_from_string("continue state: a, state: b, state: c");
+    assert!(
+        result.is_err(),
+        "Duplicate labels in continue statement should be rejected"
+    );
+
+    if let Err(ParseError::DuplicateLabel { label, .. }) = result {
+        assert_eq!(label, "state", "Error should identify the duplicate label");
+    } else {
+        panic!("Expected DuplicateLabel error, got {:?}", result);
+    }
+}
+
+#[test]
+fn test_break_multiple_unique_labels_accepted() {
+    let result = parse_statement_from_string("break first: 1, second: 2, third: 3");
+    assert!(
+        result.is_ok(),
+        "Multiple unique labels should be accepted: {:?}",
+        result.err()
+    );
+
+    if let Ok(Stmt::Break { values, .. }) = result {
+        assert_eq!(values.len(), 3, "Should have three labeled values");
+        assert_eq!(values[0].label, "first");
+        assert_eq!(values[1].label, "second");
+        assert_eq!(values[2].label, "third");
+    } else {
+        panic!("Expected Break statement with labeled values");
     }
 }
 
@@ -1623,6 +1909,265 @@ fn test_simple_type_declaration_no_doc() {
         }
     } else {
         panic!("Expected type declaration");
+    }
+}
+
+#[test]
+fn test_function_doc_comment_associated() {
+    let source = "##\n  Description: Adds two numbers.\n##\npublic add = f(x: int32, y: int32): int32 => x + y";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Function { doc_comment, .. } = &program.declarations[0] {
+        let documentation = doc_comment.as_ref().expect("Doc comment should exist");
+        assert_eq!(
+            documentation
+                .sections
+                .get("Description")
+                .expect("Description section should be present"),
+            "Adds two numbers."
+        );
+    } else {
+        panic!("Expected function declaration");
+    }
+}
+
+#[test]
+fn test_type_doc_comment_associated() {
+    let source =
+        "##\n  Description: Represents a direction.\n##\ntype Direction:\n    North\n    East";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Type { doc_comment, .. } = &program.declarations[0] {
+        let documentation = doc_comment.as_ref().expect("Doc comment should exist");
+        assert_eq!(
+            documentation
+                .sections
+                .get("Description")
+                .expect("Description section missing"),
+            "Represents a direction."
+        );
+    } else {
+        panic!("Expected type declaration");
+    }
+}
+
+#[test]
+fn test_let_doc_comment_associated() {
+    let source = "##\n  Description: Provides a zero constant.\n##\nlet zero = 0";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Let { doc_comment, .. } = &program.declarations[0] {
+        let documentation = doc_comment.as_ref().expect("Doc comment should exist");
+        assert_eq!(
+            documentation
+                .sections
+                .get("Description")
+                .expect("Description missing"),
+            "Provides a zero constant."
+        );
+    } else {
+        panic!("Expected let declaration");
+    }
+}
+
+#[test]
+fn test_documentation_sections_parsed() {
+    let source = "##\n  Description: Primary entry point.\n  Detail: Invoke to start processing.\n##\nentry main = f(): void => return void";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    let decl = &program.declarations[0];
+    let documentation = match decl {
+        Decl::Function { doc_comment, .. } => doc_comment.as_ref().unwrap(),
+        _ => panic!("Expected function declaration"),
+    };
+
+    assert_eq!(
+        documentation.sections.get("Description"),
+        Some(&"Primary entry point.".to_owned())
+    );
+    assert_eq!(
+        documentation.sections.get("Detail"),
+        Some(&"Invoke to start processing.".to_owned())
+    );
+}
+
+#[test]
+fn test_documentation_trims_indentation() {
+    let source =
+        "##\n    Description: Handles indentation.\n##\nlet helper = f(): void => { return void }";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    let documentation = match &program.declarations[0] {
+        Decl::Let { doc_comment, .. } => doc_comment.as_ref().unwrap(),
+        _ => panic!("Expected let declaration"),
+    };
+
+    assert_eq!(
+        documentation.sections.get("Description"),
+        Some(&"Handles indentation.".to_owned())
+    );
+}
+
+#[test]
+fn test_documentation_preserves_raw() {
+    let source = "##\n  Description: Keeps raw text.\n  Detail: Important for downstream tools.\n##\nlet config = f(): void => { return void }";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    let documentation = match &program.declarations[0] {
+        Decl::Let { doc_comment, .. } => doc_comment.as_ref().unwrap(),
+        _ => panic!("Expected let declaration"),
+    };
+
+    assert!(documentation.raw.contains("Description: Keeps raw text."));
+    assert!(
+        documentation
+            .raw
+            .contains("Detail: Important for downstream tools.")
+    );
+}
+
+#[test]
+fn test_documentation_attribute_parsed() {
+    let source = "##\n  Description: Tagged declaration.\n  @deprecated Use new_entry instead.\n##\nentry main = f(): void => { return void }";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    let documentation = match &program.declarations[0] {
+        Decl::Function { doc_comment, .. } => doc_comment.as_ref().unwrap(),
+        _ => panic!("Expected function declaration"),
+    };
+
+    assert_eq!(
+        documentation.attributes.get("deprecated"),
+        Some(&"Use new_entry instead.".to_owned())
+    );
+}
+
+#[test]
+fn test_documentation_multiple_attributes() {
+    let source = "##\n  Description: Supports multiple attributes.\n  @since 1.2.0\n  @unstable true\n##\nlet tool = f(): void => { return void }";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    let documentation = match &program.declarations[0] {
+        Decl::Let { doc_comment, .. } => doc_comment.as_ref().unwrap(),
+        _ => panic!("Expected let declaration"),
+    };
+
+    assert_eq!(
+        documentation.attributes.get("since"),
+        Some(&"1.2.0".to_owned())
+    );
+    assert_eq!(
+        documentation.attributes.get("unstable"),
+        Some(&"true".to_owned())
+    );
+}
+
+#[test]
+fn test_documentation_attribute_without_value() {
+    let source = "##\n  Description: Attribute without explicit value.\n  @thread_safe\n##\nlet worker = f(): void => { return void }";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    let documentation = match &program.declarations[0] {
+        Decl::Let { doc_comment, .. } => doc_comment.as_ref().unwrap(),
+        _ => panic!("Expected let declaration"),
+    };
+
+    assert!(
+        matches!(
+            documentation.attributes.get("thread_safe"),
+            Some(value) if value.is_empty()
+        ),
+        "Attribute without value should map to empty string"
+    );
+}
+
+// Property-based tests: random expression generation
+proptest! {
+    #[test]
+    fn prop_random_arithmetic_expression_parses(expr in arithmetic_expr_strategy()) {
+        let result = parse_expression_from_string(&expr);
+        prop_assert!(result.is_ok(), "Arithmetic expression should parse: {expr}");
+    }
+}
+
+proptest! {
+    #[test]
+    fn prop_random_parenthesized_expression_parses(expr in parenthesized_arithmetic_expr_strategy()) {
+        let result = parse_expression_from_string(&expr);
+        prop_assert!(result.is_ok(), "Parenthesized expression should parse: {expr}");
+    }
+}
+
+proptest! {
+    #[test]
+    fn prop_random_boolean_expression_parses(expr in boolean_expr_strategy()) {
+        let result = parse_expression_from_string(&expr);
+        prop_assert!(result.is_ok(), "Boolean expression should parse: {expr}");
+    }
+}
+
+// Property-based tests: parse/unparse invariants
+proptest! {
+    #[test]
+    fn prop_arithmetic_roundtrip(expr in arithmetic_expr_strategy()) {
+        let parsed = parse_expression_from_string(&expr).expect("Generated arithmetic expressions must parse");
+        let canonical = canonicalize_simple_expression(&parsed).expect("Strategy should only produce supported expressions");
+        let reparsed = parse_expression_from_string(&canonical).expect("Canonicalized expression must parse");
+        let canonical_again = canonicalize_simple_expression(&reparsed).expect("Reparsed expression should canonicalize");
+        prop_assert_eq!(canonical, canonical_again);
+    }
+}
+
+proptest! {
+    #[test]
+    fn prop_parenthesized_roundtrip(expr in parenthesized_arithmetic_expr_strategy()) {
+        let parsed = parse_expression_from_string(&expr).expect("Generated expressions must parse");
+        let canonical = canonicalize_simple_expression(&parsed).expect("Strategy should produce supported expressions");
+        let reparsed = parse_expression_from_string(&canonical).expect("Canonical expression must parse");
+        let canonical_again = canonicalize_simple_expression(&reparsed).expect("Reparsed expression should canonicalize");
+        prop_assert_eq!(canonical, canonical_again);
+    }
+}
+
+proptest! {
+    #[test]
+    fn prop_comparison_roundtrip(expr in comparison_expr_strategy()) {
+        let parsed = parse_expression_from_string(&expr).expect("Generated comparison must parse");
+        let canonical = canonicalize_comparison_expression(&parsed).expect("Comparison expressions should canonicalize");
+        let reparsed = parse_expression_from_string(&canonical).expect("Canonical comparison must parse");
+        let canonical_again = canonicalize_comparison_expression(&reparsed).expect("Reparsed comparison should canonicalize");
+        prop_assert_eq!(canonical, canonical_again);
+    }
+}
+
+// Property-based tests: error handling properties
+proptest! {
+    #[test]
+    fn prop_dangling_operator_expressions_fail(expr in dangling_operator_strategy()) {
+        let result = parse_expression_from_string(&expr);
+        prop_assert!(result.is_err(), "Dangling operator should fail to parse: {expr}");
+    }
+}
+
+proptest! {
+    #[test]
+    fn prop_mismatched_parentheses_fail(expr in mismatched_parentheses_strategy()) {
+        let result = parse_expression_from_string(&expr);
+        prop_assert!(result.is_err(), "Mismatched parentheses should fail: {expr}");
+    }
+}
+
+proptest! {
+    #[test]
+    fn prop_invalid_break_payloads_fail(input in invalid_break_payload_strategy()) {
+        let result = parse_statement_from_string(&input);
+        prop_assert!(result.is_err(), "Break payload without colon should be rejected: {input}");
     }
 }
 

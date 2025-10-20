@@ -311,7 +311,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 
 ### ☐ Documentation System (Name: documentation-plan.md)
 
-- [ ] Doc comment parsing
+- [x] Doc comment parsing
 - [ ] Documentation generation
 - [ ] API documentation
 - [ ] Examples and tutorials

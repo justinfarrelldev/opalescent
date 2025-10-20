@@ -49,9 +49,12 @@
 //! ### Type Unification
 //!
 //! ```rust,ignore
+//! use opalescent::token::{Position, Span};
+//!
 //! let mut checker = TypeChecker::new();
-//! let var = checker.fresh_type_var("x".to_owned())?;
-//! let subst = checker.unify(&var, &CoreType::Int32)?;
+//! let span = Span::single(Position::start());
+//! let var = checker.fresh_type_var("x".to_owned(), span)?;
+//! let subst = checker.unify(&var, &CoreType::Int32, None, None)?;
 //! ```
 //!
 //! ## Testing

@@ -157,7 +157,13 @@ impl TypeChecker {
                         expr.span(),
                     ));
                 };
-                self.add_constraint(TypeConstraint::Equality(expected.clone(), reconciled));
+                let annotation_span = binding.type_annotation.as_ref().map(Type::span);
+                self.add_constraint(TypeConstraint::equality(
+                    expected.clone(),
+                    reconciled,
+                    annotation_span,
+                    Some(expr.span()),
+                ));
                 expected
             }
             (Some(expected), None) => expected,
@@ -223,7 +229,12 @@ impl TypeChecker {
         };
 
         if validity.is_ok() {
-            self.add_constraint(TypeConstraint::Equality(target_type, reconciled_value_type));
+            self.add_constraint(TypeConstraint::equality(
+                target_type,
+                reconciled_value_type,
+                Some(target.span()),
+                Some(value.span()),
+            ));
         }
 
         validity
@@ -260,7 +271,12 @@ impl TypeChecker {
                         expr.span(),
                     ));
                 };
-                self.add_constraint(TypeConstraint::Equality(expected.clone(), reconciled_type));
+                self.add_constraint(TypeConstraint::equality(
+                    expected.clone(),
+                    reconciled_type,
+                    None,
+                    Some(expr.span()),
+                ));
                 Ok(())
             }
             None => {

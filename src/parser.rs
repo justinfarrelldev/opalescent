@@ -78,11 +78,11 @@ impl Parser {
         let mut declarations = Vec::new();
 
         // Skip initial newlines and comments
-        self.skip_newlines_and_comments();
+        self.skip_trivia_preserving_doc_comments();
 
         while !self.is_at_end() {
-            // Skip newlines between declarations
-            self.skip_newlines_and_comments();
+            // Skip newlines between declarations while preserving doc comments
+            self.skip_trivia_preserving_doc_comments();
 
             if self.is_at_end() {
                 break;

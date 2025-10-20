@@ -9,6 +9,23 @@ use crate::token::{self, Position, Span, Token, TokenType};
 use alloc::collections::BTreeMap;
 use unicode_xid::UnicodeXID;
 
+/// Reserved keywords in the Opalescent language
+///
+/// This constant provides a single source of truth for all language keywords,
+/// used by both the lexer for tokenization and the parser tests for generating
+/// valid identifiers in property-based tests.
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Used in tests module for property-based testing")
+)]
+pub const RESERVED_KEYWORDS: &[&str] = &[
+    "and", "as", "band", "bnot", "bor", "boolean", "break", "bshl", "bshr", "bushr", "bxor",
+    "continue", "else", "entry", "false", "float32", "float64", "for", "from", "f", "if", "import",
+    "in", "int8", "int16", "int32", "int64", "is", "let", "loop", "mutable", "not", "or", "public",
+    "return", "string", "true", "type", "type_of", "uint8", "uint16", "uint32", "uint64", "void",
+    "while", "xor",
+];
+
 /// The main lexer struct that tokenizes Opalescent source code
 #[derive(Debug)]
 pub struct Lexer<'input> {

@@ -5,8 +5,8 @@
 //! These methods are part of the Parser implementation but are organized here for modularity.
 use super::{ParseError, ParseResult, Parser, next_node_id};
 use crate::ast::{
-    AstNode, Decl, Field, HotReloadMetadata, ImportItem, LetBinding, Parameter, Stmt, Type,
-    TypeDef, Variant, Visibility,
+    AstNode, Decl, Documentation, Field, HotReloadMetadata, ImportItem, LetBinding, Parameter,
+    Stmt, Type, TypeDef, Variant, Visibility,
 };
 use crate::token::{Span, TokenType};
 
@@ -14,18 +14,8 @@ impl Parser {
     /// Parse a top-level declaration
     pub(super) fn parse_declaration(&mut self) -> ParseResult<Decl> {
         // Check for documentation comment
-        let doc_comment = if self.check(&TokenType::DocComment(String::new())) {
-            if let &TokenType::DocComment(ref content) = &self.current_token().token_type {
-                let comment = content.clone();
-                self.advance();
-                self.skip_newlines_and_comments();
-                Some(comment)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let doc_comment = self.collect_documentation();
+        self.skip_trivia_preserving_doc_comments();
 
         // Check for visibility modifiers
         let visibility = if self.check(&TokenType::Public) {
@@ -67,6 +57,34 @@ impl Parser {
         }
     }
 
+    /// Collect consecutive documentation comment tokens, if present, and convert
+    /// them into structured documentation metadata.
+    fn collect_documentation(&mut self) -> Option<Documentation> {
+        let mut raw_parts = Vec::new();
+        let mut span: Option<Span> = None;
+
+        while self.check(&TokenType::DocComment(String::new())) {
+            let token = self.advance().clone();
+            if let TokenType::DocComment(content) = token.token_type {
+                span = Some(span.map_or(token.span, |existing| {
+                    Span::new(existing.start, token.span.end)
+                }));
+                raw_parts.push(content);
+            }
+
+            while self.check(&TokenType::Newline) {
+                self.advance();
+            }
+        }
+
+        if raw_parts.is_empty() {
+            return None;
+        }
+
+        let combined_raw = raw_parts.join("\n");
+        span.map(|documentation_span| Documentation::from_raw(combined_raw, documentation_span))
+    }
+
     /// Construct a `LetBinding` with consistent span calculation and node id assignment
     pub(super) fn create_let_binding(
         name: String,
@@ -102,7 +120,7 @@ impl Parser {
         &mut self,
         visibility: Visibility,
         is_entry: bool,
-        doc_comment: Option<String>,
+        doc_comment: Option<Documentation>,
     ) -> ParseResult<Decl> {
         let start_span = self.current_token().span;
 
@@ -270,7 +288,7 @@ impl Parser {
     fn parse_type_declaration(
         &mut self,
         visibility: Visibility,
-        doc_comment: Option<String>,
+        doc_comment: Option<Documentation>,
     ) -> ParseResult<Decl> {
         let start_span = self.current_token().span;
 
@@ -792,7 +810,7 @@ impl Parser {
     fn parse_let_declaration(
         &mut self,
         visibility: Visibility,
-        doc_comment: Option<String>,
+        doc_comment: Option<Documentation>,
     ) -> ParseResult<Decl> {
         let start_span = self.current_token().span;
         self.advance(); // consume 'let'

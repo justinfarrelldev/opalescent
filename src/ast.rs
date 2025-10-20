@@ -11,15 +11,28 @@
     reason = "Re-exporting from submodules maintains a clean public API - submodules are implementation details"
 )]
 
+mod documentation;
 mod helpers;
+mod metadata;
 mod node_impls;
 mod operators;
+mod types;
 
 extern crate alloc;
 use crate::token::Span;
+use alloc::string::String;
 
 // Re-export operators from the operators module for public use
 pub use self::operators::{BinaryOp, UnaryOp};
+
+// Re-export type structures from the types module for public use
+pub use self::types::{Field, Parameter, Type, TypeDef, Variant};
+
+// Re-export documentation structures for public use
+pub use self::documentation::Documentation;
+
+// Re-export hot-reload metadata structures for public use
+pub use self::metadata::{HotReloadMetadata, ModulePath, SymbolInfo};
 
 /// A unique identifier for AST nodes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -92,20 +105,6 @@ impl Expr {
         }
     }
 }
-/// Symbol information for ABI signature generation
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SymbolInfo {
-    /// Name of the symbol (function/type/variable/constant)
-    pub name: alloc::string::String,
-    /// Type of the symbol
-    pub symbol_type: SymbolType,
-    /// Type signature for ABI compatibility
-    pub signature: TypeSignature,
-    /// Visibility of the symbol
-    pub visibility: Visibility,
-    /// Source location of the symbol
-    pub source_location: Span,
-}
 
 impl Stmt {
     /// Retrieve the source span associated with this statement in const contexts.
@@ -144,19 +143,6 @@ impl Stmt {
         }
     }
 }
-/// Symbol type for ABI signature
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// Symbol type for ABI signature
-pub enum SymbolType {
-    /// Function symbol (represents a function declaration)
-    Function,
-    /// Type symbol (represents a type declaration)
-    Type,
-    /// Variable symbol (represents a variable declaration)
-    Variable,
-    /// Constant symbol (represents a constant declaration)
-    Constant,
-}
 
 impl Decl {
     /// Retrieve the source span associated with this declaration in const contexts.
@@ -180,27 +166,6 @@ impl Decl {
             | Self::Let { id, .. } => id,
         }
     }
-}
-/// ABI type signature for hot-reload compatibility
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TypeSignature {
-    /// String representation of the type signature
-    pub signature: alloc::string::String,
-}
-
-/// Module path for dependency tracking
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ModulePath(pub alloc::string::String);
-
-/// Reusable metadata for hot-reload aware AST nodes
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct HotReloadMetadata {
-    /// Optional ABI symbol information for this node
-    pub abi_symbol: Option<SymbolInfo>,
-    /// Other modules this node depends on for hot-reload safety
-    pub dependencies: alloc::vec::Vec<ModulePath>,
-    /// Whether this node is eligible for hot reload without restart
-    pub is_hot_reloadable: bool,
 }
 
 /// Expression AST nodes
@@ -425,6 +390,19 @@ pub struct LetBinding {
     pub id: NodeId,
 }
 
+/// Labeled control-flow payload produced by `break` or `continue`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LabeledValue {
+    /// Name assigned to the payload (e.g., `result` in `break result: value`).
+    pub label: String,
+    /// Expression evaluated to produce the payload.
+    pub value: Expr,
+    /// Source span covering the entire `label: value` pair.
+    pub span: Span,
+    /// Unique identifier for this payload node.
+    pub id: NodeId,
+}
+
 /// Statement AST nodes
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -534,6 +512,8 @@ pub enum Stmt {
 
     /// Break statements
     Break {
+        /// Labeled payload values returned alongside the loop exit.
+        values: Vec<LabeledValue>,
         /// Source code location of this break statement
         span: Span,
         /// Unique identifier for this AST node
@@ -542,6 +522,8 @@ pub enum Stmt {
 
     /// Continue statements
     Continue {
+        /// Labeled payload values forwarded to the next loop iteration.
+        values: Vec<LabeledValue>,
         /// Source code location of this continue statement
         span: Span,
         /// Unique identifier for this AST node
@@ -579,8 +561,8 @@ pub enum Decl {
         visibility: Visibility,
         /// Whether this is an entry point function
         is_entry: bool,
-        /// Optional documentation comment
-        doc_comment: Option<String>,
+        /// Optional structured documentation derived from doc comments
+        doc_comment: Option<Documentation>,
         /// Source code location of this function declaration
         span: Span,
         /// Unique identifier for this AST node
@@ -597,8 +579,8 @@ pub enum Decl {
         type_def: TypeDef,
         /// Visibility modifier (public/private)
         visibility: Visibility,
-        /// Optional documentation comment
-        doc_comment: Option<String>,
+        /// Optional structured documentation derived from doc comments
+        doc_comment: Option<Documentation>,
         /// Source code location of this type declaration
         span: Span,
         /// Unique identifier for this AST node
@@ -652,8 +634,8 @@ pub enum Decl {
         initializer: Expr,
         /// Visibility modifier (public/private)
         visibility: Visibility,
-        /// Optional documentation comment
-        doc_comment: Option<String>,
+        /// Optional structured documentation derived from doc comments
+        doc_comment: Option<Documentation>,
         /// Source span for this declaration
         span: Span,
         /// Unique identifier for this declaration node
@@ -676,126 +658,6 @@ pub enum LiteralValue {
     Boolean(bool),
     /// Void/unit literal
     Void,
-}
-
-/// Type representations
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Type {
-    /// Basic types
-    Basic {
-        /// Name of the basic type
-        name: String,
-        /// Source code location of this type
-        span: Span,
-    },
-
-    /// Generic types (Array<T>, Result<T, E>)
-    Generic {
-        /// Name of the generic type
-        name: String,
-        /// Type arguments for the generic
-        type_args: Vec<Type>,
-        /// Source code location of this type
-        span: Span,
-    },
-
-    /// Array types (T[])
-    Array {
-        /// Type of elements in the array
-        element_type: Box<Type>,
-        /// Source code location of this type
-        span: Span,
-    },
-
-    /// Function types (f(int32, string): boolean)
-    Function {
-        /// Parameter types of the function
-        parameters: Vec<Type>,
-        /// Return type of the function
-        return_type: Box<Type>,
-        /// Source code location of this type
-        span: Span,
-    },
-}
-
-impl Type {
-    /// Convenience accessor for the span associated with this type node
-    #[must_use]
-    pub const fn span_const(&self) -> Span {
-        match *self {
-            Self::Basic { span, .. }
-            | Self::Generic { span, .. }
-            | Self::Array { span, .. }
-            | Self::Function { span, .. } => span,
-        }
-    }
-
-    /// Runtime-friendly span accessor delegating to the const variant.
-    #[must_use]
-    pub const fn span(&self) -> Span {
-        self.span_const()
-    }
-}
-
-/// Function parameters
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Parameter {
-    /// Name of the parameter
-    pub name: String,
-    /// Type of the parameter
-    pub param_type: Type,
-    /// Source code location of this parameter
-    pub span: Span,
-}
-
-/// Type definitions for custom types
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TypeDef {
-    /// Sum types (enums with variants)
-    Sum {
-        /// Variants of the sum type
-        variants: Vec<Variant>,
-        /// Source code location of this type definition
-        span: Span,
-    },
-
-    /// Product types (structs)
-    Product {
-        /// Fields of the product type
-        fields: Vec<Field>,
-        /// Source code location of this type definition
-        span: Span,
-    },
-
-    /// Type aliases
-    Alias {
-        /// Target type that this alias refers to
-        target_type: Type,
-        /// Source code location of this type definition
-        span: Span,
-    },
-}
-
-/// Variant for sum types
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Variant {
-    /// Name of the variant
-    pub name: String,
-    /// Fields associated with this variant
-    pub fields: Vec<Field>,
-    /// Source code location of this variant
-    pub span: Span,
-}
-
-/// Field for product types and variants
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Field {
-    /// Name of the field
-    pub name: String,
-    /// Type of the field
-    pub type_annotation: Type,
-    /// Source code location of this field
-    pub span: Span,
 }
 
 /// Import items
