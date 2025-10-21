@@ -243,6 +243,107 @@ pub enum TypeError {
         /// Source span highlighting where the unsafe cast was attempted
         span: SourceSpan,
     },
+
+    /// An error type was used in a function signature but not declared in the current scope.
+    #[error("Undeclared error type '{name}'")]
+    #[diagnostic(
+        code(opalescent::type_system::undeclared_error_type),
+        help("Ensure the error type '{name}' is defined and visible in the current scope.")
+    )]
+    UndeclaredErrorType {
+        /// The name of the undeclared error type.
+        name: String,
+        #[label("undeclared error type")]
+        /// The source span where the undeclared error type was referenced.
+        span: SourceSpan,
+    },
+
+    /// `propagate` was used outside a function that declares error types.
+    #[error("`propagate` used outside a function that declares errors")]
+    #[diagnostic(
+        code(opalescent::type_system::propagate_outside_error_function),
+        help(
+            "To use `propagate`, the enclosing function must declare at least one error type in its signature, like `f(): T errors E => ...`"
+        )
+    )]
+    PropagateOutsideErrorFunction {
+        #[label("`propagate` used here")]
+        /// The source span where `propagate` was used.
+        span: SourceSpan,
+    },
+
+    /// The error types of a propagated call are not a subset of the enclosing function's declared error types.
+    #[error("Propagated error types are not compatible with the function's declared errors")]
+    #[diagnostic(
+        code(opalescent::type_system::propagate_error_mismatch),
+        help(
+            "The errors from the called function must be a subset of the errors declared by the current function."
+        )
+    )]
+    PropagateErrorMismatch {
+        /// The error types declared by the current function.
+        expected: String,
+        /// The error types returned by the propagated function call.
+        found: String,
+        #[label("this function declares errors: {expected}")]
+        /// The source span of the current function's error declaration.
+        span: SourceSpan,
+        #[label("this call can produce errors: {found}")]
+        /// The source span of the call being propagated.
+        callee_span: SourceSpan,
+    },
+
+    /// A `guard` expression was used on an expression that does not return errors.
+    #[error("`guard` used on an expression that cannot produce errors")]
+    #[diagnostic(
+        code(opalescent::type_system::guard_on_non_error_expression),
+        help(
+            "`guard` is only valid on function calls or expressions that can result in an error."
+        )
+    )]
+    GuardOnNonErrorExpression {
+        #[label("`guard` used here on a non-erroring expression")]
+        /// The source span of the `guard` expression.
+        span: SourceSpan,
+    },
+
+    /// The type of the binding in a `guard` expression does not match the success type of the guarded expression.
+    #[error("Guard binding type mismatch: expected '{expected}', found '{found}'")]
+    #[diagnostic(
+        code(opalescent::type_system::guard_binding_type_mismatch),
+        help(
+            "The type of the variable in `guard ... into var` must match the success type of the expression."
+        )
+    )]
+    GuardBindingTypeMismatch {
+        /// The expected success type.
+        expected: String,
+        /// The actual type of the binding.
+        found: String,
+        #[label("type mismatch in `guard` binding")]
+        /// The source span of the binding.
+        span: SourceSpan,
+    },
+
+    /// The `else` branch of a `guard` expression does not handle the possible error types.
+    #[error(
+        "Guard `else` branch is incompatible with error types: expected '{expected}', found '{found}'"
+    )]
+    #[diagnostic(
+        code(opalescent::type_system::guard_else_incompatible_error),
+        help(
+            "The `else` branch of a `guard` must be able to handle all possible errors from the guarded expression."
+        )
+    )]
+    GuardElseIncompatibleError {
+        /// The expected error types.
+        expected: String,
+        /// The type handled by the `else` branch.
+        found: String,
+        #[label("incompatible `else` branch here")]
+        /// The source span of the `else` branch.
+        span: SourceSpan,
+    },
 }
 
 impl TypeError {

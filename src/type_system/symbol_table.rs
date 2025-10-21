@@ -7,6 +7,15 @@ use crate::token::Span;
 use alloc::collections::BTreeMap;
 use alloc::{string::String, vec, vec::Vec};
 
+/// Information about the current function context for error handling checks.
+#[derive(Debug, Clone)]
+struct FunctionContext {
+    /// The error types declared by the function.
+    error_types: Vec<CoreType>,
+    /// The span of the function's signature, for error reporting.
+    span: Span,
+}
+
 /// Symbol visibility for exported items
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Visibility {
@@ -83,6 +92,8 @@ pub struct SymbolTable {
     scopes: Vec<Scope>,
     /// Currently active scope
     current_scope: ScopeId,
+    /// Stack of function contexts for tracking error declarations.
+    function_context_stack: Vec<FunctionContext>,
 }
 
 impl SymbolTable {
@@ -94,7 +105,31 @@ impl SymbolTable {
                 symbols: BTreeMap::new(),
             }],
             current_scope: ScopeId(0),
+            function_context_stack: Vec::new(),
         }
+    }
+
+    /// Pushes a new function context onto the stack when entering a function body.
+    pub fn enter_function(&mut self, error_types: Vec<CoreType>, span: Span) {
+        self.function_context_stack
+            .push(FunctionContext { error_types, span });
+    }
+
+    /// Pops the current function context from the stack when leaving a function body.
+    pub fn exit_function(&mut self) {
+        self.function_context_stack.pop();
+    }
+
+    /// Returns the error types declared by the current function, if any.
+    pub fn current_function_error_types(&self) -> Option<&[CoreType]> {
+        self.function_context_stack
+            .last()
+            .map(|ctx| ctx.error_types.as_slice())
+    }
+
+    /// Returns the span of the current function's signature, if available.
+    pub fn current_function_span(&self) -> Option<Span> {
+        self.function_context_stack.last().map(|ctx| ctx.span)
     }
 
     /// Enter a new nested scope

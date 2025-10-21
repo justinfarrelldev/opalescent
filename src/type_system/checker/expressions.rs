@@ -8,7 +8,7 @@ use super::helpers::{
     is_numeric_type, is_string_type, literal_to_core_type, type_mismatch_error,
     unary_operation_name,
 };
-use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, StringPart, Type, UnaryOp};
+use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Stmt, StringPart, Type, UnaryOp};
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
@@ -91,14 +91,158 @@ impl TypeChecker {
                 body,
                 span,
             ),
-            Expr::Guard { span, .. } => Err(TypeError::NotImplementedYet {
-                feature: "guard expression type checking".to_owned(),
+            Expr::Guard {
+                ref expr,
+                ref binding_name,
+                ref binding_type,
+                is_mutable,
+                ref else_branch,
+                span,
+                ..
+            } => self.type_check_guard_expr(
+                expr,
+                binding_name,
+                binding_type.as_ref(),
+                is_mutable,
+                else_branch,
+                span,
+            ),
+            Expr::Propagate { ref call, span, .. } => {
+                self.type_check_propagate_expr(call.as_ref(), span)
+            }
+        }
+    }
+
+    /// Type-check a `guard` expression.
+    ///
+    /// This function ensures that:
+    /// 1. The guarded expression is a function call that can produce errors.
+    /// 2. The success value is correctly bound to a new variable.
+    /// 3. The `else` branch handles the error case.
+    fn type_check_guard_expr(
+        &mut self,
+        expr: &Expr,
+        binding_name: &str,
+        binding_type: Option<&Type>,
+        is_mutable: bool,
+        else_branch: &Stmt,
+        span: Span,
+    ) -> Result<CoreType, TypeError> {
+        let guarded_expr_type = self.type_check_expr(expr)?;
+
+        let (success_type, _error_types) = if let CoreType::Function {
+            return_type,
+            error_types,
+            ..
+        } = guarded_expr_type
+        {
+            if error_types.is_empty() {
+                return Err(TypeError::GuardOnNonErrorExpression {
+                    span: TypeError::span_from_span(expr.span()),
+                });
+            }
+            (*return_type, error_types)
+        } else {
+            return Err(TypeError::GuardOnNonErrorExpression {
+                span: TypeError::span_from_span(expr.span()),
+            });
+        };
+
+        // Check if the explicit type annotation on the binding matches the success type.
+        if let Some(annotated_type_ast) = binding_type {
+            let annotated_type = Self::ast_type_to_core_type(annotated_type_ast)?;
+            if !self.types_compatible(&success_type, &annotated_type) {
+                return Err(TypeError::GuardBindingTypeMismatch {
+                    expected: success_type.to_string(),
+                    found: annotated_type.to_string(),
+                    span: TypeError::span_from_span(annotated_type_ast.span()),
+                });
+            }
+        }
+
+        // Type-check the else branch. For now, we don't enforce that it handles the error types.
+        // This will be refined when sum types are fully implemented.
+        // We check it in its own scope without the success binding.
+        self.within_new_scope(|checker| checker.type_check_stmt(else_branch))?;
+
+        // The success binding is available after the guard.
+        // We register it in the current scope.
+        let symbol_type = if is_mutable {
+            SymbolType::Variable
+        } else {
+            SymbolType::Constant
+        };
+        self.symbol_table.register(SymbolInfo {
+            name: binding_name.to_owned(),
+            symbol_type,
+            core_type: success_type.clone(),
+            visibility: Visibility::Private,
+            source_location: span, // This span is for the whole guard expr, which is close enough
+        });
+
+        // The type of the guard expression as a whole is the success type.
+        Ok(success_type)
+    }
+
+    /// Type-check a `propagate` expression.
+    ///
+    /// This function ensures that:
+    /// 1. The `propagate` expression is used inside a function that declares error types.
+    /// 2. The inner expression is a function call.
+    /// 3. The error types produced by the inner call are a subset of the error types
+    ///    declared by the enclosing function.
+    ///
+    /// # Errors
+    ///
+    /// - `PropagateOutsideErrorFunction`: If used outside a function declaring errors.
+    /// - `PropagateErrorMismatch`: If the propagated errors are not a subset of the
+    ///   enclosing function's declared errors.
+    fn type_check_propagate_expr(
+        &mut self,
+        call: &Expr,
+        span: Span,
+    ) -> Result<CoreType, TypeError> {
+        // 1. Ensure we are inside a function that can handle errors.
+        let current_fn_error_types = self
+            .symbol_table()
+            .current_function_error_types()
+            .ok_or_else(|| TypeError::PropagateOutsideErrorFunction {
                 span: TypeError::span_from_span(span),
-            }),
-            Expr::Propagate { span, .. } => Err(TypeError::NotImplementedYet {
-                feature: "propagate expression type checking".to_owned(),
-                span: TypeError::span_from_span(span),
-            }),
+            })?
+            .to_vec(); // Clone to release the borrow.
+
+        // 2. Type-check the inner expression and ensure it's a function call that returns errors.
+        let call_type = self.type_check_expr(call)?;
+        if let CoreType::Function {
+            return_type,
+            error_types: callee_error_types,
+            ..
+        } = call_type
+        {
+            // 3. Check if the callee's errors are a subset of the current function's errors.
+            let is_subset = callee_error_types
+                .iter()
+                .all(|e| current_fn_error_types.contains(e));
+
+            if !is_subset {
+                return Err(TypeError::PropagateErrorMismatch {
+                    expected: format!("{current_fn_error_types:?}"),
+                    found: format!("{callee_error_types:?}"),
+                    span: TypeError::span_from_span(
+                        self.symbol_table.current_function_span().unwrap_or(span),
+                    ),
+                    callee_span: TypeError::span_from_span(call.span()),
+                });
+            }
+
+            // The result of a successful propagate is the success type of the inner call.
+            Ok(*return_type)
+        } else {
+            // This case should ideally be caught by the parser, which expects a call expression.
+            // However, we add a type check here for robustness.
+            Err(TypeError::GuardOnNonErrorExpression {
+                span: TypeError::span_from_span(call.span()),
+            })
         }
     }
 

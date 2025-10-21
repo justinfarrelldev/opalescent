@@ -114,12 +114,16 @@ impl TypeChecker {
             Decl::Function {
                 ref parameters,
                 ref return_type,
+                ref error_types,
                 ref body,
+                span,
                 ..
             } => self.type_check_function_declaration(
                 parameters.as_slice(),
                 return_type.as_ref(),
+                error_types,
                 body,
+                span,
             ),
             Decl::Let {
                 ref binding,
@@ -140,7 +144,9 @@ impl TypeChecker {
         &mut self,
         parameters: &[Parameter],
         return_type: Option<&Type>,
+        error_types: &[String],
         body: &Stmt,
+        span: crate::token::Span,
     ) -> Result<(), TypeError> {
         let mut parameter_types = Vec::with_capacity(parameters.len());
         for param in parameters {
@@ -152,7 +158,21 @@ impl TypeChecker {
             .transpose()?
             .unwrap_or(CoreType::Unit);
 
-        self.within_new_scope(|checker| -> Result<(), TypeError> {
+        // Resolve error type names to CoreTypes
+        let mut core_errors = Vec::with_capacity(error_types.len());
+        for name in error_types {
+            // For now, we treat them as nominal types. In a future phase, we would
+            // look them up to ensure they are valid error enums/structs.
+            core_errors.push(CoreType::Generic {
+                name: name.clone(),
+                type_args: Vec::new(),
+            });
+        }
+
+        // Enter function context for error propagation checks
+        self.symbol_table.enter_function(core_errors, span);
+
+        let result = self.within_new_scope(|checker| -> Result<(), TypeError> {
             for (param, core_type) in parameters.iter().zip(parameter_types.iter()) {
                 checker.symbol_table.register(SymbolInfo {
                     name: param.name.clone(),
@@ -164,7 +184,12 @@ impl TypeChecker {
             }
 
             checker.type_check_stmt_with_return(body, Some(&return_core))
-        })
+        });
+
+        // Exit function context regardless of the outcome
+        self.symbol_table.exit_function();
+
+        result
     }
 
     /// Type check a module-level let declaration and ensure the registered symbol honors visibility.

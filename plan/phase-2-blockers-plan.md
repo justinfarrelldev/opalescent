@@ -78,28 +78,28 @@ Add first-class error declarations on functions and lambdas, a guard construct f
   - [ ] Only valid inside a function (or lambda) that declares `errors`.
   - [ ] Inner callee must be a function call whose function type has error types.
   - [ ] Require: inner.error_types ⊆ current_fn.error_types.
-  - [ ] Result type is the inner call's return type; error flow bubbles to caller.
-  - [ ] Diagnostics: if not subset or used outside error-declaring function, emit precise error with spans on both the `propagate` and the function signature.
-- [ ] `Expr::Guard`:
-  - [ ] The guarded expression must be a call (or expression) with error-carrying type context.
-  - [ ] Success path binds the success value to `binding_name` with the declared type (if present) or inferred from the expression's success type.
-  - [ ] Else branch is type-checked against the error type(s):
+  - [x] Result type is the inner call's return type; error flow bubbles to caller.
+  - [x] Diagnostics: if not subset or used outside error-declaring function, emit precise error with spans on both the `propagate` and the function signature.
+- [x] `Expr::Guard`:
+  - [x] The guarded expression must be a call (or expression) with error-carrying type context.
+  - [x] Success path binds the success value to `binding_name` with the declared type (if present) or inferred from the expression's success type.
+  - [x] Else branch is type-checked against the error type(s):
     - If multiple error types exist, else must handle a union — for Phase 2, require else type to be compatible with all declared error types (exact or supertype once ADTs land). For now, require identical names; future Phase 3 will allow sum types.
-  - [ ] The guard as an expression results in the success type; as a statement in a block, the else branch must produce `unit` unless used in an expression position.
-  - [ ] Symbol table: register `binding_name` in the subsequent scope after the guard (then-branch scope).
+  - [x] The guard as an expression results in the success type; as a statement in a block, the else branch must produce `unit` unless used in an expression position.
+  - [x] Symbol table: register `binding_name` in the subsequent scope after the guard (then-branch scope).
 
 ### Diagnostics & error types
 
-- [ ] Add new `TypeError` variants (with spans):
-  - [ ] `UndeclaredErrorType { name, span }`
-  - [ ] `PropagateOutsideErrorFunction { span }`
-  - [ ] `PropagateErrorMismatch { expected: Vec<CoreType>, found: Vec<CoreType>, span, callee_span }`
-  - [ ] `GuardOnNonErrorExpression { span }`
-  - [ ] `GuardBindingTypeMismatch { expected: CoreType, found: CoreType, span }`
-  - [ ] `GuardElseIncompatibleError { expected: Vec<CoreType>, found: CoreType, span }`
-- [ ] Parse errors (with suggestions):
-  - [ ] Missing error names after `errors` clause
-  - [ ] `propagate` without call expression
+- [x] Add new `TypeError` variants (with spans):
+  - [x] `UndeclaredErrorType { name, span }`
+  - [x] `PropagateOutsideErrorFunction { span }`
+  - [x] `PropagateErrorMismatch { expected: Vec<CoreType>, found: Vec<CoreType>, span, callee_span }`
+  - [x] `GuardOnNonErrorExpression { span }`
+  - [x] `GuardBindingTypeMismatch { expected: CoreType, found: CoreType, span }`
+  - [x] `GuardElseIncompatibleError { expected: Vec<CoreType>, found: CoreType, span }`
+- [x] Parse errors (with suggestions):
+  - [x] Missing error names after `errors` clause
+  - [x] `propagate` without call expression
   - [ ] `guard` missing `into` or `else`
 
 ### Tests (TDD — minimum 3 per checkbox)
@@ -109,10 +109,10 @@ Add first-class error declarations on functions and lambdas, a guard construct f
   - [x] Parse guard with expression and block else branches; with/without type annotation; with mutable. (AST created, parsing pending)
   - [x] Parse propagate around a call; reject non-call usage. (AST created, parsing pending)
 - [ ] Type checker tests:
-  - [ ] Using `propagate` inside matching error function succeeds; mismatch fails with clear error and spans.
-  - [ ] Using `propagate` in a function without `errors` fails.
-  - [ ] Guard binds success type correctly; else must match error types; mismatches fail.
-  - [ ] Symbol table registers guard binding for subsequent statements in then scope.
+  - [x] Using `propagate` inside matching error function succeeds; mismatch fails with clear error and spans.
+  - [x] Using `propagate` in a function without `errors` fails.
+  - [x] Guard binds success type correctly; else must match error types; mismatches fail.
+  - [x] Symbol table registers guard binding for subsequent statements in then scope.
 - [ ] Integration samples (language-spec/*.op):
   - [ ] Add small .op examples that compile/type-check to exercise guard/propagate.
 
