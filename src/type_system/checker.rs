@@ -412,44 +412,44 @@ impl TypeChecker {
         clippy::only_used_in_recursion,
         reason = "self parameter needed for structural recursion"
     )]
-    #[expect(
-        clippy::ref_patterns,
-        reason = "Pattern matching on borrowed CoreType variants provides direct access to nested fields without cloning"
-    )]
     pub fn types_compatible(&self, left: &CoreType, right: &CoreType) -> bool {
-        match (left, right) {
+        // Clone to owned values to allow safe pattern matching without moving out of borrows.
+        // This trades some performance for clarity and lint compliance; core types are small.
+        let l = left.clone();
+        let r = right.clone();
+        match (l, r) {
             // All primitive types
-            (&CoreType::Int8, &CoreType::Int8)
-            | (&CoreType::Int16, &CoreType::Int16)
-            | (&CoreType::Int32, &CoreType::Int32)
-            | (&CoreType::Int64, &CoreType::Int64)
-            | (&CoreType::UInt8, &CoreType::UInt8)
-            | (&CoreType::UInt16, &CoreType::UInt16)
-            | (&CoreType::UInt32, &CoreType::UInt32)
-            | (&CoreType::UInt64, &CoreType::UInt64)
-            | (&CoreType::Float32, &CoreType::Float32)
-            | (&CoreType::Float64, &CoreType::Float64)
-            | (&CoreType::Boolean, &CoreType::Boolean)
-            | (&CoreType::String, &CoreType::String)
-            | (&CoreType::Unit, &CoreType::Unit) => true,
+            (CoreType::Int8, CoreType::Int8)
+            | (CoreType::Int16, CoreType::Int16)
+            | (CoreType::Int32, CoreType::Int32)
+            | (CoreType::Int64, CoreType::Int64)
+            | (CoreType::UInt8, CoreType::UInt8)
+            | (CoreType::UInt16, CoreType::UInt16)
+            | (CoreType::UInt32, CoreType::UInt32)
+            | (CoreType::UInt64, CoreType::UInt64)
+            | (CoreType::Float32, CoreType::Float32)
+            | (CoreType::Float64, CoreType::Float64)
+            | (CoreType::Boolean, CoreType::Boolean)
+            | (CoreType::String, CoreType::String)
+            | (CoreType::Unit, CoreType::Unit) => true,
 
             // Type variables are compatible with themselves
-            (&CoreType::Variable(ref var1), &CoreType::Variable(ref var2)) => var1.id == var2.id,
+            (CoreType::Variable(var1), CoreType::Variable(var2)) => var1.id == var2.id,
 
             // Arrays are compatible if their element types are compatible
-            (&CoreType::Array(ref left_elem), &CoreType::Array(ref right_elem)) => {
+            (CoreType::Array(left_elem), CoreType::Array(right_elem)) => {
                 self.types_compatible(left_elem.as_ref(), right_elem.as_ref())
             }
 
             // Functions are compatible if parameters and return types are compatible
             (
-                &CoreType::Function {
-                    parameters: ref left_params,
-                    return_type: ref left_ret,
+                CoreType::Function {
+                    parameters: left_params,
+                    return_type: left_ret,
                 },
-                &CoreType::Function {
-                    parameters: ref right_params,
-                    return_type: ref right_ret,
+                CoreType::Function {
+                    parameters: right_params,
+                    return_type: right_ret,
                 },
             ) => {
                 if left_params.len() != right_params.len() {
@@ -465,13 +465,13 @@ impl TypeChecker {
 
             // Generic types are compatible if names and type arguments match
             (
-                &CoreType::Generic {
-                    name: ref left_name,
-                    type_args: ref left_args,
+                CoreType::Generic {
+                    name: left_name,
+                    type_args: left_args,
                 },
-                &CoreType::Generic {
-                    name: ref right_name,
-                    type_args: ref right_args,
+                CoreType::Generic {
+                    name: right_name,
+                    type_args: right_args,
                 },
             ) => {
                 if left_name != right_name || left_args.len() != right_args.len() {

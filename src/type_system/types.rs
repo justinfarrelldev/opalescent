@@ -125,6 +125,10 @@ impl fmt::Display for CoreType {
     }
 }
 
+// NOTE: Keep core types focused and lightweight; accessor helpers that borrow inner
+// fields should be added with care to avoid triggering clippy::ref_patterns under
+// our strict linting profile. Prefer direct pattern matching at call sites.
+
 /// Classification of numeric types used for cast and operation validation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NumericKind {

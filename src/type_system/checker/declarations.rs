@@ -95,13 +95,12 @@ impl TypeChecker {
 
     /// Type check a top-level declaration and update symbol/type environments accordingly.
     #[expect(
-        clippy::pattern_type_mismatch,
         clippy::ref_patterns,
-        reason = "Borrowing declaration fields from &Decl variants avoids cloning complex AST nodes"
+        reason = "Pattern matching with ref to borrow fields from &Decl without cloning large AST nodes"
     )]
     fn type_check_declaration(&mut self, decl: &Decl) -> Result<(), TypeError> {
-        match decl {
-            &Decl::Function {
+        match *decl {
+            Decl::Function {
                 ref parameters,
                 ref return_type,
                 ref body,
@@ -111,13 +110,13 @@ impl TypeChecker {
                 return_type.as_ref(),
                 body,
             ),
-            &Decl::Let {
+            Decl::Let {
                 ref binding,
                 ref initializer,
                 ref visibility,
                 ..
             } => self.type_check_let_declaration(binding, initializer, visibility),
-            &Decl::Type { ref type_def, .. } => Self::validate_adt_type(type_def),
+            Decl::Type { ref type_def, .. } => Self::validate_adt_type(type_def),
             Decl::Import { .. } => {
                 // Phase 4 will introduce full import validation; until then we simply acknowledge the declaration.
                 Ok(())
