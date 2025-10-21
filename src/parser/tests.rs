@@ -87,6 +87,86 @@ fn parse_program_from_string(input: &str) -> Result<Program, Vec<ParseError>> {
     }
 }
 
+// --- Error handling syntax tests (guard/propagate) ---
+
+#[test]
+fn test_parse_guard_with_expression_else() {
+    let expr =
+        parse_expression_from_string("guard read_line() into line else handle_error()").unwrap();
+
+    match expr {
+        Expr::Guard {
+            binding_name,
+            binding_type,
+            is_mutable,
+            else_branch,
+            ..
+        } => {
+            assert_eq!(binding_name, "line", "binding name should be parsed");
+            assert!(binding_type.is_none(), "no explicit type annotation");
+            assert!(!is_mutable, "binding should be immutable by default");
+            match *else_branch {
+                Stmt::Expression { .. } => {}
+                other => panic!("expected else expression wrapped as statement, found: {other:?}"),
+            }
+        }
+        other => panic!("expected guard expression, found: {other:?}"),
+    }
+}
+
+#[test]
+fn test_parse_guard_with_block_else_and_type_mutable() {
+    let expr =
+        parse_expression_from_string("guard parse(s) into value: int32 mutable else { return 0 }")
+            .unwrap();
+
+    match expr {
+        Expr::Guard {
+            binding_name,
+            binding_type,
+            is_mutable,
+            else_branch,
+            ..
+        } => {
+            assert_eq!(binding_name, "value");
+            assert!(binding_type.is_some(), "type annotation should be present");
+            assert!(is_mutable, "mutable flag should be set");
+            match *else_branch {
+                Stmt::Block { .. } => {}
+                other => panic!("expected else block, found: {other:?}"),
+            }
+        }
+        other => panic!("expected guard expression, found: {other:?}"),
+    }
+}
+
+#[test]
+fn test_parse_propagate_with_call() {
+    let expr = parse_expression_from_string("propagate string_to_int32(s)").unwrap();
+    match expr {
+        Expr::Propagate { call, .. } => match *call {
+            Expr::Call { callee, .. } => match *callee {
+                Expr::Identifier { name, .. } => assert_eq!(name, "string_to_int32"),
+                other => panic!("expected identifier callee, found: {other:?}"),
+            },
+            other => panic!("expected call expression, found: {other:?}"),
+        },
+        other => panic!("expected propagate expression, found: {other:?}"),
+    }
+}
+
+#[test]
+fn test_parse_propagate_rejects_non_call() {
+    let result = parse_expression_from_string("propagate 1 + 2");
+    assert!(result.is_err(), "propagate must wrap a call expression");
+}
+
+#[test]
+fn test_parse_guard_missing_into_errors() {
+    let result = parse_expression_from_string("guard read_line() value else 0");
+    assert!(result.is_err(), "missing 'into' should be a parse error");
+}
+
 fn identifier_strategy() -> impl Strategy<Value = String> {
     string_regex("[a-z]{1,8}")
         .expect("regex is valid")

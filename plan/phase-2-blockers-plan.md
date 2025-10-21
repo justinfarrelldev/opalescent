@@ -47,28 +47,28 @@ Add first-class error declarations on functions and lambdas, a guard construct f
 - [x] Function/lambda parsing:
   - [x] Extend existing function signature parsing to optionally parse `errors` clause and attach to AST nodes.
   - [x] Accept zero or more error type names, comma-separated.
-- [ ] Guard parsing:
-  - [ ] Parse the `guard` keyword, an expression, `into` name, optional `: Type`, optional `mutable`, `else`, and then either a block `{ ... }` or an expression.
-  - [ ] Produce `Expr::Guard` with captured span for all parts.
-- [ ] Propagate parsing:
-  - [ ] Parse `propagate` followed by a call expression; error if next node is not a call.
-  - [ ] Produce `Expr::Propagate` with inner call.
+- [x] Guard parsing:
+  - [x] Parse the `guard` keyword, an expression, `into` name, optional `: Type`, optional `mutable`, `else`, and then either a block `{ ... }` or an expression.
+  - [x] Produce `Expr::Guard` with captured span for all parts.
+- [x] Propagate parsing:
+  - [x] Parse `propagate` followed by a call expression; error if next node is not a call.
+  - [x] Produce `Expr::Propagate` with inner call.
 - [x] Error recovery:
   - [x] If `errors` is present without any types, emit a specific parse error with suggestion.
   - [ ] If guard is missing `into` or `else`, emit error and attempt to synchronize at `;` or block end.
 
 ### Type system changes
 
-- [ ] Core types:
-  - [ ] Extend `CoreType::Function` to include `error_types: Vec<CoreType>` in addition to `parameters` and `return_type`.
-  - [ ] Update `fmt::Display` for function types to print `-> ReturnType errors E1, E2` when non-empty.
-- [ ] Environments and symbols:
-  - [ ] Function symbols carry error types in their signature for lookup and checking.
-- [ ] Inference and unification:
-  - [ ] Unify functions only if parameter types, return types, and error type sets are pairwise compatible:
-    - Compatibility rule: callee.error_types ⊆ caller.allowed_error_types for calls within a function body without propagate/guard; otherwise require explicit guard/propagate.
+- [x] Core types:
+  - [x] Extend `CoreType::Function` to include `error_types: Vec<CoreType>` in addition to `parameters` and `return_type`.
+  - [x] Update `fmt::Display` for function types to print `-> ReturnType errors E1, E2` when non-empty.
+- [x] Environments and symbols:
+  - [x] Function symbols carry error types in their signature for lookup and checking.
+- [x] Inference and unification:
+  - [x] Unify functions only if parameter types, return types, and error type sets are pairwise compatible:
+    - Compatibility rule: callee.error_types ⊆ caller.allowed_error_types for calls within a function body without propagate/guard; otherwise require explicit guard/propagate. (subset rule to be enforced in expression typing)
     - Equality of error sets when comparing function types directly.
-  - [ ] Extend substitution to traverse function error types.
+  - [x] Extend substitution to traverse function error types.
 - [ ] Checking `errors` clause names:
   - [ ] Resolve names to `CoreType` (nominal) using the type environment (must exist and be a valid error kind; initially any named type allowed; refine later in ADT phase).
 

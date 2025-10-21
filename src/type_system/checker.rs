@@ -177,6 +177,7 @@ impl TypeChecker {
                     if let CoreType::Function {
                         parameters,
                         return_type: fn_return,
+                        error_types: _fn_errors,
                     } = callee_applied
                     {
                         // Check arity (number of arguments)
@@ -306,9 +307,33 @@ impl TypeChecker {
                     core_params.push(Self::ast_type_to_core_type(param)?);
                 }
                 let core_return = Self::ast_type_to_core_type(return_type.as_ref())?;
+                // NOTE: Function type node may carry an errors clause for pretty-printing
+                // and documentation. For conversion, we attempt to resolve these types; if a
+                // type is unknown at this stage (e.g., custom ADT not yet declared), we map
+                // it into a nominal `Generic { name, args: [] }` form to preserve intent
+                // without failing conversion.
+                let mut core_errors: Vec<CoreType> = Vec::new();
+                if let Type::Function { ref errors, .. } = *ast_type {
+                    if let Some(list) = errors.as_ref() {
+                        for err_ty in list {
+                            match Self::ast_type_to_core_type(err_ty) {
+                                Ok(core) => core_errors.push(core),
+                                Err(TypeError::TypeNotFound { type_name, .. }) => {
+                                    core_errors.push(CoreType::Generic {
+                                        name: type_name,
+                                        type_args: Vec::new(),
+                                    });
+                                }
+                                Err(other) => return Err(other),
+                            }
+                        }
+                    }
+                }
+
                 Ok(CoreType::Function {
                     parameters: core_params,
                     return_type: Box::new(core_return),
+                    error_types: core_errors,
                 })
             }
             Type::Generic {
@@ -446,10 +471,12 @@ impl TypeChecker {
                 CoreType::Function {
                     parameters: left_params,
                     return_type: left_ret,
+                    error_types: left_errors,
                 },
                 CoreType::Function {
                     parameters: right_params,
                     return_type: right_ret,
+                    error_types: right_errors,
                 },
             ) => {
                 if left_params.len() != right_params.len() {
@@ -460,7 +487,18 @@ impl TypeChecker {
                         return false;
                     }
                 }
-                self.types_compatible(left_ret.as_ref(), right_ret.as_ref())
+                if !self.types_compatible(left_ret.as_ref(), right_ret.as_ref()) {
+                    return false;
+                }
+                if left_errors.len() != right_errors.len() {
+                    return false;
+                }
+                for (le, re) in left_errors.iter().zip(right_errors.iter()) {
+                    if !self.types_compatible(le, re) {
+                        return false;
+                    }
+                }
+                true
             }
 
             // Generic types are compatible if names and type arguments match

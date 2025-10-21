@@ -62,6 +62,12 @@ pub enum CoreType {
         parameters: Vec<CoreType>,
         /// Return type
         return_type: Box<CoreType>,
+        /// Error types this function may produce
+        ///
+        /// Architectural note: we use `Vec<CoreType>` (not a set) to preserve
+        /// deterministic iteration order for diagnostics and ABI hashing. The
+        /// type system treats this as a set semantically in future phases.
+        error_types: Vec<CoreType>,
     },
     /// Generic type with name and type arguments
     Generic {
@@ -94,6 +100,7 @@ impl fmt::Display for CoreType {
             Self::Function {
                 ref parameters,
                 ref return_type,
+                ref error_types,
             } => {
                 write!(f, "(")?;
                 for (i, param) in parameters.iter().enumerate() {
@@ -102,7 +109,17 @@ impl fmt::Display for CoreType {
                     }
                     write!(f, "{param}")?;
                 }
-                write!(f, ") -> {return_type}")
+                write!(f, ") -> {return_type}")?;
+                if !error_types.is_empty() {
+                    write!(f, " errors ")?;
+                    for (i, e) in error_types.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{e}")?;
+                    }
+                }
+                Ok(())
             }
             Self::Generic {
                 ref name,

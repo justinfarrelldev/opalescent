@@ -79,6 +79,7 @@ impl TypeChecker {
                 ref generic_params,
                 ref params,
                 ref return_type,
+                ref error_types,
                 ref body,
                 span,
                 ..
@@ -86,6 +87,7 @@ impl TypeChecker {
                 generic_params.as_deref(),
                 params.as_slice(),
                 return_type,
+                error_types.as_slice(),
                 body,
                 span,
             ),
@@ -247,7 +249,9 @@ impl TypeChecker {
             CoreType::Function {
                 parameters,
                 return_type,
+                error_types: _error_types,
             } => {
+                // TODO: Check error type compatibility for function calls here (see Error Handling Language Features plan)
                 if parameters.len() != args.len() {
                     return Err(TypeError::InvalidOperation {
                         operation: alloc::format!(
@@ -405,6 +409,7 @@ impl TypeChecker {
         generic_params: Option<&[alloc::string::String]>,
         parameters: &[Parameter],
         return_type: &Type,
+        error_types: &[alloc::string::String],
         body: &LambdaBody,
         span: Span,
     ) -> Result<CoreType, TypeError> {
@@ -461,9 +466,19 @@ impl TypeChecker {
             }
         })?;
 
+        // Map lambda-declared error types into nominal core types
+        let mut core_errors: Vec<CoreType> = Vec::with_capacity(error_types.len());
+        for name in error_types {
+            core_errors.push(CoreType::Generic {
+                name: name.clone(),
+                type_args: Vec::new(),
+            });
+        }
+
         Ok(CoreType::Function {
             parameters: parameter_types,
             return_type: Box::new(return_core),
+            error_types: core_errors,
         })
     }
 }

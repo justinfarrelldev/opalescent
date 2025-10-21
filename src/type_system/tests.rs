@@ -573,6 +573,7 @@ fn test_ast_type_to_core_type_complex_types() {
         CoreType::Function {
             parameters: vec![],
             return_type: Box::new(CoreType::Unit),
+            error_types: vec![],
         }
     );
 
@@ -763,6 +764,7 @@ fn test_substitution_apply_function() {
     let function_type = CoreType::Function {
         parameters: vec![var1_type],
         return_type: Box::new(var2_type),
+        error_types: vec![],
     };
 
     let mut mappings = BTreeMap::new();
@@ -773,6 +775,7 @@ fn test_substitution_apply_function() {
     let expected = CoreType::Function {
         parameters: vec![CoreType::Int32],
         return_type: Box::new(CoreType::String),
+        error_types: vec![],
     };
 
     assert_eq!(subst.apply(&function_type), expected);
@@ -919,14 +922,17 @@ fn test_unify_functions() {
     let func1 = CoreType::Function {
         parameters: vec![CoreType::Int32],
         return_type: Box::new(CoreType::String),
+        error_types: vec![],
     };
     let func2 = CoreType::Function {
         parameters: vec![CoreType::Int32],
         return_type: Box::new(CoreType::String),
+        error_types: vec![],
     };
     let func3 = CoreType::Function {
         parameters: vec![CoreType::String],
         return_type: Box::new(CoreType::Int32),
+        error_types: vec![],
     };
 
     // Identical functions should unify
@@ -1126,6 +1132,7 @@ fn test_symbol_table_exported_symbols() {
         core_type: CoreType::Function {
             parameters: vec![],
             return_type: Box::new(CoreType::Unit),
+            error_types: vec![],
         },
         visibility: Visibility::Public,
         source_location: Span::single(Position::start()),
@@ -1138,6 +1145,7 @@ fn test_symbol_table_exported_symbols() {
         core_type: CoreType::Function {
             parameters: vec![],
             return_type: Box::new(CoreType::Unit),
+            error_types: vec![],
         },
         visibility: Visibility::Entry,
         source_location: Span::single(Position::start()),
@@ -1150,6 +1158,7 @@ fn test_symbol_table_exported_symbols() {
         core_type: CoreType::Function {
             parameters: vec![],
             return_type: Box::new(CoreType::Unit),
+            error_types: vec![],
         },
         visibility: Visibility::Private,
         source_location: Span::single(Position::start()),
@@ -1557,6 +1566,7 @@ fn test_lambda_expression_body_type_checking() {
     if let CoreType::Function {
         parameters,
         return_type,
+        ..
     } = core_type
     {
         assert_eq!(parameters, vec![CoreType::Int32]);
@@ -1600,6 +1610,7 @@ fn test_lambda_block_body_type_checking() {
     if let CoreType::Function {
         parameters,
         return_type,
+        ..
     } = core_type
     {
         assert_eq!(parameters, vec![CoreType::Int32]);
@@ -1815,6 +1826,7 @@ fn test_solve_constraints_callable_with_function_type() {
     let function_type = CoreType::Function {
         parameters: vec![CoreType::Int32, CoreType::String],
         return_type: Box::new(CoreType::Boolean),
+        error_types: vec![],
     };
 
     // Add Callable constraint that matches the function signature
@@ -1843,6 +1855,7 @@ fn test_solve_constraints_callable_wrong_arity() {
     let function_type = CoreType::Function {
         parameters: vec![CoreType::Int32, CoreType::String],
         return_type: Box::new(CoreType::Boolean),
+        error_types: vec![],
     };
 
     // Add Callable constraint with wrong number of arguments
@@ -1871,6 +1884,7 @@ fn test_solve_constraints_callable_wrong_argument_type() {
     let function_type = CoreType::Function {
         parameters: vec![CoreType::Int32, CoreType::String],
         return_type: Box::new(CoreType::Boolean),
+        error_types: vec![],
     };
 
     // Add Callable constraint with wrong argument type
@@ -2186,6 +2200,7 @@ fn test_invalid_cast_function_types() {
     let function_type = CoreType::Function {
         parameters: vec![CoreType::Int32],
         return_type: Box::new(CoreType::Int32),
+        error_types: vec![],
     };
 
     let result_fn_to_int32 = TypeChecker::validate_cast(&function_type, &CoreType::Int32, span);

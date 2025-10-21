@@ -35,6 +35,7 @@ impl TypeChecker {
                 name: ref function_name,
                 ref parameters,
                 ref return_type,
+                ref error_types,
                 visibility: ref decl_visibility,
                 is_entry,
                 span,
@@ -51,9 +52,19 @@ impl TypeChecker {
                     .transpose()?
                     .unwrap_or(CoreType::Unit);
 
+                // Map error type names into nominal core types for function signature
+                let mut core_errors: Vec<CoreType> = Vec::with_capacity(error_types.len());
+                for name in error_types {
+                    core_errors.push(CoreType::Generic {
+                        name: name.clone(),
+                        type_args: Vec::new(),
+                    });
+                }
+
                 let function_type = CoreType::Function {
                     parameters: parameter_types,
                     return_type: Box::new(return_core),
+                    error_types: core_errors,
                 };
 
                 let resolved_visibility = Self::convert_visibility(decl_visibility, is_entry);

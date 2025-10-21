@@ -62,6 +62,8 @@ impl Parser {
             }
             &TokenType::TypeOf => self.parse_type_of_expression(span),
             &TokenType::Function => self.parse_lambda_expression(span),
+            &TokenType::Guard => self.parse_guard_expression(span),
+            &TokenType::Propagate => self.parse_propagate_expression(span),
             _ => Err(ParseError::UnexpectedToken {
                 expected: "expression (literal, identifier, function call, lambda, or parenthesized expression)".to_owned(),
                 found: format!("{}", token.token_type),
@@ -77,6 +79,106 @@ impl Parser {
             value: LiteralValue::Integer(value),
             span,
             id: next_node_id(),
+        }
+    }
+
+    /// Parse a guard expression: `guard <expr> into <name> [: Type] [mutable] else <handler>`
+    fn parse_guard_expression(&mut self, start_span: Span) -> ParseResult<Expr> {
+        // consume 'guard'
+        self.advance();
+
+        // Parse the guarded expression with assignment precedence (safest general case)
+        let guarded_expr = self.parse_precedence(Precedence::Assignment)?;
+
+        // Expect 'into'
+        self.consume(&TokenType::Into, "Expected 'into' in guard expression")?;
+
+        // Parse binding name
+        let (binding_name, _name_span) = if self.check_identifier() {
+            let tok = self.advance().clone();
+            if let TokenType::Identifier(n) = tok.token_type {
+                (n, tok.span)
+            } else {
+                unreachable!("check_identifier ensured Identifier")
+            }
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                expected: "identifier".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        };
+
+        // Optional type annotation using bool::then + transpose to satisfy clippy pedantic
+        let binding_type = self
+            .check(&TokenType::Colon)
+            .then(|| {
+                self.advance();
+                self.parse_type()
+            })
+            .transpose()?;
+
+        // Optional 'mutable' keyword after binding (guard-specific syntax)
+        // Use short-circuiting to only advance when the token is present
+        let is_mutable = self.check(&TokenType::Mutable) && {
+            self.advance();
+            true
+        };
+
+        // Expect 'else'
+        self.consume(&TokenType::Else, "Expected 'else' in guard expression")?;
+
+        // Handler can be a block or a single expression wrapped into a statement
+        let else_stmt: Stmt = if self.check(&TokenType::LeftBrace) {
+            self.parse_block_statement()?
+        } else {
+            let expr = self.parse_expression()?;
+            let span = expr.span();
+            Stmt::Expression {
+                expr,
+                span,
+                id: next_node_id(),
+            }
+        };
+
+        let end_span = match else_stmt {
+            Stmt::Block { span, .. } => span,
+            _ => else_stmt.span(),
+        };
+        let full_span = Span::new(start_span.start, end_span.end);
+
+        Ok(Expr::Guard {
+            expr: Box::new(guarded_expr),
+            binding_name,
+            binding_type,
+            is_mutable,
+            else_branch: Box::new(else_stmt),
+            span: full_span,
+            id: next_node_id(),
+        })
+    }
+
+    /// Parse a propagate expression: `propagate <call_expr>`
+    fn parse_propagate_expression(&mut self, start_span: Span) -> ParseResult<Expr> {
+        // consume 'propagate'
+        self.advance();
+
+        // Parse the inner expression and validate it's a call
+        let inner = self.parse_expression()?;
+        match inner {
+            Expr::Call { .. } => {
+                let end_span = inner.span();
+                let span = Span::new(start_span.start, end_span.end);
+                Ok(Expr::Propagate {
+                    call: Box::new(inner),
+                    span,
+                    id: next_node_id(),
+                })
+            }
+            _ => Err(ParseError::InvalidSyntax {
+                message: "'propagate' must be followed by a function call expression".to_owned(),
+                span: ParseError::span_from_token(self.previous_token()),
+            }),
         }
     }
 

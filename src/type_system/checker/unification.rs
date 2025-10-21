@@ -10,6 +10,21 @@ use crate::type_system::types::{CoreType, TypeVar};
 use alloc::vec;
 use miette::SourceSpan;
 
+/// Lightweight view of a function type's components for unification.
+///
+/// We group parameters, return, error set, and an optional diagnostic span
+/// to reduce argument count and improve readability in unification helpers.
+struct FunctionTypeView<'view> {
+    /// Parameter types in declared order
+    params: &'view [CoreType],
+    /// Return type
+    ret: &'view CoreType,
+    /// Declared error types (error set)
+    errors: &'view [CoreType],
+    /// Source span for diagnostics when referring to this side
+    span: Option<Span>,
+}
+
 impl TypeChecker {
     /// Validate that a type name is valid for the given core type
     ///
@@ -91,19 +106,28 @@ impl TypeChecker {
                 CoreType::Function {
                     parameters: left_params,
                     return_type: left_ret,
+                    error_types: left_errors,
                 },
                 CoreType::Function {
                     parameters: right_params,
                     return_type: right_ret,
+                    error_types: right_errors,
                 },
-            ) => self.unify_function_types(
-                left_params,
-                left_ret.as_ref(),
-                right_params,
-                right_ret.as_ref(),
-                left_span,
-                right_span,
-            ),
+            ) => {
+                let left_view = FunctionTypeView {
+                    params: left_params,
+                    ret: left_ret.as_ref(),
+                    errors: left_errors,
+                    span: left_span,
+                };
+                let right_view = FunctionTypeView {
+                    params: right_params,
+                    ret: right_ret.as_ref(),
+                    errors: right_errors,
+                    span: right_span,
+                };
+                self.unify_function_types(&left_view, &right_view)
+            }
             (
                 CoreType::Generic {
                     name: left_name,
@@ -143,47 +167,71 @@ impl TypeChecker {
         }
     }
 
-    /// Unify two function types by unifying parameters and return types sequentially.
+    /// Unify two function types by unifying parameters, return type, and error sets.
     fn unify_function_types(
         &self,
-        left_params: &[CoreType],
-        left_ret: &CoreType,
-        right_params: &[CoreType],
-        right_ret: &CoreType,
-        left_span: Option<Span>,
-        right_span: Option<Span>,
+        left: &FunctionTypeView<'_>,
+        right: &FunctionTypeView<'_>,
     ) -> Result<Substitution, TypeError> {
-        if left_params.len() != right_params.len() {
+        if left.params.len() != right.params.len() {
             return Err(TypeError::UnificationFailed {
                 left: CoreType::Function {
-                    parameters: left_params.to_vec(),
-                    return_type: Box::new(left_ret.clone()),
+                    parameters: left.params.to_vec(),
+                    return_type: Box::new(left.ret.clone()),
+                    error_types: left.errors.to_vec(),
                 }
                 .to_string(),
                 right: CoreType::Function {
-                    parameters: right_params.to_vec(),
-                    return_type: Box::new(right_ret.clone()),
+                    parameters: right.params.to_vec(),
+                    return_type: Box::new(right.ret.clone()),
+                    error_types: right.errors.to_vec(),
                 }
                 .to_string(),
-                left_span: Self::resolve_span(left_span, right_span),
-                right_span: Self::resolve_span(right_span, left_span),
+                left_span: Self::resolve_span(left.span, right.span),
+                right_span: Self::resolve_span(right.span, left.span),
             });
         }
 
         let mut combined_subst = Substitution::empty();
 
-        for (left_param, right_param) in left_params.iter().zip(right_params.iter()) {
+        for (left_param, right_param) in left.params.iter().zip(right.params.iter()) {
             let left_applied = combined_subst.apply(left_param);
             let right_applied = combined_subst.apply(right_param);
             let param_subst =
-                self.unify_impl(&left_applied, &right_applied, left_span, right_span)?;
+                self.unify_impl(&left_applied, &right_applied, left.span, right.span)?;
             combined_subst = combined_subst.compose(&param_subst);
         }
 
-        let left_ret_applied = combined_subst.apply(left_ret);
-        let right_ret_applied = combined_subst.apply(right_ret);
+        let left_ret_applied = combined_subst.apply(left.ret);
+        let right_ret_applied = combined_subst.apply(right.ret);
         let ret_subst =
-            self.unify_impl(&left_ret_applied, &right_ret_applied, left_span, right_span)?;
+            self.unify_impl(&left_ret_applied, &right_ret_applied, left.span, right.span)?;
+
+        // For now, require error type lists to be pairwise unifiable and of equal length
+        if left.errors.len() != right.errors.len() {
+            return Err(TypeError::UnificationFailed {
+                left: CoreType::Function {
+                    parameters: left.params.to_vec(),
+                    return_type: Box::new(left.ret.clone()),
+                    error_types: left.errors.to_vec(),
+                }
+                .to_string(),
+                right: CoreType::Function {
+                    parameters: right.params.to_vec(),
+                    return_type: Box::new(right.ret.clone()),
+                    error_types: right.errors.to_vec(),
+                }
+                .to_string(),
+                left_span: Self::resolve_span(left.span, right.span),
+                right_span: Self::resolve_span(right.span, left.span),
+            });
+        }
+        for (le, re) in left.errors.iter().zip(right.errors.iter()) {
+            let le_applied = combined_subst.apply(le);
+            let re_applied = combined_subst.apply(re);
+            let err_subst = self.unify_impl(&le_applied, &re_applied, left.span, right.span)?;
+            combined_subst = combined_subst.compose(&err_subst);
+        }
 
         Ok(combined_subst.compose(&ret_subst))
     }
@@ -261,9 +309,11 @@ impl TypeChecker {
                 CoreType::Function {
                     parameters: ref params,
                     return_type: ref ret_type,
+                    error_types: ref errs,
                 } => {
                     work_queue.push(ret_type.as_ref());
                     work_queue.extend(params.iter());
+                    work_queue.extend(errs.iter());
                 }
                 CoreType::Generic {
                     type_args: ref args,

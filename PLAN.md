@@ -180,32 +180,32 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ##### 1. Error Handling Language Features (⚠️ HIGHEST PRIORITY - BLOCKS ALL PHASE 2)
 
 - [ ] **Error Type Declarations in Function Signatures**
-  - [ ] Parse `errors ErrorType1, ErrorType2` clause in function declarations
-  - [ ] Parse `errors` clause in lambda expressions
-  - [ ] Store error types in `Decl::Function` AST node
-  - [ ] Store error types in `Expr::Lambda` AST node
+  - [x] Parse `errors ErrorType1, ErrorType2` clause in function declarations
+  - [x] Parse `errors` clause in lambda expressions
+  - [x] Store error types in `Decl::Function` AST node
+  - [x] Store error types in `Expr::Lambda` AST node
   - [ ] Validate error type names exist in type system
   - [ ] Add error types to function signature documentation
 - [ ] **Guard Expression Implementation**
-  - [ ] Add `Expr::Guard` variant to AST with: `expr`, `binding_name`, `else_branch`
-  - [ ] Parse `guard expr into name else handler` syntax
-  - [ ] Support optional type/mutability modifiers on guard binding
+  - [x] Add `Expr::Guard` variant to AST with: `expr`, `binding_name`, `else_branch`
+  - [x] Parse `guard expr into name else handler` syntax
+  - [x] Support optional type/mutability modifiers on guard binding
   - [ ] Type check guard expression (guarded expr returns Result/error type)
   - [ ] Type check binding name against success type
   - [ ] Type check else branch handler for error type compatibility
   - [ ] Register guard binding in symbol table for subsequent statements
   - [ ] Ensure else branch handles error type correctly
 - [ ] **Propagate Keyword Implementation**
-  - [ ] Add `Expr::Propagate` variant to AST (or extend `Expr::Call`)
-  - [ ] Parse `propagate function_call()` syntax
+  - [x] Add `Expr::Propagate` variant to AST (or extend `Expr::Call`)
+  - [x] Parse `propagate function_call()` syntax
   - [ ] Validate propagate only used in functions that declare errors
   - [ ] Type check propagate ensures error types match function signature
 - [ ] **Type System Error Type Support**
-  - [ ] Add `error_types: Vec<String>` to `CoreType::Function`
-  - [ ] Implement error type compatibility checking
+  - [x] Add `error_types: Vec<String>` to `CoreType::Function`
+  - [x] Implement error type compatibility checking
   - [ ] Validate propagate statements match function error signature
   - [ ] Check guard expressions handle appropriate error types
-  - [ ] Update unification algorithm to handle error types
+  - [x] Update unification algorithm to handle error types
 - [ ] **Error Handling Test Coverage**
   - [ ] Create test files with guard/propagate patterns
   - [ ] Test multiple error type scenarios
