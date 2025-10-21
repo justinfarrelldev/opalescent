@@ -5,7 +5,7 @@ extern crate alloc;
 use super::helpers::{
     binary_operation_name, coerce_literal_to_expected, ensure_boolean_type, ensure_integer_type,
     ensure_numeric_type, ensure_same_type, invalid_operation_error, is_boolean_type,
-    is_cast_allowed, is_numeric_type, is_string_type, literal_to_core_type, type_mismatch_error,
+    is_numeric_type, is_string_type, literal_to_core_type, type_mismatch_error,
     unary_operation_name,
 };
 use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, StringPart, Type, UnaryOp};
@@ -300,26 +300,29 @@ impl TypeChecker {
         }
     }
 
-    /// Type check an explicit cast expression, leveraging the numeric widening rules to
-    /// determine whether the conversion is permitted.
+    /// Type check an explicit cast expression, validating safety and compatibility.
+    ///
+    /// This method validates the cast using the type system's cast validation rules,
+    /// which distinguish between:
+    /// - Safe casts (widening conversions) - always allowed
+    /// - Unsafe casts (narrowing conversions) - allowed with warning, runtime trap in debug
+    /// - Invalid casts (non-numeric types) - compilation error
+    ///
+    /// See [`TypeChecker::validate_cast`] for detailed cast safety rules.
     fn type_check_cast_expr(
         &mut self,
         expr: &Expr,
         target_type: &Type,
-        _span: Span,
+        span: Span,
     ) -> Result<CoreType, TypeError> {
         let source_type = self.type_check_expr(expr)?;
         let target_core_type = Self::ast_type_to_core_type(target_type)?;
-        if is_cast_allowed(&source_type, &target_core_type) {
-            Ok(target_core_type)
-        } else {
-            Err(type_mismatch_error(
-                &target_core_type,
-                Some(target_type.span()),
-                &source_type,
-                expr.span(),
-            ))
-        }
+
+        // Validate the cast according to language spec (math.md)
+        // This will error on invalid casts and warn on unsafe casts
+        Self::validate_cast(&source_type, &target_core_type, span)?;
+
+        Ok(target_core_type)
     }
 
     /// Validate each interpolated expression, ensuring only display-safe primitives appear

@@ -490,6 +490,63 @@ impl TypeChecker {
         }
     }
 
+    /// Validate a cast expression and classify it as safe or unsafe.
+    ///
+    /// See [`is_safe_cast`](super::checker::helpers::is_safe_cast) for detailed cast safety rules.
+    ///
+    /// # Cast Safety Categories
+    ///
+    /// - **Safe (widening)**: Returns `Ok(())` - no data loss possible
+    /// - **Unsafe (narrowing)**: Returns `Err(UnsafeCast)` - may lose data,
+    ///   runtime trap in debug mode per language spec (math.md)
+    /// - **Invalid**: Returns `Err(InvalidCast)` - not allowed (non-numeric types)
+    ///
+    /// # Overflow Behavior (per language spec)
+    ///
+    /// Unsafe casts follow the arithmetic overflow rules from math.md:
+    /// - **Debug mode**: Runtime trap on overflow/out-of-range values
+    /// - **Release mode**: Wrapping behavior (no trap)
+    /// - **Compile-time**: Overflow detection for constant expressions (future)
+    ///
+    /// # Errors
+    ///
+    /// Returns `TypeError::InvalidCast` if the cast is not valid (non-numeric types).
+    /// Returns `TypeError::UnsafeCast` if the cast may lose data (narrowing conversion).
+    ///
+    /// # Future Work
+    ///
+    /// - TODO(Phase 2): Convert `UnsafeCast` errors to warnings when warning system exists
+    /// - TODO(Phase 5): Generate runtime traps for debug builds
+    /// - TODO(Phase 5): Implement compile-time overflow detection for constants
+    pub fn validate_cast(
+        from_type: &CoreType,
+        to_type: &CoreType,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        use super::checker::helpers::{is_safe_cast, is_valid_cast};
+
+        // Check if the cast is valid at all
+        if !is_valid_cast(from_type, to_type) {
+            return Err(TypeError::InvalidCast {
+                from_type: from_type.to_string(),
+                to_type: to_type.to_string(),
+                span: TypeError::span_from_span(span),
+            });
+        }
+
+        // Check if the cast is safe (widening) or unsafe (narrowing)
+        // Emit error for unsafe casts now; in Phase 2 these will become warnings
+        if !is_safe_cast(from_type, to_type) {
+            return Err(TypeError::UnsafeCast {
+                from_type: from_type.to_string(),
+                to_type: to_type.to_string(),
+                span: TypeError::span_from_span(span),
+            });
+        }
+
+        Ok(())
+    }
+
     /// Execute a closure within a fresh lexical scope, ensuring the scope is
     /// entered and exited even when the closure returns early.
     pub(super) fn within_new_scope<F, R>(&mut self, action: F) -> R

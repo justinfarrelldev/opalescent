@@ -140,11 +140,23 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
   - [x] Scope management infrastructure (SymbolTable)
   - [x] Variable resolution implementation
   - [ ] Type checking integration with parser AST
-- [ ] **CRITICAL FOR PHASE 2:** Cast validation and safety
-  - [ ] Safe cast checking (widening vs narrowing)
-  - [ ] Runtime cast validation planning
-  - [ ] Arithmetic overflow handling strategy
-  - [ ] Integration with error handling
+- [x] **CRITICAL FOR PHASE 2:** Cast validation and safety
+  - [x] Safe cast checking (widening vs narrowing)
+  - [x] Runtime cast validation planning
+  - [x] Arithmetic overflow handling strategy (debug trap, release wrap per math.md)
+  - [x] Integration with error handling
+  - [x] Cast validation integrated into expression type checker
+  - [x] Helper function documentation with cross-references
+  - [x] Edge case test coverage (Unit, String, Boolean, TypeVar, Generic, Function types)
+  - [ ] Warning collection system for unsafe casts (deferred to Phase 2 warning infrastructure)
+  - [ ] Organize type system tests into modules (nice-to-have, low priority)
+    - [ ] Extract environment tests to `src/type_system/tests/environment.rs`
+    - [ ] Extract substitution tests to `src/type_system/tests/substitution.rs`
+    - [ ] Extract unification tests to `src/type_system/tests/unification.rs`
+    - [ ] Extract expression tests to `src/type_system/tests/expressions.rs`
+    - [ ] Extract statement tests to `src/type_system/tests/statements.rs`
+    - [ ] Extract declaration tests to `src/type_system/tests/declarations.rs`
+    - [ ] Extract cast validation tests to `src/type_system/tests/cast_validation.rs`
 - [ ] **Integration Tests**
   - [ ] Parser + type checker integration tests
   - [ ] Error message quality tests (miette formatting, span accuracy)

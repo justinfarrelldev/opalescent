@@ -1883,3 +1883,402 @@ fn test_solve_constraints_callable_wrong_argument_type() {
         "Callable constraint should fail for wrong argument type"
     );
 }
+
+// ============================================================================
+// Cast Validation Tests
+// ============================================================================
+
+#[test]
+fn test_safe_cast_widening_signed_integers() {
+    let span = test_span();
+
+    // Safe widening casts within signed integers
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Int8, &CoreType::Int16, span).is_ok(),
+        "int8 -> int16 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Int8, &CoreType::Int32, span).is_ok(),
+        "int8 -> int32 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Int8, &CoreType::Int64, span).is_ok(),
+        "int8 -> int64 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Int16, &CoreType::Int32, span).is_ok(),
+        "int16 -> int32 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Int16, &CoreType::Int64, span).is_ok(),
+        "int16 -> int64 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Int32, &CoreType::Int64, span).is_ok(),
+        "int32 -> int64 should be a safe cast"
+    );
+}
+
+#[test]
+fn test_safe_cast_widening_unsigned_integers() {
+    let span = test_span();
+
+    // Safe widening casts within unsigned integers
+    assert!(
+        TypeChecker::validate_cast(&CoreType::UInt8, &CoreType::UInt16, span).is_ok(),
+        "uint8 -> uint16 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::UInt8, &CoreType::UInt32, span).is_ok(),
+        "uint8 -> uint32 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::UInt8, &CoreType::UInt64, span).is_ok(),
+        "uint8 -> uint64 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::UInt16, &CoreType::UInt32, span).is_ok(),
+        "uint16 -> uint32 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::UInt16, &CoreType::UInt64, span).is_ok(),
+        "uint16 -> uint64 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::UInt32, &CoreType::UInt64, span).is_ok(),
+        "uint32 -> uint64 should be a safe cast"
+    );
+}
+
+#[test]
+fn test_safe_cast_widening_floats() {
+    let span = test_span();
+
+    // Safe widening cast from float32 to float64
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Float32, &CoreType::Float64, span).is_ok(),
+        "float32 -> float64 should be a safe cast"
+    );
+}
+
+#[test]
+fn test_safe_cast_integer_to_float() {
+    let span = test_span();
+
+    // Safe casts from integer to float (may lose precision for very large integers, but no overflow)
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Int32, &CoreType::Float32, span).is_ok(),
+        "int32 -> float32 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Int32, &CoreType::Float64, span).is_ok(),
+        "int32 -> float64 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::UInt32, &CoreType::Float32, span).is_ok(),
+        "uint32 -> float32 should be a safe cast"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::UInt32, &CoreType::Float64, span).is_ok(),
+        "uint32 -> float64 should be a safe cast"
+    );
+}
+
+#[test]
+fn test_safe_cast_identity() {
+    let span = test_span();
+
+    // Identity casts are always safe
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Int32, &CoreType::Int32, span).is_ok(),
+        "int32 -> int32 (identity) should be safe"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Float64, &CoreType::Float64, span).is_ok(),
+        "float64 -> float64 (identity) should be safe"
+    );
+    assert!(
+        TypeChecker::validate_cast(&CoreType::Boolean, &CoreType::Boolean, span).is_ok(),
+        "boolean -> boolean (identity) should be safe"
+    );
+}
+
+#[test]
+fn test_unsafe_cast_narrowing_signed_integers() {
+    let span = test_span();
+
+    // Unsafe narrowing casts within signed integers (emit error now, will become warning in Phase 2)
+    // Per language spec (math.md), these will trap on overflow in debug mode
+    let result_int64_to_int32 =
+        TypeChecker::validate_cast(&CoreType::Int64, &CoreType::Int32, span);
+    assert!(
+        matches!(result_int64_to_int32, Err(TypeError::UnsafeCast { .. })),
+        "int64 -> int32 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+
+    let result_int32_to_int16 =
+        TypeChecker::validate_cast(&CoreType::Int32, &CoreType::Int16, span);
+    assert!(
+        matches!(result_int32_to_int16, Err(TypeError::UnsafeCast { .. })),
+        "int32 -> int16 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+
+    let result_int16_to_int8 = TypeChecker::validate_cast(&CoreType::Int16, &CoreType::Int8, span);
+    assert!(
+        matches!(result_int16_to_int8, Err(TypeError::UnsafeCast { .. })),
+        "int16 -> int8 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+}
+
+#[test]
+fn test_unsafe_cast_narrowing_unsigned_integers() {
+    let span = test_span();
+
+    // Unsafe narrowing casts within unsigned integers (emit error now, will become warning in Phase 2)
+    // Per language spec (math.md), these will trap on overflow in debug mode
+    let result_uint64_to_uint32 =
+        TypeChecker::validate_cast(&CoreType::UInt64, &CoreType::UInt32, span);
+    assert!(
+        matches!(result_uint64_to_uint32, Err(TypeError::UnsafeCast { .. })),
+        "uint64 -> uint32 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+
+    let result_uint32_to_uint16 =
+        TypeChecker::validate_cast(&CoreType::UInt32, &CoreType::UInt16, span);
+    assert!(
+        matches!(result_uint32_to_uint16, Err(TypeError::UnsafeCast { .. })),
+        "uint32 -> uint16 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+
+    let result_uint16_to_uint8 =
+        TypeChecker::validate_cast(&CoreType::UInt16, &CoreType::UInt8, span);
+    assert!(
+        matches!(result_uint16_to_uint8, Err(TypeError::UnsafeCast { .. })),
+        "uint16 -> uint8 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+}
+
+#[test]
+fn test_unsafe_cast_float_narrowing() {
+    let span = test_span();
+
+    // Unsafe narrowing cast from float64 to float32 (emit error now, will become warning in Phase 2)
+    // Per language spec (math.md), these will trap on overflow in debug mode
+    let result = TypeChecker::validate_cast(&CoreType::Float64, &CoreType::Float32, span);
+    assert!(
+        matches!(result, Err(TypeError::UnsafeCast { .. })),
+        "float64 -> float32 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+}
+
+#[test]
+fn test_unsafe_cast_float_to_integer() {
+    let span = test_span();
+
+    // Unsafe casts from float to integer (emit error now, will become warning in Phase 2)
+    // Per language spec (math.md), these will trap on overflow in debug mode
+    let result_float32_to_int32 =
+        TypeChecker::validate_cast(&CoreType::Float32, &CoreType::Int32, span);
+    assert!(
+        matches!(result_float32_to_int32, Err(TypeError::UnsafeCast { .. })),
+        "float32 -> int32 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+
+    let result_float64_to_int64 =
+        TypeChecker::validate_cast(&CoreType::Float64, &CoreType::Int64, span);
+    assert!(
+        matches!(result_float64_to_int64, Err(TypeError::UnsafeCast { .. })),
+        "float64 -> int64 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+
+    let result_f32_to_u32 = TypeChecker::validate_cast(&CoreType::Float32, &CoreType::UInt32, span);
+    assert!(
+        matches!(result_f32_to_u32, Err(TypeError::UnsafeCast { .. })),
+        "float32 -> uint32 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+}
+
+#[test]
+fn test_unsafe_cast_signed_unsigned_conversion() {
+    let span = test_span();
+
+    // Unsafe casts between signed and unsigned integers (emit error now, will become warning in Phase 2)
+    // Per language spec (math.md), these will trap on overflow in debug mode
+    let result_int32_to_uint32 =
+        TypeChecker::validate_cast(&CoreType::Int32, &CoreType::UInt32, span);
+    assert!(
+        matches!(result_int32_to_uint32, Err(TypeError::UnsafeCast { .. })),
+        "int32 -> uint32 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+
+    let result_uint32_to_int32 =
+        TypeChecker::validate_cast(&CoreType::UInt32, &CoreType::Int32, span);
+    assert!(
+        matches!(result_uint32_to_int32, Err(TypeError::UnsafeCast { .. })),
+        "uint32 -> int32 should emit UnsafeCast error (will become warning in Phase 2)"
+    );
+}
+
+#[test]
+fn test_invalid_cast_non_numeric_types() {
+    let span = test_span();
+
+    // Invalid casts involving non-numeric types
+    let result_string_to_int32 =
+        TypeChecker::validate_cast(&CoreType::String, &CoreType::Int32, span);
+    assert!(
+        matches!(result_string_to_int32, Err(TypeError::InvalidCast { .. })),
+        "string -> int32 should be an invalid cast"
+    );
+
+    let result_int32_to_string =
+        TypeChecker::validate_cast(&CoreType::Int32, &CoreType::String, span);
+    assert!(
+        matches!(result_int32_to_string, Err(TypeError::InvalidCast { .. })),
+        "int32 -> string should be an invalid cast"
+    );
+
+    let result_boolean_to_int32 =
+        TypeChecker::validate_cast(&CoreType::Boolean, &CoreType::Int32, span);
+    assert!(
+        matches!(result_boolean_to_int32, Err(TypeError::InvalidCast { .. })),
+        "boolean -> int32 should be an invalid cast"
+    );
+
+    let result_int32_to_boolean =
+        TypeChecker::validate_cast(&CoreType::Int32, &CoreType::Boolean, span);
+    assert!(
+        matches!(result_int32_to_boolean, Err(TypeError::InvalidCast { .. })),
+        "int32 -> boolean should be an invalid cast"
+    );
+}
+
+#[test]
+fn test_invalid_cast_array_types() {
+    let span = test_span();
+
+    // Invalid casts involving array types
+    let array_type = CoreType::Array(Box::new(CoreType::Int32));
+    let result_array_to_int32 = TypeChecker::validate_cast(&array_type, &CoreType::Int32, span);
+    assert!(
+        matches!(result_array_to_int32, Err(TypeError::InvalidCast { .. })),
+        "[int32] -> int32 should be an invalid cast"
+    );
+
+    let result_int32_to_array = TypeChecker::validate_cast(&CoreType::Int32, &array_type, span);
+    assert!(
+        matches!(result_int32_to_array, Err(TypeError::InvalidCast { .. })),
+        "int32 -> [int32] should be an invalid cast"
+    );
+}
+
+#[test]
+fn test_invalid_cast_function_types() {
+    let span = test_span();
+
+    // Invalid casts involving function types
+    let function_type = CoreType::Function {
+        parameters: vec![CoreType::Int32],
+        return_type: Box::new(CoreType::Int32),
+    };
+
+    let result_fn_to_int32 = TypeChecker::validate_cast(&function_type, &CoreType::Int32, span);
+    assert!(
+        matches!(result_fn_to_int32, Err(TypeError::InvalidCast { .. })),
+        "(int32) -> int32 function -> int32 should be an invalid cast"
+    );
+
+    let result_int32_to_fn = TypeChecker::validate_cast(&CoreType::Int32, &function_type, span);
+    assert!(
+        matches!(result_int32_to_fn, Err(TypeError::InvalidCast { .. })),
+        "int32 -> (int32) -> int32 function should be an invalid cast"
+    );
+}
+
+#[test]
+fn test_invalid_cast_unit_type() {
+    let span = test_span();
+    let result_from_unit = TypeChecker::validate_cast(&CoreType::Unit, &CoreType::Int32, span);
+    assert!(
+        matches!(result_from_unit, Err(TypeError::InvalidCast { .. })),
+        "unit -> int32 should be an invalid cast"
+    );
+
+    // Reverse direction
+    let result_to_unit = TypeChecker::validate_cast(&CoreType::Int32, &CoreType::Unit, span);
+    assert!(
+        matches!(result_to_unit, Err(TypeError::InvalidCast { .. })),
+        "int32 -> unit should be an invalid cast"
+    );
+}
+
+#[test]
+fn test_invalid_cast_string_type() {
+    let span = test_span();
+    let result_from_string = TypeChecker::validate_cast(&CoreType::String, &CoreType::Int32, span);
+    assert!(
+        matches!(result_from_string, Err(TypeError::InvalidCast { .. })),
+        "string -> int32 should be an invalid cast"
+    );
+
+    // Reverse direction
+    let result_to_string = TypeChecker::validate_cast(&CoreType::Int32, &CoreType::String, span);
+    assert!(
+        matches!(result_to_string, Err(TypeError::InvalidCast { .. })),
+        "int32 -> string should be an invalid cast"
+    );
+}
+
+#[test]
+fn test_invalid_cast_boolean_type() {
+    let span = test_span();
+    let result_from_bool = TypeChecker::validate_cast(&CoreType::Boolean, &CoreType::Int32, span);
+    assert!(
+        matches!(result_from_bool, Err(TypeError::InvalidCast { .. })),
+        "boolean -> int32 should be an invalid cast"
+    );
+
+    // Reverse direction
+    let result_to_bool = TypeChecker::validate_cast(&CoreType::Int32, &CoreType::Boolean, span);
+    assert!(
+        matches!(result_to_bool, Err(TypeError::InvalidCast { .. })),
+        "int32 -> boolean should be an invalid cast"
+    );
+}
+
+#[test]
+fn test_cast_with_type_variable() {
+    let span = test_span();
+    let var = TypeVar::new(0, "T".to_owned());
+    let var_type = CoreType::Variable(var);
+
+    // Type variables cannot be cast to concrete types during inference
+    let result_from_var = TypeChecker::validate_cast(&var_type, &CoreType::Int32, span);
+    assert!(
+        matches!(result_from_var, Err(TypeError::InvalidCast { .. })),
+        "type variable -> int32 should be an invalid cast during inference"
+    );
+
+    // Reverse direction
+    let result_to_var = TypeChecker::validate_cast(&CoreType::Int32, &var_type, span);
+    assert!(
+        matches!(result_to_var, Err(TypeError::InvalidCast { .. })),
+        "int32 -> type variable should be an invalid cast during inference"
+    );
+}
+
+#[test]
+fn test_cast_generic_type() {
+    let span = test_span();
+    let generic_type = CoreType::Generic {
+        name: "Option".to_owned(),
+        type_args: Vec::from([CoreType::Int32]),
+    };
+
+    // Generic types cannot be cast to primitives
+    let result = TypeChecker::validate_cast(&generic_type, &CoreType::Int32, span);
+    assert!(
+        matches!(result, Err(TypeError::InvalidCast { .. })),
+        "Option<int32> -> int32 should be an invalid cast"
+    );
+}

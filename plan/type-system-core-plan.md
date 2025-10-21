@@ -347,11 +347,11 @@ The type system provides static type checking, type inference, and type safety g
   - [x] Add 3 tests for Callable constraint scenarios
   - [ ] HasField constraint handling (deferred to Phase 3 - requires ADT Product types)
 
-- [ ] Cast Validation (4-6 hours)
-  - [ ] Define safe casts (widening: int32 -> int64, int32 -> float64)
-  - [ ] Define unsafe casts (narrowing: int64 -> int32, float64 -> int32)
-  - [ ] Implement is_safe_cast(from: CoreType, to: CoreType) result bool
-  - [ ] Add overflow detection strategy documentation
+- [x] Cast Validation (4-6 hours)
+  - [x] Define safe casts (widening: int32 -> int64, int32 -> float64)
+  - [x] Define unsafe casts (narrowing: int64 -> int32, float64 -> int32)
+  - [x] Implement is_safe_cast(from: CoreType, to: CoreType) result bool
+  - [x] Add overflow detection strategy documentation
 
 - [ ] Lambda and Closure Sprint
   - [ ] Add tests covering lambda expression type checking (expression + block bodies)

@@ -207,6 +207,42 @@ pub enum TypeError {
         /// Source span highlighting where the call was attempted
         span: SourceSpan,
     },
+
+    /// Invalid cast between types
+    #[error("Invalid cast from '{from_type}' to '{to_type}'")]
+    #[diagnostic(
+        code(opalescent::type_system::invalid_cast),
+        help(
+            "These types cannot be converted. Consider using a different conversion method or intermediate type"
+        )
+    )]
+    InvalidCast {
+        /// Source type of the cast
+        from_type: String,
+        /// Target type of the cast
+        to_type: String,
+        #[label("cannot cast from '{from_type}' to '{to_type}'")]
+        /// Source span highlighting where the cast was attempted
+        span: SourceSpan,
+    },
+
+    /// Unsafe cast that may lose data or precision
+    #[error("Unsafe cast from '{from_type}' to '{to_type}' may lose data")]
+    #[diagnostic(
+        code(opalescent::type_system::unsafe_cast),
+        help(
+            "This cast is narrowing and may lose data. In debug mode, this will trap on overflow. Consider validating the value before casting"
+        )
+    )]
+    UnsafeCast {
+        /// Source type of the cast
+        from_type: String,
+        /// Target type of the cast
+        to_type: String,
+        #[label("unsafe narrowing cast")]
+        /// Source span highlighting where the unsafe cast was attempted
+        span: SourceSpan,
+    },
 }
 
 impl TypeError {
