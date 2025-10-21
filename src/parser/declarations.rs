@@ -167,6 +167,9 @@ impl Parser {
             })
             .transpose()?;
 
+        // Parse optional errors clause
+        let error_types = self.parse_error_types_clause()?;
+
         // Expect '=>'
         self.consume(&TokenType::Arrow, "Expected '=>' after function signature")?;
 
@@ -218,6 +221,7 @@ impl Parser {
             name,
             parameters,
             return_type,
+            error_types,
             body,
             visibility,
             is_entry,
@@ -882,5 +886,70 @@ impl Parser {
             id: next_node_id(),
             metadata,
         })
+    }
+
+    /// Parse an optional errors clause that appears after a function's return type.
+    ///
+    /// Syntax: `errors ErrorType1, ErrorType2, ...`
+    ///
+    /// Returns a `Vec<String>` containing the error type names. Returns an empty vector
+    /// if no errors clause is present.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ParseError` if:
+    /// - The errors keyword is present but no error types follow
+    /// - A trailing comma is present with no following identifier
+    /// - An unexpected token is found where an error type name is expected
+    pub(super) fn parse_error_types_clause(&mut self) -> ParseResult<Vec<String>> {
+        if !self.check(&TokenType::Errors) {
+            return Ok(Vec::new());
+        }
+
+        self.advance(); // consume 'errors' keyword
+        let mut types = Vec::new();
+
+        // Parse first error type (required after 'errors' keyword)
+        if self.check_identifier() {
+            let token = self.advance();
+            if let &TokenType::Identifier(ref error_type_name) = &token.token_type {
+                types.push(error_type_name.clone());
+            } else {
+                return Err(ParseError::InvalidSyntax {
+                    message: "Expected error type name after 'errors' keyword".to_owned(),
+                    span: ParseError::span_from_token(token),
+                });
+            }
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                expected: "error type name (identifier)".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        }
+
+        // Parse additional error types separated by commas
+        while self.check(&TokenType::Comma) {
+            self.advance(); // consume comma
+            if self.check_identifier() {
+                let token = self.advance();
+                if let &TokenType::Identifier(ref error_type_name) = &token.token_type {
+                    types.push(error_type_name.clone());
+                } else {
+                    return Err(ParseError::InvalidSyntax {
+                        message: "Expected error type name after comma".to_owned(),
+                        span: ParseError::span_from_token(token),
+                    });
+                }
+            } else {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "error type name (identifier)".to_owned(),
+                    found: format!("{}", self.current_token().token_type),
+                    span: ParseError::span_from_token(self.current_token()),
+                });
+            }
+        }
+
+        Ok(types)
     }
 }

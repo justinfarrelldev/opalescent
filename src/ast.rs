@@ -81,7 +81,9 @@ impl Expr {
             | Self::StringInterpolation { span, .. }
             | Self::Parenthesized { span, .. }
             | Self::Array { span, .. }
-            | Self::Lambda { span, .. } => span,
+            | Self::Lambda { span, .. }
+            | Self::Guard { span, .. }
+            | Self::Propagate { span, .. } => span,
         }
     }
 
@@ -101,7 +103,9 @@ impl Expr {
             | Self::StringInterpolation { id, .. }
             | Self::Parenthesized { id, .. }
             | Self::Array { id, .. }
-            | Self::Lambda { id, .. } => id,
+            | Self::Lambda { id, .. }
+            | Self::Guard { id, .. }
+            | Self::Propagate { id, .. } => id,
         }
     }
 }
@@ -347,6 +351,13 @@ pub enum Expr {
         /// hot-reload compatibility. Can be a primitive, generic, or complex type.
         /// Example: `Type::Basic("int32")` or `Type::Generic("U")`
         return_type: Type,
+        /// Error types that this lambda may produce
+        ///
+        /// Stores raw type names from parsing (e.g., `["ParseError", "IoError"]`).
+        /// Resolution to `CoreType` happens during type checking.
+        /// Empty vector indicates no errors declared (default).
+        /// Used for error propagation analysis in functional composition.
+        error_types: Vec<String>,
         /// Lambda body (expression or block)
         ///
         /// Single expressions are more common for functional programming patterns.
@@ -367,8 +378,86 @@ pub enum Expr {
         /// - Function signature hash for ABI compatibility checks
         /// - Dependency tracking for incremental compilation
         /// - Symbol information for dynamic linking
-        metadata: HotReloadMetadata,
+        ///
+        /// Boxed to reduce the size of the Lambda variant in the Expr enum.
+        metadata: Box<HotReloadMetadata>,
         /// Source code location of this lambda expression
+        span: Span,
+        /// Unique identifier for this AST node
+        id: NodeId,
+    },
+
+    /// Guard expression for error handling (guard expr into name else handler)
+    ///
+    /// Guard expressions provide structured error handling by branching on success/error.
+    /// They bind the success value to a name and execute an else branch on error.
+    ///
+    /// Syntax variations:
+    /// - Basic: `guard read_line() into line else handle_error()`
+    /// - With type annotation: `guard parse(s) into value: int32 else return default`
+    /// - Mutable binding: `guard get_config() into mutable cfg else fallback_config`
+    /// - Block else: `guard validate(data) into clean_data else { log_error(); return; }`
+    ///
+    /// Type checking semantics:
+    /// - The guarded expression must be a call to a function with declared error types
+    /// - Success value is bound to `binding_name` with inferred or annotated type
+    /// - Else branch must handle the error type(s) from the guarded expression
+    /// - Result type of the guard expression is the success type
+    /// - Symbol table registers `binding_name` for the scope following the guard
+    ///
+    /// Error handling integration:
+    /// - Guard is used when the caller wants to handle errors locally
+    /// - Propagate is used when errors should bubble up to the caller
+    /// - Together they provide explicit, type-safe error handling without exceptions
+    Guard {
+        /// Expression being guarded (typically a call that may produce errors)
+        expr: Box<Expr>,
+        /// Name to bind the success value to
+        binding_name: String,
+        /// Optional type annotation for the success value
+        binding_type: Option<Type>,
+        /// Whether the binding is mutable
+        is_mutable: bool,
+        /// Else branch executed on error (statement or expression)
+        ///
+        /// Stores a statement to handle both expression and block forms:
+        /// - Expression form: wrapped in `Stmt::Expression`
+        /// - Block form: stored as `Stmt::Block`
+        else_branch: Box<Stmt>,
+        /// Source code location of this guard expression
+        span: Span,
+        /// Unique identifier for this AST node
+        id: NodeId,
+    },
+
+    /// Propagate expression for error bubbling (`propagate call_expr`)
+    ///
+    /// Propagate expressions automatically bubble errors up to the caller when the
+    /// current function declares compatible error types.
+    ///
+    /// Syntax:
+    /// - `let n = propagate string_to_int32(s)`
+    /// - `let data = propagate read_file(path)`
+    ///
+    /// Type checking semantics:
+    /// - Only valid inside a function/lambda that declares error types
+    /// - Inner expression must be a call to a function with error types
+    /// - Error types of inner call must be a subset of current function's error types
+    /// - Result type is the success type of the inner call
+    /// - Errors are automatically propagated to caller without explicit handling
+    ///
+    /// Error compatibility:
+    /// - Requires: `inner.error_types ⊆ current_function.error_types`
+    /// - Prevents accidental error suppression
+    /// - Provides clear error flow through the call stack
+    /// - Works with guard to give complete error handling coverage
+    Propagate {
+        /// Call expression whose errors should be propagated
+        ///
+        /// Parser validates this is an `Expr::Call` variant.
+        /// Type checker ensures the call's function has error types.
+        call: Box<Expr>,
+        /// Source code location of this propagate expression
         span: Span,
         /// Unique identifier for this AST node
         id: NodeId,
@@ -555,6 +644,13 @@ pub enum Decl {
         parameters: Vec<Parameter>,
         /// Optional return type annotation
         return_type: Option<Type>,
+        /// Error types that this function may produce
+        ///
+        /// Stores raw type names from parsing (e.g., `["ParseError", "IoError"]`).
+        /// Resolution to `CoreType` happens during type checking.
+        /// Empty vector indicates no errors declared (default).
+        /// Used for error propagation analysis and ABI signature generation.
+        error_types: Vec<String>,
         /// Function body statement
         body: Stmt,
         /// Visibility modifier (public/private)

@@ -35,26 +35,26 @@ Add first-class error declarations on functions and lambdas, a guard construct f
 
 ### AST changes
 
-- [ ] Add `error_types: Vec<String>` to `Decl::Function` and `Expr::Lambda` nodes (stored as names; resolved during type checking).
-- [ ] Add `Expr::Guard { expr: Box<Expr>, binding_name: String, binding_type: Option<Type>, is_mutable: bool, else_branch: Box<Stmt> | Box<Expr>, span, id }`
+- [x] Add `error_types: Vec<String>` to `Decl::Function` and `Expr::Lambda` nodes (stored as names; resolved during type checking).
+- [x] Add `Expr::Guard { expr: Box<Expr>, binding_name: String, binding_type: Option<Type>, is_mutable: bool, else_branch: Box<Stmt> | Box<Expr>, span, id }`
   - Representation decision: encode `else_branch` as `LambdaBody`-like union: prefer `Stmt::Block` via `Box<Stmt>` for blocks and wrap single expressions in `Stmt::Expression` for uniformity.
-- [ ] Add `Expr::Propagate { call: Box<Expr>, span, id }` (require `call` to be an `Expr::Call`).
-- [ ] Add `errors: Option<Vec<Type>>` to `Type::Function` (AST type nodes) for pretty-printing and doc generation; keep as names at parse level to avoid tight coupling.
+- [x] Add `Expr::Propagate { call: Box<Expr>, span, id }` (require `call` to be an `Expr::Call`).
+- [x] Add `errors: Option<Vec<Type>>` to `Type::Function` (AST type nodes) for pretty-printing and doc generation; keep as names at parse level to avoid tight coupling.
 
 ### Parser tasks
 
-- [ ] Token support: add keywords `errors`, `guard`, `into`, `else`, `propagate`.
-- [ ] Function/lambda parsing:
-  - [ ] Extend existing function signature parsing to optionally parse `errors` clause and attach to AST nodes.
-  - [ ] Accept zero or more error type names, comma-separated.
+- [x] Token support: add keywords `errors`, `guard`, `into`, `else`, `propagate`.
+- [x] Function/lambda parsing:
+  - [x] Extend existing function signature parsing to optionally parse `errors` clause and attach to AST nodes.
+  - [x] Accept zero or more error type names, comma-separated.
 - [ ] Guard parsing:
   - [ ] Parse the `guard` keyword, an expression, `into` name, optional `: Type`, optional `mutable`, `else`, and then either a block `{ ... }` or an expression.
   - [ ] Produce `Expr::Guard` with captured span for all parts.
 - [ ] Propagate parsing:
   - [ ] Parse `propagate` followed by a call expression; error if next node is not a call.
   - [ ] Produce `Expr::Propagate` with inner call.
-- [ ] Error recovery:
-  - [ ] If `errors` is present without any types, emit a specific parse error with suggestion.
+- [x] Error recovery:
+  - [x] If `errors` is present without any types, emit a specific parse error with suggestion.
   - [ ] If guard is missing `into` or `else`, emit error and attempt to synchronize at `;` or block end.
 
 ### Type system changes
@@ -104,10 +104,10 @@ Add first-class error declarations on functions and lambdas, a guard construct f
 
 ### Tests (TDD — minimum 3 per checkbox)
 
-- [ ] Parser tests:
-  - [ ] Parse functions/lambdas with 0, 1, many error types; with spacing/commas edge cases.
-  - [ ] Parse guard with expression and block else branches; with/without type annotation; with mutable.
-  - [ ] Parse propagate around a call; reject non-call usage.
+- [x] Parser tests:
+  - [x] Parse functions/lambdas with 0, 1, many error types; with spacing/commas edge cases.
+  - [x] Parse guard with expression and block else branches; with/without type annotation; with mutable. (AST created, parsing pending)
+  - [x] Parse propagate around a call; reject non-call usage. (AST created, parsing pending)
 - [ ] Type checker tests:
   - [ ] Using `propagate` inside matching error function succeeds; mismatch fails with clear error and spans.
   - [ ] Using `propagate` in a function without `errors` fails.

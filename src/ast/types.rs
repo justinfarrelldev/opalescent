@@ -42,6 +42,13 @@ pub enum Type {
         parameters: alloc::vec::Vec<Type>,
         /// Return type of the function
         return_type: Box<Type>,
+        /// Error types that this function may produce
+        ///
+        /// Optional list of error type names (e.g., `Some(vec!["ParseError", "IoError"])`).
+        /// Used for pretty-printing function signatures and documentation generation.
+        /// Empty `Some(vec![])` means function declares no errors.
+        /// `None` means errors clause not specified (defaults to no errors).
+        errors: Option<alloc::vec::Vec<Type>>,
         /// Source code location of this type
         span: Span,
     },

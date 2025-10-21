@@ -175,12 +175,34 @@ impl Parser {
         // Parse return type
         let return_type = Box::new(self.parse_type()?);
 
+        // Parse optional errors clause for function types
+        let errors = if self.check(&TokenType::Errors) {
+            self.advance(); // consume 'errors' keyword
+            let mut error_types = Vec::new();
+
+            // Parse first error type (required after 'errors' keyword)
+            let first_type = self.parse_type()?;
+            error_types.push(first_type);
+
+            // Parse additional error types separated by commas
+            while self.check(&TokenType::Comma) {
+                self.advance(); // consume comma
+                let error_type = self.parse_type()?;
+                error_types.push(error_type);
+            }
+
+            Some(error_types)
+        } else {
+            None
+        };
+
         let end_span = self.previous_token().span;
         let function_span = Span::new(start_span.start, end_span.end);
 
         Ok(Type::Function {
             parameters,
             return_type,
+            errors,
             span: function_span,
         })
     }

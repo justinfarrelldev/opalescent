@@ -88,6 +88,7 @@ fn make_function_decl(
         name: name.to_owned(),
         parameters: params,
         return_type,
+        error_types: Vec::new(),
         body,
         visibility: AstVisibility::Private,
         is_entry: false,
@@ -562,6 +563,7 @@ fn test_ast_type_to_core_type_complex_types() {
             name: "unit".to_owned(),
             span,
         }),
+        errors: None,
         span,
     };
     let function_result = TypeChecker::ast_type_to_core_type(&function_type);
@@ -1413,6 +1415,7 @@ fn test_type_check_program_collects_errors() {
             name: "int32".to_owned(),
             span: test_span(),
         }),
+        error_types: Vec::new(),
         body: Stmt::Return {
             value: Some(literal_expr(LiteralValue::Boolean(true), 10_200)),
             span: test_span(),
@@ -1537,9 +1540,10 @@ fn test_lambda_expression_body_type_checking() {
         generic_params: None,
         params: vec![make_parameter("x", int_type("int32"))],
         return_type: int_type("int32"),
+        error_types: Vec::new(),
         body: crate::ast::LambdaBody::Expression(Box::new(identifier_expr("x", 32_000))),
         captured_variables: vec![],
-        metadata: HotReloadMetadata::for_expression(),
+        metadata: Box::new(HotReloadMetadata::for_expression()),
         span: test_span(),
         id: node_id(32_001),
     };
@@ -1579,9 +1583,10 @@ fn test_lambda_block_body_type_checking() {
         generic_params: None,
         params: vec![make_parameter("x", int_type("int32"))],
         return_type: int_type("int32"),
+        error_types: Vec::new(),
         body: crate::ast::LambdaBody::Block(vec![body]),
         captured_variables: vec![],
-        metadata: HotReloadMetadata::for_expression(),
+        metadata: Box::new(HotReloadMetadata::for_expression()),
         span: test_span(),
         id: node_id(32_103),
     };
@@ -1611,12 +1616,13 @@ fn test_lambda_return_type_mismatch_is_reported() {
         generic_params: None,
         params: vec![make_parameter("x", int_type("int32"))],
         return_type: int_type("int32"),
+        error_types: Vec::new(),
         body: crate::ast::LambdaBody::Expression(Box::new(literal_expr(
             LiteralValue::Boolean(true),
             32_200,
         ))),
         captured_variables: vec![],
-        metadata: HotReloadMetadata::for_expression(),
+        metadata: Box::new(HotReloadMetadata::for_expression()),
         span: test_span(),
         id: node_id(32_201),
     };

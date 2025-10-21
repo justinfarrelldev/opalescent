@@ -89,6 +89,14 @@ impl TypeChecker {
                 body,
                 span,
             ),
+            Expr::Guard { span, .. } => Err(TypeError::NotImplementedYet {
+                feature: "guard expression type checking".to_owned(),
+                span: TypeError::span_from_span(span),
+            }),
+            Expr::Propagate { span, .. } => Err(TypeError::NotImplementedYet {
+                feature: "propagate expression type checking".to_owned(),
+                span: TypeError::span_from_span(span),
+            }),
         }
     }
 

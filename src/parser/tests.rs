@@ -3218,3 +3218,263 @@ fn test_lambda_expression_complex_generics() {
         unreachable!("Expected let declaration");
     }
 }
+
+// =========================================================================
+// Error Handling Clause Tests
+// =========================================================================
+
+#[test]
+fn test_function_with_zero_errors() {
+    // Test function with no errors clause (default)
+    let input = "let parse = f(s: string): int32 => 42";
+    let result = parse_program_from_string(input);
+    assert!(
+        result.is_ok(),
+        "Failed to parse function without errors: {result:?}"
+    );
+
+    let program = result.unwrap();
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Let { initializer, .. } = &program.declarations[0] {
+        if let Expr::Lambda { error_types, .. } = initializer {
+            assert!(
+                error_types.is_empty(),
+                "Expected empty error_types for function without errors clause"
+            );
+        } else {
+            unreachable!("Expected lambda expression");
+        }
+    } else {
+        unreachable!("Expected let declaration");
+    }
+}
+
+#[test]
+fn test_function_with_one_error() {
+    // Test function with single error type
+    let input = "let parse = f(s: string): int32 errors ParseError => 42";
+    let result = parse_program_from_string(input);
+    assert!(
+        result.is_ok(),
+        "Failed to parse function with one error: {result:?}"
+    );
+
+    let program = result.unwrap();
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Let { initializer, .. } = &program.declarations[0] {
+        if let Expr::Lambda { error_types, .. } = initializer {
+            assert_eq!(error_types.len(), 1, "Expected one error type");
+            assert_eq!(error_types[0], "ParseError");
+        } else {
+            unreachable!("Expected lambda expression");
+        }
+    } else {
+        unreachable!("Expected let declaration");
+    }
+}
+
+#[test]
+fn test_function_with_multiple_errors() {
+    // Test function with multiple error types
+    let input =
+        r#"public let read_file = f(path: string): string errors IoError, ParseError => "result""#;
+    let result = parse_program_from_string(input);
+    assert!(
+        result.is_ok(),
+        "Failed to parse function with multiple errors: {result:?}"
+    );
+
+    let program = result.unwrap();
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Let { initializer, .. } = &program.declarations[0] {
+        if let Expr::Lambda { error_types, .. } = initializer {
+            assert_eq!(error_types.len(), 2, "Expected two error types");
+            assert_eq!(error_types[0], "IoError");
+            assert_eq!(error_types[1], "ParseError");
+        } else {
+            unreachable!("Expected lambda expression");
+        }
+    } else {
+        unreachable!("Expected let declaration");
+    }
+}
+
+#[test]
+fn test_function_with_errors_whitespace_variations() {
+    // Test various whitespace around errors clause
+    let inputs = vec![
+        "let f1 = f(x: int32): int32 errors E1 => x",
+        "let f2 = f(x: int32): int32 errors E1, E2 => x",
+        "let f3 = f(x: int32): int32 errors E1 , E2 => x",
+        "let f4 = f(x: int32): int32 errors E1,E2,E3 => x",
+    ];
+
+    for input in inputs {
+        let result = parse_program_from_string(input);
+        assert!(
+            result.is_ok(),
+            "Failed to parse with whitespace variation: {input:?} - {result:?}"
+        );
+    }
+}
+
+#[test]
+fn test_function_declaration_with_errors() {
+    // Test entry function with errors clause
+    let input = "entry main = f(args: string[]): int32 errors AppError => 0";
+    let result = parse_program_from_string(input);
+    assert!(
+        result.is_ok(),
+        "Failed to parse entry function with errors: {result:?}"
+    );
+
+    let program = result.unwrap();
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Function {
+        error_types,
+        is_entry,
+        ..
+    } = &program.declarations[0]
+    {
+        assert!(*is_entry, "Expected entry function");
+        assert_eq!(error_types.len(), 1, "Expected one error type");
+        assert_eq!(error_types[0], "AppError");
+    } else {
+        unreachable!("Expected function declaration");
+    }
+}
+
+#[test]
+fn test_lambda_with_generic_and_errors() {
+    // Test generic lambda with errors clause
+    let input = "let map_try = f<T, U>(arr: T[], fn: f(T): U errors E): U[] errors E => arr";
+    let result = parse_program_from_string(input);
+    assert!(
+        result.is_ok(),
+        "Failed to parse generic lambda with errors: {result:?}"
+    );
+
+    let program = result.unwrap();
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Let { initializer, .. } = &program.declarations[0] {
+        if let Expr::Lambda {
+            generic_params,
+            error_types,
+            params,
+            ..
+        } = initializer
+        {
+            assert!(generic_params.is_some(), "Expected generic parameters");
+            assert_eq!(error_types.len(), 1, "Expected one error type");
+            assert_eq!(error_types[0], "E");
+
+            // Check that parameter type also has errors
+            assert_eq!(params.len(), 2);
+            assert_eq!(params[1].name, "fn");
+            if let Type::Function { errors, .. } = &params[1].param_type {
+                assert!(
+                    errors.is_some(),
+                    "Expected errors in function parameter type"
+                );
+                let fn_errors = errors.as_ref().unwrap();
+                assert_eq!(fn_errors.len(), 1);
+                if let Type::Basic { name, .. } = &fn_errors[0] {
+                    assert_eq!(name, "E");
+                } else {
+                    unreachable!("Expected basic error type");
+                }
+            } else {
+                unreachable!("Expected function type for parameter");
+            }
+        } else {
+            unreachable!("Expected lambda expression");
+        }
+    } else {
+        unreachable!("Expected let declaration");
+    }
+}
+
+#[test]
+fn test_errors_clause_error_cases() {
+    // Test errors clause without type names (should fail)
+    let result1 = parse_program_from_string("let f1 = f(x: int32): int32 errors => x");
+    assert!(
+        result1.is_err(),
+        "Should fail on errors clause without types"
+    );
+
+    // Test errors clause with trailing comma (should fail)
+    let result2 = parse_program_from_string("let f2 = f(x: int32): int32 errors E1, => x");
+    assert!(
+        result2.is_err(),
+        "Should fail on trailing comma in errors clause"
+    );
+
+    // Test errors clause with missing comma
+    let result3 = parse_program_from_string("let f3 = f(x: int32): int32 errors E1 E2 => x");
+    assert!(
+        result3.is_err(),
+        "Should fail on missing comma between error types"
+    );
+}
+
+#[test]
+fn test_function_type_with_errors() {
+    // Test parsing function type with errors clause
+    let input = "f(int32): int32 errors ParseError";
+    let result = parse_type_from_string(input);
+    assert!(
+        result.is_ok(),
+        "Failed to parse function type with errors: {result:?}"
+    );
+
+    if let Type::Function { errors, .. } = result.unwrap() {
+        assert!(errors.is_some(), "Expected errors in function type");
+        let error_types = errors.unwrap();
+        assert_eq!(error_types.len(), 1);
+        if let Type::Basic { name, .. } = &error_types[0] {
+            assert_eq!(name, "ParseError");
+        } else {
+            unreachable!("Expected basic error type");
+        }
+    } else {
+        unreachable!("Expected function type");
+    }
+}
+
+#[test]
+fn test_function_type_with_multiple_errors() {
+    // Test parsing function type with multiple errors
+    let input = "f(string): int32 errors IoError, ParseError, NetworkError";
+    let result = parse_type_from_string(input);
+    assert!(
+        result.is_ok(),
+        "Failed to parse function type with multiple errors: {result:?}"
+    );
+
+    if let Type::Function { errors, .. } = result.unwrap() {
+        assert!(errors.is_some(), "Expected errors in function type");
+        let error_types = errors.unwrap();
+        assert_eq!(error_types.len(), 3);
+
+        let names: Vec<&str> = error_types
+            .iter()
+            .filter_map(|t| {
+                if let Type::Basic { name, .. } = t {
+                    Some(name.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        assert_eq!(names, vec!["IoError", "ParseError", "NetworkError"]);
+    } else {
+        unreachable!("Expected function type");
+    }
+}

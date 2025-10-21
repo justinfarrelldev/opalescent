@@ -120,6 +120,16 @@ pub enum TokenType {
     /// The 'continue' keyword to skip to the next loop iteration
     Continue,
 
+    // Error handling keywords
+    /// The 'errors' keyword for declaring error types in function signatures
+    Errors,
+    /// The 'guard' keyword for error handling with success/error branching
+    Guard,
+    /// The 'into' keyword used in guard expressions for binding success values
+    Into,
+    /// The 'propagate' keyword for bubbling errors upward to caller
+    Propagate,
+
     // Type keywords
     /// 8-bit signed integer type
     Int8,
@@ -336,6 +346,10 @@ impl fmt::Display for TokenType {
             Self::In => write!(f, "keyword 'in'"),
             Self::Break => write!(f, "keyword 'break'"),
             Self::Continue => write!(f, "keyword 'continue'"),
+            Self::Errors => write!(f, "keyword 'errors'"),
+            Self::Guard => write!(f, "keyword 'guard'"),
+            Self::Into => write!(f, "keyword 'into'"),
+            Self::Propagate => write!(f, "keyword 'propagate'"),
             Self::Int8 => write!(f, "type 'int8'"),
             Self::Int16 => write!(f, "type 'int16'"),
             Self::Int32 => write!(f, "type 'int32'"),

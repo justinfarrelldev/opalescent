@@ -19,11 +19,56 @@ use unicode_xid::UnicodeXID;
     expect(dead_code, reason = "Used in tests module for property-based testing")
 )]
 pub const RESERVED_KEYWORDS: &[&str] = &[
-    "and", "as", "band", "bnot", "bor", "boolean", "break", "bshl", "bshr", "bushr", "bxor",
-    "continue", "else", "entry", "false", "float32", "float64", "for", "from", "f", "if", "import",
-    "in", "int8", "int16", "int32", "int64", "is", "let", "loop", "mutable", "not", "or", "public",
-    "return", "string", "true", "type", "type_of", "uint8", "uint16", "uint32", "uint64", "void",
-    "while", "xor",
+    "and",
+    "as",
+    "band",
+    "bnot",
+    "bor",
+    "boolean",
+    "break",
+    "bshl",
+    "bshr",
+    "bushr",
+    "bxor",
+    "continue",
+    "else",
+    "entry",
+    "errors",
+    "false",
+    "float32",
+    "float64",
+    "for",
+    "from",
+    "f",
+    "guard",
+    "if",
+    "import",
+    "in",
+    "int8",
+    "int16",
+    "int32",
+    "int64",
+    "into",
+    "is",
+    "let",
+    "loop",
+    "mutable",
+    "not",
+    "or",
+    "propagate",
+    "public",
+    "return",
+    "string",
+    "true",
+    "type",
+    "type_of",
+    "uint8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "void",
+    "while",
+    "xor",
 ];
 
 /// The main lexer struct that tokenizes Opalescent source code
@@ -76,6 +121,10 @@ impl<'input> Lexer<'input> {
         keywords.insert("in", TokenType::In);
         keywords.insert("break", TokenType::Break);
         keywords.insert("continue", TokenType::Continue);
+        keywords.insert("errors", TokenType::Errors);
+        keywords.insert("guard", TokenType::Guard);
+        keywords.insert("into", TokenType::Into);
+        keywords.insert("propagate", TokenType::Propagate);
         keywords.insert("int8", TokenType::Int8);
         keywords.insert("int16", TokenType::Int16);
         keywords.insert("int32", TokenType::Int32);

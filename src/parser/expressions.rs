@@ -333,6 +333,9 @@ impl Parser {
         // Parse return type
         let return_type = self.parse_type()?;
 
+        // Parse optional errors clause
+        let error_types = self.parse_error_types_clause()?;
+
         // Expect '=>'
         self.consume(&TokenType::Arrow, "Expected '=>' after lambda return type")?;
 
@@ -346,9 +349,10 @@ impl Parser {
             generic_params,
             params,
             return_type,
+            error_types,
             body,
             captured_variables: Vec::new(), // TODO: Implement closure capture analysis
-            metadata: HotReloadMetadata::for_expression(),
+            metadata: Box::new(HotReloadMetadata::for_expression()),
             span: lambda_span,
             id: next_node_id(),
         })
