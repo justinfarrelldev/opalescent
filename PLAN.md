@@ -2,7 +2,7 @@
 
 This document outlines the comprehensive plan for implementing the Opalescent programming language, a compiled, statically and strongly typed language with hot reloading capabilities.
 
-**Current Project Status**: Phase 1 (Foundation & Core Infrastructure) - Type System Core implementation in progress. The lexer and parser are complete with 213 tests passing. Type System Core has most infrastructure complete but needs finalization before Phase 2 can begin.
+**Current Project Status**: Phase 1 (Foundation & Core Infrastructure) - Type System Core implementation in progress. The lexer and parser are complete with 213 tests passing. Type System Core has most infrastructure complete but **11 critical Phase 2 blockers must be addressed** before Phase 2 can begin. These blockers include fundamental language features: error handling (guard/propagate/errors), multiple return values, standard library built-ins, generic constraints, if expression semantics, member access, overflow detection, and warning infrastructure.
 
 ## Phase 1: Foundation & Core Infrastructure
 
@@ -173,14 +173,225 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Edge case test coverage (Unit, String, Boolean, TypeVar, Generic, Function types)
 - [ ] Warning collection system for unsafe casts (deferred to Phase 2 warning infrastructure)
 
-#### Remaining Tasks for Phase 2
+#### Phase 2 Blockers (Name: phase-2-blockers-plan.md)
+
+**CRITICAL: The following items MUST be completed before ANY Phase 2 work can begin. These are fundamental language features required by the specification, not optional enhancements.**
+
+##### 1. Error Handling Language Features (⚠️ HIGHEST PRIORITY - BLOCKS ALL PHASE 2)
+
+- [ ] **Error Type Declarations in Function Signatures**
+  - [ ] Parse `errors ErrorType1, ErrorType2` clause in function declarations
+  - [ ] Parse `errors` clause in lambda expressions
+  - [ ] Store error types in `Decl::Function` AST node
+  - [ ] Store error types in `Expr::Lambda` AST node
+  - [ ] Validate error type names exist in type system
+  - [ ] Add error types to function signature documentation
+- [ ] **Guard Expression Implementation**
+  - [ ] Add `Expr::Guard` variant to AST with: `expr`, `binding_name`, `else_branch`
+  - [ ] Parse `guard expr into name else handler` syntax
+  - [ ] Support optional type/mutability modifiers on guard binding
+  - [ ] Type check guard expression (guarded expr returns Result/error type)
+  - [ ] Type check binding name against success type
+  - [ ] Type check else branch handler for error type compatibility
+  - [ ] Register guard binding in symbol table for subsequent statements
+  - [ ] Ensure else branch handles error type correctly
+- [ ] **Propagate Keyword Implementation**
+  - [ ] Add `Expr::Propagate` variant to AST (or extend `Expr::Call`)
+  - [ ] Parse `propagate function_call()` syntax
+  - [ ] Validate propagate only used in functions that declare errors
+  - [ ] Type check propagate ensures error types match function signature
+- [ ] **Type System Error Type Support**
+  - [ ] Add `error_types: Vec<String>` to `CoreType::Function`
+  - [ ] Implement error type compatibility checking
+  - [ ] Validate propagate statements match function error signature
+  - [ ] Check guard expressions handle appropriate error types
+  - [ ] Update unification algorithm to handle error types
+- [ ] **Error Handling Test Coverage**
+  - [ ] Create test files with guard/propagate patterns
+  - [ ] Test multiple error type scenarios
+  - [ ] Test error type mismatch detection
+  - [ ] Test propagate in non-error-returning functions (should error)
+  - [ ] Test guard with incompatible else branch types
+
+##### 2. Multiple Return Values (⚠️ CRITICAL - BLOCKS FUNCTION SYSTEM)
+
+- [ ] **Multiple Return Type Support in AST**
+  - [ ] Modify `Type::Function` to support `return_types: Vec<Type>` (replace single return_type)
+  - [ ] Modify `Decl::Function` to use `return_types: Vec<Type>`
+  - [ ] Modify `Expr::Lambda` to use `return_types: Vec<Type>`
+  - [ ] Maintain backward compatibility with single return (Vec of 1 element)
+- [ ] **Labeled Return Value Support**
+  - [ ] Modify `Stmt::Return` to support `values: Vec<LabeledValue>`
+  - [ ] Parse `return label1: expr1, label2: expr2` syntax
+  - [ ] Validate label names are unique in return statement
+  - [ ] Support mixing labeled and unlabeled returns (unlabeled gets auto-label?)
+- [ ] **Parser Updates for Multiple Returns**
+  - [ ] Parse `f(...): Type1, Type2, Type3` function return signatures
+  - [ ] Parse comma-separated return types in function declarations
+  - [ ] Parse comma-separated return types in lambda expressions
+  - [ ] Error on label duplication in return statements
+  - [ ] Support single return as special case of multiple returns
+- [ ] **Type System Multiple Return Support**
+  - [ ] Update `CoreType::Function` to handle `return_types: Vec<CoreType>`
+  - [ ] Type check multiple return values match signature
+  - [ ] Validate labeled return values against function signature labels
+  - [ ] Update constraint solving for multi-return functions
+  - [ ] Ensure all return statements in function match signature
+- [ ] **Multiple Return Test Coverage**
+  - [ ] Test functions with multiple return types
+  - [ ] Test labeled return statements
+  - [ ] Test return value count mismatch errors
+  - [ ] Test return label name mismatches
+  - [ ] Test single return backward compatibility
+
+##### 3. Standard Library Built-ins (⚠️ CRITICAL - ENABLES TESTING)
+
+- [ ] **Core Built-in Function Signatures**
+  - [ ] Define `print<T>(value: T): unit` signature
+  - [ ] Define `take_input(): string` signature
+  - [ ] Define `string_to_int32(s: string): int32 errors ParseError` signature
+  - [ ] Define `random_int32(min: int32, max: int32): int32` signature
+  - [ ] Document all built-in function semantics and behavior
+- [ ] **Type System Built-in Integration**
+  - [ ] Add `TypeEnvironment::register_builtin()` method
+  - [ ] Pre-register all built-in functions on `TypeChecker::new()`
+  - [ ] Ensure built-ins available in all type checking contexts
+  - [ ] Support generic built-in functions (like `print<T>`)
+- [ ] **Standard Library Prelude Module**
+  - [ ] Create `stdlib/prelude.op` with built-in signatures
+  - [ ] Ensure prelude is implicitly imported in all modules
+  - [ ] Document standard library module organization
+  - [ ] Add prelude to language specification documentation
+- [ ] **Built-in Function Testing**
+  - [ ] Test type checking with `print()` calls
+  - [ ] Test type checking with `take_input()` calls
+  - [ ] Test type checking with `string_to_int32()` (error handling)
+  - [ ] Test generic built-in instantiation
+  - [ ] Validate example files in `language-spec/` can be type checked
+
+##### 4. Generic Type Parameter Constraints (⚠️ HIGH PRIORITY - BLOCKS GENERICS)
+
+- [ ] **Generic Parameter Constraint AST Support**
+  - [ ] Extend AST to support type parameter constraints/bounds
+  - [ ] Parse constraint syntax in generic type parameters
+  - [ ] Store constraints in `Decl::Function` for generic functions
+  - [ ] Store constraints in `Expr::Lambda` for generic lambdas
+  - [ ] Support multiple constraints per type parameter
+- [ ] **Constraint Checking in Type System**
+  - [ ] Validate generic parameters satisfy declared constraints
+  - [ ] Check constraint satisfaction at generic instantiation sites
+  - [ ] Implement constraint solving algorithm for type inference
+  - [ ] Add constraint violation error messages with helpful diagnostics
+  - [ ] Support constraint propagation through type inference
+- [ ] **Generic Type Inference Enhancements**
+  - [ ] Infer generic parameters from function call arguments
+  - [ ] Validate inferred types satisfy all constraints
+  - [ ] Support explicit generic parameter syntax: `map<int32, string>(...)`
+  - [ ] Handle constraint conflicts and report clear errors
+- [ ] **Generic Constraint Testing**
+  - [ ] Test generic functions with constraints
+  - [ ] Test constraint violation detection
+  - [ ] Test constraint inference from call sites
+  - [ ] Test multiple constraints on single type parameter
+  - [ ] Test generic ADT with constraints (preparation for Phase 3)
+
+##### 5. If Expression Semantics Clarification (⚠️ HIGH PRIORITY - AFFECTS TYPE CHECKING)
+
+- [ ] **If Expression vs Statement Resolution**
+  - [ ] Review language spec for if expression semantics
+  - [ ] Determine if `Stmt::If` should become `Expr::If` (Rust-style)
+  - [ ] Document value-returning if expressions in specification
+  - [ ] Update parser to support if as expression (if needed)
+  - [ ] Decide on else-less if semantics (returns unit type?)
+- [ ] **If Expression Type Checking**
+  - [ ] Ensure both if/else branches return compatible types
+  - [ ] Infer if expression result type from branch types
+  - [ ] Type check else-less if expressions (must return unit?)
+  - [ ] Update constraint collection for if expressions
+  - [ ] Add tests for if expression type inference
+
+##### 6. Member Access Type Checking (HIGH PRIORITY - REQUIRED FOR COMPLETENESS)
+
+- [ ] **Member Access Implementation**
+  - [ ] Implement `type_check_expr` for `Expr::Member` (currently NotImplementedYet)
+  - [ ] Type check object/receiver expression
+  - [ ] Validate member exists on object type
+  - [ ] Handle module member access (e.g., `math.sqrt`)
+  - [ ] Handle struct field access (requires Phase 3 ADT support)
+  - [ ] Return member type for subsequent type analysis
+- [ ] **Member Access Testing**
+  - [ ] Test module member access type checking
+  - [ ] Test field access on product types (Phase 3 integration)
+  - [ ] Test member access errors (member not found)
+  - [ ] Test chained member access (e.g., `obj.field.method`)
+
+##### 7. Arithmetic Overflow Detection (MEDIUM PRIORITY - SPEC COMPLIANCE)
+
+- [ ] **Compile-time Overflow Checking**
+  - [ ] Detect overflow in constant arithmetic expressions
+  - [ ] Emit errors for overflowing constant additions
+  - [ ] Emit errors for overflowing constant multiplications
+  - [ ] Emit errors for overflowing bitwise shifts
+  - [ ] Document runtime trap behavior for debug mode (per math.md)
+- [ ] **Checked Arithmetic Variant Validation**
+  - [ ] Parse `checked_add`, `wrapping_add`, `saturating_add` variants
+  - [ ] Validate use of explicit overflow-handling variants
+  - [ ] Type check checked arithmetic operations
+  - [ ] Add tests for all checked/wrapping/saturating variants
+
+##### 8. Division by Zero Detection (MEDIUM PRIORITY - SPEC COMPLIANCE)
+
+- [ ] **Compile-time Division by Zero Checking**
+  - [ ] Detect division by zero in constant expressions
+  - [ ] Detect modulo by zero in constant expressions
+  - [ ] Emit compile-time errors for constant division by zero
+  - [ ] Document runtime trap behavior for non-constant division
+- [ ] **Division by Zero Testing**
+  - [ ] Test constant division by zero detection
+  - [ ] Test constant modulo by zero detection
+  - [ ] Ensure runtime division preserves error handling
+
+##### 9. Warning System Infrastructure (MEDIUM PRIORITY - ERROR HANDLING ENHANCEMENT)
+
+- [ ] **Warning Collection System**
+  - [ ] Add `Warning` type parallel to `TypeError`
+  - [ ] Add warning collection to `TypeChecker`
+  - [ ] Convert `UnsafeCast` from error to warning
+  - [ ] Implement warning display with miette
+  - [ ] Support warning suppression annotations
+- [ ] **Warning Categories**
+  - [ ] Unsafe cast warnings
+  - [ ] Unused variable warnings (from Variable System)
+  - [ ] Unreachable code warnings (from Control Flow)
+  - [ ] Exhaustiveness warnings (from Pattern Matching)
+
+##### 10. Type System Core Plan Synchronization (DOCUMENTATION - DO IN PARALLEL)
+
+- [ ] **Update type-system-core-plan.md**
+  - [ ] Mark error handling as critical Phase 2 blocker
+  - [ ] Add multiple return value support requirements
+  - [ ] Add standard library built-ins section
+  - [ ] Mark if expression semantics as needing resolution
+  - [ ] Update constraint solver status with new constraints
+  - [ ] Document HasField constraint deferral to Phase 3
+
+##### 11. PLAN.md Integration (DOCUMENTATION - DO IN PARALLEL)
+
+- [ ] **Update PLAN.md Phase 2 Structure**
+  - [ ] Add "Error Handling System" as standalone phase item
+  - [ ] Document guard/propagate/errors syntax requirements
+  - [ ] Add dependency notes: error handling blocks function system
+  - [ ] Update Function System dependencies on error handling
+  - [ ] Cross-reference blocker items in relevant phase sections
+
+#### Remaining Tasks for Phase 1 Type System Core
 
 - [ ] **Generic type runtime instantiation**
   - [x] Generic type representation (CoreType::Generic)
   - [x] Type parameter storage
-  - [ ] Concrete type argument inference at call sites
-  - [ ] Generic constraint satisfaction checking
-  - [ ] Monomorphization preparation
+  - [ ] Concrete type argument inference at call sites (moved to blocker #4)
+  - [ ] Generic constraint satisfaction checking (moved to blocker #4)
+  - [ ] Monomorphization preparation (deferred to Phase 5)
 - [ ] **Type inference engine enhancements**
   - [x] Constraint collection during AST traversal
   - [x] Equality constraint solving
@@ -188,7 +399,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
   - [ ] HasField constraint handling (deferred to Phase 3 - requires ADT Product types)
   - [ ] Principal type inference refinement
 - [ ] **Import declaration type checking** (deferred to Phase 4)
-- [ ] **Warning system for unsafe casts**
+- [ ] **Warning system for unsafe casts** (moved to blocker #9)
 - [ ] **Integration Tests**
   - [ ] Parser + type checker integration tests
   - [ ] Error message quality tests (miette formatting, span accuracy)
@@ -198,25 +409,28 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 
 ## Phase 2: Language Features
 
-**NOTE: Phase 2 CANNOT BEGIN until Type System Core is 100% complete. All items below require functional type checking, type inference, and cast validation.**
+**NOTE: Phase 2 CANNOT BEGIN until all Phase 2 Blockers (listed above in Type System Core section) are complete. These are fundamental language features from the specification including error handling (guard/propagate/errors), multiple return values, standard library built-ins, generic constraints, and member access. All items below require these foundational features to be functional.**
 
 ### ⏳ Function System (Name: function-system-plan.md)
 
-**NOTE: This phase requires Type System Core completion before proceeding.**
+**NOTE: This phase requires Type System Core completion AND Phase 2 Blockers #1 (Error Handling), #2 (Multiple Returns), #3 (Standard Library), and #4 (Generic Constraints) before proceeding.**
 
 - [x] Function declaration and definition parsing
 - [x] Parameter and return type handling
 - [x] Lambda expressions (f(): type => ...)
 - [x] Lambda body normalization (expression vs block)
 - [x] Type checking for lambda bodies
+- [ ] Error type declarations in function signatures (see Phase 2 Blocker #1)
+- [ ] Multiple return type support (see Phase 2 Blocker #2)
 - [ ] Function call resolution (basic call type checking complete; advanced resolution pending)
 - [ ] Entry point validation (single entry keyword)
 - [ ] Scope management for parameters and local variables (basic implementation complete)
-- [ ] Integration with type system for generic functions
+- [ ] Integration with type system for generic functions (requires Blocker #4)
 - [ ] Hot-reload metadata propagation for functions
 - [x] Comprehensive unit tests for parsing
 - [x] Type checking tests for lambdas
 - [ ] Integration tests with full type inference
+- [ ] Integration tests with error handling and multiple returns
 - [ ] Documentation for all function system code
 - [ ] Lint and test compliance before commit
 
@@ -238,7 +452,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 
 ### ☐ Control Flow (Name: control-flow-plan.md)
 
-**NOTE: This phase requires Type System Core completion before proceeding.**
+**NOTE: This phase requires Type System Core completion AND Phase 2 Blocker #5 (If Expression Semantics) before proceeding.**
 
 - [x] If expressions parsing (Rust-style)
 - [x] For loops parsing with iterators
@@ -252,13 +466,14 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Type checking for while loops (boolean condition)
 - [x] Type checking for loop statements
 - [x] Return statement validation with expected return type
+- [ ] If expression value-returning semantics (see Phase 2 Blocker #5)
 - [ ] Exhaustiveness checking for if expressions
 - [ ] Control flow analysis for unreachable code
 - [ ] Type narrowing in conditional branches
 
 ### ☐ Arithmetic & Logic (Name: arithmetic-logic-plan.md)
 
-**NOTE: This phase requires Type System Core completion before proceeding.**
+**NOTE: This phase requires Type System Core completion AND Phase 2 Blockers #7 (Overflow Detection) and #8 (Division by Zero) before proceeding.**
 
 - [x] Basic operators parsing (+, -, *, /, ^, %)
 - [x] Comparison operators parsing (<, <=, >, >=, is, is not)
@@ -269,10 +484,10 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Type checking for boolean operators (boolean types only)
 - [x] Type checking for bitwise operators (integer types only)
 - [x] Cross-type comparison prohibition enforcement
-- [ ] Compile-time overflow detection for constants
-- [ ] Division by zero detection (compile-time for constants)
+- [ ] Compile-time overflow detection for constants (see Phase 2 Blocker #7)
+- [ ] Division by zero detection (compile-time for constants) (see Phase 2 Blocker #8)
 - [ ] Arithmetic overflow handling in code generation (debug trap, release wrap)
-- [ ] Checked/wrapping/saturating arithmetic variants
+- [ ] Checked/wrapping/saturating arithmetic variants (see Phase 2 Blocker #7)
 - [ ] Bitwise shift bounds checking (negative and out-of-range counts)
 - [ ] Masked/wrapping bitwise shift variants
 
@@ -280,7 +495,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 
 ### ☐ ADT Implementation (Name: adt-implementation-plan.md)
 
-**NOTE: This phase requires Type System Core to be complete.**
+**NOTE: This phase requires Type System Core to be complete AND Phase 2 Blocker #6 (Member Access) for field access support.**
 
 - [x] Sum type parsing (enum-like with variants)
 - [x] Product type parsing (struct-like)
@@ -289,9 +504,9 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] Pattern matching parsing
 - [ ] Pattern matching type checking
 - [ ] Pattern exhaustiveness checking
-- [ ] Generic ADT support (instantiation)
+- [ ] Generic ADT support (instantiation) (requires Phase 2 Blocker #4)
 - [ ] ADT constructor type checking
-- [ ] Field access type checking
+- [ ] Field access type checking (requires Phase 2 Blocker #6 - member access)
 - [ ] HasField constraint implementation (currently deferred)
 
 ### ☐ Array & Collection Support (Name: collections-plan.md)
@@ -315,7 +530,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 
 ### ☐ Generic System (Name: generics-plan.md)
 
-**NOTE: This phase requires Type System Core to be complete.**
+**NOTE: This phase requires Type System Core completion AND Phase 2 Blocker #4 (Generic Constraints) before proceeding.**
 
 - [x] Generic type parameter parsing (Type\<T\>)
 - [x] Generic type with multiple parameters parsing (Map\<K, V\>)
@@ -323,12 +538,12 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Generic type representation in CoreType
 - [x] Generic lambda expressions parsing
 - [x] Type variable infrastructure (TypeVar)
-- [ ] Generic function definitions with constraints
-- [ ] Generic type parameter bounds/constraints
-- [ ] Type parameter inference at call sites
-- [ ] Concrete type argument validation
-- [ ] Monomorphization for code generation
-- [ ] Generic ADT instantiation
+- [ ] Generic function definitions with constraints (see Phase 2 Blocker #4)
+- [ ] Generic type parameter bounds/constraints (see Phase 2 Blocker #4)
+- [ ] Type parameter inference at call sites (see Phase 2 Blocker #4)
+- [ ] Concrete type argument validation (see Phase 2 Blocker #4)
+- [ ] Monomorphization for code generation (Phase 5)
+- [ ] Generic ADT instantiation (requires Phase 3 ADT completion)
 
 ## Phase 4: Module System
 
