@@ -198,19 +198,19 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [ ] **Propagate Keyword Implementation**
   - [x] Add `Expr::Propagate` variant to AST (or extend `Expr::Call`)
   - [x] Parse `propagate function_call()` syntax
-  - [ ] Validate propagate only used in functions that declare errors
-  - [ ] Type check propagate ensures error types match function signature
+  - [x] Validate propagate only used in functions that declare errors
+  - [x] Type check propagate ensures error types match function signature
 - [ ] **Type System Error Type Support**
   - [x] Add `error_types: Vec<String>` to `CoreType::Function`
   - [x] Implement error type compatibility checking
-  - [ ] Validate propagate statements match function error signature
+  - [x] Validate propagate statements match function error signature
   - [ ] Check guard expressions handle appropriate error types
   - [x] Update unification algorithm to handle error types
 - [ ] **Error Handling Test Coverage**
   - [ ] Create test files with guard/propagate patterns
   - [ ] Test multiple error type scenarios
-  - [ ] Test error type mismatch detection
-  - [ ] Test propagate in non-error-returning functions (should error)
+  - [x] Test error type mismatch detection
+  - [x] Test propagate in non-error-returning functions (should error)
   - [ ] Test guard with incompatible else branch types
 
 ##### 2. Multiple Return Values (⚠️ CRITICAL - BLOCKS FUNCTION SYSTEM)

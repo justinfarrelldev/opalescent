@@ -203,43 +203,60 @@ impl TypeChecker {
         span: Span,
     ) -> Result<CoreType, TypeError> {
         // 1. Ensure we are inside a function that can handle errors.
-        let current_fn_error_types = self
-            .symbol_table()
-            .current_function_error_types()
-            .ok_or_else(|| TypeError::PropagateOutsideErrorFunction {
-                span: TypeError::span_from_span(span),
-            })?
-            .to_vec(); // Clone to release the borrow.
-
-        // 2. Type-check the inner expression and ensure it's a function call that returns errors.
-        let call_type = self.type_check_expr(call)?;
-        if let CoreType::Function {
-            return_type,
-            error_types: callee_error_types,
-            ..
-        } = call_type
-        {
-            // 3. Check if the callee's errors are a subset of the current function's errors.
-            let is_subset = callee_error_types
-                .iter()
-                .all(|e| current_fn_error_types.contains(e));
-
-            if !is_subset {
-                return Err(TypeError::PropagateErrorMismatch {
-                    expected: format!("{current_fn_error_types:?}"),
-                    found: format!("{callee_error_types:?}"),
-                    span: TypeError::span_from_span(
-                        self.symbol_table.current_function_span().unwrap_or(span),
-                    ),
-                    callee_span: TypeError::span_from_span(call.span()),
+        // Treat both "no current function" and "current function with zero declared errors"
+        // as outside-of-error-function contexts, since `propagate` would be meaningless.
+        let current_fn_error_types = match self.symbol_table().current_function_error_types() {
+            Some(&[]) | None => {
+                return Err(TypeError::PropagateOutsideErrorFunction {
+                    span: TypeError::span_from_span(span),
                 });
             }
+            Some(errors) => errors.to_vec(), // Clone to release the borrow.
+        };
 
-            // The result of a successful propagate is the success type of the inner call.
-            Ok(*return_type)
+        // 2. Ensure the inner expression is a function call and fetch its function type.
+        if let Expr::Call {
+            ref callee,
+            ref args,
+            ..
+        } = *call
+        {
+            let callee_type = self.type_check_expr(callee)?;
+            if let CoreType::Function {
+                parameters: _parameters,
+                return_type,
+                error_types: callee_error_types,
+            } = callee_type
+            {
+                // Validate the call arguments against the parameters (reuse call typing logic)
+                // We intentionally call the existing checker to enforce argument checks
+                self.type_check_call_expr(callee, args.as_slice(), call.span())?;
+
+                // 3. Check subset relation for error types
+                let is_subset = callee_error_types
+                    .iter()
+                    .all(|e| current_fn_error_types.contains(e));
+
+                if !is_subset {
+                    return Err(TypeError::PropagateErrorMismatch {
+                        expected: format!("{current_fn_error_types:?}"),
+                        found: format!("{callee_error_types:?}"),
+                        span: TypeError::span_from_span(
+                            self.symbol_table.current_function_span().unwrap_or(span),
+                        ),
+                        callee_span: TypeError::span_from_span(call.span()),
+                    });
+                }
+
+                // Propagate expression yields the success type of the inner call
+                Ok(*return_type)
+            } else {
+                Err(TypeError::GuardOnNonErrorExpression {
+                    span: TypeError::span_from_span(call.span()),
+                })
+            }
         } else {
-            // This case should ideally be caught by the parser, which expects a call expression.
-            // However, we add a type check here for robustness.
+            // Parser should ensure this path is unreachable; defensively handle anyway.
             Err(TypeError::GuardOnNonErrorExpression {
                 span: TypeError::span_from_span(call.span()),
             })

@@ -126,6 +126,228 @@ fn return_stmt(value: Expr, id: usize) -> Stmt {
     }
 }
 
+// ============================================================================
+// Error Handling: `propagate` Expression Tests
+// ============================================================================
+
+/// Build a simple function declaration with an explicit errors clause.
+/// This helper keeps construction localized to tests so production code
+/// remains minimal and focused. The function body is provided by caller.
+fn make_function_decl_with_errors(
+    name: &str,
+    params: Vec<Parameter>,
+    return_type: Option<Type>,
+    error_types: Vec<&str>,
+    body: Stmt,
+    id: usize,
+) -> Decl {
+    Decl::Function {
+        name: name.to_owned(),
+        parameters: params,
+        return_type,
+        error_types: error_types.into_iter().map(str::to_owned).collect(),
+        body,
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(id),
+        metadata: HotReloadMetadata::for_function(),
+    }
+}
+
+/// Create a call expression `callee(arg_names...)`.
+fn call_expr(callee_name: &str, arg_names: &[&str], id: usize) -> Expr {
+    Expr::Call {
+        callee: Box::new(identifier_expr(callee_name, id)),
+        args: arg_names.iter().map(|n| identifier_expr(n, id)).collect(),
+        span: test_span(),
+        id: node_id(id.checked_add(10).unwrap_or(id)),
+    }
+}
+
+/// Wrap a call expression with `propagate`.
+fn propagate_call(call: Expr, id: usize) -> Expr {
+    Expr::Propagate {
+        call: Box::new(call),
+        span: test_span(),
+        id: node_id(id),
+    }
+}
+
+#[test]
+fn test_propagate_succeeds_with_subset_errors() {
+    // Callee: string_to_int32(s: string): int32 errors ParseError => return 0
+    let inner_fn = make_function_decl_with_errors(
+        "string_to_int32",
+        vec![make_parameter("s", int_type("string"))],
+        Some(int_type("int32")),
+        vec!["ParseError"],
+        return_stmt(
+            literal_expr(LiteralValue::Integer(0), TEST_VAR_ID),
+            ANOTHER_TEST_VAR_ID,
+        ),
+        100,
+    );
+
+    // Caller: parse_and_return(s: string): int32 errors ParseError =>
+    //            let n: int32 = propagate string_to_int32(s); return n
+    let let_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: "n".to_owned(),
+            type_annotation: Some(int_type("int32")),
+            is_mutable: false,
+            span: test_span(),
+            id: node_id(2000),
+        },
+        initializer: Some(propagate_call(
+            call_expr("string_to_int32", &["s"], 2001),
+            2002,
+        )),
+        span: test_span(),
+        id: node_id(2003),
+    };
+    let caller_body = Stmt::Block {
+        statements: vec![let_stmt, return_stmt(identifier_expr("n", 2004), 2005)],
+        span: test_span(),
+        id: node_id(2006),
+    };
+    let outer_fn = make_function_decl_with_errors(
+        "parse_and_return",
+        vec![make_parameter("s", int_type("string"))],
+        Some(int_type("int32")),
+        vec!["ParseError"],
+        caller_body,
+        101,
+    );
+
+    let program = create_program(vec![inner_fn, outer_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "propagate should succeed when callee errors are subset of caller"
+    );
+}
+
+#[test]
+fn test_propagate_fails_outside_error_function() {
+    // Callee that can error
+    let inner_fn = make_function_decl_with_errors(
+        "string_to_int32",
+        vec![make_parameter("s", int_type("string"))],
+        Some(int_type("int32")),
+        vec!["ParseError"],
+        return_stmt(literal_expr(LiteralValue::Integer(0), 3000), 3001),
+        102,
+    );
+
+    // Caller without errors clause uses propagate => should error PropagateOutsideErrorFunction
+    let let_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: "n".to_owned(),
+            type_annotation: Some(int_type("int32")),
+            is_mutable: false,
+            span: test_span(),
+            id: node_id(3100),
+        },
+        initializer: Some(propagate_call(
+            call_expr("string_to_int32", &["s"], 3101),
+            3102,
+        )),
+        span: test_span(),
+        id: node_id(3103),
+    };
+    let caller_body = Stmt::Block {
+        statements: vec![let_stmt, return_stmt(identifier_expr("n", 3104), 3105)],
+        span: test_span(),
+        id: node_id(3106),
+    };
+    let outer_fn = make_function_decl(
+        "parse_and_return",
+        vec![make_parameter("s", int_type("string"))],
+        Some(int_type("int32")),
+        caller_body,
+        103,
+    );
+
+    let program = create_program(vec![inner_fn, outer_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_err(),
+        "expected error when using propagate outside error-declaring fn"
+    );
+    let errors = result.unwrap_err();
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, &TypeError::PropagateOutsideErrorFunction { .. })),
+        "expected PropagateOutsideErrorFunction error, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_propagate_fails_when_error_types_mismatch() {
+    // Callee errors IoError
+    let inner_fn = make_function_decl_with_errors(
+        "read_file",
+        vec![make_parameter("path", int_type("string"))],
+        Some(int_type("string")),
+        vec!["IoError"],
+        return_stmt(
+            literal_expr(LiteralValue::String(String::new()), 4000),
+            4001,
+        ),
+        104,
+    );
+
+    // Caller declares ParseError only and uses propagate read_file => mismatch
+    let let_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: "data".to_owned(),
+            type_annotation: Some(int_type("string")),
+            is_mutable: false,
+            span: test_span(),
+            id: node_id(4100),
+        },
+        initializer: Some(propagate_call(
+            call_expr("read_file", &["path"], 4101),
+            4102,
+        )),
+        span: test_span(),
+        id: node_id(4103),
+    };
+    let caller_body = Stmt::Block {
+        statements: vec![let_stmt, return_stmt(identifier_expr("data", 4104), 4105)],
+        span: test_span(),
+        id: node_id(4106),
+    };
+    let outer_fn = make_function_decl_with_errors(
+        "load_data",
+        vec![make_parameter("path", int_type("string"))],
+        Some(int_type("string")),
+        vec!["ParseError"],
+        caller_body,
+        105,
+    );
+
+    let program = create_program(vec![inner_fn, outer_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_err(),
+        "expected error when propagated errors not subset of caller errors"
+    );
+    let errors = result.unwrap_err();
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, &TypeError::PropagateErrorMismatch { .. })),
+        "expected PropagateErrorMismatch error, got: {errors:?}"
+    );
+}
+
 #[test]
 fn test_generic_type_instantiation() {
     let span = test_span();

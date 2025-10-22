@@ -74,10 +74,10 @@ Add first-class error declarations on functions and lambdas, a guard construct f
 
 ### Expression typing semantics
 
-- [ ] `Expr::Propagate`:
-  - [ ] Only valid inside a function (or lambda) that declares `errors`.
-  - [ ] Inner callee must be a function call whose function type has error types.
-  - [ ] Require: inner.error_types ⊆ current_fn.error_types.
+- [x] `Expr::Propagate`:
+  - [x] Only valid inside a function (or lambda) that declares `errors`.
+  - [x] Inner callee must be a function call whose function type has error types.
+  - [x] Require: inner.error_types ⊆ current_fn.error_types.
   - [x] Result type is the inner call's return type; error flow bubbles to caller.
   - [x] Diagnostics: if not subset or used outside error-declaring function, emit precise error with spans on both the `propagate` and the function signature.
 - [x] `Expr::Guard`:
@@ -119,7 +119,7 @@ Add first-class error declarations on functions and lambdas, a guard construct f
 ### Documentation
 
 - [x] Update inline docs for all new AST and type system items (safety/comments, rationale for Vec ordering of error types and deterministic iteration).
-- [ ] Update PLAN.md references when items are finished; cross-link to this plan.
+- [x] Update PLAN.md references when items are finished; cross-link to this plan.
 - [x] Note architectural decision: use `alloc::collections::BTreeMap` and `Vec` for deterministic order; no_std compatibility preserved (no std-only features in core modules).
 
 ---
