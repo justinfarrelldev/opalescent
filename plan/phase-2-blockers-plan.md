@@ -69,8 +69,9 @@ Add first-class error declarations on functions and lambdas, a guard construct f
     - Compatibility rule: callee.error_types ⊆ caller.allowed_error_types for calls within a function body without propagate/guard; otherwise require explicit guard/propagate. (subset rule to be enforced in expression typing)
     - Equality of error sets when comparing function types directly.
   - [x] Extend substitution to traverse function error types.
-- [ ] Checking `errors` clause names:
-  - [ ] Resolve names to `CoreType` (nominal) using the type environment (must exist and be a valid error kind; initially any named type allowed; refine later in ADT phase).
+- [x] Checking `errors` clause names:
+  - [x] Resolve names to `CoreType` (nominal) using the type environment (must exist and be a valid error kind; initially any named type allowed; refine later in ADT phase).
+  - [x] Surface diagnostics that point at the undeclared error type site with actionable help.
 
 ### Expression typing semantics
 
@@ -80,13 +81,14 @@ Add first-class error declarations on functions and lambdas, a guard construct f
   - [x] Require: inner.error_types ⊆ current_fn.error_types.
   - [x] Result type is the inner call's return type; error flow bubbles to caller.
   - [x] Diagnostics: if not subset or used outside error-declaring function, emit precise error with spans on both the `propagate` and the function signature.
-- [x] `Expr::Guard`:
+- [ ] `Expr::Guard`:
   - [x] The guarded expression must be a call (or expression) with error-carrying type context.
   - [x] Success path binds the success value to `binding_name` with the declared type (if present) or inferred from the expression's success type.
-  - [x] Else branch is type-checked against the error type(s):
-    - If multiple error types exist, else must handle a union — for Phase 2, require else type to be compatible with all declared error types (exact or supertype once ADTs land). For now, require identical names; future Phase 3 will allow sum types.
-  - [x] The guard as an expression results in the success type; as a statement in a block, the else branch must produce `unit` unless used in an expression position.
-  - [x] Symbol table: register `binding_name` in the subsequent scope after the guard (then-branch scope).
+  - [ ] Else branch is type-checked against the error type(s):
+    - [ ] If multiple error types exist, else must handle a union — for Phase 2, require else type to be compatible with all declared error types (exact or supertype once ADTs land). For now, require identical names; future Phase 3 will allow sum types.
+    - [x] Guard must reject callees whose error list is empty.
+  - [ ] The guard as an expression results in the success type; as a statement in a block, the else branch must produce `unit` unless used in an expression position.
+  - [x] Symbol table: register `binding_name` in the subsequent scope after the guard (then-branch scope) while keeping handler bindings scoped to the else branch only.
 
 ### Diagnostics & error types
 
@@ -113,6 +115,13 @@ Add first-class error declarations on functions and lambdas, a guard construct f
   - [x] Using `propagate` in a function without `errors` fails.
   - [x] Guard binds success type correctly; else must match error types; mismatches fail.
   - [x] Symbol table registers guard binding for subsequent statements in then scope.
+  - [x] Propagate handles callees with multiple error types (subset and superset cases).
+  - [x] Propagate rejects calls whose error list is empty.
+  - [x] Propagate works inside lambda expressions that declare errors.
+  - [x] Nested propagate expressions type-check when stacked within the same function.
+  - [x] Propagate diagnostics report accurate spans for keyword and callee.
+  - [ ] Guard rejects propagate/guard chaining when error sets differ only by nominal names.
+  - [ ] Guard else branches validate each error type variant individually.
 - [ ] Integration samples (language-spec/*.op):
   - [ ] Add small .op examples that compile/type-check to exercise guard/propagate.
 

@@ -293,6 +293,20 @@ pub enum TypeError {
         callee_span: SourceSpan,
     },
 
+    /// `propagate` was used on a call that does not declare any error types.
+    #[error("`propagate` used on a call that cannot produce errors")]
+    #[diagnostic(
+        code(opalescent::type_system::propagate_on_non_error_expression),
+        help(
+            "Remove `propagate` or update the callee to declare the errors it can emit in its signature"
+        )
+    )]
+    PropagateOnNonErrorExpression {
+        #[label("`propagate` used here")]
+        /// The span covering the `propagate` expression.
+        span: SourceSpan,
+    },
+
     /// A `guard` expression was used on an expression that does not return errors.
     #[error("`guard` used on an expression that cannot produce errors")]
     #[diagnostic(

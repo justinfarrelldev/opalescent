@@ -118,7 +118,7 @@ impl TypeChecker {
     /// This function ensures that:
     /// 1. The guarded expression is a function call that can produce errors.
     /// 2. The success value is correctly bound to a new variable.
-    /// 3. The `else` branch handles the error case.
+    /// 3. The `else` branch type-checks in isolation so that guard scopes remain precise.
     fn type_check_guard_expr(
         &mut self,
         expr: &Expr,
@@ -128,27 +128,45 @@ impl TypeChecker {
         else_branch: &Stmt,
         span: Span,
     ) -> Result<CoreType, TypeError> {
-        let guarded_expr_type = self.type_check_expr(expr)?;
-
-        let (success_type, _error_types) = if let CoreType::Function {
-            return_type,
-            error_types,
-            ..
-        } = guarded_expr_type
-        {
-            if error_types.is_empty() {
+        let (callee_expr, args, call_span) = match *expr {
+            Expr::Call {
+                ref callee,
+                ref args,
+                span: call_span,
+                ..
+            } => (callee.as_ref(), args.as_slice(), call_span),
+            _ => {
                 return Err(TypeError::GuardOnNonErrorExpression {
                     span: TypeError::span_from_span(expr.span()),
                 });
             }
-            (*return_type, error_types)
-        } else {
-            return Err(TypeError::GuardOnNonErrorExpression {
-                span: TypeError::span_from_span(expr.span()),
-            });
         };
 
-        // Check if the explicit type annotation on the binding matches the success type.
+        // Validate the callee is a callable that declares error types.
+        let callee_type = self.type_check_expr(callee_expr)?;
+        let (success_type, _) = match callee_type {
+            CoreType::Function {
+                return_type,
+                error_types,
+                ..
+            } => {
+                if error_types.is_empty() {
+                    return Err(TypeError::GuardOnNonErrorExpression {
+                        span: TypeError::span_from_span(expr.span()),
+                    });
+                }
+                (*return_type, error_types)
+            }
+            _ => {
+                return Err(TypeError::GuardOnNonErrorExpression {
+                    span: TypeError::span_from_span(expr.span()),
+                });
+            }
+        };
+
+        // Reuse existing call validation to ensure argument arity and types align.
+        self.type_check_call_expr(callee_expr, args, call_span)?;
+
         if let Some(annotated_type_ast) = binding_type {
             let annotated_type = Self::ast_type_to_core_type(annotated_type_ast)?;
             if !self.types_compatible(&success_type, &annotated_type) {
@@ -160,13 +178,12 @@ impl TypeChecker {
             }
         }
 
-        // Type-check the else branch. For now, we don't enforce that it handles the error types.
-        // This will be refined when sum types are fully implemented.
-        // We check it in its own scope without the success binding.
+        // Type-check the else branch in an isolated scope. Guard error bindings will be
+        // introduced in a future phase when the syntax supports naming them explicitly.
         self.within_new_scope(|checker| checker.type_check_stmt(else_branch))?;
 
-        // The success binding is available after the guard.
-        // We register it in the current scope.
+        // Register the success binding in the surrounding scope so subsequent statements
+        // can rely on the guarded value. The else branch scope remains isolated.
         let symbol_type = if is_mutable {
             SymbolType::Variable
         } else {
@@ -177,10 +194,10 @@ impl TypeChecker {
             symbol_type,
             core_type: success_type.clone(),
             visibility: Visibility::Private,
-            source_location: span, // This span is for the whole guard expr, which is close enough
+            source_location: span,
         });
 
-        // The type of the guard expression as a whole is the success type.
+        // Guard expressions evaluate to the success type of the guarded call.
         Ok(success_type)
     }
 
@@ -228,6 +245,12 @@ impl TypeChecker {
                 error_types: callee_error_types,
             } = callee_type
             {
+                if callee_error_types.is_empty() {
+                    return Err(TypeError::PropagateOnNonErrorExpression {
+                        span: TypeError::span_from_span(span),
+                    });
+                }
+
                 // Validate the call arguments against the parameters (reuse call typing logic)
                 // We intentionally call the existing checker to enforce argument checks
                 self.type_check_call_expr(callee, args.as_slice(), call.span())?;
@@ -251,14 +274,14 @@ impl TypeChecker {
                 // Propagate expression yields the success type of the inner call
                 Ok(*return_type)
             } else {
-                Err(TypeError::GuardOnNonErrorExpression {
-                    span: TypeError::span_from_span(call.span()),
+                Err(TypeError::PropagateOnNonErrorExpression {
+                    span: TypeError::span_from_span(span),
                 })
             }
         } else {
             // Parser should ensure this path is unreachable; defensively handle anyway.
-            Err(TypeError::GuardOnNonErrorExpression {
-                span: TypeError::span_from_span(call.span()),
+            Err(TypeError::PropagateOnNonErrorExpression {
+                span: TypeError::span_from_span(span),
             })
         }
     }
@@ -591,7 +614,10 @@ impl TypeChecker {
         let return_core = Self::ast_type_to_core_type(return_type)?;
         let return_span = return_type.span();
 
-        self.within_new_scope(|checker| -> Result<(), TypeError> {
+        let core_errors = self.resolve_error_types(error_types, span)?;
+        self.symbol_table.enter_function(core_errors.clone(), span);
+
+        let body_result = self.within_new_scope(|checker| -> Result<(), TypeError> {
             for (param, core_type) in parameters.iter().zip(parameter_types.iter()) {
                 checker.symbol_table.register(SymbolInfo {
                     name: param.name.clone(),
@@ -625,17 +651,12 @@ impl TypeChecker {
                     checker.type_check_statements(statements, Some(&return_core))
                 }
             }
-        })?;
+        });
+
+        self.symbol_table.exit_function();
+        body_result?;
 
         // Map lambda-declared error types into nominal core types
-        let mut core_errors: Vec<CoreType> = Vec::with_capacity(error_types.len());
-        for name in error_types {
-            core_errors.push(CoreType::Generic {
-                name: name.clone(),
-                type_args: Vec::new(),
-            });
-        }
-
         Ok(CoreType::Function {
             parameters: parameter_types,
             return_type: Box::new(return_core),

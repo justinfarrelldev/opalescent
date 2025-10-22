@@ -353,6 +353,31 @@ impl TypeChecker {
         }
     }
 
+    /// Resolve error type names into nominal [`CoreType`]s using the type environment.
+    ///
+    /// This ensures that error declarations reference existing types and produces an
+    /// [`UndeclaredErrorType`](TypeError::UndeclaredErrorType) diagnostic when a name
+    /// cannot be resolved.
+    fn resolve_error_types(
+        &self,
+        error_names: &[String],
+        span: Span,
+    ) -> Result<Vec<CoreType>, TypeError> {
+        let mut resolved = Vec::with_capacity(error_names.len());
+        for name in error_names {
+            match self.environment.lookup_type(name, span) {
+                Ok(core_type) => resolved.push(core_type.clone()),
+                Err(_) => {
+                    return Err(TypeError::UndeclaredErrorType {
+                        name: name.clone(),
+                        span: TypeError::span_from_span(span),
+                    });
+                }
+            }
+        }
+        Ok(resolved)
+    }
+
     /// Validate algebraic data type definitions against the known type environment to ensure all
     /// referenced field and variant types are resolvable.
     ///

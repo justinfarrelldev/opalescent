@@ -52,14 +52,7 @@ impl TypeChecker {
                     .transpose()?
                     .unwrap_or(CoreType::Unit);
 
-                // Map error type names into nominal core types for function signature
-                let mut core_errors: Vec<CoreType> = Vec::with_capacity(error_types.len());
-                for name in error_types {
-                    core_errors.push(CoreType::Generic {
-                        name: name.clone(),
-                        type_args: Vec::new(),
-                    });
-                }
+                let core_errors = self.resolve_error_types(error_types, span)?;
 
                 let function_type = CoreType::Function {
                     parameters: parameter_types,
@@ -100,7 +93,18 @@ impl TypeChecker {
                 }
                 Ok(())
             }
-            Decl::Type { .. } | Decl::Import { .. } => Ok(()),
+            Decl::Type { name, .. } => {
+                // Register nominal type so error declarations can resolve it later.
+                self.environment_mut().register_type(
+                    name.clone(),
+                    CoreType::Generic {
+                        name: name.clone(),
+                        type_args: Vec::new(),
+                    },
+                );
+                Ok(())
+            }
+            Decl::Import { .. } => Ok(()),
         }
     }
 
@@ -158,16 +162,7 @@ impl TypeChecker {
             .transpose()?
             .unwrap_or(CoreType::Unit);
 
-        // Resolve error type names to CoreTypes
-        let mut core_errors = Vec::with_capacity(error_types.len());
-        for name in error_types {
-            // For now, we treat them as nominal types. In a future phase, we would
-            // look them up to ensure they are valid error enums/structs.
-            core_errors.push(CoreType::Generic {
-                name: name.clone(),
-                type_args: Vec::new(),
-            });
-        }
+        let core_errors = self.resolve_error_types(error_types, span)?;
 
         // Enter function context for error propagation checks
         self.symbol_table.enter_function(core_errors, span);

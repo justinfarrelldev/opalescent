@@ -11,8 +11,8 @@ use super::substitution::Substitution;
 use super::symbol_table::{ScopeId, SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::types::{CoreType, TypeVar};
 use crate::ast::{
-    Decl, Expr, Field, HotReloadMetadata, LetBinding, LiteralValue, NodeId, Parameter, Program,
-    Stmt, StringPart, Type, TypeDef, Variant, Visibility as AstVisibility,
+    Decl, Expr, Field, HotReloadMetadata, LambdaBody, LetBinding, LiteralValue, NodeId, Parameter,
+    Program, Stmt, StringPart, Type, TypeDef, Variant, Visibility as AstVisibility,
 };
 use crate::token::{Position, Span};
 
@@ -156,6 +156,25 @@ fn make_function_decl_with_errors(
     }
 }
 
+/// Create a simple unit type declaration for use as an error type placeholder.
+fn make_unit_type_decl(name: &str, id: usize) -> Decl {
+    Decl::Type {
+        name: name.to_owned(),
+        type_def: TypeDef::Alias {
+            target_type: Type::Basic {
+                name: "unit".to_owned(),
+                span: test_span(),
+            },
+            span: test_span(),
+        },
+        visibility: AstVisibility::Private,
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(id),
+        metadata: HotReloadMetadata::for_type_declaration(),
+    }
+}
+
 /// Create a call expression `callee(arg_names...)`.
 fn call_expr(callee_name: &str, arg_names: &[&str], id: usize) -> Expr {
     Expr::Call {
@@ -170,6 +189,26 @@ fn call_expr(callee_name: &str, arg_names: &[&str], id: usize) -> Expr {
 fn propagate_call(call: Expr, id: usize) -> Expr {
     Expr::Propagate {
         call: Box::new(call),
+        span: test_span(),
+        id: node_id(id),
+    }
+}
+
+/// Build a guard expression around a call expression.
+fn guard_call_expr(
+    call: Expr,
+    binding_name: &str,
+    binding_type: Option<Type>,
+    is_mutable: bool,
+    else_branch: Stmt,
+    id: usize,
+) -> Expr {
+    Expr::Guard {
+        expr: Box::new(call),
+        binding_name: binding_name.to_owned(),
+        binding_type,
+        is_mutable,
+        else_branch: Box::new(else_branch),
         span: test_span(),
         id: node_id(id),
     }
@@ -221,7 +260,11 @@ fn test_propagate_succeeds_with_subset_errors() {
         101,
     );
 
-    let program = create_program(vec![inner_fn, outer_fn]);
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 1500),
+        inner_fn,
+        outer_fn,
+    ]);
     let mut checker = TypeChecker::new();
     let result = checker.type_check_program(&program);
     assert!(
@@ -271,7 +314,11 @@ fn test_propagate_fails_outside_error_function() {
         103,
     );
 
-    let program = create_program(vec![inner_fn, outer_fn]);
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 3200),
+        inner_fn,
+        outer_fn,
+    ]);
     let mut checker = TypeChecker::new();
     let result = checker.type_check_program(&program);
     assert!(
@@ -332,7 +379,12 @@ fn test_propagate_fails_when_error_types_mismatch() {
         105,
     );
 
-    let program = create_program(vec![inner_fn, outer_fn]);
+    let program = create_program(vec![
+        make_unit_type_decl("IoError", 4200),
+        make_unit_type_decl("ParseError", 4201),
+        inner_fn,
+        outer_fn,
+    ]);
     let mut checker = TypeChecker::new();
     let result = checker.type_check_program(&program);
     assert!(
@@ -345,6 +397,628 @@ fn test_propagate_fails_when_error_types_mismatch() {
             .iter()
             .any(|e| matches!(e, &TypeError::PropagateErrorMismatch { .. })),
         "expected PropagateErrorMismatch error, got: {errors:?}"
+    );
+}
+
+/// Ensure propagate succeeds when the callee exposes a subset of the caller's error list
+/// and fails when the callee introduces a new error variant.
+#[test]
+fn test_propagate_multiple_error_types_subset_and_superset() {
+    let subset_program = create_program(vec![
+        make_unit_type_decl("ParseError", 6100),
+        make_unit_type_decl("IoError", 6101),
+        make_unit_type_decl("NetworkError", 6102),
+        make_function_decl_with_errors(
+            "decode_record",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError", "IoError"],
+            return_stmt(literal_expr(LiteralValue::Integer(1), 6103), 6104),
+            6105,
+        ),
+        make_function_decl_with_errors(
+            "subset_handler",
+            vec![make_parameter("payload", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError", "IoError", "NetworkError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Let {
+                        binding: LetBinding {
+                            name: "value".to_owned(),
+                            type_annotation: Some(int_type("int32")),
+                            is_mutable: false,
+                            span: test_span(),
+                            id: node_id(6106),
+                        },
+                        initializer: Some(propagate_call(
+                            call_expr("decode_record", &["payload"], 6107),
+                            6108,
+                        )),
+                        span: test_span(),
+                        id: node_id(6109),
+                    },
+                    return_stmt(identifier_expr("value", 6110), 6111),
+                ],
+                span: test_span(),
+                id: node_id(6112),
+            },
+            6113,
+        ),
+    ]);
+
+    let mut subset_checker = TypeChecker::new();
+    let subset_result = subset_checker.type_check_program(&subset_program);
+    assert!(
+        subset_result.is_ok(),
+        "subset case should succeed: {subset_result:?}"
+    );
+
+    let superset_program = create_program(vec![
+        make_unit_type_decl("ParseError", 6200),
+        make_unit_type_decl("IoError", 6201),
+        make_function_decl_with_errors(
+            "decode_record",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError", "IoError"],
+            return_stmt(literal_expr(LiteralValue::Integer(1), 6202), 6203),
+            6204,
+        ),
+        make_function_decl_with_errors(
+            "superset_handler",
+            vec![make_parameter("payload", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Let {
+                        binding: LetBinding {
+                            name: "value".to_owned(),
+                            type_annotation: Some(int_type("int32")),
+                            is_mutable: false,
+                            span: test_span(),
+                            id: node_id(6205),
+                        },
+                        initializer: Some(propagate_call(
+                            call_expr("decode_record", &["payload"], 6206),
+                            6207,
+                        )),
+                        span: test_span(),
+                        id: node_id(6208),
+                    },
+                    return_stmt(identifier_expr("value", 6209), 6210),
+                ],
+                span: test_span(),
+                id: node_id(6211),
+            },
+            6212,
+        ),
+    ]);
+
+    let mut superset_checker = TypeChecker::new();
+    let superset_result = superset_checker
+        .type_check_program(&superset_program)
+        .expect_err("superset should fail due to missing IoError");
+    assert!(
+        superset_result
+            .into_iter()
+            .any(|error| matches!(error, TypeError::PropagateErrorMismatch { .. })),
+        "expected PropagateErrorMismatch when propagated errors exceed caller declaration"
+    );
+}
+
+/// Propagate must reject calls to functions that do not declare error types.
+#[test]
+fn test_propagate_rejects_empty_error_list() {
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 6300),
+        make_function_decl_with_errors(
+            "always_ok",
+            vec![make_parameter("value", int_type("int32"))],
+            Some(int_type("int32")),
+            Vec::new(),
+            return_stmt(identifier_expr("value", 6301), 6302),
+            6303,
+        ),
+        make_function_decl_with_errors(
+            "caller",
+            vec![make_parameter("value", int_type("int32"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Let {
+                        binding: LetBinding {
+                            name: "result".to_owned(),
+                            type_annotation: Some(int_type("int32")),
+                            is_mutable: false,
+                            span: test_span(),
+                            id: node_id(6304),
+                        },
+                        initializer: Some(propagate_call(
+                            call_expr("always_ok", &["value"], 6305),
+                            6306,
+                        )),
+                        span: test_span(),
+                        id: node_id(6307),
+                    },
+                    return_stmt(identifier_expr("result", 6308), 6309),
+                ],
+                span: test_span(),
+                id: node_id(6310),
+            },
+            6311,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("propagate should reject empty error lists");
+    assert!(
+        errors
+            .into_iter()
+            .any(|error| matches!(error, TypeError::PropagateOnNonErrorExpression { .. })),
+        "expected PropagateOnNonErrorExpression error when propagating from zero-error callee"
+    );
+}
+
+/// Nested propagate expressions should type-check when each layer respects error subsets.
+#[test]
+fn test_propagate_nested_expressions() {
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 6400),
+        make_function_decl_with_errors(
+            "parse_int",
+            vec![make_parameter("value", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(7), 6401), 6402),
+            6403,
+        ),
+        make_function_decl_with_errors(
+            "double_checked",
+            vec![make_parameter("value", int_type("int32"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(identifier_expr("value", 6404), 6405),
+            6406,
+        ),
+        make_function_decl_with_errors(
+            "pipeline",
+            vec![make_parameter("raw", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Let {
+                        binding: LetBinding {
+                            name: "parsed".to_owned(),
+                            type_annotation: Some(int_type("int32")),
+                            is_mutable: false,
+                            span: test_span(),
+                            id: node_id(6407),
+                        },
+                        initializer: Some(propagate_call(
+                            call_expr("parse_int", &["raw"], 6408),
+                            6409,
+                        )),
+                        span: test_span(),
+                        id: node_id(6410),
+                    },
+                    Stmt::Let {
+                        binding: LetBinding {
+                            name: "doubled".to_owned(),
+                            type_annotation: Some(int_type("int32")),
+                            is_mutable: false,
+                            span: test_span(),
+                            id: node_id(6411),
+                        },
+                        initializer: Some(propagate_call(
+                            Expr::Call {
+                                callee: Box::new(identifier_expr("double_checked", 6412)),
+                                args: vec![propagate_call(
+                                    call_expr("parse_int", &["raw"], 6413),
+                                    6414,
+                                )],
+                                span: test_span(),
+                                id: node_id(6415),
+                            },
+                            6416,
+                        )),
+                        span: test_span(),
+                        id: node_id(6417),
+                    },
+                    return_stmt(identifier_expr("doubled", 6418), 6419),
+                ],
+                span: test_span(),
+                id: node_id(6420),
+            },
+            6421,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "nested propagate expressions should succeed: {result:?}"
+    );
+}
+
+/// Ensure error type name mismatches are treated as incompatible even if their structure matches.
+#[test]
+fn test_propagate_rejects_structurally_identical_error_names() {
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 6500),
+        make_unit_type_decl("ParseProblem", 6501),
+        make_function_decl_with_errors(
+            "parse_problematic",
+            vec![make_parameter("value", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseProblem"],
+            return_stmt(literal_expr(LiteralValue::Integer(42), 6502), 6503),
+            6504,
+        ),
+        make_function_decl_with_errors(
+            "parse_wrapper",
+            vec![make_parameter("value", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Let {
+                        binding: LetBinding {
+                            name: "parsed".to_owned(),
+                            type_annotation: Some(int_type("int32")),
+                            is_mutable: false,
+                            span: test_span(),
+                            id: node_id(6505),
+                        },
+                        initializer: Some(propagate_call(
+                            call_expr("parse_problematic", &["value"], 6506),
+                            6507,
+                        )),
+                        span: test_span(),
+                        id: node_id(6508),
+                    },
+                    return_stmt(identifier_expr("parsed", 6509), 6510),
+                ],
+                span: test_span(),
+                id: node_id(6511),
+            },
+            6512,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("propagate should fail when error names differ");
+    assert!(
+        errors
+            .into_iter()
+            .any(|error| matches!(error, TypeError::PropagateErrorMismatch { .. })),
+        "expected PropagateErrorMismatch when callee error name differs"
+    );
+}
+
+/// Propagate should be permitted inside lambdas that declare compatible error sets.
+#[test]
+fn test_propagate_inside_lambda_with_errors() {
+    let lambda = Expr::Lambda {
+        generic_params: None,
+        params: vec![make_parameter("input", int_type("string"))],
+        return_type: int_type("int32"),
+        error_types: vec!["ParseError".to_owned()],
+        body: LambdaBody::Block(vec![Stmt::Return {
+            value: Some(propagate_call(
+                call_expr("parse_value", &["input"], 6601),
+                6602,
+            )),
+            span: test_span(),
+            id: node_id(6603),
+        }]),
+        captured_variables: Vec::new(),
+        metadata: Box::new(HotReloadMetadata::for_expression()),
+        span: test_span(),
+        id: node_id(6604),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 6600),
+        make_function_decl_with_errors(
+            "parse_value",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(5), 6605), 6606),
+            6607,
+        ),
+        Decl::Let {
+            binding: LetBinding {
+                name: "handler".to_owned(),
+                type_annotation: Some(Type::Function {
+                    parameters: vec![int_type("string")],
+                    return_type: Box::new(int_type("int32")),
+                    errors: Some(vec![Type::Basic {
+                        name: "ParseError".to_owned(),
+                        span: test_span(),
+                    }]),
+                    span: test_span(),
+                }),
+                is_mutable: false,
+                span: test_span(),
+                id: node_id(6608),
+            },
+            initializer: lambda,
+            visibility: AstVisibility::Private,
+            doc_comment: None,
+            span: test_span(),
+            id: node_id(6609),
+            metadata: HotReloadMetadata::for_let_declaration(),
+        },
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "lambda propagate should succeed: {result:?}"
+    );
+}
+
+/// Propagate diagnostics should point to both the caller signature and the failing callee call site.
+#[test]
+fn test_propagate_error_span_accuracy() {
+    let propagate_span = span_with_offset(100, 9);
+    let call_span = span_with_offset(120, 8);
+
+    let failing_call = Expr::Call {
+        callee: Box::new(identifier_expr("read_file", 6701)),
+        args: vec![identifier_expr("path", 6702)],
+        span: call_span,
+        id: node_id(6703),
+    };
+    let failing_propagate = Expr::Propagate {
+        call: Box::new(failing_call),
+        span: propagate_span,
+        id: node_id(6704),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 6700),
+        make_unit_type_decl("IoError", 6705),
+        make_function_decl_with_errors(
+            "read_file",
+            vec![make_parameter("path", int_type("string"))],
+            Some(int_type("string")),
+            vec!["IoError"],
+            return_stmt(
+                literal_expr(LiteralValue::String(String::new()), 6706),
+                6707,
+            ),
+            6708,
+        ),
+        make_function_decl_with_errors(
+            "load_config",
+            vec![make_parameter("path", int_type("string"))],
+            Some(int_type("string")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![Stmt::Return {
+                    value: Some(failing_propagate),
+                    span: test_span(),
+                    id: node_id(6709),
+                }],
+                span: span_with_offset(10, 5),
+                id: node_id(6710),
+            },
+            6711,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("propagate mismatch should emit diagnostic");
+    let mut found = false;
+    for error in errors {
+        if let TypeError::PropagateErrorMismatch {
+            span, callee_span, ..
+        } = error
+        {
+            assert_eq!(
+                span,
+                TypeError::span_from_span(program.declarations[3].span_const()),
+                "function span should map to TypeError span"
+            );
+            assert_eq!(
+                callee_span,
+                TypeError::span_from_span(call_span),
+                "callee span should reference call site"
+            );
+            found = true;
+        }
+    }
+    assert!(
+        found,
+        "expected PropagateErrorMismatch with span information"
+    );
+}
+
+/// Guard must operate on fallible call expressions; guarding identifiers should be rejected.
+#[test]
+fn test_guard_requires_call_expression() {
+    let guard_expr = Expr::Guard {
+        expr: Box::new(identifier_expr("parse_value", 6800)),
+        binding_name: "value".to_owned(),
+        binding_type: Some(int_type("int32")),
+        is_mutable: false,
+        else_branch: Box::new(Stmt::Expression {
+            expr: literal_expr(LiteralValue::Integer(0), 6801),
+            span: test_span(),
+            id: node_id(6802),
+        }),
+        span: test_span(),
+        id: node_id(6803),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 6804),
+        make_function_decl_with_errors(
+            "parse_value",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(1), 6805), 6806),
+            6807,
+        ),
+        make_function_decl_with_errors(
+            "wrapper",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Expression {
+                        expr: guard_expr,
+                        span: test_span(),
+                        id: node_id(6808),
+                    },
+                    return_stmt(literal_expr(LiteralValue::Integer(2), 6809), 6810),
+                ],
+                span: test_span(),
+                id: node_id(6811),
+            },
+            6812,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("guarding identifiers should fail");
+    assert!(
+        errors
+            .into_iter()
+            .any(|error| matches!(error, TypeError::GuardOnNonErrorExpression { .. })),
+        "expected GuardOnNonErrorExpression when guarding a non-call"
+    );
+}
+
+/// Guard should reject callees that cannot error.
+#[test]
+fn test_guard_rejects_empty_error_list() {
+    let guard_expr = guard_call_expr(
+        call_expr("always_ok", &["input"], 6900),
+        "value",
+        Some(int_type("int32")),
+        false,
+        Stmt::Expression {
+            expr: literal_expr(LiteralValue::Integer(0), 6901),
+            span: test_span(),
+            id: node_id(6902),
+        },
+        6903,
+    );
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 6904),
+        make_function_decl_with_errors(
+            "always_ok",
+            vec![make_parameter("input", int_type("int32"))],
+            Some(int_type("int32")),
+            Vec::new(),
+            return_stmt(identifier_expr("input", 6905), 6906),
+            6907,
+        ),
+        make_function_decl_with_errors(
+            "caller",
+            vec![make_parameter("input", int_type("int32"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Expression {
+                        expr: guard_expr,
+                        span: test_span(),
+                        id: node_id(6908),
+                    },
+                    return_stmt(identifier_expr("input", 6909), 6910),
+                ],
+                span: test_span(),
+                id: node_id(6911),
+            },
+            6912,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("guard should reject callees without errors");
+    assert!(
+        errors
+            .into_iter()
+            .any(|error| matches!(error, TypeError::GuardOnNonErrorExpression { .. })),
+        "expected GuardOnNonErrorExpression when guarding zero-error callee"
+    );
+}
+
+/// Guard success bindings should be available after the guard statement in the surrounding scope.
+#[test]
+fn test_guard_binding_available_after_guard() {
+    let guard_expr = guard_call_expr(
+        call_expr("parse_value", &["input"], 7000),
+        "value",
+        Some(int_type("int32")),
+        false,
+        Stmt::Expression {
+            expr: literal_expr(LiteralValue::Integer(0), 7001),
+            span: test_span(),
+            id: node_id(7002),
+        },
+        7003,
+    );
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 7004),
+        make_function_decl_with_errors(
+            "parse_value",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(8), 7005), 7006),
+            7007,
+        ),
+        make_function_decl_with_errors(
+            "use_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Expression {
+                        expr: guard_expr,
+                        span: test_span(),
+                        id: node_id(7008),
+                    },
+                    return_stmt(identifier_expr("value", 7009), 7010),
+                ],
+                span: test_span(),
+                id: node_id(7011),
+            },
+            7012,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "guard binding should be usable after guard: {result:?}"
     );
 }
 
