@@ -92,8 +92,7 @@ impl Parser {
 
         // Expect 'into'
         if !self.check(&TokenType::Into) {
-            let error = ParseError::MissingToken {
-                expected: "keyword 'into'".to_owned(),
+            let error = ParseError::GuardMissingIntoClause {
                 span: ParseError::span_from_token(self.current_token()),
             };
             self.recover_guard_clause();
@@ -135,8 +134,7 @@ impl Parser {
 
         // Expect 'else'
         if !self.check(&TokenType::Else) {
-            let error = ParseError::MissingToken {
-                expected: "keyword 'else'".to_owned(),
+            let error = ParseError::GuardMissingElseClause {
                 span: ParseError::span_from_token(self.current_token()),
             };
             self.recover_guard_clause();

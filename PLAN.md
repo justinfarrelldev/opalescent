@@ -179,13 +179,13 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 
 ##### 1. Error Handling Language Features (⚠️ HIGHEST PRIORITY - BLOCKS ALL PHASE 2)
 
-- [ ] **Error Type Declarations in Function Signatures**
+- [x] **Error Type Declarations in Function Signatures**
   - [x] Parse `errors ErrorType1, ErrorType2` clause in function declarations
   - [x] Parse `errors` clause in lambda expressions
   - [x] Store error types in `Decl::Function` AST node
   - [x] Store error types in `Expr::Lambda` AST node
   - [x] Validate error type names exist in type system
-  - [ ] Add error types to function signature documentation
+  - [x] Add error types to function signature documentation
 - [ ] **Guard Expression Implementation**
   - [x] Add `Expr::Guard` variant to AST with: `expr`, `binding_name`, `else_branch`
   - [x] Parse `guard expr into name else handler` syntax
@@ -420,7 +420,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Lambda expressions (f(): type => ...)
 - [x] Lambda body normalization (expression vs block)
 - [x] Type checking for lambda bodies
-- [ ] Error type declarations in function signatures (see Phase 2 Blocker #1)
+- [x] Error type declarations in function signatures (see Phase 2 Blocker #1)
 - [ ] Multiple return type support (see Phase 2 Blocker #2)
 - [ ] Function call resolution (basic call type checking complete; advanced resolution pending)
 - [ ] Entry point validation (single entry keyword)

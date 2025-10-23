@@ -6,6 +6,7 @@
 extern crate alloc;
 use crate::ast::{Field, HotReloadMetadata, ImportItem, LetBinding, Parameter, Variant};
 use crate::token::Span;
+use alloc::string::String;
 
 impl Parameter {
     /// Retrieve the source span associated with this parameter in const contexts.
@@ -18,6 +19,16 @@ impl Parameter {
     #[must_use]
     pub const fn span(&self) -> Span {
         self.span_const()
+    }
+
+    /// Render the parameter as `name: Type` for signature and documentation generation.
+    #[must_use]
+    pub fn to_signature_string(&self) -> String {
+        let mut result = String::new();
+        result.push_str(&self.name);
+        result.push_str(": ");
+        result.push_str(&self.param_type.to_signature_string());
+        result
     }
 }
 

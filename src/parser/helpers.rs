@@ -6,8 +6,11 @@
 //! - Token consumption (`consume`)
 //! - Error recovery (`synchronize`, `skip_newlines_and_comments`)
 
+extern crate alloc;
+use crate::ast::{Parameter, Type};
 use crate::parser::{ParseError, ParseResult, Parser};
 use crate::token::{Token, TokenType};
+use alloc::string::String;
 use core::mem;
 
 impl Parser {
@@ -215,5 +218,46 @@ impl Parser {
 
             self.advance();
         }
+    }
+
+    /// Construct the canonical function signature string used in documentation metadata.
+    ///
+    /// The output mirrors Opalescent syntax, including parameter types, optional return type,
+    /// and declared error clauses so that downstream tooling receives an exact contract view.
+    #[must_use]
+    pub(super) fn build_function_signature_section(
+        name: &str,
+        parameters: &[Parameter],
+        return_type: Option<&Type>,
+        error_types: &[String],
+    ) -> String {
+        let mut signature = String::from(name);
+        signature.push_str(" = f(");
+
+        for (index, parameter) in parameters.iter().enumerate() {
+            if index > 0 {
+                signature.push_str(", ");
+            }
+            signature.push_str(&parameter.to_signature_string());
+        }
+
+        signature.push(')');
+
+        if let Some(return_ty) = return_type {
+            signature.push_str(": ");
+            signature.push_str(&return_ty.to_signature_string());
+        }
+
+        if !error_types.is_empty() {
+            signature.push_str(" errors ");
+            for (index, error) in error_types.iter().enumerate() {
+                if index > 0 {
+                    signature.push_str(", ");
+                }
+                signature.push_str(error);
+            }
+        }
+
+        signature
     }
 }

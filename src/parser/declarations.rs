@@ -3,12 +3,14 @@
 //! This module contains all methods related to parsing top-level declarations,
 //! including function declarations, type declarations, import declarations, and let declarations.
 //! These methods are part of the Parser implementation but are organized here for modularity.
+extern crate alloc;
 use super::{ParseError, ParseResult, Parser, next_node_id};
 use crate::ast::{
     AstNode, Decl, Documentation, Field, HotReloadMetadata, ImportItem, LetBinding, Parameter,
     Stmt, Type, TypeDef, Variant, Visibility,
 };
 use crate::token::{Span, TokenType};
+use alloc::string::String;
 
 impl Parser {
     /// Parse a top-level declaration
@@ -120,7 +122,7 @@ impl Parser {
         &mut self,
         visibility: Visibility,
         is_entry: bool,
-        doc_comment: Option<Documentation>,
+        mut doc_comment: Option<Documentation>,
     ) -> ParseResult<Decl> {
         let start_span = self.current_token().span;
 
@@ -169,6 +171,18 @@ impl Parser {
 
         // Parse optional errors clause
         let error_types = self.parse_error_types_clause()?;
+
+        if let Some(documentation) = doc_comment.as_mut() {
+            let signature = Self::build_function_signature_section(
+                &name,
+                &parameters,
+                return_type.as_ref(),
+                &error_types,
+            );
+            documentation
+                .sections
+                .insert(String::from("Signature"), signature);
+        }
 
         // Expect '=>'
         self.consume(&TokenType::Arrow, "Expected '=>' after function signature")?;

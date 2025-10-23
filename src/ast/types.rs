@@ -71,6 +71,81 @@ impl Type {
     pub const fn span(&self) -> Span {
         self.span_const()
     }
+
+    /// Render the type into its canonical signature representation used for documentation.
+    ///
+    /// This canonical form mirrors Opalescent source syntax so that generated documentation
+    /// remains faithful to the user-written code. Complex types (generics, arrays, functions)
+    /// are rendered recursively to ensure nested constructs are represented accurately.
+    #[expect(
+        clippy::pattern_type_mismatch,
+        reason = "Match ergonomics bind enum fields by reference on &Type; explicit deref would clone the entire type unnecessarily."
+    )]
+    #[must_use]
+    pub fn to_signature_string(&self) -> String {
+        match self {
+            Self::Basic { name: name_ref, .. } => name_ref.clone(),
+            Self::Generic {
+                name: name_ref,
+                type_args: type_args_ref,
+                ..
+            } => {
+                if type_args_ref.is_empty() {
+                    return name_ref.clone();
+                }
+
+                let mut result = String::from(name_ref.as_str());
+                result.push('<');
+                for (index, arg) in type_args_ref.iter().enumerate() {
+                    if index > 0 {
+                        result.push_str(", ");
+                    }
+                    result.push_str(&arg.to_signature_string());
+                }
+                result.push('>');
+                result
+            }
+            Self::Array {
+                element_type: element_type_ref,
+                ..
+            } => {
+                let mut result = element_type_ref.to_signature_string();
+                result.push_str("[]");
+                result
+            }
+            Self::Function {
+                parameters: parameters_ref,
+                return_type: return_type_ref,
+                errors: errors_ref,
+                ..
+            } => {
+                let mut result = String::from("f(");
+                for (index, param_type) in parameters_ref.iter().enumerate() {
+                    if index > 0 {
+                        result.push_str(", ");
+                    }
+                    result.push_str(&param_type.to_signature_string());
+                }
+                result.push(')');
+                result.push_str(": ");
+                result.push_str(&return_type_ref.to_signature_string());
+
+                if let Some(error_list) = errors_ref.as_ref() {
+                    if !error_list.is_empty() {
+                        result.push_str(" errors ");
+                        for (index, error_type) in error_list.iter().enumerate() {
+                            if index > 0 {
+                                result.push_str(", ");
+                            }
+                            result.push_str(&error_type.to_signature_string());
+                        }
+                    }
+                }
+
+                result
+            }
+        }
+    }
 }
 
 /// Function parameters

@@ -102,7 +102,7 @@ Add first-class error declarations on functions and lambdas, a guard construct f
 - [x] Parse errors (with suggestions):
   - [x] Missing error names after `errors` clause
   - [x] `propagate` without call expression
-  - [ ] `guard` missing `into` or `else`
+  - [x] `guard` missing `into` or `else`
 
 ### Tests (TDD — minimum 3 per checkbox)
 
@@ -128,6 +128,7 @@ Add first-class error declarations on functions and lambdas, a guard construct f
 ### Documentation
 
 - [x] Update inline docs for all new AST and type system items (safety/comments, rationale for Vec ordering of error types and deterministic iteration).
+- [x] Populate function documentation signature sections with declared error clauses for accurate tooling output.
 - [x] Update PLAN.md references when items are finished; cross-link to this plan.
 - [x] Note architectural decision: use `alloc::collections::BTreeMap` and `Vec` for deterministic order; no_std compatibility preserved (no std-only features in core modules).
 

@@ -162,30 +162,24 @@ fn test_parse_propagate_rejects_non_call() {
 }
 
 #[test]
-fn test_parse_guard_missing_into_reports_missing_token() {
+fn test_parse_guard_missing_into_reports_guard_specific_error() {
     let result = parse_expression_from_string("guard read_line() value else 0");
     match result {
-        Err(ParseError::MissingToken { expected, .. }) => {
-            assert!(
-                expected.contains("into"),
-                "expected missing-token diagnostic mentioning 'into', found: {expected}"
-            );
+        Err(ParseError::GuardMissingIntoClause { .. }) => {}
+        other => {
+            panic!("missing 'into' should emit a GuardMissingIntoClause error, received: {other:?}")
         }
-        other => panic!("missing 'into' should emit a MissingToken error, received: {other:?}"),
     }
 }
 
 #[test]
-fn test_parse_guard_missing_else_reports_missing_token() {
+fn test_parse_guard_missing_else_reports_guard_specific_error() {
     let result = parse_expression_from_string("guard read_line() into value 0");
     match result {
-        Err(ParseError::MissingToken { expected, .. }) => {
-            assert!(
-                expected.contains("else"),
-                "expected missing-token diagnostic mentioning 'else', found: {expected}"
-            );
+        Err(ParseError::GuardMissingElseClause { .. }) => {}
+        other => {
+            panic!("missing 'else' should emit a GuardMissingElseClause error, received: {other:?}")
         }
-        other => panic!("missing 'else' should emit a MissingToken error, received: {other:?}"),
     }
 }
 
@@ -213,17 +207,14 @@ let after = f(): int32 => {
         "guard missing 'else' should produce exactly one parse error after recovery"
     );
 
-    if let Some(ParseError::MissingToken { expected, .. }) = errors.errors.first() {
-        assert!(
-            expected.contains("else"),
-            "guard recovery should report missing 'else', found expected token description: {expected}"
-        );
-    } else {
-        panic!(
-            "expected the recorded parse error to be missing 'else', found: {:?}",
-            errors.errors
-        );
-    }
+    assert!(
+        matches!(
+            errors.errors.first(),
+            Some(ParseError::GuardMissingElseClause { .. })
+        ),
+        "expected the recorded parse error to be GuardMissingElseClause, found: {:?}",
+        errors.errors
+    );
 }
 
 fn identifier_strategy() -> impl Strategy<Value = String> {
@@ -2168,6 +2159,60 @@ fn test_documentation_preserves_raw() {
         documentation
             .raw
             .contains("Detail: Important for downstream tools.")
+    );
+}
+
+#[test]
+fn test_function_signature_documentation_without_errors_clause() {
+    let source = "##\n  Description: Document signature without errors.\n##\npublic compute = f(value: int32): int32 => {\n    return value\n}";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    let documentation = match &program.declarations[0] {
+        Decl::Function { doc_comment, .. } => doc_comment.as_ref().expect("Doc comment missing"),
+        _ => panic!("Expected function declaration"),
+    };
+
+    let signature = documentation
+        .sections
+        .get("Signature")
+        .expect("Signature section missing");
+    assert_eq!(signature, "compute = f(value: int32): int32");
+}
+
+#[test]
+fn test_function_signature_documentation_with_single_error() {
+    let source = "##\n  Description: Document signature with single error.\n##\npublic parse = f(raw: string): int32 errors ParseError => {\n    return 0\n}";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    let documentation = match &program.declarations[0] {
+        Decl::Function { doc_comment, .. } => doc_comment.as_ref().expect("Doc comment missing"),
+        _ => panic!("Expected function declaration"),
+    };
+
+    let signature = documentation
+        .sections
+        .get("Signature")
+        .expect("Signature section missing");
+    assert_eq!(signature, "parse = f(raw: string): int32 errors ParseError");
+}
+
+#[test]
+fn test_function_signature_documentation_with_multiple_errors() {
+    let source = "##\n  Description: Document signature with multiple errors.\n##\npublic read = f(path: string): string errors IoError, ParseError => {\n    return \"data\"\n}";
+
+    let program = parse_program_from_string(source).expect("Program should parse");
+    let documentation = match &program.declarations[0] {
+        Decl::Function { doc_comment, .. } => doc_comment.as_ref().expect("Doc comment missing"),
+        _ => panic!("Expected function declaration"),
+    };
+
+    let signature = documentation
+        .sections
+        .get("Signature")
+        .expect("Signature section missing");
+    assert_eq!(
+        signature,
+        "read = f(path: string): string errors IoError, ParseError"
     );
 }
 

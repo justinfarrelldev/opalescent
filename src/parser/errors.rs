@@ -41,6 +41,32 @@ pub enum ParseError {
         span: SourceSpan,
     },
 
+    /// Guard expression is missing its required `into` clause
+    #[error("Guard expression is missing required `into` clause")]
+    #[diagnostic(
+        code(opalescent::parser::guard_missing_into_clause),
+        help(
+            "Add `into <binding>` before the guard's `else` handler to capture the success value"
+        )
+    )]
+    GuardMissingIntoClause {
+        #[label("`into` clause expected here")]
+        /// Source span showing where the `into` clause should appear
+        span: SourceSpan,
+    },
+
+    /// Guard expression is missing its required `else` clause
+    #[error("Guard expression is missing required `else` clause")]
+    #[diagnostic(
+        code(opalescent::parser::guard_missing_else_clause),
+        help("Provide an `else` handler so the guard can respond to error results")
+    )]
+    GuardMissingElseClause {
+        #[label("`else` clause expected here")]
+        /// Source span showing where the `else` clause should appear
+        span: SourceSpan,
+    },
+
     /// The syntax is invalid according to the language grammar
     #[error("Invalid syntax: {message}")]
     #[diagnostic(
