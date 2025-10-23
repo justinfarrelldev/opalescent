@@ -91,7 +91,15 @@ impl Parser {
         let guarded_expr = self.parse_precedence(Precedence::Assignment)?;
 
         // Expect 'into'
-        self.consume(&TokenType::Into, "Expected 'into' in guard expression")?;
+        if !self.check(&TokenType::Into) {
+            let error = ParseError::MissingToken {
+                expected: "keyword 'into'".to_owned(),
+                span: ParseError::span_from_token(self.current_token()),
+            };
+            self.recover_guard_clause();
+            return Err(error);
+        }
+        self.advance();
 
         // Parse binding name
         let (binding_name, _name_span) = if self.check_identifier() {
@@ -126,7 +134,15 @@ impl Parser {
         };
 
         // Expect 'else'
-        self.consume(&TokenType::Else, "Expected 'else' in guard expression")?;
+        if !self.check(&TokenType::Else) {
+            let error = ParseError::MissingToken {
+                expected: "keyword 'else'".to_owned(),
+                span: ParseError::span_from_token(self.current_token()),
+            };
+            self.recover_guard_clause();
+            return Err(error);
+        }
+        self.advance();
 
         // Handler can be a block or a single expression wrapped into a statement
         let else_stmt: Stmt = if self.check(&TokenType::LeftBrace) {
@@ -156,6 +172,23 @@ impl Parser {
             span: full_span,
             id: next_node_id(),
         })
+    }
+
+    /// Recover parser position after a malformed guard clause.
+    ///
+    /// This method advances the token stream until a likely statement boundary so
+    /// that subsequent parsing can resume without cascading errors. We stop at
+    /// semicolons, block terminators, or newline sentinels, matching the
+    /// language's statement separators.
+    fn recover_guard_clause(&mut self) {
+        while !self.is_at_end() {
+            match self.current_token().token_type {
+                TokenType::RightBrace | TokenType::Newline | TokenType::EndOfFile => break,
+                _ => {
+                    self.advance();
+                }
+            }
+        }
     }
 
     /// Parse a propagate expression: `propagate <call_expr>`

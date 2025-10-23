@@ -55,7 +55,7 @@ Add first-class error declarations on functions and lambdas, a guard construct f
   - [x] Produce `Expr::Propagate` with inner call.
 - [x] Error recovery:
   - [x] If `errors` is present without any types, emit a specific parse error with suggestion.
-  - [ ] If guard is missing `into` or `else`, emit error and attempt to synchronize at `;` or block end.
+  - [x] If guard is missing `into` or `else`, emit error and attempt to synchronize at `;` or block end.
 
 ### Type system changes
 

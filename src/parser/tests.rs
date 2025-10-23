@@ -162,9 +162,68 @@ fn test_parse_propagate_rejects_non_call() {
 }
 
 #[test]
-fn test_parse_guard_missing_into_errors() {
+fn test_parse_guard_missing_into_reports_missing_token() {
     let result = parse_expression_from_string("guard read_line() value else 0");
-    assert!(result.is_err(), "missing 'into' should be a parse error");
+    match result {
+        Err(ParseError::MissingToken { expected, .. }) => {
+            assert!(
+                expected.contains("into"),
+                "expected missing-token diagnostic mentioning 'into', found: {expected}"
+            );
+        }
+        other => panic!("missing 'into' should emit a MissingToken error, received: {other:?}"),
+    }
+}
+
+#[test]
+fn test_parse_guard_missing_else_reports_missing_token() {
+    let result = parse_expression_from_string("guard read_line() into value 0");
+    match result {
+        Err(ParseError::MissingToken { expected, .. }) => {
+            assert!(
+                expected.contains("else"),
+                "expected missing-token diagnostic mentioning 'else', found: {expected}"
+            );
+        }
+        other => panic!("missing 'else' should emit a MissingToken error, received: {other:?}"),
+    }
+}
+
+#[test]
+fn test_guard_missing_else_recovers_without_cascading_errors() {
+    let source = "\
+let parse = f(): int32 errors ParseError => {
+    guard read_line() into value
+    return 42
+}
+
+let after = f(): int32 => {
+    return 0
+}
+";
+
+    let lexer = Lexer::new(source);
+    let (tokens, _) = lexer.tokenize();
+    let parser = Parser::new(tokens);
+    let (_program, errors) = parser.parse();
+
+    assert_eq!(
+        errors.errors.len(),
+        1,
+        "guard missing 'else' should produce exactly one parse error after recovery"
+    );
+
+    if let Some(ParseError::MissingToken { expected, .. }) = errors.errors.first() {
+        assert!(
+            expected.contains("else"),
+            "guard recovery should report missing 'else', found expected token description: {expected}"
+        );
+    } else {
+        panic!(
+            "expected the recorded parse error to be missing 'else', found: {:?}",
+            errors.errors
+        );
+    }
 }
 
 fn identifier_strategy() -> impl Strategy<Value = String> {
