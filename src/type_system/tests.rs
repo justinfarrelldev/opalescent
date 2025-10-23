@@ -848,6 +848,74 @@ fn test_propagate_error_span_accuracy() {
     );
 }
 
+/// Propagate error mismatch diagnostics should render human-readable error names.
+#[test]
+fn test_propagate_error_mismatch_reports_readable_types() {
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 6750),
+        make_unit_type_decl("IoError", 6751),
+        make_function_decl_with_errors(
+            "read_file",
+            vec![make_parameter("path", int_type("string"))],
+            Some(int_type("string")),
+            vec!["IoError"],
+            return_stmt(
+                literal_expr(LiteralValue::String(String::new()), 6752),
+                6753,
+            ),
+            6754,
+        ),
+        make_function_decl_with_errors(
+            "load_config",
+            vec![make_parameter("path", int_type("string"))],
+            Some(int_type("string")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![Stmt::Return {
+                    value: Some(propagate_call(
+                        call_expr("read_file", &["path"], 6755),
+                        6756,
+                    )),
+                    span: test_span(),
+                    id: node_id(6757),
+                }],
+                span: test_span(),
+                id: node_id(6758),
+            },
+            6759,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("propagate mismatch should emit readable diagnostic");
+
+    let mismatch = errors
+        .into_iter()
+        .find_map(|error| match error {
+            TypeError::PropagateErrorMismatch { .. } => Some(error),
+            _ => None,
+        })
+        .expect("expected PropagateErrorMismatch diagnostic");
+
+    if let TypeError::PropagateErrorMismatch {
+        expected, found, ..
+    } = mismatch
+    {
+        assert_eq!(
+            expected.as_str(),
+            "ParseError",
+            "caller error list should be user-facing"
+        );
+        assert_eq!(
+            found.as_str(),
+            "IoError",
+            "callee error list should be user-facing"
+        );
+    }
+}
+
 /// Guard must operate on fallible call expressions; guarding identifiers should be rejected.
 #[test]
 fn test_guard_requires_call_expression() {
@@ -1430,6 +1498,391 @@ fn test_guard_statement_allows_block_handler() {
     assert!(
         result.is_ok(),
         "block else handler should be permitted: {result:?}"
+    );
+}
+
+/// Guard else branches must not introduce new error types via nested guard expressions.
+#[test]
+fn test_guard_else_rejects_chained_guard_with_mismatched_errors() {
+    let nested_guard = guard_call_expr(
+        call_expr("load_defaults", &[], 7401),
+        "fallback",
+        Some(int_type("int32")),
+        false,
+        Stmt::Expression {
+            expr: literal_expr(LiteralValue::Integer(0), 7402),
+            span: test_span(),
+            id: node_id(7403),
+        },
+        7404,
+    );
+
+    let outer_guard = guard_call_expr(
+        call_expr("load_config", &[], 7400),
+        "config",
+        Some(int_type("int32")),
+        false,
+        Stmt::Expression {
+            expr: nested_guard,
+            span: test_span(),
+            id: node_id(7405),
+        },
+        7406,
+    );
+
+    let let_guard = Stmt::Let {
+        binding: LetBinding {
+            name: "config".to_owned(),
+            type_annotation: Some(int_type("int32")),
+            is_mutable: false,
+            span: test_span(),
+            id: node_id(7407),
+        },
+        initializer: Some(outer_guard),
+        span: test_span(),
+        id: node_id(7408),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ConfigError", 7409),
+        make_unit_type_decl("DefaultError", 7410),
+        make_function_decl_with_errors(
+            "load_config",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            return_stmt(literal_expr(LiteralValue::Integer(7), 7411), 7412),
+            7413,
+        ),
+        make_function_decl_with_errors(
+            "load_defaults",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["DefaultError"],
+            return_stmt(literal_expr(LiteralValue::Integer(3), 7414), 7415),
+            7416,
+        ),
+        make_function_decl_with_errors(
+            "initialize_config",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            Stmt::Block {
+                statements: vec![
+                    let_guard,
+                    return_stmt(identifier_expr("config", 7417), 7418),
+                ],
+                span: test_span(),
+                id: node_id(7419),
+            },
+            7420,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("nested guard with mismatched error types should error");
+    assert!(
+        errors
+            .into_iter()
+            .any(|error| matches!(error, TypeError::GuardChainedErrorMismatch { .. })),
+        "expected GuardChainedErrorMismatch diagnostic"
+    );
+}
+
+/// Guard else branch may include a nested guard when both guards manage identical error sets.
+#[test]
+fn test_guard_else_allows_chained_guard_with_identical_errors() {
+    let nested_guard = guard_call_expr(
+        call_expr("load_defaults", &[], 7431),
+        "fallback",
+        Some(int_type("int32")),
+        false,
+        Stmt::Expression {
+            expr: literal_expr(LiteralValue::Integer(0), 7432),
+            span: test_span(),
+            id: node_id(7433),
+        },
+        7434,
+    );
+
+    let outer_guard = guard_call_expr(
+        call_expr("load_config", &[], 7430),
+        "config",
+        Some(int_type("int32")),
+        false,
+        Stmt::Expression {
+            expr: nested_guard,
+            span: test_span(),
+            id: node_id(7435),
+        },
+        7436,
+    );
+
+    let let_guard = Stmt::Let {
+        binding: LetBinding {
+            name: "config".to_owned(),
+            type_annotation: Some(int_type("int32")),
+            is_mutable: false,
+            span: test_span(),
+            id: node_id(7437),
+        },
+        initializer: Some(outer_guard),
+        span: test_span(),
+        id: node_id(7438),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ConfigError", 7439),
+        make_function_decl_with_errors(
+            "load_config",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            return_stmt(literal_expr(LiteralValue::Integer(9), 7440), 7441),
+            7442,
+        ),
+        make_function_decl_with_errors(
+            "load_defaults",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            return_stmt(literal_expr(LiteralValue::Integer(5), 7443), 7444),
+            7445,
+        ),
+        make_function_decl_with_errors(
+            "initialize_config",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            Stmt::Block {
+                statements: vec![
+                    let_guard,
+                    return_stmt(identifier_expr("config", 7446), 7447),
+                ],
+                span: test_span(),
+                id: node_id(7448),
+            },
+            7449,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "nested guard with matching error types should succeed: {result:?}"
+    );
+}
+
+/// Guard else branch must not use `propagate` to surface mismatched error types.
+#[test]
+fn test_guard_else_rejects_propagate_with_mismatched_errors() {
+    let propagate_else = Stmt::Expression {
+        expr: propagate_call(call_expr("load_defaults", &[], 7461), 7462),
+        span: test_span(),
+        id: node_id(7463),
+    };
+
+    let guard_expr = guard_call_expr(
+        call_expr("load_config", &[], 7460),
+        "config",
+        Some(int_type("int32")),
+        false,
+        propagate_else,
+        7464,
+    );
+
+    let let_guard = Stmt::Let {
+        binding: LetBinding {
+            name: "config".to_owned(),
+            type_annotation: Some(int_type("int32")),
+            is_mutable: false,
+            span: test_span(),
+            id: node_id(7465),
+        },
+        initializer: Some(guard_expr),
+        span: test_span(),
+        id: node_id(7466),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ConfigError", 7467),
+        make_unit_type_decl("DefaultError", 7468),
+        make_function_decl_with_errors(
+            "load_config",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            return_stmt(literal_expr(LiteralValue::Integer(13), 7469), 7470),
+            7471,
+        ),
+        make_function_decl_with_errors(
+            "load_defaults",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["DefaultError"],
+            return_stmt(literal_expr(LiteralValue::Integer(21), 7472), 7473),
+            7474,
+        ),
+        make_function_decl_with_errors(
+            "initialize_config",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            Stmt::Block {
+                statements: vec![
+                    let_guard,
+                    return_stmt(identifier_expr("config", 7475), 7476),
+                ],
+                span: test_span(),
+                id: node_id(7477),
+            },
+            7478,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("propagate with mismatched errors inside guard else should error");
+    assert!(
+        errors
+            .into_iter()
+            .any(|error| matches!(error, TypeError::GuardChainedErrorMismatch { .. })),
+        "expected GuardChainedErrorMismatch diagnostic"
+    );
+}
+
+/// Guard used as a statement should permit propagate handlers when error sets match.
+#[test]
+fn test_guard_statement_else_allows_matching_propagate() {
+    let guard_stmt = Stmt::Expression {
+        expr: guard_call_expr(
+            call_expr("load_config", &[], 7480),
+            "config",
+            Some(int_type("int32")),
+            false,
+            Stmt::Expression {
+                expr: propagate_call(call_expr("load_defaults", &[], 7481), 7482),
+                span: test_span(),
+                id: node_id(7483),
+            },
+            7484,
+        ),
+        span: test_span(),
+        id: node_id(7485),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ConfigError", 7486),
+        make_function_decl_with_errors(
+            "load_config",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            return_stmt(literal_expr(LiteralValue::Integer(17), 7487), 7488),
+            7489,
+        ),
+        make_function_decl_with_errors(
+            "load_defaults",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            return_stmt(literal_expr(LiteralValue::Integer(23), 7490), 7491),
+            7492,
+        ),
+        make_function_decl_with_errors(
+            "initialize",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            Stmt::Block {
+                statements: vec![
+                    guard_stmt,
+                    return_stmt(literal_expr(LiteralValue::Integer(5), 7493), 7494),
+                ],
+                span: test_span(),
+                id: node_id(7495),
+            },
+            7496,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "guard statement else should accept propagate with matching errors: {result:?}"
+    );
+}
+
+/// Guard statement `else` should still reject propagate expressions when error sets differ.
+#[test]
+fn test_guard_statement_else_rejects_mismatched_propagate_errors() {
+    let guard_stmt = Stmt::Expression {
+        expr: guard_call_expr(
+            call_expr("load_config", &[], 7500),
+            "config",
+            Some(int_type("int32")),
+            false,
+            Stmt::Expression {
+                expr: propagate_call(call_expr("load_defaults", &[], 7501), 7502),
+                span: test_span(),
+                id: node_id(7503),
+            },
+            7504,
+        ),
+        span: test_span(),
+        id: node_id(7505),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ConfigError", 7506),
+        make_unit_type_decl("DefaultError", 7507),
+        make_function_decl_with_errors(
+            "load_config",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            return_stmt(literal_expr(LiteralValue::Integer(31), 7508), 7509),
+            7510,
+        ),
+        make_function_decl_with_errors(
+            "load_defaults",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["DefaultError"],
+            return_stmt(literal_expr(LiteralValue::Integer(42), 7511), 7512),
+            7513,
+        ),
+        make_function_decl_with_errors(
+            "initialize",
+            Vec::new(),
+            Some(int_type("int32")),
+            vec!["ConfigError"],
+            Stmt::Block {
+                statements: vec![
+                    guard_stmt,
+                    return_stmt(literal_expr(LiteralValue::Integer(0), 7514), 7515),
+                ],
+                span: test_span(),
+                id: node_id(7516),
+            },
+            7517,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("expected guard-propagate mismatch to error");
+    assert!(
+        errors
+            .into_iter()
+            .any(|error| matches!(error, TypeError::GuardChainedErrorMismatch { .. })),
+        "expected GuardChainedErrorMismatch when guard statement else propagates mismatched errors"
     );
 }
 

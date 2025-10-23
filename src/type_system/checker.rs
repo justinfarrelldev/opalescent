@@ -37,6 +37,8 @@ pub struct TypeChecker {
     constraints: Vec<TypeConstraint>,
     /// Nesting depth of guard `else` handlers currently being type checked
     guard_else_depth: usize,
+    /// Stack tracking the error types handled by active guard else branches
+    guard_error_stack: Vec<Vec<CoreType>>,
 }
 
 impl TypeChecker {
@@ -48,6 +50,7 @@ impl TypeChecker {
             symbol_table: SymbolTable::new(),
             constraints: Vec::new(),
             guard_else_depth: 0,
+            guard_error_stack: Vec::new(),
         }
     }
 
@@ -59,6 +62,7 @@ impl TypeChecker {
             symbol_table: SymbolTable::new(),
             constraints: Vec::new(),
             guard_else_depth: 0,
+            guard_error_stack: Vec::new(),
         }
     }
 

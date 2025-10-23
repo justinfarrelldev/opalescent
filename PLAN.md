@@ -186,7 +186,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
   - [x] Store error types in `Expr::Lambda` AST node
   - [x] Validate error type names exist in type system
   - [x] Add error types to function signature documentation
-- [ ] **Guard Expression Implementation**
+- [x] **Guard Expression Implementation**
   - [x] Add `Expr::Guard` variant to AST with: `expr`, `binding_name`, `else_branch`
   - [x] Parse `guard expr into name else handler` syntax
   - [x] Support optional type/mutability modifiers on guard binding
@@ -195,12 +195,12 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
   - [x] Type check else branch handler for error type compatibility
   - [x] Register guard binding in symbol table for subsequent statements
   - [x] Ensure else branch handles error type correctly
-- [ ] **Propagate Keyword Implementation**
+- [x] **Propagate Keyword Implementation**
   - [x] Add `Expr::Propagate` variant to AST (or extend `Expr::Call`)
   - [x] Parse `propagate function_call()` syntax
   - [x] Validate propagate only used in functions that declare errors
   - [x] Type check propagate ensures error types match function signature
-- [ ] **Type System Error Type Support**
+- [x] **Type System Error Type Support**
   - [x] Add `error_types: Vec<String>` to `CoreType::Function`
   - [x] Implement error type compatibility checking
   - [x] Validate propagate statements match function error signature

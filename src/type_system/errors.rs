@@ -358,6 +358,26 @@ pub enum TypeError {
         /// The source span of the `else` branch.
         span: SourceSpan,
     },
+
+    /// Nested guard or propagate introduces error types that differ from the surrounding guard.
+    #[error(
+        "Guard handler introduces incompatible error types: expected '{expected}', found '{found}'"
+    )]
+    #[diagnostic(
+        code(opalescent::type_system::guard_chained_error_mismatch),
+        help(
+            "Guard handlers must not introduce new error types. Ensure nested guard/propagate expressions use the same error set as the surrounding guard."
+        )
+    )]
+    GuardChainedErrorMismatch {
+        /// Error types managed by the surrounding guard.
+        expected: String,
+        /// Error types introduced by the nested expression.
+        found: String,
+        #[label("incompatible error types introduced here")]
+        /// Span for the nested guard/propagate expression.
+        span: SourceSpan,
+    },
 }
 
 impl TypeError {

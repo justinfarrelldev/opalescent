@@ -220,14 +220,30 @@ impl TypeChecker {
             }
         }
 
+        if let Some(active_errors) = self.guard_error_stack.last() {
+            if !Self::guard_error_type_sets_match(active_errors.as_slice(), &callee_error_types) {
+                return Err(TypeError::GuardChainedErrorMismatch {
+                    expected: Self::format_error_type_list(active_errors.as_slice()),
+                    found: Self::format_error_type_list(&callee_error_types),
+                    span: TypeError::span_from_span(expr.span()),
+                });
+            }
+        }
+
         self.symbol_table.enter_scope();
         self.guard_else_depth = self.guard_else_depth.saturating_add(1);
+        self.guard_error_stack.push(callee_error_types.clone());
         let else_result = self.type_check_guard_else_branch(
             else_branch,
             callee_error_types.as_slice(),
             usage,
             &success_type,
             expected_return,
+        );
+        let popped = self.guard_error_stack.pop();
+        debug_assert!(
+            popped.is_some(),
+            "guard error stack underflow when exiting guard else handling"
         );
         debug_assert!(
             self.guard_else_depth > 0,
@@ -301,7 +317,10 @@ impl TypeChecker {
                         Ok(GuardElseOutcome::FallbackValue(fallback_type))
                     }
                     GuardUsage::Statement => {
-                        if self.types_compatible(&CoreType::Unit, &handler_type) {
+                        if matches!(expr, &Expr::Propagate { .. }) {
+                            // Propagate implicitly transfers control by bubbling the error upward.
+                            Ok(GuardElseOutcome::ControlFlow)
+                        } else if self.types_compatible(&CoreType::Unit, &handler_type) {
                             Ok(GuardElseOutcome::ControlFlow)
                         } else {
                             Err(TypeError::GuardElseIncompatibleError {
@@ -335,6 +354,19 @@ impl TypeChecker {
         error_types.iter().all(|error_ty| {
             self.types_compatible(reference, error_ty) && self.types_compatible(error_ty, reference)
         })
+    }
+
+    /// Determine whether two error type sets are equivalent irrespective of ordering.
+    fn guard_error_type_sets_match(left: &[CoreType], right: &[CoreType]) -> bool {
+        if left.len() != right.len() {
+            return false;
+        }
+
+        let mut left_rendered: Vec<String> = left.iter().map(ToString::to_string).collect();
+        let mut right_rendered: Vec<String> = right.iter().map(ToString::to_string).collect();
+        left_rendered.sort();
+        right_rendered.sort();
+        left_rendered == right_rendered
     }
 
     /// Render a deterministic, comma-separated list of error type names for diagnostics.
@@ -405,15 +437,28 @@ impl TypeChecker {
                 // We intentionally call the existing checker to enforce argument checks
                 self.type_check_call_expr(callee, args.as_slice(), call.span())?;
 
-                // 3. Check subset relation for error types
+                if let Some(active_errors) = self.guard_error_stack.last() {
+                    if !Self::guard_error_type_sets_match(
+                        active_errors.as_slice(),
+                        &callee_error_types,
+                    ) {
+                        return Err(TypeError::GuardChainedErrorMismatch {
+                            expected: Self::format_error_type_list(active_errors.as_slice()),
+                            found: Self::format_error_type_list(&callee_error_types),
+                            span: TypeError::span_from_span(span),
+                        });
+                    }
+                }
+
+                // 3. Check subset relation for error types declared by the enclosing function.
                 let is_subset = callee_error_types
                     .iter()
-                    .all(|e| current_fn_error_types.contains(e));
+                    .all(|error_type| current_fn_error_types.contains(error_type));
 
                 if !is_subset {
                     return Err(TypeError::PropagateErrorMismatch {
-                        expected: format!("{current_fn_error_types:?}"),
-                        found: format!("{callee_error_types:?}"),
+                        expected: Self::format_error_type_list(&current_fn_error_types),
+                        found: Self::format_error_type_list(&callee_error_types),
                         span: TypeError::span_from_span(
                             self.symbol_table.current_function_span().unwrap_or(span),
                         ),

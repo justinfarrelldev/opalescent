@@ -110,7 +110,7 @@ Add first-class error declarations on functions and lambdas, a guard construct f
   - [x] Parse functions/lambdas with 0, 1, many error types; with spacing/commas edge cases.
   - [x] Parse guard with expression and block else branches; with/without type annotation; with mutable. (AST created, parsing pending)
   - [x] Parse propagate around a call; reject non-call usage. (AST created, parsing pending)
-- [ ] Type checker tests:
+- [x] Type checker tests:
   - [x] Using `propagate` inside matching error function succeeds; mismatch fails with clear error and spans.
   - [x] Using `propagate` in a function without `errors` fails.
   - [x] Guard binds success type correctly; else must match error types; mismatches fail.
@@ -120,8 +120,8 @@ Add first-class error declarations on functions and lambdas, a guard construct f
   - [x] Propagate works inside lambda expressions that declare errors.
   - [x] Nested propagate expressions type-check when stacked within the same function.
   - [x] Propagate diagnostics report accurate spans for keyword and callee.
-  - [ ] Guard rejects propagate/guard chaining when error sets differ only by nominal names.
-  - [ ] Guard else branches validate each error type variant individually.
+  - [x] Guard rejects propagate/guard chaining when error sets differ only by nominal names.
+  - [x] Guard else branches validate each error type variant individually.
 - [ ] Integration samples (language-spec/*.op):
   - [ ] Add small .op examples that compile/type-check to exercise guard/propagate.
 
