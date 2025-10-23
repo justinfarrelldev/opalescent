@@ -35,6 +35,8 @@ pub struct TypeChecker {
     symbol_table: SymbolTable,
     /// Collected type constraints for inference (Phase 2)
     constraints: Vec<TypeConstraint>,
+    /// Nesting depth of guard `else` handlers currently being type checked
+    guard_else_depth: usize,
 }
 
 impl TypeChecker {
@@ -45,6 +47,7 @@ impl TypeChecker {
             next_var_id: 0,
             symbol_table: SymbolTable::new(),
             constraints: Vec::new(),
+            guard_else_depth: 0,
         }
     }
 
@@ -55,6 +58,7 @@ impl TypeChecker {
             next_var_id: 0,
             symbol_table: SymbolTable::new(),
             constraints: Vec::new(),
+            guard_else_depth: 0,
         }
     }
 

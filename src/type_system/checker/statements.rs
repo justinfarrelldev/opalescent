@@ -2,10 +2,11 @@
 
 extern crate alloc;
 
+use super::expressions::{GuardBindingInfo, GuardUsage};
 use super::helpers::{
     coerce_literal_to_expected, ensure_boolean_type, invalid_operation_error, type_mismatch_error,
 };
-use crate::ast::{AstNode, Expr, LetBinding, Stmt, Type};
+use crate::ast::{AstNode, Expr, LetBinding, LiteralValue, Stmt, Type};
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
@@ -51,8 +52,7 @@ impl TypeChecker {
                 ref value, span, ..
             } => self.type_check_return(value.as_ref(), expected_return, span),
             Stmt::Expression { ref expr, .. } => {
-                self.type_check_expr(expr)?;
-                Ok(())
+                self.type_check_expression_statement(expr, expected_return)
             }
             Stmt::Block { ref statements, .. } => self.within_new_scope(|checker| {
                 checker.type_check_statements(statements, expected_return)
@@ -121,6 +121,42 @@ impl TypeChecker {
             }),
             Stmt::Break { .. } | Stmt::Continue { .. } => Ok(()),
         }
+    }
+
+    /// Type check an expression statement, accounting for guard expressions that
+    /// introduce bindings or control-flow handlers.
+    fn type_check_expression_statement(
+        &mut self,
+        expr: &Expr,
+        expected_return: Option<&CoreType>,
+    ) -> Result<(), TypeError> {
+        if let Expr::Guard {
+            expr: ref guarded_expr,
+            binding_name: ref guard_name,
+            binding_type: ref guard_type,
+            is_mutable,
+            else_branch: ref guard_else,
+            span: guard_span,
+            ..
+        } = *expr
+        {
+            let binding_info = GuardBindingInfo {
+                name: guard_name.as_str(),
+                annotation: guard_type.as_ref(),
+                is_mutable,
+                span: guard_span,
+            };
+            self.type_check_guard_expr(
+                guarded_expr.as_ref(),
+                &binding_info,
+                guard_else.as_ref(),
+                GuardUsage::Statement,
+                expected_return,
+            )?;
+        } else {
+            self.type_check_expr(expr)?;
+        }
+        Ok(())
     }
 
     /// Validate a `let` statement by resolving optional type annotations,
@@ -256,6 +292,17 @@ impl TypeChecker {
 
         match value {
             Some(expr) => {
+                if self.guard_else_depth > 0
+                    && matches!(
+                        expr,
+                        &Expr::Literal {
+                            value: LiteralValue::Void,
+                            ..
+                        }
+                    )
+                {
+                    return Ok(());
+                }
                 let value_type = self.type_check_expr(expr)?;
                 let reconciled_type = if self.types_compatible(expected, &value_type) {
                     value_type
@@ -280,7 +327,7 @@ impl TypeChecker {
                 Ok(())
             }
             None => {
-                if matches!(expected, &CoreType::Unit) {
+                if matches!(expected, &CoreType::Unit) || self.guard_else_depth > 0 {
                     Ok(())
                 } else {
                     Err(type_mismatch_error(expected, None, &CoreType::Unit, span))

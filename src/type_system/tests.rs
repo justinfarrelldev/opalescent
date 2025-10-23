@@ -976,7 +976,7 @@ fn test_guard_binding_available_after_guard() {
         Some(int_type("int32")),
         false,
         Stmt::Expression {
-            expr: literal_expr(LiteralValue::Integer(0), 7001),
+            expr: literal_expr(LiteralValue::Void, 7001),
             span: test_span(),
             id: node_id(7002),
         },
@@ -1019,6 +1019,417 @@ fn test_guard_binding_available_after_guard() {
     assert!(
         result.is_ok(),
         "guard binding should be usable after guard: {result:?}"
+    );
+}
+
+/// Guard used as an expression should reject else branches whose fallback type
+/// does not match the guarded call's success type.
+#[test]
+fn test_guard_else_expression_requires_matching_success_type() {
+    let mismatched_else = Stmt::Expression {
+        expr: literal_expr(LiteralValue::Boolean(true), 7201),
+        span: test_span(),
+        id: node_id(7202),
+    };
+
+    let guard_expr = guard_call_expr(
+        call_expr("parse_value", &["input"], 7200),
+        "value",
+        Some(int_type("int32")),
+        false,
+        mismatched_else,
+        7203,
+    );
+
+    let let_guard = Stmt::Let {
+        binding: LetBinding {
+            name: "result".to_owned(),
+            type_annotation: Some(int_type("int32")),
+            is_mutable: false,
+            span: test_span(),
+            id: node_id(7204),
+        },
+        initializer: Some(guard_expr),
+        span: test_span(),
+        id: node_id(7205),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 7206),
+        make_function_decl_with_errors(
+            "parse_value",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(9), 7207), 7208),
+            7209,
+        ),
+        make_function_decl_with_errors(
+            "wrap_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    let_guard,
+                    return_stmt(identifier_expr("result", 7210), 7211),
+                ],
+                span: test_span(),
+                id: node_id(7212),
+            },
+            7213,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("guard expression fallback with mismatched type should error");
+    assert!(
+        errors
+            .into_iter()
+            .any(|error| matches!(error, TypeError::GuardElseIncompatibleError { .. })),
+        "expected GuardElseIncompatibleError when fallback type mismatches"
+    );
+}
+
+/// Guard used as an expression should allow else branches that produce a fallback
+/// value matching the success type of the guarded call.
+#[test]
+fn test_guard_else_expression_allows_matching_success_type() {
+    let matching_else = Stmt::Expression {
+        expr: literal_expr(LiteralValue::Integer(42), 7220),
+        span: test_span(),
+        id: node_id(7221),
+    };
+
+    let guard_expr = guard_call_expr(
+        call_expr("parse_value", &["input"], 7219),
+        "value",
+        Some(int_type("int32")),
+        false,
+        matching_else,
+        7222,
+    );
+
+    let let_guard = Stmt::Let {
+        binding: LetBinding {
+            name: "result".to_owned(),
+            type_annotation: Some(int_type("int32")),
+            is_mutable: false,
+            span: test_span(),
+            id: node_id(7223),
+        },
+        initializer: Some(guard_expr),
+        span: test_span(),
+        id: node_id(7224),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 7225),
+        make_function_decl_with_errors(
+            "parse_value",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(7), 7226), 7227),
+            7228,
+        ),
+        make_function_decl_with_errors(
+            "wrap_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    let_guard,
+                    return_stmt(identifier_expr("result", 7229), 7230),
+                ],
+                span: test_span(),
+                id: node_id(7231),
+            },
+            7232,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "guard fallback matching success type should pass: {result:?}"
+    );
+}
+
+/// Guard fallback expressions cannot currently support heterogeneous error sets;
+/// ensure a helpful diagnostic is emitted so future union support can build on it.
+#[test]
+fn test_guard_else_expression_rejects_heterogeneous_error_sets() {
+    let fallback_else = Stmt::Expression {
+        expr: literal_expr(LiteralValue::Integer(11), 7240),
+        span: test_span(),
+        id: node_id(7241),
+    };
+
+    let guard_expr = guard_call_expr(
+        call_expr("parse_pair", &["input"], 7239),
+        "value",
+        Some(int_type("int32")),
+        false,
+        fallback_else,
+        7242,
+    );
+
+    let let_guard = Stmt::Let {
+        binding: LetBinding {
+            name: "result".to_owned(),
+            type_annotation: Some(int_type("int32")),
+            is_mutable: false,
+            span: test_span(),
+            id: node_id(7243),
+        },
+        initializer: Some(guard_expr),
+        span: test_span(),
+        id: node_id(7244),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 7245),
+        make_unit_type_decl("IoError", 7246),
+        make_function_decl_with_errors(
+            "parse_pair",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError", "IoError"],
+            return_stmt(literal_expr(LiteralValue::Integer(5), 7247), 7248),
+            7249,
+        ),
+        make_function_decl_with_errors(
+            "wrap_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError", "IoError"],
+            Stmt::Block {
+                statements: vec![
+                    let_guard,
+                    return_stmt(identifier_expr("result", 7250), 7251),
+                ],
+                span: test_span(),
+                id: node_id(7252),
+            },
+            7253,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("heterogeneous error sets should reject guard fallback expressions");
+    assert!(
+        errors
+            .into_iter()
+            .any(|error| matches!(error, TypeError::GuardElseIncompatibleError { .. })),
+        "expected GuardElseIncompatibleError when guard handles heterogeneous errors"
+    );
+}
+
+/// Guard used as a statement should require the else branch to match the declared
+/// error types (unit aliases in this phase), rejecting mismatched handler types.
+#[test]
+fn test_guard_statement_else_expression_requires_unit() {
+    let mismatched_else = Stmt::Expression {
+        expr: literal_expr(LiteralValue::Integer(13), 7260),
+        span: test_span(),
+        id: node_id(7261),
+    };
+
+    let guard_expr = guard_call_expr(
+        call_expr("parse_value", &["input"], 7259),
+        "value",
+        Some(int_type("int32")),
+        false,
+        mismatched_else,
+        7262,
+    );
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 7263),
+        make_function_decl_with_errors(
+            "parse_value",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(12), 7264), 7265),
+            7266,
+        ),
+        make_function_decl_with_errors(
+            "wrap_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Expression {
+                        expr: guard_expr,
+                        span: test_span(),
+                        id: node_id(7267),
+                    },
+                    return_stmt(identifier_expr("value", 7268), 7269),
+                ],
+                span: test_span(),
+                id: node_id(7270),
+            },
+            7271,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("guard statement handler should reject non-unit else expression");
+    assert!(
+        errors
+            .into_iter()
+            .any(|error| matches!(error, TypeError::GuardElseIncompatibleError { .. })),
+        "expected GuardElseIncompatibleError for guard statement mismatched handler"
+    );
+}
+
+/// Guard used as a statement should accept else branches that resolve to `unit`,
+/// such as calling a logging helper.
+#[test]
+fn test_guard_statement_else_expression_accepts_unit_handler() {
+    let guard_expr = guard_call_expr(
+        call_expr("parse_value", &["input"], 7279),
+        "value",
+        Some(int_type("int32")),
+        false,
+        Stmt::Expression {
+            expr: call_expr("log_error", &[], 7280),
+            span: test_span(),
+            id: node_id(7281),
+        },
+        7282,
+    );
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 7283),
+        make_function_decl_with_errors(
+            "parse_value",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(21), 7284), 7285),
+            7286,
+        ),
+        make_function_decl(
+            "log_error",
+            Vec::new(),
+            Some(int_type("unit")),
+            return_stmt(literal_expr(LiteralValue::Void, 7287), 7288),
+            7289,
+        ),
+        make_function_decl_with_errors(
+            "wrap_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Expression {
+                        expr: guard_expr,
+                        span: test_span(),
+                        id: node_id(7290),
+                    },
+                    return_stmt(identifier_expr("value", 7291), 7292),
+                ],
+                span: test_span(),
+                id: node_id(7293),
+            },
+            7294,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "unit-valued else handler should be accepted: {result:?}"
+    );
+}
+
+/// Guard used as a statement should allow block handlers that perform control-flow
+/// operations such as logging before returning.
+#[test]
+fn test_guard_statement_allows_block_handler() {
+    let else_block = Stmt::Block {
+        statements: vec![
+            Stmt::Expression {
+                expr: call_expr("log_error", &[], 7301),
+                span: test_span(),
+                id: node_id(7302),
+            },
+            Stmt::Return {
+                value: Some(literal_expr(LiteralValue::Void, 7303)),
+                span: test_span(),
+                id: node_id(7304),
+            },
+        ],
+        span: test_span(),
+        id: node_id(7300),
+    };
+
+    let guard_expr = guard_call_expr(
+        call_expr("parse_value", &["input"], 7305),
+        "value",
+        Some(int_type("int32")),
+        false,
+        else_block,
+        7306,
+    );
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 7307),
+        make_function_decl_with_errors(
+            "parse_value",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(33), 7308), 7309),
+            7310,
+        ),
+        make_function_decl(
+            "log_error",
+            Vec::new(),
+            Some(int_type("unit")),
+            return_stmt(literal_expr(LiteralValue::Void, 7311), 7312),
+            7313,
+        ),
+        make_function_decl_with_errors(
+            "wrap_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Expression {
+                        expr: guard_expr,
+                        span: test_span(),
+                        id: node_id(7314),
+                    },
+                    return_stmt(identifier_expr("value", 7315), 7316),
+                ],
+                span: test_span(),
+                id: node_id(7317),
+            },
+            7318,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "block else handler should be permitted: {result:?}"
     );
 }
 

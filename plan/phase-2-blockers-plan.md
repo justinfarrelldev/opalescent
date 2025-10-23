@@ -81,13 +81,13 @@ Add first-class error declarations on functions and lambdas, a guard construct f
   - [x] Require: inner.error_types ⊆ current_fn.error_types.
   - [x] Result type is the inner call's return type; error flow bubbles to caller.
   - [x] Diagnostics: if not subset or used outside error-declaring function, emit precise error with spans on both the `propagate` and the function signature.
-- [ ] `Expr::Guard`:
+- [x] `Expr::Guard`:
   - [x] The guarded expression must be a call (or expression) with error-carrying type context.
   - [x] Success path binds the success value to `binding_name` with the declared type (if present) or inferred from the expression's success type.
-  - [ ] Else branch is type-checked against the error type(s):
-    - [ ] If multiple error types exist, else must handle a union — for Phase 2, require else type to be compatible with all declared error types (exact or supertype once ADTs land). For now, require identical names; future Phase 3 will allow sum types.
+  - [x] Else branch is type-checked against the error type(s):
+    - [x] If multiple error types exist, else must handle a union — for Phase 2, require else type to be compatible with all declared error types (exact or supertype once ADTs land). For now, require identical names; future Phase 3 will allow sum types.
     - [x] Guard must reject callees whose error list is empty.
-  - [ ] The guard as an expression results in the success type; as a statement in a block, the else branch must produce `unit` unless used in an expression position.
+  - [x] The guard as an expression results in the success type; as a statement in a block, the else branch must produce `unit` unless used in an expression position.
   - [x] Symbol table: register `binding_name` in the subsequent scope after the guard (then-branch scope) while keeping handler bindings scoped to the else branch only.
 
 ### Diagnostics & error types

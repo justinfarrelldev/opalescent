@@ -15,7 +15,45 @@ use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, string::String, vec::Vec};
+
+/// Context describing how a guard expression is consumed.
+///
+/// Guards embedded within expressions must produce a value, whereas guards used
+/// as stand-alone statements operate purely through control flow side effects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum GuardUsage {
+    /// Guard result feeds into a surrounding expression.
+    Expression,
+    /// Guard is used for control flow, typically within a statement position.
+    Statement,
+}
+
+/// Metadata describing the binding introduced by a guard expression.
+#[derive(Debug, Clone)]
+pub(super) struct GuardBindingInfo<'type_ref> {
+    /// Name of the binding created when the guard succeeds.
+    pub name: &'type_ref str,
+    /// Optional user-provided type annotation for the binding.
+    pub annotation: Option<&'type_ref Type>,
+    /// Whether the binding is declared as mutable.
+    pub is_mutable: bool,
+    /// Source span that identifies the binding declaration site.
+    pub span: Span,
+}
+
+/// Result of typing the `else` branch of a guard expression.
+///
+/// Statement-context handlers typically short-circuit control flow, while
+/// expression-context handlers yield fallback values compatible with the
+/// function's success type.
+#[derive(Debug, Clone, PartialEq)]
+enum GuardElseOutcome {
+    /// Handler yielded a fallback value that can substitute for the success type.
+    FallbackValue(CoreType),
+    /// Handler performs control-flow actions instead of yielding a value.
+    ControlFlow,
+}
 
 impl TypeChecker {
     /// Type check an expression and return its [`CoreType`]
@@ -99,14 +137,21 @@ impl TypeChecker {
                 ref else_branch,
                 span,
                 ..
-            } => self.type_check_guard_expr(
-                expr,
-                binding_name,
-                binding_type.as_ref(),
-                is_mutable,
-                else_branch,
-                span,
-            ),
+            } => {
+                let binding_info = GuardBindingInfo {
+                    name: binding_name.as_str(),
+                    annotation: binding_type.as_ref(),
+                    is_mutable,
+                    span,
+                };
+                self.type_check_guard_expr(
+                    expr,
+                    &binding_info,
+                    else_branch,
+                    GuardUsage::Expression,
+                    None,
+                )
+            }
             Expr::Propagate { ref call, span, .. } => {
                 self.type_check_propagate_expr(call.as_ref(), span)
             }
@@ -119,14 +164,13 @@ impl TypeChecker {
     /// 1. The guarded expression is a function call that can produce errors.
     /// 2. The success value is correctly bound to a new variable.
     /// 3. The `else` branch type-checks in isolation so that guard scopes remain precise.
-    fn type_check_guard_expr(
+    pub(super) fn type_check_guard_expr(
         &mut self,
         expr: &Expr,
-        binding_name: &str,
-        binding_type: Option<&Type>,
-        is_mutable: bool,
+        binding: &GuardBindingInfo<'_>,
         else_branch: &Stmt,
-        span: Span,
+        usage: GuardUsage,
+        expected_return: Option<&CoreType>,
     ) -> Result<CoreType, TypeError> {
         let (callee_expr, args, call_span) = match *expr {
             Expr::Call {
@@ -142,9 +186,8 @@ impl TypeChecker {
             }
         };
 
-        // Validate the callee is a callable that declares error types.
         let callee_type = self.type_check_expr(callee_expr)?;
-        let (success_type, _) = match callee_type {
+        let (success_type, callee_error_types) = match callee_type {
             CoreType::Function {
                 return_type,
                 error_types,
@@ -164,10 +207,9 @@ impl TypeChecker {
             }
         };
 
-        // Reuse existing call validation to ensure argument arity and types align.
         self.type_check_call_expr(callee_expr, args, call_span)?;
 
-        if let Some(annotated_type_ast) = binding_type {
+        if let Some(annotated_type_ast) = binding.annotation {
             let annotated_type = Self::ast_type_to_core_type(annotated_type_ast)?;
             if !self.types_compatible(&success_type, &annotated_type) {
                 return Err(TypeError::GuardBindingTypeMismatch {
@@ -178,27 +220,135 @@ impl TypeChecker {
             }
         }
 
-        // Type-check the else branch in an isolated scope. Guard error bindings will be
-        // introduced in a future phase when the syntax supports naming them explicitly.
-        self.within_new_scope(|checker| checker.type_check_stmt(else_branch))?;
+        self.symbol_table.enter_scope();
+        self.guard_else_depth = self.guard_else_depth.saturating_add(1);
+        let else_result = self.type_check_guard_else_branch(
+            else_branch,
+            callee_error_types.as_slice(),
+            usage,
+            &success_type,
+            expected_return,
+        );
+        debug_assert!(
+            self.guard_else_depth > 0,
+            "guard_else_depth should be positive when exiting guard else scope"
+        );
+        self.guard_else_depth = self.guard_else_depth.saturating_sub(1);
+        self.symbol_table.exit_scope();
+        let else_outcome = else_result?;
 
-        // Register the success binding in the surrounding scope so subsequent statements
-        // can rely on the guarded value. The else branch scope remains isolated.
-        let symbol_type = if is_mutable {
+        if matches!(else_outcome, GuardElseOutcome::FallbackValue(_)) {
+            // Placeholder for future flow-sensitive diagnostics that will track fallback values.
+        }
+
+        let symbol_type = if binding.is_mutable {
             SymbolType::Variable
         } else {
             SymbolType::Constant
         };
         self.symbol_table.register(SymbolInfo {
-            name: binding_name.to_owned(),
+            name: binding.name.to_owned(),
             symbol_type,
             core_type: success_type.clone(),
             visibility: Visibility::Private,
-            source_location: span,
+            source_location: binding.span,
         });
 
-        // Guard expressions evaluate to the success type of the guarded call.
         Ok(success_type)
+    }
+
+    /// Type-check the `else` branch of a guard expression.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TypeError::GuardElseIncompatibleError`] when the handler fails to
+    /// align with the guard's success type or declared error types.
+    fn type_check_guard_else_branch(
+        &mut self,
+        else_branch: &Stmt,
+        error_types: &[CoreType],
+        usage: GuardUsage,
+        success_type: &CoreType,
+        expected_return: Option<&CoreType>,
+    ) -> Result<GuardElseOutcome, TypeError> {
+        match *else_branch {
+            Stmt::Expression { ref expr, span, .. } => {
+                let handler_type = self.type_check_expr(expr)?;
+                match usage {
+                    GuardUsage::Expression => {
+                        let fallback_type = if self.types_compatible(success_type, &handler_type) {
+                            handler_type
+                        } else if let Some(adjusted) =
+                            coerce_literal_to_expected(success_type, expr, &handler_type)
+                        {
+                            adjusted
+                        } else {
+                            return Err(TypeError::GuardElseIncompatibleError {
+                                expected: success_type.to_string(),
+                                found: handler_type.to_string(),
+                                span: TypeError::span_from_span(span),
+                            });
+                        };
+
+                        if !self.guard_error_types_are_homogeneous(error_types) {
+                            return Err(TypeError::GuardElseIncompatibleError {
+                                expected: Self::format_error_type_list(error_types),
+                                found: fallback_type.to_string(),
+                                span: TypeError::span_from_span(span),
+                            });
+                        }
+
+                        Ok(GuardElseOutcome::FallbackValue(fallback_type))
+                    }
+                    GuardUsage::Statement => {
+                        if self.types_compatible(&CoreType::Unit, &handler_type) {
+                            Ok(GuardElseOutcome::ControlFlow)
+                        } else {
+                            Err(TypeError::GuardElseIncompatibleError {
+                                expected: CoreType::Unit.to_string(),
+                                found: handler_type.to_string(),
+                                span: TypeError::span_from_span(span),
+                            })
+                        }
+                    }
+                }
+            }
+            Stmt::Block { ref statements, .. } => {
+                self.type_check_statements(statements, expected_return)?;
+                Ok(GuardElseOutcome::ControlFlow)
+            }
+            ref other => {
+                // Future phases may introduce additional guard handler forms.
+                self.type_check_stmt_with_return(other, expected_return)?;
+                Ok(GuardElseOutcome::ControlFlow)
+            }
+        }
+    }
+
+    /// Determine whether all error types declared by the guard's callee are mutually compatible.
+    fn guard_error_types_are_homogeneous(&self, error_types: &[CoreType]) -> bool {
+        if error_types.is_empty() {
+            return true;
+        }
+
+        let reference = &error_types[0];
+        error_types.iter().all(|error_ty| {
+            self.types_compatible(reference, error_ty) && self.types_compatible(error_ty, reference)
+        })
+    }
+
+    /// Render a deterministic, comma-separated list of error type names for diagnostics.
+    fn format_error_type_list(error_types: &[CoreType]) -> String {
+        if error_types.is_empty() {
+            return "<none>".to_owned();
+        }
+
+        let mut rendered = Vec::with_capacity(error_types.len());
+        for error_type in error_types {
+            rendered.push(error_type.to_string());
+        }
+
+        rendered.join(", ")
     }
 
     /// Type-check a `propagate` expression.
