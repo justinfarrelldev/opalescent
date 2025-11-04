@@ -293,7 +293,7 @@ impl TypeChecker {
                 "float64" => Ok(CoreType::Float64),
                 "string" => Ok(CoreType::String),
                 "boolean" => Ok(CoreType::Boolean),
-                "unit" => Ok(CoreType::Unit),
+                "unit" | "void" => Ok(CoreType::Unit),
                 _ => Err(TypeError::TypeNotFound {
                     type_name: name.clone(),
                     span: TypeError::span_from_span(span),

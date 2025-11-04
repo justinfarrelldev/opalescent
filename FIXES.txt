@@ -4,3 +4,10 @@
 - Added a guard error stack so nested guard or propagate handlers cannot introduce mismatched error types without emitting `GuardChainedErrorMismatch`.
 - Allowed guard handlers used in statement position to bubble errors upward via `propagate` when the error sets match, eliminating false positives from `GuardElseIncompatibleError`.
 - Updated `PropagateErrorMismatch` diagnostics to render user-facing error names instead of internal `CoreType` debug strings.
+
+## Blockless Function Body Parsing
+- Taught the parser to terminate indentation-based function and lambda bodies when the following token begins a new top-level declaration, preventing doc comments or blank lines between declarations from being misinterpreted as stray statements.
+- Added explicit handling for inline documentation comments inside blockless bodies so nested doc comments no longer block subsequent statements from parsing.
+
+## Void Alias Type Resolution
+- Mapped the `void` keyword to the unit core type and registered it in the type environment so entry points using `return void` type check successfully.

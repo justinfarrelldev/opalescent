@@ -14,6 +14,8 @@ use crate::ast::{
     Decl, Expr, Field, HotReloadMetadata, LambdaBody, LetBinding, LiteralValue, NodeId, Parameter,
     Program, Stmt, StringPart, Type, TypeDef, Variant, Visibility as AstVisibility,
 };
+use crate::lexer::Lexer;
+use crate::parser::Parser;
 use crate::token::{Position, Span};
 
 // Test constants for semantic meaning instead of magic numbers
@@ -36,6 +38,35 @@ fn span_with_offset(offset: usize, len: usize) -> Span {
 
 fn node_id(id: usize) -> NodeId {
     NodeId(id)
+}
+
+/// Source text for the guard/propagate integration sample program.
+const ERROR_HANDLING_SAMPLE_SOURCE: &str =
+    include_str!("../../language-spec/error_handling_samples.op");
+
+/// Parse the guard/propagate sample program into an AST for integration testing.
+#[expect(
+    clippy::panic,
+    reason = "Test helper uses panic for unrecoverable errors"
+)]
+fn parse_error_handling_sample_program() -> Program {
+    let lexer = Lexer::new(ERROR_HANDLING_SAMPLE_SOURCE);
+    let (tokens, lex_errors) = lexer.tokenize();
+    assert!(
+        lex_errors.is_empty(),
+        "sample program should tokenize without lex errors: {:?}",
+        lex_errors.errors
+    );
+
+    let parser = Parser::new(tokens);
+    let (program_opt, parse_errors) = parser.parse();
+    assert!(
+        parse_errors.is_empty(),
+        "sample program should parse without errors: {:?}",
+        parse_errors.errors
+    );
+
+    program_opt.unwrap_or_else(|| panic!("parser returned no program for valid sample"))
 }
 
 fn literal_expr(value: LiteralValue, id: usize) -> Expr {
@@ -4061,5 +4092,17 @@ fn test_cast_generic_type() {
     assert!(
         matches!(result, Err(TypeError::InvalidCast { .. })),
         "Option<int32> -> int32 should be an invalid cast"
+    );
+}
+
+/// Ensure the guard/propagate integration sample type checks end to end.
+#[test]
+fn test_type_check_error_handling_sample_program() {
+    let program = parse_error_handling_sample_program();
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "integration sample should type check successfully: {result:?}",
     );
 }

@@ -1,0 +1,49 @@
+##
+    Description: Demonstrates guard and propagate constructs for error handling.
+##
+type ParseError:
+    Generic
+
+##
+    Description: Represents an IO failure in this sample.
+##
+type IoError:
+    Disconnected
+
+##
+    Description: Logging helper invoked when parsing fails.
+##
+let log_parse_failure = f(text: string): void =>
+    return void
+
+##
+    Description: Lower-level parser that may produce a ParseError.
+##
+let parse_number_core = f(text: string): int32 errors ParseError =>
+    return 7
+
+##
+    Description: Parses text into an int32 while handling failures locally.
+##
+let parse_number = f(text: string): int32 errors ParseError =>
+    guard parse_number_core(text) into parsed else {
+        log_parse_failure(text)
+        return 0
+    }
+    return parsed
+
+##
+    Description: Simulated file read that may fail with IoError.
+##
+let read_line_from_disk = f(path: string): string errors IoError =>
+    return '42'
+
+##
+    Description: Loads and parses a number, propagating IO errors to the caller.
+##
+let load_number = f(path: string): int32 errors IoError, ParseError =>
+    let content = propagate read_line_from_disk(path)
+    guard parse_number(content) into value else {
+        return 0
+    }
+    return value

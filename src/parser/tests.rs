@@ -13,8 +13,8 @@
 
 use super::*;
 use crate::ast::{
-    BinaryOp, Decl, Expr, ImportItem, LambdaBody, LiteralValue, Parameter, Stmt, StringPart, Type,
-    TypeDef, UnaryOp, Visibility,
+    BinaryOp, Decl, Expr, ImportItem, LabeledValue, LambdaBody, LiteralValue, Parameter, Stmt,
+    StringPart, Type, TypeDef, UnaryOp, Visibility,
 };
 use crate::lexer::{Lexer, RESERVED_KEYWORDS};
 use crate::parser::errors::ParseError;
@@ -85,6 +85,198 @@ fn parse_program_from_string(input: &str) -> Result<Program, Vec<ParseError>> {
     } else {
         Err(errors.errors)
     }
+}
+
+/// Source text for the guard/propagate integration sample program.
+const ERROR_HANDLING_SAMPLE_SOURCE: &str =
+    include_str!("../../language-spec/error_handling_samples.op");
+
+#[test]
+#[ignore]
+#[expect(
+    clippy::use_debug,
+    clippy::panic,
+    reason = "Debug test intentionally uses println and panic for manual inspection"
+)]
+fn debug_print_error_handling_tokens() {
+    let lexer = Lexer::new(ERROR_HANDLING_SAMPLE_SOURCE);
+    let (tokens, _) = lexer.tokenize();
+    for token in tokens {
+        println!("{:?}", token.token_type);
+    }
+    panic!("debug output above");
+}
+
+/// Parsed AST nodes that we want to detect inside integration samples.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AstFeature {
+    /// Guard expressions introduced for structured error handling.
+    Guard,
+    /// Propagate expressions that bubble errors to the caller.
+    Propagate,
+}
+
+/// Determine whether a string interpolation segment contains the requested AST feature.
+fn string_part_contains_feature(part: &StringPart, feature: AstFeature) -> bool {
+    match part {
+        StringPart::Expression(expr) => expr_contains_feature(expr, feature),
+        StringPart::Literal(_) => false,
+    }
+}
+
+/// Determine whether a labeled control-flow payload contains the requested AST feature.
+fn labeled_value_contains_feature(value: &LabeledValue, feature: AstFeature) -> bool {
+    expr_contains_feature(&value.value, feature)
+}
+
+/// Determine whether the provided lambda body contains the requested AST feature.
+fn lambda_body_contains_feature(body: &LambdaBody, feature: AstFeature) -> bool {
+    match body {
+        LambdaBody::Expression(expr) => expr_contains_feature(expr, feature),
+        LambdaBody::Block(statements) => statements
+            .iter()
+            .any(|stmt| stmt_contains_feature(stmt, feature)),
+    }
+}
+
+/// Determine whether the provided expression tree contains the requested AST feature.
+fn expr_contains_feature(expr: &Expr, feature: AstFeature) -> bool {
+    match expr {
+        Expr::Guard {
+            expr: guarded,
+            else_branch,
+            ..
+        } => {
+            matches!(feature, AstFeature::Guard)
+                || expr_contains_feature(guarded, feature)
+                || stmt_contains_feature(else_branch, feature)
+        }
+        Expr::Propagate { call, .. } => {
+            matches!(feature, AstFeature::Propagate) || expr_contains_feature(call, feature)
+        }
+        Expr::Binary { left, right, .. } => {
+            expr_contains_feature(left, feature) || expr_contains_feature(right, feature)
+        }
+        Expr::Unary { operand, .. } => expr_contains_feature(operand, feature),
+        Expr::Call { callee, args, .. } => {
+            expr_contains_feature(callee, feature)
+                || args.iter().any(|arg| expr_contains_feature(arg, feature))
+        }
+        Expr::Index { object, index, .. } => {
+            expr_contains_feature(object, feature) || expr_contains_feature(index, feature)
+        }
+        Expr::Member { object, .. } => expr_contains_feature(object, feature),
+        Expr::Cast { expr, .. } | Expr::TypeOf { expr, .. } | Expr::Parenthesized { expr, .. } => {
+            expr_contains_feature(expr, feature)
+        }
+        Expr::Array { elements, .. } => elements
+            .iter()
+            .any(|element| expr_contains_feature(element, feature)),
+        Expr::Lambda { body, .. } => lambda_body_contains_feature(body, feature),
+        Expr::StringInterpolation { parts, .. } => parts
+            .iter()
+            .any(|part| string_part_contains_feature(part, feature)),
+        Expr::Literal { .. } | Expr::Identifier { .. } => false,
+    }
+}
+
+/// Determine whether the provided statement tree contains the requested AST feature.
+fn stmt_contains_feature(stmt: &Stmt, feature: AstFeature) -> bool {
+    match stmt {
+        Stmt::Let {
+            initializer: Some(expr),
+            ..
+        }
+        | Stmt::Return {
+            value: Some(expr), ..
+        }
+        | Stmt::Expression { expr, .. } => expr_contains_feature(expr, feature),
+        Stmt::Let {
+            initializer: None, ..
+        }
+        | Stmt::Return { value: None, .. } => false,
+        Stmt::Assignment { target, value, .. } => {
+            expr_contains_feature(target, feature) || expr_contains_feature(value, feature)
+        }
+        Stmt::Block { statements, .. } => statements
+            .iter()
+            .any(|inner| stmt_contains_feature(inner, feature)),
+        Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+            ..
+        } => {
+            expr_contains_feature(condition, feature)
+                || stmt_contains_feature(then_branch, feature)
+                || else_branch
+                    .as_deref()
+                    .is_some_and(|branch| stmt_contains_feature(branch, feature))
+        }
+        Stmt::For { iterable, body, .. } => {
+            expr_contains_feature(iterable, feature) || stmt_contains_feature(body, feature)
+        }
+        Stmt::While {
+            condition, body, ..
+        } => expr_contains_feature(condition, feature) || stmt_contains_feature(body, feature),
+        Stmt::Loop { body, .. } => stmt_contains_feature(body, feature),
+        Stmt::Break { values, .. } | Stmt::Continue { values, .. } => values
+            .iter()
+            .any(|value| labeled_value_contains_feature(value, feature)),
+    }
+}
+
+/// Ensure the guard/propagate sample program parses without diagnostics.
+#[test]
+fn test_error_handling_sample_parses_successfully() {
+    let program = match parse_program_from_string(ERROR_HANDLING_SAMPLE_SOURCE) {
+        Ok(program) => program,
+        Err(errors) => panic!("integration sample should parse successfully: {errors:?}"),
+    };
+
+    assert!(
+        !program.declarations.is_empty(),
+        "sample should contain declarations to exercise parsing"
+    );
+}
+
+/// Verify that the guard/propagate sample includes both constructs in its AST.
+#[test]
+fn test_error_handling_sample_contains_guard_and_propagate() {
+    let program = match parse_program_from_string(ERROR_HANDLING_SAMPLE_SOURCE) {
+        Ok(program) => program,
+        Err(errors) => panic!("integration sample should parse successfully: {errors:?}"),
+    };
+
+    let mut saw_guard = false;
+    let mut saw_propagate = false;
+
+    for declaration in &program.declarations {
+        match declaration {
+            Decl::Function { body, .. } => {
+                saw_guard |= stmt_contains_feature(body, AstFeature::Guard);
+                saw_propagate |= stmt_contains_feature(body, AstFeature::Propagate);
+            }
+            Decl::Let { initializer, .. } => {
+                saw_guard |= expr_contains_feature(initializer, AstFeature::Guard);
+                saw_propagate |= expr_contains_feature(initializer, AstFeature::Propagate);
+            }
+            _ => {}
+        }
+
+        if saw_guard && saw_propagate {
+            break;
+        }
+    }
+
+    assert!(
+        saw_guard,
+        "expected sample program to contain a guard expression"
+    );
+    assert!(
+        saw_propagate,
+        "expected sample program to contain a propagate expression"
+    );
 }
 
 // --- Error handling syntax tests (guard/propagate) ---

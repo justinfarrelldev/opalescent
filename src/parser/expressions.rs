@@ -559,6 +559,19 @@ impl Parser {
                     span: ParseError::span_from_token(self.current_token()),
                 })
             }
+        } else if self.check(&TokenType::Newline)
+            || self.check(&TokenType::Return)
+            || self.check(&TokenType::Let)
+            || self.check(&TokenType::If)
+            || self.check(&TokenType::For)
+            || self.check(&TokenType::While)
+            || self.check(&TokenType::Loop)
+            || self.check(&TokenType::Break)
+            || self.check(&TokenType::Continue)
+            || self.check(&TokenType::Guard)
+        {
+            let statements = self.parse_blockless_body_statements();
+            Ok(LambdaBody::Block(statements))
         } else {
             // Parse as single expression
             let expr = self.parse_expression()?;

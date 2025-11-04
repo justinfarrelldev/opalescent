@@ -7,7 +7,7 @@
 //! - Error recovery (`synchronize`, `skip_newlines_and_comments`)
 
 extern crate alloc;
-use crate::ast::{Parameter, Type};
+use crate::ast::{Parameter, Stmt, Type};
 use crate::parser::{ParseError, ParseResult, Parser};
 use crate::token::{Token, TokenType};
 use alloc::string::String;
@@ -68,21 +68,84 @@ impl Parser {
     ///
     /// # Returns
     /// `true` if the current token can start a top-level declaration.
+    /// Determine whether the parser is currently positioned at the start of a top-level
+    /// declaration. This check treats any token that begins in column one as a new declaration,
+    /// ensuring that indentation-based function bodies can include statements like `return` or
+    /// `guard` without prematurely terminating the surrounding declaration.
     pub(super) fn is_declaration_start(&self) -> bool {
+        if self.is_at_end() {
+            return true;
+        }
+
+        let token = self.current_token();
+        let column = token.span.start.column;
+
+        match &token.token_type {
+            &TokenType::DocComment(_)
+            | &TokenType::Public
+            | &TokenType::Entry
+            | &TokenType::Function
+            | &TokenType::Type
+            | &TokenType::Import
+            | &TokenType::Let => column == 1,
+            &TokenType::EndOfFile => true,
+            _ => false,
+        }
+    }
+
+    /// Consume a documentation comment that appears within an indented scope rather than at the
+    /// top level. This prevents inline documentation from being mistaken for the start of a new
+    /// declaration while still preserving top-level documentation comments for subsequent
+    /// declarations.
+    pub(super) fn consume_inline_doc_comment(&mut self) -> bool {
         if self.is_at_end() {
             return false;
         }
 
-        matches!(
-            self.current_token().token_type,
-            TokenType::Public
-                | TokenType::Entry
-                | TokenType::Function
-                | TokenType::Type
-                | TokenType::Import
-                | TokenType::Let
-                | TokenType::DocComment(_)
-        )
+        if matches!(&self.current_token().token_type, &TokenType::DocComment(_))
+            && self.current_token().span.start.column > 1
+        {
+            self.advance();
+            return true;
+        }
+
+        false
+    }
+
+    /// Determine whether the current token indicates that a blockless function or lambda body has
+    /// reached the boundary where a new top-level declaration is about to begin.
+    pub(super) fn is_blockless_body_terminated(&self) -> bool {
+        self.is_at_end() || self.is_declaration_start()
+    }
+
+    /// Parse a sequence of statements that form the body of a function or lambda without explicit
+    /// braces. This helper respects documentation comments that start at column one so that they
+    /// remain attached to subsequent top-level declarations, while still skipping indented
+    /// documentation within the body itself.
+    pub(super) fn parse_blockless_body_statements(&mut self) -> Vec<Stmt> {
+        let mut statements = Vec::new();
+
+        while !self.is_blockless_body_terminated() {
+            self.skip_trivia_preserving_doc_comments();
+
+            if self.is_blockless_body_terminated() {
+                break;
+            }
+
+            if self.consume_inline_doc_comment() {
+                continue;
+            }
+
+            match self.parse_statement() {
+                Ok(statement) => statements.push(statement),
+                Err(error) => {
+                    self.errors.push(error);
+                    self.synchronize();
+                }
+            }
+        }
+
+        statements
     }
 
     /// Check if the current token matches the expected token type

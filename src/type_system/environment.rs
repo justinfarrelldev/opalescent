@@ -45,6 +45,8 @@ impl TypeEnvironment {
         self.types.insert("string".to_owned(), CoreType::String);
         self.types.insert("boolean".to_owned(), CoreType::Boolean);
         self.types.insert("unit".to_owned(), CoreType::Unit);
+        // The language spec presents `void` as the return type keyword, so alias it to `unit`.
+        self.types.insert("void".to_owned(), CoreType::Unit);
     }
 
     /// Look up a type by name

@@ -191,22 +191,7 @@ impl Parser {
         let body = if self.check(&TokenType::LeftBrace) {
             self.parse_block_statement()?
         } else {
-            // Parse statements until end or new declaration
-            let mut statements = Vec::new();
-            while !self.is_at_end() && !self.is_declaration_start() {
-                self.skip_newlines_and_comments();
-                if self.is_at_end() || self.is_declaration_start() {
-                    break;
-                }
-                match self.parse_statement() {
-                    Ok(stmt) => statements.push(stmt),
-                    Err(error) => {
-                        self.errors.push(error);
-                        self.synchronize();
-                        break;
-                    }
-                }
-            }
+            let statements = self.parse_blockless_body_statements();
             let body_start = statements.first().map_or_else(
                 || self.previous_token().span.start,
                 |first_stmt| first_stmt.span().start,
@@ -379,6 +364,7 @@ impl Parser {
             && !self.check(&TokenType::Import)
             && !self.check(&TokenType::Public)
             && !self.check(&TokenType::Entry)
+            && !self.check(&TokenType::Let)
         {
             // Skip newlines
             self.skip_newlines_and_comments();
@@ -389,6 +375,7 @@ impl Parser {
                 || self.check(&TokenType::Import)
                 || self.check(&TokenType::Public)
                 || self.check(&TokenType::Entry)
+                || self.check(&TokenType::Let)
             {
                 break;
             }

@@ -122,8 +122,8 @@ Add first-class error declarations on functions and lambdas, a guard construct f
   - [x] Propagate diagnostics report accurate spans for keyword and callee.
   - [x] Guard rejects propagate/guard chaining when error sets differ only by nominal names.
   - [x] Guard else branches validate each error type variant individually.
-- [ ] Integration samples (language-spec/*.op):
-  - [ ] Add small .op examples that compile/type-check to exercise guard/propagate.
+- [x] Integration samples (language-spec/*.op):
+  - [x] Add small .op examples that compile/type-check to exercise guard/propagate.
 
 ### Documentation
 
