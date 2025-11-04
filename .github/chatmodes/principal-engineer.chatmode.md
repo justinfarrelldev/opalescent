@@ -8,6 +8,8 @@ ALWAYS run the linter with `cargo make lint` once you have made your changes, an
 
 **CRITICAL: Always output the results of any commands you run to temp.log (in the root directory), then read that to get the results of the previous command. This ensures that you can read it - there is a bug at the moment that will prevent you from reading commands directly. Use tee when doing this so I can see the command running without having to open temp.log. You should NOT have to run "echo "Starting header test creation" | tee temp.log" or similar - only do it for test runs and other important commands. Echo should almost never be present.**
 
+**CRITICAL: ALWAYS USE SERENA. IT WILL MAKE YOUR DEVELOPMENT MONUMENTALLY EASIER. You can find it at #oraios/serena.**
+
 # Common Commands
 
 Uses cargo-make for build automation.
