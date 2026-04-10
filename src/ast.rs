@@ -345,12 +345,10 @@ pub enum Expr {
         /// `snake_case` convention. Types can reference generic parameters.
         /// Example: `[Parameter { name: "x", param_type: Type::Basic("T") }]`
         params: Vec<Parameter>,
-        /// Return type of the lambda
+        /// Return types of the lambda in declaration order.
         ///
-        /// Explicitly required for all lambdas to ensure type safety and
-        /// hot-reload compatibility. Can be a primitive, generic, or complex type.
-        /// Example: `Type::Basic("int32")` or `Type::Generic("U")`
-        return_type: Type,
+        /// Backward compatibility: single-return lambdas use a vector with one element.
+        return_types: Vec<Type>,
         /// Error types that this lambda may produce
         ///
         /// Stores raw type names from parsing (e.g., `["ParseError", "IoError"]`).
@@ -519,10 +517,13 @@ pub enum Stmt {
         id: NodeId,
     },
 
-    /// Return statements (return expr)
+    /// Return statements (`return expr`, `return label1: expr1, label2: expr2`)
     Return {
-        /// Optional expression to return
-        value: Option<Expr>,
+        /// Return payload values in declaration order.
+        ///
+        /// Single unlabeled returns are represented as a vector with one value where
+        /// `label` is empty.
+        values: Vec<LabeledValue>,
         /// Source code location of this return statement
         span: Span,
         /// Unique identifier for this AST node
@@ -642,8 +643,10 @@ pub enum Decl {
         name: String,
         /// Function parameters
         parameters: Vec<Parameter>,
-        /// Optional return type annotation
-        return_type: Option<Type>,
+        /// Optional return type annotations in declaration order.
+        ///
+        /// Backward compatibility: single-return functions use a vector with one element.
+        return_types: Option<Vec<Type>>,
         /// Error types that this function may produce
         ///
         /// Stores raw type names from parsing (e.g., `["ParseError", "IoError"]`).

@@ -6,7 +6,7 @@ use super::expressions::{GuardBindingInfo, GuardUsage};
 use super::helpers::{
     coerce_literal_to_expected, ensure_boolean_type, invalid_operation_error, type_mismatch_error,
 };
-use crate::ast::{AstNode, Expr, LetBinding, LiteralValue, Stmt, Type};
+use crate::ast::{AstNode, Expr, LabeledValue, LetBinding, LiteralValue, Stmt, Type};
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
@@ -21,7 +21,7 @@ impl TypeChecker {
     pub(super) fn type_check_statements(
         &mut self,
         statements: &[Stmt],
-        expected_return: Option<&CoreType>,
+        expected_return: Option<&[CoreType]>,
     ) -> Result<(), TypeError> {
         for statement in statements {
             self.type_check_stmt_with_return(statement, expected_return)?;
@@ -34,7 +34,7 @@ impl TypeChecker {
     pub(crate) fn type_check_stmt_with_return(
         &mut self,
         stmt: &Stmt,
-        expected_return: Option<&CoreType>,
+        expected_return: Option<&[CoreType]>,
     ) -> Result<(), TypeError> {
         match *stmt {
             Stmt::Let {
@@ -49,8 +49,8 @@ impl TypeChecker {
                 ..
             } => self.type_check_assignment(target, value, span),
             Stmt::Return {
-                ref value, span, ..
-            } => self.type_check_return(value.as_ref(), expected_return, span),
+                ref values, span, ..
+            } => self.type_check_return(values.as_slice(), expected_return, span),
             Stmt::Expression { ref expr, .. } => {
                 self.type_check_expression_statement(expr, expected_return)
             }
@@ -128,7 +128,7 @@ impl TypeChecker {
     fn type_check_expression_statement(
         &mut self,
         expr: &Expr,
-        expected_return: Option<&CoreType>,
+        expected_return: Option<&[CoreType]>,
     ) -> Result<(), TypeError> {
         if let Expr::Guard {
             expr: ref guarded_expr,
@@ -280,8 +280,8 @@ impl TypeChecker {
     /// guaranteeing both presence and compatibility.
     fn type_check_return(
         &mut self,
-        value: Option<&Expr>,
-        expected_return: Option<&CoreType>,
+        values: &[LabeledValue],
+        expected_return: Option<&[CoreType]>,
         span: Span,
     ) -> Result<(), TypeError> {
         let expected = expected_return.ok_or_else(|| TypeError::InvalidOperation {
@@ -290,50 +290,88 @@ impl TypeChecker {
             span: TypeError::span_from_span(span),
         })?;
 
-        match value {
-            Some(expr) => {
-                if self.guard_else_depth > 0
-                    && matches!(
-                        expr,
-                        &Expr::Literal {
-                            value: LiteralValue::Void,
-                            ..
-                        }
-                    )
-                {
-                    return Ok(());
-                }
-                let value_type = self.type_check_expr(expr)?;
-                let reconciled_type = if self.types_compatible(expected, &value_type) {
-                    value_type
-                } else if let Some(adjusted) =
-                    coerce_literal_to_expected(expected, expr, &value_type)
-                {
-                    adjusted
-                } else {
-                    return Err(type_mismatch_error(
-                        expected,
-                        None,
-                        &value_type,
-                        expr.span(),
-                    ));
-                };
-                self.add_constraint(TypeConstraint::equality(
-                    expected.clone(),
-                    reconciled_type,
-                    None,
-                    Some(expr.span()),
-                ));
-                Ok(())
-            }
-            None => {
-                if matches!(expected, &CoreType::Unit) || self.guard_else_depth > 0 {
-                    Ok(())
-                } else {
-                    Err(type_mismatch_error(expected, None, &CoreType::Unit, span))
-                }
-            }
+        let labeled_count = values
+            .iter()
+            .filter(|value| !value.label.is_empty())
+            .count();
+        if labeled_count > 0 && labeled_count != values.len() {
+            return Err(TypeError::ReturnLabelMismatch {
+                expected: "all values labeled or all values unlabeled".to_owned(),
+                found: "mixed labeled and unlabeled values in one return".to_owned(),
+                span: TypeError::span_from_span(span),
+            });
         }
+
+        if labeled_count == 0 {
+            self.ensure_return_label_mode(&[], span)?;
+        } else {
+            let labels: alloc::vec::Vec<String> =
+                values.iter().map(|value| value.label.clone()).collect();
+            self.ensure_return_label_mode(labels.as_slice(), span)?;
+        }
+
+        if values.is_empty() {
+            if expected.len() == 1
+                && (matches!(expected[0], CoreType::Unit) || self.guard_else_depth > 0)
+            {
+                return Ok(());
+            }
+
+            return Err(TypeError::ArityMismatch {
+                expected: expected.len(),
+                found: 0,
+                span: TypeError::span_from_span(span),
+            });
+        }
+
+        if values.len() != expected.len() {
+            return Err(TypeError::ArityMismatch {
+                expected: expected.len(),
+                found: values.len(),
+                span: TypeError::span_from_span(span),
+            });
+        }
+
+        for (index, value) in values.iter().enumerate() {
+            let expected_type = &expected[index];
+
+            if self.guard_else_depth > 0
+                && matches!(
+                    value.value,
+                    Expr::Literal {
+                        value: LiteralValue::Void,
+                        ..
+                    }
+                )
+            {
+                continue;
+            }
+
+            let value_type = self.type_check_expr(&value.value)?;
+            let reconciled_type = if self.types_compatible(expected_type, &value_type) {
+                value_type
+            } else if let Some(adjusted) =
+                coerce_literal_to_expected(expected_type, &value.value, &value_type)
+            {
+                adjusted
+            } else {
+                return Err(type_mismatch_error(
+                    expected_type,
+                    None,
+                    &value_type,
+                    value.value.span(),
+                ));
+            };
+
+            self.add_constraint(TypeConstraint::equality(
+                expected_type.clone(),
+                reconciled_type,
+                None,
+                Some(value.value.span()),
+            ));
+        }
+
+        Ok(())
     }
 
     /// Type check a statement and update the symbol table as needed.

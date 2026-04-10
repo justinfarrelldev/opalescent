@@ -291,7 +291,7 @@ impl Parser {
     pub(super) fn build_function_signature_section(
         name: &str,
         parameters: &[Parameter],
-        return_type: Option<&Type>,
+        return_types: Option<&[Type]>,
         error_types: &[String],
     ) -> String {
         let mut signature = String::from(name);
@@ -306,9 +306,14 @@ impl Parser {
 
         signature.push(')');
 
-        if let Some(return_ty) = return_type {
+        if let Some(return_type_list) = return_types {
             signature.push_str(": ");
-            signature.push_str(&return_ty.to_signature_string());
+            for (index, return_type) in return_type_list.iter().enumerate() {
+                if index > 0 {
+                    signature.push_str(", ");
+                }
+                signature.push_str(&return_type.to_signature_string());
+            }
         }
 
         if !error_types.is_empty() {

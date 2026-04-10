@@ -17,8 +17,8 @@ use miette::SourceSpan;
 struct FunctionTypeView<'view> {
     /// Parameter types in declared order
     params: &'view [CoreType],
-    /// Return type
-    ret: &'view CoreType,
+    /// Return types in declared order
+    returns: &'view [CoreType],
     /// Declared error types (error set)
     errors: &'view [CoreType],
     /// Source span for diagnostics when referring to this side
@@ -105,24 +105,24 @@ impl TypeChecker {
             (
                 CoreType::Function {
                     parameters: left_params,
-                    return_type: left_ret,
+                    return_types: left_returns,
                     error_types: left_errors,
                 },
                 CoreType::Function {
                     parameters: right_params,
-                    return_type: right_ret,
+                    return_types: right_returns,
                     error_types: right_errors,
                 },
             ) => {
                 let left_view = FunctionTypeView {
                     params: left_params,
-                    ret: left_ret.as_ref(),
+                    returns: left_returns,
                     errors: left_errors,
                     span: left_span,
                 };
                 let right_view = FunctionTypeView {
                     params: right_params,
-                    ret: right_ret.as_ref(),
+                    returns: right_returns,
                     errors: right_errors,
                     span: right_span,
                 };
@@ -177,13 +177,32 @@ impl TypeChecker {
             return Err(TypeError::UnificationFailed {
                 left: CoreType::Function {
                     parameters: left.params.to_vec(),
-                    return_type: Box::new(left.ret.clone()),
+                    return_types: left.returns.to_vec(),
                     error_types: left.errors.to_vec(),
                 }
                 .to_string(),
                 right: CoreType::Function {
                     parameters: right.params.to_vec(),
-                    return_type: Box::new(right.ret.clone()),
+                    return_types: right.returns.to_vec(),
+                    error_types: right.errors.to_vec(),
+                }
+                .to_string(),
+                left_span: Self::resolve_span(left.span, right.span),
+                right_span: Self::resolve_span(right.span, left.span),
+            });
+        }
+
+        if left.returns.len() != right.returns.len() {
+            return Err(TypeError::UnificationFailed {
+                left: CoreType::Function {
+                    parameters: left.params.to_vec(),
+                    return_types: left.returns.to_vec(),
+                    error_types: left.errors.to_vec(),
+                }
+                .to_string(),
+                right: CoreType::Function {
+                    parameters: right.params.to_vec(),
+                    return_types: right.returns.to_vec(),
                     error_types: right.errors.to_vec(),
                 }
                 .to_string(),
@@ -202,23 +221,26 @@ impl TypeChecker {
             combined_subst = combined_subst.compose(&param_subst);
         }
 
-        let left_ret_applied = combined_subst.apply(left.ret);
-        let right_ret_applied = combined_subst.apply(right.ret);
-        let ret_subst =
-            self.unify_impl(&left_ret_applied, &right_ret_applied, left.span, right.span)?;
+        for (left_return, right_return) in left.returns.iter().zip(right.returns.iter()) {
+            let left_ret_applied = combined_subst.apply(left_return);
+            let right_ret_applied = combined_subst.apply(right_return);
+            let ret_subst =
+                self.unify_impl(&left_ret_applied, &right_ret_applied, left.span, right.span)?;
+            combined_subst = combined_subst.compose(&ret_subst);
+        }
 
         // For now, require error type lists to be pairwise unifiable and of equal length
         if left.errors.len() != right.errors.len() {
             return Err(TypeError::UnificationFailed {
                 left: CoreType::Function {
                     parameters: left.params.to_vec(),
-                    return_type: Box::new(left.ret.clone()),
+                    return_types: left.returns.to_vec(),
                     error_types: left.errors.to_vec(),
                 }
                 .to_string(),
                 right: CoreType::Function {
                     parameters: right.params.to_vec(),
-                    return_type: Box::new(right.ret.clone()),
+                    return_types: right.returns.to_vec(),
                     error_types: right.errors.to_vec(),
                 }
                 .to_string(),
@@ -233,7 +255,7 @@ impl TypeChecker {
             combined_subst = combined_subst.compose(&err_subst);
         }
 
-        Ok(combined_subst.compose(&ret_subst))
+        Ok(combined_subst)
     }
 
     /// Unify two generic types by verifying names and recursively unifying type arguments.
@@ -308,10 +330,10 @@ impl TypeChecker {
                 }
                 CoreType::Function {
                     parameters: ref params,
-                    return_type: ref ret_type,
+                    return_types: ref return_type_list,
                     error_types: ref errs,
                 } => {
-                    work_queue.push(ret_type.as_ref());
+                    work_queue.extend(return_type_list.iter());
                     work_queue.extend(params.iter());
                     work_queue.extend(errs.iter());
                 }

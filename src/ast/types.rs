@@ -40,8 +40,10 @@ pub enum Type {
     Function {
         /// Parameter types of the function
         parameters: alloc::vec::Vec<Type>,
-        /// Return type of the function
-        return_type: Box<Type>,
+        /// Return types of the function in declaration order.
+        ///
+        /// Backward compatibility: single-return functions use a vector with one element.
+        return_types: alloc::vec::Vec<Type>,
         /// Error types that this function may produce
         ///
         /// Optional list of error type names (e.g., `Some(vec!["ParseError", "IoError"])`).
@@ -115,7 +117,7 @@ impl Type {
             }
             Self::Function {
                 parameters: parameters_ref,
-                return_type: return_type_ref,
+                return_types: return_types_ref,
                 errors: errors_ref,
                 ..
             } => {
@@ -128,7 +130,12 @@ impl Type {
                 }
                 result.push(')');
                 result.push_str(": ");
-                result.push_str(&return_type_ref.to_signature_string());
+                for (index, return_type) in return_types_ref.iter().enumerate() {
+                    if index > 0 {
+                        result.push_str(", ");
+                    }
+                    result.push_str(&return_type.to_signature_string());
+                }
 
                 if let Some(error_list) = errors_ref.as_ref() {
                     if !error_list.is_empty() {

@@ -116,7 +116,7 @@ impl TypeChecker {
             Expr::Lambda {
                 ref generic_params,
                 ref params,
-                ref return_type,
+                ref return_types,
                 ref error_types,
                 ref body,
                 span,
@@ -124,7 +124,7 @@ impl TypeChecker {
             } => self.type_check_lambda_expr(
                 generic_params.as_deref(),
                 params.as_slice(),
-                return_type,
+                return_types.as_slice(),
                 error_types.as_slice(),
                 body,
                 span,
@@ -170,7 +170,7 @@ impl TypeChecker {
         binding: &GuardBindingInfo<'_>,
         else_branch: &Stmt,
         usage: GuardUsage,
-        expected_return: Option<&CoreType>,
+        expected_return: Option<&[CoreType]>,
     ) -> Result<CoreType, TypeError> {
         let (callee_expr, args, call_span) = match *expr {
             Expr::Call {
@@ -186,26 +186,8 @@ impl TypeChecker {
             }
         };
 
-        let callee_type = self.type_check_expr(callee_expr)?;
-        let (success_type, callee_error_types) = match callee_type {
-            CoreType::Function {
-                return_type,
-                error_types,
-                ..
-            } => {
-                if error_types.is_empty() {
-                    return Err(TypeError::GuardOnNonErrorExpression {
-                        span: TypeError::span_from_span(expr.span()),
-                    });
-                }
-                (*return_type, error_types)
-            }
-            _ => {
-                return Err(TypeError::GuardOnNonErrorExpression {
-                    span: TypeError::span_from_span(expr.span()),
-                });
-            }
-        };
+        let (success_type, callee_error_types) =
+            self.resolve_guard_callee_signature(expr, callee_expr)?;
 
         self.type_check_call_expr(callee_expr, args, call_span)?;
 
@@ -230,28 +212,13 @@ impl TypeChecker {
             }
         }
 
-        self.symbol_table.enter_scope();
-        self.guard_else_depth = self.guard_else_depth.saturating_add(1);
-        self.guard_error_stack.push(callee_error_types.clone());
-        let else_result = self.type_check_guard_else_branch(
+        let else_outcome = self.type_check_guard_else_with_scope(
             else_branch,
             callee_error_types.as_slice(),
             usage,
             &success_type,
             expected_return,
-        );
-        let popped = self.guard_error_stack.pop();
-        debug_assert!(
-            popped.is_some(),
-            "guard error stack underflow when exiting guard else handling"
-        );
-        debug_assert!(
-            self.guard_else_depth > 0,
-            "guard_else_depth should be positive when exiting guard else scope"
-        );
-        self.guard_else_depth = self.guard_else_depth.saturating_sub(1);
-        self.symbol_table.exit_scope();
-        let else_outcome = else_result?;
+        )?;
 
         if matches!(else_outcome, GuardElseOutcome::FallbackValue(_)) {
             // Placeholder for future flow-sensitive diagnostics that will track fallback values.
@@ -273,6 +240,81 @@ impl TypeChecker {
         Ok(success_type)
     }
 
+    /// Resolve and validate the guarded call signature, returning success and error types.
+    fn resolve_guard_callee_signature(
+        &mut self,
+        expr: &Expr,
+        callee_expr: &Expr,
+    ) -> Result<(CoreType, Vec<CoreType>), TypeError> {
+        let callee_type = self.type_check_expr(callee_expr)?;
+        match callee_type {
+            CoreType::Function {
+                return_types,
+                error_types,
+                ..
+            } => {
+                if error_types.is_empty() {
+                    return Err(TypeError::GuardOnNonErrorExpression {
+                        span: TypeError::span_from_span(expr.span()),
+                    });
+                }
+                if return_types.len() != 1 {
+                    return Err(TypeError::ArityMismatch {
+                        expected: 1,
+                        found: return_types.len(),
+                        span: TypeError::span_from_span(expr.span()),
+                    });
+                }
+                let Some(return_type) = return_types.first() else {
+                    return Err(TypeError::ConstraintSolvingFailed {
+                        reason: "guard callee has no declared return type".to_owned(),
+                        span: TypeError::span_from_span(expr.span()),
+                    });
+                };
+                Ok((return_type.clone(), error_types))
+            }
+            _ => Err(TypeError::GuardOnNonErrorExpression {
+                span: TypeError::span_from_span(expr.span()),
+            }),
+        }
+    }
+
+    /// Type-check a guard else-branch inside an isolated scope and guard context.
+    fn type_check_guard_else_with_scope(
+        &mut self,
+        else_branch: &Stmt,
+        callee_error_types: &[CoreType],
+        usage: GuardUsage,
+        success_type: &CoreType,
+        expected_return: Option<&[CoreType]>,
+    ) -> Result<GuardElseOutcome, TypeError> {
+        self.symbol_table.enter_scope();
+        self.guard_else_depth = self.guard_else_depth.saturating_add(1);
+        self.guard_error_stack.push(callee_error_types.to_vec());
+
+        let else_result = self.type_check_guard_else_branch(
+            else_branch,
+            callee_error_types,
+            usage,
+            success_type,
+            expected_return,
+        );
+
+        let popped = self.guard_error_stack.pop();
+        debug_assert!(
+            popped.is_some(),
+            "guard error stack underflow when exiting guard else handling"
+        );
+        debug_assert!(
+            self.guard_else_depth > 0,
+            "guard_else_depth should be positive when exiting guard else scope"
+        );
+        self.guard_else_depth = self.guard_else_depth.saturating_sub(1);
+        self.symbol_table.exit_scope();
+
+        else_result
+    }
+
     /// Type-check the `else` branch of a guard expression.
     ///
     /// # Errors
@@ -285,7 +327,7 @@ impl TypeChecker {
         error_types: &[CoreType],
         usage: GuardUsage,
         success_type: &CoreType,
-        expected_return: Option<&CoreType>,
+        expected_return: Option<&[CoreType]>,
     ) -> Result<GuardElseOutcome, TypeError> {
         match *else_branch {
             Stmt::Expression { ref expr, span, .. } => {
@@ -423,7 +465,7 @@ impl TypeChecker {
             let callee_type = self.type_check_expr(callee)?;
             if let CoreType::Function {
                 parameters: _parameters,
-                return_type,
+                return_types,
                 error_types: callee_error_types,
             } = callee_type
             {
@@ -467,7 +509,20 @@ impl TypeChecker {
                 }
 
                 // Propagate expression yields the success type of the inner call
-                Ok(*return_type)
+                if return_types.len() != 1 {
+                    return Err(TypeError::ArityMismatch {
+                        expected: 1,
+                        found: return_types.len(),
+                        span: TypeError::span_from_span(span),
+                    });
+                }
+                return_types
+                    .first()
+                    .cloned()
+                    .ok_or_else(|| TypeError::ConstraintSolvingFailed {
+                        reason: "propagate callee has no declared return type".to_owned(),
+                        span: TypeError::span_from_span(span),
+                    })
             } else {
                 Err(TypeError::PropagateOnNonErrorExpression {
                     span: TypeError::span_from_span(span),
@@ -627,7 +682,7 @@ impl TypeChecker {
         match callee_type {
             CoreType::Function {
                 parameters,
-                return_type,
+                return_types,
                 error_types: _error_types,
             } => {
                 // TODO: Check error type compatibility for function calls here (see Error Handling Language Features plan)
@@ -668,7 +723,13 @@ impl TypeChecker {
                     ));
                 }
 
-                Ok(*return_type)
+                return_types
+                    .first()
+                    .cloned()
+                    .ok_or_else(|| TypeError::ConstraintSolvingFailed {
+                        reason: "function call has no declared return type".to_owned(),
+                        span: TypeError::span_from_span(span),
+                    })
             }
             other => Err(invalid_operation_error("function call", &other, span)),
         }
@@ -787,7 +848,7 @@ impl TypeChecker {
         &mut self,
         generic_params: Option<&[alloc::string::String]>,
         parameters: &[Parameter],
-        return_type: &Type,
+        return_types: &[Type],
         error_types: &[alloc::string::String],
         body: &LambdaBody,
         span: Span,
@@ -806,11 +867,14 @@ impl TypeChecker {
             parameter_types.push(Self::ast_type_to_core_type(&param.param_type)?);
         }
 
-        let return_core = Self::ast_type_to_core_type(return_type)?;
-        let return_span = return_type.span();
+        let return_core_types: Vec<CoreType> = return_types
+            .iter()
+            .map(Self::ast_type_to_core_type)
+            .collect::<Result<Vec<_>, _>>()?;
 
         let core_errors = self.resolve_error_types(error_types, span)?;
         self.symbol_table.enter_function(core_errors.clone(), span);
+        self.begin_return_context();
 
         let body_result = self.within_new_scope(|checker| -> Result<(), TypeError> {
             for (param, core_type) in parameters.iter().zip(parameter_types.iter()) {
@@ -825,36 +889,44 @@ impl TypeChecker {
 
             match *body {
                 LambdaBody::Expression(ref expr) => {
+                    if return_core_types.len() != 1 {
+                        return Err(TypeError::ArityMismatch {
+                            expected: return_core_types.len(),
+                            found: 1,
+                            span: TypeError::span_from_span(expr.span()),
+                        });
+                    }
                     let expr_type = checker.type_check_expr(expr)?;
-                    if !checker.types_compatible(&return_core, &expr_type) {
+                    if !checker.types_compatible(&return_core_types[0], &expr_type) {
                         return Err(type_mismatch_error(
-                            &return_core,
-                            Some(return_span),
+                            &return_core_types[0],
+                            return_types.first().map(Type::span),
                             &expr_type,
                             expr.span(),
                         ));
                     }
                     checker.add_constraint(TypeConstraint::equality(
-                        return_core.clone(),
+                        return_core_types[0].clone(),
                         expr_type,
-                        Some(return_span),
+                        return_types.first().map(Type::span),
                         Some(expr.span()),
                     ));
                     Ok(())
                 }
                 LambdaBody::Block(ref statements) => {
-                    checker.type_check_statements(statements, Some(&return_core))
+                    checker.type_check_statements(statements, Some(return_core_types.as_slice()))
                 }
             }
         });
 
+        self.end_return_context();
         self.symbol_table.exit_function();
         body_result?;
 
         // Map lambda-declared error types into nominal core types
         Ok(CoreType::Function {
             parameters: parameter_types,
-            return_type: Box::new(return_core),
+            return_types: return_core_types,
             error_types: core_errors,
         })
     }

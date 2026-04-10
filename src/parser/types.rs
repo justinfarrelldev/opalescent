@@ -117,7 +117,7 @@ impl Parser {
         Ok(current_type)
     }
 
-    /// Parse a function type: `f(param1, param2): return_type`
+    /// Parse a function type: `f(param1, param2): return_type[, return_type...]`
     ///
     /// Function types represent the signature of a function, used for:
     /// - Higher-order function parameters
@@ -172,8 +172,26 @@ impl Parser {
         // Expect colon for return type
         self.consume(&TokenType::Colon, "Expected ':' after function parameters")?;
 
-        // Parse return type
-        let return_type = Box::new(self.parse_type()?);
+        let mut return_types = Vec::new();
+        return_types.push(self.parse_type()?);
+
+        while self.check(&TokenType::Comma) {
+            let next_token = self.tokens.get(self.current.saturating_add(1));
+            let token_after_next = self.tokens.get(self.current.saturating_add(2));
+            let reaches_parameter_boundary = matches!(
+                (
+                    next_token.map(|token| &token.token_type),
+                    token_after_next.map(|token| &token.token_type)
+                ),
+                (Some(&TokenType::Identifier(_)), Some(&TokenType::Colon))
+            );
+            if reaches_parameter_boundary {
+                break;
+            }
+
+            self.advance();
+            return_types.push(self.parse_type()?);
+        }
 
         // Parse optional errors clause for function types
         let errors = if self.check(&TokenType::Errors) {
@@ -201,7 +219,7 @@ impl Parser {
 
         Ok(Type::Function {
             parameters,
-            return_type,
+            return_types,
             errors,
             span: function_span,
         })

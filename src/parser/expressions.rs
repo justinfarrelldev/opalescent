@@ -10,7 +10,7 @@
 //! - Lambda expressions
 //! - String interpolation
 
-use super::{ParseError, ParseResult, Parser, Precedence, next_node_id};
+use super::{next_node_id, ParseError, ParseResult, Parser, Precedence};
 use crate::ast::{
     AstNode, BinaryOp, Expr, HotReloadMetadata, LambdaBody, LiteralValue, Stmt, StringPart, UnaryOp,
 };
@@ -463,8 +463,13 @@ impl Parser {
         // Expect ':'
         self.consume(&TokenType::Colon, "Expected ':' after lambda parameters")?;
 
-        // Parse return type
-        let return_type = self.parse_type()?;
+        let mut return_types = Vec::new();
+        return_types.push(self.parse_type()?);
+
+        while self.check(&TokenType::Comma) {
+            self.advance();
+            return_types.push(self.parse_type()?);
+        }
 
         // Parse optional errors clause
         let error_types = self.parse_error_types_clause()?;
@@ -481,7 +486,7 @@ impl Parser {
         Ok(Expr::Lambda {
             generic_params,
             params,
-            return_type,
+            return_types,
             error_types,
             body,
             captured_variables: Vec::new(), // TODO: Implement closure capture analysis

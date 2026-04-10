@@ -11,8 +11,9 @@ use super::substitution::Substitution;
 use super::symbol_table::{ScopeId, SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::types::{CoreType, TypeVar};
 use crate::ast::{
-    Decl, Expr, Field, HotReloadMetadata, LambdaBody, LetBinding, LiteralValue, NodeId, Parameter,
-    Program, Stmt, StringPart, Type, TypeDef, Variant, Visibility as AstVisibility,
+    Decl, Expr, Field, HotReloadMetadata, LabeledValue, LambdaBody, LetBinding, LiteralValue,
+    NodeId, Parameter, Program, Stmt, StringPart, Type, TypeDef, Variant,
+    Visibility as AstVisibility,
 };
 use crate::lexer::Lexer;
 use crate::parser::Parser;
@@ -118,7 +119,7 @@ fn make_function_decl(
     Decl::Function {
         name: name.to_owned(),
         parameters: params,
-        return_type,
+        return_types: return_type.map(|single_return_type| vec![single_return_type]),
         error_types: Vec::new(),
         body,
         visibility: AstVisibility::Private,
@@ -151,7 +152,12 @@ fn make_let_decl(name: &str, annotation: Option<Type>, initializer: Expr, id: us
 
 fn return_stmt(value: Expr, id: usize) -> Stmt {
     Stmt::Return {
-        value: Some(value),
+        values: vec![LabeledValue {
+            label: String::new(),
+            span: test_span(),
+            value,
+            id: node_id(id.checked_add(10).unwrap_or(id)),
+        }],
         span: test_span(),
         id: node_id(id),
     }
@@ -175,7 +181,7 @@ fn make_function_decl_with_errors(
     Decl::Function {
         name: name.to_owned(),
         parameters: params,
-        return_type,
+        return_types: return_type.map(|single_return_type| vec![single_return_type]),
         error_types: error_types.into_iter().map(str::to_owned).collect(),
         body,
         visibility: AstVisibility::Private,
@@ -741,13 +747,15 @@ fn test_propagate_inside_lambda_with_errors() {
     let lambda = Expr::Lambda {
         generic_params: None,
         params: vec![make_parameter("input", int_type("string"))],
-        return_type: int_type("int32"),
+        return_types: vec![int_type("int32")],
         error_types: vec!["ParseError".to_owned()],
         body: LambdaBody::Block(vec![Stmt::Return {
-            value: Some(propagate_call(
-                call_expr("parse_value", &["input"], 6601),
-                6602,
-            )),
+            values: vec![LabeledValue {
+                label: String::new(),
+                value: propagate_call(call_expr("parse_value", &["input"], 6601), 6602),
+                span: test_span(),
+                id: node_id(6603),
+            }],
             span: test_span(),
             id: node_id(6603),
         }]),
@@ -772,7 +780,7 @@ fn test_propagate_inside_lambda_with_errors() {
                 name: "handler".to_owned(),
                 type_annotation: Some(Type::Function {
                     parameters: vec![int_type("string")],
-                    return_type: Box::new(int_type("int32")),
+                    return_types: vec![int_type("int32")],
                     errors: Some(vec![Type::Basic {
                         name: "ParseError".to_owned(),
                         span: test_span(),
@@ -839,7 +847,12 @@ fn test_propagate_error_span_accuracy() {
             vec!["ParseError"],
             Stmt::Block {
                 statements: vec![Stmt::Return {
-                    value: Some(failing_propagate),
+                    values: vec![LabeledValue {
+                        label: String::new(),
+                        value: failing_propagate,
+                        span: test_span(),
+                        id: node_id(6709),
+                    }],
                     span: test_span(),
                     id: node_id(6709),
                 }],
@@ -903,10 +916,12 @@ fn test_propagate_error_mismatch_reports_readable_types() {
             vec!["ParseError"],
             Stmt::Block {
                 statements: vec![Stmt::Return {
-                    value: Some(propagate_call(
-                        call_expr("read_file", &["path"], 6755),
-                        6756,
-                    )),
+                    values: vec![LabeledValue {
+                        label: String::new(),
+                        value: propagate_call(call_expr("read_file", &["path"], 6755), 6756),
+                        span: test_span(),
+                        id: node_id(6757),
+                    }],
                     span: test_span(),
                     id: node_id(6757),
                 }],
@@ -1468,7 +1483,12 @@ fn test_guard_statement_allows_block_handler() {
                 id: node_id(7302),
             },
             Stmt::Return {
-                value: Some(literal_expr(LiteralValue::Void, 7303)),
+                values: vec![LabeledValue {
+                    label: String::new(),
+                    value: literal_expr(LiteralValue::Void, 7303),
+                    span: test_span(),
+                    id: node_id(7304),
+                }],
                 span: test_span(),
                 id: node_id(7304),
             },
@@ -2000,30 +2020,24 @@ fn test_pattern_match_type_check() {
         (CoreType::String, span_with_offset(4, 1)),
         (CoreType::String, span_with_offset(5, 1)),
     ];
-    assert!(
-        checker
-            .type_check_pattern_match(&matched_type, matched_span, &patterns, &arm_types)
-            .is_ok()
-    );
+    assert!(checker
+        .type_check_pattern_match(&matched_type, matched_span, &patterns, &arm_types)
+        .is_ok());
 
     // Incompatible pattern
     let bad_patterns = vec![(CoreType::String, span_with_offset(6, 1))];
-    assert!(
-        checker
-            .type_check_pattern_match(&matched_type, matched_span, &bad_patterns, &arm_types)
-            .is_err()
-    );
+    assert!(checker
+        .type_check_pattern_match(&matched_type, matched_span, &bad_patterns, &arm_types)
+        .is_err());
 
     // Incompatible arm types
     let bad_arms = vec![
         (CoreType::String, span_with_offset(7, 1)),
         (CoreType::Int32, span_with_offset(8, 1)),
     ];
-    assert!(
-        checker
-            .type_check_pattern_match(&matched_type, matched_span, &patterns, &bad_arms)
-            .is_err()
-    );
+    assert!(checker
+        .type_check_pattern_match(&matched_type, matched_span, &patterns, &bad_arms)
+        .is_err());
 }
 
 #[test]
@@ -2350,10 +2364,10 @@ fn test_ast_type_to_core_type_complex_types() {
 
     let function_type = Type::Function {
         parameters: vec![],
-        return_type: Box::new(Type::Basic {
+        return_types: vec![Type::Basic {
             name: "unit".to_owned(),
             span,
-        }),
+        }],
         errors: None,
         span,
     };
@@ -2363,7 +2377,7 @@ fn test_ast_type_to_core_type_complex_types() {
         function_result.unwrap(),
         CoreType::Function {
             parameters: vec![],
-            return_type: Box::new(CoreType::Unit),
+            return_types: vec![CoreType::Unit],
             error_types: vec![],
         }
     );
@@ -2402,25 +2416,19 @@ fn test_validate_type_name() {
     let span = test_span();
 
     // Valid type name for existing type
-    assert!(
-        checker
-            .validate_type_name("int32", &CoreType::Int32, span)
-            .is_ok()
-    );
+    assert!(checker
+        .validate_type_name("int32", &CoreType::Int32, span)
+        .is_ok());
 
     // Invalid type name for different type
-    assert!(
-        checker
-            .validate_type_name("int32", &CoreType::String, span)
-            .is_err()
-    );
+    assert!(checker
+        .validate_type_name("int32", &CoreType::String, span)
+        .is_err());
 
     // New type name should be valid
-    assert!(
-        checker
-            .validate_type_name("custom", &CoreType::Int32, span)
-            .is_ok()
-    );
+    assert!(checker
+        .validate_type_name("custom", &CoreType::Int32, span)
+        .is_ok());
 }
 
 #[test]
@@ -2554,7 +2562,7 @@ fn test_substitution_apply_function() {
 
     let function_type = CoreType::Function {
         parameters: vec![var1_type],
-        return_type: Box::new(var2_type),
+        return_types: vec![var2_type],
         error_types: vec![],
     };
 
@@ -2565,7 +2573,7 @@ fn test_substitution_apply_function() {
 
     let expected = CoreType::Function {
         parameters: vec![CoreType::Int32],
-        return_type: Box::new(CoreType::String),
+        return_types: vec![CoreType::String],
         error_types: vec![],
     };
 
@@ -2712,17 +2720,17 @@ fn test_unify_functions() {
     let checker = TypeChecker::new();
     let func1 = CoreType::Function {
         parameters: vec![CoreType::Int32],
-        return_type: Box::new(CoreType::String),
+        return_types: vec![CoreType::String],
         error_types: vec![],
     };
     let func2 = CoreType::Function {
         parameters: vec![CoreType::Int32],
-        return_type: Box::new(CoreType::String),
+        return_types: vec![CoreType::String],
         error_types: vec![],
     };
     let func3 = CoreType::Function {
         parameters: vec![CoreType::String],
-        return_type: Box::new(CoreType::Int32),
+        return_types: vec![CoreType::Int32],
         error_types: vec![],
     };
 
@@ -2922,7 +2930,7 @@ fn test_symbol_table_exported_symbols() {
         symbol_type: SymbolType::Function,
         core_type: CoreType::Function {
             parameters: vec![],
-            return_type: Box::new(CoreType::Unit),
+            return_types: vec![CoreType::Unit],
             error_types: vec![],
         },
         visibility: Visibility::Public,
@@ -2935,7 +2943,7 @@ fn test_symbol_table_exported_symbols() {
         symbol_type: SymbolType::Function,
         core_type: CoreType::Function {
             parameters: vec![],
-            return_type: Box::new(CoreType::Unit),
+            return_types: vec![CoreType::Unit],
             error_types: vec![],
         },
         visibility: Visibility::Entry,
@@ -2948,7 +2956,7 @@ fn test_symbol_table_exported_symbols() {
         symbol_type: SymbolType::Function,
         core_type: CoreType::Function {
             parameters: vec![],
-            return_type: Box::new(CoreType::Unit),
+            return_types: vec![CoreType::Unit],
             error_types: vec![],
         },
         visibility: Visibility::Private,
@@ -3160,16 +3168,220 @@ fn test_type_check_for_loop_requires_iterable_array() {
 fn test_type_check_return_enforces_expected_type() {
     let mut checker = TypeChecker::new();
     let return_stmt = Stmt::Return {
-        value: Some(literal_expr(LiteralValue::String("bad".to_owned()), 20_120)),
+        values: vec![LabeledValue {
+            label: String::new(),
+            value: literal_expr(LiteralValue::String("bad".to_owned()), 20_120),
+            span: test_span(),
+            id: node_id(20_121),
+        }],
         span: test_span(),
         id: node_id(20_121),
     };
 
     let expected = CoreType::Int32;
-    let result = checker.type_check_stmt_with_return(&return_stmt, Some(&expected));
+    let result = checker.type_check_stmt_with_return(&return_stmt, Some(&[expected]));
     assert!(
         matches!(result, Err(TypeError::TypeMismatch { .. })),
         "return statements must match expected return type"
+    );
+}
+
+#[test]
+fn test_type_check_return_arity_mismatch_for_multiple_returns() {
+    let mut checker = TypeChecker::new();
+    let return_stmt = Stmt::Return {
+        values: vec![LabeledValue {
+            label: String::new(),
+            value: literal_expr(LiteralValue::Integer(1), 20_125),
+            span: test_span(),
+            id: node_id(20_126),
+        }],
+        span: test_span(),
+        id: node_id(20_127),
+    };
+
+    let expected = [CoreType::Int32, CoreType::Int32];
+    let result = checker.type_check_stmt_with_return(&return_stmt, Some(&expected));
+
+    assert!(
+        matches!(
+            result,
+            Err(TypeError::ArityMismatch {
+                expected: 2,
+                found: 1,
+                ..
+            })
+        ),
+        "multi-return functions should enforce return arity"
+    );
+}
+
+#[test]
+fn test_type_check_single_return_backward_compatibility() {
+    let mut checker = TypeChecker::new();
+
+    let function = make_function_decl(
+        "single_return",
+        vec![],
+        Some(int_type("int32")),
+        return_stmt(literal_expr(LiteralValue::Integer(7), 20_130), 20_131),
+        20_132,
+    );
+
+    let program = create_program(vec![function]);
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_ok(),
+        "single-return behavior should remain backward compatible"
+    );
+}
+
+#[test]
+fn test_type_check_labeled_returns_require_consistent_ordered_labels() {
+    let mut checker = TypeChecker::new();
+
+    let first_return = Stmt::Return {
+        values: vec![
+            LabeledValue {
+                label: "left".to_owned(),
+                value: literal_expr(LiteralValue::Integer(1), 20_140),
+                span: test_span(),
+                id: node_id(20_141),
+            },
+            LabeledValue {
+                label: "right".to_owned(),
+                value: literal_expr(LiteralValue::Integer(2), 20_142),
+                span: test_span(),
+                id: node_id(20_143),
+            },
+        ],
+        span: test_span(),
+        id: node_id(20_144),
+    };
+
+    let second_return = Stmt::Return {
+        values: vec![
+            LabeledValue {
+                label: "right".to_owned(),
+                value: literal_expr(LiteralValue::Integer(3), 20_145),
+                span: test_span(),
+                id: node_id(20_146),
+            },
+            LabeledValue {
+                label: "left".to_owned(),
+                value: literal_expr(LiteralValue::Integer(4), 20_147),
+                span: test_span(),
+                id: node_id(20_148),
+            },
+        ],
+        span: test_span(),
+        id: node_id(20_149),
+    };
+
+    let function = Decl::Function {
+        name: "swap_like".to_owned(),
+        parameters: vec![],
+        return_types: Some(vec![int_type("int32"), int_type("int32")]),
+        error_types: Vec::new(),
+        body: Stmt::Block {
+            statements: vec![first_return, second_return],
+            span: test_span(),
+            id: node_id(20_150),
+        },
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(20_151),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_program(vec![function]);
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        matches!(
+            result,
+            Err(ref errors) if errors
+                .iter()
+                .any(|error| matches!(error, &TypeError::ReturnLabelMismatch { .. }))
+        ),
+        "labeled returns should require a consistent ordered label set"
+    );
+}
+
+#[test]
+fn test_type_check_labeled_and_unlabeled_returns_cannot_mix() {
+    let mut checker = TypeChecker::new();
+
+    let unlabeled_return = Stmt::Return {
+        values: vec![
+            LabeledValue {
+                label: String::new(),
+                value: literal_expr(LiteralValue::Integer(5), 20_160),
+                span: test_span(),
+                id: node_id(20_161),
+            },
+            LabeledValue {
+                label: String::new(),
+                value: literal_expr(LiteralValue::Integer(6), 20_162),
+                span: test_span(),
+                id: node_id(20_163),
+            },
+        ],
+        span: test_span(),
+        id: node_id(20_164),
+    };
+
+    let labeled_return = Stmt::Return {
+        values: vec![
+            LabeledValue {
+                label: "left".to_owned(),
+                value: literal_expr(LiteralValue::Integer(7), 20_165),
+                span: test_span(),
+                id: node_id(20_166),
+            },
+            LabeledValue {
+                label: "right".to_owned(),
+                value: literal_expr(LiteralValue::Integer(8), 20_167),
+                span: test_span(),
+                id: node_id(20_168),
+            },
+        ],
+        span: test_span(),
+        id: node_id(20_169),
+    };
+
+    let function = Decl::Function {
+        name: "mixed_returns".to_owned(),
+        parameters: vec![],
+        return_types: Some(vec![int_type("int32"), int_type("int32")]),
+        error_types: Vec::new(),
+        body: Stmt::Block {
+            statements: vec![unlabeled_return, labeled_return],
+            span: test_span(),
+            id: node_id(20_170),
+        },
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(20_171),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_program(vec![function]);
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        matches!(
+            result,
+            Err(ref errors) if errors
+                .iter()
+                .any(|error| matches!(error, &TypeError::ReturnLabelMismatch { .. }))
+        ),
+        "mixing unlabeled and labeled returns should fail"
     );
 }
 
@@ -3211,13 +3423,18 @@ fn test_type_check_program_collects_errors() {
             },
             span: test_span(),
         }],
-        return_type: Some(Type::Basic {
+        return_types: Some(vec![Type::Basic {
             name: "int32".to_owned(),
             span: test_span(),
-        }),
+        }]),
         error_types: Vec::new(),
         body: Stmt::Return {
-            value: Some(literal_expr(LiteralValue::Boolean(true), 10_200)),
+            values: vec![LabeledValue {
+                label: String::new(),
+                value: literal_expr(LiteralValue::Boolean(true), 10_200),
+                span: test_span(),
+                id: node_id(10_201),
+            }],
             span: test_span(),
             id: node_id(10_201),
         },
@@ -3339,7 +3556,7 @@ fn test_lambda_expression_body_type_checking() {
     let lambda = Expr::Lambda {
         generic_params: None,
         params: vec![make_parameter("x", int_type("int32"))],
-        return_type: int_type("int32"),
+        return_types: vec![int_type("int32")],
         error_types: Vec::new(),
         body: crate::ast::LambdaBody::Expression(Box::new(identifier_expr("x", 32_000))),
         captured_variables: vec![],
@@ -3356,12 +3573,12 @@ fn test_lambda_expression_body_type_checking() {
     let core_type = result.unwrap();
     if let CoreType::Function {
         parameters,
-        return_type,
+        return_types,
         ..
     } = core_type
     {
         assert_eq!(parameters, vec![CoreType::Int32]);
-        assert_eq!(*return_type, CoreType::Int32);
+        assert_eq!(return_types, vec![CoreType::Int32]);
     } else {
         unreachable!("lambda should yield a function type");
     }
@@ -3371,7 +3588,12 @@ fn test_lambda_expression_body_type_checking() {
 fn test_lambda_block_body_type_checking() {
     let mut checker = TypeChecker::new();
     let return_stmt = Stmt::Return {
-        value: Some(identifier_expr("x", 32_100)),
+        values: vec![LabeledValue {
+            label: String::new(),
+            value: identifier_expr("x", 32_100),
+            span: test_span(),
+            id: node_id(32_101),
+        }],
         span: test_span(),
         id: node_id(32_101),
     };
@@ -3383,7 +3605,7 @@ fn test_lambda_block_body_type_checking() {
     let lambda = Expr::Lambda {
         generic_params: None,
         params: vec![make_parameter("x", int_type("int32"))],
-        return_type: int_type("int32"),
+        return_types: vec![int_type("int32")],
         error_types: Vec::new(),
         body: crate::ast::LambdaBody::Block(vec![body]),
         captured_variables: vec![],
@@ -3400,12 +3622,12 @@ fn test_lambda_block_body_type_checking() {
     let core_type = result.unwrap();
     if let CoreType::Function {
         parameters,
-        return_type,
+        return_types,
         ..
     } = core_type
     {
         assert_eq!(parameters, vec![CoreType::Int32]);
-        assert_eq!(*return_type, CoreType::Int32);
+        assert_eq!(return_types, vec![CoreType::Int32]);
     } else {
         unreachable!("lambda should yield a function type");
     }
@@ -3417,7 +3639,7 @@ fn test_lambda_return_type_mismatch_is_reported() {
     let lambda = Expr::Lambda {
         generic_params: None,
         params: vec![make_parameter("x", int_type("int32"))],
-        return_type: int_type("int32"),
+        return_types: vec![int_type("int32")],
         error_types: Vec::new(),
         body: crate::ast::LambdaBody::Expression(Box::new(literal_expr(
             LiteralValue::Boolean(true),
@@ -3616,7 +3838,7 @@ fn test_solve_constraints_callable_with_function_type() {
     // Create a function type
     let function_type = CoreType::Function {
         parameters: vec![CoreType::Int32, CoreType::String],
-        return_type: Box::new(CoreType::Boolean),
+        return_types: vec![CoreType::Boolean],
         error_types: vec![],
     };
 
@@ -3645,7 +3867,7 @@ fn test_solve_constraints_callable_wrong_arity() {
     // Create a function type with 2 parameters
     let function_type = CoreType::Function {
         parameters: vec![CoreType::Int32, CoreType::String],
-        return_type: Box::new(CoreType::Boolean),
+        return_types: vec![CoreType::Boolean],
         error_types: vec![],
     };
 
@@ -3674,7 +3896,7 @@ fn test_solve_constraints_callable_wrong_argument_type() {
     // Create a function type
     let function_type = CoreType::Function {
         parameters: vec![CoreType::Int32, CoreType::String],
-        return_type: Box::new(CoreType::Boolean),
+        return_types: vec![CoreType::Boolean],
         error_types: vec![],
     };
 
@@ -3990,7 +4212,7 @@ fn test_invalid_cast_function_types() {
     // Invalid casts involving function types
     let function_type = CoreType::Function {
         parameters: vec![CoreType::Int32],
-        return_type: Box::new(CoreType::Int32),
+        return_types: vec![CoreType::Int32],
         error_types: vec![],
     };
 

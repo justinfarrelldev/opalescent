@@ -187,14 +187,13 @@ fn stmt_contains_feature(stmt: &Stmt, feature: AstFeature) -> bool {
             initializer: Some(expr),
             ..
         }
-        | Stmt::Return {
-            value: Some(expr), ..
-        }
         | Stmt::Expression { expr, .. } => expr_contains_feature(expr, feature),
+        Stmt::Return { values, .. } => values
+            .iter()
+            .any(|value| expr_contains_feature(&value.value, feature)),
         Stmt::Let {
             initializer: None, ..
-        }
-        | Stmt::Return { value: None, .. } => false,
+        } => false,
         Stmt::Assignment { target, value, .. } => {
             expr_contains_feature(target, feature) || expr_contains_feature(value, feature)
         }
@@ -1372,7 +1371,7 @@ fn test_simple_function_parsing() {
     if let Decl::Function {
         name,
         parameters,
-        return_type,
+        return_types,
         is_entry,
         ..
     } = program.declarations[0].clone()
@@ -1380,7 +1379,7 @@ fn test_simple_function_parsing() {
         assert_eq!(name, "main");
         assert_eq!(parameters.len(), 1);
         assert_eq!(parameters[0].name, "args");
-        assert!(return_type.is_some());
+        assert!(return_types.is_some());
         assert!(is_entry);
     } else {
         unreachable!("Expected function declaration");
@@ -2014,7 +2013,7 @@ fn test_function_type_parsing_simple() {
     let simple_func = parse_type_from_string("f(int32): string").unwrap();
     if let Type::Function {
         parameters,
-        return_type,
+        return_types,
         ..
     } = simple_func
     {
@@ -2025,7 +2024,7 @@ fn test_function_type_parsing_simple() {
             unreachable!("Expected basic type int32 as parameter");
         }
 
-        if let &Type::Basic { ref name, .. } = return_type.as_ref() {
+        if let Type::Basic { name, .. } = &return_types[0] {
             assert_eq!(name, "string");
         } else {
             unreachable!("Expected basic type string as return type");
@@ -2041,7 +2040,7 @@ fn test_function_type_parsing_multiple_params() {
     let multi_param = parse_type_from_string("f(int32, string, boolean): void").unwrap();
     if let Type::Function {
         parameters,
-        return_type,
+        return_types,
         ..
     } = multi_param
     {
@@ -2065,7 +2064,7 @@ fn test_function_type_parsing_multiple_params() {
             unreachable!("Expected boolean as third parameter");
         }
 
-        if let &Type::Basic { ref name, .. } = return_type.as_ref() {
+        if let Type::Basic { name, .. } = &return_types[0] {
             assert_eq!(name, "void");
         } else {
             unreachable!("Expected void as return type");
@@ -2081,13 +2080,13 @@ fn test_function_type_parsing_no_params() {
     let no_params = parse_type_from_string("f(): void").unwrap();
     if let Type::Function {
         parameters,
-        return_type,
+        return_types,
         ..
     } = no_params
     {
         assert_eq!(parameters.len(), 0);
 
-        if let &Type::Basic { ref name, .. } = return_type.as_ref() {
+        if let Type::Basic { name, .. } = &return_types[0] {
             assert_eq!(name, "void");
         } else {
             unreachable!("Expected void as return type");
@@ -2103,7 +2102,7 @@ fn test_function_type_parsing_generic_params() {
     let generic_params = parse_type_from_string("f(Array<T>, Result<T, E>): boolean").unwrap();
     if let Type::Function {
         parameters,
-        return_type,
+        return_types,
         ..
     } = generic_params
     {
@@ -2133,7 +2132,7 @@ fn test_function_type_parsing_generic_params() {
             unreachable!("Expected generic type Result<T, E> as second parameter");
         }
 
-        if let &Type::Basic { ref name, .. } = return_type.as_ref() {
+        if let Type::Basic { name, .. } = &return_types[0] {
             assert_eq!(name, "boolean");
         } else {
             unreachable!("Expected boolean as return type");
@@ -2149,17 +2148,14 @@ fn test_function_type_parsing_array_suffix() {
     let array_return = parse_type_from_string("f(int32): string[]").unwrap();
     if let Type::Function {
         parameters,
-        return_type,
+        return_types,
         ..
     } = array_return
     {
         assert_eq!(parameters.len(), 1);
 
-        if let &Type::Array {
-            ref element_type, ..
-        } = return_type.as_ref()
-        {
-            if let &Type::Basic { ref name, .. } = element_type.as_ref() {
+        if let Type::Array { element_type, .. } = &return_types[0] {
+            if let Type::Basic { name, .. } = element_type.as_ref() {
                 assert_eq!(name, "string");
             } else {
                 unreachable!("Expected string as array element type");
@@ -2347,11 +2343,9 @@ fn test_documentation_preserves_raw() {
     };
 
     assert!(documentation.raw.contains("Description: Keeps raw text."));
-    assert!(
-        documentation
-            .raw
-            .contains("Detail: Important for downstream tools.")
-    );
+    assert!(documentation
+        .raw
+        .contains("Detail: Important for downstream tools."));
 }
 
 #[test]
@@ -2969,7 +2963,7 @@ fn test_function_array_parameter_types() {
     let program = program.unwrap();
     if let Decl::Function {
         parameters,
-        return_type,
+        return_types,
         ..
     } = &program.declarations[0]
     {
@@ -3008,15 +3002,19 @@ fn test_function_array_parameter_types() {
         }
 
         // Check return type (boolean[])
-        assert!(return_type.is_some());
-        if let Some(Type::Array { element_type, .. }) = return_type {
-            if let Type::Basic { name, .. } = element_type.as_ref() {
-                assert_eq!(name, "boolean");
+        assert!(return_types.is_some());
+        if let Some(return_types) = return_types {
+            if let Type::Array { element_type, .. } = &return_types[0] {
+                if let Type::Basic { name, .. } = element_type.as_ref() {
+                    assert_eq!(name, "boolean");
+                } else {
+                    unreachable!("Expected boolean element type in return");
+                }
             } else {
-                unreachable!("Expected boolean element type in return");
+                unreachable!("Expected array return type");
             }
         } else {
-            unreachable!("Expected array return type");
+            unreachable!("Expected return type");
         }
     } else {
         unreachable!("Expected function declaration");
@@ -3036,41 +3034,45 @@ fn test_function_complex_return_types() {
     assert!(program.is_some());
 
     let program = program.unwrap();
-    if let Decl::Function { return_type, .. } = &program.declarations[0] {
-        assert!(return_type.is_some());
-        if let Some(Type::Generic {
-            name, type_args, ..
-        }) = return_type
-        {
-            assert_eq!(name, "Result");
-            assert_eq!(type_args.len(), 2);
-
-            // First type arg should be Array<string>
+    if let Decl::Function { return_types, .. } = &program.declarations[0] {
+        assert!(return_types.is_some());
+        if let Some(return_types) = return_types {
             if let Type::Generic {
-                name,
-                type_args: inner_args,
-                ..
-            } = &type_args[0]
+                name, type_args, ..
+            } = &return_types[0]
             {
-                assert_eq!(name, "Array");
-                assert_eq!(inner_args.len(), 1);
-                if let Type::Basic { name, .. } = &inner_args[0] {
+                assert_eq!(name, "Result");
+                assert_eq!(type_args.len(), 2);
+
+                // First type arg should be Array<string>
+                if let Type::Generic {
+                    name,
+                    type_args: inner_args,
+                    ..
+                } = &type_args[0]
+                {
+                    assert_eq!(name, "Array");
+                    assert_eq!(inner_args.len(), 1);
+                    if let Type::Basic { name, .. } = &inner_args[0] {
+                        assert_eq!(name, "string");
+                    } else {
+                        unreachable!("Expected string type in Array");
+                    }
+                } else {
+                    unreachable!("Expected Array<string> as first type arg");
+                }
+
+                // Second type arg should be string
+                if let Type::Basic { name, .. } = &type_args[1] {
                     assert_eq!(name, "string");
                 } else {
-                    unreachable!("Expected string type in Array");
+                    unreachable!("Expected string as second type arg");
                 }
             } else {
-                unreachable!("Expected Array<string> as first type arg");
-            }
-
-            // Second type arg should be string
-            if let Type::Basic { name, .. } = &type_args[1] {
-                assert_eq!(name, "string");
-            } else {
-                unreachable!("Expected string as second type arg");
+                unreachable!("Expected generic return type");
             }
         } else {
-            unreachable!("Expected generic return type");
+            unreachable!("Expected return types");
         }
     } else {
         unreachable!("Expected function declaration");
@@ -3129,7 +3131,7 @@ fn test_lambda_expression_basic() {
         if let Expr::Lambda {
             generic_params,
             params,
-            return_type,
+            return_types,
             body,
             ..
         } = initializer
@@ -3139,7 +3141,7 @@ fn test_lambda_expression_basic() {
             assert_eq!(params[0].name, "x");
             assert_eq!(params[1].name, "y");
 
-            if let Type::Basic { name, .. } = &return_type {
+            if let Type::Basic { name, .. } = &return_types[0] {
                 assert_eq!(name, "int32");
             } else {
                 unreachable!("Expected basic return type");
@@ -3188,7 +3190,7 @@ fn test_lambda_expression_generic() {
         if let Expr::Lambda {
             generic_params,
             params,
-            return_type,
+            return_types,
             body,
             ..
         } = initializer
@@ -3208,7 +3210,7 @@ fn test_lambda_expression_generic() {
                 unreachable!("Expected generic parameter type");
             }
 
-            if let Type::Basic { name, .. } = &return_type {
+            if let Type::Basic { name, .. } = &return_types[0] {
                 assert_eq!(name, "T");
             } else {
                 unreachable!("Expected generic return type");
@@ -3260,7 +3262,7 @@ fn test_lambda_expression_no_params() {
         if let Expr::Lambda {
             generic_params,
             params,
-            return_type,
+            return_types,
             body,
             ..
         } = initializer
@@ -3268,7 +3270,7 @@ fn test_lambda_expression_no_params() {
             assert!(generic_params.is_none());
             assert_eq!(params.len(), 0);
 
-            if let Type::Basic { name, .. } = &return_type {
+            if let Type::Basic { name, .. } = &return_types[0] {
                 assert_eq!(name, "int32");
             } else {
                 unreachable!("Expected basic return type");
@@ -3328,13 +3330,13 @@ fn test_lambda_expression_multiple_generics() {
     if let Expr::Lambda {
         generic_params,
         params,
-        return_type,
+        return_types,
         ..
     } = let_decl
     {
         validate_lambda_generics(generic_params.as_ref());
         validate_lambda_parameters(params);
-        validate_lambda_return_type(return_type);
+        validate_lambda_return_type(&return_types[0]);
     } else {
         unreachable!("Expected lambda expression");
     }
@@ -3358,7 +3360,7 @@ fn validate_lambda_parameters(params: &[Parameter]) {
     // Check first parameter is a function type
     if let Type::Function {
         parameters: fn_params,
-        return_type: fn_return,
+        return_types: fn_returns,
         ..
     } = &params[0].param_type
     {
@@ -3369,7 +3371,7 @@ fn validate_lambda_parameters(params: &[Parameter]) {
             unreachable!("Expected T parameter type");
         }
 
-        if let Type::Basic { name, .. } = fn_return.as_ref() {
+        if let Type::Basic { name, .. } = &fn_returns[0] {
             assert_eq!(name, "U");
         } else {
             unreachable!("Expected U return type");
@@ -3443,7 +3445,7 @@ fn test_lambda_as_function_parameter() {
 
         if let Type::Function {
             parameters: fn_params,
-            return_type: fn_return,
+            return_types: fn_returns,
             ..
         } = &params[0].param_type
         {
@@ -3454,7 +3456,7 @@ fn test_lambda_as_function_parameter() {
                 unreachable!("Expected int32 parameter type");
             }
 
-            if let Type::Basic { name, .. } = fn_return.as_ref() {
+            if let Type::Basic { name, .. } = &fn_returns[0] {
                 assert_eq!(name, "boolean");
             } else {
                 unreachable!("Expected boolean return type");
@@ -3480,7 +3482,7 @@ fn test_lambda_expression_nested() {
     if let Decl::Let { initializer, .. } = &program.declarations[0] {
         if let Expr::Lambda {
             params,
-            return_type,
+            return_types,
             body,
             ..
         } = initializer
@@ -3489,7 +3491,7 @@ fn test_lambda_expression_nested() {
             assert_eq!(params[0].name, "x");
 
             // Check return type is a function type
-            if let Type::Function { .. } = return_type {
+            if let Type::Function { .. } = &return_types[0] {
                 // Good
             } else {
                 unreachable!("Expected function return type for curried function");

@@ -378,6 +378,24 @@ pub enum TypeError {
         /// Span for the nested guard/propagate expression.
         span: SourceSpan,
     },
+
+    /// Return statements in the same function use incompatible label shapes.
+    #[error("Return label mismatch: expected '{expected}', found '{found}'")]
+    #[diagnostic(
+        code(opalescent::type_system::return_label_mismatch),
+        help(
+            "Use a consistent labeled or unlabeled return shape across all returns in this function, and keep label order stable."
+        )
+    )]
+    ReturnLabelMismatch {
+        /// Expected label shape for returns in the current function/lambda.
+        expected: String,
+        /// Label shape found on the mismatching return statement.
+        found: String,
+        #[label("return labels do not match expected shape")]
+        /// Source span of the mismatching return statement.
+        span: SourceSpan,
+    },
 }
 
 impl TypeError {

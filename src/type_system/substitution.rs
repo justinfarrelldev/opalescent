@@ -40,11 +40,11 @@ impl Substitution {
             }
             CoreType::Function {
                 ref parameters,
-                ref return_type,
+                ref return_types,
                 ref error_types,
             } => CoreType::Function {
                 parameters: parameters.iter().map(|p| self.apply(p)).collect(),
-                return_type: Box::new(self.apply(return_type)),
+                return_types: return_types.iter().map(|r| self.apply(r)).collect(),
                 error_types: error_types.iter().map(|e| self.apply(e)).collect(),
             },
             CoreType::Generic {

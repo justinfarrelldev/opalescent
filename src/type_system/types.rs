@@ -60,8 +60,10 @@ pub enum CoreType {
     Function {
         /// Parameter types
         parameters: Vec<CoreType>,
-        /// Return type
-        return_type: Box<CoreType>,
+        /// Return types in declaration order.
+        ///
+        /// Backward compatibility: single-return functions use a vector with one element.
+        return_types: Vec<CoreType>,
         /// Error types this function may produce
         ///
         /// Architectural note: we use `Vec<CoreType>` (not a set) to preserve
@@ -99,7 +101,7 @@ impl fmt::Display for CoreType {
             Self::Array(ref element_type) => write!(f, "[{element_type}]"),
             Self::Function {
                 ref parameters,
-                ref return_type,
+                ref return_types,
                 ref error_types,
             } => {
                 write!(f, "(")?;
@@ -109,7 +111,13 @@ impl fmt::Display for CoreType {
                     }
                     write!(f, "{param}")?;
                 }
-                write!(f, ") -> {return_type}")?;
+                write!(f, ") -> ")?;
+                for (i, return_type) in return_types.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{return_type}")?;
+                }
                 if !error_types.is_empty() {
                     write!(f, " errors ")?;
                     for (i, e) in error_types.iter().enumerate() {

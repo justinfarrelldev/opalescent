@@ -9,7 +9,7 @@ use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
-use alloc::{boxed::Box, format, vec::Vec};
+use alloc::{format, vec::Vec};
 
 impl TypeChecker {
     /// Convert AST-level visibility into the internal representation, accounting for entry points.
@@ -34,7 +34,7 @@ impl TypeChecker {
             &Decl::Function {
                 name: ref function_name,
                 ref parameters,
-                ref return_type,
+                ref return_types,
                 ref error_types,
                 visibility: ref decl_visibility,
                 is_entry,
@@ -46,17 +46,22 @@ impl TypeChecker {
                     parameter_types.push(Self::ast_type_to_core_type(&param.param_type)?);
                 }
 
-                let return_core = return_type
-                    .as_ref()
-                    .map(Self::ast_type_to_core_type)
+                let return_core_types = return_types
+                    .as_deref()
+                    .map(|ast_return_types| {
+                        ast_return_types
+                            .iter()
+                            .map(Self::ast_type_to_core_type)
+                            .collect::<Result<Vec<_>, _>>()
+                    })
                     .transpose()?
-                    .unwrap_or(CoreType::Unit);
+                    .unwrap_or_else(|| vec![CoreType::Unit]);
 
                 let core_errors = self.resolve_error_types(error_types, span)?;
 
                 let function_type = CoreType::Function {
                     parameters: parameter_types,
-                    return_type: Box::new(return_core),
+                    return_types: return_core_types,
                     error_types: core_errors,
                 };
 
@@ -117,14 +122,14 @@ impl TypeChecker {
         match *decl {
             Decl::Function {
                 ref parameters,
-                ref return_type,
+                ref return_types,
                 ref error_types,
                 ref body,
                 span,
                 ..
             } => self.type_check_function_declaration(
                 parameters.as_slice(),
-                return_type.as_ref(),
+                return_types.as_deref(),
                 error_types,
                 body,
                 span,
@@ -147,7 +152,7 @@ impl TypeChecker {
     fn type_check_function_declaration(
         &mut self,
         parameters: &[Parameter],
-        return_type: Option<&Type>,
+        return_types: Option<&[Type]>,
         error_types: &[String],
         body: &Stmt,
         span: crate::token::Span,
@@ -157,15 +162,21 @@ impl TypeChecker {
             parameter_types.push(Self::ast_type_to_core_type(&param.param_type)?);
         }
 
-        let return_core = return_type
-            .map(Self::ast_type_to_core_type)
+        let return_core_types = return_types
+            .map(|ast_return_types| {
+                ast_return_types
+                    .iter()
+                    .map(Self::ast_type_to_core_type)
+                    .collect::<Result<Vec<_>, _>>()
+            })
             .transpose()?
-            .unwrap_or(CoreType::Unit);
+            .unwrap_or_else(|| vec![CoreType::Unit]);
 
         let core_errors = self.resolve_error_types(error_types, span)?;
 
         // Enter function context for error propagation checks
         self.symbol_table.enter_function(core_errors, span);
+        self.begin_return_context();
 
         let result = self.within_new_scope(|checker| -> Result<(), TypeError> {
             for (param, core_type) in parameters.iter().zip(parameter_types.iter()) {
@@ -178,10 +189,11 @@ impl TypeChecker {
                 });
             }
 
-            checker.type_check_stmt_with_return(body, Some(&return_core))
+            checker.type_check_stmt_with_return(body, Some(return_core_types.as_slice()))
         });
 
         // Exit function context regardless of the outcome
+        self.end_return_context();
         self.symbol_table.exit_function();
 
         result

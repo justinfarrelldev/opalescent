@@ -12,7 +12,7 @@ extern crate alloc;
 
 use crate::ast::{AstNode, Expr, LabeledValue, Stmt};
 use crate::error::LexError;
-use crate::parser::{ParseError, ParseResult, Parser, next_node_id};
+use crate::parser::{next_node_id, ParseError, ParseResult, Parser};
 use crate::token::{Span, TokenType};
 
 impl Parser {
@@ -116,33 +116,93 @@ impl Parser {
         })
     }
 
-    /// Parse a return statement
+    /// Parse a return statement.
     ///
-    /// Syntax: `return [expr]`
-    ///
-    /// # Examples
-    /// - `return`  (void return)
-    /// - `return 42`
-    /// - `return x + y`
+    /// Syntax:
+    /// - `return` (void return)
+    /// - `return expr`
+    /// - `return label1: expr1, label2: expr2`
     ///
     /// # Errors
-    /// Returns a parse error if the return statement syntax is invalid.
+    ///
+    /// Returns a parse error if the return payload syntax is invalid or labels repeat.
     pub(super) fn parse_return_statement(&mut self) -> ParseResult<Stmt> {
         let start_span = self.current_token().span;
         self.advance(); // consume 'return'
 
-        // Parse optional return value
-        let value = if self.check(&TokenType::Newline) || self.is_at_end() {
-            None
-        } else {
-            Some(self.parse_expression()?)
-        };
+        let mut values = Vec::new();
+        let mut seen_labels = alloc::collections::BTreeSet::new();
+
+        if !self.check(&TokenType::Newline) && !self.is_at_end() {
+            if self.check_identifier() {
+                let has_label = self
+                    .tokens
+                    .get(self.current.saturating_add(1))
+                    .is_some_and(|next_token| matches!(next_token.token_type, TokenType::Colon));
+
+                if has_label {
+                    loop {
+                        let label_token = self.advance().clone();
+                        let label = match label_token.token_type.clone() {
+                            TokenType::Identifier(label_text) => label_text,
+                            other => {
+                                return Err(ParseError::UnexpectedToken {
+                                    expected: "identifier".to_owned(),
+                                    found: format!("{other}"),
+                                    span: ParseError::span_from_token(&label_token),
+                                });
+                            }
+                        };
+
+                        if !seen_labels.insert(label.clone()) {
+                            return Err(ParseError::DuplicateLabel {
+                                label,
+                                span: ParseError::span_from_token(&label_token),
+                            });
+                        }
+
+                        self.consume(&TokenType::Colon, "Expected ':' after return label")?;
+                        let expr_value = self.parse_expression()?;
+                        let value_span = Span::new(label_token.span.start, expr_value.span().end);
+                        values.push(LabeledValue {
+                            label,
+                            value: expr_value,
+                            span: value_span,
+                            id: next_node_id(),
+                        });
+
+                        if self.check(&TokenType::Comma) {
+                            self.advance();
+                            continue;
+                        }
+
+                        break;
+                    }
+                } else {
+                    let expr_value = self.parse_expression()?;
+                    values.push(LabeledValue {
+                        label: String::new(),
+                        span: expr_value.span(),
+                        value: expr_value,
+                        id: next_node_id(),
+                    });
+                }
+            } else {
+                let expr_value = self.parse_expression()?;
+                values.push(LabeledValue {
+                    label: String::new(),
+                    span: expr_value.span(),
+                    value: expr_value,
+                    id: next_node_id(),
+                });
+            }
+        }
 
         let end_span = self.previous_token().span;
         let span = Span::new(start_span.start, end_span.end);
 
         Ok(Stmt::Return {
-            value,
+            values,
             span,
             id: next_node_id(),
         })

@@ -24,6 +24,17 @@ mod helpers;
 mod statements;
 mod unification;
 
+/// Labeling mode tracked for return statements within a function/lambda body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ReturnLabelMode {
+    /// No return statement has been analyzed yet for the current body.
+    Unknown,
+    /// Return statements are unlabeled.
+    Unlabeled,
+    /// Return statements use a fixed ordered label set.
+    Labeled(Vec<String>),
+}
+
 /// Core type checker responsible for validating and inferring types
 /// throughout the Opalescent type system
 pub struct TypeChecker {
@@ -39,6 +50,8 @@ pub struct TypeChecker {
     guard_else_depth: usize,
     /// Stack tracking the error types handled by active guard else branches
     guard_error_stack: Vec<Vec<CoreType>>,
+    /// Stack tracking return label mode for active function/lambda bodies.
+    return_label_modes: Vec<ReturnLabelMode>,
 }
 
 impl TypeChecker {
@@ -51,6 +64,7 @@ impl TypeChecker {
             constraints: Vec::new(),
             guard_else_depth: 0,
             guard_error_stack: Vec::new(),
+            return_label_modes: Vec::new(),
         }
     }
 
@@ -63,6 +77,7 @@ impl TypeChecker {
             constraints: Vec::new(),
             guard_else_depth: 0,
             guard_error_stack: Vec::new(),
+            return_label_modes: Vec::new(),
         }
     }
 
@@ -184,7 +199,7 @@ impl TypeChecker {
                     // Extract function signature from callee type
                     if let CoreType::Function {
                         parameters,
-                        return_type: fn_return,
+                        return_types,
                         error_types: _fn_errors,
                     } = callee_applied
                     {
@@ -211,16 +226,27 @@ impl TypeChecker {
                             substitution = substitution.compose(&param_subst);
                         }
 
-                        // Unify return type
-                        let fn_return_applied = substitution.apply(&fn_return);
-                        let return_type_applied = substitution.apply(&return_type);
-                        let return_subst = self.unify(
-                            &fn_return_applied,
-                            &return_type_applied,
-                            callee_span,
-                            return_span,
-                        )?;
-                        substitution = substitution.compose(&return_subst);
+                        if return_types.len() != 1 {
+                            let diagnostic_span = callee_span
+                                .map_or_else(TypeError::unknown_span, TypeError::span_from_span);
+                            return Err(TypeError::ArityMismatch {
+                                expected: 1,
+                                found: return_types.len(),
+                                span: diagnostic_span,
+                            });
+                        }
+
+                        if let Some(function_return_type) = return_types.first() {
+                            let fn_return_applied = substitution.apply(function_return_type);
+                            let return_type_applied = substitution.apply(&return_type);
+                            let return_subst = self.unify(
+                                &fn_return_applied,
+                                &return_type_applied,
+                                callee_span,
+                                return_span,
+                            )?;
+                            substitution = substitution.compose(&return_subst);
+                        }
                     } else {
                         // Callee is not a function type
                         let diagnostic_span = callee_span
@@ -307,14 +333,17 @@ impl TypeChecker {
             }
             Type::Function {
                 ref parameters,
-                ref return_type,
+                ref return_types,
                 ..
             } => {
                 let mut core_params = Vec::with_capacity(parameters.len());
                 for param in parameters {
                     core_params.push(Self::ast_type_to_core_type(param)?);
                 }
-                let core_return = Self::ast_type_to_core_type(return_type.as_ref())?;
+                let mut core_return_types = Vec::with_capacity(return_types.len());
+                for return_type in return_types {
+                    core_return_types.push(Self::ast_type_to_core_type(return_type)?);
+                }
                 // NOTE: Function type node may carry an errors clause for pretty-printing
                 // and documentation. For conversion, we attempt to resolve these types; if a
                 // type is unknown at this stage (e.g., custom ADT not yet declared), we map
@@ -340,7 +369,7 @@ impl TypeChecker {
 
                 Ok(CoreType::Function {
                     parameters: core_params,
-                    return_type: Box::new(core_return),
+                    return_types: core_return_types,
                     error_types: core_errors,
                 })
             }
@@ -503,12 +532,12 @@ impl TypeChecker {
             (
                 CoreType::Function {
                     parameters: left_params,
-                    return_type: left_ret,
+                    return_types: left_returns,
                     error_types: left_errors,
                 },
                 CoreType::Function {
                     parameters: right_params,
-                    return_type: right_ret,
+                    return_types: right_returns,
                     error_types: right_errors,
                 },
             ) => {
@@ -520,8 +549,13 @@ impl TypeChecker {
                         return false;
                     }
                 }
-                if !self.types_compatible(left_ret.as_ref(), right_ret.as_ref()) {
+                if left_returns.len() != right_returns.len() {
                     return false;
+                }
+                for (left_ret, right_ret) in left_returns.iter().zip(right_returns.iter()) {
+                    if !self.types_compatible(left_ret, right_ret) {
+                        return false;
+                    }
                 }
                 if left_errors.len() != right_errors.len() {
                     return false;
@@ -628,6 +662,98 @@ impl TypeChecker {
         let result = action(self);
         self.symbol_table.exit_scope();
         result
+    }
+
+    /// Start return-shape tracking for a function or lambda body.
+    pub(super) fn begin_return_context(&mut self) {
+        self.return_label_modes.push(ReturnLabelMode::Unknown);
+    }
+
+    /// Finish return-shape tracking for a function or lambda body.
+    pub(super) fn end_return_context(&mut self) {
+        let popped = self.return_label_modes.pop();
+        debug_assert!(
+            popped.is_some(),
+            "return label mode stack underflow when exiting return context"
+        );
+    }
+
+    /// Validate the current return statement label shape against active function context.
+    pub(super) fn ensure_return_label_mode(
+        &mut self,
+        labels: &[String],
+        span: Span,
+    ) -> Result<(), TypeError> {
+        let Some(mode) = self.return_label_modes.last_mut() else {
+            return Ok(());
+        };
+
+        if labels.is_empty() {
+            match *mode {
+                ReturnLabelMode::Unknown => {
+                    *mode = ReturnLabelMode::Unlabeled;
+                    Ok(())
+                }
+                ReturnLabelMode::Unlabeled => Ok(()),
+                ReturnLabelMode::Labeled(ref expected_labels) => {
+                    Err(TypeError::ReturnLabelMismatch {
+                        expected: Self::render_return_labels(expected_labels.as_slice()),
+                        found: "unlabeled return".to_owned(),
+                        span: TypeError::span_from_span(span),
+                    })
+                }
+            }
+        } else {
+            let mut seen = alloc::collections::BTreeSet::new();
+            for label in labels {
+                if !seen.insert(label.clone()) {
+                    return Err(TypeError::ReturnLabelMismatch {
+                        expected: "unique labels".to_owned(),
+                        found: format!("duplicate label '{label}'"),
+                        span: TypeError::span_from_span(span),
+                    });
+                }
+            }
+
+            match *mode {
+                ReturnLabelMode::Unknown => {
+                    *mode = ReturnLabelMode::Labeled(labels.to_vec());
+                    Ok(())
+                }
+                ReturnLabelMode::Unlabeled => Err(TypeError::ReturnLabelMismatch {
+                    expected: "unlabeled return".to_owned(),
+                    found: Self::render_return_labels(labels),
+                    span: TypeError::span_from_span(span),
+                }),
+                ReturnLabelMode::Labeled(ref expected_labels) => {
+                    if expected_labels.as_slice() == labels {
+                        Ok(())
+                    } else {
+                        Err(TypeError::ReturnLabelMismatch {
+                            expected: Self::render_return_labels(expected_labels.as_slice()),
+                            found: Self::render_return_labels(labels),
+                            span: TypeError::span_from_span(span),
+                        })
+                    }
+                }
+            }
+        }
+    }
+
+    /// Render ordered return labels for diagnostics.
+    fn render_return_labels(labels: &[String]) -> String {
+        if labels.is_empty() {
+            return "unlabeled return".to_owned();
+        }
+
+        let mut rendered = String::new();
+        for (index, label) in labels.iter().enumerate() {
+            if index > 0 {
+                rendered.push_str(", ");
+            }
+            rendered.push_str(label);
+        }
+        rendered
     }
 }
 

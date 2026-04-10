@@ -4,7 +4,7 @@
 //! including function declarations, type declarations, import declarations, and let declarations.
 //! These methods are part of the Parser implementation but are organized here for modularity.
 extern crate alloc;
-use super::{ParseError, ParseResult, Parser, next_node_id};
+use super::{next_node_id, ParseError, ParseResult, Parser};
 use crate::ast::{
     AstNode, Decl, Documentation, Field, HotReloadMetadata, ImportItem, LetBinding, Parameter,
     Stmt, Type, TypeDef, Variant, Visibility,
@@ -160,12 +160,19 @@ impl Parser {
         // Expect ')'
         self.consume(&TokenType::RightParen, "Expected ')' after parameters")?;
 
-        // Parse optional return type
-        let return_type = self
+        let return_types = self
             .check(&TokenType::Colon)
             .then(|| {
                 self.advance();
-                self.parse_type()
+                let mut parsed_return_types = Vec::new();
+                parsed_return_types.push(self.parse_type()?);
+
+                while self.check(&TokenType::Comma) {
+                    self.advance();
+                    parsed_return_types.push(self.parse_type()?);
+                }
+
+                Ok(parsed_return_types)
             })
             .transpose()?;
 
@@ -176,7 +183,7 @@ impl Parser {
             let signature = Self::build_function_signature_section(
                 &name,
                 &parameters,
-                return_type.as_ref(),
+                return_types.as_deref(),
                 &error_types,
             );
             documentation
@@ -219,7 +226,7 @@ impl Parser {
         Ok(Decl::Function {
             name,
             parameters,
-            return_type,
+            return_types,
             error_types,
             body,
             visibility,
