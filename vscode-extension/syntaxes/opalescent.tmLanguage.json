@@ -1,0 +1,102 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Opalescent",
+  "scopeName": "source.opalescent",
+  "patterns": [
+    { "include": "#block-comment" },
+    { "include": "#line-comment" },
+    { "include": "#string" },
+    { "include": "#number" },
+    { "include": "#keyword" },
+    { "include": "#type-name" },
+    { "include": "#function-call" },
+    { "include": "#identifier" }
+  ],
+  "repository": {
+    "block-comment": {
+      "name": "comment.block.opalescent",
+      "begin": "##",
+      "end": "##",
+      "patterns": [
+        { "name": "comment.block.opalescent", "match": "." }
+      ]
+    },
+    "line-comment": {
+      "name": "comment.line.number-sign.opalescent",
+      "match": "#[^#].*$|#$"
+    },
+    "string": {
+      "name": "string.quoted.single.opalescent",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        {
+          "name": "constant.character.escape.opalescent",
+          "match": "\\\\."
+        },
+        {
+          "name": "meta.embedded.opalescent",
+          "begin": "\\{",
+          "end": "\\}",
+          "contentName": "source.opalescent.embedded"
+        }
+      ]
+    },
+    "number": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.opalescent",
+          "match": "\\b[0-9][0-9_]*\\.[0-9][0-9_]*\\b"
+        },
+        {
+          "name": "constant.numeric.hex.opalescent",
+          "match": "\\b0x[0-9a-fA-F][0-9a-fA-F_]*\\b"
+        },
+        {
+          "name": "constant.numeric.binary.opalescent",
+          "match": "\\b0b[01][01_]*\\b"
+        },
+        {
+          "name": "constant.numeric.integer.opalescent",
+          "match": "\\b[0-9][0-9_]*\\b"
+        }
+      ]
+    },
+    "keyword": {
+      "patterns": [
+        {
+          "name": "keyword.declaration.opalescent",
+          "match": "\\b(fn|type|module|import|export|entry|public)\\b"
+        },
+        {
+          "name": "keyword.control.opalescent",
+          "match": "\\b(if|else|while|for|in|loop|match|break|return|guard|propagate)\\b"
+        },
+        {
+          "name": "keyword.other.opalescent",
+          "match": "\\b(let|mutable|as|is|errors|unit)\\b"
+        },
+        {
+          "name": "constant.language.boolean.opalescent",
+          "match": "\\b(true|false)\\b"
+        },
+        {
+          "name": "support.type.primitive.opalescent",
+          "match": "\\b(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64|boolean|string|char)\\b"
+        }
+      ]
+    },
+    "type-name": {
+      "name": "entity.name.type.opalescent",
+      "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
+    },
+    "function-call": {
+      "name": "entity.name.function.opalescent",
+      "match": "\\b([a-z_][a-zA-Z0-9_]*)(?=\\s*\\()"
+    },
+    "identifier": {
+      "name": "variable.other.opalescent",
+      "match": "\\b[a-z_][a-zA-Z0-9_]*\\b"
+    }
+  }
+}

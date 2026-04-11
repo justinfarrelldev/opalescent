@@ -10,6 +10,9 @@
   "categories": [
     "Programming Languages"
   ],
+  "activationEvents": [
+    "onLanguage:opalescent"
+  ],
   "contributes": {
     "languages": [
       {
@@ -22,6 +25,13 @@
           ".op"
         ],
         "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "opalescent",
+        "scopeName": "source.opalescent",
+        "path": "./syntaxes/opalescent.tmLanguage.json"
       }
     ]
   }
