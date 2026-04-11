@@ -156,10 +156,10 @@ Add first-class error declarations on functions and lambdas, a guard construct f
 
 ## 5) If Expression Semantics (Outline)
 
-- [ ] Confirm Rust-style value-returning if-expr behavior; else-less if yields `unit`.
-- [ ] Parser: ensure expression form emitted where used in expr position.
-- [ ] Type system: branch type compatibility; inference for result type.
-- [ ] Tests: inference and mismatches.
+- [x] Confirm Rust-style value-returning if-expr behavior; else-less if yields `unit`.
+- [x] Parser: ensure expression form emitted where used in expr position.
+- [x] Type system: branch type compatibility; inference for result type.
+- [x] Tests: inference and mismatches.
 
 ## 6) Member Access Type Checking (Outline)
 
@@ -176,11 +176,13 @@ Add first-class error declarations on functions and lambdas, a guard construct f
 - [ ] Const-eval checks for `/` and `%` by zero; runtime trap otherwise.
 - [ ] Tests per spec.
 
-## 9) Warning System Infrastructure (Outline)
+## 9) Warning System Infrastructure (Complete)
 
-- [ ] Add `Warning` parallel to `TypeError`; collection on `TypeChecker`.
-- [ ] Convert unsafe casts to warnings; display with miette.
-- [ ] Tests: warning presence and suppression hooks (future).
+- [x] Add `Warning` parallel to `TypeError`; collection on `TypeChecker`.
+- [x] Convert unsafe casts to warnings; display with miette.
+- [x] Add placeholder warning categories: `UnusedVariable`, `UnreachableCode`, `NonExhaustiveMatch`.
+- [x] Add warning suppression infrastructure (`suppression_annotation`) for future annotation-based suppression.
+- [x] Add TDD coverage for warning creation, unsafe-cast warning behavior, and warning collection.
 
 ## 10) Type System Core Plan Synchronization (Docs)
 

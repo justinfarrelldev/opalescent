@@ -62,6 +62,7 @@ impl Parser {
             }
             &TokenType::TypeOf => self.parse_type_of_expression(span),
             &TokenType::Function => self.parse_lambda_expression(span),
+            &TokenType::If => self.parse_if_expression(span),
             &TokenType::Guard => self.parse_guard_expression(span),
             &TokenType::Propagate => self.parse_propagate_expression(span),
             _ => Err(ParseError::UnexpectedToken {
@@ -70,6 +71,34 @@ impl Parser {
                 span: ParseError::span_from_token(token),
             }),
         }
+    }
+
+    /// Parse an if expression: `if <condition> <then-branch> [else <else-branch>]`.
+    fn parse_if_expression(&mut self, start_span: Span) -> ParseResult<Expr> {
+        self.advance();
+
+        let condition = self.parse_expression()?;
+        let then_branch = Box::new(self.parse_block_statement()?);
+
+        let else_branch = self
+            .check(&TokenType::Else)
+            .then(|| {
+                self.advance();
+                self.parse_statement().map(Box::new)
+            })
+            .transpose()?;
+
+        let end_span = else_branch
+            .as_ref()
+            .map_or_else(|| then_branch.span(), |else_stmt| else_stmt.span());
+
+        Ok(Expr::If {
+            condition: Box::new(condition),
+            then_branch,
+            else_branch,
+            span: Span::new(start_span.start, end_span.end),
+            id: next_node_id(),
+        })
     }
 
     /// Parse integer literal expressions

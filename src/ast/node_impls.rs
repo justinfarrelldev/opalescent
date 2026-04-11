@@ -21,6 +21,7 @@ impl AstNode for Expr {
             | Self::TypeOf { span, .. }
             | Self::StringInterpolation { span, .. }
             | Self::Parenthesized { span, .. }
+            | Self::If { span, .. }
             | Self::Array { span, .. }
             | Self::Lambda { span, .. }
             | Self::Guard { span, .. }
@@ -41,6 +42,7 @@ impl AstNode for Expr {
             | Self::TypeOf { id, .. }
             | Self::StringInterpolation { id, .. }
             | Self::Parenthesized { id, .. }
+            | Self::If { id, .. }
             | Self::Array { id, .. }
             | Self::Lambda { id, .. }
             | Self::Guard { id, .. }

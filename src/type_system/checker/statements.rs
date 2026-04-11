@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use super::expressions::{GuardBindingInfo, GuardUsage};
+use super::control_flow::{GuardBindingInfo, GuardUsage};
 use super::helpers::{
     coerce_literal_to_expected, ensure_boolean_type, invalid_operation_error, type_mismatch_error,
 };

@@ -80,6 +80,7 @@ impl Expr {
             | Self::TypeOf { span, .. }
             | Self::StringInterpolation { span, .. }
             | Self::Parenthesized { span, .. }
+            | Self::If { span, .. }
             | Self::Array { span, .. }
             | Self::Lambda { span, .. }
             | Self::Guard { span, .. }
@@ -102,6 +103,7 @@ impl Expr {
             | Self::TypeOf { id, .. }
             | Self::StringInterpolation { id, .. }
             | Self::Parenthesized { id, .. }
+            | Self::If { id, .. }
             | Self::Array { id, .. }
             | Self::Lambda { id, .. }
             | Self::Guard { id, .. }
@@ -294,6 +296,25 @@ pub enum Expr {
         /// Expression inside the parentheses
         expr: Box<Expr>,
         /// Source code location of this parenthesized expression
+        span: Span,
+        /// Unique identifier for this AST node
+        id: NodeId,
+    },
+
+    /// If expression (`if cond { ... } else { ... }`)
+    ///
+    /// Opalescent uses Rust-style if expressions. When an `else` branch is present,
+    /// both branches must resolve to compatible types and the resulting expression type
+    /// is the unified branch type. Without an `else` branch, the expression result is
+    /// unit.
+    If {
+        /// Boolean condition expression
+        condition: Box<Expr>,
+        /// Statement executed when the condition evaluates to true
+        then_branch: Box<Stmt>,
+        /// Optional statement executed when the condition evaluates to false
+        else_branch: Option<Box<Stmt>>,
+        /// Source code location of this if expression
         span: Span,
         /// Unique identifier for this AST node
         id: NodeId,

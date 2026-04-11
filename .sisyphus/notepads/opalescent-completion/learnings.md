@@ -60,3 +60,12 @@
 - Converted unsafe-cast flow to warning collection path via `validate_cast_with_warnings`, while keeping invalid casts as hard errors.
 - Added suppression placeholder plumbing on warning variants (`suppression_annotation: Option<String>`) to support future suppression annotations.
 - Added TDD coverage for warning creation, unsafe-cast warning behavior (non-fatal), and warning collection accumulation.
+
+## [2026-04-11] Task 3: If Expression Semantics - COMPLETE
+- Added `Expr::If` AST variant while preserving existing `Stmt::If` for statement-position control flow.
+- Parser now recognizes `if` in expression position (`parse_if_expression`) and supports both with-else and else-less forms.
+- Type checker now infers `if` expression type by branch unification when `else` is present; mismatch raises `TypeError::TypeMismatch` with spans for both branches.
+- Else-less `if` expressions now evaluate to `unit` type semantics.
+- Added TDD coverage in parser/type-system tests for inference success, branch mismatch failure, and else-less behavior.
+- Extracted control-flow typing into new `src/type_system/checker/control_flow.rs` to satisfy line-count constraints while sharing guard/if helpers.
+- Validation: cargo make lint-fix PASS, cargo make lint PASS, cargo make test PASS (276 passed), scripts/check-line-count.sh PASS.
