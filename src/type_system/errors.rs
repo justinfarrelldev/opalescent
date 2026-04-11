@@ -226,24 +226,6 @@ pub enum TypeError {
         span: SourceSpan,
     },
 
-    /// Unsafe cast that may lose data or precision
-    #[error("Unsafe cast from '{from_type}' to '{to_type}' may lose data")]
-    #[diagnostic(
-        code(opalescent::type_system::unsafe_cast),
-        help(
-            "This cast is narrowing and may lose data. In debug mode, this will trap on overflow. Consider validating the value before casting"
-        )
-    )]
-    UnsafeCast {
-        /// Source type of the cast
-        from_type: String,
-        /// Target type of the cast
-        to_type: String,
-        #[label("unsafe narrowing cast")]
-        /// Source span highlighting where the unsafe cast was attempted
-        span: SourceSpan,
-    },
-
     /// An error type was used in a function signature but not declared in the current scope.
     #[error("Undeclared error type '{name}'")]
     #[diagnostic(
@@ -396,6 +378,104 @@ pub enum TypeError {
         /// Source span of the mismatching return statement.
         span: SourceSpan,
     },
+}
+
+/// Warning diagnostics produced during type checking.
+///
+/// Warnings represent non-fatal issues that should be surfaced to users without
+/// preventing successful compilation. This mirrors [`TypeError`] so diagnostics
+/// remain consistent across fatal and non-fatal analysis paths.
+#[derive(Error, Debug, Clone, PartialEq, Eq, Diagnostic)]
+pub enum Warning {
+    /// Unsafe cast that may lose data or precision.
+    #[error("Unsafe cast from '{from_type}' to '{to_type}' may lose data")]
+    #[diagnostic(
+        code(opalescent::type_system::warning::unsafe_cast),
+        help(
+            "This cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API."
+        )
+    )]
+    UnsafeCast {
+        /// Source type of the cast.
+        from_type: String,
+        /// Target type of the cast.
+        to_type: String,
+        #[label("unsafe narrowing cast")]
+        /// Source span highlighting where the unsafe cast was attempted.
+        span: SourceSpan,
+        /// Optional suppression annotation identifier for future warning controls.
+        suppression_annotation: Option<String>,
+    },
+
+    /// Placeholder warning for future unused-variable analysis.
+    #[error("Variable '{name}' is never used")]
+    #[diagnostic(
+        code(opalescent::type_system::warning::unused_variable),
+        help("Remove the variable or prefix it with '_' if unused intentionally")
+    )]
+    UnusedVariable {
+        /// Name of the variable that is unused.
+        name: String,
+        #[label("unused variable")]
+        /// Source span for the unused variable binding.
+        span: SourceSpan,
+        /// Optional suppression annotation identifier for future warning controls.
+        suppression_annotation: Option<String>,
+    },
+
+    /// Placeholder warning for future unreachable-code analysis.
+    #[error("Unreachable code detected")]
+    #[diagnostic(
+        code(opalescent::type_system::warning::unreachable_code),
+        help("Remove unreachable statements or refactor control flow")
+    )]
+    UnreachableCode {
+        #[label("unreachable code")]
+        /// Source span for unreachable code.
+        span: SourceSpan,
+        /// Optional suppression annotation identifier for future warning controls.
+        suppression_annotation: Option<String>,
+    },
+
+    /// Placeholder warning for future exhaustiveness analysis.
+    #[error("Pattern match may be non-exhaustive")]
+    #[diagnostic(
+        code(opalescent::type_system::warning::non_exhaustive_match),
+        help("Add missing pattern arms to handle all possible cases")
+    )]
+    NonExhaustiveMatch {
+        #[label("non-exhaustive pattern match")]
+        /// Source span for the non-exhaustive match.
+        span: SourceSpan,
+        /// Optional suppression annotation identifier for future warning controls.
+        suppression_annotation: Option<String>,
+    },
+}
+
+impl Warning {
+    /// Return the suppression annotation attached to this warning, if present.
+    pub fn suppression_annotation(&self) -> Option<&str> {
+        let suppression_annotation = match *self {
+            Self::UnsafeCast {
+                ref suppression_annotation,
+                ..
+            }
+            | Self::UnusedVariable {
+                ref suppression_annotation,
+                ..
+            }
+            | Self::UnreachableCode {
+                ref suppression_annotation,
+                ..
+            }
+            | Self::NonExhaustiveMatch {
+                ref suppression_annotation,
+                ..
+            } => suppression_annotation,
+        };
+
+        suppression_annotation.as_deref()
+    }
 }
 
 impl TypeError {

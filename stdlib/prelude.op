@@ -1,0 +1,16 @@
+# Opalescent standard prelude signatures (documentation only)
+#
+# This file declares built-in function signatures available to all modules.
+# It does not define runtime behavior.
+
+# print is generic over any value type and returns unit.
+# print<T>(value: T): unit
+
+# Reads a line of text from input and returns it as string.
+# take_input(): string
+
+# Parses decimal text into int32; may fail with ParseError.
+# string_to_int32(s: string): int32 errors ParseError
+
+# Returns a pseudo-random int32 in the inclusive [min, max] range.
+# random_int32(min: int32, max: int32): int32

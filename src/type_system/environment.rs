@@ -15,6 +15,8 @@ pub struct TypeEnvironment {
     types: BTreeMap<String, CoreType>,
     /// Map of generic type parameters to their constraints
     generic_params: BTreeMap<String, Vec<String>>,
+    /// Registry of standard library built-in function signatures.
+    builtins: BTreeMap<String, CoreType>,
 }
 
 impl TypeEnvironment {
@@ -23,6 +25,7 @@ impl TypeEnvironment {
         let mut env = Self {
             types: BTreeMap::new(),
             generic_params: BTreeMap::new(),
+            builtins: BTreeMap::new(),
         };
 
         // Register built-in types
@@ -47,6 +50,23 @@ impl TypeEnvironment {
         self.types.insert("unit".to_owned(), CoreType::Unit);
         // The language spec presents `void` as the return type keyword, so alias it to `unit`.
         self.types.insert("void".to_owned(), CoreType::Unit);
+        self.types.insert(
+            "ParseError".to_owned(),
+            CoreType::Generic {
+                name: "ParseError".to_owned(),
+                type_args: Vec::new(),
+            },
+        );
+    }
+
+    /// Register a built-in function signature in the environment.
+    pub fn register_builtin(&mut self, name: String, signature: CoreType) {
+        self.builtins.insert(name, signature);
+    }
+
+    /// Look up a built-in function signature by name.
+    pub fn lookup_builtin(&self, name: &str) -> Option<&CoreType> {
+        self.builtins.get(name)
     }
 
     /// Look up a type by name

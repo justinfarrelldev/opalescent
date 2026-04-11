@@ -44,3 +44,12 @@
 - Added TypeError::ReturnLabelMismatch
 - 263 tests passing
 - Files modified: src/ast.rs, src/ast/types.rs, src/parser/declarations.rs, src/parser/expressions.rs, src/parser/helpers.rs, src/parser/statements.rs, src/parser/tests.rs, src/parser/types.rs, src/type_system/checker.rs, src/type_system/checker/declarations.rs, src/type_system/checker/expressions.rs, src/type_system/checker/statements.rs, src/type_system/checker/unification.rs, src/type_system/errors.rs, src/type_system/substitution.rs, src/type_system/tests.rs, src/type_system/types.rs
+
+## [2026-04-10] Task 2: Standard Library Built-ins - COMPLETE
+- Added TypeEnvironment built-in registry with register_builtin()/lookup_builtin().
+- Pre-registered built-ins in TypeChecker::new()/with_environment(): print<T>, take_input, string_to_int32 errors ParseError, random_int32.
+- Added call-site generic instantiation helper to support polymorphic built-in calls (print<T> across multiple concrete types).
+- Added parser/test maintenance for Expr::If coverage to keep compile/lint clean.
+- Added built-in TDD tests plus hello_world type-check test with whitespace-normalized fixture helper.
+- Added stdlib/prelude.op as documentation-only signature listing (no runtime behavior).
+- Validation: cargo make lint PASS, cargo make test PASS (276 passed), line-count PASS after extracting call_resolution module.

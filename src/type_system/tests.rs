@@ -6,7 +6,7 @@ use alloc::collections::BTreeMap;
 use super::checker::TypeChecker;
 use super::constraints::TypeConstraint;
 use super::environment::TypeEnvironment;
-use super::errors::TypeError;
+use super::errors::{TypeError, Warning};
 use super::substitution::Substitution;
 use super::symbol_table::{ScopeId, SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::types::{CoreType, TypeVar};
@@ -18,6 +18,7 @@ use crate::ast::{
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::token::{Position, Span};
+use miette::Diagnostic;
 
 // Test constants for semantic meaning instead of magic numbers
 const TEST_VAR_ID: usize = 0;
@@ -68,6 +69,35 @@ fn parse_error_handling_sample_program() -> Program {
     );
 
     program_opt.unwrap_or_else(|| panic!("parser returned no program for valid sample"))
+}
+
+#[expect(
+    clippy::panic,
+    reason = "Test helper uses panic for unrecoverable parse/lex failures"
+)]
+fn parse_program_from_source(source: &str) -> Program {
+    let lexer = Lexer::new(source);
+    let (tokens, lex_errors) = lexer.tokenize();
+    assert!(
+        lex_errors.is_empty(),
+        "source should tokenize without lex errors: {:?}",
+        lex_errors.errors
+    );
+
+    let parser = Parser::new(tokens);
+    let (program_opt, parse_errors) = parser.parse();
+    assert!(
+        parse_errors.is_empty(),
+        "source should parse without errors: {:?}",
+        parse_errors.errors
+    );
+
+    program_opt.unwrap_or_else(|| panic!("parser returned no program for valid source"))
+}
+
+fn parse_program_from_source_with_spaces(source: &str) -> Program {
+    let normalized = source.replace('\t', "    ");
+    parse_program_from_source(&normalized)
 }
 
 fn literal_expr(value: LiteralValue, id: usize) -> Expr {
@@ -3411,6 +3441,52 @@ fn test_type_check_if_requires_boolean_condition() {
 }
 
 #[test]
+fn test_if_expression_infers_branch_type_when_branches_match() {
+    let mut checker = TypeChecker::new();
+    let program = parse_program_from_source("let value = if true { 1 } else { 2 }\n");
+
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "matching if-expression branches should infer a concrete result type"
+    );
+}
+
+#[test]
+fn test_if_expression_branch_mismatch_reports_type_error() {
+    let mut checker = TypeChecker::new();
+    let program = parse_program_from_source("let value = if true { 1 } else { false }\n");
+
+    let result = checker.type_check_program(&program);
+    assert!(
+        matches!(
+            result,
+            Err(ref errors) if errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::TypeMismatch { .. }))
+        ),
+        "mismatched if-expression branches must fail with a TypeMismatch"
+    );
+}
+
+#[test]
+fn test_else_less_if_expression_defaults_to_unit_type() {
+    let mut checker = TypeChecker::new();
+    let program = parse_program_from_source("let value: int32 = if true { 1 }\n");
+
+    let result = checker.type_check_program(&program);
+    assert!(
+        matches!(
+            result,
+            Err(ref errors) if errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::TypeMismatch { .. }))
+        ),
+        "else-less if expressions should type as unit and fail non-unit annotation checks"
+    );
+}
+
+#[test]
 fn test_type_check_program_collects_errors() {
     let mut checker = TypeChecker::new();
     let decl = Decl::Function {
@@ -4037,29 +4113,82 @@ fn test_safe_cast_identity() {
 }
 
 #[test]
-fn test_unsafe_cast_narrowing_signed_integers() {
+fn test_warning_creation_for_unsafe_cast() {
+    let warning = Warning::UnsafeCast {
+        from_type: "int64".to_owned(),
+        to_type: "int32".to_owned(),
+        span: TypeError::span_from_span(test_span()),
+        suppression_annotation: None,
+    };
+
+    assert_eq!(
+        warning
+            .code()
+            .map(|diagnostic_code| diagnostic_code.to_string())
+            .as_deref(),
+        Some("opalescent::type_system::warning::unsafe_cast"),
+        "unsafe cast warning should expose a stable diagnostic code"
+    );
+    assert!(
+        warning.help().is_some(),
+        "unsafe cast warning should provide actionable help text"
+    );
+}
+
+#[test]
+fn test_unsafe_cast_is_warning_not_type_error() {
+    let mut checker = TypeChecker::new();
     let span = test_span();
 
-    // Unsafe narrowing casts within signed integers (emit error now, will become warning in Phase 2)
-    // Per language spec (math.md), these will trap on overflow in debug mode
-    let result_int64_to_int32 =
-        TypeChecker::validate_cast(&CoreType::Int64, &CoreType::Int32, span);
+    let result = checker.validate_cast_with_warnings(&CoreType::Int64, &CoreType::Int32, span);
     assert!(
-        matches!(result_int64_to_int32, Err(TypeError::UnsafeCast { .. })),
-        "int64 -> int32 should emit UnsafeCast error (will become warning in Phase 2)"
+        result.is_ok(),
+        "unsafe cast should no longer fail type checking"
+    );
+    assert!(
+        !checker.warnings().is_empty(),
+        "unsafe cast should be collected as a warning"
+    );
+}
+
+#[test]
+fn test_warning_collection_for_unsafe_cast() {
+    let mut checker = TypeChecker::new();
+    let span = test_span();
+
+    let result_int64_to_int32 =
+        checker.validate_cast_with_warnings(&CoreType::Int64, &CoreType::Int32, span);
+    assert!(
+        result_int64_to_int32.is_ok(),
+        "int64 -> int32 should succeed with warning collection"
     );
 
     let result_int32_to_int16 =
-        TypeChecker::validate_cast(&CoreType::Int32, &CoreType::Int16, span);
+        checker.validate_cast_with_warnings(&CoreType::Int32, &CoreType::Int16, span);
     assert!(
-        matches!(result_int32_to_int16, Err(TypeError::UnsafeCast { .. })),
-        "int32 -> int16 should emit UnsafeCast error (will become warning in Phase 2)"
+        result_int32_to_int16.is_ok(),
+        "int32 -> int16 should succeed with warning collection"
     );
 
-    let result_int16_to_int8 = TypeChecker::validate_cast(&CoreType::Int16, &CoreType::Int8, span);
+    let warnings = checker.warnings();
+    assert_eq!(
+        warnings.len(),
+        2,
+        "two unsafe casts should produce two collected warnings"
+    );
+    let first_warning = warnings
+        .first()
+        .expect("warning collection should contain at least one warning");
     assert!(
-        matches!(result_int16_to_int8, Err(TypeError::UnsafeCast { .. })),
-        "int16 -> int8 should emit UnsafeCast error (will become warning in Phase 2)"
+        matches!(
+            *first_warning,
+            Warning::UnsafeCast {
+                ref from_type,
+                ref to_type,
+                ..
+            } if from_type == "int64" && to_type == "int32"
+        ),
+        "first warning should describe int64 -> int32 cast"
     );
 }
 
@@ -4067,27 +4196,18 @@ fn test_unsafe_cast_narrowing_signed_integers() {
 fn test_unsafe_cast_narrowing_unsigned_integers() {
     let span = test_span();
 
-    // Unsafe narrowing casts within unsigned integers (emit error now, will become warning in Phase 2)
-    // Per language spec (math.md), these will trap on overflow in debug mode
-    let result_uint64_to_uint32 =
-        TypeChecker::validate_cast(&CoreType::UInt64, &CoreType::UInt32, span);
+    // Unsafe narrowing casts within unsigned integers are warning-level now
     assert!(
-        matches!(result_uint64_to_uint32, Err(TypeError::UnsafeCast { .. })),
-        "uint64 -> uint32 should emit UnsafeCast error (will become warning in Phase 2)"
+        TypeChecker::validate_cast(&CoreType::UInt64, &CoreType::UInt32, span).is_ok(),
+        "uint64 -> uint32 should be accepted as warning-level cast"
     );
-
-    let result_uint32_to_uint16 =
-        TypeChecker::validate_cast(&CoreType::UInt32, &CoreType::UInt16, span);
     assert!(
-        matches!(result_uint32_to_uint16, Err(TypeError::UnsafeCast { .. })),
-        "uint32 -> uint16 should emit UnsafeCast error (will become warning in Phase 2)"
+        TypeChecker::validate_cast(&CoreType::UInt32, &CoreType::UInt16, span).is_ok(),
+        "uint32 -> uint16 should be accepted as warning-level cast"
     );
-
-    let result_uint16_to_uint8 =
-        TypeChecker::validate_cast(&CoreType::UInt16, &CoreType::UInt8, span);
     assert!(
-        matches!(result_uint16_to_uint8, Err(TypeError::UnsafeCast { .. })),
-        "uint16 -> uint8 should emit UnsafeCast error (will become warning in Phase 2)"
+        TypeChecker::validate_cast(&CoreType::UInt16, &CoreType::UInt8, span).is_ok(),
+        "uint16 -> uint8 should be accepted as warning-level cast"
     );
 }
 
@@ -4095,12 +4215,9 @@ fn test_unsafe_cast_narrowing_unsigned_integers() {
 fn test_unsafe_cast_float_narrowing() {
     let span = test_span();
 
-    // Unsafe narrowing cast from float64 to float32 (emit error now, will become warning in Phase 2)
-    // Per language spec (math.md), these will trap on overflow in debug mode
-    let result = TypeChecker::validate_cast(&CoreType::Float64, &CoreType::Float32, span);
     assert!(
-        matches!(result, Err(TypeError::UnsafeCast { .. })),
-        "float64 -> float32 should emit UnsafeCast error (will become warning in Phase 2)"
+        TypeChecker::validate_cast(&CoreType::Float64, &CoreType::Float32, span).is_ok(),
+        "float64 -> float32 should be accepted as warning-level cast"
     );
 }
 
@@ -4108,26 +4225,17 @@ fn test_unsafe_cast_float_narrowing() {
 fn test_unsafe_cast_float_to_integer() {
     let span = test_span();
 
-    // Unsafe casts from float to integer (emit error now, will become warning in Phase 2)
-    // Per language spec (math.md), these will trap on overflow in debug mode
-    let result_float32_to_int32 =
-        TypeChecker::validate_cast(&CoreType::Float32, &CoreType::Int32, span);
     assert!(
-        matches!(result_float32_to_int32, Err(TypeError::UnsafeCast { .. })),
-        "float32 -> int32 should emit UnsafeCast error (will become warning in Phase 2)"
+        TypeChecker::validate_cast(&CoreType::Float32, &CoreType::Int32, span).is_ok(),
+        "float32 -> int32 should be accepted as warning-level cast"
     );
-
-    let result_float64_to_int64 =
-        TypeChecker::validate_cast(&CoreType::Float64, &CoreType::Int64, span);
     assert!(
-        matches!(result_float64_to_int64, Err(TypeError::UnsafeCast { .. })),
-        "float64 -> int64 should emit UnsafeCast error (will become warning in Phase 2)"
+        TypeChecker::validate_cast(&CoreType::Float64, &CoreType::Int64, span).is_ok(),
+        "float64 -> int64 should be accepted as warning-level cast"
     );
-
-    let result_f32_to_u32 = TypeChecker::validate_cast(&CoreType::Float32, &CoreType::UInt32, span);
     assert!(
-        matches!(result_f32_to_u32, Err(TypeError::UnsafeCast { .. })),
-        "float32 -> uint32 should emit UnsafeCast error (will become warning in Phase 2)"
+        TypeChecker::validate_cast(&CoreType::Float32, &CoreType::UInt32, span).is_ok(),
+        "float32 -> uint32 should be accepted as warning-level cast"
     );
 }
 
@@ -4135,20 +4243,13 @@ fn test_unsafe_cast_float_to_integer() {
 fn test_unsafe_cast_signed_unsigned_conversion() {
     let span = test_span();
 
-    // Unsafe casts between signed and unsigned integers (emit error now, will become warning in Phase 2)
-    // Per language spec (math.md), these will trap on overflow in debug mode
-    let result_int32_to_uint32 =
-        TypeChecker::validate_cast(&CoreType::Int32, &CoreType::UInt32, span);
     assert!(
-        matches!(result_int32_to_uint32, Err(TypeError::UnsafeCast { .. })),
-        "int32 -> uint32 should emit UnsafeCast error (will become warning in Phase 2)"
+        TypeChecker::validate_cast(&CoreType::Int32, &CoreType::UInt32, span).is_ok(),
+        "int32 -> uint32 should be accepted as warning-level cast"
     );
-
-    let result_uint32_to_int32 =
-        TypeChecker::validate_cast(&CoreType::UInt32, &CoreType::Int32, span);
     assert!(
-        matches!(result_uint32_to_int32, Err(TypeError::UnsafeCast { .. })),
-        "uint32 -> int32 should emit UnsafeCast error (will become warning in Phase 2)"
+        TypeChecker::validate_cast(&CoreType::UInt32, &CoreType::Int32, span).is_ok(),
+        "uint32 -> int32 should be accepted as warning-level cast"
     );
 }
 
@@ -4326,5 +4427,109 @@ fn test_type_check_error_handling_sample_program() {
     assert!(
         result.is_ok(),
         "integration sample should type check successfully: {result:?}",
+    );
+}
+
+#[test]
+fn test_builtin_print_supports_generic_arguments() {
+    const SOURCE: &str = "
+let demo = f(): unit =>
+    print('hello')
+    print(42)
+    print(true)
+    return void
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "print<T> should accept different argument types: {result:?}"
+    );
+}
+
+#[test]
+fn test_builtin_take_input_returns_string() {
+    const SOURCE: &str = "
+let demo = f(): string =>
+    let input: string = take_input()
+    return input
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "take_input() should type check as string: {result:?}"
+    );
+}
+
+#[test]
+fn test_builtin_string_to_int32_propagate_type_checks() {
+    const SOURCE: &str = "
+let parse_user_number = f(input: string): int32 errors ParseError =>
+    let n: int32 = propagate string_to_int32(input)
+    return n
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "string_to_int32 should type check with propagate and ParseError: {result:?}"
+    );
+}
+
+#[test]
+fn test_builtin_random_int32_signature_type_checks() {
+    const SOURCE: &str = "
+let quiz_num = f(): int32 =>
+    let n: int32 = random_int32(1, 5)
+    return n
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "random_int32(min, max) should type check and return int32: {result:?}"
+    );
+}
+
+#[test]
+fn test_builtin_calls_report_wrong_arity() {
+    const SOURCE: &str = "
+let invalid = f(): unit =>
+    print()
+    return void
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("print() without arguments should fail arity checking");
+
+    assert!(
+        errors
+            .into_iter()
+            .any(|error| matches!(error, TypeError::InvalidOperation { .. })),
+        "expected InvalidOperation arity diagnostic for print()"
+    );
+}
+
+#[test]
+fn test_hello_world_spec_file_type_checks_with_builtins() {
+    const HELLO_WORLD_SOURCE: &str = include_str!("../../language-spec/hello_world.op");
+    let program = parse_program_from_source_with_spaces(HELLO_WORLD_SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "language-spec/hello_world.op should type check once built-ins are registered: {result:?}"
     );
 }

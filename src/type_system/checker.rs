@@ -9,15 +9,17 @@ extern crate alloc;
 
 use super::constraints::TypeConstraint;
 use super::environment::TypeEnvironment;
-use super::errors::TypeError;
+use super::errors::{TypeError, Warning};
 use super::substitution::Substitution;
-use super::symbol_table::{SymbolInfo, SymbolTable};
+use super::symbol_table::{SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::types::{CoreType, TypeVar};
 use crate::ast::Type;
 use crate::token::Span;
 use alloc::{boxed::Box, format, string::String, vec::Vec};
 
 // Sub-modules
+mod call_resolution;
+mod control_flow;
 mod declarations;
 mod expressions;
 mod helpers;
@@ -52,12 +54,14 @@ pub struct TypeChecker {
     guard_error_stack: Vec<Vec<CoreType>>,
     /// Stack tracking return label mode for active function/lambda bodies.
     return_label_modes: Vec<ReturnLabelMode>,
+    /// Collected non-fatal warnings produced while type checking.
+    warnings: Vec<Warning>,
 }
 
 impl TypeChecker {
     /// Create a new type checker with a fresh environment
     pub fn new() -> Self {
-        Self {
+        let mut checker = Self {
             environment: TypeEnvironment::new(),
             next_var_id: 0,
             symbol_table: SymbolTable::new(),
@@ -65,12 +69,15 @@ impl TypeChecker {
             guard_else_depth: 0,
             guard_error_stack: Vec::new(),
             return_label_modes: Vec::new(),
-        }
+            warnings: Vec::new(),
+        };
+        checker.register_standard_builtins();
+        checker
     }
 
     /// Create a type checker with a specific environment
     pub fn with_environment(environment: TypeEnvironment) -> Self {
-        Self {
+        let mut checker = Self {
             environment,
             next_var_id: 0,
             symbol_table: SymbolTable::new(),
@@ -78,7 +85,80 @@ impl TypeChecker {
             guard_else_depth: 0,
             guard_error_stack: Vec::new(),
             return_label_modes: Vec::new(),
-        }
+            warnings: Vec::new(),
+        };
+        checker.register_standard_builtins();
+        checker
+    }
+
+    /// Register all phase-2 standard-library built-in signatures.
+    fn register_standard_builtins(&mut self) {
+        let generic_print_param = CoreType::Variable(TypeVar::new(0, "T".to_owned()));
+
+        let print_signature = CoreType::Function {
+            parameters: vec![generic_print_param],
+            return_types: vec![CoreType::Unit],
+            error_types: Vec::new(),
+        };
+        self.environment
+            .register_builtin("print".to_owned(), print_signature.clone());
+        self.symbol_table.register(SymbolInfo {
+            name: "print".to_owned(),
+            symbol_type: SymbolType::Function,
+            core_type: print_signature,
+            visibility: Visibility::Public,
+            source_location: Span::single(crate::token::Position::start()),
+        });
+
+        let take_input_signature = CoreType::Function {
+            parameters: Vec::new(),
+            return_types: vec![CoreType::String],
+            error_types: Vec::new(),
+        };
+        self.environment
+            .register_builtin("take_input".to_owned(), take_input_signature.clone());
+        self.symbol_table.register(SymbolInfo {
+            name: "take_input".to_owned(),
+            symbol_type: SymbolType::Function,
+            core_type: take_input_signature,
+            visibility: Visibility::Public,
+            source_location: Span::single(crate::token::Position::start()),
+        });
+
+        let string_to_int32_signature = CoreType::Function {
+            parameters: vec![CoreType::String],
+            return_types: vec![CoreType::Int32],
+            error_types: vec![CoreType::Generic {
+                name: "ParseError".to_owned(),
+                type_args: Vec::new(),
+            }],
+        };
+        self.environment.register_builtin(
+            "string_to_int32".to_owned(),
+            string_to_int32_signature.clone(),
+        );
+        self.symbol_table.register(SymbolInfo {
+            name: "string_to_int32".to_owned(),
+            symbol_type: SymbolType::Function,
+            core_type: string_to_int32_signature,
+            visibility: Visibility::Public,
+            source_location: Span::single(crate::token::Position::start()),
+        });
+
+        let random_int32_signature = CoreType::Function {
+            parameters: vec![CoreType::Int32, CoreType::Int32],
+            return_types: vec![CoreType::Int32],
+            error_types: Vec::new(),
+        };
+        self.environment
+            .register_builtin("random_int32".to_owned(), random_int32_signature.clone());
+        self.symbol_table.register(SymbolInfo {
+            name: "random_int32".to_owned(),
+            symbol_type: SymbolType::Function,
+            core_type: random_int32_signature,
+            visibility: Visibility::Public,
+            source_location: Span::single(crate::token::Position::start()),
+        });
     }
 
     /// Get a reference to the current environment
@@ -103,6 +183,20 @@ impl TypeChecker {
     /// Get a mutable reference to the symbol table
     pub const fn symbol_table_mut(&mut self) -> &mut SymbolTable {
         &mut self.symbol_table
+    }
+
+    /// Get all warnings collected so far.
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "Vec deref coercion to slice is not allowed in const fn"
+    )]
+    pub fn warnings(&self) -> &[Warning] {
+        &self.warnings
+    }
+
+    /// Clear all collected warnings.
+    pub fn clear_warnings(&mut self) {
+        self.warnings.clear();
     }
 
     /// Register a symbol for ABI signature generation (Phase 6)
@@ -599,38 +693,16 @@ impl TypeChecker {
     ///
     /// See [`is_safe_cast`](super::checker::helpers::is_safe_cast) for detailed cast safety rules.
     ///
-    /// # Cast Safety Categories
-    ///
-    /// - **Safe (widening)**: Returns `Ok(())` - no data loss possible
-    /// - **Unsafe (narrowing)**: Returns `Err(UnsafeCast)` - may lose data,
-    ///   runtime trap in debug mode per language spec (math.md)
-    /// - **Invalid**: Returns `Err(InvalidCast)` - not allowed (non-numeric types)
-    ///
-    /// # Overflow Behavior (per language spec)
-    ///
-    /// Unsafe casts follow the arithmetic overflow rules from math.md:
-    /// - **Debug mode**: Runtime trap on overflow/out-of-range values
-    /// - **Release mode**: Wrapping behavior (no trap)
-    /// - **Compile-time**: Overflow detection for constant expressions (future)
-    ///
     /// # Errors
     ///
     /// Returns `TypeError::InvalidCast` if the cast is not valid (non-numeric types).
-    /// Returns `TypeError::UnsafeCast` if the cast may lose data (narrowing conversion).
-    ///
-    /// # Future Work
-    ///
-    /// - TODO(Phase 2): Convert `UnsafeCast` errors to warnings when warning system exists
-    /// - TODO(Phase 5): Generate runtime traps for debug builds
-    /// - TODO(Phase 5): Implement compile-time overflow detection for constants
     pub fn validate_cast(
         from_type: &CoreType,
         to_type: &CoreType,
         span: Span,
     ) -> Result<(), TypeError> {
-        use super::checker::helpers::{is_safe_cast, is_valid_cast};
+        use super::checker::helpers::is_valid_cast;
 
-        // Check if the cast is valid at all
         if !is_valid_cast(from_type, to_type) {
             return Err(TypeError::InvalidCast {
                 from_type: from_type.to_string(),
@@ -639,13 +711,30 @@ impl TypeChecker {
             });
         }
 
-        // Check if the cast is safe (widening) or unsafe (narrowing)
-        // Emit error for unsafe casts now; in Phase 2 these will become warnings
+        Ok(())
+    }
+
+    /// Validate a cast and collect warning diagnostics for non-fatal unsafe conversions.
+    ///
+    /// # Errors
+    ///
+    /// Returns `TypeError::InvalidCast` if the cast is not valid.
+    pub fn validate_cast_with_warnings(
+        &mut self,
+        from_type: &CoreType,
+        to_type: &CoreType,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        use super::checker::helpers::is_safe_cast;
+
+        Self::validate_cast(from_type, to_type, span)?;
+
         if !is_safe_cast(from_type, to_type) {
-            return Err(TypeError::UnsafeCast {
+            self.warnings.push(Warning::UnsafeCast {
                 from_type: from_type.to_string(),
                 to_type: to_type.to_string(),
                 span: TypeError::span_from_span(span),
+                suppression_annotation: None,
             });
         }
 

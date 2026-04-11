@@ -169,6 +169,18 @@ fn expr_contains_feature(expr: &Expr, feature: AstFeature) -> bool {
         Expr::Cast { expr, .. } | Expr::TypeOf { expr, .. } | Expr::Parenthesized { expr, .. } => {
             expr_contains_feature(expr, feature)
         }
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+            ..
+        } => {
+            expr_contains_feature(condition, feature)
+                || stmt_contains_feature(then_branch, feature)
+                || else_branch
+                    .as_deref()
+                    .is_some_and(|branch| stmt_contains_feature(branch, feature))
+        }
         Expr::Array { elements, .. } => elements
             .iter()
             .any(|element| expr_contains_feature(element, feature)),
@@ -1277,6 +1289,24 @@ fn test_if_statements() {
     } else {
         unreachable!("Expected if statement");
     }
+}
+
+#[test]
+fn test_if_expression_parses_in_expression_position() {
+    let parsed = parse_expression_from_string("if true { 1 } else { 2 }");
+    assert!(
+        parsed.is_ok(),
+        "if expression used in expression position should parse"
+    );
+}
+
+#[test]
+fn test_if_expression_without_else_parses() {
+    let parsed = parse_expression_from_string("if true { 1 }");
+    assert!(
+        parsed.is_ok(),
+        "else-less if expression should parse and default to unit semantics"
+    );
 }
 
 #[test]

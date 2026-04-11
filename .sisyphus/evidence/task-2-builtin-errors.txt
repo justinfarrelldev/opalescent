@@ -1,0 +1,28 @@
+Task 2 Built-in Error Handling Evidence
+Date: 2026-04-10
+
+Implemented built-in signatures:
+- print<T>(value: T): unit
+- take_input(): string
+- string_to_int32(s: string): int32 errors ParseError
+- random_int32(min: int32, max: int32): int32
+
+Error-path test evidence:
+- Wrong arity:
+  - test_builtin_calls_report_wrong_arity
+  - Verifies print() with zero args fails type checking.
+
+- Error propagation compatibility:
+  - test_builtin_string_to_int32_propagate_type_checks
+  - Verifies propagate string_to_int32(...) type-checks only in function declaring ParseError.
+
+- Built-in nominal error type registration:
+  - ParseError is pre-registered in type environment for built-in error signatures.
+
+Lint and constraints checks:
+- Command: cargo make lint 2>&1 | tee temp.log
+- Result: PASS (no warnings/errors)
+
+Line-count checks:
+- Command: scripts/check-line-count.sh 2>&1 | tee temp.log
+- Result: PASS after refactor (expressions module reduced; all checked files under limits)

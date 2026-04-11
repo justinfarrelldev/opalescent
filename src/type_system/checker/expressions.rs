@@ -2,6 +2,7 @@
 
 extern crate alloc;
 
+use super::control_flow::{GuardBindingInfo, GuardUsage};
 use super::helpers::{
     binary_operation_name, coerce_literal_to_expected, ensure_boolean_type, ensure_integer_type,
     ensure_numeric_type, ensure_same_type, invalid_operation_error, is_boolean_type,
@@ -15,32 +16,7 @@ use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
-use alloc::{boxed::Box, string::String, vec::Vec};
-
-/// Context describing how a guard expression is consumed.
-///
-/// Guards embedded within expressions must produce a value, whereas guards used
-/// as stand-alone statements operate purely through control flow side effects.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum GuardUsage {
-    /// Guard result feeds into a surrounding expression.
-    Expression,
-    /// Guard is used for control flow, typically within a statement position.
-    Statement,
-}
-
-/// Metadata describing the binding introduced by a guard expression.
-#[derive(Debug, Clone)]
-pub(super) struct GuardBindingInfo<'type_ref> {
-    /// Name of the binding created when the guard succeeds.
-    pub name: &'type_ref str,
-    /// Optional user-provided type annotation for the binding.
-    pub annotation: Option<&'type_ref Type>,
-    /// Whether the binding is declared as mutable.
-    pub is_mutable: bool,
-    /// Source span that identifies the binding declaration site.
-    pub span: Span,
-}
+use alloc::{boxed::Box, collections::BTreeMap, string::String, vec::Vec};
 
 /// Result of typing the `else` branch of a guard expression.
 ///
@@ -60,11 +36,22 @@ impl TypeChecker {
     ///
     /// # Errors
     /// Returns `TypeError` variants when expression typing fails.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Central expression dispatcher intentionally enumerates all expression variants"
+    )]
     pub fn type_check_expr(&mut self, expr: &Expr) -> Result<CoreType, TypeError> {
         match *expr {
             Expr::Literal { ref value, .. } => Ok(literal_to_core_type(value)),
             Expr::Identifier { ref name, span, .. } => self.resolve_identifier(name, span),
             Expr::Parenthesized { ref expr, .. } => self.type_check_expr(expr),
+            Expr::If {
+                ref condition,
+                ref then_branch,
+                ref else_branch,
+                span,
+                ..
+            } => self.type_check_if_expr(condition, then_branch, else_branch.as_deref(), span),
             Expr::Binary {
                 ref left,
                 ref operator,
@@ -139,7 +126,7 @@ impl TypeChecker {
                 ..
             } => {
                 let binding_info = GuardBindingInfo {
-                    name: binding_name.as_str(),
+                    name: binding_name,
                     annotation: binding_type.as_ref(),
                     is_mutable,
                     span,
@@ -685,12 +672,30 @@ impl TypeChecker {
                 return_types,
                 error_types: _error_types,
             } => {
+                let mut type_var_instantiations: BTreeMap<usize, CoreType> = BTreeMap::new();
+                let instantiated_parameters = parameters
+                    .iter()
+                    .map(|parameter_type| {
+                        self.instantiate_call_type(
+                            parameter_type,
+                            &mut type_var_instantiations,
+                            span,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let instantiated_return_types = return_types
+                    .iter()
+                    .map(|return_type| {
+                        self.instantiate_call_type(return_type, &mut type_var_instantiations, span)
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
                 // TODO: Check error type compatibility for function calls here (see Error Handling Language Features plan)
-                if parameters.len() != args.len() {
+                if instantiated_parameters.len() != args.len() {
                     return Err(TypeError::InvalidOperation {
                         operation: alloc::format!(
                             "function call expected {} arguments but received {}",
-                            parameters.len(),
+                            instantiated_parameters.len(),
                             args.len()
                         ),
                         type_name: "function".to_owned(),
@@ -699,9 +704,11 @@ impl TypeChecker {
                 }
 
                 for (index, arg_expr) in args.iter().enumerate() {
-                    let param_type = parameters[index].clone();
+                    let param_type = instantiated_parameters[index].clone();
                     let arg_type = self.type_check_expr(arg_expr)?;
-                    let reconciled_type = if self.types_compatible(&param_type, &arg_type) {
+                    let reconciled_type = if matches!(param_type, CoreType::Variable(_)) {
+                        arg_type.clone()
+                    } else if self.types_compatible(&param_type, &arg_type) {
                         arg_type
                     } else if let Some(adjusted) =
                         coerce_literal_to_expected(&param_type, arg_expr, &arg_type)
@@ -723,13 +730,12 @@ impl TypeChecker {
                     ));
                 }
 
-                return_types
-                    .first()
-                    .cloned()
-                    .ok_or_else(|| TypeError::ConstraintSolvingFailed {
+                instantiated_return_types.first().cloned().ok_or_else(|| {
+                    TypeError::ConstraintSolvingFailed {
                         reason: "function call has no declared return type".to_owned(),
                         span: TypeError::span_from_span(span),
-                    })
+                    }
+                })
             }
             other => Err(invalid_operation_error("function call", &other, span)),
         }
@@ -771,8 +777,8 @@ impl TypeChecker {
         let target_core_type = Self::ast_type_to_core_type(target_type)?;
 
         // Validate the cast according to language spec (math.md)
-        // This will error on invalid casts and warn on unsafe casts
-        Self::validate_cast(&source_type, &target_core_type, span)?;
+        // Invalid casts remain errors; unsafe casts are collected as warnings.
+        self.validate_cast_with_warnings(&source_type, &target_core_type, span)?;
 
         Ok(target_core_type)
     }
