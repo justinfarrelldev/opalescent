@@ -7,7 +7,7 @@ use super::helpers::{
     ensure_boolean_type, ensure_integer_type, ensure_numeric_type, ensure_same_type,
     invalid_operation_error, is_boolean_type, is_integer_type, is_numeric_type, is_string_type,
     literal_to_core_type, type_mismatch_error, unary_operation_name,
-    validate_constant_shift_bounds,
+    validate_constant_shift_bounds, zero_divisor_operation_name,
 };
 use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Stmt, StringPart, Type, UnaryOp};
 use crate::token::Span;
@@ -602,6 +602,7 @@ impl TypeChecker {
                 }
                 ensure_numeric_type(&left_type, left.span(), op_name)?;
                 ensure_numeric_type(&right_type, right.span(), op_name)?;
+                Self::ensure_non_zero_divisor(operator, right)?;
                 ensure_same_type(&left_type, left.span(), &right_type, right.span())?;
                 let result_type = left_type.clone();
                 if matches!(
@@ -626,6 +627,7 @@ impl TypeChecker {
             BinaryOp::Modulo => {
                 ensure_integer_type(&left_type, left.span(), op_name)?;
                 ensure_integer_type(&right_type, right.span(), op_name)?;
+                Self::ensure_non_zero_divisor(operator, right)?;
                 ensure_same_type(&left_type, left.span(), &right_type, right.span())?;
                 let result_type = left_type.clone();
                 self.add_constraint(TypeConstraint::equality(
@@ -685,6 +687,18 @@ impl TypeChecker {
             }
             BinaryOp::Assign => Err(invalid_operation_error(op_name, &left_type, span)),
         }
+    }
+
+    /// Reject compile-time constant zero divisors for division-like operators.
+    fn ensure_non_zero_divisor(operator: &BinaryOp, right: &Expr) -> Result<(), TypeError> {
+        let Some(operation) = zero_divisor_operation_name(operator, right) else {
+            return Ok(());
+        };
+
+        Err(TypeError::DivisionByZero {
+            operation: operation.to_owned(),
+            span: TypeError::span_from_span(right.span()),
+        })
     }
 
     /// Type check a unary expression, returning the deduced result type while enforcing the

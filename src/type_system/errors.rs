@@ -77,6 +77,20 @@ pub enum TypeError {
         span: SourceSpan,
     },
 
+    /// Compile-time detected division or modulo by a constant zero divisor.
+    #[error("Compile-time {operation} by zero is not allowed")]
+    #[diagnostic(
+        code(opalescent::type_system::division_by_zero),
+        help("Use a non-zero divisor or guard divisor values before this expression")
+    )]
+    DivisionByZero {
+        /// Operation name (`division` or `modulo`) that used a zero divisor.
+        operation: String,
+        #[label("zero divisor")]
+        /// Source span highlighting the zero-valued divisor expression.
+        span: SourceSpan,
+    },
+
     /// Generic type parameter not found
     #[error("Generic type parameter '{param_name}' not found")]
     #[diagnostic(

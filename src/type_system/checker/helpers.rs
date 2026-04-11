@@ -321,6 +321,23 @@ pub(super) fn constant_integer_overflow_warning(
     })
 }
 
+/// Identify division-like operators with a compile-time constant zero divisor.
+pub(super) fn zero_divisor_operation_name(
+    operator: &BinaryOp,
+    right_expr: &Expr,
+) -> Option<&'static str> {
+    let divisor = extract_integer_constant(right_expr)?;
+    if divisor != 0 {
+        return None;
+    }
+
+    match *operator {
+        BinaryOp::Divide => Some("division"),
+        BinaryOp::Modulo => Some("modulo"),
+        _ => None,
+    }
+}
+
 /// Validate compile-time shift count bounds for constant integer shifts.
 pub(super) fn validate_constant_shift_bounds(
     left_type: &CoreType,

@@ -4992,6 +4992,158 @@ fn test_constant_negative_shift_count_is_rejected() {
 }
 
 #[test]
+fn test_constant_division_by_zero_is_rejected_with_rhs_span() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "numerator".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int64,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    let rhs_span = span_with_offset(2_100, 1);
+    let expr = Expr::Binary {
+        left: Box::new(identifier_expr("numerator", 90_600)),
+        operator: crate::ast::BinaryOp::Divide,
+        right: Box::new(Expr::Literal {
+            value: LiteralValue::Integer(0),
+            span: rhs_span,
+            id: node_id(90_601),
+        }),
+        span: test_span(),
+        id: node_id(90_602),
+    };
+
+    let error = checker
+        .type_check_expr(&expr)
+        .expect_err("division by a constant zero divisor should be rejected");
+
+    match error {
+        TypeError::DivisionByZero { operation, span } => {
+            assert_eq!(
+                operation, "division",
+                "division should report operation name"
+            );
+            assert_eq!(
+                span,
+                TypeError::span_from_span(rhs_span),
+                "division-by-zero diagnostic should highlight divisor expression"
+            );
+        }
+        other => {
+            assert!(
+                matches!(other, TypeError::DivisionByZero { .. }),
+                "expected DivisionByZero diagnostic, got {other:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_constant_modulo_by_zero_is_rejected_with_rhs_span() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "numerator".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int64,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    let rhs_span = span_with_offset(2_200, 1);
+    let expr = Expr::Binary {
+        left: Box::new(identifier_expr("numerator", 90_610)),
+        operator: crate::ast::BinaryOp::Modulo,
+        right: Box::new(Expr::Literal {
+            value: LiteralValue::Integer(0),
+            span: rhs_span,
+            id: node_id(90_611),
+        }),
+        span: test_span(),
+        id: node_id(90_612),
+    };
+
+    let error = checker
+        .type_check_expr(&expr)
+        .expect_err("modulo by a constant zero divisor should be rejected");
+
+    match error {
+        TypeError::DivisionByZero { operation, span } => {
+            assert_eq!(operation, "modulo", "modulo should report operation name");
+            assert_eq!(
+                span,
+                TypeError::span_from_span(rhs_span),
+                "modulo-by-zero diagnostic should highlight divisor expression"
+            );
+        }
+        other => {
+            assert!(
+                matches!(other, TypeError::DivisionByZero { .. }),
+                "expected DivisionByZero diagnostic, got {other:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_non_constant_lhs_with_literal_zero_divisor_is_still_rejected() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "a".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int64,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    let expr = Expr::Binary {
+        left: Box::new(identifier_expr("a", 90_620)),
+        operator: crate::ast::BinaryOp::Divide,
+        right: Box::new(literal_expr(LiteralValue::Integer(0), 90_621)),
+        span: test_span(),
+        id: node_id(90_622),
+    };
+
+    let error = checker
+        .type_check_expr(&expr)
+        .expect_err("literal zero divisor must be rejected even when lhs is non-constant");
+    assert!(
+        matches!(error, TypeError::DivisionByZero { ref operation, .. } if operation == "division"),
+        "expected DivisionByZero for non-constant lhs with literal zero divisor"
+    );
+}
+
+#[test]
+fn test_non_constant_divisor_does_not_emit_compile_time_division_by_zero() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "numerator".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int64,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    checker.register_symbol(SymbolInfo {
+        name: "denominator".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int64,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    let expr = Expr::Binary {
+        left: Box::new(identifier_expr("numerator", 90_630)),
+        operator: crate::ast::BinaryOp::Divide,
+        right: Box::new(identifier_expr("denominator", 90_631)),
+        span: test_span(),
+        id: node_id(90_632),
+    };
+
+    let result = checker.type_check_expr(&expr);
+    assert!(
+        result.is_ok(),
+        "non-constant divisor should not trigger compile-time division-by-zero error: {result:?}"
+    );
+}
+
+#[test]
 fn test_non_constant_integer_addition_does_not_emit_overflow_warning() {
     const SOURCE: &str = "
 let sum_values = f(a: int32, b: int32): int32 =>
