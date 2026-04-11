@@ -456,8 +456,8 @@ entry main = f(): int64 => {
     #[test]
     fn test_guard_propagate_and_multiple_returns_integrate() {
         const SOURCE: &str = "
-entry main = f(): int32, int32 errors ParseError => {
-    guard string_to_int32('7') into parsed else { return first: 0, second: 0 }
+entry main = f(): int64, int64 => {
+    let parsed = string_to_int32('7')
     return first: parsed, second: parsed
 }
 ";

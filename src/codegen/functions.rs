@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use crate::ast::{Decl, Expr, Type};
+use crate::ast::{Decl, Expr, ImportItem, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError, VariableBinding};
 use crate::codegen::monomorphization::ensure_monomorphized_function_declaration;
@@ -102,6 +102,60 @@ pub fn codegen_function_declaration<'context>(
     }
 
     Ok(function)
+}
+
+#[doc = "Lower import declarations by declaring known stdlib externs and alias mappings."]
+pub fn codegen_import_declaration<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    declaration: &Decl,
+) -> Result<(), CodegenError> {
+    let &Decl::Import {
+        ref items,
+        ref source,
+        ..
+    } = declaration
+    else {
+        return Err(CodegenError::new(String::from(
+            "expected import declaration",
+        )));
+    };
+
+    for item in items {
+        match *item {
+            ImportItem::Named {
+                ref name,
+                ref alias,
+                ..
+            } => {
+                let runtime_name = resolve_imported_runtime_name(source.as_str(), name.as_str())?;
+                let stdlib_function =
+                    declare_stdlib_function(codegen_context, runtime_name.as_str()).ok_or_else(
+                        || {
+                            CodegenError::new(format!(
+                                "unsupported stdlib import '{name}' from module '{source}'"
+                            ))
+                        },
+                    )?;
+                let local_name = alias.as_ref().unwrap_or(name).clone();
+                env.imported_functions.insert(
+                    local_name,
+                    stdlib_function
+                        .get_name()
+                        .to_str()
+                        .map_or_else(|_| runtime_name.clone(), alloc::borrow::ToOwned::to_owned),
+                );
+            }
+            ImportItem::Type { .. } => {}
+            ImportItem::Glob { .. } => {
+                return Err(CodegenError::new(format!(
+                    "glob imports are not supported in codegen for module '{source}'"
+                )));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[doc = "Lower a function call expression."]
@@ -262,10 +316,34 @@ fn resolve_callee_function<'context>(
 ) -> Result<FunctionValue<'context>, CodegenError> {
     match *callee {
         Expr::Identifier { ref name, .. } => {
-            let is_stdlib_name = name == "print" || name == "printf";
-            let base_function = if let Some(existing) =
-                codegen_context.module.get_function(name.as_str())
+            let is_stdlib_name = matches!(
+                name.as_str(),
+                "print"
+                    | "printf"
+                    | "take_input"
+                    | "opal_take_input"
+                    | "random_int32"
+                    | "opal_random_int32"
+                    | "string_to_int32"
+                    | "opal_string_to_int32"
+                    | "print_int"
+                    | "opal_print_int"
+            );
+            let base_function = if let Some(imported_runtime_name) =
+                env.imported_functions.get(name)
             {
+                codegen_context
+                    .module
+                    .get_function(imported_runtime_name.as_str())
+                    .or_else(|| {
+                        declare_stdlib_function(codegen_context, imported_runtime_name.as_str())
+                    })
+                    .ok_or_else(|| {
+                        CodegenError::new(format!(
+                            "missing runtime function for imported symbol '{name}'"
+                        ))
+                    })?
+            } else if let Some(existing) = codegen_context.module.get_function(name.as_str()) {
                 existing
             } else if let Some(stdlib_function) = declare_stdlib_function(codegen_context, name) {
                 stdlib_function
@@ -344,6 +422,7 @@ fn declare_stdlib_function<'context>(
         .i8_type()
         .ptr_type(AddressSpace::default());
     let i32_type = codegen_context.context.i32_type();
+    let i64_type = codegen_context.context.i64_type();
     match name {
         "print" => codegen_context.module.get_function("puts").or_else(|| {
             let puts_type = i32_type.fn_type(&[i8_ptr_type.into()], false);
@@ -357,7 +436,71 @@ fn declare_stdlib_function<'context>(
                     .add_function("printf", printf_type, None),
             )
         }),
+        "opal_take_input" | "take_input" => codegen_context
+            .module
+            .get_function("opal_take_input")
+            .or_else(|| {
+                let function_type = i8_ptr_type.fn_type(&[], false);
+                Some(
+                    codegen_context
+                        .module
+                        .add_function("opal_take_input", function_type, None),
+                )
+            }),
+        "opal_string_to_int32" | "string_to_int32" => codegen_context
+            .module
+            .get_function("opal_string_to_int32")
+            .or_else(|| {
+                let function_type = i64_type.fn_type(&[i8_ptr_type.into()], false);
+                Some(codegen_context.module.add_function(
+                    "opal_string_to_int32",
+                    function_type,
+                    None,
+                ))
+            }),
+        "opal_random_int32" | "random_int32" => codegen_context
+            .module
+            .get_function("opal_random_int32")
+            .or_else(|| {
+                let function_type = i64_type.fn_type(&[i64_type.into(), i64_type.into()], false);
+                Some(
+                    codegen_context
+                        .module
+                        .add_function("opal_random_int32", function_type, None),
+                )
+            }),
+        "opal_print_int" | "print_int" => codegen_context
+            .module
+            .get_function("opal_print_int")
+            .or_else(|| {
+                let function_type = codegen_context
+                    .context
+                    .void_type()
+                    .fn_type(&[i64_type.into()], false);
+                Some(
+                    codegen_context
+                        .module
+                        .add_function("opal_print_int", function_type, None),
+                )
+            }),
         _ => None,
+    }
+}
+
+#[doc = "Resolve imported stdlib symbol to concrete runtime function name."]
+fn resolve_imported_runtime_name(
+    module_name: &str,
+    symbol_name: &str,
+) -> Result<String, CodegenError> {
+    match (module_name, symbol_name) {
+        ("standard", "take_input") => Ok(String::from("opal_take_input")),
+        ("standard", "string_to_int32") => Ok(String::from("opal_string_to_int32")),
+        ("standard", "print_int") => Ok(String::from("opal_print_int")),
+        ("math", "random_int32") => Ok(String::from("opal_random_int32")),
+        ("standard", "print") => Ok(String::from("print")),
+        _ => Err(CodegenError::new(format!(
+            "unknown import symbol '{symbol_name}' in module '{module_name}'"
+        ))),
     }
 }
 
@@ -693,6 +836,47 @@ mod tests {
         assert!(
             error_text.contains("unknown function: definitely_not_registered"),
             "error should include unknown function name, got: {error_text}"
+        );
+    }
+
+    #[test]
+    fn resolve_print_int_to_opal_print_int_declaration() {
+        let context = Context::create();
+        let codegen_context = CodegenContext::new(&context, "resolve_print_int");
+        let mut env = CodegenEnv::new(true);
+
+        let result =
+            resolve_callee_function(&codegen_context, &mut env, &identifier("print_int"), None);
+        assert!(
+            result.is_ok(),
+            "print_int should resolve successfully to opal_print_int"
+        );
+
+        let Ok(function) = result else {
+            return;
+        };
+        assert_eq!(
+            function.get_name().to_str(),
+            Ok("opal_print_int"),
+            "print_int should resolve to module function named opal_print_int"
+        );
+
+        let function_type = function.get_type();
+        assert!(
+            function_type.get_return_type().is_none(),
+            "opal_print_int should return void in LLVM"
+        );
+
+        let parameter_types = function_type.get_param_types();
+        assert_eq!(
+            parameter_types.len(),
+            1,
+            "opal_print_int should accept exactly one parameter"
+        );
+        let parameter_type_text = parameter_types[0].print_to_string().to_string();
+        assert_eq!(
+            parameter_type_text, "i64",
+            "opal_print_int first parameter should be i64"
         );
     }
 }

@@ -58,6 +58,7 @@ pub struct VariableBinding<'context> {
 
 pub struct CodegenEnv<'context> {
     pub variables: BTreeMap<String, VariableBinding<'context>>,
+    pub imported_functions: BTreeMap<String, String>,
     pub variable_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
     pub emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue<'context>>,
     pub debug_mode: bool,
@@ -69,6 +70,7 @@ impl CodegenEnv<'_> {
     pub const fn new(debug_mode: bool) -> Self {
         Self {
             variables: BTreeMap::new(),
+            imported_functions: BTreeMap::new(),
             variable_field_indices: BTreeMap::new(),
             emitted_specializations: BTreeMap::new(),
             debug_mode,

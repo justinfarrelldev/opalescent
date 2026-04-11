@@ -9,7 +9,7 @@ use crate::ast::Decl;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::expressions::CodegenError;
-use crate::codegen::functions::codegen_function_declaration;
+use crate::codegen::functions::{codegen_function_declaration, codegen_import_declaration};
 use crate::error::LexError;
 use crate::lexer::Lexer;
 use crate::parser::errors::ParseError;
@@ -93,9 +93,16 @@ pub fn compile_to_module<'context>(
     let mut env = CodegenEnv::new(true);
 
     for declaration in &program.declarations {
-        if matches!(declaration, &Decl::Function { .. }) {
-            codegen_function_declaration(&codegen_context, &mut env, declaration)
-                .map_err(CompileError::Codegen)?;
+        match *declaration {
+            Decl::Import { .. } => {
+                codegen_import_declaration(&codegen_context, &mut env, declaration)
+                    .map_err(CompileError::Codegen)?;
+            }
+            Decl::Function { .. } => {
+                codegen_function_declaration(&codegen_context, &mut env, declaration)
+                    .map_err(CompileError::Codegen)?;
+            }
+            _ => {}
         }
     }
 

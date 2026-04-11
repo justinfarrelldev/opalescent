@@ -88,3 +88,15 @@
 - Added two new integration tests in `tests/integration_e2e.rs`: `fib_recursive_compiles_links_and_runs` and `fib_iterative_compiles_links_and_runs`, following the exact closure/cleanup/failure-message pattern used by `hello_world_compiles_links_and_runs`.
 - Both tests read source from `test-projects/fib-recursive/src/main.op` and `test-projects/fib-iterative/src/main.op`, compile with `compile_program`, execute the produced binary, assert `stdout.contains("55")`, assert success exit status, then always run `cleanup_dir(temp_dir)` before final assertion.
 - Recursive fib project required a source fix (`public fib = ...`) so self-recursive calls resolve through the type checker during full compile flow; without `public`, integration compile failed with `Type(SymbolNotFound { name: "fib" ... })`.
+
+## [2026-04-11] Task 12: import declaration lowering for stdlib runtime stubs
+- Added `Decl::Import` lowering in compile pipeline by dispatching `codegen_import_declaration` before function lowering in `src/compiler.rs`.
+- Implemented import lowering in `src/codegen/functions.rs` to map module/symbol pairs to runtime function names and emit exact LLVM declarations via existing stdlib registry path:
+  - `standard.take_input` -> `declare i8* @opal_take_input()`
+  - `standard.string_to_int32` -> `declare i64 @opal_string_to_int32(i8*)`
+  - `math.random_int32` -> `declare i64 @opal_random_int32(i64, i64)`
+- Registered imported aliases in codegen environment with a new `CodegenEnv.imported_functions` map (`src/codegen/expressions.rs`) so subsequent identifier calls resolve correctly in the same file.
+- Kept `print`/`puts` behavior intact and also preserved direct builtin-call compatibility for runtime symbols.
+- Added RED->GREEN tests in `src/codegen/tests.rs` for single and multiple import declarations, plus a direct builtin runtime declaration regression test.
+- During verification, found and fixed a pre-existing type-system integration mismatch (`int32` vs `int64`) in `src/type_system/test_integration.rs:test_guard_propagate_and_multiple_returns_integrate`, aligning with current builtin signature behavior so `cargo make test` stays green.
+- Lint autofix introduced additional match-pattern updates in `src/codegen/adts.rs` and `src/errors/suggestions.rs`; finalized to satisfy strict clippy profile.

@@ -805,6 +805,135 @@ fn test_codegen_function_declaration_lowers_function_definition() {
 }
 
 #[test]
+fn test_import_take_input_emits_opal_take_input_declaration() {
+    let source = "
+import take_input from standard
+
+entry main = f(): void => {
+    let user_input = take_input()
+    print(user_input)
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, source);
+    assert!(
+        module_result.is_ok(),
+        "imported take_input should compile and be callable in subsequent code"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @opal_take_input()"),
+        "import take_input from standard should emit declare i8* @opal_take_input(): {ir}"
+    );
+}
+
+#[test]
+fn test_import_random_int32_emits_opal_random_int32_declaration() {
+    let source = "
+import random_int32 from math
+
+entry main = f(): void => {
+    let roll = random_int32(1, 10)
+    print('roll: {roll}')
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, source);
+    assert!(
+        module_result.is_ok(),
+        "imported random_int32 should compile and be callable in subsequent code"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i64 @opal_random_int32(i64, i64)"),
+        "import random_int32 from math should emit declare i64 @opal_random_int32(i64, i64): {ir}"
+    );
+}
+
+#[test]
+fn test_import_standard_multiple_symbols_emit_all_runtime_declarations() {
+    let source = "
+import take_input, string_to_int32 from standard
+
+entry main = f(): void => {
+    let text = take_input()
+    let value = string_to_int32(text)
+    print('value: {value}')
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, source);
+    assert!(
+        module_result.is_ok(),
+        "multiple imports from the same module should compile and be callable"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @opal_take_input()"),
+        "take_input declaration should exist when imported from standard: {ir}"
+    );
+    assert!(
+        ir.contains("declare i64 @opal_string_to_int32(i8*)"),
+        "string_to_int32 declaration should exist when imported from standard: {ir}"
+    );
+}
+
+#[test]
+fn test_builtin_calls_emit_runtime_declarations_without_imports() {
+    let source = "
+entry main = f(): void => {
+    let raw = take_input()
+    let parsed = string_to_int32(raw)
+    let roll = random_int32(1, 6)
+    print('parsed: {parsed}, roll: {roll}')
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, source);
+    assert!(
+        module_result.is_ok(),
+        "builtin calls should compile and emit runtime declarations without import statements"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @opal_take_input()"),
+        "take_input builtin should emit opal_take_input declaration: {ir}"
+    );
+    assert!(
+        ir.contains("declare i64 @opal_string_to_int32(i8*)"),
+        "string_to_int32 builtin should emit opal_string_to_int32 declaration: {ir}"
+    );
+    assert!(
+        ir.contains("declare i64 @opal_random_int32(i64, i64)"),
+        "random_int32 builtin should emit opal_random_int32 declaration: {ir}"
+    );
+}
+
+#[test]
 fn test_codegen_call_expression_lowers_function_call() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "fn_call");

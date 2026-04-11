@@ -256,7 +256,7 @@ fn member_parts(expr: &Expr) -> Result<(&str, &str), CodegenError> {
         ..
     } = expr
     {
-        if let &Expr::Identifier { ref name, .. } = object.as_ref() {
+        if let Expr::Identifier { ref name, .. } = *object.as_ref() {
             return Ok((name.as_str(), member.as_str()));
         }
         return Err(CodegenError::new(String::from(

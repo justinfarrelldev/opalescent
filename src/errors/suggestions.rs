@@ -62,8 +62,8 @@ pub fn closest_identifier_suggestion(
 /// Return type-annotation guidance for generic inference failures.
 #[must_use]
 pub fn did_you_mean_type_annotation(error: &TypeError) -> Option<String> {
-    match error {
-        &TypeError::CannotInferGenericType { ref param_name, .. } => Some(alloc::format!(
+    match *error {
+        TypeError::CannotInferGenericType { ref param_name, .. } => Some(alloc::format!(
             "Consider adding a type annotation or explicit generic argument for '{param_name}'."
         )),
         _ => None,
