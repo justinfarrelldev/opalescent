@@ -47,3 +47,9 @@
 - Module path exposed as: `opalescent::compiler::compile_to_module`
 - Cargo.toml changes: added explicit `[lib]` and `[[bin]]` targets for dual crate structure
 - Any surprises or issues encountered: needed a small return-lowering fix in `src/codegen/control_flow.rs` so `return void` emits a valid LLVM `ret void` for module verification
+
+## [2026-04-11] Task 2: object emission + linker invocation + e2e compile
+- `emit_object_file(module, path)` must initialize native target support before creating `TargetMachine`; otherwise object emission fails at runtime on fresh processes.
+- `compile_program(source, output_dir)` should create its own `Context` and produce deterministic artifacts: `program.o` then `program` in the caller-provided output directory.
+- Integration tests need strict hygiene: gate under `feature = "integration"`, keep temporary artifacts inside `test-projects/<name>/target`, and remove outputs after assertions to avoid repository pollution.
+- Linker error ergonomics are much better when `CompileError::Linker` captures stderr from `cc`; this makes e2e failures actionable without rerunning under verbose shell tracing.

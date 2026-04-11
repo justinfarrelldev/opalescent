@@ -7,19 +7,23 @@ extern crate alloc;
 
 use crate::ast::Decl;
 use crate::codegen::context::CodegenContext;
+use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::expressions::CodegenError;
 use crate::codegen::functions::codegen_function_declaration;
-use crate::codegen::expressions::CodegenEnv;
 use crate::error::LexError;
 use crate::lexer::Lexer;
-use crate::parser::Parser;
 use crate::parser::errors::ParseError;
+use crate::parser::Parser;
 use crate::token::Position;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use alloc::string::String;
 use inkwell::context::Context;
 use inkwell::module::Module;
+use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target};
+use inkwell::OptimizationLevel;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 /// Error type spanning every stage of compiler orchestration.
 #[derive(Debug, thiserror::Error)]
@@ -36,6 +40,15 @@ pub enum CompileError {
     /// Code generation stage returned an LLVM lowering error.
     #[error("code generation failed: {0}")]
     Codegen(CodegenError),
+    /// Filesystem interaction failed while preparing outputs.
+    #[error("io failed: {0}")]
+    Io(std::io::Error),
+    /// Native linker process failed to produce an executable.
+    #[error("linker invocation failed: {stderr}")]
+    Linker {
+        /// Captured stderr from the linker process.
+        stderr: String,
+    },
 }
 
 /// Compile source text into an LLVM module using shared context lifetime.
@@ -89,9 +102,91 @@ pub fn compile_to_module<'context>(
     Ok(codegen_context.module)
 }
 
+/// Emit LLVM module as an object file at `path`.
+///
+/// # Errors
+/// Returns `CodegenError` if LLVM target initialization or object emission fails.
+pub fn emit_object_file(module: &Module<'_>, path: &Path) -> Result<(), CodegenError> {
+    Target::initialize_native(&InitializationConfig::default()).map_err(|error| {
+        CodegenError::new(format!(
+            "failed to initialize native LLVM target support: {error}"
+        ))
+    })?;
+
+    let triple = module.get_triple();
+    let target = Target::from_triple(&triple)
+        .map_err(|error| CodegenError::new(format!("failed to resolve LLVM target: {error}")))?;
+
+    let target_machine = target
+        .create_target_machine(
+            &triple,
+            "generic",
+            "",
+            OptimizationLevel::Default,
+            RelocMode::Default,
+            CodeModel::Default,
+        )
+        .ok_or_else(|| {
+            CodegenError::new(String::from(
+                "failed to create LLVM target machine for object emission",
+            ))
+        })?;
+
+    target_machine
+        .write_to_file(module, FileType::Object, path)
+        .map_err(|error| CodegenError::new(format!("failed to emit object file: {error}")))
+}
+
+/// Link an object file into an executable binary.
+///
+/// `extra_sources` allows additional C source files to be compiled and linked
+/// alongside the object file (used later for `runtime/opal_runtime.c`).
+///
+/// # Errors
+/// Returns `CompileError` if the linker process fails or produces errors.
+pub fn link_object_file(
+    object_path: &Path,
+    output_path: &Path,
+    extra_sources: &[&Path],
+) -> Result<PathBuf, CompileError> {
+    let mut command = Command::new("cc");
+    command.arg(object_path);
+    for source_path in extra_sources {
+        command.arg(source_path);
+    }
+    command.arg("-o").arg(output_path);
+
+    let output = command.output().map_err(CompileError::Io)?;
+    if output.status.success() {
+        return Ok(output_path.to_path_buf());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    Err(CompileError::Linker { stderr })
+}
+
+/// Compile Opalescent source to a native binary.
+///
+/// Creates `program.o` and `program` inside `output_dir`.
+///
+/// # Errors
+/// Returns `CompileError` at any pipeline stage.
+pub fn compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, CompileError> {
+    std::fs::create_dir_all(output_dir).map_err(CompileError::Io)?;
+
+    let context = Context::create();
+    let module = compile_to_module(&context, source)?;
+
+    let object_path = output_dir.join("program.o");
+    let binary_path = output_dir.join("program");
+
+    emit_object_file(&module, &object_path).map_err(CompileError::Codegen)?;
+    link_object_file(&object_path, &binary_path, &[])
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{CompileError, compile_to_module};
+    use super::{compile_to_module, CompileError};
     use inkwell::context::Context;
 
     /// Valid source should compile and produce a verifiable module.
@@ -101,10 +196,7 @@ mod tests {
         let source = "entry main = f(): void => { return void }";
         let result = compile_to_module(&context, source);
 
-        assert!(
-            result.is_ok(),
-            "valid source should compile into a module"
-        );
+        assert!(result.is_ok(), "valid source should compile into a module");
 
         if let Ok(module) = result {
             let verification = module.verify();
