@@ -11,6 +11,8 @@
 mod ast;
 #[path = "build_system.rs"]
 pub mod build_system;
+#[path = "formatter.rs"]
+pub mod formatter;
 #[path = "codegen.rs"]
 mod codegen;
 #[path = "doc_gen.rs"]
