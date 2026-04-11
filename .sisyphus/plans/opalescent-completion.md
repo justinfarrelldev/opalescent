@@ -2736,7 +2736,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(stdlib): implement core standard library with types, strings, math, and I/O`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 35. Collections Standard Library (Phase 8)
+- [x] 35. Collections Standard Library (Phase 8)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`
@@ -2816,7 +2816,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(stdlib): implement collections library with arrays, maps, sets, and iterators`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 36. System Standard Library (Phase 8)
+- [x] 36. System Standard Library (Phase 8)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`
@@ -2900,7 +2900,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(stdlib): implement system library with OS interfaces, networking, threading, and process management`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 37. Opalescent Test Framework (Phase 9)
+- [x] 37. Opalescent Test Framework (Phase 9)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`
@@ -2981,7 +2981,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(testing): implement Opalescent test framework with assertions, property tests, benchmarks, and coverage`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 38. Language Server Protocol (Phase 9)
+- [x] 38. Language Server Protocol (Phase 9)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`
@@ -3078,7 +3078,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(lsp): implement Language Server Protocol with diagnostics, completion, hover, and go-to-definition`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 39. Code Formatter (Phase 9)
+- [x] 39. Code Formatter (Phase 9)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`
@@ -3166,7 +3166,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(formatter): implement code formatter with style rules, naming enforcement, and configuration`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 40. Performance Optimization & Benchmark Suite (Phase 10)
+- [x] 40. Performance Optimization & Benchmark Suite (Phase 10)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`
