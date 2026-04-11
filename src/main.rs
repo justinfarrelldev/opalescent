@@ -17,6 +17,8 @@ mod error;
 mod errors;
 #[path = "hot_reload.rs"]
 pub mod hot_reload;
+#[path = "doc_gen.rs"]
+pub mod doc_gen;
 mod lexer;
 mod parser;
 #[path = "runtime.rs"]
@@ -29,6 +31,9 @@ use parser::Parser;
 use std::fs;
 
 fn main() {
+    if !doc_gen::touch_doc_gen_api_for_lints() {
+        println!("doc gen api warmup did not produce expected probe result");
+    }
     if !errors::touch_error_api_for_lints() {
         println!("error api warmup did not produce expected probe result");
     }

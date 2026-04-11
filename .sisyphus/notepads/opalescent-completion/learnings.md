@@ -287,3 +287,13 @@
 - Updated `TypeError::CannotInferGenericType` diagnostic help to include explicit type-annotation guidance and added formatter suggestion suffix for inference failures.
 - Main entrypoint now routes lexer/parser error vectors through the new report renderer for consistent output formatting.
 - Strict validation passed: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint`, `timeout 30 LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` (438 passed, 3 ignored), `scripts/check-line-count.sh`, and `lsp_diagnostics` clean on all changed files.
+
+## [2026-04-11] Task 32: Documentation Generation System (Phase 7)
+- Added documentation generation surface in `src/doc_gen.rs` and compatibility re-export module `src/doc_gen/mod.rs`, then wired crate root exposure in `src/main.rs`.
+- Implemented `src/doc_gen/extractor.rs` to traverse AST declarations, keep only `Visibility::Public` symbols, build canonical signatures, and preserve raw/section/attribute-derived doc content.
+- Implemented `src/doc_gen/attributes.rs` for structured parsing of `@param name: description`, `@returns: description`, and `@example code`, plus fallback description aggregation.
+- Implemented `src/doc_gen/cross_refs.rs` using `alloc::collections::BTreeMap` index and token-aware text linker to produce Markdown cross-reference anchors.
+- Implemented `src/doc_gen/renderer.rs` for Markdown (primary) and minimal HTML rendering, including parameters/returns/examples and cross-linked descriptions.
+- Added TDD suite in `src/doc_gen/tests.rs` validating attribute parsing, public-only extraction, cross-reference rewriting, markdown/html rendering, pipeline wiring, and AST doc-comment preservation.
+- Critical workflow note: `cargo make lint-fix` rewrote unrelated files (`src/codegen/adts.rs`, `src/codegen/functions.rs`, `src/errors/suggestions.rs`, plan/notepad metadata); reverted unrelated modifications immediately.
+- Verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `timeout 30 LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` PASS (445 passed, 3 ignored), `scripts/check-line-count.sh` PASS, and `lsp_diagnostics` clean on all changed files (expected unlinked hint for `src/doc_gen/mod.rs`).

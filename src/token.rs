@@ -3,7 +3,6 @@
 //! This module defines the token types, positions, and spans used by the lexer
 //! and parser.
 
-#![expect(dead_code, reason = "Token types are being developed incrementally")]
 #![allow(
     clippy::ref_patterns,
     clippy::needless_borrowed_reference,
