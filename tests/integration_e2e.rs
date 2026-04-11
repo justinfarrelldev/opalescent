@@ -4,8 +4,9 @@ use opalescent::compiler::{
     compile_program, compile_to_module, emit_object_file, link_object_file,
 };
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -390,6 +391,121 @@ mod tests {
         assert!(
             failure_message.is_empty(),
             "fib-iterative end-to-end flow should compile, link, run, print fibonacci result, and exit cleanly: {failure_message}"
+        );
+    }
+
+    #[cfg(feature = "integration")]
+    #[test]
+    fn simple_quiz_compiles_links_and_runs() {
+        let temp_dir = Path::new("test-projects/simple-quiz/target");
+        let prepare = prepare_dir(temp_dir);
+        assert!(
+            prepare.is_ok(),
+            "simple-quiz target directory should be created"
+        );
+
+        let execution_result: Result<(), String> = (|| {
+            let source_path = Path::new("test-projects/simple-quiz/src/main.op");
+            let source_result = fs::read_to_string(source_path);
+            let source_str = match source_result {
+                Ok(contents) => contents,
+                Err(error) => {
+                    return Err(format!(
+                        "simple-quiz source file should be readable from disk: {error}"
+                    ));
+                }
+            };
+
+            let binary_result = compile_program(source_str.as_str(), temp_dir);
+            let binary_path = match binary_result {
+                Ok(path) => path,
+                Err(error) => {
+                    return Err(format!(
+                        "simple-quiz source should compile and link into a binary: {error}"
+                    ));
+                }
+            };
+
+            let child_result = Command::new(&binary_path)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn();
+            let mut child = match child_result {
+                Ok(child_process) => child_process,
+                Err(error) => {
+                    return Err(format!(
+                        "simple-quiz compiled binary should spawn with piped stdio: {error}"
+                    ));
+                }
+            };
+
+            if let Some(ref mut stdin) = child.stdin {
+                let write_result = stdin.write_all(b"TestUser\n3\n");
+                if let Err(error) = write_result {
+                    return Err(format!(
+                        "simple-quiz stdin should accept scripted user input: {error}"
+                    ));
+                }
+            } else {
+                return Err(
+                    "simple-quiz process stdin should be piped so test input can be written"
+                        .to_owned(),
+                );
+            }
+
+            let output_result = child.wait_with_output();
+            let run_output = match output_result {
+                Ok(output) => output,
+                Err(error) => {
+                    return Err(format!(
+                        "simple-quiz compiled binary should complete and produce output: {error}"
+                    ));
+                }
+            };
+
+            let stdout = String::from_utf8_lossy(&run_output.stdout);
+            if !stdout.contains("What is your name?") {
+                return Err(format!(
+                    "simple-quiz stdout should contain prompt 'What is your name?', got: '{stdout}'"
+                ));
+            }
+
+            if !stdout.contains("TestUser") {
+                return Err(format!(
+                    "simple-quiz stdout should contain provided name 'TestUser', got: '{stdout}'"
+                ));
+            }
+
+            if !stdout.contains("Correct") && !stdout.contains("Wrong") {
+                return Err(format!(
+                    "simple-quiz stdout should contain one of ['Correct', 'Wrong'] due to random outcome, got: '{stdout}'"
+                ));
+            }
+
+            if !run_output.status.success() {
+                return Err(format!(
+                    "simple-quiz binary should exit with status code 0, got: {:?}",
+                    run_output.status.code()
+                ));
+            }
+
+            Ok(())
+        })();
+
+        let cleanup = cleanup_dir(temp_dir);
+        assert!(
+            cleanup.is_ok(),
+            "simple-quiz target directory should be removed"
+        );
+
+        let failure_message = match execution_result {
+            Ok(()) => String::new(),
+            Err(message) => message,
+        };
+        assert!(
+            failure_message.is_empty(),
+            "simple-quiz end-to-end flow should compile, link, run with stdin, print prompts/results, and exit cleanly: {failure_message}"
         );
     }
 }

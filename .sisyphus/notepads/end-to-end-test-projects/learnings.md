@@ -109,3 +109,9 @@
 - Updated `compile_program` to link `runtime/opal_runtime.c` via `link_object_file(&object_path, &binary_path, &[runtime_path])`.
 - Added IR regression tests for direct builtin-call declarations and `print_int` callee resolution.
 - Verification summary: `cc -c runtime/opal_runtime.c` passed, `cargo make lint` passed, and `cargo make test` passed.
+
+## [2026-04-11T19:05:05-04:00] Task 14: simple-quiz E2E integration test
+- Added `simple_quiz_compiles_links_and_runs` in `tests/integration_e2e.rs` (gated with `#[cfg(feature = "integration")]`) using the existing closure + always-cleanup pattern.
+- Test compiles `test-projects/simple-quiz/src/main.op`, runs binary with piped stdin (`TestUser\n3\n`), asserts stdout contains `What is your name?`, asserts name echo contains `TestUser`, asserts output contains either `Correct` or `Wrong` (non-deterministic RNG), and asserts zero exit status.
+- RED step was executed first and intentionally failed (name sentinel assertion mismatch) to validate test behavior; GREEN restored correct assertion and no compiler/runtime fixes were required because simple-quiz already compiles/links/runs under current import/codegen/runtime implementation.
+- Final result: `cargo test --features integration simple_quiz`, `cargo make test`, `cargo make lint`, and `scripts/check-line-count.sh` all pass; simple-quiz target artifacts are cleaned after test completion.
