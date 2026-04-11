@@ -25,6 +25,8 @@ pub mod errors;
 mod expressions;
 /// Parser submodule for helper methods (token navigation, state management)
 mod helpers;
+/// Parser submodule for generic parameter declarations
+mod generics;
 /// Operator precedence definitions
 pub mod precedence;
 /// Parser submodule for statement parsing (let, return, block, if, for, while, loop)

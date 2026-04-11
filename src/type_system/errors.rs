@@ -38,6 +38,7 @@ pub enum TypeError {
         span: SourceSpan,
     },
 
+
     /// Types do not match in an expression
     #[error("Type mismatch: expected '{expected}', found '{found}'")]
     #[diagnostic(
@@ -76,6 +77,7 @@ pub enum TypeError {
         /// Source span highlighting where the invalid operation was attempted
         span: SourceSpan,
     },
+
 
     /// Generic type parameter not found
     #[error("Generic type parameter '{param_name}' not found")]

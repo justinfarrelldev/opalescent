@@ -148,6 +148,8 @@ fn make_function_decl(
 ) -> Decl {
     Decl::Function {
         name: name.to_owned(),
+        generic_params: None,
+        generic_constraints: None,
         parameters: params,
         return_types: return_type.map(|single_return_type| vec![single_return_type]),
         error_types: Vec::new(),
@@ -210,6 +212,8 @@ fn make_function_decl_with_errors(
 ) -> Decl {
     Decl::Function {
         name: name.to_owned(),
+        generic_params: None,
+        generic_constraints: None,
         parameters: params,
         return_types: return_type.map(|single_return_type| vec![single_return_type]),
         error_types: error_types.into_iter().map(str::to_owned).collect(),
@@ -246,6 +250,7 @@ fn make_unit_type_decl(name: &str, id: usize) -> Decl {
 fn call_expr(callee_name: &str, arg_names: &[&str], id: usize) -> Expr {
     Expr::Call {
         callee: Box::new(identifier_expr(callee_name, id)),
+        generic_args: None,
         args: arg_names.iter().map(|n| identifier_expr(n, id)).collect(),
         span: test_span(),
         id: node_id(id.checked_add(10).unwrap_or(id)),
@@ -685,6 +690,7 @@ fn test_propagate_nested_expressions() {
                         initializer: Some(propagate_call(
                             Expr::Call {
                                 callee: Box::new(identifier_expr("double_checked", 6412)),
+                                generic_args: None,
                                 args: vec![propagate_call(
                                     call_expr("parse_int", &["raw"], 6413),
                                     6414,
@@ -776,6 +782,7 @@ fn test_propagate_rejects_structurally_identical_error_names() {
 fn test_propagate_inside_lambda_with_errors() {
     let lambda = Expr::Lambda {
         generic_params: None,
+        generic_constraints: None,
         params: vec![make_parameter("input", int_type("string"))],
         return_types: vec![int_type("int32")],
         error_types: vec!["ParseError".to_owned()],
@@ -846,6 +853,7 @@ fn test_propagate_error_span_accuracy() {
 
     let failing_call = Expr::Call {
         callee: Box::new(identifier_expr("read_file", 6701)),
+        generic_args: None,
         args: vec![identifier_expr("path", 6702)],
         span: call_span,
         id: node_id(6703),
@@ -2406,6 +2414,7 @@ fn test_ast_type_to_core_type_complex_types() {
     assert_eq!(
         function_result.unwrap(),
         CoreType::Function {
+            generic_params: Vec::new(),
             parameters: vec![],
             return_types: vec![CoreType::Unit],
             error_types: vec![],
@@ -2591,6 +2600,7 @@ fn test_substitution_apply_function() {
     let var2_type = CoreType::Variable(var2.clone());
 
     let function_type = CoreType::Function {
+        generic_params: Vec::new(),
         parameters: vec![var1_type],
         return_types: vec![var2_type],
         error_types: vec![],
@@ -2602,6 +2612,7 @@ fn test_substitution_apply_function() {
     let subst = Substitution { mappings };
 
     let expected = CoreType::Function {
+        generic_params: Vec::new(),
         parameters: vec![CoreType::Int32],
         return_types: vec![CoreType::String],
         error_types: vec![],
@@ -2749,16 +2760,19 @@ fn test_unify_arrays_with_variables() {
 fn test_unify_functions() {
     let checker = TypeChecker::new();
     let func1 = CoreType::Function {
+        generic_params: Vec::new(),
         parameters: vec![CoreType::Int32],
         return_types: vec![CoreType::String],
         error_types: vec![],
     };
     let func2 = CoreType::Function {
+        generic_params: Vec::new(),
         parameters: vec![CoreType::Int32],
         return_types: vec![CoreType::String],
         error_types: vec![],
     };
     let func3 = CoreType::Function {
+        generic_params: Vec::new(),
         parameters: vec![CoreType::String],
         return_types: vec![CoreType::Int32],
         error_types: vec![],
@@ -2959,6 +2973,7 @@ fn test_symbol_table_exported_symbols() {
         name: "public_func".to_owned(),
         symbol_type: SymbolType::Function,
         core_type: CoreType::Function {
+            generic_params: Vec::new(),
             parameters: vec![],
             return_types: vec![CoreType::Unit],
             error_types: vec![],
@@ -2972,6 +2987,7 @@ fn test_symbol_table_exported_symbols() {
         name: "main".to_owned(),
         symbol_type: SymbolType::Function,
         core_type: CoreType::Function {
+            generic_params: Vec::new(),
             parameters: vec![],
             return_types: vec![CoreType::Unit],
             error_types: vec![],
@@ -2985,6 +3001,7 @@ fn test_symbol_table_exported_symbols() {
         name: "private_func".to_owned(),
         symbol_type: SymbolType::Function,
         core_type: CoreType::Function {
+            generic_params: Vec::new(),
             parameters: vec![],
             return_types: vec![CoreType::Unit],
             error_types: vec![],
@@ -3102,6 +3119,69 @@ fn test_type_check_let_statement_registers_symbol() {
         .lookup("value")
         .expect("binding should be registered");
     assert_eq!(symbol.core_type, CoreType::Int64);
+}
+
+#[test]
+fn test_generic_constraint_inference_succeeds_for_matching_argument() {
+    let source = "\
+public identity = f<T: int32>(value: T): T => return value
+entry main = f(): int32 => {
+    let value: int32 = 1
+    return identity(value)
+}
+";
+    let program = parse_program_from_source_with_spaces(source);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "expected constrained generic inference to pass: {result:?}"
+    );
+}
+
+#[test]
+fn test_generic_constraint_violation_reports_error() {
+    let source = "\
+public identity = f<T: int32>(value: T): T => return value
+entry main = f(): string => return identity<int32>('value')
+";
+    let program = parse_program_from_source_with_spaces(source);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(result.is_err(), "expected constraint violation to fail");
+}
+
+#[test]
+fn test_explicit_generic_call_respects_constraints() {
+    let source = "\
+public identity = f<T: int32>(value: T): T => return value
+entry main = f(): int32 => {
+    let value: int32 = 1
+    return identity<int32>(value)
+}
+";
+    let program = parse_program_from_source_with_spaces(source);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "expected explicit generic call with matching constraints to pass: {result:?}"
+    );
+}
+
+#[test]
+fn test_multiple_generic_constraints_conflict_reports_error() {
+    let source = "\
+public identity = f<T: int32 + int64>(value: T): T => return value
+entry main = f(): int32 => return identity(1)
+";
+    let program = parse_program_from_source_with_spaces(source);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_err(),
+        "expected conflicting constraints to fail type checking"
+    );
 }
 
 #[test]
@@ -3311,6 +3391,8 @@ fn test_type_check_labeled_returns_require_consistent_ordered_labels() {
 
     let function = Decl::Function {
         name: "swap_like".to_owned(),
+        generic_params: None,
+        generic_constraints: None,
         parameters: vec![],
         return_types: Some(vec![int_type("int32"), int_type("int32")]),
         error_types: Vec::new(),
@@ -3385,6 +3467,8 @@ fn test_type_check_labeled_and_unlabeled_returns_cannot_mix() {
 
     let function = Decl::Function {
         name: "mixed_returns".to_owned(),
+        generic_params: None,
+        generic_constraints: None,
         parameters: vec![],
         return_types: Some(vec![int_type("int32"), int_type("int32")]),
         error_types: Vec::new(),
@@ -3491,6 +3575,8 @@ fn test_type_check_program_collects_errors() {
     let mut checker = TypeChecker::new();
     let decl = Decl::Function {
         name: "bad".to_owned(),
+        generic_params: None,
+        generic_constraints: None,
         parameters: vec![Parameter {
             name: "x".to_owned(),
             param_type: Type::Basic {
@@ -3548,6 +3634,7 @@ fn test_type_check_program_handles_forward_function_reference() {
 
     let call_expr = Expr::Call {
         callee: Box::new(identifier_expr("future_fn", 30_000)),
+        generic_args: None,
         args: vec![],
         span: test_span(),
         id: node_id(30_001),
@@ -3631,6 +3718,7 @@ fn test_lambda_expression_body_type_checking() {
     let mut checker = TypeChecker::new();
     let lambda = Expr::Lambda {
         generic_params: None,
+        generic_constraints: None,
         params: vec![make_parameter("x", int_type("int32"))],
         return_types: vec![int_type("int32")],
         error_types: Vec::new(),
@@ -3680,6 +3768,7 @@ fn test_lambda_block_body_type_checking() {
     };
     let lambda = Expr::Lambda {
         generic_params: None,
+        generic_constraints: None,
         params: vec![make_parameter("x", int_type("int32"))],
         return_types: vec![int_type("int32")],
         error_types: Vec::new(),
@@ -3714,6 +3803,7 @@ fn test_lambda_return_type_mismatch_is_reported() {
     let mut checker = TypeChecker::new();
     let lambda = Expr::Lambda {
         generic_params: None,
+        generic_constraints: None,
         params: vec![make_parameter("x", int_type("int32"))],
         return_types: vec![int_type("int32")],
         error_types: Vec::new(),
@@ -3913,6 +4003,7 @@ fn test_solve_constraints_callable_with_function_type() {
 
     // Create a function type
     let function_type = CoreType::Function {
+        generic_params: Vec::new(),
         parameters: vec![CoreType::Int32, CoreType::String],
         return_types: vec![CoreType::Boolean],
         error_types: vec![],
@@ -3942,6 +4033,7 @@ fn test_solve_constraints_callable_wrong_arity() {
 
     // Create a function type with 2 parameters
     let function_type = CoreType::Function {
+        generic_params: Vec::new(),
         parameters: vec![CoreType::Int32, CoreType::String],
         return_types: vec![CoreType::Boolean],
         error_types: vec![],
@@ -3971,6 +4063,7 @@ fn test_solve_constraints_callable_wrong_argument_type() {
 
     // Create a function type
     let function_type = CoreType::Function {
+        generic_params: Vec::new(),
         parameters: vec![CoreType::Int32, CoreType::String],
         return_types: vec![CoreType::Boolean],
         error_types: vec![],
@@ -4312,6 +4405,7 @@ fn test_invalid_cast_function_types() {
 
     // Invalid casts involving function types
     let function_type = CoreType::Function {
+        generic_params: Vec::new(),
         parameters: vec![CoreType::Int32],
         return_types: vec![CoreType::Int32],
         error_types: vec![],

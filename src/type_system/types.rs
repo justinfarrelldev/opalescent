@@ -16,6 +16,17 @@ pub struct TypeVar {
     pub name: String,
 }
 
+/// Generic type parameter metadata stored on function types.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GenericTypeParameter {
+    /// Declared generic parameter name (for diagnostics/display), e.g. `T`.
+    pub name: String,
+    /// Internal type variable associated with this generic parameter.
+    pub type_var: TypeVar,
+    /// Constraint types that the parameter must satisfy.
+    pub constraints: Vec<CoreType>,
+}
+
 impl TypeVar {
     /// Create a new type variable with the given id and name for debugging context.
     pub const fn new(id: usize, name: String) -> Self {
@@ -58,6 +69,8 @@ pub enum CoreType {
     Array(Box<CoreType>),
     /// Function type with parameter types and return type
     Function {
+        /// Generic parameters declared by the function signature.
+        generic_params: Vec<GenericTypeParameter>,
         /// Parameter types
         parameters: Vec<CoreType>,
         /// Return types in declaration order.
@@ -100,10 +113,30 @@ impl fmt::Display for CoreType {
             Self::Variable(ref var) => write!(f, "{}", var.name.as_str()),
             Self::Array(ref element_type) => write!(f, "[{element_type}]"),
             Self::Function {
+                ref generic_params,
                 ref parameters,
                 ref return_types,
                 ref error_types,
             } => {
+                if !generic_params.is_empty() {
+                    write!(f, "<")?;
+                    for (index, generic_param) in generic_params.iter().enumerate() {
+                        if index > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", generic_param.name)?;
+                        if !generic_param.constraints.is_empty() {
+                            write!(f, ": ")?;
+                            for (constraint_index, constraint) in generic_param.constraints.iter().enumerate() {
+                                if constraint_index > 0 {
+                                    write!(f, " + ")?;
+                                }
+                                write!(f, "{constraint}")?;
+                            }
+                        }
+                    }
+                    write!(f, "> ")?;
+                }
                 write!(f, "(")?;
                 for (i, param) in parameters.iter().enumerate() {
                     if i > 0 {

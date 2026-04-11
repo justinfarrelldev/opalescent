@@ -166,6 +166,16 @@ pub struct Parameter {
     pub span: Span,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeParameter {
+    /// Name of the generic type parameter (e.g. `T`, `U`)
+    pub name: String,
+    /// Trait or type constraints on this parameter (e.g. `T: Numeric + Clone`)
+    pub constraints: alloc::vec::Vec<Type>,
+    /// Source code location of this type parameter declaration
+    pub span: Span,
+}
+
 /// Type definitions for custom types
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeDef {

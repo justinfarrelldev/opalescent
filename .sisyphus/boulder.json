@@ -14,10 +14,19 @@
       "task_key": "todo:1",
       "task_label": "1",
       "task_title": "Multiple Return Values (Phase 2 Blocker #2)",
-      "session_id": "ses_2865b0713ffedqkz3mMkyScLDt",
+      "session_id": "ses_285fb816fffeR1m0NbKtlsxcZy",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-04-10T23:34:08.289Z"
+      "updated_at": "2026-04-11T01:15:57.069Z"
+    },
+    "todo:6": {
+      "task_key": "todo:6",
+      "task_label": "6",
+      "task_title": "Generic Type Parameter Constraints (Phase 2 Blocker #4)",
+      "session_id": "ses_2861b7487ffetHgJOydscl3PWX",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-11T00:40:07.653Z"
     }
   }
 }

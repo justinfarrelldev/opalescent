@@ -180,7 +180,10 @@ impl TypeChecker {
 
         let final_type = match (annotated_type, initializer_info) {
             (Some(expected), Some((actual, expr))) => {
-                let reconciled = if self.types_compatible(&expected, &actual) {
+                let reconciled = if self.types_compatible(&expected, &actual)
+                    || matches!(actual, CoreType::Variable(_))
+                    || matches!(&expected, &CoreType::Variable(_))
+                {
                     actual
                 } else if let Some(adjusted) = coerce_literal_to_expected(&expected, expr, &actual)
                 {
@@ -348,7 +351,10 @@ impl TypeChecker {
             }
 
             let value_type = self.type_check_expr(&value.value)?;
-            let reconciled_type = if self.types_compatible(expected_type, &value_type) {
+            let reconciled_type = if self.types_compatible(expected_type, &value_type)
+                || matches!(value_type, CoreType::Variable(_))
+                || matches!(expected_type, &CoreType::Variable(_))
+            {
                 value_type
             } else if let Some(adjusted) =
                 coerce_literal_to_expected(expected_type, &value.value, &value_type)

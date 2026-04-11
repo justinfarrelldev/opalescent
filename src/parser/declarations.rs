@@ -151,6 +151,17 @@ impl Parser {
         // Expect 'f' keyword
         self.consume(&TokenType::Function, "Expected 'f' after '='")?;
 
+        let (generic_params, generic_constraints) = if self.check(&TokenType::Less) {
+            let declarations = self.parse_type_parameter_declarations()?;
+            let names = declarations
+                .iter()
+                .map(|declaration| declaration.name.clone())
+                .collect::<Vec<String>>();
+            (Some(names), Some(declarations))
+        } else {
+            (None, None)
+        };
+
         // Expect '('
         self.consume(&TokenType::LeftParen, "Expected '(' after 'f'")?;
 
@@ -225,6 +236,8 @@ impl Parser {
 
         Ok(Decl::Function {
             name,
+            generic_params,
+            generic_constraints,
             parameters,
             return_types,
             error_types,

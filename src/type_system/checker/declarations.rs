@@ -3,15 +3,93 @@
 extern crate alloc;
 
 use crate::ast::{
-    AstNode, Decl, Expr, LetBinding, Parameter, Program, Stmt, Type, Visibility as AstVisibility,
+    AstNode, Decl, Expr, LetBinding, Parameter, Program, Stmt, Type, TypeParameter,
+    Visibility as AstVisibility,
 };
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
-use crate::type_system::types::CoreType;
+use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{format, vec::Vec};
 
 impl TypeChecker {
+    /// Convert an AST type into a core type while resolving generic identifiers
+    /// against the provided function-level generic bindings.
+    fn ast_type_to_core_type_with_generics(
+        ast_type: &Type,
+        generic_bindings: &[(alloc::string::String, CoreType)],
+    ) -> Result<CoreType, TypeError> {
+        match *ast_type {
+            Type::Basic { ref name, .. } => {
+                if let Some(core_type) = generic_bindings
+                    .iter()
+                    .find_map(|binding| (&binding.0 == name).then_some(&binding.1))
+                {
+                    return Ok(core_type.clone());
+                }
+                Self::ast_type_to_core_type(ast_type)
+            }
+            Type::Array {
+                ref element_type, ..
+            } => Ok(CoreType::Array(alloc::boxed::Box::new(
+                Self::ast_type_to_core_type_with_generics(element_type, generic_bindings)?,
+            ))),
+            Type::Generic {
+                ref name,
+                ref type_args,
+                ..
+            } => {
+                let mut resolved_args = Vec::new();
+                for type_arg in type_args {
+                    resolved_args.push(Self::ast_type_to_core_type_with_generics(
+                        type_arg,
+                        generic_bindings,
+                    )?);
+                }
+                Ok(CoreType::Generic {
+                    name: name.clone(),
+                    type_args: resolved_args,
+                })
+            }
+            Type::Function {
+                ref parameters,
+                ref return_types,
+                ref errors,
+                ..
+            } => {
+                let mut resolved_params = Vec::new();
+                for parameter in parameters {
+                    resolved_params.push(Self::ast_type_to_core_type_with_generics(
+                        parameter,
+                        generic_bindings,
+                    )?);
+                }
+                let mut resolved_returns = Vec::new();
+                for return_type in return_types {
+                    resolved_returns.push(Self::ast_type_to_core_type_with_generics(
+                        return_type,
+                        generic_bindings,
+                    )?);
+                }
+                let mut resolved_errors = Vec::new();
+                if let Some(ref error_types) = *errors {
+                    for error_type in error_types {
+                        resolved_errors.push(Self::ast_type_to_core_type_with_generics(
+                            error_type,
+                            generic_bindings,
+                        )?);
+                    }
+                }
+                Ok(CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: resolved_params,
+                    return_types: resolved_returns,
+                    error_types: resolved_errors,
+                })
+            }
+        }
+    }
+
     /// Convert AST-level visibility into the internal representation, accounting for entry points.
     const fn convert_visibility(visibility: &AstVisibility, is_entry: bool) -> Visibility {
         if is_entry {
@@ -26,6 +104,10 @@ impl TypeChecker {
 
     /// Register a declaration's symbol signature prior to body checking so forward references succeed.
     #[expect(
+        clippy::too_many_lines,
+        reason = "Signature registration handles generics, return types, errors, and visibility in one pass"
+    )]
+    #[expect(
         clippy::pattern_type_mismatch,
         reason = "Matching on &Decl requires referencing the variant while avoiding clones"
     )]
@@ -33,6 +115,7 @@ impl TypeChecker {
         match decl {
             &Decl::Function {
                 name: ref function_name,
+                ref generic_constraints,
                 ref parameters,
                 ref return_types,
                 ref error_types,
@@ -41,9 +124,51 @@ impl TypeChecker {
                 span,
                 ..
             } => {
+                let mut generic_bindings: Vec<(alloc::string::String, CoreType)> = Vec::new();
                 let mut parameter_types = Vec::with_capacity(parameters.len());
+                let mut generic_core_params = Vec::new();
+                if let Some(declarations) = generic_constraints.as_ref() {
+                    for declaration in declarations {
+                        let variable_core =
+                            self.fresh_type_var(declaration.name.clone(), declaration.span)?;
+                        let CoreType::Variable(type_var) = variable_core else {
+                            return Err(TypeError::ConstraintSolvingFailed {
+                                reason: "failed to allocate generic type variable".to_owned(),
+                                span: TypeError::span_from_span(declaration.span),
+                            });
+                        };
+
+                        let mut constraint_types = Vec::new();
+                        for constraint in &declaration.constraints {
+                            let resolved_constraint = match Self::ast_type_to_core_type(constraint)
+                            {
+                                Ok(core_type) => core_type,
+                                Err(TypeError::TypeNotFound { type_name, .. }) => {
+                                    CoreType::Generic {
+                                        name: type_name,
+                                        type_args: Vec::new(),
+                                    }
+                                }
+                                Err(other) => return Err(other),
+                            };
+                            constraint_types.push(resolved_constraint);
+                        }
+
+                        generic_core_params.push(GenericTypeParameter {
+                            name: declaration.name.clone(),
+                            type_var: type_var.clone(),
+                            constraints: constraint_types,
+                        });
+                        generic_bindings
+                            .push((declaration.name.clone(), CoreType::Variable(type_var)));
+                    }
+                }
+
                 for param in parameters {
-                    parameter_types.push(Self::ast_type_to_core_type(&param.param_type)?);
+                    parameter_types.push(Self::ast_type_to_core_type_with_generics(
+                        &param.param_type,
+                        generic_bindings.as_slice(),
+                    )?);
                 }
 
                 let return_core_types = return_types
@@ -51,7 +176,12 @@ impl TypeChecker {
                     .map(|ast_return_types| {
                         ast_return_types
                             .iter()
-                            .map(Self::ast_type_to_core_type)
+                            .map(|ast_return_type| {
+                                Self::ast_type_to_core_type_with_generics(
+                                    ast_return_type,
+                                    generic_bindings.as_slice(),
+                                )
+                            })
                             .collect::<Result<Vec<_>, _>>()
                     })
                     .transpose()?
@@ -60,6 +190,7 @@ impl TypeChecker {
                 let core_errors = self.resolve_error_types(error_types, span)?;
 
                 let function_type = CoreType::Function {
+                    generic_params: generic_core_params,
                     parameters: parameter_types,
                     return_types: return_core_types,
                     error_types: core_errors,
@@ -121,6 +252,7 @@ impl TypeChecker {
     fn type_check_declaration(&mut self, decl: &Decl) -> Result<(), TypeError> {
         match *decl {
             Decl::Function {
+                ref generic_constraints,
                 ref parameters,
                 ref return_types,
                 ref error_types,
@@ -128,6 +260,7 @@ impl TypeChecker {
                 span,
                 ..
             } => self.type_check_function_declaration(
+                generic_constraints.as_deref(),
                 parameters.as_slice(),
                 return_types.as_deref(),
                 error_types,
@@ -151,22 +284,40 @@ impl TypeChecker {
     /// Type check a function body within a dedicated parameter scope, enforcing return compatibility.
     fn type_check_function_declaration(
         &mut self,
+        generic_constraints: Option<&[TypeParameter]>,
         parameters: &[Parameter],
         return_types: Option<&[Type]>,
         error_types: &[String],
         body: &Stmt,
         span: crate::token::Span,
     ) -> Result<(), TypeError> {
+        let mut generic_bindings: Vec<(alloc::string::String, CoreType)> = Vec::new();
+        if let Some(declarations) = generic_constraints {
+            for declaration in declarations {
+                let variable_core =
+                    self.fresh_type_var(declaration.name.clone(), declaration.span)?;
+                generic_bindings.push((declaration.name.clone(), variable_core));
+            }
+        }
+
         let mut parameter_types = Vec::with_capacity(parameters.len());
         for param in parameters {
-            parameter_types.push(Self::ast_type_to_core_type(&param.param_type)?);
+            parameter_types.push(Self::ast_type_to_core_type_with_generics(
+                &param.param_type,
+                generic_bindings.as_slice(),
+            )?);
         }
 
         let return_core_types = return_types
             .map(|ast_return_types| {
                 ast_return_types
                     .iter()
-                    .map(Self::ast_type_to_core_type)
+                    .map(|ast_return_type| {
+                        Self::ast_type_to_core_type_with_generics(
+                            ast_return_type,
+                            generic_bindings.as_slice(),
+                        )
+                    })
                     .collect::<Result<Vec<_>, _>>()
             })
             .transpose()?

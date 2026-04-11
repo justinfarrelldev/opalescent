@@ -1,5 +1,4 @@
 //! Expression type checking for the Opalescent type system
-
 extern crate alloc;
 
 use super::control_flow::{GuardBindingInfo, GuardUsage};
@@ -16,7 +15,7 @@ use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
-use alloc::{boxed::Box, collections::BTreeMap, string::String, vec::Vec};
+use alloc::{boxed::Box, string::String, vec::Vec};
 
 /// Result of typing the `else` branch of a guard expression.
 ///
@@ -67,10 +66,16 @@ impl TypeChecker {
             } => self.type_check_unary_expr(operator, operand.as_ref(), span),
             Expr::Call {
                 ref callee,
+                ref generic_args,
                 ref args,
                 span,
                 ..
-            } => self.type_check_call_expr(callee.as_ref(), args.as_slice(), span),
+            } => self.type_check_call_expr(
+                callee.as_ref(),
+                generic_args.as_deref(),
+                args.as_slice(),
+                span,
+            ),
             Expr::Index {
                 ref object,
                 ref index,
@@ -102,6 +107,7 @@ impl TypeChecker {
             } => self.type_check_array_expr(elements.as_slice(), span),
             Expr::Lambda {
                 ref generic_params,
+                ref generic_constraints,
                 ref params,
                 ref return_types,
                 ref error_types,
@@ -109,12 +115,13 @@ impl TypeChecker {
                 span,
                 ..
             } => self.type_check_lambda_expr(
-                generic_params.as_deref(),
                 params.as_slice(),
                 return_types.as_slice(),
                 error_types.as_slice(),
                 body,
                 span,
+                generic_params.as_deref(),
+                generic_constraints.as_deref(),
             ),
             Expr::Guard {
                 ref expr,
@@ -176,7 +183,7 @@ impl TypeChecker {
         let (success_type, callee_error_types) =
             self.resolve_guard_callee_signature(expr, callee_expr)?;
 
-        self.type_check_call_expr(callee_expr, args, call_span)?;
+        self.type_check_call_expr(callee_expr, None, args, call_span)?;
 
         if let Some(annotated_type_ast) = binding.annotation {
             let annotated_type = Self::ast_type_to_core_type(annotated_type_ast)?;
@@ -454,6 +461,7 @@ impl TypeChecker {
                 parameters: _parameters,
                 return_types,
                 error_types: callee_error_types,
+                ..
             } = callee_type
             {
                 if callee_error_types.is_empty() {
@@ -464,7 +472,7 @@ impl TypeChecker {
 
                 // Validate the call arguments against the parameters (reuse call typing logic)
                 // We intentionally call the existing checker to enforce argument checks
-                self.type_check_call_expr(callee, args.as_slice(), call.span())?;
+                self.type_check_call_expr(callee, None, args.as_slice(), call.span())?;
 
                 if let Some(active_errors) = self.guard_error_stack.last() {
                     if !Self::guard_error_type_sets_match(
@@ -662,83 +670,11 @@ impl TypeChecker {
     fn type_check_call_expr(
         &mut self,
         callee: &Expr,
+        generic_args: Option<&[Type]>,
         args: &[Expr],
         span: Span,
     ) -> Result<CoreType, TypeError> {
-        let callee_type = self.type_check_expr(callee)?;
-        match callee_type {
-            CoreType::Function {
-                parameters,
-                return_types,
-                error_types: _error_types,
-            } => {
-                let mut type_var_instantiations: BTreeMap<usize, CoreType> = BTreeMap::new();
-                let instantiated_parameters = parameters
-                    .iter()
-                    .map(|parameter_type| {
-                        self.instantiate_call_type(
-                            parameter_type,
-                            &mut type_var_instantiations,
-                            span,
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let instantiated_return_types = return_types
-                    .iter()
-                    .map(|return_type| {
-                        self.instantiate_call_type(return_type, &mut type_var_instantiations, span)
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                // TODO: Check error type compatibility for function calls here (see Error Handling Language Features plan)
-                if instantiated_parameters.len() != args.len() {
-                    return Err(TypeError::InvalidOperation {
-                        operation: alloc::format!(
-                            "function call expected {} arguments but received {}",
-                            instantiated_parameters.len(),
-                            args.len()
-                        ),
-                        type_name: "function".to_owned(),
-                        span: TypeError::span_from_span(span),
-                    });
-                }
-
-                for (index, arg_expr) in args.iter().enumerate() {
-                    let param_type = instantiated_parameters[index].clone();
-                    let arg_type = self.type_check_expr(arg_expr)?;
-                    let reconciled_type = if matches!(param_type, CoreType::Variable(_)) {
-                        arg_type.clone()
-                    } else if self.types_compatible(&param_type, &arg_type) {
-                        arg_type
-                    } else if let Some(adjusted) =
-                        coerce_literal_to_expected(&param_type, arg_expr, &arg_type)
-                    {
-                        adjusted
-                    } else {
-                        return Err(type_mismatch_error(
-                            &param_type,
-                            None,
-                            &arg_type,
-                            arg_expr.span(),
-                        ));
-                    };
-                    self.add_constraint(TypeConstraint::equality(
-                        param_type.clone(),
-                        reconciled_type,
-                        None,
-                        Some(arg_expr.span()),
-                    ));
-                }
-
-                instantiated_return_types.first().cloned().ok_or_else(|| {
-                    TypeError::ConstraintSolvingFailed {
-                        reason: "function call has no declared return type".to_owned(),
-                        span: TypeError::span_from_span(span),
-                    }
-                })
-            }
-            other => Err(invalid_operation_error("function call", &other, span)),
-        }
+        self.type_check_call_expr_impl(callee, generic_args, args, span)
     }
 
     /// Type check an array indexing operation, confirming integer indices and yielding the
@@ -850,19 +786,32 @@ impl TypeChecker {
     }
 
     /// Type check a lambda expression by establishing a scoped environment for its parameters and body.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Lambda typing requires signature, body, span, and optional generic metadata"
+    )]
     pub(super) fn type_check_lambda_expr(
         &mut self,
-        generic_params: Option<&[alloc::string::String]>,
         parameters: &[Parameter],
         return_types: &[Type],
         error_types: &[alloc::string::String],
         body: &LambdaBody,
         span: Span,
+        generic_params: Option<&[alloc::string::String]>,
+        generic_constraints: Option<&[crate::ast::TypeParameter]>,
     ) -> Result<CoreType, TypeError> {
         if let Some(params) = generic_params {
             if !params.is_empty() {
                 return Err(TypeError::NotImplementedYet {
                     feature: "generic lambda type checking".to_owned(),
+                    span: TypeError::span_from_span(span),
+                });
+            }
+        }
+        if let Some(constraints) = generic_constraints {
+            if !constraints.is_empty() {
+                return Err(TypeError::NotImplementedYet {
+                    feature: "generic lambda constraints type checking".to_owned(),
                     span: TypeError::span_from_span(span),
                 });
             }
@@ -931,6 +880,7 @@ impl TypeChecker {
 
         // Map lambda-declared error types into nominal core types
         Ok(CoreType::Function {
+            generic_params: Vec::new(),
             parameters: parameter_types,
             return_types: return_core_types,
             error_types: core_errors,

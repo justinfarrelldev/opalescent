@@ -42,7 +42,9 @@ impl Substitution {
                 ref parameters,
                 ref return_types,
                 ref error_types,
+                ..
             } => CoreType::Function {
+                generic_params: Vec::new(),
                 parameters: parameters.iter().map(|p| self.apply(p)).collect(),
                 return_types: return_types.iter().map(|r| self.apply(r)).collect(),
                 error_types: error_types.iter().map(|e| self.apply(e)).collect(),

@@ -471,11 +471,17 @@ impl Parser {
             clippy::if_then_some_else_none,
             reason = "Result type makes bool::then inappropriate"
         )]
-        let generic_params = if self.check(&TokenType::Less) {
-            Some(self.parse_lambda_generic_parameters()?)
+        let generic_constraints = if self.check(&TokenType::Less) {
+            Some(self.parse_type_parameter_declarations()?)
         } else {
             None
         };
+        let generic_params = generic_constraints.as_ref().map(|declarations| {
+            declarations
+                .iter()
+                .map(|declaration| declaration.name.clone())
+                .collect::<Vec<String>>()
+        });
 
         // Expect '('
         self.consume(&TokenType::LeftParen, "Expected '(' after 'f'")?;
@@ -514,6 +520,7 @@ impl Parser {
 
         Ok(Expr::Lambda {
             generic_params,
+            generic_constraints,
             params,
             return_types,
             error_types,
@@ -523,59 +530,6 @@ impl Parser {
             span: lambda_span,
             id: next_node_id(),
         })
-    }
-
-    /// Parse generic parameters for lambda expressions (<T, U>)
-    fn parse_lambda_generic_parameters(&mut self) -> ParseResult<Vec<String>> {
-        self.advance(); // consume '<'
-
-        let mut generic_params = Vec::new();
-
-        // Handle empty generic arguments (error case)
-        if self.check(&TokenType::Greater) {
-            return Err(ParseError::InvalidSyntax {
-                message: "Empty generic parameter list".to_owned(),
-                span: ParseError::span_from_token(self.current_token()),
-            });
-        }
-
-        // Parse comma-separated generic parameter names
-        loop {
-            if self.check_identifier() {
-                let token = self.advance();
-                if let &TokenType::Identifier(ref name) = &token.token_type {
-                    generic_params.push(name.clone());
-                } else {
-                    return Err(ParseError::InvalidSyntax {
-                        message: "Expected identifier for generic parameter".to_owned(),
-                        span: ParseError::span_from_token(token),
-                    });
-                }
-            } else {
-                return Err(ParseError::UnexpectedToken {
-                    expected: "generic parameter name".to_owned(),
-                    found: format!("{}", self.current_token().token_type),
-                    span: ParseError::span_from_token(self.current_token()),
-                });
-            }
-
-            if self.check(&TokenType::Comma) {
-                self.advance(); // consume ','
-            } else if self.check(&TokenType::Greater) {
-                break;
-            } else {
-                return Err(ParseError::UnexpectedToken {
-                    expected: "',' or '>'".to_owned(),
-                    found: format!("{}", self.current_token().token_type),
-                    span: ParseError::span_from_token(self.current_token()),
-                });
-            }
-        }
-
-        // Expect '>'
-        self.consume(&TokenType::Greater, "Expected '>' after generic parameters")?;
-
-        Ok(generic_params)
     }
 
     /// Parse lambda body (expression or block)
@@ -614,36 +568,67 @@ impl Parser {
     }
 
     /// Parse infix expressions (binary operations, calls, etc.)
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Infix parsing keeps all precedence branches localized for maintainability"
+    )]
     fn parse_infix(&mut self, left: Expr) -> ParseResult<Expr> {
-        let token = self.current_token();
+        let token = self.current_token().clone();
 
-        match &token.token_type {
-            &TokenType::Plus
-            | &TokenType::Minus
-            | &TokenType::Multiply
-            | &TokenType::Divide
-            | &TokenType::Modulo
-            | &TokenType::Power
-            | &TokenType::Less
-            | &TokenType::LessEqual
-            | &TokenType::Greater
-            | &TokenType::GreaterEqual
-            | &TokenType::Is
-            | &TokenType::IsNot
-            | &TokenType::And
-            | &TokenType::Or
-            | &TokenType::Xor
-            | &TokenType::BitAnd
-            | &TokenType::BitOr
-            | &TokenType::BitXor
-            | &TokenType::BitShiftLeft
-            | &TokenType::BitShiftRight
-            | &TokenType::BitUnsignedShiftRight => {
+        match token.token_type {
+            TokenType::Less => {
+                if let Some(generic_call_result) =
+                    self.try_parse_explicit_generic_call(left.clone())
+                {
+                    return generic_call_result;
+                }
+
+                let operator = BinaryOp::try_from(TokenType::Less).map_err(|_original_error| {
+                    ParseError::InvalidSyntax {
+                        message: "Invalid binary operator: <".to_owned(),
+                        span: ParseError::span_from_token(&token),
+                    }
+                })?;
+                let precedence = Precedence::from_token(&TokenType::Less);
+                self.advance();
+                let right = self.parse_precedence(precedence.next())?;
+                let start_span = left.span();
+                let end_span = right.span();
+                let binary_span = Span::new(start_span.start, end_span.end);
+
+                Ok(Expr::Binary {
+                    left: Box::new(left),
+                    operator,
+                    right: Box::new(right),
+                    span: binary_span,
+                    id: next_node_id(),
+                })
+            }
+            TokenType::Plus
+            | TokenType::Minus
+            | TokenType::Multiply
+            | TokenType::Divide
+            | TokenType::Modulo
+            | TokenType::Power
+            | TokenType::LessEqual
+            | TokenType::Greater
+            | TokenType::GreaterEqual
+            | TokenType::Is
+            | TokenType::IsNot
+            | TokenType::And
+            | TokenType::Or
+            | TokenType::Xor
+            | TokenType::BitAnd
+            | TokenType::BitOr
+            | TokenType::BitXor
+            | TokenType::BitShiftLeft
+            | TokenType::BitShiftRight
+            | TokenType::BitUnsignedShiftRight => {
                 let operator =
                     BinaryOp::try_from(token.token_type.clone()).map_err(|_original_error| {
                         ParseError::InvalidSyntax {
                             message: format!("Invalid binary operator: {}", token.token_type),
-                            span: ParseError::span_from_token(token),
+                            span: ParseError::span_from_token(&token),
                         }
                     })?;
                 let precedence = Precedence::from_token(&token.token_type);
@@ -672,7 +657,7 @@ impl Parser {
                     id: next_node_id(),
                 })
             }
-            &TokenType::LeftParen => {
+            TokenType::LeftParen => {
                 // Function call
                 self.advance();
                 let mut args = Vec::new();
@@ -698,6 +683,7 @@ impl Parser {
 
                 Ok(Expr::Call {
                     callee: Box::new(left),
+                    generic_args: None,
                     args,
                     span: call_span,
                     id: next_node_id(),
@@ -705,5 +691,86 @@ impl Parser {
             }
             _ => Ok(left),
         }
+    }
+
+    /// Try to parse an explicit generic call of the form `callee<T1, T2>(...)`.
+    ///
+    /// Returns `None` when the current token stream does not represent a valid
+    /// explicit generic call after `left`, allowing the caller to treat `<` as
+    /// a normal binary operator instead.
+    fn try_parse_explicit_generic_call(&mut self, left: Expr) -> Option<ParseResult<Expr>> {
+        let checkpoint = self.current;
+        if !self.check(&TokenType::Less) {
+            return None;
+        }
+
+        self.advance();
+        if self.check(&TokenType::Greater) {
+            self.current = checkpoint;
+            return None;
+        }
+
+        let mut generic_args = Vec::new();
+        let Ok(first_type) = self.parse_type() else {
+            self.current = checkpoint;
+            return None;
+        };
+        generic_args.push(first_type);
+
+        loop {
+            if self.check(&TokenType::Comma) {
+                self.advance();
+                let Ok(next_type) = self.parse_type() else {
+                    self.current = checkpoint;
+                    return None;
+                };
+                generic_args.push(next_type);
+                continue;
+            }
+            break;
+        }
+
+        if !self.check(&TokenType::Greater) {
+            self.current = checkpoint;
+            return None;
+        }
+        self.advance();
+
+        if !self.check(&TokenType::LeftParen) {
+            self.current = checkpoint;
+            return None;
+        }
+        self.advance();
+
+        let mut args = Vec::new();
+        if !self.check(&TokenType::RightParen) {
+            loop {
+                match self.parse_precedence(Precedence::Assignment) {
+                    Ok(argument_expr) => args.push(argument_expr),
+                    Err(parse_error) => return Some(Err(parse_error)),
+                }
+
+                if self.check(&TokenType::Comma) {
+                    self.advance();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        if let Err(parse_error) = self.consume(&TokenType::RightParen, "Expected ')' after arguments") {
+            return Some(Err(parse_error));
+        }
+
+        let start_span = left.span();
+        let end_span = self.previous_token().span;
+        let call_span = Span::new(start_span.start, end_span.end);
+        Some(Ok(Expr::Call {
+            callee: Box::new(left),
+            generic_args: Some(generic_args),
+            args,
+            span: call_span,
+            id: next_node_id(),
+        }))
     }
 }

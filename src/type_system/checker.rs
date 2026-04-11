@@ -96,6 +96,7 @@ impl TypeChecker {
         let generic_print_param = CoreType::Variable(TypeVar::new(0, "T".to_owned()));
 
         let print_signature = CoreType::Function {
+            generic_params: Vec::new(),
             parameters: vec![generic_print_param],
             return_types: vec![CoreType::Unit],
             error_types: Vec::new(),
@@ -111,6 +112,7 @@ impl TypeChecker {
         });
 
         let take_input_signature = CoreType::Function {
+            generic_params: Vec::new(),
             parameters: Vec::new(),
             return_types: vec![CoreType::String],
             error_types: Vec::new(),
@@ -126,6 +128,7 @@ impl TypeChecker {
         });
 
         let string_to_int32_signature = CoreType::Function {
+            generic_params: Vec::new(),
             parameters: vec![CoreType::String],
             return_types: vec![CoreType::Int32],
             error_types: vec![CoreType::Generic {
@@ -146,6 +149,7 @@ impl TypeChecker {
         });
 
         let random_int32_signature = CoreType::Function {
+            generic_params: Vec::new(),
             parameters: vec![CoreType::Int32, CoreType::Int32],
             return_types: vec![CoreType::Int32],
             error_types: Vec::new(),
@@ -300,6 +304,7 @@ impl TypeChecker {
                         parameters,
                         return_types,
                         error_types: _fn_errors,
+                        ..
                     } = callee_applied
                     {
                         // Check arity (number of arguments)
@@ -467,6 +472,7 @@ impl TypeChecker {
                 }
 
                 Ok(CoreType::Function {
+                    generic_params: Vec::new(),
                     parameters: core_params,
                     return_types: core_return_types,
                     error_types: core_errors,
@@ -633,11 +639,13 @@ impl TypeChecker {
                     parameters: left_params,
                     return_types: left_returns,
                     error_types: left_errors,
+                    ..
                 },
                 CoreType::Function {
                     parameters: right_params,
                     return_types: right_returns,
                     error_types: right_errors,
+                    ..
                 },
             ) => {
                 if left_params.len() != right_params.len() {

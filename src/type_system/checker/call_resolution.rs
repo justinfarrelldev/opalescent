@@ -5,10 +5,13 @@
 
 extern crate alloc;
 
+use crate::ast::{AstNode, Expr, Type};
 use crate::token::Span;
+use crate::type_system::checker::helpers::{coerce_literal_to_expected, type_mismatch_error};
 use crate::type_system::checker::TypeChecker;
+use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
-use crate::type_system::types::CoreType;
+use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 impl TypeChecker {
@@ -36,6 +39,7 @@ impl TypeChecker {
                 ref parameters,
                 ref return_types,
                 ref error_types,
+                ..
             } => {
                 let instantiated_parameters = parameters
                     .iter()
@@ -51,6 +55,7 @@ impl TypeChecker {
                     .collect::<Result<Vec<_>, _>>()?;
 
                 Ok(CoreType::Function {
+                    generic_params: Vec::new(),
                     parameters: instantiated_parameters,
                     return_types: instantiated_returns,
                     error_types: instantiated_errors,
@@ -71,5 +76,287 @@ impl TypeChecker {
             }
             _ => Ok(core_type.clone()),
         }
+    }
+
+    /// Type check a function call, including optional explicit generic arguments.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Call typing centralizes arity, generic constraints, and argument reconciliation"
+    )]
+    pub(super) fn type_check_call_expr_impl(
+        &mut self,
+        callee: &Expr,
+        generic_args: Option<&[Type]>,
+        args: &[Expr],
+        span: Span,
+    ) -> Result<CoreType, TypeError> {
+        let callee_type = self.type_check_expr(callee)?;
+        match callee_type {
+            CoreType::Function {
+                generic_params,
+                parameters,
+                return_types,
+                error_types: _error_types,
+            } => {
+                let mut type_var_instantiations: BTreeMap<usize, CoreType> = BTreeMap::new();
+                let instantiated_parameters = parameters
+                    .iter()
+                    .map(|parameter_type| {
+                        self.instantiate_call_type(
+                            parameter_type,
+                            &mut type_var_instantiations,
+                            span,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let instantiated_return_types = return_types
+                    .iter()
+                    .map(|return_type| {
+                        self.instantiate_call_type(return_type, &mut type_var_instantiations, span)
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let instantiated_generic_variables = Self::instantiate_generic_variables(
+                    generic_params.as_slice(),
+                    &type_var_instantiations,
+                );
+
+                if let Some(explicit_generic_args) = generic_args {
+                    if explicit_generic_args.len() != generic_params.len() {
+                        return Err(TypeError::ArityMismatch {
+                            expected: generic_params.len(),
+                            found: explicit_generic_args.len(),
+                            span: TypeError::span_from_span(span),
+                        });
+                    }
+
+                    self.add_explicit_generic_constraints(
+                        generic_params.as_slice(),
+                        instantiated_generic_variables.as_slice(),
+                        explicit_generic_args,
+                    )?;
+                }
+
+                self.add_declared_generic_constraints(
+                    generic_params.as_slice(),
+                    instantiated_generic_variables.as_slice(),
+                    span,
+                );
+
+                if instantiated_parameters.len() != args.len() {
+                    return Err(TypeError::InvalidOperation {
+                        operation: alloc::format!(
+                            "function call expected {} arguments but received {}",
+                            instantiated_parameters.len(),
+                            args.len()
+                        ),
+                        type_name: "function".to_owned(),
+                        span: TypeError::span_from_span(span),
+                    });
+                }
+
+                for (index, arg_expr) in args.iter().enumerate() {
+                    let param_type = instantiated_parameters[index].clone();
+                    let arg_type = self.type_check_expr(arg_expr)?;
+                    let constrained_target = Self::resolve_constrained_target(
+                        &param_type,
+                        generic_params.as_slice(),
+                        instantiated_generic_variables.as_slice(),
+                    );
+
+                    let reconciled_type = if let Some(target_type) = constrained_target {
+                        if self.types_compatible(&target_type, &arg_type) {
+                            arg_type
+                        } else if let Some(adjusted) =
+                            coerce_literal_to_expected(&target_type, arg_expr, &arg_type)
+                        {
+                            adjusted
+                        } else {
+                            return Err(type_mismatch_error(
+                                &target_type,
+                                None,
+                                &arg_type,
+                                arg_expr.span(),
+                            ));
+                        }
+                    } else if matches!(param_type, CoreType::Variable(_))
+                        || self.types_compatible(&param_type, &arg_type)
+                    {
+                        arg_type
+                    } else if let Some(adjusted) =
+                        coerce_literal_to_expected(&param_type, arg_expr, &arg_type)
+                    {
+                        adjusted
+                    } else {
+                        return Err(type_mismatch_error(
+                            &param_type,
+                            None,
+                            &arg_type,
+                            arg_expr.span(),
+                        ));
+                    };
+                    self.add_constraint(TypeConstraint::equality(
+                        param_type,
+                        reconciled_type,
+                        None,
+                        Some(arg_expr.span()),
+                    ));
+                }
+
+                let raw_return_type =
+                    instantiated_return_types.first().cloned().ok_or_else(|| {
+                        TypeError::ConstraintSolvingFailed {
+                            reason: "function call has no declared return type".to_owned(),
+                            span: TypeError::span_from_span(span),
+                        }
+                    })?;
+
+                if let CoreType::Variable(ref return_var) = raw_return_type {
+                    Ok(Self::resolve_return_constraint_type(
+                        return_var.id,
+                        generic_params.as_slice(),
+                        instantiated_generic_variables.as_slice(),
+                    )
+                    .unwrap_or(raw_return_type))
+                } else {
+                    Ok(raw_return_type)
+                }
+            }
+            other => Err(
+                crate::type_system::checker::helpers::invalid_operation_error(
+                    "function call",
+                    &other,
+                    span,
+                ),
+            ),
+        }
+    }
+
+    /// Resolve concrete instantiated types for each declared generic parameter.
+    fn instantiate_generic_variables(
+        generic_params: &[GenericTypeParameter],
+        type_var_instantiations: &BTreeMap<usize, CoreType>,
+    ) -> Vec<(usize, CoreType)> {
+        let mut instantiated = Vec::new();
+        for declared_generic in generic_params {
+            let instantiated_type = type_var_instantiations
+                .get(&declared_generic.type_var.id)
+                .cloned()
+                .unwrap_or_else(|| CoreType::Variable(declared_generic.type_var.clone()));
+            instantiated.push((declared_generic.type_var.id, instantiated_type));
+        }
+        instantiated
+    }
+
+    /// Retrieve the instantiated type for a declared generic, falling back when unresolved.
+    fn instantiated_type_for_generic(
+        generic_id: usize,
+        instantiated_generic_variables: &[(usize, CoreType)],
+        fallback: CoreType,
+    ) -> CoreType {
+        for entry in instantiated_generic_variables {
+            if entry.0 == generic_id {
+                return entry.1.clone();
+            }
+        }
+        fallback
+    }
+
+    /// Add constraints introduced by explicit generic call arguments.
+    fn add_explicit_generic_constraints(
+        &mut self,
+        generic_params: &[GenericTypeParameter],
+        instantiated_generic_variables: &[(usize, CoreType)],
+        explicit_generic_args: &[Type],
+    ) -> Result<(), TypeError> {
+        for (declared_generic, explicit_ast_type) in
+            generic_params.iter().zip(explicit_generic_args.iter())
+        {
+            let explicit_core_type = Self::ast_type_to_core_type(explicit_ast_type)?;
+            let target_generic_type = Self::instantiated_type_for_generic(
+                declared_generic.type_var.id,
+                instantiated_generic_variables,
+                CoreType::Variable(declared_generic.type_var.clone()),
+            );
+            self.add_constraint(TypeConstraint::equality(
+                target_generic_type,
+                explicit_core_type,
+                None,
+                Some(explicit_ast_type.span()),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Add constraints declared on generic parameters at definition sites.
+    fn add_declared_generic_constraints(
+        &mut self,
+        generic_params: &[GenericTypeParameter],
+        instantiated_generic_variables: &[(usize, CoreType)],
+        span: Span,
+    ) {
+        for declared_generic in generic_params {
+            for required_constraint in &declared_generic.constraints {
+                let target_generic_type = Self::instantiated_type_for_generic(
+                    declared_generic.type_var.id,
+                    instantiated_generic_variables,
+                    CoreType::Variable(declared_generic.type_var.clone()),
+                );
+                self.add_constraint(TypeConstraint::equality(
+                    target_generic_type,
+                    required_constraint.clone(),
+                    None,
+                    Some(span),
+                ));
+            }
+        }
+    }
+
+    /// Resolve the first declared constraint target for a variable parameter.
+    fn resolve_constrained_target(
+        param_type: &CoreType,
+        generic_params: &[GenericTypeParameter],
+        instantiated_generic_variables: &[(usize, CoreType)],
+    ) -> Option<CoreType> {
+        let CoreType::Variable(ref param_var) = *param_type else {
+            return None;
+        };
+
+        for declared_generic in generic_params {
+            let maybe_instantiated = Self::instantiated_type_for_generic(
+                declared_generic.type_var.id,
+                instantiated_generic_variables,
+                CoreType::Variable(declared_generic.type_var.clone()),
+            );
+            if let CoreType::Variable(ref instantiated_var) = maybe_instantiated {
+                if instantiated_var.id == param_var.id {
+                    return declared_generic.constraints.first().cloned();
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Resolve a call-site return variable to the first declared generic constraint.
+    fn resolve_return_constraint_type(
+        return_var_id: usize,
+        generic_params: &[GenericTypeParameter],
+        instantiated_generic_variables: &[(usize, CoreType)],
+    ) -> Option<CoreType> {
+        for declared_generic in generic_params {
+            let maybe_instantiated = Self::instantiated_type_for_generic(
+                declared_generic.type_var.id,
+                instantiated_generic_variables,
+                CoreType::Variable(declared_generic.type_var.clone()),
+            );
+            if let CoreType::Variable(ref instantiated_var) = maybe_instantiated {
+                if instantiated_var.id == return_var_id {
+                    return declared_generic.constraints.first().cloned();
+                }
+            }
+        }
+
+        None
     }
 }

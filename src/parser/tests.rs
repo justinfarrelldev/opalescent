@@ -3264,6 +3264,124 @@ fn test_lambda_expression_generic() {
 }
 
 #[test]
+fn test_function_declaration_with_generic_constraints() {
+    let input = "entry main = f<T: int32 + int32>(x: T): T => return x";
+    let result = parse_program_from_string(input);
+    assert!(
+        result.is_ok(),
+        "Failed to parse constrained generic function: {result:?}"
+    );
+
+    let program = result.unwrap();
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Function {
+        generic_params,
+        generic_constraints,
+        parameters,
+        return_types,
+        ..
+    } = &program.declarations[0]
+    {
+        let generic_names = generic_params
+            .as_ref()
+            .expect("generic params should exist");
+        assert_eq!(generic_names.as_slice(), ["T"]);
+
+        let declarations = generic_constraints
+            .as_ref()
+            .expect("generic constraints should exist");
+        assert_eq!(declarations.len(), 1);
+        assert_eq!(declarations[0].name, "T");
+        assert_eq!(declarations[0].constraints.len(), 2);
+
+        assert_eq!(parameters.len(), 1);
+        if let Type::Basic { name, .. } = &parameters[0].param_type {
+            assert_eq!(name, "T");
+        } else {
+            panic!("Expected parameter type T");
+        }
+
+        let returns = return_types
+            .as_ref()
+            .expect("return types should be present");
+        if let Type::Basic { name, .. } = &returns[0] {
+            assert_eq!(name, "T");
+        } else {
+            panic!("Expected return type T");
+        }
+    } else {
+        panic!("Expected function declaration");
+    }
+}
+
+#[test]
+fn test_lambda_expression_with_generic_constraints() {
+    let input = "let identity = f<T: int32>(x: T): T => x";
+    let result = parse_program_from_string(input);
+    assert!(
+        result.is_ok(),
+        "Failed to parse constrained generic lambda: {result:?}"
+    );
+
+    let program = result.unwrap();
+    if let Decl::Let { initializer, .. } = &program.declarations[0] {
+        if let Expr::Lambda {
+            generic_params,
+            generic_constraints,
+            ..
+        } = initializer
+        {
+            let generic_names = generic_params
+                .as_ref()
+                .expect("generic params should exist");
+            assert_eq!(generic_names.as_slice(), ["T"]);
+
+            let declarations = generic_constraints
+                .as_ref()
+                .expect("generic constraints should exist");
+            assert_eq!(declarations.len(), 1);
+            assert_eq!(declarations[0].name, "T");
+            assert_eq!(declarations[0].constraints.len(), 1);
+        } else {
+            panic!("Expected lambda initializer");
+        }
+    } else {
+        panic!("Expected let declaration");
+    }
+}
+
+#[test]
+fn test_explicit_generic_call_expression_parsing() {
+    let input = "map<int32, string>(value)";
+    let result = parse_expression_from_string(input);
+    assert!(
+        result.is_ok(),
+        "Failed to parse explicit generic call: {result:?}"
+    );
+
+    let expr = result.unwrap();
+    if let Expr::Call {
+        callee,
+        generic_args,
+        args,
+        ..
+    } = expr
+    {
+        if let Expr::Identifier { name, .. } = *callee {
+            assert_eq!(name, "map");
+        } else {
+            panic!("Expected identifier callee");
+        }
+        let parsed_generic_args = generic_args.expect("generic args should exist");
+        assert_eq!(parsed_generic_args.len(), 2);
+        assert_eq!(args.len(), 1);
+    } else {
+        panic!("Expected call expression");
+    }
+}
+
+#[test]
 fn test_lambda_expression_no_params() {
     // Test lambda with no parameters as let declaration
     let input = "let get_42 = f(): int32 => 42";

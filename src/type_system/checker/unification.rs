@@ -83,16 +83,16 @@ impl TypeChecker {
         left_span: Option<Span>,
         right_span: Option<Span>,
     ) -> Result<Substitution, TypeError> {
-        if self.types_compatible(left, right) {
-            return Ok(Substitution::empty());
-        }
-
         if let CoreType::Variable(variable) = left {
             return Self::unify_type_variable(variable, right, left_span, right_span);
         }
 
         if let CoreType::Variable(variable) = right {
             return Self::unify_type_variable(variable, left, right_span, left_span);
+        }
+
+        if self.types_compatible(left, right) {
+            return Ok(Substitution::empty());
         }
 
         match (left, right) {
@@ -107,11 +107,13 @@ impl TypeChecker {
                     parameters: left_params,
                     return_types: left_returns,
                     error_types: left_errors,
+                    ..
                 },
                 CoreType::Function {
                     parameters: right_params,
                     return_types: right_returns,
                     error_types: right_errors,
+                    ..
                 },
             ) => {
                 let left_view = FunctionTypeView {
@@ -156,6 +158,12 @@ impl TypeChecker {
         variable_span: Option<Span>,
         other_span: Option<Span>,
     ) -> Result<Substitution, TypeError> {
+        if let CoreType::Variable(ref other_var) = *other {
+            if variable.id == other_var.id {
+                return Ok(Substitution::empty());
+            }
+        }
+
         if Self::occurs_check(variable.id, other) {
             Err(TypeError::OccursCheckFailed {
                 var_name: variable.name.clone(),
@@ -176,12 +184,14 @@ impl TypeChecker {
         if left.params.len() != right.params.len() {
             return Err(TypeError::UnificationFailed {
                 left: CoreType::Function {
+                    generic_params: Vec::new(),
                     parameters: left.params.to_vec(),
                     return_types: left.returns.to_vec(),
                     error_types: left.errors.to_vec(),
                 }
                 .to_string(),
                 right: CoreType::Function {
+                    generic_params: Vec::new(),
                     parameters: right.params.to_vec(),
                     return_types: right.returns.to_vec(),
                     error_types: right.errors.to_vec(),
@@ -195,12 +205,14 @@ impl TypeChecker {
         if left.returns.len() != right.returns.len() {
             return Err(TypeError::UnificationFailed {
                 left: CoreType::Function {
+                    generic_params: Vec::new(),
                     parameters: left.params.to_vec(),
                     return_types: left.returns.to_vec(),
                     error_types: left.errors.to_vec(),
                 }
                 .to_string(),
                 right: CoreType::Function {
+                    generic_params: Vec::new(),
                     parameters: right.params.to_vec(),
                     return_types: right.returns.to_vec(),
                     error_types: right.errors.to_vec(),
@@ -233,12 +245,14 @@ impl TypeChecker {
         if left.errors.len() != right.errors.len() {
             return Err(TypeError::UnificationFailed {
                 left: CoreType::Function {
+                    generic_params: Vec::new(),
                     parameters: left.params.to_vec(),
                     return_types: left.returns.to_vec(),
                     error_types: left.errors.to_vec(),
                 }
                 .to_string(),
                 right: CoreType::Function {
+                    generic_params: Vec::new(),
                     parameters: right.params.to_vec(),
                     return_types: right.returns.to_vec(),
                     error_types: right.errors.to_vec(),
@@ -332,6 +346,7 @@ impl TypeChecker {
                     parameters: ref params,
                     return_types: ref return_type_list,
                     error_types: ref errs,
+                    ..
                 } => {
                     work_queue.extend(return_type_list.iter());
                     work_queue.extend(params.iter());

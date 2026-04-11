@@ -26,7 +26,7 @@ use alloc::string::String;
 pub use self::operators::{BinaryOp, UnaryOp};
 
 // Re-export type structures from the types module for public use
-pub use self::types::{Field, Parameter, Type, TypeDef, Variant};
+pub use self::types::{Field, Parameter, Type, TypeDef, TypeParameter, Variant};
 
 // Re-export documentation structures for public use
 pub use self::documentation::Documentation;
@@ -227,6 +227,8 @@ pub enum Expr {
     Call {
         /// Expression that resolves to the function being called
         callee: Box<Expr>,
+        /// Optional explicit generic type arguments at the call site (e.g. `foo::<int32>(x)`)
+        generic_args: Option<Vec<Type>>,
         /// Arguments passed to the function
         args: Vec<Expr>,
         /// Source code location of this function call
@@ -360,6 +362,8 @@ pub enum Expr {
         /// and return types. Generic parameters are resolved at the call site.
         /// Example: `f<T, U>(mapper: f(T): U, value: T): U`
         generic_params: Option<Vec<String>>,
+        /// Full generic parameter declarations including constraints (e.g. `T: Numeric`)
+        generic_constraints: Option<Vec<TypeParameter>>,
         /// Function parameters with types
         ///
         /// All parameters must have explicit types. Parameter names follow
@@ -662,6 +666,10 @@ pub enum Decl {
     Function {
         /// Name of the function
         name: String,
+        /// Optional generic type parameter names (e.g. `["T", "U"]` for `f<T, U>`)
+        generic_params: Option<Vec<String>>,
+        /// Full generic parameter declarations including constraints (e.g. `T: Numeric`)
+        generic_constraints: Option<Vec<TypeParameter>>,
         /// Function parameters
         parameters: Vec<Parameter>,
         /// Optional return type annotations in declaration order.
