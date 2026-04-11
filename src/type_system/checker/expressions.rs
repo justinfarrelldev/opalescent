@@ -250,9 +250,7 @@ impl TypeChecker {
             expected_return,
         )?;
 
-        if matches!(else_outcome, GuardElseOutcome::FallbackValue(_)) {
-            // Placeholder for future flow-sensitive diagnostics that will track fallback values.
-        }
+        let _: GuardElseOutcome = else_outcome;
 
         let symbol_type = if binding.is_mutable {
             SymbolType::Variable
@@ -265,6 +263,9 @@ impl TypeChecker {
             core_type: success_type.clone(),
             visibility: Visibility::Private,
             source_location: binding.span,
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
         });
 
         Ok(success_type)
@@ -568,14 +569,16 @@ impl TypeChecker {
     }
 
     /// Resolve an identifier to its registered core type or emit a symbol error.
-    fn resolve_identifier(&self, name: &str, span: Span) -> Result<CoreType, TypeError> {
-        self.symbol_table()
-            .lookup(name)
-            .map(|info| info.core_type.clone())
-            .ok_or_else(|| TypeError::SymbolNotFound {
-                name: name.to_owned(),
-                span: TypeError::span_from_span(span),
-            })
+    fn resolve_identifier(&mut self, name: &str, span: Span) -> Result<CoreType, TypeError> {
+        if let Some(info) = self.symbol_table_mut().lookup_mut(name) {
+            info.read_count = info.read_count.saturating_add(1);
+            return Ok(info.core_type.clone());
+        }
+
+        Err(TypeError::SymbolNotFound {
+            name: name.to_owned(),
+            span: TypeError::span_from_span(span),
+        })
     }
 
     /// Type check a binary expression, enforcing operand compatibility, recording inference
@@ -901,6 +904,9 @@ impl TypeChecker {
                     core_type: core_type.clone(),
                     visibility: Visibility::Private,
                     source_location: param.span(),
+                    is_let_binding: false,
+                    is_mutable: false,
+                    read_count: 0,
                 });
             }
 

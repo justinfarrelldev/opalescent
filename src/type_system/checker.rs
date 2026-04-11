@@ -115,6 +115,9 @@ impl TypeChecker {
             core_type: print_signature,
             visibility: Visibility::Public,
             source_location: Span::single(crate::token::Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
         });
 
         let take_input_signature = CoreType::Function {
@@ -131,6 +134,9 @@ impl TypeChecker {
             core_type: take_input_signature,
             visibility: Visibility::Public,
             source_location: Span::single(crate::token::Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
         });
 
         let string_to_int32_signature = CoreType::Function {
@@ -152,6 +158,9 @@ impl TypeChecker {
             core_type: string_to_int32_signature,
             visibility: Visibility::Public,
             source_location: Span::single(crate::token::Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
         });
 
         self.environment.register_type(
@@ -176,6 +185,9 @@ impl TypeChecker {
             core_type: random_int32_signature,
             visibility: Visibility::Public,
             source_location: Span::single(crate::token::Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
         });
 
         self.register_integer_intrinsics_for_type("int8", &CoreType::Int8);
@@ -227,6 +239,9 @@ impl TypeChecker {
             core_type: signature,
             visibility: Visibility::Public,
             source_location: Span::single(crate::token::Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
         });
     }
 
@@ -253,6 +268,9 @@ impl TypeChecker {
             core_type: signature,
             visibility: Visibility::Public,
             source_location: Span::single(crate::token::Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
         });
     }
 

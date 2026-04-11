@@ -471,4 +471,107 @@ entry main = f(): int32, int32 errors ParseError => {
             "guard/propagate + multiple return integration should pass: {result:?}",
         );
     }
+
+    #[test]
+    fn test_assignment_to_immutable_variable_reports_immutable_assignment_error() {
+        const SOURCE: &str = "
+entry main = f(): int64 => {
+    let value: int64 = 5
+    value = 6
+    return value
+}
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        let errors = result.expect_err("assigning to immutable binding must fail");
+        let has_immutable_assignment = errors
+            .iter()
+            .any(|error| matches!(*error, TypeError::ImmutableAssignment { .. }));
+
+        assert!(
+            has_immutable_assignment,
+            "expected ImmutableAssignment error, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_assignment_to_mutable_variable_succeeds() {
+        const SOURCE: &str = "
+entry main = f(): int64 => {
+    let mutable value: int64 = 5
+    value = 6
+    return value
+}
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        assert!(
+            result.is_ok(),
+            "assigning to mutable binding should type check: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_unused_variable_emits_warning_not_error() {
+        const SOURCE: &str = "
+entry main = f(): int64 => {
+    let value: int64 = 5
+    return 1
+}
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        assert!(result.is_ok(), "unused variable must not be a hard error");
+
+        let has_unused_warning = checker.warnings().iter().any(|warning| {
+            matches!(
+                *warning,
+                crate::type_system::errors::Warning::UnusedVariable { .. }
+            )
+        });
+        assert!(
+            has_unused_warning,
+            "expected UnusedVariable warning, got: {:?}",
+            checker.warnings(),
+        );
+    }
+
+    #[test]
+    fn test_underscore_prefixed_unused_variable_is_ignored() {
+        const SOURCE: &str = "
+entry main = f(): int64 => {
+    let _value: int64 = 5
+    return 1
+}
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        assert!(
+            result.is_ok(),
+            "underscore-prefixed variable should not fail type checking: {result:?}",
+        );
+        let has_unused_warning = checker.warnings().iter().any(|warning| {
+            matches!(
+                *warning,
+                crate::type_system::errors::Warning::UnusedVariable { .. }
+            )
+        });
+        assert!(
+            !has_unused_warning,
+            "underscore-prefixed variables should suppress unused warning, got: {:?}",
+            checker.warnings(),
+        );
+    }
 }

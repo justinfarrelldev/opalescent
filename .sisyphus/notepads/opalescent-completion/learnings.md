@@ -120,3 +120,13 @@
 - Hot-reload signature stability metadata added in new `src/type_system/checker/hot_reload.rs` and wired through declaration signature registration; `TypeChecker` now records/retrieves per-function signature snapshots (`signature_stable`, params/returns).
 - Added integration tests for missing entry, duplicate entry, uninferable generic call, closure capture, and guard+multiple-returns success path.
 - Validation after changes: `timeout 30 cargo test` PASS (314 passed, 3 ignored), `cargo make lint-fix` PASS, `cargo make lint` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files.
+
+## [2026-04-10] Task 12: Variable System Completion
+- Added mutability and usage metadata to `SymbolInfo` (`is_let_binding`, `is_mutable`, `read_count`) and mutable symbol lookup in `SymbolTable`.
+- Implemented immutable reassignment hard-failure via new `TypeError::ImmutableAssignment` (`opalescent::type_system::immutable_assignment`) with both assignment and declaration spans.
+- Updated assignment checking to enforce mutability only for identifier targets while preserving existing member/index assignment behavior.
+- Wired identifier resolution to increment `read_count` so usage tracking is data-driven and scope-aware.
+- Added unused-let warnings after successful program type-check (`Warning::UnusedVariable`, code `opalescent::type_system::unused_variable`) with underscore-prefix exemption.
+- Preserved shadowing semantics: same-scope re-`let` continues to register a new symbol entry; immutability validation only applies to assignment statements.
+- Added integration tests for immutable assignment failure, mutable assignment success, unused warning emission, and underscore suppression.
+- Validation: `timeout 30 cargo test` PASS (318 passed, 3 ignored), `cargo make lint-fix` PASS, `cargo make lint` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files.

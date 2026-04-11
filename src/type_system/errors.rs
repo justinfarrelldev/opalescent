@@ -105,6 +105,23 @@ pub enum TypeError {
         span: SourceSpan,
     },
 
+    /// Assignment attempted on an immutable `let` binding.
+    #[error("Cannot assign to immutable variable '{name}'")]
+    #[diagnostic(
+        code(opalescent::type_system::immutable_assignment),
+        help("Declare the binding as `let mutable {name}` if reassignment is intended")
+    )]
+    ImmutableAssignment {
+        /// Name of the immutable variable receiving assignment.
+        name: String,
+        #[label("immutable variable assigned here")]
+        /// Source span of the assignment expression.
+        assignment_span: SourceSpan,
+        #[label("variable declared immutable here")]
+        /// Optional source span of the original immutable declaration.
+        declaration_span: Option<SourceSpan>,
+    },
+
     /// Compile-time detected division or modulo by a constant zero divisor.
     #[error("Compile-time {operation} by zero is not allowed")]
     #[diagnostic(
@@ -484,10 +501,10 @@ pub enum Warning {
         suppression_annotation: Option<String>,
     },
 
-    /// Placeholder warning for future unused-variable analysis.
+    /// `let` binding that is never read during type checking.
     #[error("Variable '{name}' is never used")]
     #[diagnostic(
-        code(opalescent::type_system::warning::unused_variable),
+        code(opalescent::type_system::unused_variable),
         help("Remove the variable or prefix it with '_' if unused intentionally")
     )]
     UnusedVariable {

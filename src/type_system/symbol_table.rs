@@ -56,6 +56,12 @@ pub struct SymbolInfo {
     pub visibility: Visibility,
     /// Source location for error reporting
     pub source_location: Span,
+    /// Whether this symbol was declared from a `let` binding.
+    pub is_let_binding: bool,
+    /// Whether this symbol allows reassignment.
+    pub is_mutable: bool,
+    /// Number of read usages observed during type checking.
+    pub read_count: usize,
 }
 
 /// Unique identifier for a scope
@@ -217,6 +223,19 @@ impl SymbolTable {
         None
     }
 
+    /// Look up a symbol mutably in the current scope and parent scopes.
+    pub fn lookup_mut(&mut self, name: &str) -> Option<&mut SymbolInfo> {
+        let mut current = Some(self.current_scope);
+        while let Some(scope_id) = current {
+            let parent = self.scopes[scope_id.0].parent;
+            if self.scopes[scope_id.0].symbols.contains_key(name) {
+                return self.scopes[scope_id.0].symbols.get_mut(name);
+            }
+            current = parent;
+        }
+        None
+    }
+
     /// Look up a symbol only in the current scope (no parent lookup)
     ///
     /// This is useful for checking if a symbol is defined locally,
@@ -250,6 +269,17 @@ impl SymbolTable {
     /// Get all symbols in the current scope (for debugging/testing)
     pub fn current_scope_symbols(&self) -> Vec<&SymbolInfo> {
         self.scopes[self.current_scope.0].symbols.values().collect()
+    }
+
+    /// Collect all `let` bindings that were never read.
+    pub fn unused_let_bindings(&self) -> Vec<&SymbolInfo> {
+        self.scopes
+            .iter()
+            .flat_map(|scope| scope.symbols.values())
+            .filter(|symbol| {
+                symbol.is_let_binding && symbol.read_count == 0 && !symbol.name.starts_with('_')
+            })
+            .collect()
     }
 }
 

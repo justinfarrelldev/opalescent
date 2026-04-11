@@ -94,6 +94,9 @@ impl TypeChecker {
                                 core_type: element_core,
                                 visibility: Visibility::Private,
                                 source_location: span,
+                                is_let_binding: false,
+                                is_mutable: false,
+                                read_count: 0,
                             });
                             checker.type_check_stmt_with_return(body.as_ref(), expected_return)
                         })
@@ -230,6 +233,9 @@ impl TypeChecker {
             core_type: final_type,
             visibility: Visibility::Private,
             source_location: binding.span,
+            is_let_binding: true,
+            is_mutable: binding.is_mutable,
+            read_count: 0,
         });
 
         Ok(())
@@ -243,7 +249,38 @@ impl TypeChecker {
         value: &Expr,
         span: Span,
     ) -> Result<(), TypeError> {
-        let target_type = self.type_check_expr(target)?;
+        if let Expr::Identifier {
+            ref name,
+            span: target_span,
+            ..
+        } = *target
+        {
+            if let Some(symbol) = self.symbol_table().lookup(name) {
+                if !symbol.is_mutable {
+                    return Err(TypeError::ImmutableAssignment {
+                        name: name.clone(),
+                        assignment_span: TypeError::span_from_span(target_span),
+                        declaration_span: Some(TypeError::span_from_span(symbol.source_location)),
+                    });
+                }
+            }
+        }
+
+        let target_type = match *target {
+            Expr::Identifier {
+                ref name,
+                span: identifier_span,
+                ..
+            } => self
+                .symbol_table()
+                .lookup(name)
+                .map(|symbol| symbol.core_type.clone())
+                .ok_or_else(|| TypeError::SymbolNotFound {
+                    name: name.clone(),
+                    span: TypeError::span_from_span(identifier_span),
+                })?,
+            _ => self.type_check_expr(target)?,
+        };
         let value_type = self.type_check_expr(value)?;
         let reconciled_value_type = if self.types_compatible(&target_type, &value_type) {
             value_type

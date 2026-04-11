@@ -250,6 +250,9 @@ impl TypeChecker {
                     core_type: function_type,
                     visibility: resolved_visibility,
                     source_location: span,
+                    is_let_binding: false,
+                    is_mutable: false,
+                    read_count: 0,
                 });
                 Ok(())
             }
@@ -272,6 +275,9 @@ impl TypeChecker {
                         core_type: annotated_type,
                         visibility: resolved_visibility,
                         source_location: binding.span,
+                        is_let_binding: true,
+                        is_mutable: binding.is_mutable,
+                        read_count: 0,
                     });
                 }
                 Ok(())
@@ -321,10 +327,7 @@ impl TypeChecker {
                 ..
             } => self.type_check_let_declaration(binding, initializer, visibility),
             Decl::Type { ref type_def, .. } => Self::validate_adt_type(type_def),
-            Decl::Import { .. } => {
-                // Phase 4 will introduce full import validation; until then we simply acknowledge the declaration.
-                Ok(())
-            }
+            Decl::Import { .. } => Ok(()),
         }
     }
 
@@ -372,7 +375,6 @@ impl TypeChecker {
 
         let core_errors = self.resolve_error_types(error_types, span)?;
 
-        // Enter function context for error propagation checks
         self.symbol_table.enter_function(core_errors, span);
         self.begin_return_context();
 
@@ -384,13 +386,15 @@ impl TypeChecker {
                     core_type: core_type.clone(),
                     visibility: Visibility::Private,
                     source_location: param.span(),
+                    is_let_binding: false,
+                    is_mutable: false,
+                    read_count: 0,
                 });
             }
 
             checker.type_check_stmt_with_return(body, Some(return_core_types.as_slice()))
         });
 
-        // Exit function context regardless of the outcome
         self.end_return_context();
         self.symbol_table.exit_function();
 
@@ -430,6 +434,9 @@ impl TypeChecker {
             core_type: inferred_type,
             visibility,
             source_location: binding.span,
+            is_let_binding: true,
+            is_mutable: binding.is_mutable,
+            read_count: 0,
         });
 
         Ok(())
@@ -472,6 +479,19 @@ impl TypeChecker {
             if let Err(entry_error) = Self::validate_entry_points(program) {
                 Err(vec![entry_error])
             } else {
+                let unused_bindings: Vec<(alloc::string::String, crate::token::Span)> = self
+                    .symbol_table()
+                    .unused_let_bindings()
+                    .iter()
+                    .map(|binding| (binding.name.clone(), binding.source_location))
+                    .collect();
+                for (name, source_location) in unused_bindings {
+                    self.push_warning(crate::type_system::errors::Warning::UnusedVariable {
+                        name,
+                        span: TypeError::span_from_span(source_location),
+                        suppression_annotation: None,
+                    });
+                }
                 Ok(())
             }
         } else {
