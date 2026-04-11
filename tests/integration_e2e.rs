@@ -244,4 +244,152 @@ mod tests {
             "hello-world end-to-end flow should compile, link, run, print greeting, and exit cleanly: {failure_message}"
         );
     }
+
+    #[test]
+    fn fib_recursive_compiles_links_and_runs() {
+        let temp_dir = Path::new("test-projects/fib-recursive/target");
+        let prepare = prepare_dir(temp_dir);
+        assert!(
+            prepare.is_ok(),
+            "fib-recursive target directory should be created"
+        );
+
+        let execution_result: Result<(), String> = (|| {
+            let source_path = Path::new("test-projects/fib-recursive/src/main.op");
+            let source_result = fs::read_to_string(source_path);
+            let source_str = match source_result {
+                Ok(contents) => contents,
+                Err(error) => {
+                    return Err(format!(
+                        "fib-recursive source file should be readable from disk: {error}"
+                    ));
+                }
+            };
+
+            let binary_result = compile_program(source_str.as_str(), temp_dir);
+            let binary_path = match binary_result {
+                Ok(path) => path,
+                Err(error) => {
+                    return Err(format!(
+                        "fib-recursive source should compile and link into a binary: {error}"
+                    ));
+                }
+            };
+
+            let output_result = Command::new(&binary_path).output();
+            let run_output = match output_result {
+                Ok(output) => output,
+                Err(error) => {
+                    return Err(format!(
+                        "fib-recursive compiled binary should execute: {error}"
+                    ));
+                }
+            };
+
+            let stdout = String::from_utf8_lossy(&run_output.stdout);
+            if !stdout.contains("55") {
+                return Err(format!(
+                    "fib-recursive binary stdout should contain '55', got: '{stdout}'"
+                ));
+            }
+
+            if !run_output.status.success() {
+                return Err(format!(
+                    "fib-recursive binary should exit with status code 0, got: {:?}",
+                    run_output.status.code()
+                ));
+            }
+
+            Ok(())
+        })();
+
+        let cleanup = cleanup_dir(temp_dir);
+        assert!(
+            cleanup.is_ok(),
+            "fib-recursive target directory should be removed"
+        );
+
+        let failure_message = match execution_result {
+            Ok(()) => String::new(),
+            Err(message) => message,
+        };
+        assert!(
+            failure_message.is_empty(),
+            "fib-recursive end-to-end flow should compile, link, run, print fibonacci result, and exit cleanly: {failure_message}"
+        );
+    }
+
+    #[test]
+    fn fib_iterative_compiles_links_and_runs() {
+        let temp_dir = Path::new("test-projects/fib-iterative/target");
+        let prepare = prepare_dir(temp_dir);
+        assert!(
+            prepare.is_ok(),
+            "fib-iterative target directory should be created"
+        );
+
+        let execution_result: Result<(), String> = (|| {
+            let source_path = Path::new("test-projects/fib-iterative/src/main.op");
+            let source_result = fs::read_to_string(source_path);
+            let source_str = match source_result {
+                Ok(contents) => contents,
+                Err(error) => {
+                    return Err(format!(
+                        "fib-iterative source file should be readable from disk: {error}"
+                    ));
+                }
+            };
+
+            let binary_result = compile_program(source_str.as_str(), temp_dir);
+            let binary_path = match binary_result {
+                Ok(path) => path,
+                Err(error) => {
+                    return Err(format!(
+                        "fib-iterative source should compile and link into a binary: {error}"
+                    ));
+                }
+            };
+
+            let output_result = Command::new(&binary_path).output();
+            let run_output = match output_result {
+                Ok(output) => output,
+                Err(error) => {
+                    return Err(format!(
+                        "fib-iterative compiled binary should execute: {error}"
+                    ));
+                }
+            };
+
+            let stdout = String::from_utf8_lossy(&run_output.stdout);
+            if !stdout.contains("55") {
+                return Err(format!(
+                    "fib-iterative binary stdout should contain '55', got: '{stdout}'"
+                ));
+            }
+
+            if !run_output.status.success() {
+                return Err(format!(
+                    "fib-iterative binary should exit with status code 0, got: {:?}",
+                    run_output.status.code()
+                ));
+            }
+
+            Ok(())
+        })();
+
+        let cleanup = cleanup_dir(temp_dir);
+        assert!(
+            cleanup.is_ok(),
+            "fib-iterative target directory should be removed"
+        );
+
+        let failure_message = match execution_result {
+            Ok(()) => String::new(),
+            Err(message) => message,
+        };
+        assert!(
+            failure_message.is_empty(),
+            "fib-iterative end-to-end flow should compile, link, run, print fibonacci result, and exit cleanly: {failure_message}"
+        );
+    }
 }

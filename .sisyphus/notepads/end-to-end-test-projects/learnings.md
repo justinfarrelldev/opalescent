@@ -83,3 +83,8 @@
   - `test_fibonacci_if_n_is_zero_compiles_to_valid_llvm_ir` compiles recursive fib source using `if n is 0 { ... }`, verifies module validity, and asserts IR contains integer equality compare.
 - RED step exposed a test harness issue (module had no emitted instructions because literals-only compare was constant-folded from IR print perspective); resolved by binding and comparing an identifier (`x is 5`) so emitted IR deterministically contains `icmp eq i64`.
 - Additional fib test adjustment: use `entry main = f(): void` and avoid `print(result)` in this regression source to prevent unrelated pre-existing stdlib call-signature verification failures from masking `is` behavior.
+
+## [2026-04-11] Task 10: fib recursive + iterative E2E integration tests
+- Added two new integration tests in `tests/integration_e2e.rs`: `fib_recursive_compiles_links_and_runs` and `fib_iterative_compiles_links_and_runs`, following the exact closure/cleanup/failure-message pattern used by `hello_world_compiles_links_and_runs`.
+- Both tests read source from `test-projects/fib-recursive/src/main.op` and `test-projects/fib-iterative/src/main.op`, compile with `compile_program`, execute the produced binary, assert `stdout.contains("55")`, assert success exit status, then always run `cleanup_dir(temp_dir)` before final assertion.
+- Recursive fib project required a source fix (`public fib = ...`) so self-recursive calls resolve through the type checker during full compile flow; without `public`, integration compile failed with `Type(SymbolNotFound { name: "fib" ... })`.
