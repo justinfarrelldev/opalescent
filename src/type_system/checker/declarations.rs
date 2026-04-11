@@ -261,6 +261,9 @@ impl TypeChecker {
                     is_mutable: false,
                     read_count: 0,
                 });
+                if let Some(registered_symbol) = self.symbol_table.lookup(function_name).cloned() {
+                    self.register_current_module_symbol(registered_symbol, decl_visibility)?;
+                }
                 Ok(())
             }
             Decl::Let {
@@ -293,6 +296,7 @@ impl TypeChecker {
                 name,
                 type_def,
                 generic_constraints,
+                visibility,
                 ..
             } => {
                 let mut generic_bindings: Vec<(alloc::string::String, CoreType)> = Vec::new();
@@ -357,12 +361,15 @@ impl TypeChecker {
                     name: name.clone(),
                     symbol_type: SymbolType::Type,
                     core_type: nominal_type,
-                    visibility: Visibility::Public,
+                    visibility: Self::convert_visibility(visibility, false),
                     source_location: decl.span(),
                     is_let_binding: false,
                     is_mutable: false,
                     read_count: 0,
                 });
+                if let Some(registered_symbol) = self.symbol_table.lookup(name).cloned() {
+                    self.register_current_module_symbol(registered_symbol, visibility)?;
+                }
 
                 if let TypeDef::Sum { variants, .. } = type_def {
                     let mut qualified_variants = Vec::new();
@@ -429,7 +436,12 @@ impl TypeChecker {
                 }
                 Ok(())
             }
-            Decl::Import { .. } => Ok(()),
+            Decl::Import {
+                items,
+                source,
+                span,
+                ..
+            } => self.register_import_declaration(items, source, *span),
         }
     }
 
@@ -562,17 +574,20 @@ impl TypeChecker {
         } else {
             SymbolType::Constant
         };
-        let visibility = Self::convert_visibility(visibility, false);
+        let symbol_visibility = Self::convert_visibility(visibility, false);
         self.symbol_table.register(SymbolInfo {
             name: binding.name.clone(),
             symbol_type,
             core_type: inferred_type,
-            visibility,
+            visibility: symbol_visibility,
             source_location: binding.span,
             is_let_binding: true,
             is_mutable: binding.is_mutable,
             read_count: 0,
         });
+        if let Some(registered_symbol) = self.symbol_table.lookup(&binding.name).cloned() {
+            self.register_current_module_symbol(registered_symbol, visibility)?;
+        }
 
         Ok(())
     }

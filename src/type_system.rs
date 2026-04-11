@@ -81,6 +81,8 @@ mod constraints;
 mod environment;
 mod errors;
 mod memory;
+/// Import/export resolver and module dependency graph implementation.
+mod module_resolver;
 mod substitution;
 mod symbol_table;
 mod types;
@@ -99,3 +101,6 @@ mod test_integration_collections;
 
 #[cfg(test)]
 mod test_integration_generics;
+
+#[cfg(test)]
+mod test_integration_modules;

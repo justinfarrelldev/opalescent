@@ -1,5 +1,4 @@
 //! Type checker implementation for the Opalescent type system
-
 #![allow(
     clippy::multiple_inherent_impl,
     reason = "TypeChecker impl blocks intentionally split across submodules (checker/*.rs) for code organization - each submodule handles a specific aspect of type checking"
@@ -10,6 +9,7 @@ extern crate alloc;
 use super::constraints::TypeConstraint;
 use super::environment::TypeEnvironment;
 use super::errors::{TypeError, Warning};
+use super::module_resolver::ModuleResolver;
 use super::substitution::Substitution;
 use super::symbol_table::{SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::types::{CoreType, GenericTypeParameter, TypeVar};
@@ -32,6 +32,8 @@ mod expressions;
 mod generics;
 mod helpers;
 mod hot_reload;
+/// Module import/export declaration checking support.
+mod module_checking;
 /// Pattern-matching typing and exhaustiveness checks.
 mod patterns;
 mod returns;
@@ -82,6 +84,10 @@ pub struct TypeChecker {
     adt_generic_params: BTreeMap<String, Vec<GenericTypeParameter>>,
     /// Unique concrete generic instantiations captured during type checking.
     generic_instantiations: BTreeMap<String, Vec<Vec<CoreType>>>,
+    /// Resolver for module interfaces and dependency cycle checks.
+    module_resolver: ModuleResolver,
+    /// Module identifier currently associated with this checker instance.
+    current_module_path: String,
 }
 
 impl TypeChecker {
@@ -103,6 +109,8 @@ impl TypeChecker {
             adt_fields: BTreeMap::new(),
             adt_generic_params: BTreeMap::new(),
             generic_instantiations: BTreeMap::new(),
+            module_resolver: ModuleResolver::new(),
+            current_module_path: String::from("__main__"),
         };
         checker.register_standard_builtins();
         checker
@@ -126,6 +134,8 @@ impl TypeChecker {
             adt_fields: BTreeMap::new(),
             adt_generic_params: BTreeMap::new(),
             generic_instantiations: BTreeMap::new(),
+            module_resolver: ModuleResolver::new(),
+            current_module_path: String::from("__main__"),
         };
         checker.register_standard_builtins();
         checker

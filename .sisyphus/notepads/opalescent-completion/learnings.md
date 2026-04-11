@@ -174,3 +174,10 @@
 - Added Phase 5-prep metadata tracking in `TypeChecker`: generic declarations per ADT plus `generic_instantiations: BTreeMap<String, Vec<Vec<CoreType>>>`, with helpers in new `checker/generics.rs` and recording from both function-call inference and ADT constructor instantiation.
 - Added new integration suite `src/type_system/test_integration_generics.rs` and module registration in `src/type_system.rs`, covering constructor inference, generic call inference (`identity(42)`), constraint failure, and unique instantiation metadata recording.
 - Validation: `cargo make lint-fix` PASS, `timeout 30 cargo test` PASS (360 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, `cargo make lint` PASS, LSP diagnostics clean on changed files.
+
+## [2026-04-11] Task 19: Import/Export Resolution
+- Added `src/type_system/module_resolver.rs` implementing a mockable module registry (`ModuleInterface` + `ModuleResolver`) with built-in stdlib modules (`standard`, `math`), import symbol resolution, export/public validation, and dependency graph cycle detection.
+- Added checker integration in new `src/type_system/checker/module_checking.rs` and wired declaration handling so `Decl::Import` resolves imported symbols, rejects private symbol access, and checks cycles through the module dependency graph.
+- Extended diagnostics with `TypeError::CircularDependency`, `TypeError::UnresolvedImport`, and `TypeError::PrivateSymbolAccess`; kept existing `TypeMismatch` flow for cross-module call type checking.
+- Added and registered new integration tests in `src/type_system/test_integration_modules.rs` for standard imports, unknown imports, circular dependencies, private access enforcement, and cross-module type mismatch.
+- Validation: `cargo make lint-fix` PASS, `timeout 30 cargo test` PASS (365 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS (all non-test files <=1000 lines), `cargo make lint` PASS.

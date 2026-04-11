@@ -604,6 +604,50 @@ pub enum TypeError {
         /// Span of the non-exhaustive if expression.
         span: SourceSpan,
     },
+
+    /// Import graph contains a dependency cycle.
+    #[error("Circular module dependency detected: {cycle:?}")]
+    #[diagnostic(
+        code(opalescent::type_system::circular_dependency),
+        help("Break the import cycle by extracting shared declarations into a third module")
+    )]
+    CircularDependency {
+        /// Ordered cycle path where first and last module are identical.
+        cycle: Vec<String>,
+        #[label("dependency cycle detected here")]
+        /// Span of the import site that triggered cycle validation.
+        span: SourceSpan,
+    },
+
+    /// Import source path could not be resolved in the module registry.
+    #[error("Unresolved import path '{path}'")]
+    #[diagnostic(
+        code(opalescent::type_system::unresolved_import),
+        help("Check the import path and ensure the target module is registered")
+    )]
+    UnresolvedImport {
+        /// Unresolved module path from import declaration.
+        path: String,
+        #[label("import cannot be resolved")]
+        /// Span of the unresolved import declaration.
+        span: SourceSpan,
+    },
+
+    /// Import attempts to read a private symbol from another module.
+    #[error("Cannot access private symbol '{symbol}' from module '{module}'")]
+    #[diagnostic(
+        code(opalescent::type_system::private_symbol_access),
+        help("Mark the symbol as public in the source module or stop importing it")
+    )]
+    PrivateSymbolAccess {
+        /// Symbol name requested by the import.
+        symbol: String,
+        /// Module where the private symbol was declared.
+        module: String,
+        #[label("private symbol access")]
+        /// Span of the import item requesting private access.
+        span: SourceSpan,
+    },
 }
 
 /// Warning diagnostics produced during type checking.
