@@ -213,3 +213,14 @@
 - Expanded `src/codegen/tests.rs` coverage for function declarations/calls, lambda closure calls, guard/propagate error flow, if/loop lowering, and multi-return behavior via in-memory LLVM IR checks.
 - Clippy-specific learning: `pattern_type_mismatch` with `&Expr` inputs required explicit reference patterns (`if let &Expr::... { ref ... } = expr_ref`) in helper lowering paths.
 - Final verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS (auto-fixes applied), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `timeout 30 env LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` PASS (385 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files (one expected rust-analyzer unlinked-file hint for `src/codegen/mod.rs`).
+
+## [2026-04-11] Task 24: Runtime System Foundation
+- Added Phase 5 runtime surface in `src/runtime.rs` with path-based module wiring to `src/runtime/{memory,strings,arrays,io,errors}.rs` and top-level re-exports used by generated programs.
+- Added `src/runtime/mod.rs` compatibility root as required by task structure, re-exporting runtime submodules through `crate::runtime` while keeping clippy `mod_module_files` clean.
+- Implemented runtime memory layer: `RuntimeAllocator` trait, `DefaultRuntimeAllocator`, `OpalString` as `Arc<str>`, and generic `OpalArray<T>` as `Arc<[T]>` with required `Debug + Clone + PartialEq` derives.
+- Implemented runtime operations modules: string alloc/concat/compare/len, array alloc/index/len with `RuntimeError::IndexOutOfBounds` bounds checks, and pure-Rust `print`/`take_input` using injectable `IoHandler` for test mocking.
+- Implemented error runtime model in `src/runtime/errors.rs`: `RuntimeResult<T> = Result<T, RuntimeError>`, required `RuntimeError` variants, stable error-code helper (`error_code`), message rendering, and `RuntimeResultExt` propagation helper.
+- Added TDD runtime tests in `src/runtime/tests.rs` with `MockAllocator` and `MockIoHandler` only (no real stdin/stdout in tests), covering string ops, array bounds behavior, I/O injection, and error propagation helpers.
+- Updated crate wiring in `src/main.rs` with `#[path = "runtime.rs"] pub mod runtime;` so runtime module is registered in crate root.
+- Verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `timeout 30 bash -lc 'LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test'` PASS (389 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files (only expected unlinked-file hint on `src/runtime/mod.rs`).
+- Additional note: strict clippy profile rejects `Arc<String>` and `Arc<Vec<T>>` (`clippy::rc_buffer`), so runtime containers intentionally use `Arc<str>` and `Arc<[T]>` for equivalent reference-counted semantics.

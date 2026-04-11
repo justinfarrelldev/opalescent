@@ -14,6 +14,8 @@ mod codegen;
 mod error;
 mod lexer;
 mod parser;
+#[path = "runtime.rs"]
+pub mod runtime;
 mod token;
 mod type_system;
 
