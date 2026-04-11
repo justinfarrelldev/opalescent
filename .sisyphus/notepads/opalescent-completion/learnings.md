@@ -53,3 +53,10 @@
 - Added built-in TDD tests plus hello_world type-check test with whitespace-normalized fixture helper.
 - Added stdlib/prelude.op as documentation-only signature listing (no runtime behavior).
 - Validation: cargo make lint PASS, cargo make test PASS (276 passed), line-count PASS after extracting call_resolution module.
+
+## [2026-04-11] Task 4: Warning Infrastructure
+- Added `Warning` enum parallel to `TypeError` with miette diagnostics and stable warning codes.
+- Added `TypeChecker` warning collection (`warnings`, `warnings()`, `clear_warnings()`, `push_warning()`) and reset in `type_check_program`.
+- Converted unsafe-cast flow to warning collection path via `validate_cast_with_warnings`, while keeping invalid casts as hard errors.
+- Added suppression placeholder plumbing on warning variants (`suppression_annotation: Option<String>`) to support future suppression annotations.
+- Added TDD coverage for warning creation, unsafe-cast warning behavior (non-fatal), and warning collection accumulation.

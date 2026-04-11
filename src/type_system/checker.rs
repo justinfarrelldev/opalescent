@@ -199,6 +199,11 @@ impl TypeChecker {
         self.warnings.clear();
     }
 
+    /// Push a warning into the checker warning collection.
+    pub fn push_warning(&mut self, warning: Warning) {
+        self.warnings.push(warning);
+    }
+
     /// Register a symbol for ABI signature generation (Phase 6)
     pub fn register_symbol(&mut self, symbol: SymbolInfo) {
         self.symbol_table.register(symbol);
@@ -730,7 +735,7 @@ impl TypeChecker {
         Self::validate_cast(from_type, to_type, span)?;
 
         if !is_safe_cast(from_type, to_type) {
-            self.warnings.push(Warning::UnsafeCast {
+            self.push_warning(Warning::UnsafeCast {
                 from_type: from_type.to_string(),
                 to_type: to_type.to_string(),
                 span: TypeError::span_from_span(span),
