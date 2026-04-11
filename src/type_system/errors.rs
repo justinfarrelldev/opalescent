@@ -38,7 +38,6 @@ pub enum TypeError {
         span: SourceSpan,
     },
 
-
     /// Types do not match in an expression
     #[error("Type mismatch: expected '{expected}', found '{found}'")]
     #[diagnostic(
@@ -77,7 +76,6 @@ pub enum TypeError {
         /// Source span highlighting where the invalid operation was attempted
         span: SourceSpan,
     },
-
 
     /// Generic type parameter not found
     #[error("Generic type parameter '{param_name}' not found")]
@@ -389,6 +387,26 @@ pub enum TypeError {
 /// remain consistent across fatal and non-fatal analysis paths.
 #[derive(Error, Debug, Clone, PartialEq, Eq, Diagnostic)]
 pub enum Warning {
+    /// Compile-time constant integer arithmetic overflows the destination type.
+    #[error("Compile-time {operation} overflows type '{type_name}'; this traps in debug builds")]
+    #[diagnostic(
+        code(opalescent::type_system::warning::arithmetic_overflow),
+        help(
+            "Use checked_*, wrapping_*, or saturating_* explicit variants when overflow behavior is intentional"
+        )
+    )]
+    ArithmeticOverflow {
+        /// Arithmetic operation that overflowed (`addition`, `subtraction`, `multiplication`).
+        operation: String,
+        /// Destination integer type affected by overflow.
+        type_name: String,
+        #[label("constant expression overflows here")]
+        /// Source span highlighting the overflowing constant expression.
+        span: SourceSpan,
+        /// Optional suppression annotation identifier for future warning controls.
+        suppression_annotation: Option<String>,
+    },
+
     /// Unsafe cast that may lose data or precision.
     #[error("Unsafe cast from '{from_type}' to '{to_type}' may lose data")]
     #[diagnostic(
@@ -458,7 +476,11 @@ impl Warning {
     /// Return the suppression annotation attached to this warning, if present.
     pub fn suppression_annotation(&self) -> Option<&str> {
         let suppression_annotation = match *self {
-            Self::UnsafeCast {
+            Self::ArithmeticOverflow {
+                ref suppression_annotation,
+                ..
+            }
+            | Self::UnsafeCast {
                 ref suppression_annotation,
                 ..
             }

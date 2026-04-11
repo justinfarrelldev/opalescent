@@ -148,6 +148,14 @@ impl TypeChecker {
             source_location: Span::single(crate::token::Position::start()),
         });
 
+        self.environment.register_type(
+            "Option".to_owned(),
+            CoreType::Generic {
+                name: "Option".to_owned(),
+                type_args: Vec::new(),
+            },
+        );
+
         let random_int32_signature = CoreType::Function {
             generic_params: Vec::new(),
             parameters: vec![CoreType::Int32, CoreType::Int32],
@@ -160,6 +168,83 @@ impl TypeChecker {
             name: "random_int32".to_owned(),
             symbol_type: SymbolType::Function,
             core_type: random_int32_signature,
+            visibility: Visibility::Public,
+            source_location: Span::single(crate::token::Position::start()),
+        });
+
+        self.register_integer_intrinsics_for_type("int8", &CoreType::Int8);
+        self.register_integer_intrinsics_for_type("int16", &CoreType::Int16);
+        self.register_integer_intrinsics_for_type("int32", &CoreType::Int32);
+        self.register_integer_intrinsics_for_type("int64", &CoreType::Int64);
+        self.register_integer_intrinsics_for_type("uint8", &CoreType::UInt8);
+        self.register_integer_intrinsics_for_type("uint16", &CoreType::UInt16);
+        self.register_integer_intrinsics_for_type("uint32", &CoreType::UInt32);
+        self.register_integer_intrinsics_for_type("uint64", &CoreType::UInt64);
+    }
+
+    /// Register arithmetic intrinsics for a concrete integer type name.
+    fn register_integer_intrinsics_for_type(&mut self, type_name: &str, integer_type: &CoreType) {
+        self.register_integer_checked_intrinsic(type_name, "checked_add", integer_type);
+        self.register_integer_checked_intrinsic(type_name, "checked_sub", integer_type);
+        self.register_integer_checked_intrinsic(type_name, "checked_mul", integer_type);
+        self.register_integer_same_type_intrinsic(type_name, "wrapping_add", integer_type);
+        self.register_integer_same_type_intrinsic(type_name, "wrapping_sub", integer_type);
+        self.register_integer_same_type_intrinsic(type_name, "wrapping_mul", integer_type);
+        self.register_integer_same_type_intrinsic(type_name, "saturating_add", integer_type);
+        self.register_integer_same_type_intrinsic(type_name, "saturating_sub", integer_type);
+        self.register_integer_same_type_intrinsic(type_name, "saturating_mul", integer_type);
+    }
+
+    /// Register a checked arithmetic intrinsic that returns `Option<T>`.
+    fn register_integer_checked_intrinsic(
+        &mut self,
+        type_name: &str,
+        method_name: &str,
+        integer_type: &CoreType,
+    ) {
+        let qualified_name = format!("{type_name}.{method_name}");
+        let signature = CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: vec![integer_type.clone()],
+            return_types: vec![CoreType::Generic {
+                name: "Option".to_owned(),
+                type_args: vec![integer_type.clone()],
+            }],
+            error_types: Vec::new(),
+        };
+
+        self.environment
+            .register_builtin(qualified_name.clone(), signature.clone());
+        self.symbol_table.register(SymbolInfo {
+            name: qualified_name,
+            symbol_type: SymbolType::Function,
+            core_type: signature,
+            visibility: Visibility::Public,
+            source_location: Span::single(crate::token::Position::start()),
+        });
+    }
+
+    /// Register a same-type arithmetic intrinsic that returns `T`.
+    fn register_integer_same_type_intrinsic(
+        &mut self,
+        type_name: &str,
+        method_name: &str,
+        integer_type: &CoreType,
+    ) {
+        let qualified_name = format!("{type_name}.{method_name}");
+        let signature = CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: vec![integer_type.clone()],
+            return_types: vec![integer_type.clone()],
+            error_types: Vec::new(),
+        };
+
+        self.environment
+            .register_builtin(qualified_name.clone(), signature.clone());
+        self.symbol_table.register(SymbolInfo {
+            name: qualified_name,
+            symbol_type: SymbolType::Function,
+            core_type: signature,
             visibility: Visibility::Public,
             source_location: Span::single(crate::token::Position::start()),
         });
@@ -744,8 +829,8 @@ impl TypeChecker {
 
         if !is_safe_cast(from_type, to_type) {
             self.push_warning(Warning::UnsafeCast {
-                from_type: from_type.to_string(),
-                to_type: to_type.to_string(),
+                from_type: format!("{from_type}"),
+                to_type: format!("{to_type}"),
                 span: TypeError::span_from_span(span),
                 suppression_annotation: None,
             });

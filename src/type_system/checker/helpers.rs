@@ -4,7 +4,7 @@ extern crate alloc;
 
 use crate::ast::{BinaryOp, Expr, LiteralValue, UnaryOp};
 use crate::token::Span;
-use crate::type_system::errors::TypeError;
+use crate::type_system::errors::{TypeError, Warning};
 use crate::type_system::types::{CoreType, NumericKind};
 
 /// Determine the canonical [`CoreType`] for a literal value.
@@ -210,6 +210,156 @@ pub(super) const fn unary_operation_name(operator: &UnaryOp) -> &'static str {
         UnaryOp::BitNot => "bitwise not",
         UnaryOp::Plus => "unary plus",
     }
+}
+
+/// Return the bit width for concrete integer core types.
+pub(super) const fn integer_bit_width(core_type: &CoreType) -> Option<u32> {
+    match *core_type {
+        CoreType::Int8 | CoreType::UInt8 => Some(8),
+        CoreType::Int16 | CoreType::UInt16 => Some(16),
+        CoreType::Int32 | CoreType::UInt32 => Some(32),
+        CoreType::Int64 | CoreType::UInt64 => Some(64),
+        _ => None,
+    }
+}
+
+/// Return inclusive min/max bounds for concrete integer core types.
+pub(super) const fn integer_bounds(core_type: &CoreType) -> Option<(i128, i128)> {
+    match *core_type {
+        CoreType::Int8 => Some((-128, 127)),
+        CoreType::Int16 => Some((-0x8000, 0x7FFF)),
+        CoreType::Int32 => Some((-0x8000_0000, 0x7FFF_FFFF)),
+        CoreType::Int64 => Some((-0x8000_0000_0000_0000, 0x7FFF_FFFF_FFFF_FFFF)),
+        CoreType::UInt8 => Some((0, 255)),
+        CoreType::UInt16 => Some((0, 0xFFFF)),
+        CoreType::UInt32 => Some((0, 0xFFFF_FFFF)),
+        CoreType::UInt64 => Some((0, 0xFFFF_FFFF_FFFF_FFFF)),
+        _ => None,
+    }
+}
+
+/// Extract a signed integer constant from literal-like expression forms.
+pub(super) fn extract_integer_constant(expr: &Expr) -> Option<i128> {
+    match *expr {
+        Expr::Literal {
+            value: LiteralValue::Integer(value),
+            ..
+        } => Some(i128::from(value)),
+        Expr::Parenthesized { ref expr, .. } | Expr::Cast { ref expr, .. } => {
+            extract_integer_constant(expr)
+        }
+        Expr::Unary {
+            operator: UnaryOp::Negate,
+            ref operand,
+            ..
+        } => extract_integer_constant(operand).and_then(i128::checked_neg),
+        Expr::Unary {
+            operator: UnaryOp::Plus,
+            ref operand,
+            ..
+        } => extract_integer_constant(operand),
+        _ => None,
+    }
+}
+
+/// Check whether integer constant arithmetic exceeds destination type bounds.
+#[expect(
+    clippy::missing_const_for_fn,
+    reason = "The checked arithmetic API is kept as runtime helper for clarity"
+)]
+pub(super) fn integer_arithmetic_overflows(
+    operator: &BinaryOp,
+    operand_type: &CoreType,
+    left: i128,
+    right: i128,
+) -> bool {
+    let computed = match *operator {
+        BinaryOp::Add => left.checked_add(right),
+        BinaryOp::Subtract => left.checked_sub(right),
+        BinaryOp::Multiply => left.checked_mul(right),
+        _ => return false,
+    };
+
+    let Some(result) = computed else {
+        return true;
+    };
+
+    let Some((min_value, max_value)) = integer_bounds(operand_type) else {
+        return false;
+    };
+
+    result < min_value || result > max_value
+}
+
+/// Build an arithmetic-overflow warning for constant integer binary expressions.
+pub(super) fn constant_integer_overflow_warning(
+    operator: &BinaryOp,
+    left_expr: &Expr,
+    right_expr: &Expr,
+    result_type: &CoreType,
+    span: Span,
+) -> Option<Warning> {
+    let left_value = extract_integer_constant(left_expr)?;
+    let right_value = extract_integer_constant(right_expr)?;
+
+    if !integer_arithmetic_overflows(operator, result_type, left_value, right_value) {
+        return None;
+    }
+
+    let operation = match *operator {
+        BinaryOp::Add => "addition",
+        BinaryOp::Subtract => "subtraction",
+        BinaryOp::Multiply => "multiplication",
+        _ => return None,
+    };
+
+    Some(Warning::ArithmeticOverflow {
+        operation: operation.to_owned(),
+        type_name: result_type.to_string(),
+        span: TypeError::span_from_span(span),
+        suppression_annotation: None,
+    })
+}
+
+/// Validate compile-time shift count bounds for constant integer shifts.
+pub(super) fn validate_constant_shift_bounds(
+    left_type: &CoreType,
+    right_expr: &Expr,
+    span: Span,
+) -> Result<(), TypeError> {
+    let Some(shift_count) = extract_integer_constant(right_expr) else {
+        return Ok(());
+    };
+
+    if shift_count.is_negative() {
+        return Err(TypeError::InvalidOperation {
+            operation: "negative shift count is not allowed".to_owned(),
+            type_name: left_type.to_string(),
+            span: TypeError::span_from_span(span),
+        });
+    }
+
+    let Some(bit_width) = integer_bit_width(left_type) else {
+        return Ok(());
+    };
+
+    let Ok(shift_count_u32) = u32::try_from(shift_count) else {
+        return Err(TypeError::InvalidOperation {
+            operation: "shift count must be less than bit width".to_owned(),
+            type_name: left_type.to_string(),
+            span: TypeError::span_from_span(span),
+        });
+    };
+
+    if shift_count_u32 >= bit_width {
+        return Err(TypeError::InvalidOperation {
+            operation: "shift count must be less than bit width".to_owned(),
+            type_name: left_type.to_string(),
+            span: TypeError::span_from_span(span),
+        });
+    }
+
+    Ok(())
 }
 
 /// Determine the numeric family and bit width for cast validation, enabling widening rules

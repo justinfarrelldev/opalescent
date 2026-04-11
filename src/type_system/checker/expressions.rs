@@ -3,10 +3,11 @@ extern crate alloc;
 
 use super::control_flow::{GuardBindingInfo, GuardUsage};
 use super::helpers::{
-    binary_operation_name, coerce_literal_to_expected, ensure_boolean_type, ensure_integer_type,
-    ensure_numeric_type, ensure_same_type, invalid_operation_error, is_boolean_type,
-    is_numeric_type, is_string_type, literal_to_core_type, type_mismatch_error,
-    unary_operation_name,
+    binary_operation_name, coerce_literal_to_expected, constant_integer_overflow_warning,
+    ensure_boolean_type, ensure_integer_type, ensure_numeric_type, ensure_same_type,
+    invalid_operation_error, is_boolean_type, is_integer_type, is_numeric_type, is_string_type,
+    literal_to_core_type, type_mismatch_error, unary_operation_name,
+    validate_constant_shift_bounds,
 };
 use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Stmt, StringPart, Type, UnaryOp};
 use crate::token::Span;
@@ -89,7 +90,6 @@ impl TypeChecker {
                 ..
             } => {
                 let object_type = self.type_check_expr(object.as_ref())?;
-
                 if let Expr::Identifier {
                     ref name,
                     span: object_span,
@@ -101,15 +101,9 @@ impl TypeChecker {
                         return Ok(symbol.core_type.clone());
                     }
 
-                    if let CoreType::Generic {
-                        name: ref type_name,
-                        ..
-                    } = object_type
-                    {
-                        let nominal_member = format!("{type_name}.{member}");
-                        if let Some(symbol) = self.symbol_table().lookup(&nominal_member) {
-                            return Ok(symbol.core_type.clone());
-                        }
+                    let nominal_member = format!("{object_type}.{member}");
+                    if let Some(symbol) = self.symbol_table().lookup(&nominal_member) {
+                        return Ok(symbol.core_type.clone());
                     }
 
                     return Err(TypeError::SymbolNotFound {
@@ -118,23 +112,13 @@ impl TypeChecker {
                     });
                 }
 
-                if let CoreType::Generic {
-                    name: type_name, ..
-                } = object_type
-                {
-                    let nominal_member = format!("{type_name}.{member}");
-                    if let Some(symbol) = self.symbol_table().lookup(&nominal_member) {
-                        return Ok(symbol.core_type.clone());
-                    }
-
-                    return Err(TypeError::SymbolNotFound {
-                        name: nominal_member,
-                        span: TypeError::span_from_span(span),
-                    });
+                let nominal_member = format!("{object_type}.{member}");
+                if let Some(symbol) = self.symbol_table().lookup(&nominal_member) {
+                    return Ok(symbol.core_type.clone());
                 }
 
                 Err(TypeError::SymbolNotFound {
-                    name: member.to_owned(),
+                    name: nominal_member,
                     span: TypeError::span_from_span(span),
                 })
             }
@@ -620,6 +604,17 @@ impl TypeChecker {
                 ensure_numeric_type(&right_type, right.span(), op_name)?;
                 ensure_same_type(&left_type, left.span(), &right_type, right.span())?;
                 let result_type = left_type.clone();
+                if matches!(
+                    *operator,
+                    BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply
+                ) && is_integer_type(&result_type)
+                {
+                    if let Some(warning) =
+                        constant_integer_overflow_warning(operator, left, right, &result_type, span)
+                    {
+                        self.push_warning(warning);
+                    }
+                }
                 self.add_constraint(TypeConstraint::equality(
                     left_type,
                     right_type,
@@ -685,6 +680,7 @@ impl TypeChecker {
             BinaryOp::BitShiftLeft | BinaryOp::BitShiftRight | BinaryOp::BitUnsignedShiftRight => {
                 ensure_integer_type(&left_type, left.span(), op_name)?;
                 ensure_integer_type(&right_type, right.span(), op_name)?;
+                validate_constant_shift_bounds(&left_type, right, span)?;
                 Ok(left_type)
             }
             BinaryOp::Assign => Err(invalid_operation_error(op_name, &left_type, span)),

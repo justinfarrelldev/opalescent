@@ -4807,3 +4807,270 @@ fn test_member_access_chained_member_resolves_type() {
         "chained member access should resolve to final member type"
     );
 }
+
+#[test]
+fn test_constant_i32_addition_overflow_emits_warning() {
+    let mut checker = TypeChecker::new();
+    let expr = Expr::Binary {
+        left: Box::new(Expr::Cast {
+            expr: Box::new(literal_expr(LiteralValue::Integer(0x7FFF_FFFF), 90_000)),
+            target_type: int_type("int32"),
+            span: test_span(),
+            id: node_id(90_001),
+        }),
+        operator: crate::ast::BinaryOp::Add,
+        right: Box::new(Expr::Cast {
+            expr: Box::new(literal_expr(LiteralValue::Integer(1), 90_002)),
+            target_type: int_type("int32"),
+            span: test_span(),
+            id: node_id(90_003),
+        }),
+        span: test_span(),
+        id: node_id(90_004),
+    };
+    let result = checker.type_check_expr(&expr);
+    assert!(
+        result.is_ok(),
+        "constant overflow should remain non-fatal: {result:?}"
+    );
+
+    assert!(
+        checker
+            .warnings()
+            .iter()
+            .any(|warning| matches!(*warning, Warning::ArithmeticOverflow { ref operation, .. } if operation == "addition")),
+        "expected arithmetic-overflow warning for i32 max + 1"
+    );
+}
+
+#[test]
+fn test_constant_i32_subtraction_overflow_emits_warning() {
+    let mut checker = TypeChecker::new();
+    let expr = Expr::Binary {
+        left: Box::new(Expr::Cast {
+            expr: Box::new(literal_expr(LiteralValue::Integer(-0x8000_0000), 90_100)),
+            target_type: int_type("int32"),
+            span: test_span(),
+            id: node_id(90_101),
+        }),
+        operator: crate::ast::BinaryOp::Subtract,
+        right: Box::new(Expr::Cast {
+            expr: Box::new(literal_expr(LiteralValue::Integer(1), 90_102)),
+            target_type: int_type("int32"),
+            span: test_span(),
+            id: node_id(90_103),
+        }),
+        span: test_span(),
+        id: node_id(90_104),
+    };
+    let result = checker.type_check_expr(&expr);
+    assert!(
+        result.is_ok(),
+        "constant overflow should remain non-fatal: {result:?}"
+    );
+
+    assert!(
+        checker
+            .warnings()
+            .iter()
+            .any(|warning| matches!(*warning, Warning::ArithmeticOverflow { ref operation, .. } if operation == "subtraction")),
+        "expected arithmetic-overflow warning for i32 min - 1"
+    );
+}
+
+#[test]
+fn test_constant_i32_multiplication_overflow_emits_warning() {
+    let mut checker = TypeChecker::new();
+    let expr = Expr::Binary {
+        left: Box::new(Expr::Cast {
+            expr: Box::new(literal_expr(LiteralValue::Integer(0x7FFF_FFFF), 90_200)),
+            target_type: int_type("int32"),
+            span: test_span(),
+            id: node_id(90_201),
+        }),
+        operator: crate::ast::BinaryOp::Multiply,
+        right: Box::new(Expr::Cast {
+            expr: Box::new(literal_expr(LiteralValue::Integer(2), 90_202)),
+            target_type: int_type("int32"),
+            span: test_span(),
+            id: node_id(90_203),
+        }),
+        span: test_span(),
+        id: node_id(90_204),
+    };
+    let result = checker.type_check_expr(&expr);
+    assert!(
+        result.is_ok(),
+        "constant overflow should remain non-fatal: {result:?}"
+    );
+
+    assert!(
+        checker
+            .warnings()
+            .iter()
+            .any(|warning| matches!(*warning, Warning::ArithmeticOverflow { ref operation, .. } if operation == "multiplication")),
+        "expected arithmetic-overflow warning for i32 max * 2"
+    );
+}
+
+#[test]
+fn test_constant_shift_count_at_i32_upper_bound_is_valid() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "value".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int32,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    let expr = Expr::Binary {
+        left: Box::new(identifier_expr("value", 90_300)),
+        operator: crate::ast::BinaryOp::BitShiftLeft,
+        right: Box::new(literal_expr(LiteralValue::Integer(31), 90_301)),
+        span: test_span(),
+        id: node_id(90_302),
+    };
+    let result = checker.type_check_expr(&expr);
+    assert!(
+        result.is_ok(),
+        "shift count equal to bit-width-1 should be valid: {result:?}"
+    );
+}
+
+#[test]
+fn test_constant_shift_count_at_i32_bit_width_is_rejected() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "value".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int32,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    let expr = Expr::Binary {
+        left: Box::new(identifier_expr("value", 90_400)),
+        operator: crate::ast::BinaryOp::BitShiftLeft,
+        right: Box::new(literal_expr(LiteralValue::Integer(32), 90_401)),
+        span: test_span(),
+        id: node_id(90_402),
+    };
+    let error = checker
+        .type_check_expr(&expr)
+        .expect_err("shift count >= bit width should be rejected at compile time");
+
+    assert!(
+        matches!(error, TypeError::InvalidOperation { ref operation, .. } if operation.contains("shift count") && operation.contains("must be less than")),
+        "expected invalid operation diagnostic for out-of-range shift count"
+    );
+}
+
+#[test]
+fn test_constant_negative_shift_count_is_rejected() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "value".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int32,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    let expr = Expr::Binary {
+        left: Box::new(identifier_expr("value", 90_500)),
+        operator: crate::ast::BinaryOp::BitShiftLeft,
+        right: Box::new(literal_expr(LiteralValue::Integer(-1), 90_501)),
+        span: test_span(),
+        id: node_id(90_502),
+    };
+    let error = checker
+        .type_check_expr(&expr)
+        .expect_err("negative shift count should be rejected at compile time");
+
+    assert!(
+        matches!(error, TypeError::InvalidOperation { ref operation, .. } if operation.contains("negative shift count")),
+        "expected invalid operation diagnostic for negative shift count"
+    );
+}
+
+#[test]
+fn test_non_constant_integer_addition_does_not_emit_overflow_warning() {
+    const SOURCE: &str = "
+let sum_values = f(a: int32, b: int32): int32 =>
+    return a + b
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "non-constant addition should type check: {result:?}"
+    );
+    assert!(
+        checker
+            .warnings()
+            .iter()
+            .all(|warning| !matches!(*warning, Warning::ArithmeticOverflow { .. })),
+        "non-constant addition must not emit compile-time overflow warning"
+    );
+}
+
+#[test]
+fn test_integer_intrinsic_member_calls_type_check() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "value".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int32,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+
+    let checked_add_expr = Expr::Call {
+        callee: Box::new(Expr::Member {
+            object: Box::new(identifier_expr("value", 95_000)),
+            member: "checked_add".to_owned(),
+            span: test_span(),
+            id: node_id(95_001),
+        }),
+        generic_args: None,
+        args: vec![literal_expr(LiteralValue::Integer(1), 95_002)],
+        span: test_span(),
+        id: node_id(95_003),
+    };
+
+    let wrapping_sub_expr = Expr::Call {
+        callee: Box::new(Expr::Member {
+            object: Box::new(identifier_expr("value", 95_010)),
+            member: "wrapping_sub".to_owned(),
+            span: test_span(),
+            id: node_id(95_011),
+        }),
+        generic_args: None,
+        args: vec![literal_expr(LiteralValue::Integer(1), 95_012)],
+        span: test_span(),
+        id: node_id(95_013),
+    };
+
+    let saturating_mul_expr = Expr::Call {
+        callee: Box::new(Expr::Member {
+            object: Box::new(identifier_expr("value", 95_020)),
+            member: "saturating_mul".to_owned(),
+            span: test_span(),
+            id: node_id(95_021),
+        }),
+        generic_args: None,
+        args: vec![literal_expr(LiteralValue::Integer(2), 95_022)],
+        span: test_span(),
+        id: node_id(95_023),
+    };
+
+    let checked_result = checker.type_check_expr(&checked_add_expr);
+    let wrapping_result = checker.type_check_expr(&wrapping_sub_expr);
+    let saturating_result = checker.type_check_expr(&saturating_mul_expr);
+
+    let result = checked_result.and(wrapping_result).and(saturating_result);
+    assert!(
+        result.is_ok(),
+        "checked/wrapping/saturating integer intrinsics should type check: {result:?}"
+    );
+}
