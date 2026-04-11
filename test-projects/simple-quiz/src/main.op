@@ -1,0 +1,37 @@
+import take_input, string_to_int32 from standard
+import random_int32 from math
+
+##
+  Description: Entry point for the simple quiz test project. Prompts the user for their name, generates a random number between 1 and 5, and asks them to guess it. Verifies imports, string interpolation, mutable variables, while loops, and the is operator.
+##
+entry main = f(): void => {
+    print('What is your name?')
+    let name = take_input()
+    
+    let quiz_num = random_int32(1, 5)
+    
+    print('Hello, {name}! Guess a number between 1 and 5')
+    
+    let mutable user_input: string = ''
+    let mutable user_number: int64 = 0
+    let mutable valid: boolean = false
+    while valid is false {
+        let s = take_input()
+        let n = string_to_int32(s)
+        if n is 0 {
+            print('Please enter a valid number')
+        } else {
+            user_input = s
+            user_number = n
+            valid = true
+        }
+    }
+    
+    if user_number is quiz_num {
+        print('Correct! Well done, {name}!')
+        return void
+    } else {
+        print('Wrong! The answer was {quiz_num}.')
+        return void
+    }
+}
