@@ -3,7 +3,12 @@ extern crate alloc;
 use crate::runtime::arrays::{allocate_array, array_index, array_length};
 use crate::runtime::errors::{RuntimeError, RuntimeResult, RuntimeResultExt};
 use crate::runtime::io::{print, take_input, IoHandler};
-use crate::runtime::memory::{OpalArray, OpalString, RuntimeAllocator};
+use crate::runtime::memory::{OpalArray, OpalString, OpalWeakRef, RuntimeAllocator};
+use crate::runtime::reporting::format_runtime_error;
+use crate::runtime::stdlib::{
+    format_interpolated_string, opal_array_slice, random_int32_with_source, string_to_int32,
+    RandomIntSource,
+};
 use crate::runtime::strings::{string_compare, string_concat, string_equals, string_length};
 use alloc::collections::VecDeque;
 use alloc::string::String;
@@ -53,6 +58,25 @@ impl IoHandler for MockIoHandler {
             || Err(RuntimeError::user_error(9_001, "no mocked input available")),
             Ok,
         )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MockRandomSource {
+    values: VecDeque<u32>,
+}
+
+impl MockRandomSource {
+    fn from_values(values: &[u32]) -> Self {
+        Self {
+            values: values.iter().copied().collect(),
+        }
+    }
+}
+
+impl RandomIntSource for MockRandomSource {
+    fn next_u32(&mut self) -> u32 {
+        self.values.pop_front().unwrap_or_default()
     }
 }
 
@@ -138,7 +162,10 @@ fn io_runtime_uses_injected_handler_for_print_and_take_input() {
 
     let printed = OpalString::new(String::from("hello runtime"));
     let print_result = print(&mut io, &printed);
-    assert!(print_result.is_ok(), "print should write through injected handler");
+    assert!(
+        print_result.is_ok(),
+        "print should write through injected handler"
+    );
     assert_eq!(
         io.output,
         vec![String::from("hello runtime")],
@@ -177,7 +204,10 @@ fn runtime_error_exposes_code_message_and_result_helper() {
 
     let mapped: RuntimeResult<i32> =
         Err(String::from("oops")).into_runtime_error(7_123, "io failed");
-    assert!(mapped.is_err(), "error mapping helper should convert to runtime error");
+    assert!(
+        mapped.is_err(),
+        "error mapping helper should convert to runtime error"
+    );
     assert_eq!(
         mapped.err(),
         Some(RuntimeError::UserError {
@@ -185,5 +215,149 @@ fn runtime_error_exposes_code_message_and_result_helper() {
             message: String::from("io failed: oops"),
         }),
         "result extension helper should preserve code and combined message"
+    );
+}
+
+#[test]
+fn string_to_int32_parses_valid_integer_text() {
+    let parsed = string_to_int32("-12345");
+    assert_eq!(
+        parsed,
+        Ok(-12_345_i32),
+        "string_to_int32 should parse valid signed int32 text"
+    );
+}
+
+#[test]
+fn string_to_int32_returns_parse_error_for_invalid_text() {
+    let parsed = string_to_int32("12x");
+    assert!(parsed.is_err(), "invalid numeric text should fail parsing");
+    assert_eq!(
+        parsed.err(),
+        Some(RuntimeError::ParseError {
+            message: String::from("failed to parse int32 from '12x'"),
+        }),
+        "invalid parse should map to ParseError with stable message"
+    );
+}
+
+#[test]
+fn random_int32_with_source_is_deterministic_and_range_checked() {
+    let mut source = MockRandomSource::from_values(&[5, 7]);
+    let first = random_int32_with_source(&mut source, 1, 3);
+    let second = random_int32_with_source(&mut source, 10, 12);
+
+    assert_eq!(first, Ok(3_i32), "first random value should map into range");
+    assert_eq!(
+        second,
+        Ok(11_i32),
+        "second random value should map deterministically into range"
+    );
+}
+
+#[test]
+fn interpolate_string_formats_mixed_placeholder_parts() {
+    let values = vec![String::from("Ada"), String::from("4")];
+    let formatted = format_interpolated_string("Hello, {name}! You rolled {value}.", &values);
+    assert_eq!(
+        formatted,
+        Ok(String::from("Hello, Ada! You rolled 4.")),
+        "interpolation should replace placeholders in encounter order"
+    );
+}
+
+#[test]
+fn interpolate_string_errors_when_placeholder_values_missing() {
+    let values = vec![String::from("Ada")];
+    let formatted = format_interpolated_string("Hello, {name}! You rolled {value}.", &values);
+    assert_eq!(
+        formatted,
+        Err(RuntimeError::UserError {
+            code: 2_004,
+            message: String::from("placeholder count mismatch: expected 2 values, received 1"),
+        }),
+        "placeholder mismatch should be reported as user-facing runtime error"
+    );
+}
+
+#[test]
+fn opal_array_slice_returns_expected_range() {
+    let allocator = MockAllocator;
+    let source_result = allocate_array(&allocator, &[10_i64, 20_i64, 30_i64, 40_i64]);
+    assert!(source_result.is_ok(), "source allocation should succeed");
+    let Ok(source) = source_result else {
+        return;
+    };
+
+    let slice_result = opal_array_slice(&source, 1, 3);
+    assert!(slice_result.is_ok(), "valid slice range should succeed");
+    let Ok(slice) = slice_result else {
+        return;
+    };
+
+    assert_eq!(slice.len(), 2, "slice length should match selected range");
+    assert_eq!(
+        slice.get(0),
+        Some(&20_i64),
+        "slice should include start element"
+    );
+    assert_eq!(
+        slice.get(1),
+        Some(&30_i64),
+        "slice should include end-1 element"
+    );
+}
+
+#[test]
+fn opal_array_slice_returns_error_for_invalid_range() {
+    let allocator = MockAllocator;
+    let source_result = allocate_array(&allocator, &[10_i64, 20_i64, 30_i64]);
+    assert!(source_result.is_ok(), "source allocation should succeed");
+    let Ok(source) = source_result else {
+        return;
+    };
+
+    let invalid = opal_array_slice(&source, 2, 1);
+    assert_eq!(
+        invalid,
+        Err(RuntimeError::IndexOutOfBounds {
+            index: 2,
+            length: 3,
+        }),
+        "start greater than end should return bounds-style runtime error"
+    );
+}
+
+#[test]
+fn runtime_error_reporting_formats_miette_style_multiline_output() {
+    let error = RuntimeError::ParseError {
+        message: String::from("failed to parse int32 from 'abc'"),
+    };
+    let rendered = format_runtime_error(&error);
+
+    assert!(
+        rendered.contains("error[opalescent::runtime::parse_error]"),
+        "formatted output should include diagnostic code header"
+    );
+    assert!(
+        rendered.contains("failed to parse int32 from 'abc'"),
+        "formatted output should include primary message"
+    );
+    assert!(
+        rendered.contains("help:"),
+        "formatted output should include actionable help text"
+    );
+}
+
+#[test]
+fn weak_reference_upgrade_fails_after_strong_values_drop() {
+    let weak = {
+        let strong = OpalString::new(String::from("ephemeral"));
+        OpalWeakRef::from_string(&strong)
+    };
+
+    assert!(
+        weak.upgrade_string().is_none(),
+        "weak references should not keep values alive after strong owners drop"
     );
 }

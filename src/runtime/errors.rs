@@ -40,6 +40,17 @@ pub enum RuntimeError {
     )]
     StackOverflow,
 
+    /// Parsing text into `int32` failed at runtime.
+    #[error("parse error: {message}")]
+    #[diagnostic(
+        code(opalescent::runtime::parse_error),
+        help("Ensure the source text is a valid int32 literal")
+    )]
+    ParseError {
+        /// Parse failure details.
+        message: String,
+    },
+
     /// User-defined runtime error carrying code and message.
     #[error("runtime error ({code}): {message}")]
     #[diagnostic(
@@ -62,6 +73,7 @@ impl RuntimeError {
             Self::IndexOutOfBounds { .. } => 1_001,
             Self::DivisionByZero => 1_002,
             Self::StackOverflow => 1_003,
+            Self::ParseError { .. } => 1_004,
             Self::UserError { code, .. } => code,
         }
     }
@@ -75,7 +87,9 @@ impl RuntimeError {
             }
             Self::DivisionByZero => String::from("division by zero"),
             Self::StackOverflow => String::from("stack overflow"),
-            Self::UserError { ref message, .. } => message.clone(),
+            Self::ParseError { ref message } | Self::UserError { ref message, .. } => {
+                message.clone()
+            }
         }
     }
 

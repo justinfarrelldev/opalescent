@@ -233,3 +233,12 @@
 - Updated let-statement lowering to preserve constructor value layout (alloca based on lowered initializer type) and track product field indices for later member GEP loads.
 - Added RED→GREEN tests in `src/codegen/tests.rs` for sum ADT tagged-union constructor IR shape, switch-based match lowering, deterministic monomorphized naming, generic ADT name instantiation, and product field-access GEP generation.
 - Validation: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 timeout 30 cargo test` PASS (393 passed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, and LSP diagnostics show zero errors on `src/codegen`.
+
+## [2026-04-11] Task 26: Runtime Memory + Stdlib
+- Added `src/runtime/stdlib.rs` with `string_to_int32 -> RuntimeResult<i32>` mapping parse failures to new `RuntimeError::ParseError`, deterministic-testable RNG via `RandomIntSource`, `random_int32`, interpolation helper `format_interpolated_string`, and `opal_array_slice` range slicing.
+- Added `src/runtime/reporting.rs` with `format_runtime_error(&RuntimeError) -> String` that renders miette-style multiline output using diagnostic code/help metadata.
+- Extended `src/runtime/errors.rs` with `ParseError { message }` variant (`opalescent::runtime::parse_error`) and stable error code `1_004`.
+- Extended `src/runtime/memory.rs` memory strategy docs with cycle handling guidance (`Arc` strong refs + `Weak` back edges), and added `OpalWeakRef<str>/OpalWeakRef<[T]>` weak-upgrade API for cycle-safe graph patterns.
+- Wired runtime module/re-exports in `src/runtime.rs` and `src/runtime/mod.rs` for new stdlib/reporting surfaces.
+- Added RED→GREEN tests in `src/runtime/tests.rs` for parse success/failure, deterministic random range, interpolation success/mismatch, array slicing success/error, runtime error formatting, and weak-ref upgrade semantics.
+- Verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 timeout 30 cargo test` PASS (402 passed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, `lsp_diagnostics src/runtime` clean (only expected unlinked-file hint for `src/runtime/mod.rs`).
