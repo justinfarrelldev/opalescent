@@ -207,11 +207,8 @@ impl TypeChecker {
         let string_to_int32_signature = CoreType::Function {
             generic_params: Vec::new(),
             parameters: vec![CoreType::String],
-            return_types: vec![CoreType::Int32],
-            error_types: vec![CoreType::Generic {
-                name: "ParseError".to_owned(),
-                type_args: Vec::new(),
-            }],
+            return_types: vec![CoreType::Int64],
+            error_types: Vec::new(),
         };
         self.environment.register_builtin(
             "string_to_int32".to_owned(),
@@ -238,8 +235,8 @@ impl TypeChecker {
 
         let random_int32_signature = CoreType::Function {
             generic_params: Vec::new(),
-            parameters: vec![CoreType::Int32, CoreType::Int32],
-            return_types: vec![CoreType::Int32],
+            parameters: vec![CoreType::Int64, CoreType::Int64],
+            return_types: vec![CoreType::Int64],
             error_types: Vec::new(),
         };
         self.environment

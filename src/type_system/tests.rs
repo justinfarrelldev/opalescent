@@ -4609,10 +4609,10 @@ entry demo = f(): string =>
 }
 
 #[test]
-fn test_builtin_string_to_int32_propagate_type_checks() {
+fn test_builtin_string_to_int32_signature_type_checks() {
     const SOURCE: &str = "
-entry parse_user_number = f(input: string): int32 errors ParseError =>
-    let n: int32 = propagate string_to_int32(input)
+entry parse_user_number = f(input: string): int64 =>
+    let n: int64 = string_to_int32(input)
     return n
 ";
 
@@ -4621,15 +4621,15 @@ entry parse_user_number = f(input: string): int32 errors ParseError =>
     let result = checker.type_check_program(&program);
     assert!(
         result.is_ok(),
-        "string_to_int32 should type check with propagate and ParseError: {result:?}"
+        "string_to_int32(input) should type check and return int64: {result:?}"
     );
 }
 
 #[test]
 fn test_builtin_random_int32_signature_type_checks() {
     const SOURCE: &str = "
-entry quiz_num = f(): int32 =>
-    let n: int32 = random_int32(1, 5)
+entry quiz_num = f(): int64 =>
+    let n: int64 = random_int32(1, 5)
     return n
 ";
 
@@ -4638,7 +4638,7 @@ entry quiz_num = f(): int32 =>
     let result = checker.type_check_program(&program);
     assert!(
         result.is_ok(),
-        "random_int32(min, max) should type check and return int32: {result:?}"
+        "random_int32(min, max) should type check and return int64: {result:?}"
     );
 }
 

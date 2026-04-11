@@ -191,7 +191,8 @@ pub fn compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, Compi
     let binary_path = output_dir.join("program");
 
     emit_object_file(&module, &object_path).map_err(CompileError::Codegen)?;
-    link_object_file(&object_path, &binary_path, &[])
+    let runtime_path = Path::new("runtime/opal_runtime.c");
+    link_object_file(&object_path, &binary_path, &[runtime_path])
 }
 
 #[cfg(test)]

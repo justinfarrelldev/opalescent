@@ -100,3 +100,12 @@
 - Added RED->GREEN tests in `src/codegen/tests.rs` for single and multiple import declarations, plus a direct builtin runtime declaration regression test.
 - During verification, found and fixed a pre-existing type-system integration mismatch (`int32` vs `int64`) in `src/type_system/test_integration.rs:test_guard_propagate_and_multiple_returns_integrate`, aligning with current builtin signature behavior so `cargo make test` stays green.
 - Lint autofix introduced additional match-pattern updates in `src/codegen/adts.rs` and `src/errors/suggestions.rs`; finalized to satisfy strict clippy profile.
+
+## [2026-04-11] Task 13: C runtime wrappers + int64 builtin signatures
+- Created `runtime/opal_runtime.c` with C ABI wrappers: `opal_take_input`, `opal_random_int32`, `opal_string_to_int32`, `opal_print_string`, and `opal_print_int`.
+- Updated builtin signatures in both checker and module resolver: `string_to_int32` now `f(string): int64` with no error types; `random_int32` now `f(int64, int64): int64`.
+- Updated type-system tests to remove `propagate/guard` expectations for `string_to_int32` and to assert `int64` signatures for both builtins.
+- Extended codegen stdlib declaration mapping to support builtin aliases and runtime symbol names for `opal_take_input`, `opal_random_int32`, `opal_string_to_int32`, and `opal_print_int`.
+- Updated `compile_program` to link `runtime/opal_runtime.c` via `link_object_file(&object_path, &binary_path, &[runtime_path])`.
+- Added IR regression tests for direct builtin-call declarations and `print_int` callee resolution.
+- Verification summary: `cc -c runtime/opal_runtime.c` passed, `cargo make lint` passed, and `cargo make test` passed.

@@ -317,11 +317,8 @@ impl ModuleResolver {
                 CoreType::Function {
                     generic_params: Vec::new(),
                     parameters: vec![CoreType::String],
-                    return_types: vec![CoreType::Int32],
-                    error_types: vec![CoreType::Generic {
-                        name: String::from("ParseError"),
-                        type_args: Vec::new(),
-                    }],
+                    return_types: vec![CoreType::Int64],
+                    error_types: Vec::new(),
                 },
                 SymbolType::Function,
             ),
@@ -349,8 +346,8 @@ impl ModuleResolver {
                 String::from("random_int32"),
                 CoreType::Function {
                     generic_params: Vec::new(),
-                    parameters: vec![CoreType::Int32, CoreType::Int32],
-                    return_types: vec![CoreType::Int32],
+                    parameters: vec![CoreType::Int64, CoreType::Int64],
+                    return_types: vec![CoreType::Int64],
                     error_types: Vec::new(),
                 },
             ),
