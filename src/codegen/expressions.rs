@@ -8,6 +8,7 @@ use crate::codegen::adts::{
 };
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::codegen_if_expression;
+use crate::codegen::expressions_string::codegen_string_interpolation;
 use crate::codegen::functions::{
     codegen_call_expression, codegen_guard_expression, codegen_propagate_expression,
 };
@@ -154,6 +155,9 @@ pub fn codegen_expression<'context>(
         } => codegen_guard_expression(codegen_context, env, expr.as_ref(), binding_name.as_str()),
         Expr::Propagate { ref call, .. } => {
             codegen_propagate_expression(codegen_context, env, call.as_ref())
+        }
+        Expr::StringInterpolation { ref parts, .. } => {
+            codegen_string_interpolation(codegen_context, env, parts.as_slice())
         }
         _ => Err(CodegenError::new(String::from(
             "unsupported expression kind for task 22",

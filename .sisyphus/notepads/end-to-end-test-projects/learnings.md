@@ -60,3 +60,12 @@
 - What "print" maps to: puts (`declare i32 @puts(i8*)`)
 - How existing callers were affected: `codegen_call_expression` keeps calling through `resolve_callee_function`; now identifier callees either resolve to existing module functions, stdlib externs (`puts`/`printf`), or return a `CodegenError` for unknown names instead of emitting invalid fallback signatures
 - Any surprises or edge cases found: preserving monomorphization behavior required skipping explicit generic monomorphization for stdlib aliases (`print`/`printf`) to avoid generating invalid specialized symbols for external C functions
+
+## [2026-04-11] Task 6: String interpolation codegen
+- Expr::StringInterpolation structure: `parts: Vec<StringPart>` where each part is either `StringPart::Literal(String)` or `StringPart::Expression(Expr)`.
+- Implementation approach: dedicated lowering in `src/codegen/expressions_string.rs` using literal fast-path plus `sprintf` for mixed literal/expression interpolation.
+- Buffer size used: 256 bytes stack buffer (`alloca [256 x i8]`) and returned as `i8*`.
+- How format string is built: concatenate literal text (escaping `%` to `%%`) and append conversion specifiers per interpolated expression (`%s`, `%lld`, `%d`, `%f`).
+- How expression parts are codegen'd: expression values are lowered recursively, then widened/coerced for variadic `sprintf` ABI (`i1 -> i32`, integers -> `i64`, floats -> `f64`).
+- Result type: `i8*` pointer to the interpolation buffer so `print(...)` can pass it directly to `puts`.
+- Any edge cases or limitations: fixed stack buffer can truncate large outputs; numeric interpolation currently defaults to signed integer widening (`%lld`) and does not yet use static type info for signed/unsigned formatting.

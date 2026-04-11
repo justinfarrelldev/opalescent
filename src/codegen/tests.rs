@@ -17,7 +17,7 @@ use crate::type_system::types::{CoreType, GenericTypeParameter, TypeVar};
 use crate::{
     ast::{
         BinaryOp, Decl, Expr, HotReloadMetadata, LabeledValue, LambdaBody, LetBinding,
-        LiteralValue, NodeId, Parameter, Stmt, Type, UnaryOp, Visibility,
+        LiteralValue, NodeId, Parameter, Stmt, StringPart, Type, UnaryOp, Visibility,
     },
     token::{Position, Span},
 };
@@ -396,6 +396,108 @@ fn test_codegen_boolean_string_and_unit_literals() {
     assert!(
         ir.contains("@str.") || ir.contains("c\"hello\\00\""),
         "string literal should materialize as global constant: {ir}"
+    );
+}
+
+#[test]
+fn codegen_string_interpolation_pure_literal() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "interp_pure_literal");
+    let _function = create_codegen_function(&codegen_context, "interp_pure_literal_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let interpolation_expr = Expr::StringInterpolation {
+        parts: vec![StringPart::Literal(String::from("Hello world"))],
+        span: test_span(),
+        id: test_node_id(800),
+    };
+
+    let interpolation_result = codegen_expression(
+        &codegen_context,
+        &mut env,
+        &interpolation_expr,
+        Some(&CoreType::String),
+    );
+    assert!(
+        interpolation_result.is_ok(),
+        "pure literal interpolation should lower successfully"
+    );
+
+    let Ok(lowered_value) = interpolation_result else {
+        return;
+    };
+    assert!(
+        lowered_value.is_pointer_value(),
+        "pure literal interpolation should lower to i8*"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("Hello world") || ir.contains("c\"Hello world\\00\""),
+        "pure literal interpolation should materialize global constant text: {ir}"
+    );
+}
+
+#[test]
+fn codegen_string_interpolation_with_variable() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "interp_with_variable");
+    let _function = create_codegen_function(&codegen_context, "interp_with_variable_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let name_binding = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("name"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("string"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(801),
+        },
+        initializer: Some(string_lit(802, "world")),
+        span: test_span(),
+        id: test_node_id(803),
+    };
+    let binding_result = codegen_statement(&codegen_context, &mut env, &name_binding);
+    assert!(
+        binding_result.is_ok(),
+        "string variable binding should lower before interpolation"
+    );
+
+    let interpolation_expr = Expr::StringInterpolation {
+        parts: vec![
+            StringPart::Literal(String::from("Hello ")),
+            StringPart::Expression(ident(804, "name")),
+        ],
+        span: test_span(),
+        id: test_node_id(805),
+    };
+
+    let interpolation_result = codegen_expression(
+        &codegen_context,
+        &mut env,
+        &interpolation_expr,
+        Some(&CoreType::String),
+    );
+    assert!(
+        interpolation_result.is_ok(),
+        "interpolation with variable should lower successfully"
+    );
+
+    let Ok(lowered_value) = interpolation_result else {
+        return;
+    };
+    assert!(
+        lowered_value.is_pointer_value(),
+        "interpolation result should lower to i8* for puts"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("sprintf"),
+        "interpolation with variable should emit sprintf call in LLVM IR: {ir}"
     );
 }
 

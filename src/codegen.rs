@@ -2,7 +2,6 @@
 //!
 //! This module is used for clippy builds where `mod.rs` module files are denied.
 
-
 #[doc = "ADT constructor, field-access, and match lowering support."]
 #[path = "codegen/adts.rs"]
 pub mod adts;
@@ -14,6 +13,8 @@ pub mod control_flow;
 /// Expression lowering for LLVM backend.
 #[path = "codegen/expressions.rs"]
 pub mod expressions;
+#[path = "codegen/expressions_string.rs"]
+pub mod expressions_string;
 #[doc = "Function-level code generation support."]
 #[path = "codegen/functions.rs"]
 pub mod functions;
