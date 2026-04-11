@@ -3422,19 +3422,19 @@ Wave FINAL (After ALL tasks — verification):
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 > **Never mark F1-F4 as checked before getting user's okay.** Rejection or user feedback → fix → re-run → present again → wait for okay.
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. For each "Must Have": verify implementation exists (read file, curl endpoint, run command). For each "Must NOT Have": search codebase for forbidden patterns — reject with file:line if found. Check evidence files exist in .sisyphus/evidence/. Compare deliverables against plan. Verify PLAN.md is fully checked off.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | PLAN.md [COMPLETE/INCOMPLETE] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `cargo make lint 2>&1 | tee temp.log` + `cargo make test 2>&1 | tee temp.log`. Run `scripts/check-line-count.sh`. Review all changed files for: `as any`/`@ts-ignore` (wrong language but check for Rust equivalents like `unsafe`, unnecessary `allow` attributes — must use `expect` instead), empty catches, debug prints in prod (`println!` outside test modules), commented-out code, unused imports. Check AI slop: excessive comments, over-abstraction, generic names (data/result/item/temp). Verify `no_std` compliance in core modules. Verify all public AND private items have documentation.
   Output: `Build [PASS/FAIL] | Lint [PASS/FAIL] | Tests [N pass/N fail] | Line Count [PASS/FAIL] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high`
+- [x] F3. **Real Manual QA** — `unspecified-high`
   Start from clean state (`cargo clean && cargo make build-all`). Execute EVERY QA scenario from EVERY task — follow exact steps, capture evidence. Test cross-task integration (hot reload with code generation, LSP with type checker, formatter with parser). Test edge cases: empty source files, files with only comments, Unicode identifiers, deeply nested expressions. Run ALL `language-spec/*.op` files end-to-end. Save evidence to `.sisyphus/evidence/final-qa/`.
   Output: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | .op files [N/N pass] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff (git log/diff). Verify 1:1 — everything in spec was built (no missing), nothing beyond spec was built (no creep). Check "Must NOT do" compliance. Detect cross-task contamination: Task N touching Task M's files. Flag unaccounted changes. Verify all commit messages follow conventional commit format. Verify no `--no-verify` was used. Verify no `allow` attributes (must be `expect`).
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | Commits [N/N compliant] | VERDICT`
 
