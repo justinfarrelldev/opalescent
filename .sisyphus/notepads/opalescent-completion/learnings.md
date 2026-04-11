@@ -307,3 +307,55 @@
 - Implemented `src/build_system/targets.rs` target triple parsing for `x86_64-linux`, `aarch64-darwin`, `x86_64-windows`, plus dynamic library extension mapping (`.so`, `.dylib`, `.dll`).
 - Added RED→GREEN TDD coverage in `src/build_system/tests.rs` for config parsing success/failure, semver constraint parsing, dependency resolution success/conflict, build-cache hit/miss, incremental transitive rebuild sets, and target parsing/extension mapping.
 - Validation: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` (with unrelated file changes reverted), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `timeout 30 LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` PASS (454 passed, 3 ignored), `scripts/check-line-count.sh` PASS, and `lsp_diagnostics` clean on all changed build-system files.
+
+## [2026-04-11] Task 38: Language Server Protocol (Phase 9)
+- Implemented pure-Rust LSP module surface under `src/lsp/` (no `tower-lsp`) with path-based crate wiring via `src/lsp.rs` and `#[path = "lsp.rs"] pub mod lsp;` in `src/main.rs`.
+- Added protocol/core server components: `protocol.rs` (request/response/notification + LSP value types), `server.rs` (`LspServer::new`, lifecycle handling, request dispatch), and feature modules for diagnostics, completion, hover, definition, rename, and semantic tokens.
+- Diagnostics now map parser/type-checker errors into LSP diagnostics through existing compiler pipelines (`CompilationErrorReport`, parser, type checker) with source-range mapping.
+- Completion includes reserved keywords, built-ins, and in-document identifier discovery; hover/definition/rename provide symbol-aware editor operations with textual fallback where AST typing metadata is unavailable.
+- Added semantic token classification from lexer token stream and VS Code language contribution metadata in `vscode-extension/package.json` for `opalescent` / `.op`.
+- Added inline-string, in-memory tests in `src/lsp/tests.rs` covering lifecycle (`initialize`/`shutdown`), diagnostics, completion, hover, definition, rename edits, and semantic tokens; tests avoid TCP/network/file-handle transport.
+- Supporting integration changes: exposed checker module (`pub mod checker;`) in `src/type_system.rs` for LSP feature access and removed fulfilled lint expectation around `RESERVED_KEYWORDS` in `src/lexer.rs`.
+- Verification after implementation: `timeout 30 env LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` PASS (636 passed, 0 failed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS.
+- Workflow note: `cargo make lint-fix` touched unrelated files (`src/codegen/adts.rs`, `src/codegen/functions.rs`, `src/errors/suggestions.rs`, `.sisyphus/*`); unrelated edits were reverted before final commit.
+- Commit completed: `e9e0d5c feat(lsp): implement Language Server Protocol with diagnostics, completion, hover, and go-to-definition`.
+
+## Task 39: Code Formatter (Phase 9) — Lint Lessons
+
+### `clippy::ref_patterns` + `clippy::pattern_type_mismatch` conflict
+Both are `-D`. `pattern_type_mismatch` requires not matching `T` when expr is `&T`. 
+`ref_patterns` forbids `ref` bindings in patterns entirely.
+**Solution**: Use tuple field access (`pair.0`, `pair.1`) instead of destructuring when both rules conflict on tuple iteration. For struct variants in `match *val { Variant { ref field } }` this is fine since it's the outer `match *val` that fixes `pattern_type_mismatch`, not a `ref` inside.
+
+### `clippy::unused_self` + `clippy::only_used_in_recursion` → free functions
+Methods on `impl Formatter` that don't use `self` and only call themselves recursively must be moved outside `impl` as free functions. This also makes them eligible for `const fn` (`print_binary_op`, `print_unary_op`).
+
+### `clippy::redundant_closure` with free functions
+`iter().map(|x| free_fn(x))` → `iter().map(free_fn)` — clippy catches this.
+
+### `clippy::module_inception`
+`mod tests` inside a file named `tests.rs` triggers this. Rename inner module to `mod formatter_tests`.
+
+### `clippy::panic` in test code
+Even in `#[cfg(test)]` code, `panic!()` is forbidden. Replace:
+```rust
+let Some(x) = opt else { panic!("msg: {val}") };
+// use body ...
+```
+with:
+```rust
+assert!(opt.is_some(), "msg: {val}");
+if let Some(x) = opt {
+    // use body ...
+}
+```
+
+## [2026-04-11] Task 40: Performance Optimization & Benchmark Suite
+- Added benchmark module surface via `src/benchmarks.rs` and compatibility re-export at `src/benchmarks/mod.rs`, with crate wiring in `src/main.rs`.
+- Added compiler pipeline benchmarks in `src/benchmarks/compile_time.rs` (`bench_parse`, `bench_typecheck`, `bench_codegen`) using in-memory source strings and `Instant` timing only.
+- Added runtime scenario benchmarks in `src/benchmarks/runtime_bench.rs` (`bench_fibonacci_runtime`, `bench_array_sort_runtime`, `bench_string_ops_runtime`) with no filesystem I/O.
+- Added suite/report and hot-reload latency timing in `src/benchmarks/suite.rs` (`BenchmarkSuite`, `SuiteReport`, `measure_hot_reload_swap`) using mock hot-swap flow through existing hot-reload loader ABI.
+- Added memory and regression layers: `src/benchmarks/memory.rs` (`MemoryMetrics`, `MeasuredBenchmark`) and `src/benchmarks/regression.rs` (`RegressionThreshold`, `check_regression`, `RegressionViolation`).
+- Reused existing benchmark core type by updating `src/testing/bench.rs` to task-required shape for `BenchmarkResult` (`name: String`, `mean_ns: u64`, `stddev_ns: u64`, `iterations: usize`) and updating dependent test expectations in `src/testing/tests.rs`.
+- Added dedicated benchmark tests in `src/benchmarks/tests.rs` for compile/runtime scenarios, suite aggregation, regression pass/fail behavior, memory wrapper, and hot-reload swap measurement.
+- Verification: `timeout 60 LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test`, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint`, and `scripts/check-line-count.sh` all pass.
