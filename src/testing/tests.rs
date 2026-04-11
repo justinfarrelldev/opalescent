@@ -205,11 +205,11 @@ fn benchmark_computes_mean_and_stddev() {
     let result = run_benchmark(&benchmark);
     assert_eq!(result.iterations, 5, "benchmark should run five iterations");
     assert!(
-        (result.mean_ns - 1_000.0_f64).abs() < 0.000_1_f64,
+        result.mean_ns == 1_000_u64,
         "constant benchmark should have expected mean"
     );
     assert!(
-        (result.stddev_ns - 0.0_f64).abs() < 0.000_1_f64,
+        result.stddev_ns == 0_u64,
         "constant benchmark should have zero stddev"
     );
 }
