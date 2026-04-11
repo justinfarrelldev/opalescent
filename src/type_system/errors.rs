@@ -136,6 +136,28 @@ pub enum TypeError {
         span: SourceSpan,
     },
 
+    #[error(
+        "Invalid shift count {shift_count} for {bit_width}-bit integer (must be in 0..{bit_width})"
+    )]
+    #[diagnostic(
+        code(opalescent::type_system::invalid_shift_count),
+        help("Use a non-negative shift count smaller than the left operand bit width")
+    )]
+    /// Shift count constant is negative or exceeds the left operand bit width.
+    InvalidShiftCount {
+        /// Classification for invalid shift counts (`negative` or `out of range`).
+        reason: String,
+        /// Original constant shift-count value from source.
+        count_value: i128,
+        /// Shift count value used in the human-readable error message.
+        shift_count: i128,
+        /// Bit width of the shifted left operand type.
+        bit_width: u32,
+        #[label("invalid shift count")]
+        /// Span of the invalid shift-count expression.
+        span: SourceSpan,
+    },
+
     /// Generic type parameter not found
     #[error("Generic type parameter '{param_name}' not found")]
     #[diagnostic(

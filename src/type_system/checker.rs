@@ -15,6 +15,7 @@ use super::symbol_table::{SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::types::{CoreType, TypeVar};
 use crate::ast::Type;
 use crate::token::Span;
+use crate::type_system::arithmetic::ArithmeticMode;
 use alloc::{boxed::Box, collections::BTreeMap, format, string::String, vec::Vec};
 use hot_reload::FunctionHotReloadMetadata;
 
@@ -25,6 +26,7 @@ mod declarations;
 mod expressions;
 mod helpers;
 mod hot_reload;
+mod returns;
 mod statements;
 mod unification;
 
@@ -60,6 +62,10 @@ pub struct TypeChecker {
     warnings: Vec<Warning>,
     /// Cached function signatures for hot-reload compatibility checks.
     function_hot_reload_metadata: BTreeMap<String, FunctionHotReloadMetadata>,
+    /// Per-expression arithmetic overflow semantics for later code generation.
+    arithmetic_modes: BTreeMap<usize, ArithmeticMode>,
+    /// Per-expression integer constant folding results for compile-time analysis.
+    constant_integer_values: BTreeMap<usize, i128>,
 }
 
 impl TypeChecker {
@@ -75,6 +81,8 @@ impl TypeChecker {
             return_label_modes: Vec::new(),
             warnings: Vec::new(),
             function_hot_reload_metadata: BTreeMap::new(),
+            arithmetic_modes: BTreeMap::new(),
+            constant_integer_values: BTreeMap::new(),
         };
         checker.register_standard_builtins();
         checker
@@ -92,6 +100,8 @@ impl TypeChecker {
             return_label_modes: Vec::new(),
             warnings: Vec::new(),
             function_hot_reload_metadata: BTreeMap::new(),
+            arithmetic_modes: BTreeMap::new(),
+            constant_integer_values: BTreeMap::new(),
         };
         checker.register_standard_builtins();
         checker
@@ -211,6 +221,11 @@ impl TypeChecker {
         self.register_integer_same_type_intrinsic(type_name, "saturating_add", integer_type);
         self.register_integer_same_type_intrinsic(type_name, "saturating_sub", integer_type);
         self.register_integer_same_type_intrinsic(type_name, "saturating_mul", integer_type);
+        self.register_integer_same_type_intrinsic(type_name, "bshl_masked", integer_type);
+        self.register_integer_same_type_intrinsic(type_name, "bshr_masked", integer_type);
+        self.register_integer_same_type_intrinsic(type_name, "masked_bshl", integer_type);
+        self.register_integer_same_type_intrinsic(type_name, "masked_bshr", integer_type);
+        self.register_integer_same_type_intrinsic(type_name, "masked_bushr", integer_type);
     }
 
     /// Register a checked arithmetic intrinsic that returns `Option<T>`.
@@ -315,6 +330,37 @@ impl TypeChecker {
     /// Push a warning into the checker warning collection.
     pub fn push_warning(&mut self, warning: Warning) {
         self.warnings.push(warning);
+    }
+
+    /// Record arithmetic overflow semantics metadata for a typed expression.
+    pub fn record_arithmetic_mode(&mut self, expr_id: usize, mode: ArithmeticMode) {
+        self.arithmetic_modes.insert(expr_id, mode);
+    }
+
+    /// Query arithmetic overflow semantics metadata for an expression id.
+    pub fn arithmetic_mode_for_expr(&self, expr_id: usize) -> Option<ArithmeticMode> {
+        self.arithmetic_modes.get(&expr_id).copied()
+    }
+
+    /// Store folded integer constant metadata for an expression id.
+    pub fn record_constant_integer_value(&mut self, expr_id: usize, value: i128) {
+        self.constant_integer_values.insert(expr_id, value);
+    }
+
+    /// Query folded integer constant metadata for an expression id.
+    pub fn constant_integer_for_expr(&self, expr_id: usize) -> Option<i128> {
+        self.constant_integer_values.get(&expr_id).copied()
+    }
+
+    /// Clear folded integer constant metadata for one expression id.
+    pub fn clear_constant_integer_value(&mut self, expr_id: usize) {
+        self.constant_integer_values.remove(&expr_id);
+    }
+
+    /// Clear all per-expression arithmetic metadata caches.
+    pub fn clear_expression_metadata(&mut self) {
+        self.arithmetic_modes.clear();
+        self.constant_integer_values.clear();
     }
 
     /// Register a symbol for ABI signature generation (Phase 6)
@@ -873,98 +919,6 @@ impl TypeChecker {
         let result = action(self);
         self.symbol_table.exit_scope();
         result
-    }
-
-    /// Start return-shape tracking for a function or lambda body.
-    pub(super) fn begin_return_context(&mut self) {
-        self.return_label_modes.push(ReturnLabelMode::Unknown);
-    }
-
-    /// Finish return-shape tracking for a function or lambda body.
-    pub(super) fn end_return_context(&mut self) {
-        let popped = self.return_label_modes.pop();
-        debug_assert!(
-            popped.is_some(),
-            "return label mode stack underflow when exiting return context"
-        );
-    }
-
-    /// Validate the current return statement label shape against active function context.
-    pub(super) fn ensure_return_label_mode(
-        &mut self,
-        labels: &[String],
-        span: Span,
-    ) -> Result<(), TypeError> {
-        let Some(mode) = self.return_label_modes.last_mut() else {
-            return Ok(());
-        };
-
-        if labels.is_empty() {
-            match *mode {
-                ReturnLabelMode::Unknown => {
-                    *mode = ReturnLabelMode::Unlabeled;
-                    Ok(())
-                }
-                ReturnLabelMode::Unlabeled => Ok(()),
-                ReturnLabelMode::Labeled(ref expected_labels) => {
-                    Err(TypeError::ReturnLabelMismatch {
-                        expected: Self::render_return_labels(expected_labels.as_slice()),
-                        found: "unlabeled return".to_owned(),
-                        span: TypeError::span_from_span(span),
-                    })
-                }
-            }
-        } else {
-            let mut seen = alloc::collections::BTreeSet::new();
-            for label in labels {
-                if !seen.insert(label.clone()) {
-                    return Err(TypeError::ReturnLabelMismatch {
-                        expected: "unique labels".to_owned(),
-                        found: format!("duplicate label '{label}'"),
-                        span: TypeError::span_from_span(span),
-                    });
-                }
-            }
-
-            match *mode {
-                ReturnLabelMode::Unknown => {
-                    *mode = ReturnLabelMode::Labeled(labels.to_vec());
-                    Ok(())
-                }
-                ReturnLabelMode::Unlabeled => Err(TypeError::ReturnLabelMismatch {
-                    expected: "unlabeled return".to_owned(),
-                    found: Self::render_return_labels(labels),
-                    span: TypeError::span_from_span(span),
-                }),
-                ReturnLabelMode::Labeled(ref expected_labels) => {
-                    if expected_labels.as_slice() == labels {
-                        Ok(())
-                    } else {
-                        Err(TypeError::ReturnLabelMismatch {
-                            expected: Self::render_return_labels(expected_labels.as_slice()),
-                            found: Self::render_return_labels(labels),
-                            span: TypeError::span_from_span(span),
-                        })
-                    }
-                }
-            }
-        }
-    }
-
-    /// Render ordered return labels for diagnostics.
-    fn render_return_labels(labels: &[String]) -> String {
-        if labels.is_empty() {
-            return "unlabeled return".to_owned();
-        }
-
-        let mut rendered = String::new();
-        for (index, label) in labels.iter().enumerate() {
-            if index > 0 {
-                rendered.push_str(", ");
-            }
-            rendered.push_str(label);
-        }
-        rendered
     }
 }
 

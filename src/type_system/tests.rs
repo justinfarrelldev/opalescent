@@ -5035,8 +5035,15 @@ fn test_constant_shift_count_at_i32_bit_width_is_rejected() {
         .expect_err("shift count >= bit width should be rejected at compile time");
 
     assert!(
-        matches!(error, TypeError::InvalidOperation { ref operation, .. } if operation.contains("shift count") && operation.contains("must be less than")),
-        "expected invalid operation diagnostic for out-of-range shift count"
+        matches!(
+            error,
+            TypeError::InvalidShiftCount {
+                shift_count: 32,
+                bit_width: 32,
+                ..
+            }
+        ),
+        "expected InvalidShiftCount diagnostic for out-of-range shift count"
     );
 }
 
@@ -5065,8 +5072,15 @@ fn test_constant_negative_shift_count_is_rejected() {
         .expect_err("negative shift count should be rejected at compile time");
 
     assert!(
-        matches!(error, TypeError::InvalidOperation { ref operation, .. } if operation.contains("negative shift count")),
-        "expected invalid operation diagnostic for negative shift count"
+        matches!(
+            error,
+            TypeError::InvalidShiftCount {
+                shift_count: -1,
+                bit_width: 32,
+                ..
+            }
+        ),
+        "expected InvalidShiftCount diagnostic for negative shift count"
     );
 }
 

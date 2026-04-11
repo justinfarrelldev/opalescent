@@ -655,4 +655,183 @@ entry main = f(): int32 =>
             "if `is` condition should narrow type in true branch: {result:?}",
         );
     }
+
+    #[test]
+    fn test_constant_negative_shift_count_reports_invalid_shift_count() {
+        const SOURCE: &str = "
+entry main = f(value: int64): int64 =>
+    return value bshl -1
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        let errors = result.expect_err("negative constant shift count must fail type checking");
+        assert!(
+            errors.iter().any(|error| matches!(
+                *error,
+                TypeError::InvalidShiftCount {
+                    ref reason,
+                    count_value: -1,
+                    shift_count: -1,
+                    bit_width: 64,
+                    ..
+                } if reason == "negative"
+            )),
+            "expected InvalidShiftCount(-1, 64), got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_constant_out_of_range_shift_count_reports_invalid_shift_count() {
+        const SOURCE: &str = "
+entry main = f(value: int64): int64 =>
+    return value bshl 64
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        let errors = result.expect_err("out-of-range constant shift count must fail type checking");
+        assert!(
+            errors.iter().any(|error| matches!(
+                *error,
+                TypeError::InvalidShiftCount {
+                    ref reason,
+                    count_value: 64,
+                    shift_count: 64,
+                    bit_width: 64,
+                    ..
+                } if reason == "out of range"
+            )),
+            "expected InvalidShiftCount(64, 64), got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_constant_addition_metadata_records_folded_value() {
+        let mut checker = TypeChecker::new();
+        let expr = crate::ast::Expr::Binary {
+            left: Box::new(crate::ast::Expr::Literal {
+                value: crate::ast::LiteralValue::Integer(2),
+                span: crate::token::Span::single(crate::token::Position::start()),
+                id: crate::ast::NodeId(8_000_001),
+            }),
+            operator: crate::ast::BinaryOp::Add,
+            right: Box::new(crate::ast::Expr::Literal {
+                value: crate::ast::LiteralValue::Integer(3),
+                span: crate::token::Span::single(crate::token::Position::start()),
+                id: crate::ast::NodeId(8_000_002),
+            }),
+            span: crate::token::Span::single(crate::token::Position::start()),
+            id: crate::ast::NodeId(8_000_000),
+        };
+
+        let result = checker.type_check_expr(&expr);
+        assert!(
+            result.is_ok(),
+            "constant addition expression should type check: {result:?}",
+        );
+        assert_eq!(
+            checker.constant_integer_for_expr(8_000_000),
+            Some(5),
+            "2 + 3 should be folded and recorded as expression metadata",
+        );
+    }
+
+    #[test]
+    fn test_masked_shift_intrinsics_type_check_successfully() {
+        let checker = TypeChecker::new();
+        let left = checker.environment().lookup_builtin("int64.masked_bshl");
+        let right = checker.environment().lookup_builtin("int64.masked_bshr");
+        let unsigned_right = checker.environment().lookup_builtin("int64.masked_bushr");
+        let int64_type = crate::type_system::types::CoreType::Int64;
+
+        let left_ok = match left {
+            Some(&crate::type_system::types::CoreType::Function {
+                ref parameters,
+                ref return_types,
+                ..
+            }) => {
+                parameters.len() == 1
+                    && return_types.len() == 1
+                    && parameters[0] == int64_type
+                    && return_types[0] == int64_type
+            }
+            _ => false,
+        };
+        let right_ok = match right {
+            Some(&crate::type_system::types::CoreType::Function {
+                ref parameters,
+                ref return_types,
+                ..
+            }) => {
+                parameters.len() == 1
+                    && return_types.len() == 1
+                    && parameters[0] == int64_type
+                    && return_types[0] == int64_type
+            }
+            _ => false,
+        };
+        let unsigned_right_ok = match unsigned_right {
+            Some(&crate::type_system::types::CoreType::Function {
+                ref parameters,
+                ref return_types,
+                ..
+            }) => {
+                parameters.len() == 1
+                    && return_types.len() == 1
+                    && parameters[0] == int64_type
+                    && return_types[0] == int64_type
+            }
+            _ => false,
+        };
+
+        assert!(
+            left_ok && right_ok && unsigned_right_ok,
+            "masked shift intrinsics should be registered as int64 -> int64 functions",
+        );
+    }
+
+    #[test]
+    fn test_bshl_masked_bshr_masked_intrinsics_type_check_successfully() {
+        let checker = TypeChecker::new();
+        let left = checker.environment().lookup_builtin("int64.bshl_masked");
+        let right = checker.environment().lookup_builtin("int64.bshr_masked");
+        let int64_type = crate::type_system::types::CoreType::Int64;
+
+        let left_ok = match left {
+            Some(&crate::type_system::types::CoreType::Function {
+                ref parameters,
+                ref return_types,
+                ..
+            }) => {
+                parameters.len() == 1
+                    && return_types.len() == 1
+                    && parameters[0] == int64_type
+                    && return_types[0] == int64_type
+            }
+            _ => false,
+        };
+        let right_ok = match right {
+            Some(&crate::type_system::types::CoreType::Function {
+                ref parameters,
+                ref return_types,
+                ..
+            }) => {
+                parameters.len() == 1
+                    && return_types.len() == 1
+                    && parameters[0] == int64_type
+                    && return_types[0] == int64_type
+            }
+            _ => false,
+        };
+
+        assert!(
+            left_ok && right_ok,
+            "bshl_masked/bshr_masked intrinsics should be registered as int64 -> int64 functions",
+        );
+    }
 }

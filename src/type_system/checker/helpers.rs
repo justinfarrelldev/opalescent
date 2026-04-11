@@ -4,6 +4,7 @@ extern crate alloc;
 
 use crate::ast::{BinaryOp, Expr, LiteralValue, UnaryOp};
 use crate::token::Span;
+use crate::type_system::arithmetic::fold_integer_binary_values;
 use crate::type_system::errors::{TypeError, Warning};
 use crate::type_system::types::{CoreType, NumericKind};
 
@@ -238,47 +239,23 @@ pub(super) const fn integer_bounds(core_type: &CoreType) -> Option<(i128, i128)>
     }
 }
 
-/// Extract a signed integer constant from literal-like expression forms.
-pub(super) fn extract_integer_constant(expr: &Expr) -> Option<i128> {
-    match *expr {
-        Expr::Literal {
-            value: LiteralValue::Integer(value),
-            ..
-        } => Some(i128::from(value)),
-        Expr::Parenthesized { ref expr, .. } | Expr::Cast { ref expr, .. } => {
-            extract_integer_constant(expr)
-        }
-        Expr::Unary {
-            operator: UnaryOp::Negate,
-            ref operand,
-            ..
-        } => extract_integer_constant(operand).and_then(i128::checked_neg),
-        Expr::Unary {
-            operator: UnaryOp::Plus,
-            ref operand,
-            ..
-        } => extract_integer_constant(operand),
-        _ => None,
-    }
-}
+pub(super) use crate::type_system::arithmetic::extract_integer_constant;
 
 /// Check whether integer constant arithmetic exceeds destination type bounds.
-#[expect(
-    clippy::missing_const_for_fn,
-    reason = "The checked arithmetic API is kept as runtime helper for clarity"
-)]
-pub(super) fn integer_arithmetic_overflows(
+pub(super) const fn integer_arithmetic_overflows(
     operator: &BinaryOp,
     operand_type: &CoreType,
     left: i128,
     right: i128,
 ) -> bool {
-    let computed = match *operator {
-        BinaryOp::Add => left.checked_add(right),
-        BinaryOp::Subtract => left.checked_sub(right),
-        BinaryOp::Multiply => left.checked_mul(right),
-        _ => return false,
-    };
+    if !matches!(
+        *operator,
+        BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply
+    ) {
+        return false;
+    }
+
+    let computed = fold_constant_binary_op(operator, left, right);
 
     let Some(result) = computed else {
         return true;
@@ -340,43 +317,87 @@ pub(super) fn zero_divisor_operation_name(
 
 /// Validate compile-time shift count bounds for constant integer shifts.
 pub(super) fn validate_constant_shift_bounds(
+    operator: &BinaryOp,
     left_type: &CoreType,
     right_expr: &Expr,
-    span: Span,
+    shift_count_span: Span,
 ) -> Result<(), TypeError> {
-    let Some(shift_count) = extract_integer_constant(right_expr) else {
-        return Ok(());
-    };
+    if let Some(error) = check_shift_bounds(operator, left_type, right_expr, shift_count_span) {
+        return Err(error);
+    }
+    Ok(())
+}
 
-    if shift_count.is_negative() {
-        return Err(TypeError::InvalidOperation {
-            operation: "negative shift count is not allowed".to_owned(),
-            type_name: left_type.to_string(),
-            span: TypeError::span_from_span(span),
-        });
+/// Validate constant shift counts for shift operators and return a typed diagnostic on failure.
+pub(super) fn check_shift_bounds(
+    operator: &BinaryOp,
+    left_type: &CoreType,
+    right_expr: &Expr,
+    shift_count_span: Span,
+) -> Option<TypeError> {
+    if !matches!(
+        *operator,
+        BinaryOp::BitShiftLeft | BinaryOp::BitShiftRight | BinaryOp::BitUnsignedShiftRight
+    ) {
+        return None;
     }
 
-    let Some(bit_width) = integer_bit_width(left_type) else {
-        return Ok(());
-    };
+    let shift_count = extract_integer_constant(right_expr)?;
+    let bit_width = integer_bit_width(left_type)?;
+
+    if shift_count.is_negative() {
+        return Some(invalid_shift_count_error(
+            "negative",
+            shift_count,
+            bit_width,
+            shift_count_span,
+        ));
+    }
 
     let Ok(shift_count_u32) = u32::try_from(shift_count) else {
-        return Err(TypeError::InvalidOperation {
-            operation: "shift count must be less than bit width".to_owned(),
-            type_name: left_type.to_string(),
-            span: TypeError::span_from_span(span),
-        });
+        return Some(invalid_shift_count_error(
+            "out of range",
+            shift_count,
+            bit_width,
+            shift_count_span,
+        ));
     };
 
     if shift_count_u32 >= bit_width {
-        return Err(TypeError::InvalidOperation {
-            operation: "shift count must be less than bit width".to_owned(),
-            type_name: left_type.to_string(),
-            span: TypeError::span_from_span(span),
-        });
+        return Some(invalid_shift_count_error(
+            "out of range",
+            shift_count,
+            bit_width,
+            shift_count_span,
+        ));
     }
 
-    Ok(())
+    None
+}
+
+/// Build a compile-time invalid-shift diagnostic with spec-defined reason/value metadata.
+pub(super) fn invalid_shift_count_error(
+    reason: &str,
+    shift_count: i128,
+    bit_width: u32,
+    span: Span,
+) -> TypeError {
+    TypeError::InvalidShiftCount {
+        reason: reason.to_owned(),
+        count_value: shift_count,
+        shift_count,
+        bit_width,
+        span: TypeError::span_from_span(span),
+    }
+}
+
+/// Fold compile-time integer binary arithmetic for overflow/division/shift analyses.
+pub(super) const fn fold_constant_binary_op(
+    operator: &BinaryOp,
+    left: i128,
+    right: i128,
+) -> Option<i128> {
+    fold_integer_binary_values(operator, left, right)
 }
 
 /// Determine the numeric family and bit width for cast validation, enabling widening rules

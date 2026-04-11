@@ -74,6 +74,8 @@
 )]
 
 // Module declarations - order matters for dependencies
+/// Arithmetic typing metadata and constant-folding helpers.
+mod arithmetic;
 mod checker;
 mod constraints;
 mod environment;

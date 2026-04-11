@@ -140,3 +140,11 @@
 - Added integration tests in `src/type_system/test_integration.rs` for unreachable warning, missing-else exhaustiveness error, and true-branch type narrowing.
 - Updated existing type-system test expectation for else-less `if` from generic `TypeMismatch` to `TypeError::MissingElseBranch`.
 - Validation: `timeout 30 cargo test` PASS (321 passed, 3 ignored), `cargo make lint-fix` PASS, `cargo make lint` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on all changed files.
+
+## [2026-04-11] Task 14: Arithmetic & Logic Completion
+- Reduced `src/type_system/checker.rs` line count by extracting return-shape context helpers into new `src/type_system/checker/returns.rs`; `checker.rs` is now below limit while keeping `expressions.rs` unchanged at 999 lines.
+- Extended compile-time shift bounds validation with `check_shift_bounds(op, lhs_type, rhs_expr, span)` and enriched `TypeError::InvalidShiftCount` metadata (`reason`, `count_value`) while preserving existing fields for compatibility.
+- Added `fold_constant_binary_op` helper in `checker/helpers.rs` and wired arithmetic overflow helper to use it for integer constant operations (`+`, `-`, `*`, `/`, `%`).
+- Registered masked shift intrinsics per spec names `bshl_masked` and `bshr_masked` (kept existing `masked_*` variants), and treated `*_masked` intrinsic calls as wrapping arithmetic mode.
+- Added integration coverage for negative/out-of-range constant shifts (including reason metadata) and for `bshl_masked`/`bshr_masked` type-check success in `src/type_system/test_integration.rs`.
+- Validation: `cargo make lint-fix` PASS, `cargo make lint` PASS, `scripts/check-line-count.sh` PASS (`checker.rs` 929), `timeout 30 cargo test` PASS (329 total tests, 3 ignored), LSP diagnostics clean on all changed files.

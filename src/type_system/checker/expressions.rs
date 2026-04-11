@@ -11,6 +11,9 @@ use super::helpers::{
 };
 use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Stmt, StringPart, Type, UnaryOp};
 use crate::token::Span;
+use crate::type_system::arithmetic::{
+    fold_integer_binary_expr, mode_for_binary_operator, mode_for_intrinsic_member, ArithmeticMode,
+};
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
@@ -59,8 +62,8 @@ impl TypeChecker {
                 ref operator,
                 ref right,
                 span,
-                ..
-            } => self.type_check_binary_expr(left.as_ref(), operator, right.as_ref(), span),
+                id,
+            } => self.type_check_binary_expr(left.as_ref(), operator, right.as_ref(), span, id.0),
             Expr::Unary {
                 ref operator,
                 ref operand,
@@ -72,12 +75,13 @@ impl TypeChecker {
                 ref generic_args,
                 ref args,
                 span,
-                ..
+                id,
             } => self.type_check_call_expr(
                 callee.as_ref(),
                 generic_args.as_deref(),
                 args.as_slice(),
                 span,
+                id.0,
             ),
             Expr::Index {
                 ref object,
@@ -221,7 +225,7 @@ impl TypeChecker {
         let (success_type, callee_error_types) =
             self.resolve_guard_callee_signature(expr, callee_expr)?;
 
-        self.type_check_call_expr(callee_expr, None, args, call_span)?;
+        self.type_check_call_expr(callee_expr, None, args, call_span, expr.node_id().0)?;
 
         if let Some(annotated_type_ast) = binding.annotation {
             let annotated_type = Self::ast_type_to_core_type(annotated_type_ast)?;
@@ -511,7 +515,13 @@ impl TypeChecker {
 
                 // Validate the call arguments against the parameters (reuse call typing logic)
                 // We intentionally call the existing checker to enforce argument checks
-                self.type_check_call_expr(callee, None, args.as_slice(), call.span())?;
+                self.type_check_call_expr(
+                    callee,
+                    None,
+                    args.as_slice(),
+                    call.span(),
+                    call.node_id().0,
+                )?;
 
                 if let Some(active_errors) = self.guard_error_stack.last() {
                     if !Self::guard_error_type_sets_match(
@@ -595,7 +605,16 @@ impl TypeChecker {
         operator: &BinaryOp,
         right: &Expr,
         span: Span,
+        expr_id: usize,
     ) -> Result<CoreType, TypeError> {
+        if let Some(arithmetic_mode) = mode_for_binary_operator(operator) {
+            self.record_arithmetic_mode(expr_id, arithmetic_mode);
+        }
+
+        if let Some(constant_value) = fold_integer_binary_expr(operator, left, right) {
+            self.record_constant_integer_value(expr_id, constant_value);
+        }
+
         if matches!(*operator, BinaryOp::Is | BinaryOp::IsNot)
             && matches!(left, &Expr::Identifier { .. })
             && matches!(right, &Expr::Identifier { .. })
@@ -698,7 +717,7 @@ impl TypeChecker {
             BinaryOp::BitShiftLeft | BinaryOp::BitShiftRight | BinaryOp::BitUnsignedShiftRight => {
                 ensure_integer_type(&left_type, left.span(), op_name)?;
                 ensure_integer_type(&right_type, right.span(), op_name)?;
-                validate_constant_shift_bounds(&left_type, right, span)?;
+                validate_constant_shift_bounds(operator, &left_type, right, right.span())?;
                 Ok(left_type)
             }
             BinaryOp::Assign => Err(invalid_operation_error(op_name, &left_type, span)),
@@ -751,7 +770,17 @@ impl TypeChecker {
         generic_args: Option<&[Type]>,
         args: &[Expr],
         span: Span,
+        expr_id: usize,
     ) -> Result<CoreType, TypeError> {
+        if let Expr::Member { ref member, .. } = *callee {
+            if let Some(arithmetic_mode) = mode_for_intrinsic_member(member) {
+                self.record_arithmetic_mode(expr_id, arithmetic_mode);
+                if arithmetic_mode != ArithmeticMode::Default {
+                    self.clear_constant_integer_value(expr_id);
+                }
+            }
+        }
+
         self.type_check_call_expr_impl(callee, generic_args, args, span)
     }
 

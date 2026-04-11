@@ -173,7 +173,7 @@ impl TypeChecker {
         };
 
         self.environment()
-            .lookup_type(type_name, span)
+            .lookup_type(type_name.as_str(), span)
             .ok()
             .cloned()
             .map(|narrowed_type| (variable_name.clone(), narrowed_type, span))

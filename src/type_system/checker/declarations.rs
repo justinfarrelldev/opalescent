@@ -446,6 +446,7 @@ impl TypeChecker {
     pub fn type_check_program(&mut self, program: &Program) -> Result<(), Vec<TypeError>> {
         self.clear_constraints();
         self.clear_warnings();
+        self.clear_expression_metadata();
 
         let mut errors: Vec<TypeError> = Vec::new();
         let mut skipped_decls: Vec<usize> = Vec::new();
