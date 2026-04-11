@@ -1243,7 +1243,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): complete arithmetic with shift bounds, constant folding, masked shifts`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 15. ADT Implementation — Pattern Matching (Phase 3)
+- [ ] 15. ADT Implementation — Pattern Matching (Phase 3)
 
   **What to do**:
   - Read all requirements files, PLAN.md (ADT Implementation section, lines 496-510)
@@ -1318,7 +1318,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement pattern matching with exhaustiveness checking`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 16. ADT Implementation — Constructors & Fields (Phase 3)
+- [ ] 16. ADT Implementation — Constructors & Fields (Phase 3)
 
   **What to do**:
   - Read all requirements files, PLAN.md (ADT Implementation section, lines 496-510)
@@ -1384,7 +1384,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement ADT constructors, field access, and HasField constraints`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 17. Array & Collection Type Completion (Phase 3)
+- [ ] 17. Array & Collection Type Completion (Phase 3)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Array & Collection Support section, lines 512-529)
@@ -1448,7 +1448,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement array/string methods and iterator interface`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 18. Generic System Completion (Phase 3)
+- [ ] 18. Generic System Completion (Phase 3)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Generic System section, lines 531-546), `plan/generic-type-parsing-plan.md`
@@ -1513,7 +1513,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): complete generic system with ADT instantiation and monomorphization prep`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 19. Import/Export Resolution (Phase 4)
+- [ ] 19. Import/Export Resolution (Phase 4)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Import/Export System section, lines 548-567), `language-spec/requirements/modules.md`
@@ -1592,7 +1592,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(modules): implement import/export resolution with dependency graph and circular detection`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 20. Module Validation (Phase 4)
+- [ ] 20. Module Validation (Phase 4)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Module Validation section, lines 568-574)
@@ -1654,7 +1654,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(modules): implement module validation with visibility rules and interface generation`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 21. LLVM Backend Setup (Phase 5)
+- [ ] 21. LLVM Backend Setup (Phase 5)
 
   **What to do**:
   - Read all requirements files, PLAN.md (LLVM Backend Setup section, lines 576-584)
@@ -1731,7 +1731,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(codegen): set up LLVM backend with inkwell, type mapping, and compilation pipeline`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 22. Code Generation — Expressions & Statements (Phase 5)
+- [ ] 22. Code Generation — Expressions & Statements (Phase 5)
 
   **What to do**:
   - Read all requirements files, PLAN.md
@@ -1800,7 +1800,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(codegen): implement expression and statement code generation with overflow trapping`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 23. Code Generation — Functions & Control Flow (Phase 5)
+- [ ] 23. Code Generation — Functions & Control Flow (Phase 5)
 
   **What to do**:
   - Read all requirements files, PLAN.md
@@ -1868,7 +1868,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(codegen): implement function and control flow code generation with error handling`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 24. Runtime System Foundation (Phase 5)
+- [ ] 24. Runtime System Foundation (Phase 5)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Runtime System section, lines 586-592)
@@ -1936,7 +1936,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(runtime): implement runtime system foundation with memory allocation and built-in functions`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 25. Code Generation — ADTs & Generics (Phase 5 continued)
+- [ ] 25. Code Generation — ADTs & Generics (Phase 5 continued)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md` (module structure patterns)
@@ -2000,7 +2000,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(codegen): implement ADT code generation and monomorphization`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 26. Runtime System — Memory & Standard Library (Phase 5 continued)
+- [ ] 26. Runtime System — Memory & Standard Library (Phase 5 continued)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `ERROR_HANDLING_STANDARDS.md`
@@ -2064,7 +2064,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(runtime): implement memory management and standard library runtime functions`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 27. Basic Optimization Passes (Phase 5 continued)
+- [ ] 27. Basic Optimization Passes (Phase 5 continued)
 
   **What to do**:
   - Read all requirements files, PLAN.md
@@ -2126,7 +2126,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(codegen): implement basic optimization passes with dead code elimination and constant folding`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 28. Hot Reload Infrastructure (Phase 6 Start)
+- [ ] 28. Hot Reload Infrastructure (Phase 6 Start)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `HOT_RELOAD_ARCHITECTURE.md` (ENTIRE file), `INTEGRATION_DEPENDENCIES.md`
@@ -2203,7 +2203,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(hot-reload): implement hot reload infrastructure with ABI signatures and module swapping`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 29. Change Detection & Hot Swap Classification (Phase 6)
+- [ ] 29. Change Detection & Hot Swap Classification (Phase 6)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `HOT_RELOAD_ARCHITECTURE.md` (ENTIRE file — especially lines 250-284 Change Classification), `INTEGRATION_DEPENDENCIES.md`

@@ -639,6 +639,52 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Inline expansion
 - [x] Loop optimizations
 
+### ✅ End-to-End Compilation Pipeline (Name: end-to-end-test-projects.md)
+
+**Status**: ✅ COMPLETE — All 7 integration tests passing with real compilation and execution
+
+#### Orchestration & Emission
+- [x] `compile_to_module(context: &Context, source: &str) -> Result<Module, CompileError>` — chains lex → parse → typecheck → codegen
+- [x] `compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, CompileError>` — full E2E: compile_to_module → emit object file → link → return binary path
+- [x] Object file emission via `TargetMachine::write_to_file(FileType::Object)`
+- [x] Linker invocation via `cc` command with `-no-pie` flag for Linux compatibility
+- [x] `src/lib.rs` library crate exposing compiler modules for integration tests
+- [x] `src/main.rs` thin binary entry point using library crate imports
+- [x] `Cargo.toml` with dual targets (`[lib]` and `[[bin]]`) and `integration` feature gate
+
+#### Test Projects (Real Executable Verification)
+- [x] `test-projects/hello-world/` — project structure with `opal.toml`, `.gitignore`, `README.md`, `src/main.op`
+- [x] `test-projects/fib-recursive/` — recursive Fibonacci with `let fib = f(n: int64): int64` and `if n is 0 { return 0 }` equality check
+- [x] `test-projects/fib-iterative/` — iterative Fibonacci with `let mutable` variables and `while` loop
+- [x] `test-projects/simple-quiz/` — interactive quiz using `take_input()`, `random_int32()`, `string_to_int32()`, and stdlib imports
+
+#### Code Generation Features
+- [x] String interpolation in `src/codegen/expressions_string.rs` via `sprintf` with format string building
+- [x] Import system codegen via `codegen_import_declaration` mapping module/symbol pairs to runtime function names
+- [x] Stdlib prototype registry in `resolve_callee_function` — maps known names to LLVM externs (`puts`, `printf`, etc.)
+- [x] `print(string)` → `puts()` codegen
+- [x] `print(int64)` → `opal_print_int()` codegen (for non-string types)
+
+#### C Runtime (`runtime/opal_runtime.c`)
+- [x] `opal_take_input()` → `i8*` — reads line from stdin, returns heap-allocated string
+- [x] `opal_random_int32(min: int64, max: int64)` → `int64` — pseudo-random integer in range
+- [x] `opal_string_to_int32(s: i8*)` → `int64` — parses string to integer (0 on error)
+- [x] `opal_print_string(s: i8*)` → `int32` — wraps C `puts()`
+- [x] `opal_print_int(value: int64)` → `int32` — formats and prints int64 via `printf()`
+
+#### Type System Updates
+- [x] Updated builtin signatures: `string_to_int32(string): int64` (no error types), `random_int32(int64, int64): int64`
+- [x] Both signatures match int64 ABI and language default numeric type
+
+#### Integration Tests (Gated by `feature = "integration"`)
+- [x] Test 1: `test_smoke_void_program` — void program compiles and runs with exit 0
+- [x] Test 2: `hello_world_compiles_links_and_runs` — reads `test-projects/hello-world/src/main.op`, compiles, runs, asserts stdout contains `"Hello world"`
+- [x] Test 3: `fib_recursive_compiles_links_and_runs` — asserts `"55"` in output
+- [x] Test 4: `fib_iterative_compiles_links_and_runs` — asserts `"55"` in output
+- [x] Test 5-7: Additional codegen regression tests for `is` operator, imports, and runtime function declarations
+
+**All tests pass**: `cargo test --features integration` runs 7 E2E tests, all exit 0, artifacts auto-cleaned
+
 ## Phase 6: Hot Reloading System
 
 ### ✅ Hot Reload Infrastructure (Name: hot-reload-infrastructure-plan.md)
