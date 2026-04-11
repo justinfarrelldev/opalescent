@@ -205,3 +205,11 @@
 - Expanded `src/codegen/tests.rs` with RED→GREEN tests covering literals, unary/cast, let/assignment, array literal/access, overflow trap intrinsic presence, and division-by-zero trap presence using in-memory LLVM IR assertions.
 - Inkwell 0.8.0 note: `build_in_bounds_gep` is `unsafe` and requires safety comments on preceding lines under strict lint configuration.
 - Validation: `timeout 30 LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` PASS (379 passed, 0 failed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files.
+
+## [2026-04-11] Task 23: Codegen Functions + Control Flow (Phase 5)
+- Added `src/codegen/functions.rs` with lowering for function declarations, call expressions (including lambda capture argument threading), guard/propagate control paths, and entry-wrapper (`main`) emission.
+- Added `src/codegen/control_flow.rs` with lowering for `if` statements, `if` expressions (phi merge), loop forms (`while`/`for`/`loop`) and multi-value return handling.
+- Wired dispatch integration in `src/codegen/expressions.rs` and `src/codegen/statements.rs`, and module exports in both `src/codegen/mod.rs` and `src/codegen.rs`.
+- Expanded `src/codegen/tests.rs` coverage for function declarations/calls, lambda closure calls, guard/propagate error flow, if/loop lowering, and multi-return behavior via in-memory LLVM IR checks.
+- Clippy-specific learning: `pattern_type_mismatch` with `&Expr` inputs required explicit reference patterns (`if let &Expr::... { ref ... } = expr_ref`) in helper lowering paths.
+- Final verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS (auto-fixes applied), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `timeout 30 env LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` PASS (385 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files (one expected rust-analyzer unlinked-file hint for `src/codegen/mod.rs`).

@@ -9,9 +9,15 @@
 
 #[path = "codegen/context.rs"]
 pub mod context;
+#[doc = "Control-flow code generation support."]
+#[path = "codegen/control_flow.rs"]
+pub mod control_flow;
 /// Expression lowering for LLVM backend.
 #[path = "codegen/expressions.rs"]
 pub mod expressions;
+#[doc = "Function-level code generation support."]
+#[path = "codegen/functions.rs"]
+pub mod functions;
 /// Statement lowering for LLVM backend.
 #[path = "codegen/statements.rs"]
 pub mod statements;

@@ -2,6 +2,9 @@ extern crate alloc;
 
 use crate::ast::{Expr, Stmt, Type};
 use crate::codegen::context::CodegenContext;
+use crate::codegen::control_flow::{
+    codegen_if_statement, codegen_loop_statement, codegen_return_statement,
+};
 use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError, VariableBinding};
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
@@ -52,7 +55,35 @@ pub fn codegen_statement<'context>(
             ref value,
             ..
         } => codegen_assignment(codegen_context, env, target, value),
-        _ => Ok(()),
+        Stmt::If {
+            ref condition,
+            ref then_branch,
+            ref else_branch,
+            ..
+        } => codegen_if_statement(
+            codegen_context,
+            env,
+            condition,
+            then_branch.as_ref(),
+            else_branch.as_deref(),
+        ),
+        Stmt::For { .. } | Stmt::While { .. } | Stmt::Loop { .. } => {
+            codegen_loop_statement(codegen_context, env, stmt)
+        }
+        Stmt::Return { ref values, .. } => {
+            codegen_return_statement(codegen_context, env, values.as_slice())
+        }
+        Stmt::Block { ref statements, .. } => {
+            for statement in statements {
+                codegen_statement(codegen_context, env, statement)?;
+            }
+            Ok(())
+        }
+        Stmt::Expression { ref expr, .. } => {
+            let _value = codegen_expression(codegen_context, env, expr, None)?;
+            Ok(())
+        }
+        Stmt::Break { .. } | Stmt::Continue { .. } => Ok(()),
     }
 }
 

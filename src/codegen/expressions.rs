@@ -1,7 +1,13 @@
+#![doc(hidden)]
+
 extern crate alloc;
 
 use crate::ast::{BinaryOp, Expr, LiteralValue, Type, UnaryOp};
 use crate::codegen::context::CodegenContext;
+use crate::codegen::control_flow::codegen_if_expression;
+use crate::codegen::functions::{
+    codegen_call_expression, codegen_guard_expression, codegen_propagate_expression,
+};
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
@@ -15,14 +21,11 @@ use inkwell::values::{
 use inkwell::{FloatPredicate, IntPredicate};
 
 #[derive(Debug, Clone)]
-/// Error returned while lowering AST expressions into LLVM IR.
 pub struct CodegenError {
-    /// Readable diagnostic explaining the lowering failure.
     pub message: String,
 }
 
 impl CodegenError {
-    /// Construct a new codegen error.
     #[must_use]
     pub const fn new(message: String) -> Self {
         Self { message }
@@ -43,27 +46,19 @@ impl From<BuilderError> for CodegenError {
     }
 }
 
-/// Stack slot metadata for a bound local variable.
 #[derive(Debug, Clone)]
 pub struct VariableBinding<'context> {
-    /// Address of the alloca reserved for this variable.
     pub alloca: PointerValue<'context>,
-    /// Static type associated with the slot.
     pub core_type: CoreType,
 }
 
-/// Mutable lowering environment shared across expression and statement codegen.
 pub struct CodegenEnv<'context> {
-    /// Variable allocations available in the current function scope.
     pub variables: BTreeMap<String, VariableBinding<'context>>,
-    /// Whether overflow and divide-by-zero trap checks are emitted.
     pub debug_mode: bool,
-    /// Counter used to generate deterministic temporary names.
     pub temp_counter: usize,
 }
 
 impl CodegenEnv<'_> {
-    /// Create an empty lowering environment.
     #[must_use]
     pub const fn new(debug_mode: bool) -> Self {
         Self {
@@ -73,7 +68,6 @@ impl CodegenEnv<'_> {
         }
     }
 
-    /// Allocate a deterministic temporary identifier for emitted instructions.
     pub fn next_name(&mut self, base: &str) -> String {
         let index = self.temp_counter;
         self.temp_counter = self.temp_counter.saturating_add(1);
@@ -81,7 +75,6 @@ impl CodegenEnv<'_> {
     }
 }
 
-/// Lower one typed AST expression into an LLVM SSA value.
 pub fn codegen_expression<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -120,13 +113,37 @@ pub fn codegen_expression<'context>(
             ref index,
             ..
         } => codegen_array_access(codegen_context, env, object, index, expected_type),
+        Expr::Call {
+            ref callee,
+            ref args,
+            ..
+        } => codegen_call_expression(codegen_context, env, callee.as_ref(), args.as_slice()),
+        Expr::If {
+            ref condition,
+            ref then_branch,
+            ref else_branch,
+            ..
+        } => codegen_if_expression(
+            codegen_context,
+            env,
+            condition.as_ref(),
+            then_branch.as_ref(),
+            else_branch.as_deref(),
+        ),
+        Expr::Guard {
+            ref expr,
+            ref binding_name,
+            ..
+        } => codegen_guard_expression(codegen_context, env, expr.as_ref(), binding_name.as_str()),
+        Expr::Propagate { ref call, .. } => {
+            codegen_propagate_expression(codegen_context, env, call.as_ref())
+        }
         _ => Err(CodegenError::new(String::from(
             "unsupported expression kind for task 22",
         ))),
     }
 }
 
-/// Lower literal expressions to LLVM constants/global values.
 fn codegen_literal<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -197,7 +214,6 @@ fn codegen_literal<'context>(
     }
 }
 
-/// Resolve an identifier by loading from its stack slot.
 fn codegen_identifier<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &CodegenEnv<'context>,
@@ -209,7 +225,6 @@ fn codegen_identifier<'context>(
     Ok(codegen_context.builder.build_load(binding.alloca, name)?)
 }
 
-/// Lower binary operators to integer/float/bitwise/logical LLVM instructions.
 fn codegen_binary<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -250,7 +265,6 @@ fn codegen_binary<'context>(
     }
 }
 
-/// Lower unary operators to LLVM instructions.
 fn codegen_unary<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -281,7 +295,6 @@ fn codegen_unary<'context>(
     }
 }
 
-/// Lower explicit cast expressions between numeric LLVM types.
 fn codegen_cast<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -333,12 +346,16 @@ fn codegen_cast<'context>(
             let in_bits = float_value.get_type().get_bit_width();
             let out_bits = out_type.get_bit_width();
             let casted = match in_bits.cmp(&out_bits) {
-                core::cmp::Ordering::Greater => codegen_context
-                    .builder
-                    .build_float_trunc(float_value, out_type, "fptrunc")?,
-                core::cmp::Ordering::Less => codegen_context
-                    .builder
-                    .build_float_ext(float_value, out_type, "fpext")?,
+                core::cmp::Ordering::Greater => {
+                    codegen_context
+                        .builder
+                        .build_float_trunc(float_value, out_type, "fptrunc")?
+                }
+                core::cmp::Ordering::Less => {
+                    codegen_context
+                        .builder
+                        .build_float_ext(float_value, out_type, "fpext")?
+                }
                 core::cmp::Ordering::Equal => float_value,
             };
             return Ok(casted.as_basic_value_enum());
@@ -368,7 +385,6 @@ fn codegen_cast<'context>(
     )))
 }
 
-/// Lower array literals by allocating stack storage and storing each element.
 fn codegen_array_literal<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -422,7 +438,6 @@ fn codegen_array_literal<'context>(
     Ok(base_ptr.as_basic_value_enum())
 }
 
-/// Lower array indexing into a GEP plus load.
 fn codegen_array_access<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -432,7 +447,9 @@ fn codegen_array_access<'context>(
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let base_ptr = if let Expr::Identifier { ref name, .. } = *object {
         let Some(binding) = env.variables.get(name) else {
-            return Err(CodegenError::new(format!("unknown array variable '{name}'")));
+            return Err(CodegenError::new(format!(
+                "unknown array variable '{name}'"
+            )));
         };
         binding.alloca
     } else {
@@ -455,7 +472,6 @@ fn codegen_array_access<'context>(
         .build_load(element_ptr, &env.next_name("array.load"))?)
 }
 
-/// Lower additive `+` operation.
 fn codegen_add<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -466,7 +482,6 @@ fn codegen_add<'context>(
     codegen_numeric_binop(codegen_context, env, lhs, rhs, expected_type, "add")
 }
 
-/// Lower subtractive `-` operation.
 fn codegen_sub<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -477,7 +492,6 @@ fn codegen_sub<'context>(
     codegen_numeric_binop(codegen_context, env, lhs, rhs, expected_type, "sub")
 }
 
-/// Lower multiplicative `*` operation.
 fn codegen_mul<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -488,7 +502,6 @@ fn codegen_mul<'context>(
     codegen_numeric_binop(codegen_context, env, lhs, rhs, expected_type, "mul")
 }
 
-/// Shared numeric lowering for add/sub/mul over float and integer operands.
 fn codegen_numeric_binop<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -551,7 +564,6 @@ fn codegen_numeric_binop<'context>(
     Ok(value)
 }
 
-/// Emit debug overflow checks using LLVM `with.overflow` intrinsics and trap blocks.
 fn codegen_checked_overflow_intrinsic<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -623,7 +635,6 @@ fn codegen_checked_overflow_intrinsic<'context>(
     Ok(result.as_basic_value_enum())
 }
 
-/// Lower `/` with divide-by-zero trapping for integer operands.
 fn codegen_div<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -654,7 +665,6 @@ fn codegen_div<'context>(
     Ok(value)
 }
 
-/// Lower `%` with divide-by-zero trapping for integer operands.
 fn codegen_rem<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -679,7 +689,6 @@ fn codegen_rem<'context>(
     Ok(value)
 }
 
-/// Lower comparison operators to integer or floating-point compare instructions.
 fn codegen_cmp<'context>(
     codegen_context: &CodegenContext<'context>,
     lhs: BasicValueEnum<'context>,
@@ -748,7 +757,6 @@ fn codegen_cmp<'context>(
         .as_basic_value_enum())
 }
 
-/// Lower boolean operators over i1 values.
 fn codegen_bool<'context>(
     codegen_context: &CodegenContext<'context>,
     lhs: BasicValueEnum<'context>,
@@ -766,7 +774,6 @@ fn codegen_bool<'context>(
     Ok(value.as_basic_value_enum())
 }
 
-/// Lower bitwise operators over integer values.
 fn codegen_bitwise<'context>(
     codegen_context: &CodegenContext<'context>,
     lhs: BasicValueEnum<'context>,
@@ -784,7 +791,6 @@ fn codegen_bitwise<'context>(
     Ok(value.as_basic_value_enum())
 }
 
-/// Lower integer shift operators.
 fn codegen_shift<'context>(
     codegen_context: &CodegenContext<'context>,
     lhs: BasicValueEnum<'context>,
@@ -806,7 +812,6 @@ fn codegen_shift<'context>(
     Ok(value.as_basic_value_enum())
 }
 
-/// Branch to trap when divisor evaluates to zero.
 fn emit_div_by_zero_check<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -838,7 +843,6 @@ fn emit_div_by_zero_check<'context>(
     Ok(())
 }
 
-/// Insert or reuse `llvm.trap` declaration and emit a call.
 fn emit_trap_call<'context>(
     codegen_context: &CodegenContext<'context>,
 ) -> Result<(), CodegenError> {
@@ -861,7 +865,6 @@ fn emit_trap_call<'context>(
     Ok(())
 }
 
-/// Resolve the current function from builder insertion state.
 fn current_function<'context>(
     codegen_context: &CodegenContext<'context>,
 ) -> Result<FunctionValue<'context>, CodegenError> {
@@ -878,7 +881,6 @@ fn current_function<'context>(
     Ok(function)
 }
 
-/// Convert AST type annotations into backend core types.
 fn ast_type_to_core_type(ast_type: &Type) -> Result<CoreType, CodegenError> {
     match *ast_type {
         Type::Basic { ref name, .. } => match name.as_str() {
@@ -908,7 +910,6 @@ fn ast_type_to_core_type(ast_type: &Type) -> Result<CoreType, CodegenError> {
     }
 }
 
-/// Map integer core types to LLVM integer type handles.
 fn integer_type_for<'context>(
     codegen_context: &CodegenContext<'context>,
     core_type: &CoreType,
@@ -924,7 +925,6 @@ fn integer_type_for<'context>(
     }
 }
 
-/// Map floating-point core types to LLVM float type handles.
 fn float_type_for<'context>(
     codegen_context: &CodegenContext<'context>,
     core_type: &CoreType,
@@ -938,7 +938,6 @@ fn float_type_for<'context>(
     }
 }
 
-/// Determine whether a core type is in the integer family.
 const fn is_integer_core_type(core_type: &CoreType) -> bool {
     matches!(
         *core_type,
@@ -953,12 +952,10 @@ const fn is_integer_core_type(core_type: &CoreType) -> bool {
     )
 }
 
-/// Determine whether a core type is in the floating-point family.
 const fn is_float_core_type(core_type: &CoreType) -> bool {
     matches!(*core_type, CoreType::Float32 | CoreType::Float64)
 }
 
-/// Determine whether a core type should use signed integer semantics.
 const fn is_signed_core_type(core_type: &CoreType) -> bool {
     matches!(
         *core_type,
@@ -966,7 +963,6 @@ const fn is_signed_core_type(core_type: &CoreType) -> bool {
     )
 }
 
-/// Convert signed integer literals to LLVM two's-complement bit patterns.
 fn integer_literal_bits(number: i64) -> Result<u64, CodegenError> {
     if number >= 0 {
         return u64::try_from(number).map_err(|conversion_error| {

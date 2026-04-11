@@ -1,10 +1,20 @@
 use crate::codegen::context::CodegenContext;
+use crate::codegen::control_flow::{
+    codegen_if_expression, codegen_if_statement, codegen_loop_statement, codegen_return_statement,
+};
 use crate::codegen::expressions::{codegen_expression, CodegenEnv};
+use crate::codegen::functions::{
+    codegen_call_expression, codegen_function_declaration, codegen_guard_expression,
+    codegen_propagate_expression,
+};
 use crate::codegen::statements::codegen_statement;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::{CoreType, GenericTypeParameter, TypeVar};
 use crate::{
-    ast::{BinaryOp, Expr, LetBinding, LiteralValue, NodeId, Stmt, Type, UnaryOp},
+    ast::{
+        BinaryOp, Decl, Expr, HotReloadMetadata, LabeledValue, LambdaBody, LetBinding,
+        LiteralValue, NodeId, Parameter, Stmt, Type, UnaryOp, Visibility,
+    },
     token::{Position, Span},
 };
 extern crate alloc;
@@ -102,6 +112,82 @@ fn cast(id: usize, expr: Expr, target_name: &str) -> Expr {
         },
         span: test_span(),
         id: test_node_id(id),
+    }
+}
+
+fn call_expr(id: usize, callee: Expr, args: Vec<Expr>) -> Expr {
+    Expr::Call {
+        callee: Box::new(callee),
+        generic_args: None,
+        args,
+        span: test_span(),
+        id: test_node_id(id),
+    }
+}
+
+fn return_stmt(id: usize, values: Vec<LabeledValue>) -> Stmt {
+    Stmt::Return {
+        values,
+        span: test_span(),
+        id: test_node_id(id),
+    }
+}
+
+fn labeled_value(id: usize, label: &str, value: Expr) -> LabeledValue {
+    LabeledValue {
+        label: label.to_owned(),
+        value,
+        span: test_span(),
+        id: test_node_id(id),
+    }
+}
+
+fn simple_void_function_decl(id: usize, name: &str, body: Stmt, is_entry: bool) -> Decl {
+    Decl::Function {
+        name: name.to_owned(),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![Type::Basic {
+            name: String::from("void"),
+            span: test_span(),
+        }]),
+        error_types: Vec::new(),
+        body,
+        visibility: Visibility::Public,
+        is_entry,
+        doc_comment: None,
+        span: test_span(),
+        id: test_node_id(id),
+        metadata: HotReloadMetadata::default(),
+    }
+}
+
+fn simple_i64_function_decl(id: usize, name: &str, param: &str, body: Stmt) -> Decl {
+    Decl::Function {
+        name: name.to_owned(),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: vec![Parameter {
+            name: param.to_owned(),
+            param_type: Type::Basic {
+                name: String::from("int64"),
+                span: test_span(),
+            },
+            span: test_span(),
+        }],
+        return_types: Some(vec![Type::Basic {
+            name: String::from("int64"),
+            span: test_span(),
+        }]),
+        error_types: Vec::new(),
+        body,
+        visibility: Visibility::Public,
+        is_entry: false,
+        doc_comment: None,
+        span: test_span(),
+        id: test_node_id(id),
+        metadata: HotReloadMetadata::default(),
     }
 }
 
@@ -506,5 +592,235 @@ fn test_codegen_let_assignment_array_and_access_statements() {
     assert!(
         ir.contains("getelementptr"),
         "array literal/access should emit gep instructions: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_function_declaration_lowers_function_definition() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "fn_decl");
+    let mut env = CodegenEnv::new(true);
+    let body = Stmt::Block {
+        statements: vec![return_stmt(
+            601,
+            vec![labeled_value(602, "", void_lit(603))],
+        )],
+        span: test_span(),
+        id: test_node_id(604),
+    };
+    let decl = simple_void_function_decl(605, "main", body, true);
+
+    let result = codegen_function_declaration(&codegen_context, &mut env, &decl);
+    assert!(
+        result.is_ok(),
+        "function declaration codegen should succeed for simple entry function"
+    );
+}
+
+#[test]
+fn test_codegen_call_expression_lowers_function_call() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "fn_call");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+
+    let callee_decl = simple_i64_function_decl(
+        610,
+        "inc",
+        "value",
+        return_stmt(611, vec![labeled_value(612, "", ident(613, "value"))]),
+    );
+    let decl_result = codegen_function_declaration(&codegen_context, &mut env, &callee_decl);
+    assert!(
+        decl_result.is_ok(),
+        "callee declaration codegen should succeed"
+    );
+
+    let result = codegen_call_expression(
+        &codegen_context,
+        &mut env,
+        &ident(614, "inc"),
+        &[int_lit(615, 41)],
+    );
+    assert!(
+        result.is_ok(),
+        "call expression codegen should succeed for known callee"
+    );
+}
+
+#[test]
+fn test_codegen_propagate_and_guard_expressions_lower_error_flow() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "guard_propagate");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+
+    let guard_result = codegen_guard_expression(
+        &codegen_context,
+        &mut env,
+        &call_expr(620, ident(621, "fallible"), vec![int_lit(622, 1)]),
+        "ok_value",
+    );
+    assert!(
+        guard_result.is_ok(),
+        "guard codegen should lower to branch-based error handling"
+    );
+
+    let propagate_result = codegen_propagate_expression(
+        &codegen_context,
+        &mut env,
+        &call_expr(623, ident(624, "fallible"), vec![int_lit(625, 2)]),
+    );
+    assert!(
+        propagate_result.is_ok(),
+        "propagate codegen should lower to early-return error path"
+    );
+}
+
+#[test]
+fn test_codegen_if_statement_and_if_expression_lower_control_flow() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "if_codegen");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+
+    let if_stmt_result = codegen_if_statement(
+        &codegen_context,
+        &mut env,
+        &bool_lit(630, true),
+        &Stmt::Expression {
+            expr: int_lit(631, 1),
+            span: test_span(),
+            id: test_node_id(632),
+        },
+        Some(&Stmt::Expression {
+            expr: int_lit(633, 2),
+            span: test_span(),
+            id: test_node_id(634),
+        }),
+    );
+    assert!(
+        if_stmt_result.is_ok(),
+        "if statement codegen should emit conditional branches"
+    );
+
+    let if_expr_result = codegen_if_expression(
+        &codegen_context,
+        &mut env,
+        &bool_lit(635, true),
+        &Stmt::Expression {
+            expr: int_lit(636, 10),
+            span: test_span(),
+            id: test_node_id(637),
+        },
+        Some(&Stmt::Expression {
+            expr: int_lit(638, 20),
+            span: test_span(),
+            id: test_node_id(639),
+        }),
+    );
+    assert!(
+        if_expr_result.is_ok(),
+        "if expression codegen should emit phi-backed merged value"
+    );
+}
+
+#[test]
+fn test_codegen_loop_forms_and_return_multi_value() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "loop_return");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+
+    let while_stmt = Stmt::While {
+        condition: bool_lit(640, true),
+        body: Box::new(Stmt::Block {
+            statements: vec![Stmt::Break {
+                values: Vec::new(),
+                span: test_span(),
+                id: test_node_id(641),
+            }],
+            span: test_span(),
+            id: test_node_id(642),
+        }),
+        span: test_span(),
+        id: test_node_id(643),
+    };
+
+    let while_result = codegen_loop_statement(&codegen_context, &mut env, &while_stmt);
+    assert!(
+        while_result.is_ok(),
+        "while loop codegen should emit condition and back-edge blocks"
+    );
+
+    let loop_stmt = Stmt::Loop {
+        body: Box::new(Stmt::Block {
+            statements: vec![Stmt::Continue {
+                values: Vec::new(),
+                span: test_span(),
+                id: test_node_id(644),
+            }],
+            span: test_span(),
+            id: test_node_id(645),
+        }),
+        span: test_span(),
+        id: test_node_id(646),
+    };
+
+    let loop_result = codegen_loop_statement(&codegen_context, &mut env, &loop_stmt);
+    assert!(
+        loop_result.is_ok(),
+        "loop codegen should emit unconditional back-edge and break target"
+    );
+
+    let return_result = codegen_return_statement(
+        &codegen_context,
+        &mut env,
+        &[
+            labeled_value(647, "lhs", int_lit(648, 1)),
+            labeled_value(649, "rhs", int_lit(650, 2)),
+        ],
+    );
+    assert!(
+        return_result.is_ok(),
+        "return statement codegen should support aggregate multi-value return"
+    );
+}
+
+#[test]
+fn test_codegen_lambda_closure_as_function_value() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "lambda_codegen");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+
+    let lambda_expr = Expr::Lambda {
+        generic_params: None,
+        generic_constraints: None,
+        params: vec![Parameter {
+            name: String::from("value"),
+            param_type: Type::Basic {
+                name: String::from("int64"),
+                span: test_span(),
+            },
+            span: test_span(),
+        }],
+        return_types: vec![Type::Basic {
+            name: String::from("int64"),
+            span: test_span(),
+        }],
+        error_types: Vec::new(),
+        body: LambdaBody::Expression(Box::new(ident(661, "value"))),
+        captured_variables: vec![String::from("capture")],
+        metadata: Box::new(HotReloadMetadata::default()),
+        span: test_span(),
+        id: test_node_id(662),
+    };
+
+    let call_result =
+        codegen_call_expression(&codegen_context, &mut env, &lambda_expr, &[int_lit(663, 3)]);
+    assert!(
+        call_result.is_ok(),
+        "lambda/closure codegen should lower captured lambda as callable function value"
     );
 }
