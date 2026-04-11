@@ -24,6 +24,9 @@ pub mod functions;
 #[doc = "Generic monomorphization naming and specialization cache wiring."]
 #[path = "codegen/monomorphization.rs"]
 pub mod monomorphization;
+#[doc = "LLVM optimization pass pipeline configuration."]
+#[path = "codegen/optimization.rs"]
+pub mod optimization;
 /// Statement lowering for LLVM backend.
 #[path = "codegen/statements.rs"]
 pub mod statements;
@@ -35,3 +38,6 @@ pub mod values;
 #[cfg(test)]
 #[path = "codegen/tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "codegen/tests_optimization.rs"]
+mod tests_optimization;

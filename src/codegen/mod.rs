@@ -19,8 +19,8 @@ pub mod context;
 pub mod control_flow;
 pub mod expressions;
 pub mod functions;
-/// Generic monomorphization naming and specialization cache wiring.
 pub mod monomorphization;
+pub mod optimization;
 pub mod statements;
 /// Core type to LLVM type conversion utilities.
 pub mod types;
@@ -29,3 +29,5 @@ pub mod values;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_optimization;
