@@ -21,6 +21,13 @@ A statically-typed, expression-oriented programming language with first-class er
   - [Project Configuration (`opal.toml`)](#project-configuration-opaltoml)
   - [Package Manifest (`opal.pkg.toml`)](#package-manifest-opalpkgtoml)
   - [Source File Conventions](#source-file-conventions)
+- [Compiler](#compiler)
+  - [Compiler Pipeline](#compiler-pipeline)
+  - [Escape Hatches](#escape-hatches)
+- [Testing](#testing)
+  - [Test Projects](#test-projects)
+  - [Integration Tests](#integration-tests)
+  - [Test Project Conventions](#test-project-conventions)
 - [Package Manager](#package-manager)
 - [Formatter](#formatter)
 - [Language Server (LSP)](#language-server-lsp)
@@ -519,6 +526,120 @@ opal-json = ">=1.0.0"
 | Doc comments | Required on all public functions (≥ 30 chars) |
 | No semicolons | Statement termination uses newlines |
 | Indentation | 4 spaces (configurable via `opal-fmt.toml`) |
+
+---
+
+## Compiler
+
+### Compiler Pipeline
+
+The Opalescent compiler pipeline processes source code through several stages to produce a native binary:
+
+1. **Lexing & Parsing** — Source text is tokenized and parsed into an Abstract Syntax Tree (AST)
+2. **Type Checking** — The AST is analyzed for type correctness and symbol resolution
+3. **Code Generation** — Type-checked AST is lowered to LLVM IR via Inkwell
+4. **Object Emission** — LLVM IR is compiled to native object code (`.o` file)
+5. **Linking** — The object file is linked with the C runtime to produce the final binary
+
+The entry point is `compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, CompileError>`, which orchestrates all stages:
+
+```rust
+// Compiles source code and produces a binary at output_dir/program
+let binary_path = compile_program(source, Path::new("target"))?;
+std::process::Command::new(binary_path).spawn()?.wait()?;
+```
+
+The compiler creates two artifacts inside `output_dir`:
+- `program.o` — intermediate object file
+- `program` — final executable binary
+
+### Escape Hatches
+
+The following escape hatches are used to work around platform-specific constraints and linker incompatibilities:
+
+| Platform | Escape Hatch | Reason |
+|----------|-------------|--------|
+| Linux (x86_64) | `-no-pie` flag to linker | Avoids Position-Independent Executable (PIE) relocation failure (`R_X86_64_32S`) on x86_64; required for compatibility with emitted object files |
+
+No other escape hatches were needed for current targets.
+
+---
+
+## Testing
+
+### Test Projects
+
+Test projects are located in the `test-projects/` directory. Each is a minimal Opalescent program demonstrating specific language features or use cases. They serve as integration tests and examples:
+
+**Available test projects:**
+
+| Project | Location | Purpose |
+|---------|----------|---------|
+| `hello-world` | `test-projects/hello-world/` | Basic I/O and program entry |
+| `fib-recursive` | `test-projects/fib-recursive/` | Recursive function calls and integer arithmetic |
+| `fib-iterative` | `test-projects/fib-iterative/` | Iterative loops and mutable state |
+| `simple-quiz` | `test-projects/simple-quiz/` | User input, conditionals, and randomness |
+
+Each test project follows a standard structure (see [Test Project Conventions](#test-project-conventions) below).
+
+### Integration Tests
+
+Integration tests compile and execute test projects end-to-end. They verify that the compiler pipeline (lexing, parsing, type checking, code generation, linking, execution) works correctly.
+
+**Running integration tests:**
+
+```bash
+# Run all integration tests
+cargo test --features integration
+
+# Run a specific integration test
+cargo test --features integration simple_quiz_compiles_links_and_runs
+```
+
+Integration tests are gated behind the `integration` feature flag in `Cargo.toml` because they:
+- Write files to disk (`test-projects/<name>/target/`)
+- Spawn external processes
+- Take longer to execute than unit tests
+
+Test artifacts are automatically cleaned up after each test execution.
+
+### Test Project Conventions
+
+All `.op` files in test projects must follow these conventions:
+
+**Syntax:**
+- Use **brace syntax `{ }`** for block expressions (the parser does not support colon-indentation blocks)
+- Statements use newlines for termination (no semicolons)
+
+**Types:**
+- Use **`int64` for all numeric types** (not `int32`)
+- String types use the built-in `string` type
+
+**Entry Function:**
+- Entry function must be named `f()` with no parameters and return type `void`:
+
+```opal
+entry main = f(): void =>
+    print('Hello world')
+    return void
+```
+
+**Project Structure:**
+- `opal.toml` — Project metadata and dependencies
+- `.gitignore` — Typical `target/` and artifact entries
+- `README.md` — Brief description of the test project
+- `src/main.op` — Opalescent source code with `entry main`
+
+**Example directory layout:**
+
+```
+test-projects/hello-world/
+├── opal.toml
+├── .gitignore
+├── README.md
+└── src/
+    └── main.op
+```
 
 ---
 
