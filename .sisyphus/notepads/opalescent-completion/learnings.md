@@ -69,3 +69,10 @@
 - Added TDD coverage in parser/type-system tests for inference success, branch mismatch failure, and else-less behavior.
 - Extracted control-flow typing into new `src/type_system/checker/control_flow.rs` to satisfy line-count constraints while sharing guard/if helpers.
 - Validation: cargo make lint-fix PASS, cargo make lint PASS, cargo make test PASS (276 passed), scripts/check-line-count.sh PASS.
+
+## [2026-04-11] Task 7: Member Access Type Checking - COMPLETE
+- Implemented `Expr::Member` handling in `type_check_expr` with receiver-first typing and support for chained member access.
+- Added module member resolution via qualified symbol lookup (`module.member`) and basic struct-like field resolution via nominal lookup (`Type.member`).
+- Missing members now emit `TypeError::SymbolNotFound` with source span preserved, and tests assert qualified names in diagnostics.
+- Added RED→GREEN tests for module member success, struct-like field success, missing member error/span, and chained access success.
+- Validation: cargo make test PASS (287 passed, 1 ignored), cargo make lint PASS, cargo make lint-fix PASS, scripts/check-line-count.sh PASS.

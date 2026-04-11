@@ -19,3 +19,7 @@
 - ParseError is registered as a nominal core type in TypeEnvironment bootstrap to satisfy built-in error signature resolution.
 - Generic built-in specialization uses per-call fresh type-variable instantiation, isolated in checker/call_resolution.rs to satisfy line-count constraints.
 - hello_world spec validation in tests uses tab-to-spaces normalization helper to avoid lexer mixed-whitespace rejection while preserving program semantics.
+## [2026-04-11] Task 7: Member Access Resolution Strategy
+- Chose symbol-table-driven member lookup for Phase 2 instead of introducing new `CoreType` variants or full HasField constraints.
+- Resolution order for `Expr::Member`: first check `identifier.member` (module-style access), then fallback to `GenericTypeName.member` for basic nominal field access.
+- Deferred full ADT/HasField constraint enforcement to Phase 3 per plan; current approach keeps member typing functional without expanding constraint solver scope.

@@ -4627,3 +4627,183 @@ fn test_hello_world_spec_file_type_checks_with_builtins() {
         "language-spec/hello_world.op should type check once built-ins are registered: {result:?}"
     );
 }
+
+#[test]
+fn test_member_access_module_member_resolves_type() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "math".to_owned(),
+        symbol_type: SymbolType::Constant,
+        core_type: CoreType::Generic {
+            name: "math".to_owned(),
+            type_args: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    checker.register_symbol(SymbolInfo {
+        name: "math.sqrt".to_owned(),
+        symbol_type: SymbolType::Function,
+        core_type: CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: vec![CoreType::Int32],
+            return_types: vec![CoreType::Int32],
+            error_types: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+
+    let expr = Expr::Member {
+        object: Box::new(identifier_expr("math", 81_000)),
+        member: "sqrt".to_owned(),
+        span: test_span(),
+        id: node_id(81_001),
+    };
+
+    let result = checker.type_check_expr(&expr);
+    assert!(result.is_ok(), "module member access should type check");
+    assert!(
+        matches!(result, Ok(CoreType::Function { .. })),
+        "math.sqrt should resolve to function type"
+    );
+}
+
+#[test]
+fn test_member_access_struct_like_field_resolves_type() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "person".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Generic {
+            name: "Person".to_owned(),
+            type_args: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    checker.register_symbol(SymbolInfo {
+        name: "Person.name".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::String,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+
+    let expr = Expr::Member {
+        object: Box::new(identifier_expr("person", 82_000)),
+        member: "name".to_owned(),
+        span: test_span(),
+        id: node_id(82_001),
+    };
+
+    let result = checker.type_check_expr(&expr);
+    assert_eq!(
+        result,
+        Ok(CoreType::String),
+        "field should resolve to string"
+    );
+}
+
+#[test]
+fn test_member_access_missing_member_reports_symbol_error_with_span() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "math".to_owned(),
+        symbol_type: SymbolType::Constant,
+        core_type: CoreType::Generic {
+            name: "math".to_owned(),
+            type_args: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+
+    let member_span = span_with_offset(210, 9);
+    let expr = Expr::Member {
+        object: Box::new(Expr::Identifier {
+            name: "math".to_owned(),
+            span: member_span,
+            id: node_id(83_000),
+        }),
+        member: "does_not_exist".to_owned(),
+        span: member_span,
+        id: node_id(83_001),
+    };
+
+    let result = checker.type_check_expr(&expr);
+    match result {
+        Err(TypeError::SymbolNotFound { name, span }) => {
+            assert_eq!(
+                name, "math.does_not_exist",
+                "missing member should be qualified"
+            );
+            assert_eq!(
+                span,
+                TypeError::span_from_span(member_span),
+                "error should preserve source span"
+            );
+        }
+        other => {
+            assert!(
+                matches!(other, Err(TypeError::SymbolNotFound { .. })),
+                "expected SymbolNotFound for missing member, got {other:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_member_access_chained_member_resolves_type() {
+    let mut checker = TypeChecker::new();
+    checker.register_symbol(SymbolInfo {
+        name: "pkg".to_owned(),
+        symbol_type: SymbolType::Constant,
+        core_type: CoreType::Generic {
+            name: "pkg".to_owned(),
+            type_args: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    checker.register_symbol(SymbolInfo {
+        name: "pkg.math".to_owned(),
+        symbol_type: SymbolType::Constant,
+        core_type: CoreType::Generic {
+            name: "MathModule".to_owned(),
+            type_args: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+    checker.register_symbol(SymbolInfo {
+        name: "MathModule.sqrt".to_owned(),
+        symbol_type: SymbolType::Function,
+        core_type: CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: vec![CoreType::Int32],
+            return_types: vec![CoreType::Int32],
+            error_types: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+    });
+
+    let expr = Expr::Member {
+        object: Box::new(Expr::Member {
+            object: Box::new(identifier_expr("pkg", 84_000)),
+            member: "math".to_owned(),
+            span: test_span(),
+            id: node_id(84_001),
+        }),
+        member: "sqrt".to_owned(),
+        span: test_span(),
+        id: node_id(84_002),
+    };
+
+    let result = checker.type_check_expr(&expr);
+    assert!(
+        matches!(result, Ok(CoreType::Function { .. })),
+        "chained member access should resolve to final member type"
+    );
+}

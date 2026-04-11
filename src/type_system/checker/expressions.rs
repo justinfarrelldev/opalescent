@@ -15,7 +15,7 @@ use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::{boxed::Box, format, string::String, vec::Vec};
 
 /// Result of typing the `else` branch of a guard expression.
 ///
@@ -82,10 +82,62 @@ impl TypeChecker {
                 span,
                 ..
             } => self.type_check_index_expr(object.as_ref(), index.as_ref(), span),
-            Expr::Member { span, .. } => Err(TypeError::NotImplementedYet {
-                feature: "member access type checking".to_owned(),
-                span: TypeError::span_from_span(span),
-            }),
+            Expr::Member {
+                ref object,
+                ref member,
+                span,
+                ..
+            } => {
+                let object_type = self.type_check_expr(object.as_ref())?;
+
+                if let Expr::Identifier {
+                    ref name,
+                    span: object_span,
+                    ..
+                } = **object
+                {
+                    let qualified_member = format!("{name}.{member}");
+                    if let Some(symbol) = self.symbol_table().lookup(&qualified_member) {
+                        return Ok(symbol.core_type.clone());
+                    }
+
+                    if let CoreType::Generic {
+                        name: ref type_name,
+                        ..
+                    } = object_type
+                    {
+                        let nominal_member = format!("{type_name}.{member}");
+                        if let Some(symbol) = self.symbol_table().lookup(&nominal_member) {
+                            return Ok(symbol.core_type.clone());
+                        }
+                    }
+
+                    return Err(TypeError::SymbolNotFound {
+                        name: qualified_member,
+                        span: TypeError::span_from_span(object_span),
+                    });
+                }
+
+                if let CoreType::Generic {
+                    name: type_name, ..
+                } = object_type
+                {
+                    let nominal_member = format!("{type_name}.{member}");
+                    if let Some(symbol) = self.symbol_table().lookup(&nominal_member) {
+                        return Ok(symbol.core_type.clone());
+                    }
+
+                    return Err(TypeError::SymbolNotFound {
+                        name: nominal_member,
+                        span: TypeError::span_from_span(span),
+                    });
+                }
+
+                Err(TypeError::SymbolNotFound {
+                    name: member.to_owned(),
+                    span: TypeError::span_from_span(span),
+                })
+            }
             Expr::Cast {
                 ref expr,
                 ref target_type,
