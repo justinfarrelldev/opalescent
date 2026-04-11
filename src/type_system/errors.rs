@@ -452,6 +452,22 @@ pub enum TypeError {
         /// Source span of the mismatching return statement.
         span: SourceSpan,
     },
+
+    #[error("If expression used for a value must include an else branch")]
+    #[diagnostic(
+        code(opalescent::type_system::missing_else_branch),
+        help(
+            "Add an `else` branch that returns '{expected_type}' so the expression is exhaustive"
+        )
+    )]
+    /// If expression without else used in a non-unit value context.
+    MissingElseBranch {
+        /// Non-unit type required by the surrounding value position.
+        expected_type: String,
+        #[label("if expression without else used in non-unit context")]
+        /// Span of the non-exhaustive if expression.
+        span: SourceSpan,
+    },
 }
 
 /// Warning diagnostics produced during type checking.

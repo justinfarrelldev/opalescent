@@ -10,7 +10,7 @@ use crate::ast::{AstNode, Expr, LabeledValue, LetBinding, LiteralValue, Stmt, Ty
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
-use crate::type_system::errors::TypeError;
+use crate::type_system::errors::{TypeError, Warning};
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 use alloc::format;
@@ -23,8 +23,25 @@ impl TypeChecker {
         statements: &[Stmt],
         expected_return: Option<&[CoreType]>,
     ) -> Result<(), TypeError> {
+        let mut terminator_seen = false;
+        let mut unreachable_warning_emitted = false;
         for statement in statements {
+            if terminator_seen && !unreachable_warning_emitted {
+                self.push_warning(Warning::UnreachableCode {
+                    span: TypeError::span_from_span(statement.span()),
+                    suppression_annotation: None,
+                });
+                unreachable_warning_emitted = true;
+            }
+
             self.type_check_stmt_with_return(statement, expected_return)?;
+
+            if matches!(
+                statement,
+                &Stmt::Return { .. } | &Stmt::Break { .. } | &Stmt::Continue { .. }
+            ) {
+                terminator_seen = true;
+            }
         }
         Ok(())
     }
@@ -66,6 +83,7 @@ impl TypeChecker {
                 let condition_type = self.type_check_expr(condition)?;
                 ensure_boolean_type(&condition_type, condition.span(), "if condition")?;
                 self.within_new_scope(|checker| {
+                    checker.apply_true_branch_type_narrowing(condition);
                     checker.type_check_stmt_with_return(then_branch.as_ref(), expected_return)
                 })?;
                 if let Some(else_branch_stmt) = else_branch.as_deref() {
@@ -183,19 +201,39 @@ impl TypeChecker {
 
         let final_type = match (annotated_type, initializer_info) {
             (Some(expected), Some((actual, expr))) => {
-                let reconciled = if self.types_compatible(&expected, &actual)
-                    || matches!(actual, CoreType::Variable(_))
+                let reconciled = if let &Expr::If {
+                    ref condition,
+                    ref then_branch,
+                    ref else_branch,
+                    span,
+                    ..
+                } = expr
+                {
+                    self.type_check_if_expr(
+                        condition.as_ref(),
+                        then_branch.as_ref(),
+                        else_branch.as_deref(),
+                        span,
+                        Some(&expected),
+                    )?
+                } else {
+                    actual
+                };
+
+                let reconciled = if self.types_compatible(&expected, &reconciled)
+                    || matches!(reconciled, CoreType::Variable(_))
                     || matches!(&expected, &CoreType::Variable(_))
                 {
-                    actual
-                } else if let Some(adjusted) = coerce_literal_to_expected(&expected, expr, &actual)
+                    reconciled
+                } else if let Some(adjusted) =
+                    coerce_literal_to_expected(&expected, expr, &reconciled)
                 {
                     adjusted
                 } else {
                     return Err(type_mismatch_error(
                         &expected,
                         binding.type_annotation.as_ref().map(Type::span),
-                        &actual,
+                        &reconciled,
                         expr.span(),
                     ));
                 };
@@ -387,7 +425,24 @@ impl TypeChecker {
                 continue;
             }
 
-            let value_type = self.type_check_expr(&value.value)?;
+            let value_type = if let &Expr::If {
+                ref condition,
+                ref then_branch,
+                ref else_branch,
+                span: if_span,
+                ..
+            } = &value.value
+            {
+                self.type_check_if_expr(
+                    condition.as_ref(),
+                    then_branch.as_ref(),
+                    else_branch.as_deref(),
+                    if_span,
+                    Some(expected_type),
+                )?
+            } else {
+                self.type_check_expr(&value.value)?
+            };
             let reconciled_type = if self.types_compatible(expected_type, &value_type)
                 || matches!(value_type, CoreType::Variable(_))
                 || matches!(expected_type, &CoreType::Variable(_))

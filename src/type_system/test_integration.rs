@@ -574,4 +574,85 @@ entry main = f(): int64 => {
             checker.warnings(),
         );
     }
+
+    #[test]
+    fn test_unreachable_code_after_return_emits_warning() {
+        const SOURCE: &str = "
+entry main = f(): int64 => {
+    return 1
+    let dead_value: int64 = 2
+}
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        assert!(
+            result.is_ok(),
+            "unreachable code should not be a hard type error: {result:?}",
+        );
+        let has_unreachable_warning = checker.warnings().iter().any(|warning| {
+            matches!(
+                *warning,
+                crate::type_system::errors::Warning::UnreachableCode { .. }
+            )
+        });
+        assert!(
+            has_unreachable_warning,
+            "expected UnreachableCode warning, got: {:?}",
+            checker.warnings(),
+        );
+    }
+
+    #[test]
+    fn test_if_expression_without_else_in_non_unit_return_reports_exhaustiveness_error() {
+        const SOURCE: &str = "
+entry main = f(flag: boolean): int64 =>
+    return if flag { 1 }
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        let errors = result.expect_err("missing else in value-returning if must fail");
+        let has_missing_else_diagnostic = errors.iter().any(|error| {
+            matches!(
+                *error,
+                TypeError::MissingElseBranch {
+                    ref expected_type,
+                    ..
+                } if expected_type == "int64"
+            )
+        });
+        assert!(
+            has_missing_else_diagnostic,
+            "expected missing-else exhaustiveness diagnostic, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_if_is_type_narrows_true_branch_binding() {
+        const SOURCE: &str = "
+public narrow = f<T>(input: T): int32 => {
+    if input is int32 {
+        return input
+    }
+    return 0
+}
+
+entry main = f(): int32 =>
+    return narrow(1)
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        assert!(
+            result.is_ok(),
+            "if `is` condition should narrow type in true branch: {result:?}",
+        );
+    }
 }

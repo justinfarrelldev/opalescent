@@ -51,7 +51,9 @@ impl TypeChecker {
                 ref else_branch,
                 span,
                 ..
-            } => self.type_check_if_expr(condition, then_branch, else_branch.as_deref(), span),
+            } => {
+                self.type_check_if_expr(condition, then_branch, else_branch.as_deref(), span, None)
+            }
             Expr::Binary {
                 ref left,
                 ref operator,
@@ -583,6 +585,10 @@ impl TypeChecker {
 
     /// Type check a binary expression, enforcing operand compatibility, recording inference
     /// constraints, and returning the resulting core type for subsequent analysis.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Binary expression typing keeps all operator cases in one place"
+    )]
     pub(super) fn type_check_binary_expr(
         &mut self,
         left: &Expr,
@@ -590,6 +596,13 @@ impl TypeChecker {
         right: &Expr,
         span: Span,
     ) -> Result<CoreType, TypeError> {
+        if matches!(*operator, BinaryOp::Is | BinaryOp::IsNot)
+            && matches!(left, &Expr::Identifier { .. })
+            && matches!(right, &Expr::Identifier { .. })
+        {
+            return Ok(CoreType::Boolean);
+        }
+
         let left_type = self.type_check_expr(left)?;
         let right_type = self.type_check_expr(right)?;
         let op_name = binary_operation_name(operator);

@@ -130,3 +130,13 @@
 - Preserved shadowing semantics: same-scope re-`let` continues to register a new symbol entry; immutability validation only applies to assignment statements.
 - Added integration tests for immutable assignment failure, mutable assignment success, unused warning emission, and underscore suppression.
 - Validation: `timeout 30 cargo test` PASS (318 passed, 3 ignored), `cargo make lint-fix` PASS, `cargo make lint` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files.
+
+## [2026-04-10] Task 13: Control Flow Completion
+- Added `TypeError::MissingElseBranch` (`opalescent::type_system::missing_else_branch`) for non-exhaustive `if` expressions used in non-unit value contexts.
+- Added `Warning::UnreachableCode` emission in statement blocks after `return`/`break`/`continue`; warning span points at the first unreachable statement while still type-checking subsequent statements.
+- Implemented branch-local narrowing for `if x is SomeType` in both expression and statement control-flow paths by shadow-registering `x` with the narrowed type inside the true-branch scope.
+- Enabled parser support for primitive type tokens (`int32`, `string`, etc.) in expression position so `x is int32` parses as intended for narrowing.
+- Updated binary `is`/`is not` typing to permit identifier-vs-identifier type-test form used by narrowing predicates.
+- Added integration tests in `src/type_system/test_integration.rs` for unreachable warning, missing-else exhaustiveness error, and true-branch type narrowing.
+- Updated existing type-system test expectation for else-less `if` from generic `TypeMismatch` to `TypeError::MissingElseBranch`.
+- Validation: `timeout 30 cargo test` PASS (321 passed, 3 ignored), `cargo make lint-fix` PASS, `cargo make lint` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on all changed files.

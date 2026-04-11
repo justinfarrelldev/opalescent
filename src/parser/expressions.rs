@@ -55,6 +55,18 @@ impl Parser {
             &TokenType::BooleanLiteral(value) => Ok(self.parse_boolean_literal(value, span)),
             &TokenType::Void => Ok(self.parse_void_literal(span)),
             &TokenType::Identifier(ref name) => Ok(self.parse_identifier(name.clone(), span)),
+            &TokenType::Int8 => Ok(self.parse_identifier("int8".to_owned(), span)),
+            &TokenType::Int16 => Ok(self.parse_identifier("int16".to_owned(), span)),
+            &TokenType::Int32 => Ok(self.parse_identifier("int32".to_owned(), span)),
+            &TokenType::Int64 => Ok(self.parse_identifier("int64".to_owned(), span)),
+            &TokenType::UInt8 => Ok(self.parse_identifier("uint8".to_owned(), span)),
+            &TokenType::UInt16 => Ok(self.parse_identifier("uint16".to_owned(), span)),
+            &TokenType::UInt32 => Ok(self.parse_identifier("uint32".to_owned(), span)),
+            &TokenType::UInt64 => Ok(self.parse_identifier("uint64".to_owned(), span)),
+            &TokenType::Float32 => Ok(self.parse_identifier("float32".to_owned(), span)),
+            &TokenType::Float64 => Ok(self.parse_identifier("float64".to_owned(), span)),
+            &TokenType::String => Ok(self.parse_identifier("string".to_owned(), span)),
+            &TokenType::Boolean => Ok(self.parse_identifier("boolean".to_owned(), span)),
             &TokenType::LeftParen => self.parse_parenthesized_expression(span),
             &TokenType::Minus | &TokenType::Plus | &TokenType::Not | &TokenType::BitNot => {
                 let token_type = token.token_type.clone();
@@ -758,7 +770,9 @@ impl Parser {
             }
         }
 
-        if let Err(parse_error) = self.consume(&TokenType::RightParen, "Expected ')' after arguments") {
+        if let Err(parse_error) =
+            self.consume(&TokenType::RightParen, "Expected ')' after arguments")
+        {
             return Some(Err(parse_error));
         }
 

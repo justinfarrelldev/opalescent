@@ -2857,10 +2857,16 @@ fn test_symbol_table_scope_management() {
     let mut table = SymbolTable::new();
 
     // Register in global scope
-    table.register(SymbolInfo { name: "global_var".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Int32,
-    visibility: Visibility::Public, source_location: Span::single(Position::start()), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    table.register(SymbolInfo {
+        name: "global_var".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int32,
+        visibility: Visibility::Public,
+        source_location: Span::single(Position::start()),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     // Should find global variable
     assert!(table.contains("global_var"));
@@ -2871,10 +2877,16 @@ fn test_symbol_table_scope_management() {
     assert_ne!(func_scope, ScopeId(0));
 
     // Register parameter in function scope
-    table.register(SymbolInfo { name: "param".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::String,
-    visibility: Visibility::Private, source_location: Span::single(Position::start()), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    table.register(SymbolInfo {
+        name: "param".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::String,
+        visibility: Visibility::Private,
+        source_location: Span::single(Position::start()),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     // Should find both global and local
     assert!(
@@ -2896,10 +2908,16 @@ fn test_symbol_table_scope_management() {
     assert_ne!(block_scope, func_scope);
 
     // Register local variable in block
-    table.register(SymbolInfo { name: "local_var".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Boolean,
-    visibility: Visibility::Private, source_location: Span::single(Position::start()), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    table.register(SymbolInfo {
+        name: "local_var".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Boolean,
+        visibility: Visibility::Private,
+        source_location: Span::single(Position::start()),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     // Should find all three variables
     assert!(table.contains("global_var"));
@@ -2934,20 +2952,32 @@ fn test_symbol_table_shadowing() {
     let mut table = SymbolTable::new();
 
     // Register in global scope
-    table.register(SymbolInfo { name: "x".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Int32,
-    visibility: Visibility::Private, source_location: Span::single(Position::start()), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    table.register(SymbolInfo {
+        name: "x".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int32,
+        visibility: Visibility::Private,
+        source_location: Span::single(Position::start()),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     let global_x = table.lookup("x").unwrap();
     assert_eq!(global_x.core_type, CoreType::Int32);
 
     // Enter scope and shadow x
     table.enter_scope();
-    table.register(SymbolInfo { name: "x".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::String,
-    visibility: Visibility::Private, source_location: Span::single(Position::start()), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    table.register(SymbolInfo {
+        name: "x".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::String,
+        visibility: Visibility::Private,
+        source_location: Span::single(Position::start()),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     // Should find shadowed version
     let shadowed_x = table.lookup("x").unwrap();
@@ -2974,37 +3004,55 @@ fn test_symbol_table_exported_symbols() {
     let mut table = SymbolTable::new();
 
     // Register public symbol in global scope
-    table.register(SymbolInfo { name: "public_func".to_owned(),
-    symbol_type: SymbolType::Function,
-    core_type: CoreType::Function {
-        generic_params: Vec::new(),
-        parameters: vec![],
-        return_types: vec![CoreType::Unit],
-        error_types: vec![],
-    },
-    visibility: Visibility::Public, source_location: Span::single(Position::start()), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    table.register(SymbolInfo {
+        name: "public_func".to_owned(),
+        symbol_type: SymbolType::Function,
+        core_type: CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: vec![],
+            return_types: vec![CoreType::Unit],
+            error_types: vec![],
+        },
+        visibility: Visibility::Public,
+        source_location: Span::single(Position::start()),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     // Register entry point in global scope
-    table.register(SymbolInfo { name: "main".to_owned(),
-    symbol_type: SymbolType::Function,
-    core_type: CoreType::Function {
-        generic_params: Vec::new(),
-        parameters: vec![],
-        return_types: vec![CoreType::Unit],
-        error_types: vec![],
-    },
-    visibility: Visibility::Entry, source_location: Span::single(Position::start()), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    table.register(SymbolInfo {
+        name: "main".to_owned(),
+        symbol_type: SymbolType::Function,
+        core_type: CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: vec![],
+            return_types: vec![CoreType::Unit],
+            error_types: vec![],
+        },
+        visibility: Visibility::Entry,
+        source_location: Span::single(Position::start()),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     // Register private symbol in global scope
-    table.register(SymbolInfo { name: "private_func".to_owned(),
-    symbol_type: SymbolType::Function,
-    core_type: CoreType::Function {
-        generic_params: Vec::new(),
-        parameters: vec![],
-        return_types: vec![CoreType::Unit],
-        error_types: vec![],
-    },
-    visibility: Visibility::Private, source_location: Span::single(Position::start()), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    table.register(SymbolInfo {
+        name: "private_func".to_owned(),
+        symbol_type: SymbolType::Function,
+        core_type: CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: vec![],
+            return_types: vec![CoreType::Unit],
+            error_types: vec![],
+        },
+        visibility: Visibility::Private,
+        source_location: Span::single(Position::start()),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     let exported = table.exported_symbols();
     assert_eq!(exported.len(), 2, "Should have 2 exported symbols");
@@ -3561,7 +3609,7 @@ fn test_else_less_if_expression_defaults_to_unit_type() {
             result,
             Err(ref errors) if errors
                 .iter()
-                .any(|error| matches!(*error, TypeError::TypeMismatch { .. }))
+                .any(|error| matches!(*error, TypeError::MissingElseBranch { .. }))
         ),
         "else-less if expressions should type as unit and fail non-unit annotation checks"
     );
@@ -4629,22 +4677,34 @@ fn test_hello_world_spec_file_type_checks_with_builtins() {
 #[test]
 fn test_member_access_module_member_resolves_type() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "math".to_owned(),
-    symbol_type: SymbolType::Constant,
-    core_type: CoreType::Generic {
+    checker.register_symbol(SymbolInfo {
         name: "math".to_owned(),
-        type_args: Vec::new(),
-    },
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
-    checker.register_symbol(SymbolInfo { name: "math.sqrt".to_owned(),
-    symbol_type: SymbolType::Function,
-    core_type: CoreType::Function {
-        generic_params: Vec::new(),
-        parameters: vec![CoreType::Int32],
-        return_types: vec![CoreType::Int32],
-        error_types: Vec::new(),
-    },
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+        symbol_type: SymbolType::Constant,
+        core_type: CoreType::Generic {
+            name: "math".to_owned(),
+            type_args: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
+    checker.register_symbol(SymbolInfo {
+        name: "math.sqrt".to_owned(),
+        symbol_type: SymbolType::Function,
+        core_type: CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: vec![CoreType::Int32],
+            return_types: vec![CoreType::Int32],
+            error_types: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     let expr = Expr::Member {
         object: Box::new(identifier_expr("math", 81_000)),
@@ -4664,17 +4724,29 @@ fn test_member_access_module_member_resolves_type() {
 #[test]
 fn test_member_access_struct_like_field_resolves_type() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "person".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Generic {
-        name: "Person".to_owned(),
-        type_args: Vec::new(),
-    },
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
-    checker.register_symbol(SymbolInfo { name: "Person.name".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::String,
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    checker.register_symbol(SymbolInfo {
+        name: "person".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Generic {
+            name: "Person".to_owned(),
+            type_args: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
+    checker.register_symbol(SymbolInfo {
+        name: "Person.name".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::String,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     let expr = Expr::Member {
         object: Box::new(identifier_expr("person", 82_000)),
@@ -4694,13 +4766,19 @@ fn test_member_access_struct_like_field_resolves_type() {
 #[test]
 fn test_member_access_missing_member_reports_symbol_error_with_span() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "math".to_owned(),
-    symbol_type: SymbolType::Constant,
-    core_type: CoreType::Generic {
+    checker.register_symbol(SymbolInfo {
         name: "math".to_owned(),
-        type_args: Vec::new(),
-    },
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+        symbol_type: SymbolType::Constant,
+        core_type: CoreType::Generic {
+            name: "math".to_owned(),
+            type_args: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     let member_span = span_with_offset(210, 9);
     let expr = Expr::Member {
@@ -4739,29 +4817,47 @@ fn test_member_access_missing_member_reports_symbol_error_with_span() {
 #[test]
 fn test_member_access_chained_member_resolves_type() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "pkg".to_owned(),
-    symbol_type: SymbolType::Constant,
-    core_type: CoreType::Generic {
+    checker.register_symbol(SymbolInfo {
         name: "pkg".to_owned(),
-        type_args: Vec::new(),
-    },
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
-    checker.register_symbol(SymbolInfo { name: "pkg.math".to_owned(),
-    symbol_type: SymbolType::Constant,
-    core_type: CoreType::Generic {
-        name: "MathModule".to_owned(),
-        type_args: Vec::new(),
-    },
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
-    checker.register_symbol(SymbolInfo { name: "MathModule.sqrt".to_owned(),
-    symbol_type: SymbolType::Function,
-    core_type: CoreType::Function {
-        generic_params: Vec::new(),
-        parameters: vec![CoreType::Int32],
-        return_types: vec![CoreType::Int32],
-        error_types: Vec::new(),
-    },
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+        symbol_type: SymbolType::Constant,
+        core_type: CoreType::Generic {
+            name: "pkg".to_owned(),
+            type_args: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
+    checker.register_symbol(SymbolInfo {
+        name: "pkg.math".to_owned(),
+        symbol_type: SymbolType::Constant,
+        core_type: CoreType::Generic {
+            name: "MathModule".to_owned(),
+            type_args: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
+    checker.register_symbol(SymbolInfo {
+        name: "MathModule.sqrt".to_owned(),
+        symbol_type: SymbolType::Function,
+        core_type: CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: vec![CoreType::Int32],
+            return_types: vec![CoreType::Int32],
+            error_types: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     let expr = Expr::Member {
         object: Box::new(Expr::Member {
@@ -4890,10 +4986,16 @@ fn test_constant_i32_multiplication_overflow_emits_warning() {
 #[test]
 fn test_constant_shift_count_at_i32_upper_bound_is_valid() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "value".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Int32,
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    checker.register_symbol(SymbolInfo {
+        name: "value".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int32,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("value", 90_300)),
         operator: crate::ast::BinaryOp::BitShiftLeft,
@@ -4911,10 +5013,16 @@ fn test_constant_shift_count_at_i32_upper_bound_is_valid() {
 #[test]
 fn test_constant_shift_count_at_i32_bit_width_is_rejected() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "value".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Int32,
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    checker.register_symbol(SymbolInfo {
+        name: "value".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int32,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("value", 90_400)),
         operator: crate::ast::BinaryOp::BitShiftLeft,
@@ -4935,10 +5043,16 @@ fn test_constant_shift_count_at_i32_bit_width_is_rejected() {
 #[test]
 fn test_constant_negative_shift_count_is_rejected() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "value".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Int32,
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    checker.register_symbol(SymbolInfo {
+        name: "value".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int32,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("value", 90_500)),
         operator: crate::ast::BinaryOp::BitShiftLeft,
@@ -4959,10 +5073,16 @@ fn test_constant_negative_shift_count_is_rejected() {
 #[test]
 fn test_constant_division_by_zero_is_rejected_with_rhs_span() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "numerator".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Int64,
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    checker.register_symbol(SymbolInfo {
+        name: "numerator".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int64,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
     let rhs_span = span_with_offset(2_100, 1);
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("numerator", 90_600)),
@@ -5004,10 +5124,16 @@ fn test_constant_division_by_zero_is_rejected_with_rhs_span() {
 #[test]
 fn test_constant_modulo_by_zero_is_rejected_with_rhs_span() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "numerator".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Int64,
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    checker.register_symbol(SymbolInfo {
+        name: "numerator".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int64,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
     let rhs_span = span_with_offset(2_200, 1);
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("numerator", 90_610)),
@@ -5046,10 +5172,16 @@ fn test_constant_modulo_by_zero_is_rejected_with_rhs_span() {
 #[test]
 fn test_non_constant_lhs_with_literal_zero_divisor_is_still_rejected() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "a".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Int64,
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    checker.register_symbol(SymbolInfo {
+        name: "a".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int64,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("a", 90_620)),
         operator: crate::ast::BinaryOp::Divide,
@@ -5070,14 +5202,26 @@ fn test_non_constant_lhs_with_literal_zero_divisor_is_still_rejected() {
 #[test]
 fn test_non_constant_divisor_does_not_emit_compile_time_division_by_zero() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "numerator".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Int64,
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
-    checker.register_symbol(SymbolInfo { name: "denominator".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Int64,
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    checker.register_symbol(SymbolInfo {
+        name: "numerator".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int64,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
+    checker.register_symbol(SymbolInfo {
+        name: "denominator".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int64,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("numerator", 90_630)),
         operator: crate::ast::BinaryOp::Divide,
@@ -5119,10 +5263,16 @@ entry sum_values = f(a: int32, b: int32): int32 =>
 #[test]
 fn test_integer_intrinsic_member_calls_type_check() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo { name: "value".to_owned(),
-    symbol_type: SymbolType::Variable,
-    core_type: CoreType::Int32,
-    visibility: Visibility::Private, source_location: test_span(), is_let_binding: false, is_mutable: false, read_count: 0,  });
+    checker.register_symbol(SymbolInfo {
+        name: "value".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: CoreType::Int32,
+        visibility: Visibility::Private,
+        source_location: test_span(),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    });
 
     let checked_add_expr = Expr::Call {
         callee: Box::new(Expr::Member {

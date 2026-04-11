@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use super::helpers::{ensure_boolean_type, type_mismatch_error};
-use crate::ast::{AstNode, Expr, Stmt, Type};
+use crate::ast::{AstNode, BinaryOp, Expr, Stmt, Type};
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
@@ -40,12 +40,15 @@ impl TypeChecker {
         then_branch: &Stmt,
         else_branch: Option<&Stmt>,
         span: Span,
+        expected_type: Option<&CoreType>,
     ) -> Result<CoreType, TypeError> {
         let condition_type = self.type_check_expr(condition)?;
         ensure_boolean_type(&condition_type, condition.span(), "if condition")?;
 
-        let then_type =
-            self.within_new_scope(|checker| checker.infer_stmt_value_type(then_branch))?;
+        let then_type = self.within_new_scope(|checker| {
+            checker.apply_true_branch_type_narrowing(condition);
+            checker.infer_stmt_value_type(then_branch)
+        })?;
 
         if let Some(else_stmt) = else_branch {
             let else_type =
@@ -69,6 +72,16 @@ impl TypeChecker {
 
             Ok(then_type)
         } else {
+            if let Some(required_type) = expected_type {
+                if !matches!(required_type, &CoreType::Unit)
+                    && !matches!(required_type, &CoreType::Variable(_))
+                {
+                    return Err(TypeError::MissingElseBranch {
+                        expected_type: required_type.to_string(),
+                        span: TypeError::span_from_span(span),
+                    });
+                }
+            }
             self.type_check_stmt_with_return(then_branch, None)?;
             let unit = CoreType::Unit;
             self.add_constraint(TypeConstraint::equality(
@@ -92,7 +105,9 @@ impl TypeChecker {
                 ref else_branch,
                 span,
                 ..
-            } => self.type_check_if_expr(condition, then_branch, else_branch.as_deref(), span),
+            } => {
+                self.type_check_if_expr(condition, then_branch, else_branch.as_deref(), span, None)
+            }
             _ => {
                 self.type_check_stmt_with_return(stmt, None)?;
                 Ok(CoreType::Unit)
@@ -111,6 +126,57 @@ impl TypeChecker {
         }
 
         self.infer_stmt_value_type(last_stmt)
+    }
+
+    /// Apply narrowing for `if x is TypeName` in the true branch scope.
+    pub(super) fn apply_true_branch_type_narrowing(&mut self, condition: &Expr) {
+        let narrowed = self.extract_is_type_narrowing(condition);
+        let Some((variable_name, narrowed_type, source_location)) = narrowed else {
+            return;
+        };
+
+        let existing_symbol = self.symbol_table().lookup(variable_name.as_str()).cloned();
+        if let Some(mut symbol) = existing_symbol {
+            symbol.core_type = narrowed_type;
+            symbol.source_location = source_location;
+            self.symbol_table.register(symbol);
+        }
+    }
+
+    /// Extract `(variable_name, narrowed_type, span)` from `x is TypeName`.
+    fn extract_is_type_narrowing(&self, condition: &Expr) -> Option<(String, CoreType, Span)> {
+        let &Expr::Binary {
+            ref left,
+            operator: BinaryOp::Is,
+            ref right,
+            span,
+            ..
+        } = condition
+        else {
+            return None;
+        };
+
+        let &Expr::Identifier {
+            name: ref variable_name,
+            ..
+        } = left.as_ref()
+        else {
+            return None;
+        };
+
+        let &Expr::Identifier {
+            name: ref type_name,
+            ..
+        } = right.as_ref()
+        else {
+            return None;
+        };
+
+        self.environment()
+            .lookup_type(type_name, span)
+            .ok()
+            .cloned()
+            .map(|narrowed_type| (variable_name.clone(), narrowed_type, span))
     }
 
     /// Type-check a guard expression and return its success type.
