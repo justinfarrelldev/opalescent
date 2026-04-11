@@ -259,3 +259,13 @@
 - Added TDD suite in `src/hot_reload/tests.rs` covering deterministic ABI hash generation, ABI incompatibility detection, version formatting/name generation, successful module swap, and ABI-incompatible swap rejection with mocked loader only (no `.so` creation).
 - Critical workflow note: running `cargo make lint-fix` auto-modified pre-existing `src/codegen/adts.rs` and `src/codegen/functions.rs` into patterns that fail strict `clippy::pattern_type_mismatch`; restored explicit `&Expr` pattern style and re-verified lint/test clean.
 - Verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 timeout 30 cargo test` PASS (411 passed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, and `lsp_diagnostics` clean on changed hot-reload files (only expected unlinked-file hint for `src/hot_reload/mod.rs`).
+
+## [2026-04-11] Task 29: Change Detection & Hot Swap Classification
+- Added new hot-reload modules: `src/hot_reload/change_detection.rs`, `classifier.rs`, `dependency_graph.rs`, and `cache.rs` with deterministic, mock-first APIs and `alloc::collections::BTreeMap`-based storage.
+- Implemented `FileWatcher` abstraction and `MockFileWatcher` with in-memory queued events only (no real file watcher / file I/O), plus `ChangeDetectionError` and `FileChangeEvent` payloads.
+- Implemented `ChangeClassifier::classify(old, new)` with required categories: `HotSwappable` (body-only hash delta when ABI surface unchanged), `RequiresRestart` (function signature delta), `FullRestart` (type layout hash delta), plus `ReloadDecision` helper.
+- Implemented `ModuleDependencyGraph` adjacency list (`BTreeMap<String, Vec<String>>`) with `add_dependency(dependent, dependency)` and deterministic transitive invalidation traversal via `transitive_dependents(module)`.
+- Implemented `AbiSignatureCache` keyed by module name (`String -> AbiSignature`) with `get/insert/remove/get_or_insert_with` to avoid recomputation.
+- Wired module surface through `src/hot_reload.rs` and compatibility re-exports in `src/hot_reload/mod.rs`.
+- Added RED→GREEN test coverage in `src/hot_reload/tests.rs` for body-only classification, signature-change classification, type-layout classification, dependency graph traversal, ABI cache hit behavior, and mock watcher polling.
+- Verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 timeout 30 cargo test` PASS (417 passed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files (only expected unlinked-file hint for `src/hot_reload/mod.rs`).

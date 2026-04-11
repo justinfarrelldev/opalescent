@@ -4,6 +4,10 @@ use crate::hot_reload::abi::{
     generate_abi_signature, signatures_compatible, ExportedFunction, FunctionSignature,
     ModuleVTable, PodLayout,
 };
+use crate::hot_reload::cache::AbiSignatureCache;
+use crate::hot_reload::change_detection::{FileChangeEvent, FileWatcher, MockFileWatcher};
+use crate::hot_reload::classifier::{ChangeClassifier, HotReloadCategory};
+use crate::hot_reload::dependency_graph::ModuleDependencyGraph;
 use crate::hot_reload::loader::{
     hot_swap_module, HostProcess, HotReloadError, LoadedModule, ModuleLoader,
 };
@@ -240,4 +244,168 @@ fn make_exported_function(
             return_types,
         },
     }
+}
+
+#[test]
+fn change_classifier_marks_body_only_hash_change_as_hot_swappable() {
+    let old_signature = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int32")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+    let mut new_signature = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int32")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+    new_signature.abi_hash = old_signature.abi_hash.wrapping_add(1);
+
+    let category = ChangeClassifier::classify(&old_signature, &new_signature);
+    assert_eq!(
+        category,
+        HotReloadCategory::HotSwappable,
+        "body-only hash changes should remain hot-swappable"
+    );
+
+    assert_eq!(
+        old_signature.exported_functions, new_signature.exported_functions,
+        "test sanity: function signatures should match"
+    );
+}
+
+#[test]
+fn change_classifier_marks_function_signature_change_as_requires_restart() {
+    let old_signature = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int32")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+    let new_signature = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int64")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+
+    let category = ChangeClassifier::classify(&old_signature, &new_signature);
+    assert_eq!(
+        category,
+        HotReloadCategory::RequiresRestart,
+        "function signature changes should require restart"
+    );
+}
+
+#[test]
+fn change_classifier_marks_type_layout_change_as_full_restart() {
+    let mut old_pods = BTreeMap::new();
+    old_pods.insert(String::from("Point"), PodLayout { size: 8, align: 4 });
+    let mut new_pods = BTreeMap::new();
+    new_pods.insert(String::from("Point"), PodLayout { size: 16, align: 8 });
+
+    let old_signature = generate_abi_signature(&[], &old_pods);
+    let new_signature = generate_abi_signature(&[], &new_pods);
+
+    let category = ChangeClassifier::classify(&old_signature, &new_signature);
+    assert_eq!(
+        category,
+        HotReloadCategory::FullRestart,
+        "POD layout changes should force full restart"
+    );
+}
+
+#[test]
+fn dependency_graph_returns_transitive_dependents() {
+    let mut dependency_graph = ModuleDependencyGraph::new();
+    dependency_graph.add_dependency("api", "core");
+    dependency_graph.add_dependency("ui", "api");
+    dependency_graph.add_dependency("tests", "ui");
+    dependency_graph.add_dependency("bench", "core");
+
+    let dependents = dependency_graph.transitive_dependents("core");
+    assert_eq!(
+        dependents,
+        vec![
+            String::from("api"),
+            String::from("bench"),
+            String::from("tests"),
+            String::from("ui"),
+        ],
+        "transitive dependents should include all downstream modules in stable order"
+    );
+}
+
+#[test]
+fn abi_signature_cache_reports_cache_hit_without_recompute() {
+    let mut cache = AbiSignatureCache::new();
+    let mut call_count = 0_u32;
+
+    let first_signature = cache.get_or_insert_with("logic", || {
+        call_count = call_count.saturating_add(1);
+        generate_abi_signature(
+            &[make_exported_function(
+                "compute",
+                vec![String::from("int32")],
+                vec![String::from("int32")],
+            )],
+            &BTreeMap::new(),
+        )
+    });
+    let second_signature = cache.get_or_insert_with("logic", || {
+        call_count = call_count.saturating_add(1);
+        generate_abi_signature(
+            &[make_exported_function(
+                "compute",
+                vec![String::from("int64")],
+                vec![String::from("int64")],
+            )],
+            &BTreeMap::new(),
+        )
+    });
+
+    assert_eq!(
+        call_count, 1,
+        "cache hit should avoid recomputation for existing module"
+    );
+    assert_eq!(
+        first_signature.abi_hash, second_signature.abi_hash,
+        "cache should return the original stored signature"
+    );
+}
+
+#[test]
+fn mock_file_watcher_returns_queued_changes() {
+    let mut watcher = MockFileWatcher::new(vec![
+        FileChangeEvent::new("src/module_a.op"),
+        FileChangeEvent::new("src/module_b.op"),
+    ]);
+
+    let started = watcher.start();
+    assert!(started.is_ok(), "mock watcher start should succeed");
+
+    let changes = watcher.poll_changes();
+    assert_eq!(
+        changes,
+        vec![
+            FileChangeEvent::new("src/module_a.op"),
+            FileChangeEvent::new("src/module_b.op"),
+        ],
+        "mock watcher should return queued changes"
+    );
+
+    let second_poll = watcher.poll_changes();
+    assert!(
+        second_poll.is_empty(),
+        "polling again should drain the queue"
+    );
 }
