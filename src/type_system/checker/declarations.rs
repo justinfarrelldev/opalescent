@@ -10,7 +10,7 @@ use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::{CoreType, GenericTypeParameter};
-use alloc::{format, vec::Vec};
+use alloc::{collections::BTreeMap, format, vec::Vec};
 
 impl TypeChecker {
     /// Validate that the program contains exactly one `entry` function.
@@ -61,7 +61,14 @@ impl TypeChecker {
                 {
                     return Ok(core_type.clone());
                 }
-                Self::ast_type_to_core_type(ast_type)
+                match Self::ast_type_to_core_type(ast_type) {
+                    Ok(core_type) => Ok(core_type),
+                    Err(TypeError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {
+                        name: type_name,
+                        type_args: Vec::new(),
+                    }),
+                    Err(other) => Err(other),
+                }
             }
             Type::Array {
                 ref element_type, ..
@@ -306,6 +313,23 @@ impl TypeChecker {
                     for variant in variants {
                         let qualified_name = format!("{name}.{}", variant.name);
                         qualified_variants.push(qualified_name.clone());
+                        let mut variant_fields: BTreeMap<String, CoreType> = BTreeMap::new();
+                        for field in &variant.fields {
+                            let core_field_type =
+                                Self::ast_type_to_core_type(&field.type_annotation)?;
+                            variant_fields.insert(field.name.clone(), core_field_type.clone());
+                            self.symbol_table.register(SymbolInfo {
+                                name: format!("{qualified_name}.{}", field.name),
+                                symbol_type: SymbolType::Variable,
+                                core_type: core_field_type,
+                                visibility: Visibility::Public,
+                                source_location: field.span,
+                                is_let_binding: false,
+                                is_mutable: false,
+                                read_count: 0,
+                            });
+                        }
+                        self.register_adt_fields(qualified_name.clone(), variant_fields);
                         self.symbol_table.register(SymbolInfo {
                             name: qualified_name,
                             symbol_type: SymbolType::Constant,
@@ -321,6 +345,23 @@ impl TypeChecker {
                         });
                     }
                     self.adt_variants.insert(name.clone(), qualified_variants);
+                } else if let TypeDef::Product { fields, .. } = type_def {
+                    let mut product_fields: BTreeMap<String, CoreType> = BTreeMap::new();
+                    for field in fields {
+                        let core_field_type = Self::ast_type_to_core_type(&field.type_annotation)?;
+                        product_fields.insert(field.name.clone(), core_field_type.clone());
+                        self.symbol_table.register(SymbolInfo {
+                            name: format!("{name}.{}", field.name),
+                            symbol_type: SymbolType::Variable,
+                            core_type: core_field_type,
+                            visibility: Visibility::Public,
+                            source_location: field.span,
+                            is_let_binding: false,
+                            is_mutable: false,
+                            read_count: 0,
+                        });
+                    }
+                    self.register_adt_fields(name.clone(), product_fields);
                 }
                 Ok(())
             }

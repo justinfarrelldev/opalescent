@@ -83,6 +83,12 @@ impl TypeChecker {
                 span,
                 id.0,
             ),
+            Expr::Constructor {
+                ref callee,
+                ref fields,
+                span,
+                ..
+            } => self.type_check_constructor_expr(callee.as_ref(), fields.as_slice(), span),
             Expr::Index {
                 ref object,
                 ref index,
@@ -96,6 +102,26 @@ impl TypeChecker {
                 ..
             } => {
                 let object_type = self.type_check_expr(object.as_ref())?;
+                if let CoreType::Generic {
+                    ref name,
+                    ref type_args,
+                } = object_type
+                {
+                    if let Some(field_type) = self.adt_field_type(name, member) {
+                        let resolved_field_type = field_type.clone();
+                        self.add_constraint(TypeConstraint::HasField {
+                            owner: CoreType::Generic {
+                                name: name.clone(),
+                                type_args: type_args.clone(),
+                            },
+                            field_name: member.clone(),
+                            field_type: resolved_field_type.clone(),
+                            owner_span: Some(object.span()),
+                            field_span: Some(span),
+                        });
+                        return Ok(resolved_field_type);
+                    }
+                }
                 if let Expr::Identifier {
                     ref name,
                     span: object_span,

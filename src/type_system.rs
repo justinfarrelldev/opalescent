@@ -90,3 +90,6 @@ mod tests;
 
 #[cfg(test)]
 mod test_integration;
+
+#[cfg(test)]
+mod test_integration_adt;

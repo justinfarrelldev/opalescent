@@ -1,4 +1,4 @@
-use super::{next_node_id, ParseError, ParseResult, Parser, Precedence};
+use super::{next_node_id, ParseError, ParseResult, Parser};
 use crate::ast::{AstNode, Expr, LiteralValue, MatchArm, Pattern};
 use crate::token::{Span, TokenType};
 
@@ -7,9 +7,9 @@ impl Parser {
     ///
     /// The match keyword has already been consumed when this is called.
     /// Parses arms of the form `<pattern> [if <guard>] => <expr>`.
-    pub(super) fn parse_match_expression(&mut self, start_span: Span) -> ParseResult<Expr> {
+    pub(crate) fn parse_match_expression(&mut self, start_span: Span) -> ParseResult<Expr> {
         self.advance();
-        let scrutinee = self.parse_precedence(Precedence::Assignment)?;
+        let scrutinee = self.parse_expression()?;
         self.consume(
             &TokenType::LeftBrace,
             "Expected '{' to begin match expression arms",

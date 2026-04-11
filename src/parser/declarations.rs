@@ -375,8 +375,9 @@ impl Parser {
             });
         }
 
-        let mut variants_or_fields = Vec::new();
-        let mut is_product_type = None; // None = unknown, Some(true) = product, Some(false) = sum
+        let mut product_fields: Vec<Field> = Vec::new();
+        let mut sum_variants: Vec<Variant> = Vec::new();
+        let mut is_product_type = None;
 
         while !self.is_at_end()
             && !self.check(&TokenType::Type)
@@ -400,10 +401,7 @@ impl Parser {
                 break;
             }
 
-            // Parse a variant or field
             let field_or_variant_start = self.current_token().span;
-
-            // Parse identifier name (variant name or field name)
             let name = if self.check_identifier() {
                 let token = self.advance();
                 if let &TokenType::Identifier(ref name) = &token.token_type {
@@ -423,50 +421,28 @@ impl Parser {
             };
 
             if self.check(&TokenType::Colon) {
-                // This is a field (product type) or variant with fields
-                self.advance(); // consume ':'
+                self.advance();
 
                 if is_product_type.is_none() {
-                    // First field-like item - need to determine if this is a top-level field or variant with fields
-                    if variants_or_fields.is_empty() {
-                        // Could be either - need to look ahead
-                        self.skip_newlines_and_comments();
-
-                        // If next item after colon is a type keyword, this is a product type field
-                        // If next item is an identifier (field name), this is likely a sum type variant
-                        if self.is_type_keyword() {
-                            // This is definitely a type annotation - product type
-                            is_product_type = Some(true);
-                        } else if self.check_identifier() {
-                            // This looks like a field name in a variant - sum type
-                            is_product_type = Some(false);
-                        } else if self.check(&TokenType::Function) {
-                            // Function type - product type
-                            is_product_type = Some(true);
-                        } else {
-                            // Assume sum type variant with fields for now
-                            is_product_type = Some(false);
-                        }
-                    }
+                    self.skip_newlines_and_comments();
+                    is_product_type =
+                        Some(self.is_type_keyword() || self.check(&TokenType::Function));
                 }
 
                 if is_product_type == Some(true) {
-                    // Parse as product type field
                     let field_type = self.parse_type()?;
                     let field_end_span = self.previous_token().span;
-                    let field_span = Span::new(field_or_variant_start.start, field_end_span.end);
-
-                    variants_or_fields.push((name, Some(field_type), field_span));
+                    product_fields.push(Field {
+                        name,
+                        type_annotation: field_type,
+                        span: Span::new(field_or_variant_start.start, field_end_span.end),
+                    });
                 } else {
-                    // Parse as sum type variant with fields
                     self.skip_newlines_and_comments();
-
-                    // Parse indented field list - keep parsing while we see identifiers
+                    let mut fields = Vec::new();
                     while !self.is_at_end() && self.check_identifier() {
-                        // Parse field: name: type
-                        let _field_start = self.current_token().span;
-
-                        let _field_name = if self.check_identifier() {
+                        let field_start = self.current_token().span;
+                        let field_name = if self.check_identifier() {
                             let token = self.advance();
                             if let &TokenType::Identifier(ref field_name) = &token.token_type {
                                 field_name.clone()
@@ -477,44 +453,46 @@ impl Parser {
                                 });
                             }
                         } else {
-                            break; // No more fields
+                            break;
                         };
 
                         self.consume(&TokenType::Colon, "Expected ':' after field name")?;
-                        let _field_type = self.parse_type()?;
-
-                        // TODO: Store variant fields properly when we implement them
-                        // For now, we just parse and discard them to satisfy the syntax
-
-                        // Skip newlines between fields
+                        let field_type = self.parse_type()?;
+                        let field_end = self.previous_token().span;
+                        fields.push(Field {
+                            name: field_name,
+                            type_annotation: field_type,
+                            span: Span::new(field_start.start, field_end.end),
+                        });
                         self.skip_newlines_and_comments();
                     }
 
                     let variant_end_span = self.previous_token().span;
-                    let variant_span =
-                        Span::new(field_or_variant_start.start, variant_end_span.end);
-
-                    variants_or_fields.push((name, None, variant_span));
+                    sum_variants.push(Variant {
+                        name,
+                        fields,
+                        span: Span::new(field_or_variant_start.start, variant_end_span.end),
+                    });
                 }
             } else {
-                // This is a simple variant without fields (enum-like)
                 if is_product_type.is_none() {
-                    is_product_type = Some(false); // Sum type
+                    is_product_type = Some(false);
                 } else if is_product_type == Some(true) {
                     return Err(ParseError::InvalidSyntax {
                         message: "Cannot mix fields and variants in type definition".to_owned(),
                         span: ParseError::span_from_token(self.current_token()),
                     });
                 }
-
                 let variant_end_span = self.previous_token().span;
-                let variant_span = Span::new(field_or_variant_start.start, variant_end_span.end);
-
-                variants_or_fields.push((name, None, variant_span));
+                sum_variants.push(Variant {
+                    name,
+                    fields: Vec::new(),
+                    span: Span::new(field_or_variant_start.start, variant_end_span.end),
+                });
             }
         }
 
-        if variants_or_fields.is_empty() {
+        if product_fields.is_empty() && sum_variants.is_empty() {
             return Err(ParseError::InvalidSyntax {
                 message: "Type definition cannot be empty".to_owned(),
                 span: ParseError::span_from_token(self.current_token()),
@@ -524,41 +502,14 @@ impl Parser {
         let end_span = self.previous_token().span;
         let def_span = Span::new(start_span.start, end_span.end);
 
-        // Build the appropriate TypeDef based on what we parsed
         if is_product_type == Some(true) {
-            // Product type - convert to fields
-            let mut fields = Vec::new();
-            for (name, type_annotation, span) in variants_or_fields {
-                let field_type = type_annotation.ok_or_else(|| ParseError::InvalidSyntax {
-                    message: "Product type field missing type annotation".to_owned(),
-                    span: ParseError::span_from_token(self.current_token()),
-                })?;
-                fields.push(Field {
-                    name,
-                    type_annotation: field_type,
-                    span,
-                });
-            }
-
             Ok(TypeDef::Product {
-                fields,
+                fields: product_fields,
                 span: def_span,
             })
         } else {
-            // Sum type - convert to variants
-            let variants = variants_or_fields
-                .into_iter()
-                .map(|(name, _type_annotation, span)| {
-                    Variant {
-                        name,
-                        fields: Vec::new(), // TODO: Handle variant fields properly
-                        span,
-                    }
-                })
-                .collect();
-
             Ok(TypeDef::Sum {
-                variants,
+                variants: sum_variants,
                 span: def_span,
             })
         }

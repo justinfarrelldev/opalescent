@@ -77,6 +77,7 @@ impl Expr {
             | Self::Binary { span, .. }
             | Self::Unary { span, .. }
             | Self::Call { span, .. }
+            | Self::Constructor { span, .. }
             | Self::Index { span, .. }
             | Self::Member { span, .. }
             | Self::Cast { span, .. }
@@ -101,6 +102,7 @@ impl Expr {
             | Self::Binary { id, .. }
             | Self::Unary { id, .. }
             | Self::Call { id, .. }
+            | Self::Constructor { id, .. }
             | Self::Index { id, .. }
             | Self::Member { id, .. }
             | Self::Cast { id, .. }
@@ -239,6 +241,18 @@ pub enum Expr {
         /// Source code location of this function call
         span: Span,
         /// Unique identifier for this AST node
+        id: NodeId,
+    },
+
+    /// ADT/product constructor expression.
+    Constructor {
+        /// Constructor target expression (`TypeName` or `TypeName.Variant`).
+        callee: Box<Expr>,
+        /// Named field initializers provided at the construction site.
+        fields: Vec<ConstructorField>,
+        /// Source code location of this constructor expression.
+        span: Span,
+        /// Unique identifier for this AST node.
         id: NodeId,
     },
 
@@ -502,6 +516,16 @@ pub enum Expr {
         /// Unique identifier for this AST node
         id: NodeId,
     },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConstructorField {
+    /// Field name being initialized.
+    pub name: String,
+    /// Value expression assigned to the field.
+    pub value: Expr,
+    /// Source span covering `name: value`.
+    pub span: Span,
 }
 
 /// Shared metadata for `let` bindings used in statements and declarations

@@ -21,6 +21,8 @@ use hot_reload::FunctionHotReloadMetadata;
 
 // Sub-modules
 mod call_resolution;
+/// ADT constructor expression and schema validation helpers.
+mod constructors;
 mod control_flow;
 mod declarations;
 mod expr_collections;
@@ -71,6 +73,8 @@ pub struct TypeChecker {
     constant_integer_values: BTreeMap<usize, i128>,
     /// Sum-type variant registry used for match exhaustiveness checks.
     adt_variants: BTreeMap<String, Vec<String>>,
+    /// Field registry keyed by nominal owner type names.
+    adt_fields: BTreeMap<String, BTreeMap<String, CoreType>>,
 }
 
 impl TypeChecker {
@@ -89,6 +93,7 @@ impl TypeChecker {
             arithmetic_modes: BTreeMap::new(),
             constant_integer_values: BTreeMap::new(),
             adt_variants: BTreeMap::new(),
+            adt_fields: BTreeMap::new(),
         };
         checker.register_standard_builtins();
         checker
@@ -109,9 +114,31 @@ impl TypeChecker {
             arithmetic_modes: BTreeMap::new(),
             constant_integer_values: BTreeMap::new(),
             adt_variants: BTreeMap::new(),
+            adt_fields: BTreeMap::new(),
         };
         checker.register_standard_builtins();
         checker
+    }
+
+    /// Register field metadata for a nominal owner type.
+    pub(super) fn register_adt_fields(
+        &mut self,
+        owner: String,
+        fields: BTreeMap<String, CoreType>,
+    ) {
+        self.adt_fields.insert(owner, fields);
+    }
+
+    /// Look up a registered field type for a nominal owner type.
+    pub(super) fn adt_field_type(&self, owner: &str, field_name: &str) -> Option<&CoreType> {
+        self.adt_fields
+            .get(owner)
+            .and_then(|fields| fields.get(field_name))
+    }
+
+    /// Return all field metadata for a nominal owner type when present.
+    pub(super) fn adt_fields_for_owner(&self, owner: &str) -> Option<&BTreeMap<String, CoreType>> {
+        self.adt_fields.get(owner)
     }
 
     /// Register all phase-2 standard-library built-in signatures.
@@ -436,19 +463,21 @@ impl TypeChecker {
                     substitution = substitution.compose(&constraint_subst);
                 }
                 TypeConstraint::HasField {
+                    owner,
+                    field_name,
+                    field_type,
                     owner_span,
                     field_span,
-                    ..
                 } => {
-                    // Prefer primary span, fall back to secondary, then unknown
-                    // NOTE: HasField constraints should always have at least one span
-                    let diagnostic_span = owner_span
-                        .or(field_span)
-                        .map_or_else(TypeError::unknown_span, TypeError::span_from_span);
-                    return Err(TypeError::NotImplementedYet {
-                        feature: "constraint type HasField".to_owned(),
-                        span: diagnostic_span,
-                    });
+                    let field_subst = self.solve_has_field_constraint(
+                        &substitution,
+                        &owner,
+                        field_name,
+                        &field_type,
+                        owner_span,
+                        field_span,
+                    )?;
+                    substitution = substitution.compose(&field_subst);
                 }
                 TypeConstraint::Callable {
                     callee,
@@ -458,10 +487,7 @@ impl TypeChecker {
                     argument_spans,
                     return_span,
                 } => {
-                    // Apply current substitution to callee type
                     let callee_applied = substitution.apply(&callee);
-
-                    // Extract function signature from callee type
                     if let CoreType::Function {
                         parameters,
                         return_types,
@@ -469,7 +495,6 @@ impl TypeChecker {
                         ..
                     } = callee_applied
                     {
-                        // Check arity (number of arguments)
                         if parameters.len() != arguments.len() {
                             let diagnostic_span = callee_span
                                 .map_or_else(TypeError::unknown_span, TypeError::span_from_span);
@@ -480,7 +505,6 @@ impl TypeChecker {
                             });
                         }
 
-                        // Unify each parameter with corresponding argument
                         for (i, (param_type, arg_type)) in
                             parameters.iter().zip(arguments.iter()).enumerate()
                         {
@@ -514,7 +538,6 @@ impl TypeChecker {
                             substitution = substitution.compose(&return_subst);
                         }
                     } else {
-                        // Callee is not a function type
                         let diagnostic_span = callee_span
                             .map_or_else(TypeError::unknown_span, TypeError::span_from_span);
                         return Err(TypeError::NotCallable {
@@ -527,6 +550,54 @@ impl TypeChecker {
         }
 
         Ok(substitution)
+    }
+
+    /// Resolve one `HasField` constraint from the current substitution state.
+    fn solve_has_field_constraint(
+        &self,
+        substitution: &Substitution,
+        owner: &CoreType,
+        field_name: String,
+        field_type: &CoreType,
+        owner_span: Option<Span>,
+        field_span: Option<Span>,
+    ) -> Result<Substitution, TypeError> {
+        let owner_applied = substitution.apply(owner);
+        let expected_field_type = substitution.apply(field_type);
+        if let CoreType::Generic {
+            name: owner_name, ..
+        } = owner_applied
+        {
+            self.adt_field_type(&owner_name, &field_name).map_or_else(
+                || {
+                    let diagnostic_span = field_span
+                        .or(owner_span)
+                        .map_or_else(TypeError::unknown_span, TypeError::span_from_span);
+                    Err(TypeError::MissingField {
+                        type_name: owner_name,
+                        field_name,
+                        span: diagnostic_span,
+                    })
+                },
+                |actual_field_type| {
+                    let actual_applied = substitution.apply(actual_field_type);
+                    self.unify(
+                        &actual_applied,
+                        &expected_field_type,
+                        owner_span,
+                        field_span,
+                    )
+                },
+            )
+        } else {
+            let diagnostic_span = owner_span
+                .or(field_span)
+                .map_or_else(TypeError::unknown_span, TypeError::span_from_span);
+            Err(TypeError::ConstraintSolvingFailed {
+                reason: format!("HasField owner must be nominal type, found '{owner_applied}'"),
+                span: diagnostic_span,
+            })
+        }
     }
 
     /// Generate a fresh type variable
@@ -680,35 +751,6 @@ impl TypeChecker {
             }
         }
         Ok(resolved)
-    }
-
-    /// Validate algebraic data type definitions against the known type environment to ensure all
-    /// referenced field and variant types are resolvable.
-    ///
-    /// # Errors
-    ///
-    /// Returns `TypeError` variants when ADT validation fails
-    pub fn validate_adt_type(type_def: &crate::ast::TypeDef) -> Result<(), TypeError> {
-        match *type_def {
-            crate::ast::TypeDef::Sum { ref variants, .. } => {
-                for variant in variants {
-                    for field in &variant.fields {
-                        Self::ast_type_to_core_type(&field.type_annotation)?;
-                    }
-                }
-            }
-            crate::ast::TypeDef::Product { ref fields, .. } => {
-                for field in fields {
-                    Self::ast_type_to_core_type(&field.type_annotation)?;
-                }
-            }
-            crate::ast::TypeDef::Alias {
-                ref target_type, ..
-            } => {
-                Self::ast_type_to_core_type(target_type)?;
-            }
-        }
-        Ok(())
     }
 
     /// Type check a pattern match expression

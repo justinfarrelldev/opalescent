@@ -162,6 +162,12 @@ fn expr_contains_feature(expr: &Expr, feature: AstFeature) -> bool {
             expr_contains_feature(callee, feature)
                 || args.iter().any(|arg| expr_contains_feature(arg, feature))
         }
+        Expr::Constructor { callee, fields, .. } => {
+            expr_contains_feature(callee, feature)
+                || fields
+                    .iter()
+                    .any(|field| expr_contains_feature(&field.value, feature))
+        }
         Expr::Index { object, index, .. } => {
             expr_contains_feature(object, feature) || expr_contains_feature(index, feature)
         }

@@ -191,7 +191,14 @@ impl TypeChecker {
         let annotated_type = binding
             .type_annotation
             .as_ref()
-            .map(Self::ast_type_to_core_type)
+            .map(|annotation| match Self::ast_type_to_core_type(annotation) {
+                Ok(core_type) => Ok(core_type),
+                Err(TypeError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {
+                    name: type_name,
+                    type_args: Vec::new(),
+                }),
+                Err(other) => Err(other),
+            })
             .transpose()?;
 
         let initializer_info = match initializer {

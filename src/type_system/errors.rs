@@ -38,6 +38,72 @@ pub enum TypeError {
         span: SourceSpan,
     },
 
+    /// Unknown sum-type variant was referenced in a constructor expression.
+    #[error("Unknown variant '{variant_name}' on type '{type_name}'")]
+    #[diagnostic(
+        code(opalescent::type_system::unknown_variant),
+        help("Ensure the variant name exists on this sum type")
+    )]
+    UnknownVariant {
+        /// Sum type name used as the variant owner.
+        type_name: String,
+        /// Missing variant name referenced by source.
+        variant_name: String,
+        #[label("unknown variant used here")]
+        /// Source location of the unknown variant reference.
+        span: SourceSpan,
+    },
+
+    /// Required constructor field was not provided.
+    #[error("Missing required field '{field_name}' for '{type_name}'")]
+    #[diagnostic(
+        code(opalescent::type_system::missing_field),
+        help("Provide this field in the constructor expression")
+    )]
+    MissingField {
+        /// Nominal type/variant requiring the field.
+        type_name: String,
+        /// Field missing from constructor input.
+        field_name: String,
+        #[label("missing field in constructor")]
+        /// Source location of the constructor expression.
+        span: SourceSpan,
+    },
+
+    /// Constructor provided a value that does not match the declared field type.
+    #[error("Field '{field_name}' type mismatch in '{type_name}': expected '{expected}', found '{found}'")]
+    #[diagnostic(
+        code(opalescent::type_system::field_type_mismatch),
+        help("Update the field value so it matches the declared field type")
+    )]
+    FieldTypeMismatch {
+        /// Nominal type/variant owning the field.
+        type_name: String,
+        /// Field with incompatible value.
+        field_name: String,
+        /// Declared field type.
+        expected: String,
+        /// Inferred type of the provided value.
+        found: String,
+        #[label("field has incompatible type")]
+        /// Source location of the mismatching field value.
+        span: SourceSpan,
+    },
+
+    /// Constructor declared the same field more than once.
+    #[error("Duplicate field '{field_name}' in constructor expression")]
+    #[diagnostic(
+        code(opalescent::type_system::duplicate_field),
+        help("Remove duplicate field initializers so each field appears once")
+    )]
+    DuplicateField {
+        /// Field name repeated within the same constructor expression.
+        field_name: String,
+        #[label("duplicate field specified here")]
+        /// Source location of the duplicate field occurrence.
+        span: SourceSpan,
+    },
+
     /// Program contains no entry point declaration.
     #[error("Program is missing an `entry` function")]
     #[diagnostic(
