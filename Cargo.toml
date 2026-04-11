@@ -9,5 +9,13 @@ thiserror = "1.0"
 unicode-xid = "0.2"
 inkwell = { version = "0.8.0", features = ["llvm14-0", "llvm14-0-prefer-dynamic"] }
 
+[lib]
+name = "opalescent"
+path = "src/lib.rs"
+
+[[bin]]
+name = "opalescent"
+path = "src/main.rs"
+
 [dev-dependencies]
 proptest = "1.4"

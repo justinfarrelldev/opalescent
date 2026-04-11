@@ -3,10 +3,6 @@
 //! This module implements a recursive descent parser that converts tokens
 //! into an Abstract Syntax Tree (AST).
 
-#![expect(
-    dead_code,
-    reason = "Parser features are being developed incrementally"
-)]
 #![allow(
     clippy::ref_patterns,
     clippy::needless_borrowed_reference,

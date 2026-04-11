@@ -302,10 +302,6 @@ impl TokenType {
 
 /// A token with its type, value, and location information
 #[derive(Debug, Clone, PartialEq)]
-#[expect(
-    clippy::struct_field_names,
-    reason = "Field names follow domain naming convention"
-)]
 pub struct Token {
     /// The semantic token type
     pub token_type: TokenType,

@@ -2,10 +2,6 @@
 //!
 //! This module is used for clippy builds where `mod.rs` module files are denied.
 
-#![expect(
-    dead_code,
-    reason = "LLVM backend scaffolding is introduced incrementally across upcoming codegen tasks"
-)]
 
 #[doc = "ADT constructor, field-access, and match lowering support."]
 #[path = "codegen/adts.rs"]

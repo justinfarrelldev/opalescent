@@ -40,7 +40,7 @@ See scripts folder for cargo-make build examples. Scripts folder is read-only.
 
 - Use test-driven development
 
-All new code should be well-tested. All tests should NEVER, UNDER ANY CIRCUMSTANCES, actually alter any files on the machine. They must be mocked or stubbed out in their entirety.
+All new code should be well-tested. All tests should NEVER, UNDER ANY CIRCUMSTANCES, actually alter any files on the machine. They must be mocked or stubbed out in their entirety. **Exception**: Integration tests gated by `#[cfg(feature = "integration")]` MAY write temporary compilation artifacts (.o files, binaries) to `test-projects/<name>/target/`, provided ALL artifacts are cleaned up after each test.
 
 You cannot use allow attributes, and must use expect instead.
 

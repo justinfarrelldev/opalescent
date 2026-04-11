@@ -240,6 +240,10 @@ pub fn codegen_return_statement<'context>(
     }
     if values.len() == 1 {
         let value = codegen_expression(codegen_context, env, &values[0].value, None)?;
+        if value.is_struct_value() && value.into_struct_value().get_type().count_fields() == 0 {
+            let _ret = codegen_context.builder.build_return(None)?;
+            return Ok(());
+        }
         let _ret = codegen_context.builder.build_return(Some(&value))?;
         return Ok(());
     }

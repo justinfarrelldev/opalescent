@@ -1550,6 +1550,7 @@ fn test_type_of_in_complex_expressions() {
     }
 }
 
+#[test]
 fn test_string_interpolation_simple() {
     // Test simple variable interpolation: 'Hello {world}'
     let simple = parse_expression_from_string("'Hello {world}'").unwrap();

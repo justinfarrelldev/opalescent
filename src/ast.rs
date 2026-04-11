@@ -3,10 +3,6 @@
 //! This module contains all AST node types and related functionality.
 
 #![expect(
-    dead_code,
-    reason = "AST nodes are partially implemented during language development"
-)]
-#![expect(
     clippy::pub_use,
     reason = "Re-exporting from submodules maintains a clean public API - submodules are implementation details"
 )]
