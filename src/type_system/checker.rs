@@ -23,9 +23,12 @@ use hot_reload::FunctionHotReloadMetadata;
 mod call_resolution;
 mod control_flow;
 mod declarations;
+mod expr_collections;
 mod expressions;
 mod helpers;
 mod hot_reload;
+/// Pattern-matching typing and exhaustiveness checks.
+mod patterns;
 mod returns;
 mod statements;
 mod unification;
@@ -66,6 +69,8 @@ pub struct TypeChecker {
     arithmetic_modes: BTreeMap<usize, ArithmeticMode>,
     /// Per-expression integer constant folding results for compile-time analysis.
     constant_integer_values: BTreeMap<usize, i128>,
+    /// Sum-type variant registry used for match exhaustiveness checks.
+    adt_variants: BTreeMap<String, Vec<String>>,
 }
 
 impl TypeChecker {
@@ -83,6 +88,7 @@ impl TypeChecker {
             function_hot_reload_metadata: BTreeMap::new(),
             arithmetic_modes: BTreeMap::new(),
             constant_integer_values: BTreeMap::new(),
+            adt_variants: BTreeMap::new(),
         };
         checker.register_standard_builtins();
         checker
@@ -102,6 +108,7 @@ impl TypeChecker {
             function_hot_reload_metadata: BTreeMap::new(),
             arithmetic_modes: BTreeMap::new(),
             constant_integer_values: BTreeMap::new(),
+            adt_variants: BTreeMap::new(),
         };
         checker.register_standard_builtins();
         checker

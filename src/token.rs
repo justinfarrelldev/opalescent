@@ -105,6 +105,8 @@ pub enum TokenType {
     Void,
     /// The 'if' keyword for conditional statements
     If,
+    /// The 'match' keyword for pattern matching expressions
+    Match,
     /// The 'else' keyword for alternative branches in conditionals
     Else,
     /// The 'for' keyword for for-loop statements
@@ -339,6 +341,7 @@ impl fmt::Display for TokenType {
             &Self::Return => write!(f, "keyword 'return'"),
             Self::Void => write!(f, "keyword 'void'"),
             Self::If => write!(f, "keyword 'if'"),
+            Self::Match => write!(f, "keyword 'match'"),
             Self::Else => write!(f, "keyword 'else'"),
             Self::For => write!(f, "keyword 'for'"),
             Self::While => write!(f, "keyword 'while'"),

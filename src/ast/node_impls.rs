@@ -23,6 +23,7 @@ impl AstNode for Expr {
             | Self::Parenthesized { span, .. }
             | Self::If { span, .. }
             | Self::Array { span, .. }
+            | Self::Match { span, .. }
             | Self::Lambda { span, .. }
             | Self::Guard { span, .. }
             | Self::Propagate { span, .. } => span,
@@ -44,6 +45,7 @@ impl AstNode for Expr {
             | Self::Parenthesized { id, .. }
             | Self::If { id, .. }
             | Self::Array { id, .. }
+            | Self::Match { id, .. }
             | Self::Lambda { id, .. }
             | Self::Guard { id, .. }
             | Self::Propagate { id, .. } => id,

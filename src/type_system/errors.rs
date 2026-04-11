@@ -87,6 +87,54 @@ pub enum TypeError {
         expected_span: Option<SourceSpan>,
     },
 
+    /// Pattern cannot match the scrutinee type in a `match` expression.
+    #[error("Pattern type mismatch: expected '{expected}', found '{found}'")]
+    #[diagnostic(
+        code(opalescent::type_system::pattern_type_mismatch),
+        help("Update the match pattern so it is compatible with the scrutinee type")
+    )]
+    PatternTypeMismatch {
+        /// Expected scrutinee type.
+        expected: String,
+        /// Found pattern type.
+        found: String,
+        #[label("pattern is incompatible with scrutinee type")]
+        /// Source span of the incompatible pattern.
+        span: SourceSpan,
+    },
+
+    /// Match expression is missing one or more variants for an ADT scrutinee.
+    #[error("Non-exhaustive match: missing variants {missing_variants:?}")]
+    #[diagnostic(
+        code(opalescent::type_system::non_exhaustive_match),
+        help("Add arms for every missing variant, or use `_` as a final catch-all arm")
+    )]
+    NonExhaustiveMatch {
+        /// Fully-qualified variant names that are not covered by match arms.
+        missing_variants: Vec<String>,
+        #[label("match expression does not cover all variants")]
+        /// Source span of the non-exhaustive match expression.
+        span: SourceSpan,
+    },
+
+    /// Match arm body type differs from the expected arm result type.
+    #[error("Match arm #{arm_index} has type '{found}', expected '{expected}'")]
+    #[diagnostic(
+        code(opalescent::type_system::match_arm_type_mismatch),
+        help("Ensure all match arm bodies evaluate to compatible result types")
+    )]
+    MatchArmTypeMismatch {
+        /// Zero-based index of the arm that mismatches.
+        arm_index: usize,
+        /// Expected arm result type.
+        expected: String,
+        /// Found arm result type.
+        found: String,
+        #[label("match arm result type mismatch")]
+        /// Source span of the mismatching arm.
+        span: SourceSpan,
+    },
+
     /// Invalid type operation
     #[error("Invalid operation '{operation}' for type '{type_name}'")]
     #[diagnostic(

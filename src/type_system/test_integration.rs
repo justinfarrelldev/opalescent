@@ -744,50 +744,59 @@ entry main = f(value: int64): int64 =>
     #[test]
     fn test_masked_shift_intrinsics_type_check_successfully() {
         let checker = TypeChecker::new();
-        let left = checker.environment().lookup_builtin("int64.masked_bshl");
-        let right = checker.environment().lookup_builtin("int64.masked_bshr");
-        let unsigned_right = checker.environment().lookup_builtin("int64.masked_bushr");
+        let left = checker
+            .environment()
+            .lookup_builtin("int64.masked_bshl")
+            .cloned();
+        let right = checker
+            .environment()
+            .lookup_builtin("int64.masked_bshr")
+            .cloned();
+        let unsigned_right = checker
+            .environment()
+            .lookup_builtin("int64.masked_bushr")
+            .cloned();
         let int64_type = crate::type_system::types::CoreType::Int64;
 
-        let left_ok = match left {
-            Some(&crate::type_system::types::CoreType::Function {
-                ref parameters,
-                ref return_types,
+        let left_ok = left.is_some_and(|core_type| match core_type {
+            crate::type_system::types::CoreType::Function {
+                parameters,
+                return_types,
                 ..
-            }) => {
+            } => {
                 parameters.len() == 1
                     && return_types.len() == 1
                     && parameters[0] == int64_type
                     && return_types[0] == int64_type
             }
             _ => false,
-        };
-        let right_ok = match right {
-            Some(&crate::type_system::types::CoreType::Function {
-                ref parameters,
-                ref return_types,
+        });
+        let right_ok = right.is_some_and(|core_type| match core_type {
+            crate::type_system::types::CoreType::Function {
+                parameters,
+                return_types,
                 ..
-            }) => {
+            } => {
                 parameters.len() == 1
                     && return_types.len() == 1
                     && parameters[0] == int64_type
                     && return_types[0] == int64_type
             }
             _ => false,
-        };
-        let unsigned_right_ok = match unsigned_right {
-            Some(&crate::type_system::types::CoreType::Function {
-                ref parameters,
-                ref return_types,
+        });
+        let unsigned_right_ok = unsigned_right.is_some_and(|core_type| match core_type {
+            crate::type_system::types::CoreType::Function {
+                parameters,
+                return_types,
                 ..
-            }) => {
+            } => {
                 parameters.len() == 1
                     && return_types.len() == 1
                     && parameters[0] == int64_type
                     && return_types[0] == int64_type
             }
             _ => false,
-        };
+        });
 
         assert!(
             left_ok && right_ok && unsigned_right_ok,
@@ -798,40 +807,165 @@ entry main = f(value: int64): int64 =>
     #[test]
     fn test_bshl_masked_bshr_masked_intrinsics_type_check_successfully() {
         let checker = TypeChecker::new();
-        let left = checker.environment().lookup_builtin("int64.bshl_masked");
-        let right = checker.environment().lookup_builtin("int64.bshr_masked");
+        let left = checker
+            .environment()
+            .lookup_builtin("int64.bshl_masked")
+            .cloned();
+        let right = checker
+            .environment()
+            .lookup_builtin("int64.bshr_masked")
+            .cloned();
         let int64_type = crate::type_system::types::CoreType::Int64;
 
-        let left_ok = match left {
-            Some(&crate::type_system::types::CoreType::Function {
-                ref parameters,
-                ref return_types,
+        let left_ok = left.is_some_and(|core_type| match core_type {
+            crate::type_system::types::CoreType::Function {
+                parameters,
+                return_types,
                 ..
-            }) => {
+            } => {
                 parameters.len() == 1
                     && return_types.len() == 1
                     && parameters[0] == int64_type
                     && return_types[0] == int64_type
             }
             _ => false,
-        };
-        let right_ok = match right {
-            Some(&crate::type_system::types::CoreType::Function {
-                ref parameters,
-                ref return_types,
+        });
+        let right_ok = right.is_some_and(|core_type| match core_type {
+            crate::type_system::types::CoreType::Function {
+                parameters,
+                return_types,
                 ..
-            }) => {
+            } => {
                 parameters.len() == 1
                     && return_types.len() == 1
                     && parameters[0] == int64_type
                     && return_types[0] == int64_type
             }
             _ => false,
-        };
+        });
 
         assert!(
             left_ok && right_ok,
             "bshl_masked/bshr_masked intrinsics should be registered as int64 -> int64 functions",
+        );
+    }
+
+    #[test]
+    fn test_match_basic_works() {
+        const SOURCE: &str = "
+entry main = f(args: string[]): int64 =>
+    let n: int64 = 1
+    return match n { 0 => 10, 1 => 20, _ => 30 }
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "basic match expression over int64 should type check: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_match_wildcard_is_exhaustive() {
+        const SOURCE: &str = "
+type Message:
+    Text
+    Join
+
+entry main = f(args: string[]): int64 =>
+    let msg = Message.Text
+    return match msg { Message.Text => 1, _ => 0 }
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "wildcard arm should make match exhaustive for ADT: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_match_nonexhaustive_produces_error() {
+        const SOURCE: &str = "
+type Message:
+    Text
+    Join
+
+entry main = f(args: string[]): int64 =>
+    let msg = Message.Text
+    return match msg { Message.Text => 1 }
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        let errors = result.expect_err("non-exhaustive match should fail type checking");
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::NonExhaustiveMatch { .. })),
+            "expected NonExhaustiveMatch error, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_match_guard_clause_type_checks() {
+        const SOURCE: &str = "
+entry main = f(args: string[]): int64 =>
+    let n: int64 = 1
+    return match n { x if 1 => x, _ => 0 }
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        let errors = result.expect_err("non-boolean match guard should fail type checking");
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::InvalidOperation { .. })),
+            "expected invalid operation for non-boolean guard, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_match_arm_type_mismatch() {
+        const SOURCE: &str = "
+entry main = f(args: string[]): int64 =>
+    let n: int64 = 1
+    return match n { 1 => 1, _ => 'oops' }
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        let errors = result.expect_err("incompatible match arm result types should fail");
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::MatchArmTypeMismatch { .. })),
+            "expected MatchArmTypeMismatch, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_match_binding_introduces_variable() {
+        const SOURCE: &str = "
+entry main = f(args: string[]): int64 =>
+    let n: int64 = 4
+    return match n { x => x + 1 }
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "binding pattern should introduce arm-local variable: {result:?}",
         );
     }
 }

@@ -24,7 +24,7 @@ impl Parser {
     }
 
     /// Parse expression with given precedence (Pratt parser)
-    fn parse_precedence(&mut self, precedence: Precedence) -> ParseResult<Expr> {
+    pub(super) fn parse_precedence(&mut self, precedence: Precedence) -> ParseResult<Expr> {
         // Parse prefix expression
         let mut expr = self.parse_primary()?;
 
@@ -75,6 +75,7 @@ impl Parser {
             &TokenType::TypeOf => self.parse_type_of_expression(span),
             &TokenType::Function => self.parse_lambda_expression(span),
             &TokenType::If => self.parse_if_expression(span),
+            &TokenType::Match => self.parse_match_expression(span),
             &TokenType::Guard => self.parse_guard_expression(span),
             &TokenType::Propagate => self.parse_propagate_expression(span),
             _ => Err(ParseError::UnexpectedToken {
@@ -698,6 +699,25 @@ impl Parser {
                     generic_args: None,
                     args,
                     span: call_span,
+                    id: next_node_id(),
+                })
+            }
+            TokenType::Dot => {
+                self.advance();
+                let member_token = self.advance().clone();
+                let TokenType::Identifier(member) = member_token.token_type else {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "identifier after '.'".to_owned(),
+                        found: format!("{}", member_token.token_type),
+                        span: ParseError::span_from_token(&member_token),
+                    });
+                };
+
+                let span = Span::new(left.span().start, member_token.span.end);
+                Ok(Expr::Member {
+                    object: Box::new(left),
+                    member,
+                    span,
                     id: next_node_id(),
                 })
             }

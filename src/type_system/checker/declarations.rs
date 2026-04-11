@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use crate::ast::{
-    AstNode, Decl, Expr, LetBinding, Parameter, Program, Stmt, Type, TypeParameter,
+    AstNode, Decl, Expr, LetBinding, Parameter, Program, Stmt, Type, TypeDef, TypeParameter,
     Visibility as AstVisibility,
 };
 use crate::type_system::checker::TypeChecker;
@@ -282,15 +282,46 @@ impl TypeChecker {
                 }
                 Ok(())
             }
-            Decl::Type { name, .. } => {
+            Decl::Type { name, type_def, .. } => {
                 // Register nominal type so error declarations can resolve it later.
-                self.environment_mut().register_type(
-                    name.clone(),
-                    CoreType::Generic {
-                        name: name.clone(),
-                        type_args: Vec::new(),
-                    },
-                );
+                let nominal_type = CoreType::Generic {
+                    name: name.clone(),
+                    type_args: Vec::new(),
+                };
+                self.environment_mut()
+                    .register_type(name.clone(), nominal_type.clone());
+                self.symbol_table.register(SymbolInfo {
+                    name: name.clone(),
+                    symbol_type: SymbolType::Type,
+                    core_type: nominal_type,
+                    visibility: Visibility::Public,
+                    source_location: decl.span(),
+                    is_let_binding: false,
+                    is_mutable: false,
+                    read_count: 0,
+                });
+
+                if let TypeDef::Sum { variants, .. } = type_def {
+                    let mut qualified_variants = Vec::new();
+                    for variant in variants {
+                        let qualified_name = format!("{name}.{}", variant.name);
+                        qualified_variants.push(qualified_name.clone());
+                        self.symbol_table.register(SymbolInfo {
+                            name: qualified_name,
+                            symbol_type: SymbolType::Constant,
+                            core_type: CoreType::Generic {
+                                name: name.clone(),
+                                type_args: Vec::new(),
+                            },
+                            visibility: Visibility::Public,
+                            source_location: variant.span,
+                            is_let_binding: false,
+                            is_mutable: false,
+                            read_count: 0,
+                        });
+                    }
+                    self.adt_variants.insert(name.clone(), qualified_variants);
+                }
                 Ok(())
             }
             Decl::Import { .. } => Ok(()),

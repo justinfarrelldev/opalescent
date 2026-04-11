@@ -23,10 +23,12 @@ mod declarations;
 pub mod errors;
 /// Parser submodule for expression parsing (literals, operators, lambdas)
 mod expressions;
-/// Parser submodule for helper methods (token navigation, state management)
-mod helpers;
 /// Parser submodule for generic parameter declarations
 mod generics;
+/// Parser submodule for helper methods (token navigation, state management)
+mod helpers;
+/// Parser submodule for match expression and pattern parsing
+mod patterns;
 /// Operator precedence definitions
 pub mod precedence;
 /// Parser submodule for statement parsing (let, return, block, if, for, while, loop)

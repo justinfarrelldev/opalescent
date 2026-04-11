@@ -4,7 +4,7 @@
 //! for various AST node types.
 
 extern crate alloc;
-use crate::ast::{Field, HotReloadMetadata, ImportItem, LetBinding, Parameter, Variant};
+use crate::ast::{Field, HotReloadMetadata, ImportItem, LetBinding, Parameter, Pattern, Variant};
 use crate::token::Span;
 use alloc::string::String;
 
@@ -134,5 +134,19 @@ impl ImportItem {
     #[must_use]
     pub const fn span(&self) -> Span {
         self.span_const()
+    }
+}
+
+impl Pattern {
+    /// Retrieve the source span associated with this pattern.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        match *self {
+            Self::Wildcard { span }
+            | Self::Literal { span, .. }
+            | Self::Binding { span, .. }
+            | Self::Variant { span, .. }
+            | Self::Tuple { span, .. } => span,
+        }
     }
 }

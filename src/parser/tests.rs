@@ -184,6 +184,17 @@ fn expr_contains_feature(expr: &Expr, feature: AstFeature) -> bool {
         Expr::Array { elements, .. } => elements
             .iter()
             .any(|element| expr_contains_feature(element, feature)),
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            expr_contains_feature(scrutinee, feature)
+                || arms.iter().any(|arm| {
+                    arm.guard
+                        .as_ref()
+                        .is_some_and(|guard| expr_contains_feature(guard, feature))
+                        || expr_contains_feature(&arm.body, feature)
+                })
+        }
         Expr::Lambda { body, .. } => lambda_body_contains_feature(body, feature),
         Expr::StringInterpolation { parts, .. } => parts
             .iter()

@@ -52,6 +52,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
     "is",
     "let",
     "loop",
+    "match",
     "mutable",
     "not",
     "or",
@@ -114,6 +115,7 @@ impl<'input> Lexer<'input> {
         keywords.insert("return", TokenType::Return);
         keywords.insert("void", TokenType::Void);
         keywords.insert("if", TokenType::If);
+        keywords.insert("match", TokenType::Match);
         keywords.insert("else", TokenType::Else);
         keywords.insert("for", TokenType::For);
         keywords.insert("while", TokenType::While);

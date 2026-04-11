@@ -5,11 +5,11 @@ use super::control_flow::{GuardBindingInfo, GuardUsage};
 use super::helpers::{
     binary_operation_name, coerce_literal_to_expected, constant_integer_overflow_warning,
     ensure_boolean_type, ensure_integer_type, ensure_numeric_type, ensure_same_type,
-    invalid_operation_error, is_boolean_type, is_integer_type, is_numeric_type, is_string_type,
-    literal_to_core_type, type_mismatch_error, unary_operation_name,
-    validate_constant_shift_bounds, zero_divisor_operation_name,
+    invalid_operation_error, is_integer_type, is_string_type, literal_to_core_type,
+    type_mismatch_error, unary_operation_name, validate_constant_shift_bounds,
+    zero_divisor_operation_name,
 };
-use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Stmt, StringPart, Type, UnaryOp};
+use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Stmt, Type, UnaryOp};
 use crate::token::Span;
 use crate::type_system::arithmetic::{
     fold_integer_binary_expr, mode_for_binary_operator, mode_for_intrinsic_member, ArithmeticMode,
@@ -19,7 +19,7 @@ use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
-use alloc::{boxed::Box, format, string::String, vec::Vec};
+use alloc::{format, string::String, vec::Vec};
 
 /// Result of typing the `else` branch of a guard expression.
 ///
@@ -147,6 +147,12 @@ impl TypeChecker {
             Expr::Array {
                 ref elements, span, ..
             } => self.type_check_array_expr(elements.as_slice(), span),
+            Expr::Match {
+                ref scrutinee,
+                ref arms,
+                span,
+                ..
+            } => self.type_check_match_expr(scrutinee, arms.as_slice(), span),
             Expr::Lambda {
                 ref generic_params,
                 ref generic_constraints,
@@ -824,72 +830,6 @@ impl TypeChecker {
         self.validate_cast_with_warnings(&source_type, &target_core_type, span)?;
 
         Ok(target_core_type)
-    }
-
-    /// Validate each interpolated expression, ensuring only display-safe primitives appear
-    /// inside a string literal interpolation sequence.
-    fn type_check_string_interpolation(
-        &mut self,
-        parts: &[StringPart],
-        _span: Span,
-    ) -> Result<(), TypeError> {
-        for part in parts {
-            if let StringPart::Expression(ref expr) = *part {
-                let expr_type = self.type_check_expr(expr)?;
-                if !(is_numeric_type(&expr_type)
-                    || is_boolean_type(&expr_type)
-                    || is_string_type(&expr_type))
-                {
-                    return Err(invalid_operation_error(
-                        "string interpolation",
-                        &expr_type,
-                        expr.span(),
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// Type check an array literal, deriving a unified element type and generating equality
-    /// constraints between each element and the inferred element type.
-    fn type_check_array_expr(
-        &mut self,
-        elements: &[Expr],
-        span: Span,
-    ) -> Result<CoreType, TypeError> {
-        let mut element_type: Option<(CoreType, Span)> = None;
-        for element in elements {
-            let element_span = element.span();
-            let element_core_type = self.type_check_expr(element)?;
-            if let Some(existing) = element_type.as_ref() {
-                let existing_type = &existing.0;
-                let existing_span = existing.1;
-                if !self.types_compatible(existing_type, &element_core_type) {
-                    return Err(type_mismatch_error(
-                        existing_type,
-                        Some(existing_span),
-                        &element_core_type,
-                        element_span,
-                    ));
-                }
-                self.add_constraint(TypeConstraint::equality(
-                    existing_type.clone(),
-                    element_core_type,
-                    Some(existing_span),
-                    Some(element_span),
-                ));
-            } else {
-                element_type = Some((element_core_type, element_span));
-            }
-        }
-
-        let resolved = match element_type {
-            Some((core_type, _)) => core_type,
-            None => self.fresh_type_var_auto(span)?,
-        };
-
-        Ok(CoreType::Array(Box::new(resolved)))
     }
 
     /// Type check a lambda expression by establishing a scoped environment for its parameters and body.
