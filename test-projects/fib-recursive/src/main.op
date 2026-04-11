@@ -1,0 +1,18 @@
+##
+  Description: Computes the nth Fibonacci number recursively
+##
+let fib = f(n: int64): int64 => {
+    if n is 0 { return 0 }
+    if n is 1 { return 1 }
+    return fib(n - 1) + fib(n - 2)
+}
+
+##
+  Description: Entry point for the recursive Fibonacci test project.
+  Computes fib(10) and prints the result to verify recursion and integer arithmetic.
+##
+entry main = f(): void => {
+    let result = fib(10)
+    print('{result}')
+    return void
+}

@@ -1,0 +1,18 @@
+##
+  Description: Entry point for the iterative Fibonacci test project.
+  Computes fib(10) using a while loop and prints the result to verify
+  mutable variables, loops, and integer arithmetic.
+##
+entry main = f(): void => {
+    let mutable a: int64 = 0
+    let mutable b: int64 = 1
+    let mutable i: int64 = 0
+    while i < 10 {
+        let temp = b
+        b = a + b
+        a = temp
+        i = i + 1
+    }
+    print('{a}')
+    return void
+}
