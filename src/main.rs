@@ -9,6 +9,8 @@
 )]
 
 mod ast;
+#[path = "codegen.rs"]
+mod codegen;
 mod error;
 mod lexer;
 mod parser;

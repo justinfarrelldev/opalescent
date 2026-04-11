@@ -188,3 +188,9 @@
 - Added `ModuleResolver::generate_module_interface(...)` and completed module-interface coverage in integration tests to ensure public exports and private symbol buckets are populated/usable for cross-module checks.
 - Added integration suite `src/type_system/test_integration_module_validation.rs` and registration in `src/type_system.rs` covering import conflicts, private access enforcement, aliased module member resolution, aliased mismatch (`TypeMismatch`), and alias disambiguation across modules.
 - Validation: `cargo make lint-fix` PASS, `timeout 30 cargo test` PASS (371 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, `cargo make lint` PASS.
+
+## [2026-04-11] Task 21: LLVM Backend Setup
+- Added LLVM backend scaffold with `inkwell` 0.8.0 and LLVM 14 wiring for Phase 5 codegen infrastructure.
+- LLVM version: 14, dependency configured as `inkwell = { version = "0.8.0", features = ["llvm14-0", "llvm14-0-prefer-dynamic"] }` to avoid missing static Polly on this environment while keeping LLVM 14 API compatibility.
+- Env var: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14` used for all cargo build/test/lint commands.
+- Validation: `cargo make lint-fix` PASS, `timeout 30 cargo test` PASS (374 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, `cargo make lint` PASS, LSP diagnostics clean on changed files (one expected rust-analyzer unlinked hint on required `src/codegen/mod.rs`).
