@@ -18,6 +18,8 @@ The type system provides static type checking, type inference, and type safety g
 - [x] Type substitution for generics
 - [x] Complete source location integration
 
+**Note**: Error handling infrastructure (guard/propagate/errors) implementation completed as Phase 2 Blocker #1. See `plan/phase-2-blockers-plan.md` for detailed progress on error type support in function signatures and constraint handling.
+
 #### Complete Source Location Integration (✅ Complete)
 
 - [x] Extend `TypeConstraint` variants to capture originating `Span` data for all operands
@@ -338,14 +340,16 @@ The type system provides static type checking, type inference, and type safety g
   - [x] Update plan checkboxes and documentation after verification
 
 - [x] Constraint Solver Implementation (12-16 hours)
-  - [x] Replace solve_constraints() stub with actual algorithm
-  - [x] Unify all collected constraints
-  - [x] Generate final substitution
-  - [x] Apply substitution to get concrete types
-  - [x] Implement Callable constraint handling
-  - [x] Add ArityMismatch and NotCallable error variants
-  - [x] Add 3 tests for Callable constraint scenarios
-  - [ ] HasField constraint handling (deferred to Phase 3 - requires ADT Product types)
+   - [x] Replace solve_constraints() stub with actual algorithm
+   - [x] Unify all collected constraints
+   - [x] Generate final substitution
+   - [x] Apply substitution to get concrete types
+   - [x] Implement Callable constraint handling
+   - [x] Add ArityMismatch and NotCallable error variants
+   - [x] Add 3 tests for Callable constraint scenarios
+   - [x] Equality constraint solving (functional)
+   - [x] Error type compatibility checking in function unification (Phase 2 Blocker #1)
+   - [ ] HasField constraint handling (deferred to Phase 3 - requires ADT Product types for full implementation; infrastructure in place for future expansion)
 
 - [x] Cast Validation (4-6 hours)
   - [x] Define safe casts (widening: int32 -> int64, int32 -> float64)
@@ -443,6 +447,57 @@ The type system provides static type checking, type inference, and type safety g
 - Generic system should be powerful but not complex
 - Cast system should prevent runtime errors through compile-time checking
 - Integration with parser and error reporting should be seamless
+
+## Phase 2 Blocker Status & Cross-References
+
+### Error Handling Language Features (✅ COMPLETE - Blocker #1)
+- All parser infrastructure for `errors`, `guard`, `propagate` keywords implemented
+- AST nodes for `Expr::Guard`, `Expr::Propagate`, error types in functions/lambdas complete
+- Type system support: `CoreType::Function::error_types`, error type unification, constraint propagation functional
+- Diagnostics for error handling scenarios implemented with proper span data
+- Comprehensive test coverage in place
+- Reference: see `plan/phase-2-blockers-plan.md` section 1 for full details
+
+### Multiple Return Values (⏳ IN PROGRESS - Blocker #2)
+- Task 1 just completed: `return_types: Vec<Type>` in AST parsing and representation
+- Parser updates for comma-separated return types functional
+- Type system CoreType update in progress
+- Next: labeled return values and full type checking support
+
+### Standard Library Built-ins (⏳ OUTLINE - Blocker #3)
+- Requires: Multiple Return Values (Blocker #2) + Error Handling (Blocker #1)
+- Next: implement TypeEnvironment::register_builtin() and preload core functions
+
+### Generic Type Parameter Constraints (⏳ OUTLINE - Blocker #4)
+- Requires: Error Handling in place; parser infrastructure for constraint syntax
+- Constraint satisfaction checking to follow
+
+### If Expression Semantics (⏳ OUTLINE - Blocker #5)
+- Requires: type inference for branch compatibility
+- Rust-style value-returning semantics confirmed
+
+### Member Access Type Checking (⏳ OUTLINE - Blocker #6)
+- Requires: Phase 3 ADT support for field access; module member lookup in preparation
+
+### Arithmetic Overflow Detection (⏳ OUTLINE - Blocker #7)
+- Const-eval checks for +, -, *, shifts
+- Documentation in math.md; implementation pending
+
+### Division by Zero Detection (⏳ OUTLINE - Blocker #8)
+- Const-eval checks for `/` and `%`
+- Implementation pending
+
+### Warning System Infrastructure (⏳ OUTLINE - Blocker #9)
+- Parallel to TypeError variant structure
+- Unsafe cast conversion to warnings pending
+
+### Type System Core Plan Synchronization (✅ THIS DOCUMENT - Blocker #10)
+- Cross-references updated; error handling marked complete
+- Dependencies noted for all pending blockers
+
+### PLAN.md Integration (⏳ IN PROGRESS - Blocker #11)
+- Error Handling System section being added to PLAN.md
+- Blocker cross-references being synchronized
 
 ## Success Criteria
 

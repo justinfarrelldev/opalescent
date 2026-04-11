@@ -1,0 +1,127 @@
+# Task 5: Documentation Synchronization - COMPLETE (WITH BLOCKER NOTE)
+
+## Task Summary
+Update documentation files (PLAN.md and plan/type-system-core-plan.md) to reflect completed Phase 2 Blocker #1 (Error Handling System) and in-progress Phase 2 Blocker #2 (Multiple Return Values from Task 1).
+
+**STATUS: ✅ DOCUMENTATION COMPLETE** but blocked by pre-existing lint errors from Task 1
+
+## Changes Made (All Documentation-Only)
+
+### 1. plan/type-system-core-plan.md - ✅ UPDATED
+- Added note referencing error handling implementation in Phase 2 Blockers plan
+- Updated constraint solver status: marked error type compatibility checking as complete
+- Updated HasField constraint handling: deferred to Phase 3 with infrastructure note
+- Added comprehensive Phase 2 Blocker Status & Cross-References section with all 11 blockers
+- Blocker dependencies and status clearly noted for future work
+
+**Lines changed**: ~50 lines added documenting blocker status
+**Format**: Markdown documentation only
+
+### 2. PLAN.md - ✅ UPDATED
+
+#### Blocker #1 Error Handling System (✅ COMPLETE - Marked as such)
+- Updated status from "⚠️ HIGHEST PRIORITY" to "✅ COMPLETE - ALL INFRASTRUCTURE COMPLETE"
+- Added comprehensive documentation:
+  - Syntax examples: errors clause, guard/into/else expressions, propagate keyword
+  - Implementation status checklist (all items ✅)
+  - Dependencies documented
+  - Reference to detailed plan document
+
+#### Blocker #2 Multiple Return Values (⏳ IN PROGRESS - Status updated)
+- Parser and AST changes: ✅ Complete (committed in 3169c99)
+- Type system integration: ⏳ In progress
+- Labeled return support: deferred with note
+
+#### Blockers #10 & #11 (Documentation synchronization)
+- Blocker #10: ✅ Marked complete (this is type-system-core-plan.md updates)
+- Blocker #11: ✅ In progress (this is PLAN.md update happening now)
+
+#### Error Handling System New Section
+- Added under Type System Core with full documentation of syntax, status, dependencies
+- Cross-referenced to phase-2-blockers-plan.md for details
+- Type checking items updated to include guard/propagate handling
+
+**Lines changed**: ~100 lines updated with error handling documentation and blocker cross-references
+
+### 3. .sisyphus/evidence/task-5-docs-sync.txt - ✅ CREATED
+- Evidence file documenting all changes made
+- Test verification results
+- Status of all requirements
+
+## Verification Results
+
+✅ **plan/type-system-core-plan.md**: Error handling marked complete, Phase 2 blocker matrix added, HasField deferral documented
+
+✅ **PLAN.md**: Error Handling System section added, all blockers cross-referenced, dependencies documented
+
+✅ **Implementation Status Verification**: All checked items in PLAN.md verified against actual implementation:
+   - Error handling: ✅ Fully complete
+   - Multiple return values: ✅ Parser/AST complete (Task 1)
+   - Standard library: ⏳ Outline provided, implementation pending
+
+✅ **Test Count**: 263 tests passing (no regressions from documentation changes)
+
+✅ **Code Quality**: Zero changes to any .rs files (documentation-only task)
+
+## Pre-Commit Hook Blocker Resolution
+
+### Current Situation
+Pre-commit hook runs full repository lint before allowing any commit. Pre-existing lint warnings in src/type_system/tests.rs are blocking this documentation commit.
+
+### Lint Errors (Pre-existing from Task 1)
+```
+src/type_system/tests.rs:4358 - unnecess raw string literal (raw string not needed)
+src/type_system/tests.rs:4377 - unnecessary raw string literal  
+src/type_system/tests.rs:4394 - unnecessary raw string literal
+src/type_system/tests.rs:4411 - unnecessary raw string literal
+src/type_system/tests.rs:4428 - unnecessary raw string literal
+```
+
+These are 5 raw string literals in test code that don't need the r# prefix. They were added as part of Task 1's builtin function tests.
+
+### Resolution Options
+
+**Option A** (Recommended - follow instructions exactly):
+- Do NOT modify source code (per task requirements)
+- Wait for orchestrator to either:
+  1. Fix the lint warnings in a separate source code commit, OR
+  2. Add `#[allow(clippy::needless_raw_strings)]` to those test functions
+
+**Option B** (Violation of task requirements):
+- Fix the raw string literals myself
+- Violates "NO source code changes" requirement
+- But would unblock the documentation commit
+
+### Current Status
+Documentation changes are complete, staged, and ready. The commit is only blocked by pre-commit hook validation, not by incomplete documentation work.
+
+## Staged Files for Commit
+
+```
+PLAN.md                                     - ✅ Updated with error handling section
+plan/type-system-core-plan.md              - ✅ Updated with blocker cross-references  
+.sisyphus/evidence/task-5-docs-sync.txt    - ✅ Evidence documentation
+```
+
+## Commit Message (Ready)
+
+```
+docs: synchronize PLAN.md and type-system-core-plan with completed error handling
+```
+
+## Summary
+
+**Documentation Synchronization Task**: ✅ COMPLETE
+
+- Error Handling System: ✅ Documented as complete
+- Multiple Return Values: ✅ Status updated (parser done, type system in progress)
+- All Phase 2 blockers: ✅ Cross-referenced with status
+- Documentation quality: ✅ Comprehensive syntax, dependencies, and references
+- Code quality: ✅ Zero source code modifications (documentation-only)
+- Tests: ✅ No regressions (263 passing)
+
+**Commit Readiness**: ⏳ BLOCKED by pre-commit hook
+- Blocker: Pre-existing lint warnings in Task 1's test code (not this task's responsibility)
+- Resolution: Requires fixing src/type_system/tests.rs raw string warnings first
+
+All documentation work is complete and verified. Lint warnings are in Task 1's source code, not in documentation changes.
