@@ -9,12 +9,10 @@
 )]
 
 mod ast;
-#[path = "build_system.rs"]
-pub mod build_system;
 #[path = "benchmarks.rs"]
 pub mod benchmarks;
-#[path = "formatter.rs"]
-pub mod formatter;
+#[path = "build_system.rs"]
+pub mod build_system;
 #[path = "codegen.rs"]
 mod codegen;
 #[path = "doc_gen.rs"]
@@ -23,11 +21,15 @@ mod error;
 /// Compiler-wide error reporting infrastructure modules.
 #[path = "errors.rs"]
 mod errors;
+#[path = "formatter.rs"]
+pub mod formatter;
 #[path = "hot_reload.rs"]
 pub mod hot_reload;
+mod lexer;
 #[path = "lsp.rs"]
 pub mod lsp;
-mod lexer;
+#[path = "package_manager.rs"]
+pub mod package_manager;
 mod parser;
 #[path = "runtime.rs"]
 pub mod runtime;

@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use crate::ast::{Decl, AstNode};
+use crate::ast::{AstNode, Decl};
 use crate::lexer::Lexer;
 use crate::lsp::protocol::{Location, Position, Range};
 use crate::parser::Parser;
@@ -24,7 +24,9 @@ pub fn get_definition(source: &str, position: Position) -> Option<Location> {
 
     if let Some(parsed_program) = program {
         for declaration in parsed_program.declarations {
-            if let Some(location) = declaration_location_for_symbol(&declaration, &symbol_name, source) {
+            if let Some(location) =
+                declaration_location_for_symbol(&declaration, &symbol_name, source)
+            {
                 return Some(location);
             }
         }
@@ -95,7 +97,11 @@ pub fn word_at_position(source: &str, position: Position) -> Option<String> {
 }
 
 /// Resolve declaration location for a symbol from one top-level declaration.
-fn declaration_location_for_symbol(declaration: &Decl, symbol_name: &str, source: &str) -> Option<Location> {
+fn declaration_location_for_symbol(
+    declaration: &Decl,
+    symbol_name: &str,
+    source: &str,
+) -> Option<Location> {
     match *declaration {
         Decl::Function { ref name, .. } | Decl::Type { ref name, .. } => {
             if name == symbol_name {

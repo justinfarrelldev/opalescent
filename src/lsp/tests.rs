@@ -74,7 +74,10 @@ fn definition_returns_top_level_function_location() {
 
     assert!(definition.is_some(), "expected definition location");
     if let Some(location) = definition {
-        assert!(location.range.start.line >= 4, "expected helper declaration line");
+        assert!(
+            location.range.start.line >= 4,
+            "expected helper declaration line"
+        );
     }
 }
 
@@ -90,7 +93,11 @@ fn rename_returns_all_occurrence_edits() {
         "renamed_value",
     );
 
-    assert_eq!(edits.len(), 3, "expected declaration and two uses to be renamed");
+    assert_eq!(
+        edits.len(),
+        3,
+        "expected declaration and two uses to be renamed"
+    );
 }
 
 #[test]

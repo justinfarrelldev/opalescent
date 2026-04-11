@@ -52,13 +52,11 @@ impl LspServer {
                 self.shutdown = true;
                 LspResponse::Shutdown
             }
-            _ if !self.initialized => {
-                LspResponse::Error(String::from("server not initialized"))
+            _ if !self.initialized => LspResponse::Error(String::from("server not initialized")),
+            _ if self.shutdown => LspResponse::Error(String::from("server is shut down")),
+            LspRequest::Diagnostics { source } => {
+                LspResponse::Diagnostics(get_diagnostics(&source))
             }
-            _ if self.shutdown => {
-                LspResponse::Error(String::from("server is shut down"))
-            }
-            LspRequest::Diagnostics { source } => LspResponse::Diagnostics(get_diagnostics(&source)),
             LspRequest::Completion { source, position } => {
                 LspResponse::Completion(get_completions(&source, position))
             }

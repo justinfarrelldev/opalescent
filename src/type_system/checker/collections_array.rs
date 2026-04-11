@@ -47,7 +47,11 @@ impl TypeChecker {
     }
 
     /// Register higher-order array methods (`map/filter/reduce/zip`) and iterable marker.
-    fn register_array_transform_intrinsics(&mut self, generic_t: GenericTypeParameter, element_t: CoreType) {
+    fn register_array_transform_intrinsics(
+        &mut self,
+        generic_t: GenericTypeParameter,
+        element_t: CoreType,
+    ) {
         let u_map = CoreType::Variable(TypeVar::new(1_001, "U".to_owned()));
         let u_reduce = CoreType::Variable(TypeVar::new(1_002, "U".to_owned()));
         let u_zip = CoreType::Variable(TypeVar::new(1_003, "U".to_owned()));
