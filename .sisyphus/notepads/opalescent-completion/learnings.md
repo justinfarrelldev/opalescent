@@ -148,3 +148,22 @@
 - Registered masked shift intrinsics per spec names `bshl_masked` and `bshr_masked` (kept existing `masked_*` variants), and treated `*_masked` intrinsic calls as wrapping arithmetic mode.
 - Added integration coverage for negative/out-of-range constant shifts (including reason metadata) and for `bshl_masked`/`bshr_masked` type-check success in `src/type_system/test_integration.rs`.
 - Validation: `cargo make lint-fix` PASS, `cargo make lint` PASS, `scripts/check-line-count.sh` PASS (`checker.rs` 929), `timeout 30 cargo test` PASS (329 total tests, 3 ignored), LSP diagnostics clean on all changed files.
+
+## [2026-04-11] Task 16 line-count extraction fix
+- Extracted ADT constructor typing from `checker/expressions.rs` into new `checker/constructors.rs` (`type_check_constructor_expr`, `type_check_constructor_fields`) and wired module inclusion in `checker.rs`.
+- Moved `TypeChecker::validate_adt_type` from `checker.rs` into `checker/constructors.rs` to keep top-level checker under enforced line limit.
+- Post-extraction counts: `checker/expressions.rs` 965 lines, `checker.rs` 978 lines, `checker/constructors.rs` 178 lines; `scripts/check-line-count.sh` passes.
+- Strict verification passes after refactor: `cargo make lint-fix`, `timeout 30 cargo test` (339 passed, 0 failed), and `cargo make lint`.
+
+## [2026-04-11] Task 17: Array & Collection Type Completion
+- Added new integration suite `src/type_system/test_integration_collections.rs` (registered in `src/type_system.rs`) with RED→GREEN coverage for array methods (`length`, `push`, `pop`, `map`, `filter`, `reduce`, `zip`), string methods (`length`, `split`, `join`, `contains`, `starts_with`, `ends_with`, `slice`, `to_upper`, `to_lower`), iterable for-loop support, and collection method chaining inference.
+- Implemented collection intrinsics as built-in method signatures during `register_standard_builtins` via new checker modules:
+  - `src/type_system/checker/collections.rs`
+  - `src/type_system/checker/collections_array.rs`
+  - `src/type_system/checker/collections_string.rs`
+- Added intrinsic iterable protocol marker methods (`__iter_element_type`) for arrays and strings and a helper `iterable_element_type_for` used by statement type checking.
+- Extended `Stmt::For` typing to accept any registered iterable protocol type (arrays and strings now both type-check) instead of array-only matching.
+- Extended member resolution in expression typing to resolve receiver-specialized collection intrinsics before nominal/member fallback.
+- Improved call-site inference in `checker/call_resolution.rs` by composing local argument unification substitutions and applying them to return types, enabling `map/filter` and chained collection method inference to produce concrete return types.
+- Validation: `cargo make lint-fix` PASS, `timeout 30 cargo test` PASS (355 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, `cargo make lint` PASS, LSP diagnostics clean on all changed files.
+- Follow-up note: Collection intrinsics were split into dedicated checker submodules to keep core files under enforced line-count limits while preserving member-call typing behavior.

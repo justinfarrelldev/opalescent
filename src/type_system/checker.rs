@@ -25,6 +25,7 @@ mod call_resolution;
 mod constructors;
 mod control_flow;
 mod declarations;
+mod collections;
 mod expr_collections;
 mod expressions;
 mod helpers;
@@ -242,6 +243,7 @@ impl TypeChecker {
         self.register_integer_intrinsics_for_type("uint16", &CoreType::UInt16);
         self.register_integer_intrinsics_for_type("uint32", &CoreType::UInt32);
         self.register_integer_intrinsics_for_type("uint64", &CoreType::UInt64);
+        self.register_collection_intrinsics();
     }
 
     /// Register arithmetic intrinsics for a concrete integer type name.

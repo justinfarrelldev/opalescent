@@ -101,29 +101,27 @@ impl TypeChecker {
                 ..
             } => {
                 let iterable_type = self.type_check_expr(iterable)?;
-                match iterable_type {
-                    CoreType::Array(element_type) => {
-                        let element_core = *element_type;
-                        let variable_name = variable.clone();
-                        self.within_new_scope(move |checker| {
-                            checker.symbol_table.register(SymbolInfo {
-                                name: variable_name.clone(),
-                                symbol_type: SymbolType::Variable,
-                                core_type: element_core,
-                                visibility: Visibility::Private,
-                                source_location: span,
-                                is_let_binding: false,
-                                is_mutable: false,
-                                read_count: 0,
-                            });
-                            checker.type_check_stmt_with_return(body.as_ref(), expected_return)
-                        })
-                    }
-                    _ => Err(invalid_operation_error(
+                if let Some(element_core) = self.iterable_element_type_for(&iterable_type) {
+                    let variable_name = variable.clone();
+                    self.within_new_scope(move |checker| {
+                        checker.symbol_table.register(SymbolInfo {
+                            name: variable_name.clone(),
+                            symbol_type: SymbolType::Variable,
+                            core_type: element_core,
+                            visibility: Visibility::Private,
+                            source_location: span,
+                            is_let_binding: false,
+                            is_mutable: false,
+                            read_count: 0,
+                        });
+                        checker.type_check_stmt_with_return(body.as_ref(), expected_return)
+                    })
+                } else {
+                    Err(invalid_operation_error(
                         "for loop iteration",
                         &iterable_type,
                         span,
-                    )),
+                    ))
                 }
             }
             Stmt::While {

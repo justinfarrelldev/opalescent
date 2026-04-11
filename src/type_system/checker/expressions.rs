@@ -102,6 +102,11 @@ impl TypeChecker {
                 ..
             } => {
                 let object_type = self.type_check_expr(object.as_ref())?;
+                if let Some(collection_member_type) =
+                    self.resolve_collection_member_call(&object_type, member)
+                {
+                    return Ok(collection_member_type);
+                }
                 if let CoreType::Generic {
                     ref name,
                     ref type_args,

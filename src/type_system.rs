@@ -93,3 +93,6 @@ mod test_integration;
 
 #[cfg(test)]
 mod test_integration_adt;
+
+#[cfg(test)]
+mod test_integration_collections;

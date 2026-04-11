@@ -156,18 +156,18 @@ impl TypeChecker {
             return None;
         };
 
-        let &Expr::Identifier {
+        let Expr::Identifier {
             name: ref variable_name,
             ..
-        } = left.as_ref()
+        } = *left.as_ref()
         else {
             return None;
         };
 
-        let &Expr::Identifier {
+        let Expr::Identifier {
             name: ref type_name,
             ..
-        } = right.as_ref()
+        } = *right.as_ref()
         else {
             return None;
         };

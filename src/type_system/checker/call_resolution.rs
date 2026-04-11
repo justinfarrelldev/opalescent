@@ -11,6 +11,7 @@ use crate::type_system::checker::helpers::{coerce_literal_to_expected, type_mism
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
+use crate::type_system::substitution::Substitution;
 use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
@@ -99,6 +100,7 @@ impl TypeChecker {
                 error_types: _error_types,
             } => {
                 let mut type_var_instantiations: BTreeMap<usize, CoreType> = BTreeMap::new();
+                let mut local_inference = Substitution::empty();
                 let instantiated_parameters = parameters
                     .iter()
                     .map(|parameter_type| {
@@ -192,6 +194,8 @@ impl TypeChecker {
                         }
                     } else if matches!(param_type, CoreType::Variable(_))
                         || self.types_compatible(&param_type, &arg_type)
+                        || Self::core_type_contains_variable(&param_type)
+                        || Self::core_type_contains_variable(&arg_type)
                     {
                         arg_type
                     } else if let Some(adjusted) =
@@ -206,6 +210,17 @@ impl TypeChecker {
                             arg_expr.span(),
                         ));
                     };
+
+                    let parameter_applied = local_inference.apply(&param_type);
+                    let argument_applied = local_inference.apply(&reconciled_type);
+                    let argument_substitution = self.unify(
+                        &parameter_applied,
+                        &argument_applied,
+                        None,
+                        Some(arg_expr.span()),
+                    )?;
+                    local_inference = local_inference.compose(&argument_substitution);
+
                     self.add_constraint(TypeConstraint::equality(
                         param_type,
                         reconciled_type,
@@ -222,15 +237,17 @@ impl TypeChecker {
                         }
                     })?;
 
-                if let CoreType::Variable(ref return_var) = raw_return_type {
+                let inferred_return_type = local_inference.apply(&raw_return_type);
+
+                if let CoreType::Variable(ref return_var) = inferred_return_type {
                     Ok(Self::resolve_return_constraint_type(
                         return_var.id,
                         generic_params.as_slice(),
                         instantiated_generic_variables.as_slice(),
                     )
-                    .unwrap_or(raw_return_type))
+                    .unwrap_or(inferred_return_type))
                 } else {
-                    Ok(raw_return_type)
+                    Ok(inferred_return_type)
                 }
             }
             other => Err(
@@ -369,5 +386,27 @@ impl TypeChecker {
         }
 
         None
+    }
+
+    /// Determine whether a core type includes one or more type variables.
+    fn core_type_contains_variable(core_type: &CoreType) -> bool {
+        match *core_type {
+            CoreType::Variable(_) => true,
+            CoreType::Array(ref element_type) => Self::core_type_contains_variable(element_type),
+            CoreType::Function {
+                ref parameters,
+                ref return_types,
+                ref error_types,
+                ..
+            } => {
+                parameters.iter().any(Self::core_type_contains_variable)
+                    || return_types.iter().any(Self::core_type_contains_variable)
+                    || error_types.iter().any(Self::core_type_contains_variable)
+            }
+            CoreType::Generic { ref type_args, .. } => {
+                type_args.iter().any(Self::core_type_contains_variable)
+            }
+            _ => false,
+        }
     }
 }
