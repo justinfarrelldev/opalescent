@@ -27,6 +27,8 @@ mod parser;
 pub mod runtime;
 #[path = "stdlib.rs"]
 pub mod stdlib;
+#[path = "testing.rs"]
+pub mod testing;
 mod token;
 mod type_system;
 
