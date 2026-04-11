@@ -269,3 +269,12 @@
 - Wired module surface through `src/hot_reload.rs` and compatibility re-exports in `src/hot_reload/mod.rs`.
 - Added RED→GREEN test coverage in `src/hot_reload/tests.rs` for body-only classification, signature-change classification, type-layout classification, dependency graph traversal, ABI cache hit behavior, and mock watcher polling.
 - Verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 timeout 30 cargo test` PASS (417 passed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files (only expected unlinked-file hint for `src/hot_reload/mod.rs`).
+
+## [2026-04-11] Task 30: Hot Reload Safety & Error Recovery
+- Added `src/hot_reload/guard.rs` with `AbiGuard`, `AbiGuardResult::{Accept, Reject}`, and `FallbackRestartTrigger::trigger()` returning `HotReloadError::RequiresFullRestart`.
+- Added `src/hot_reload/state.rs` with `HostState` trait (`serialize`, `deserialize`), `StateError`, and `StatePreserver::{save_state, restore_state}` for host-state round-trip preservation via `Vec<u8>`.
+- Added `src/hot_reload/recovery.rs` with `ErrorRecovery::handle_load_failure` (host remains alive) and `ErrorRecovery::rollback_partial_swap` (unload failed candidate, reload previous module).
+- Extended `HotReloadError` with `RequiresFullRestart`; integrated guard fallback in `hot_swap_module` so incompatible ABI transitions now trigger restart path instead of crashing or partial activation.
+- Extended `HostProcess` with `set_active_module` to support recovery rollback and integrated new modules through both `src/hot_reload.rs` exports and `src/hot_reload/mod.rs` compatibility re-exports.
+- Added RED→GREEN tests in `src/hot_reload/tests.rs` for ABI guard accept/reject, fallback restart trigger, state serialization/deserialization round-trip, load-failure recovery, and partial swap rollback using mock loaders only.
+- Validation: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 timeout 30 cargo test` PASS (422 passed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, and `lsp_diagnostics` clean on changed files.

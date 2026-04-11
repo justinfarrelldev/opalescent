@@ -13,8 +13,14 @@ pub mod change_detection;
 pub mod classifier;
 #[path = "hot_reload/dependency_graph.rs"]
 pub mod dependency_graph;
+#[path = "hot_reload/guard.rs"]
+pub mod guard;
 #[path = "hot_reload/loader.rs"]
 pub mod loader;
+#[path = "hot_reload/recovery.rs"]
+pub mod recovery;
+#[path = "hot_reload/state.rs"]
+pub mod state;
 #[path = "hot_reload/version.rs"]
 pub mod version;
 
@@ -26,7 +32,10 @@ pub use cache::AbiSignatureCache;
 pub use change_detection::{ChangeDetectionError, FileChangeEvent, FileWatcher, MockFileWatcher};
 pub use classifier::{ChangeClassifier, HotReloadCategory, ReloadDecision};
 pub use dependency_graph::ModuleDependencyGraph;
+pub use guard::{AbiGuard, AbiGuardResult, FallbackRestartTrigger};
 pub use loader::{hot_swap_module, HostProcess, HotReloadError, LoadedModule, ModuleLoader};
+pub use recovery::ErrorRecovery;
+pub use state::{HostState, StateError, StatePreserver};
 pub use version::{versioned_module_name, ModuleVersion};
 
 #[cfg(test)]

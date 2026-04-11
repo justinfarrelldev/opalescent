@@ -3,20 +3,28 @@
 extern crate alloc;
 
 use crate::hot_reload::abi::{signatures_compatible, AbiSignature, ModuleVTable};
+use crate::hot_reload::guard::{AbiGuard, AbiGuardResult, FallbackRestartTrigger};
 use alloc::string::String;
 
 /// Error variants produced by hot-reload module management.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HotReloadError {
     /// Loader failed to open or resolve a module.
-    ModuleLoadFailed { module_name: String, reason: String },
+    ModuleLoadFailed {
+        module_name: String,
+        reason: String,
+    },
     /// Loader failed to unload a module.
-    ModuleUnloadFailed { module_name: String, reason: String },
+    ModuleUnloadFailed {
+        module_name: String,
+        reason: String,
+    },
     /// Candidate module ABI is incompatible with currently active module.
     IncompatibleAbi {
         active_module: String,
         candidate_module: String,
     },
+    RequiresFullRestart,
 }
 
 /// Runtime-loaded hot module metadata owned by the host process.
@@ -70,6 +78,10 @@ impl HostProcess {
     pub const fn active_module(&self) -> Option<&LoadedModule> {
         self.active_module.as_ref()
     }
+
+    pub fn set_active_module(&mut self, module: LoadedModule) {
+        self.active_module = Some(module);
+    }
 }
 
 impl Default for HostProcess {
@@ -93,17 +105,17 @@ pub fn hot_swap_module(
     let next_module = loader.load_module(next_module_name)?;
 
     if let Some(active_module) = host_process.active_module.as_ref() {
-        if !signatures_compatible(&active_module.abi_signature, &next_module.abi_signature) {
+        if !signatures_compatible(&active_module.abi_signature, &next_module.abi_signature)
+            || AbiGuard::check(&active_module.abi_signature, &next_module.abi_signature)
+                == AbiGuardResult::Reject
+        {
             loader.unload_module(next_module_name)?;
-            return Err(HotReloadError::IncompatibleAbi {
-                active_module: active_module.module_name.clone(),
-                candidate_module: next_module.module_name,
-            });
+            return Err(FallbackRestartTrigger::trigger());
         }
 
         loader.unload_module(&active_module.module_name)?;
     }
 
-    host_process.active_module = Some(next_module);
+    host_process.set_active_module(next_module);
     Ok(())
 }

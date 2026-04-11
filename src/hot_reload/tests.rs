@@ -8,9 +8,12 @@ use crate::hot_reload::cache::AbiSignatureCache;
 use crate::hot_reload::change_detection::{FileChangeEvent, FileWatcher, MockFileWatcher};
 use crate::hot_reload::classifier::{ChangeClassifier, HotReloadCategory};
 use crate::hot_reload::dependency_graph::ModuleDependencyGraph;
+use crate::hot_reload::guard::{AbiGuard, AbiGuardResult, FallbackRestartTrigger};
 use crate::hot_reload::loader::{
     hot_swap_module, HostProcess, HotReloadError, LoadedModule, ModuleLoader,
 };
+use crate::hot_reload::recovery::ErrorRecovery;
+use crate::hot_reload::state::{HostState, StatePreserver};
 use crate::hot_reload::version::{versioned_module_name, ModuleVersion};
 use alloc::collections::BTreeMap;
 use alloc::string::String;
@@ -23,6 +26,99 @@ extern "C" fn noop_entry() {}
 struct MockModuleLoader {
     modules: BTreeMap<String, LoadedModule>,
     unload_calls: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RecoveringMockLoader {
+    modules: BTreeMap<String, LoadedModule>,
+    fail_load_for: Option<String>,
+    unload_calls: Vec<String>,
+    load_calls: Vec<String>,
+}
+
+impl RecoveringMockLoader {
+    fn with_modules(modules: BTreeMap<String, LoadedModule>) -> Self {
+        Self {
+            modules,
+            fail_load_for: None,
+            unload_calls: Vec::new(),
+            load_calls: Vec::new(),
+        }
+    }
+
+    fn fail_load_for(mut self, module_name: &str) -> Self {
+        self.fail_load_for = Some(module_name.to_owned());
+        self
+    }
+}
+
+impl ModuleLoader for RecoveringMockLoader {
+    fn load_module(&mut self, module_name: &str) -> Result<LoadedModule, HotReloadError> {
+        self.load_calls.push(module_name.to_owned());
+
+        if self
+            .fail_load_for
+            .as_ref()
+            .is_some_and(|candidate| candidate == module_name)
+        {
+            return Err(HotReloadError::ModuleLoadFailed {
+                module_name: module_name.to_owned(),
+                reason: String::from("simulated load failure"),
+            });
+        }
+
+        self.modules
+            .get(module_name)
+            .cloned()
+            .ok_or_else(|| HotReloadError::ModuleLoadFailed {
+                module_name: module_name.to_owned(),
+                reason: String::from("module not found in recovery mock loader"),
+            })
+    }
+
+    fn unload_module(&mut self, module_name: &str) -> Result<(), HotReloadError> {
+        self.unload_calls.push(module_name.to_owned());
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MockHostState {
+    values: BTreeMap<String, String>,
+}
+
+impl HostState for MockHostState {
+    fn serialize(&self) -> Vec<u8> {
+        let mut encoded = String::new();
+
+        for (key, value) in &self.values {
+            encoded.push_str(key);
+            encoded.push('=');
+            encoded.push_str(value);
+            encoded.push('\n');
+        }
+
+        encoded.into_bytes()
+    }
+
+    fn deserialize(data: &[u8]) -> Result<Self, crate::hot_reload::state::StateError> {
+        let input = core::str::from_utf8(data)
+            .map_err(|_utf8_error| crate::hot_reload::state::StateError::InvalidEncoding)?;
+        let mut values = BTreeMap::new();
+
+        for line in input.lines() {
+            let mut split = line.splitn(2, '=');
+            let key = split
+                .next()
+                .ok_or(crate::hot_reload::state::StateError::InvalidFormat)?;
+            let value = split
+                .next()
+                .ok_or(crate::hot_reload::state::StateError::InvalidFormat)?;
+            values.insert(key.to_owned(), value.to_owned());
+        }
+
+        Ok(Self { values })
+    }
 }
 
 impl MockModuleLoader {
@@ -222,8 +318,8 @@ fn host_process_hot_swap_rejects_incompatible_abi() {
 
     let error = swap.err();
     assert!(
-        matches!(error, Some(HotReloadError::IncompatibleAbi { .. })),
-        "swap failure should report incompatible ABI"
+        matches!(error, Some(HotReloadError::RequiresFullRestart)),
+        "swap failure should request full restart for incompatible ABI"
     );
     assert_eq!(
         loader.unload_calls,
@@ -407,5 +503,188 @@ fn mock_file_watcher_returns_queued_changes() {
     assert!(
         second_poll.is_empty(),
         "polling again should drain the queue"
+    );
+}
+
+#[test]
+fn abi_guard_accepts_compatible_signatures() {
+    let current = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int32")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+    let incoming = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int32")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+
+    let result = AbiGuard::check(&current, &incoming);
+    assert_eq!(
+        result,
+        AbiGuardResult::Accept,
+        "ABI guard must accept compatible signatures"
+    );
+}
+
+#[test]
+fn abi_guard_rejects_incompatible_signatures_and_triggers_fallback_restart() {
+    let current = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int32")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+    let incoming = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int64")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+
+    let result = AbiGuard::check(&current, &incoming);
+    assert_eq!(
+        result,
+        AbiGuardResult::Reject,
+        "ABI guard must reject incompatible signatures"
+    );
+
+    let fallback_result = FallbackRestartTrigger::trigger();
+    assert_eq!(
+        fallback_result,
+        HotReloadError::RequiresFullRestart,
+        "fallback trigger must request full restart"
+    );
+}
+
+#[test]
+fn state_preserver_round_trip_preserves_host_state() {
+    let mut values = BTreeMap::new();
+    values.insert(String::from("counter"), String::from("42"));
+    values.insert(String::from("mode"), String::from("debug"));
+    let state = MockHostState { values };
+
+    let serialized = StatePreserver::save_state(&state);
+    let restored = StatePreserver::restore_state::<MockHostState>(&serialized);
+    assert!(
+        restored.is_ok(),
+        "restoring serialized state should succeed"
+    );
+
+    if let Ok(restored_state) = restored {
+        assert_eq!(
+            restored_state, state,
+            "state must round-trip through preservation layer"
+        );
+    }
+}
+
+#[test]
+fn error_recovery_handles_load_failure_without_stopping_host() {
+    let abi = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int32")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+
+    let mut modules = BTreeMap::new();
+    modules.insert(
+        String::from("logic_v0001.so"),
+        LoadedModule {
+            module_name: String::from("logic_v0001.so"),
+            vtable: ModuleVTable {
+                module_entry: noop_entry,
+            },
+            abi_signature: abi,
+        },
+    );
+
+    let mut loader = MockModuleLoader::with_modules(modules);
+    let mut host = HostProcess::new();
+    let initial = hot_swap_module(&mut host, &mut loader, "logic_v0001.so");
+    assert!(initial.is_ok(), "initial module load should succeed");
+
+    let simulated_failure = HotReloadError::ModuleLoadFailed {
+        module_name: String::from("logic_v0002.so"),
+        reason: String::from("simulated compilation error"),
+    };
+    let recovery_result = ErrorRecovery::handle_load_failure(&mut host, &simulated_failure);
+    assert!(
+        recovery_result.is_ok(),
+        "error recovery must keep host running after load failure"
+    );
+    assert!(
+        host.active_module().is_some(),
+        "host should still have the previous active module"
+    );
+}
+
+#[test]
+fn error_recovery_rolls_back_partial_swap_to_previous_module() {
+    let abi = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int32")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+
+    let mut modules = BTreeMap::new();
+    modules.insert(
+        String::from("logic_v0001.so"),
+        LoadedModule {
+            module_name: String::from("logic_v0001.so"),
+            vtable: ModuleVTable {
+                module_entry: noop_entry,
+            },
+            abi_signature: abi.clone(),
+        },
+    );
+    modules.insert(
+        String::from("logic_v0002.so"),
+        LoadedModule {
+            module_name: String::from("logic_v0002.so"),
+            vtable: ModuleVTable {
+                module_entry: noop_entry,
+            },
+            abi_signature: abi,
+        },
+    );
+
+    let mut loader = RecoveringMockLoader::with_modules(modules).fail_load_for("logic_v0002.so");
+    let mut host = HostProcess::new();
+
+    let initial = hot_swap_module(&mut host, &mut loader, "logic_v0001.so");
+    assert!(initial.is_ok(), "initial module load should succeed");
+
+    let recovery_result = ErrorRecovery::rollback_partial_swap(
+        &mut host,
+        &mut loader,
+        "logic_v0001.so",
+        "logic_v0002.so",
+    );
+    assert!(
+        recovery_result.is_ok(),
+        "rollback should restore previous module when candidate fails"
+    );
+    assert_eq!(
+        host.active_module()
+            .map(|module| module.module_name.clone()),
+        Some(String::from("logic_v0001.so")),
+        "rollback must leave previous module active"
     );
 }
