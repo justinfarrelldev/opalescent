@@ -4,7 +4,7 @@ extern crate alloc;
 
 use super::types::CoreType;
 use crate::token::Span;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::{string::String, vec, vec::Vec};
 
 /// Information about the current function context for error handling checks.
@@ -280,6 +280,21 @@ impl SymbolTable {
                 symbol.is_let_binding && symbol.read_count == 0 && !symbol.name.starts_with('_')
             })
             .collect()
+    }
+
+    /// Collect all symbol names visible from the current scope.
+    pub fn visible_symbol_names(&self) -> Vec<String> {
+        let mut current = Some(self.current_scope);
+        let mut unique_names: BTreeSet<String> = BTreeSet::new();
+
+        while let Some(scope_id) = current {
+            for name in self.scopes[scope_id.0].symbols.keys() {
+                unique_names.insert(name.clone());
+            }
+            current = self.scopes[scope_id.0].parent;
+        }
+
+        unique_names.into_iter().collect()
     }
 }
 

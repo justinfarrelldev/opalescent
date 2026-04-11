@@ -12,12 +12,15 @@ mod ast;
 #[path = "codegen.rs"]
 mod codegen;
 mod error;
+/// Compiler-wide error reporting infrastructure modules.
+#[path = "errors.rs"]
+mod errors;
+#[path = "hot_reload.rs"]
+pub mod hot_reload;
 mod lexer;
 mod parser;
 #[path = "runtime.rs"]
 pub mod runtime;
-#[path = "hot_reload.rs"]
-pub mod hot_reload;
 mod token;
 mod type_system;
 
@@ -26,6 +29,9 @@ use parser::Parser;
 use std::fs;
 
 fn main() {
+    if !errors::touch_error_api_for_lints() {
+        println!("error api warmup did not produce expected probe result");
+    }
     println!("Opalescent Parser Test");
 
     // Test with hello_world.op
@@ -40,9 +46,9 @@ fn main() {
 
             if !lex_errors.is_empty() {
                 println!("Lexer errors:");
-                for error in &lex_errors.errors {
-                    println!("  {error}");
-                }
+                let mut error_report = errors::reporter::CompilationErrorReport::new();
+                error_report.extend_lex_errors(lex_errors.errors);
+                println!("{}", error_report.render());
             }
 
             println!("\nTokens:");
@@ -56,9 +62,9 @@ fn main() {
 
             if !parse_errors.is_empty() {
                 println!("Parser errors:");
-                for error in &parse_errors.errors {
-                    println!("  {error}");
-                }
+                let mut error_report = errors::reporter::CompilationErrorReport::new();
+                error_report.extend_parse_errors(parse_errors.errors);
+                println!("{}", error_report.render());
             }
 
             if let Some(program) = program {

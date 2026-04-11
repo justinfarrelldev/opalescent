@@ -278,3 +278,12 @@
 - Extended `HostProcess` with `set_active_module` to support recovery rollback and integrated new modules through both `src/hot_reload.rs` exports and `src/hot_reload/mod.rs` compatibility re-exports.
 - Added RED→GREEN tests in `src/hot_reload/tests.rs` for ABI guard accept/reject, fallback restart trigger, state serialization/deserialization round-trip, load-failure recovery, and partial swap rollback using mock loaders only.
 - Validation: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 timeout 30 cargo test` PASS (422 passed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, and `lsp_diagnostics` clean on changed files.
+
+## [2026-04-11] Task 31: Error Reporting System (Phase 7)
+- Added new compiler-wide error presentation surface under `src/errors.rs` + `src/errors/{formatter,reporter,suggestions}.rs` with TDD coverage in `src/errors/tests.rs`.
+- Implemented typo suggestions with deterministic Levenshtein matching (`distance <= 2`) and tie-break by lexicographic order; wired symbol suggestion into `TypeChecker::resolve_identifier` and member-access symbol failures.
+- Extended `TypeError::SymbolNotFound` with `suggestion: Option<String>` and updated call sites/tests to preserve compatibility while surfacing did-you-mean hints.
+- Implemented unified multi-error rendering via `CompilationErrorReport` + `format_error_bundle`, including stable error-code docs links and phase labels (`lexer`, `parser`, `type checker`, `codegen`).
+- Updated `TypeError::CannotInferGenericType` diagnostic help to include explicit type-annotation guidance and added formatter suggestion suffix for inference failures.
+- Main entrypoint now routes lexer/parser error vectors through the new report renderer for consistent output formatting.
+- Strict validation passed: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint`, `timeout 30 LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` (438 passed, 3 ignored), `scripts/check-line-count.sh`, and `lsp_diagnostics` clean on all changed files.

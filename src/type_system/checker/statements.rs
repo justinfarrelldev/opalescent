@@ -320,6 +320,7 @@ impl TypeChecker {
                 .map(|symbol| symbol.core_type.clone())
                 .ok_or_else(|| TypeError::SymbolNotFound {
                     name: name.clone(),
+                    suggestion: None,
                     span: TypeError::span_from_span(identifier_span),
                 })?,
             _ => self.type_check_expr(target)?,

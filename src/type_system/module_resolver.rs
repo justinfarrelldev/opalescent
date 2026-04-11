@@ -200,6 +200,7 @@ impl ModuleResolver {
 
         Err(TypeError::SymbolNotFound {
             name: format!("{source}.{symbol_name}"),
+            suggestion: None,
             span: TypeError::span_from_span(span),
         })
     }

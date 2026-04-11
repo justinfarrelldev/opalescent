@@ -79,7 +79,7 @@ mod arithmetic;
 mod checker;
 mod constraints;
 mod environment;
-mod errors;
+pub mod errors;
 mod memory;
 /// Import/export resolver and module dependency graph implementation.
 mod module_resolver;

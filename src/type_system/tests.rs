@@ -4796,7 +4796,7 @@ fn test_member_access_missing_member_reports_symbol_error_with_span() {
 
     let result = checker.type_check_expr(&expr);
     match result {
-        Err(TypeError::SymbolNotFound { name, span }) => {
+        Err(TypeError::SymbolNotFound { name, span, .. }) => {
             assert_eq!(
                 name, "math.does_not_exist",
                 "missing member should be qualified"

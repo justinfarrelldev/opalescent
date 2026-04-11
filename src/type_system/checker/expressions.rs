@@ -10,6 +10,7 @@ use super::helpers::{
     zero_divisor_operation_name,
 };
 use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Stmt, Type, UnaryOp};
+use crate::errors::suggestions::{closest_identifier_suggestion, SUGGESTION_DISTANCE_THRESHOLD};
 use crate::token::Span;
 use crate::type_system::arithmetic::{
     fold_integer_binary_expr, mode_for_binary_operator, mode_for_intrinsic_member, ArithmeticMode,
@@ -145,6 +146,7 @@ impl TypeChecker {
 
                     return Err(TypeError::SymbolNotFound {
                         name: qualified_member,
+                        suggestion: self.suggest_visible_identifier(name.as_str()),
                         span: TypeError::span_from_span(object_span),
                     });
                 }
@@ -156,6 +158,7 @@ impl TypeChecker {
 
                 Err(TypeError::SymbolNotFound {
                     name: nominal_member,
+                    suggestion: self.suggest_visible_identifier(member.as_str()),
                     span: TypeError::span_from_span(span),
                 })
             }
@@ -626,7 +629,16 @@ impl TypeChecker {
 
         Err(TypeError::SymbolNotFound {
             name: name.to_owned(),
+            suggestion: self.suggest_visible_identifier(name),
             span: TypeError::span_from_span(span),
+        })
+    }
+
+    /// Suggest the closest visible symbol name for unresolved identifiers.
+    fn suggest_visible_identifier(&self, unresolved_name: &str) -> Option<String> {
+        let visible = self.symbol_table().visible_symbol_names();
+        closest_identifier_suggestion(unresolved_name, visible.as_slice()).and_then(|ranked| {
+            (ranked.distance <= SUGGESTION_DISTANCE_THRESHOLD).then_some(ranked.suggestion)
         })
     }
 

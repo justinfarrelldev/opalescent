@@ -1,7 +1,6 @@
 //! Type checking error types and error handling utilities
 
 extern crate alloc;
-
 use crate::token::Span;
 use alloc::string::String;
 use miette::{Diagnostic, SourceSpan};
@@ -33,6 +32,8 @@ pub enum TypeError {
     SymbolNotFound {
         /// Name of the missing symbol
         name: String,
+        /// Optional near-match symbol suggestion when typo detection succeeds.
+        suggestion: Option<String>,
         #[label("undefined symbol")]
         /// Location where the symbol was referenced
         span: SourceSpan,
@@ -290,7 +291,9 @@ pub enum TypeError {
     #[error("Cannot infer generic type parameter '{param_name}' at this call site")]
     #[diagnostic(
         code(opalescent::type_system::cannot_infer_generic_type),
-        help("Provide explicit generic arguments or pass arguments that constrain this generic")
+        help(
+            "Provide explicit generic arguments, pass arguments that constrain this generic, or consider adding type annotation"
+        )
     )]
     CannotInferGenericType {
         /// Name of the generic parameter that could not be inferred.
