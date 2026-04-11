@@ -121,6 +121,17 @@ impl TypeChecker {
                     &type_var_instantiations,
                 );
 
+                if generic_args.is_none() {
+                    for declared_generic in &generic_params {
+                        if !type_var_instantiations.contains_key(&declared_generic.type_var.id) {
+                            return Err(TypeError::CannotInferGenericType {
+                                param_name: declared_generic.name.clone(),
+                                span: TypeError::span_from_span(span),
+                            });
+                        }
+                    }
+                }
+
                 if let Some(explicit_generic_args) = generic_args {
                     if explicit_generic_args.len() != generic_params.len() {
                         return Err(TypeError::ArityMismatch {

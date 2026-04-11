@@ -73,14 +73,8 @@ mod tests {
 
     // ── Language-spec: hello_world ────────────────────────────────────────────
 
-    /// The raw `hello_world.op` spec source, included via `include_str!` so any
-    /// drift between the file and the test is impossible.
     const HELLO_WORLD_SOURCE: &str = include_str!("../../language-spec/hello_world.op");
 
-    /// Full pipeline test against the canonical `hello_world.op` spec file.
-    ///
-    /// The file uses tab-based indentation and `=>` function-body syntax, both
-    /// of which are fully supported by the current lexer and parser.
     #[test]
     fn test_hello_world_full_pipeline_parses_and_type_checks() {
         let program = parse_pipeline_with_spaces(HELLO_WORLD_SOURCE);
@@ -94,12 +88,6 @@ mod tests {
 
     // ── Language-spec: fib_recursive (brace-syntax equivalent) ───────────────
 
-    /// Brace-syntax equivalent of `language-spec/fib_recursive.op`.
-    ///
-    /// Uses `public` visibility so the recursive call site can resolve the symbol
-    /// during the type checker's second pass (body checking).
-    /// Integer literals default to `int64`, so both parameters and return types
-    /// use `int64` to keep comparisons and returns consistent.
     const FIB_RECURSIVE_BRACE_SOURCE: &str = "
 public fib_recursive = f(n: int64): int64 =>
     if n is 0 { return 0 }
@@ -113,10 +101,6 @@ entry main = f(args: string[]): void =>
     return void
 ";
 
-    /// Full pipeline test for the recursive fibonacci logic.
-    ///
-    /// Exercises: `public` function declarations, recursive calls, `if` statements
-    /// with `is`-equality, integer arithmetic, and `let` bindings with annotations.
     #[test]
     fn test_fib_recursive_equivalent_parses_and_type_checks() {
         let program = parse_pipeline(FIB_RECURSIVE_BRACE_SOURCE);
@@ -128,10 +112,6 @@ entry main = f(args: string[]): void =>
         );
     }
 
-    /// Tracks the raw `fib_recursive.op` spec file against the pipeline.
-    ///
-    /// Marked `#[ignore]` until `if cond:` / colon-indentation block support
-    /// lands in the parser (Phase 2 parser work).
     #[test]
     #[ignore = "fib_recursive.op uses colon-block syntax (if n is 0:) not yet supported by the parser"]
     fn test_fib_recursive_spec_file_parses_and_type_checks() {
@@ -147,11 +127,6 @@ entry main = f(args: string[]): void =>
 
     // ── Language-spec: fib_iterative (brace-syntax equivalent) ───────────────
 
-    /// Brace-syntax equivalent of `language-spec/fib_iterative.op`.
-    ///
-    /// Uses `public` visibility for the function and `int64` throughout so that
-    /// integer literals in comparisons and arithmetic remain type-consistent.
-    /// The `while` body is enclosed in braces as the parser requires.
     const FIB_ITERATIVE_BRACE_SOURCE: &str = "
 public fib_iter = f(n: int64): int64 =>
     if n is 0 { return 0 }
@@ -173,10 +148,6 @@ entry main = f(args: string[]): void =>
     return void
 ";
 
-    /// Full pipeline test for the iterative fibonacci logic.
-    ///
-    /// Exercises: `while` loops, `let mutable` bindings, variable assignments,
-    /// `<=` comparisons, integer arithmetic, and multi-statement function bodies.
     #[test]
     fn test_fib_iterative_equivalent_parses_and_type_checks() {
         let program = parse_pipeline(FIB_ITERATIVE_BRACE_SOURCE);
@@ -188,10 +159,6 @@ entry main = f(args: string[]): void =>
         );
     }
 
-    /// Tracks the raw `fib_iterative.op` spec file against the pipeline.
-    ///
-    /// Marked `#[ignore]` until `while cond:` / colon-indentation block support
-    /// lands in the parser (Phase 2 parser work).
     #[test]
     #[ignore = "fib_iterative.op uses colon-block syntax (while i <= n:) not yet supported by the parser"]
     fn test_fib_iterative_spec_file_parses_and_type_checks() {
@@ -207,11 +174,6 @@ entry main = f(args: string[]): void =>
 
     // ── Multi-error reporting ─────────────────────────────────────────────────
 
-    /// Verifies that the type checker collects and reports *multiple* type errors
-    /// from a single program rather than stopping on the first failure.
-    ///
-    /// Both functions return the wrong type (`string` where `int32` is expected),
-    /// so the resulting error vector must contain at least two entries.
     #[test]
     fn test_multi_error_reporting_returns_all_errors() {
         const SOURCE: &str = "
@@ -237,10 +199,6 @@ let bad_return_bool = f(): int32 =>
         );
     }
 
-    /// Verifies that multi-error programs surface `TypeMismatch` diagnostics.
-    ///
-    /// Confirms that the error kind is preserved end-to-end through the pipeline
-    /// and that individual errors carry the correct diagnostic code.
     #[test]
     fn test_multi_error_reporting_errors_have_type_mismatch_kind() {
         const SOURCE: &str = "
@@ -267,8 +225,6 @@ let wrong_b = f(): int32 =>
         );
     }
 
-    /// Verifies that erroneous declarations do not prevent subsequent valid ones
-    /// from being checked, and that all errors are collected rather than aborting.
     #[test]
     fn test_multi_error_correct_and_bad_declarations_all_checked() {
         const SOURCE: &str = "
@@ -299,11 +255,6 @@ let third_bad = f(): string =>
 
     // ── Error span accuracy ───────────────────────────────────────────────────
 
-    /// Verifies that a `TypeMismatch` error carries a non-zero source span,
-    /// confirming diagnostic location information propagates through the pipeline.
-    ///
-    /// The span should locate the mismatched string literal in the return
-    /// statement, not point to the start of the source file.
     #[test]
     fn test_error_span_is_non_zero_for_type_mismatch() {
         const SOURCE: &str = "let typed_fn = f(): int32 => return 'oops'";
@@ -337,8 +288,6 @@ let third_bad = f(): string =>
         );
     }
 
-    /// Verifies that `SymbolNotFound` errors carry source spans that identify the
-    /// use site of the undefined symbol, not a zero/default position.
     #[test]
     fn test_error_span_for_undefined_symbol_is_non_zero() {
         const SOURCE: &str = "let caller = f(): int32 => return undefined_function()";
@@ -374,9 +323,6 @@ let third_bad = f(): string =>
 
     // ── Pipeline isolation: parse-only ────────────────────────────────────────
 
-    /// Verifies that a syntactically valid but semantically invalid program
-    /// produces zero parse errors, confirming that parsing and type checking
-    /// remain cleanly separated stages.
     #[test]
     fn test_parse_succeeds_on_semantically_invalid_program() {
         const SOURCE: &str = "let bad = f(): int32 => return 'bad'";
@@ -403,12 +349,10 @@ let third_bad = f(): string =>
         );
     }
 
-    /// Verifies that a program which is both syntactically and semantically valid
-    /// passes through the entire pipeline producing zero errors and zero warnings.
     #[test]
     fn test_clean_program_produces_zero_errors_and_zero_warnings() {
         const SOURCE: &str = "
-let add = f(x: int32, y: int32): int32 =>
+entry add = f(x: int32, y: int32): int32 =>
     return x + y
 ";
 
@@ -425,6 +369,106 @@ let add = f(x: int32, y: int32): int32 =>
             checker.warnings().is_empty(),
             "clean program must produce zero warnings; got: {:?}",
             checker.warnings(),
+        );
+    }
+
+    #[test]
+    fn test_program_without_entry_reports_missing_entry_point() {
+        const SOURCE: &str = "
+public helper = f(): int32 =>
+    return 1
+";
+
+        let program = parse_pipeline(SOURCE);
+        let result = TypeChecker::validate_entry_points(&program);
+
+        let has_missing_entry = matches!(result, Err(TypeError::MissingEntryPoint { .. }));
+        assert!(
+            has_missing_entry,
+            "expected MissingEntryPoint error, got: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_program_with_duplicate_entry_reports_duplicate_entry_point() {
+        const SOURCE: &str = "
+entry first = f(): int32 =>
+    return 1
+
+entry second = f(): int32 =>
+    return 2
+";
+
+        let program = parse_pipeline(SOURCE);
+        let result = TypeChecker::validate_entry_points(&program);
+
+        let has_duplicate_entry = matches!(result, Err(TypeError::DuplicateEntryPoint { .. }));
+        assert!(
+            has_duplicate_entry,
+            "expected DuplicateEntryPoint error, got: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_call_with_uninferable_generic_reports_cannot_infer_generic_type() {
+        const SOURCE: &str = "
+public passthrough = f<T>(value: int32): int32 =>
+    return value
+
+entry main = f(): int32 =>
+    return passthrough(1)
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        let errors = result.expect_err("uninferable generic call must fail type checking");
+
+        let has_cannot_infer = errors
+            .iter()
+            .any(|error| matches!(*error, TypeError::CannotInferGenericType { .. }));
+        assert!(
+            has_cannot_infer,
+            "expected CannotInferGenericType error, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_lambda_closure_captures_outer_scope_variable() {
+        const SOURCE: &str = "
+entry main = f(): int64 => {
+    let base: int64 = 41
+    let add_one: f(): int64 = f(): int64 => { return base + 1 }
+    return add_one()
+}
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        assert!(
+            result.is_ok(),
+            "lambda closure should capture outer variable: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_guard_propagate_and_multiple_returns_integrate() {
+        const SOURCE: &str = "
+entry main = f(): int32, int32 errors ParseError => {
+    guard string_to_int32('7') into parsed else { return first: 0, second: 0 }
+    return first: parsed, second: parsed
+}
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        assert!(
+            result.is_ok(),
+            "guard/propagate + multiple return integration should pass: {result:?}",
         );
     }
 }

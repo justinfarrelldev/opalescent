@@ -13,6 +13,40 @@ use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{format, vec::Vec};
 
 impl TypeChecker {
+    /// Validate that the program contains exactly one `entry` function.
+    pub fn validate_entry_points(program: &Program) -> Result<(), TypeError> {
+        let entry_declarations = program
+            .declarations
+            .iter()
+            .filter_map(|decl| {
+                if let Decl::Function { is_entry, span, .. } = *decl {
+                    is_entry.then_some(span)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        if entry_declarations.is_empty() {
+            return Err(TypeError::MissingEntryPoint {
+                span: TypeError::unknown_span(),
+            });
+        }
+
+        if entry_declarations.len() > 1 {
+            let duplicate_span = entry_declarations
+                .first()
+                .copied()
+                .map_or_else(TypeError::unknown_span, TypeError::span_from_span);
+            return Err(TypeError::DuplicateEntryPoint {
+                count: entry_declarations.len(),
+                span: duplicate_span,
+            });
+        }
+
+        Ok(())
+    }
+
     /// Convert an AST type into a core type while resolving generic identifiers
     /// against the provided function-level generic bindings.
     fn ast_type_to_core_type_with_generics(
@@ -195,6 +229,19 @@ impl TypeChecker {
                     return_types: return_core_types,
                     error_types: core_errors,
                 };
+
+                if let CoreType::Function {
+                    parameters: declared_parameters,
+                    return_types: declared_returns,
+                    ..
+                } = &function_type
+                {
+                    self.record_function_hot_reload_metadata(
+                        function_name,
+                        declared_parameters,
+                        declared_returns,
+                    );
+                }
 
                 let resolved_visibility = Self::convert_visibility(decl_visibility, is_entry);
                 self.symbol_table.register(SymbolInfo {
@@ -422,7 +469,11 @@ impl TypeChecker {
         }
 
         if errors.is_empty() {
-            Ok(())
+            if let Err(entry_error) = Self::validate_entry_points(program) {
+                Err(vec![entry_error])
+            } else {
+                Ok(())
+            }
         } else {
             Err(errors)
         }

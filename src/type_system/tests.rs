@@ -131,6 +131,26 @@ fn create_program(declarations: Vec<Decl>) -> Program {
     }
 }
 
+fn create_entry_program(declarations: Vec<Decl>) -> Program {
+    let mut all_declarations = declarations;
+    all_declarations.push(make_function_decl(
+        "main",
+        Vec::new(),
+        Some(int_type("int32")),
+        return_stmt(literal_expr(LiteralValue::Integer(0), 9_100_000), 9_100_001),
+        9_100_002,
+    ));
+
+    if let Some(&mut Decl::Function {
+        ref mut is_entry, ..
+    }) = all_declarations.last_mut()
+    {
+        *is_entry = true;
+    }
+
+    create_program(all_declarations)
+}
+
 fn make_parameter(name: &str, ty: Type) -> Parameter {
     Parameter {
         name: name.to_owned(),
@@ -332,7 +352,7 @@ fn test_propagate_succeeds_with_subset_errors() {
         101,
     );
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 1500),
         inner_fn,
         outer_fn,
@@ -386,7 +406,7 @@ fn test_propagate_fails_outside_error_function() {
         103,
     );
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 3200),
         inner_fn,
         outer_fn,
@@ -451,7 +471,7 @@ fn test_propagate_fails_when_error_types_mismatch() {
         105,
     );
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("IoError", 4200),
         make_unit_type_decl("ParseError", 4201),
         inner_fn,
@@ -476,7 +496,7 @@ fn test_propagate_fails_when_error_types_mismatch() {
 /// and fails when the callee introduces a new error variant.
 #[test]
 fn test_propagate_multiple_error_types_subset_and_superset() {
-    let subset_program = create_program(vec![
+    let subset_program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 6100),
         make_unit_type_decl("IoError", 6101),
         make_unit_type_decl("NetworkError", 6102),
@@ -526,7 +546,7 @@ fn test_propagate_multiple_error_types_subset_and_superset() {
         "subset case should succeed: {subset_result:?}"
     );
 
-    let superset_program = create_program(vec![
+    let superset_program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 6200),
         make_unit_type_decl("IoError", 6201),
         make_function_decl_with_errors(
@@ -583,7 +603,7 @@ fn test_propagate_multiple_error_types_subset_and_superset() {
 /// Propagate must reject calls to functions that do not declare error types.
 #[test]
 fn test_propagate_rejects_empty_error_list() {
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 6300),
         make_function_decl_with_errors(
             "always_ok",
@@ -639,7 +659,7 @@ fn test_propagate_rejects_empty_error_list() {
 /// Nested propagate expressions should type-check when each layer respects error subsets.
 #[test]
 fn test_propagate_nested_expressions() {
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 6400),
         make_function_decl_with_errors(
             "parse_int",
@@ -723,7 +743,7 @@ fn test_propagate_nested_expressions() {
 /// Ensure error type name mismatches are treated as incompatible even if their structure matches.
 #[test]
 fn test_propagate_rejects_structurally_identical_error_names() {
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 6500),
         make_unit_type_decl("ParseProblem", 6501),
         make_function_decl_with_errors(
@@ -802,7 +822,7 @@ fn test_propagate_inside_lambda_with_errors() {
         id: node_id(6604),
     };
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 6600),
         make_function_decl_with_errors(
             "parse_value",
@@ -864,7 +884,7 @@ fn test_propagate_error_span_accuracy() {
         id: node_id(6704),
     };
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 6700),
         make_unit_type_decl("IoError", 6705),
         make_function_decl_with_errors(
@@ -933,7 +953,7 @@ fn test_propagate_error_span_accuracy() {
 /// Propagate error mismatch diagnostics should render human-readable error names.
 #[test]
 fn test_propagate_error_mismatch_reports_readable_types() {
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 6750),
         make_unit_type_decl("IoError", 6751),
         make_function_decl_with_errors(
@@ -1017,7 +1037,7 @@ fn test_guard_requires_call_expression() {
         id: node_id(6803),
     };
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 6804),
         make_function_decl_with_errors(
             "parse_value",
@@ -1076,7 +1096,7 @@ fn test_guard_rejects_empty_error_list() {
         6903,
     );
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 6904),
         make_function_decl_with_errors(
             "always_ok",
@@ -1135,7 +1155,7 @@ fn test_guard_binding_available_after_guard() {
         7003,
     );
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 7004),
         make_function_decl_with_errors(
             "parse_value",
@@ -1206,7 +1226,7 @@ fn test_guard_else_expression_requires_matching_success_type() {
         id: node_id(7205),
     };
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 7206),
         make_function_decl_with_errors(
             "parse_value",
@@ -1277,7 +1297,7 @@ fn test_guard_else_expression_allows_matching_success_type() {
         id: node_id(7224),
     };
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 7225),
         make_function_decl_with_errors(
             "parse_value",
@@ -1344,7 +1364,7 @@ fn test_guard_else_expression_rejects_heterogeneous_error_sets() {
         id: node_id(7244),
     };
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 7245),
         make_unit_type_decl("IoError", 7246),
         make_function_decl_with_errors(
@@ -1403,7 +1423,7 @@ fn test_guard_statement_else_expression_requires_unit() {
         7262,
     );
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 7263),
         make_function_decl_with_errors(
             "parse_value",
@@ -1463,7 +1483,7 @@ fn test_guard_statement_else_expression_accepts_unit_handler() {
         7282,
     );
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 7283),
         make_function_decl_with_errors(
             "parse_value",
@@ -1544,7 +1564,7 @@ fn test_guard_statement_allows_block_handler() {
         7306,
     );
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ParseError", 7307),
         make_function_decl_with_errors(
             "parse_value",
@@ -1632,7 +1652,7 @@ fn test_guard_else_rejects_chained_guard_with_mismatched_errors() {
         id: node_id(7408),
     };
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ConfigError", 7409),
         make_unit_type_decl("DefaultError", 7410),
         make_function_decl_with_errors(
@@ -1722,7 +1742,7 @@ fn test_guard_else_allows_chained_guard_with_identical_errors() {
         id: node_id(7438),
     };
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ConfigError", 7439),
         make_function_decl_with_errors(
             "load_config",
@@ -1796,7 +1816,7 @@ fn test_guard_else_rejects_propagate_with_mismatched_errors() {
         id: node_id(7466),
     };
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ConfigError", 7467),
         make_unit_type_decl("DefaultError", 7468),
         make_function_decl_with_errors(
@@ -1864,7 +1884,7 @@ fn test_guard_statement_else_allows_matching_propagate() {
         id: node_id(7485),
     };
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ConfigError", 7486),
         make_function_decl_with_errors(
             "load_config",
@@ -1927,7 +1947,7 @@ fn test_guard_statement_else_rejects_mismatched_propagate_errors() {
         id: node_id(7505),
     };
 
-    let program = create_program(vec![
+    let program = create_entry_program(vec![
         make_unit_type_decl("ConfigError", 7506),
         make_unit_type_decl("DefaultError", 7507),
         make_function_decl_with_errors(
@@ -3338,7 +3358,7 @@ fn test_type_check_single_return_backward_compatibility() {
         20_132,
     );
 
-    let program = create_program(vec![function]);
+    let program = create_entry_program(vec![function]);
     let result = checker.type_check_program(&program);
 
     assert!(
@@ -3409,7 +3429,7 @@ fn test_type_check_labeled_returns_require_consistent_ordered_labels() {
         metadata: HotReloadMetadata::for_function(),
     };
 
-    let program = create_program(vec![function]);
+    let program = create_entry_program(vec![function]);
     let result = checker.type_check_program(&program);
 
     assert!(
@@ -3485,7 +3505,7 @@ fn test_type_check_labeled_and_unlabeled_returns_cannot_mix() {
         metadata: HotReloadMetadata::for_function(),
     };
 
-    let program = create_program(vec![function]);
+    let program = create_entry_program(vec![function]);
     let result = checker.type_check_program(&program);
 
     assert!(
@@ -3527,7 +3547,8 @@ fn test_type_check_if_requires_boolean_condition() {
 #[test]
 fn test_if_expression_infers_branch_type_when_branches_match() {
     let mut checker = TypeChecker::new();
-    let program = parse_program_from_source("let value = if true { 1 } else { 2 }\n");
+    let program =
+        parse_program_from_source("entry main = f(): int64 => return if true { 1 } else { 2 }\n");
 
     let result = checker.type_check_program(&program);
     assert!(
@@ -3652,7 +3673,7 @@ fn test_type_check_program_handles_forward_function_reference() {
         30_030,
     );
 
-    let program = create_program(vec![let_decl, fn_decl]);
+    let program = create_entry_program(vec![let_decl, fn_decl]);
     let result = checker.type_check_program(&program);
     assert!(
         result.is_ok(),
@@ -3680,7 +3701,7 @@ fn test_type_check_program_accumulates_multiple_errors() {
         31_112,
     );
 
-    let program = create_program(vec![first_fn, second_fn]);
+    let program = create_entry_program(vec![first_fn, second_fn]);
     let result = checker.type_check_program(&program);
     assert!(result.is_err(), "program should report collected errors");
     let errors = result.unwrap_err();
@@ -3701,7 +3722,7 @@ fn test_type_check_program_reports_let_type_mismatch() {
         31_201,
     );
 
-    let program = create_program(vec![let_decl]);
+    let program = create_entry_program(vec![let_decl]);
     let result = checker.type_check_program(&program);
     assert!(result.is_err(), "mismatched let annotations must fail");
     let errors = result.unwrap_err();
@@ -4515,7 +4536,8 @@ fn test_cast_generic_type() {
 /// Ensure the guard/propagate integration sample type checks end to end.
 #[test]
 fn test_type_check_error_handling_sample_program() {
-    let program = parse_error_handling_sample_program();
+    let parsed_program = parse_error_handling_sample_program();
+    let program = create_entry_program(parsed_program.declarations);
     let mut checker = TypeChecker::new();
     let result = checker.type_check_program(&program);
     assert!(
@@ -4527,7 +4549,7 @@ fn test_type_check_error_handling_sample_program() {
 #[test]
 fn test_builtin_print_supports_generic_arguments() {
     const SOURCE: &str = "
-let demo = f(): unit =>
+entry demo = f(): unit =>
     print('hello')
     print(42)
     print(true)
@@ -4546,7 +4568,7 @@ let demo = f(): unit =>
 #[test]
 fn test_builtin_take_input_returns_string() {
     const SOURCE: &str = "
-let demo = f(): string =>
+entry demo = f(): string =>
     let input: string = take_input()
     return input
 ";
@@ -4563,7 +4585,7 @@ let demo = f(): string =>
 #[test]
 fn test_builtin_string_to_int32_propagate_type_checks() {
     const SOURCE: &str = "
-let parse_user_number = f(input: string): int32 errors ParseError =>
+entry parse_user_number = f(input: string): int32 errors ParseError =>
     let n: int32 = propagate string_to_int32(input)
     return n
 ";
@@ -4580,7 +4602,7 @@ let parse_user_number = f(input: string): int32 errors ParseError =>
 #[test]
 fn test_builtin_random_int32_signature_type_checks() {
     const SOURCE: &str = "
-let quiz_num = f(): int32 =>
+entry quiz_num = f(): int32 =>
     let n: int32 = random_int32(1, 5)
     return n
 ";
@@ -5146,7 +5168,7 @@ fn test_non_constant_divisor_does_not_emit_compile_time_division_by_zero() {
 #[test]
 fn test_non_constant_integer_addition_does_not_emit_overflow_warning() {
     const SOURCE: &str = "
-let sum_values = f(a: int32, b: int32): int32 =>
+entry sum_values = f(a: int32, b: int32): int32 =>
     return a + b
 ";
 

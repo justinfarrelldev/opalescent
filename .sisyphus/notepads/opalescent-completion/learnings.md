@@ -76,3 +76,47 @@
 - Missing members now emit `TypeError::SymbolNotFound` with source span preserved, and tests assert qualified names in diagnostics.
 - Added RED→GREEN tests for module member success, struct-like field success, missing member error/span, and chained access success.
 - Validation: cargo make test PASS (287 passed, 1 ignored), cargo make lint PASS, cargo make lint-fix PASS, scripts/check-line-count.sh PASS.
+
+## [2026-04-11] Task 9: Division by Zero Detection - COMPLETE
+- Added `TypeError::DivisionByZero` with diagnostic code `opalescent::type_system::division_by_zero` and labeled divisor span for clear compile-time reporting.
+- Added helper `zero_divisor_operation_name` in `checker/helpers.rs` to detect constant zero divisors for `/` and `%` via existing integer-constant extraction.
+- Updated binary expression checking to hard-error on compile-time-known zero RHS for division and modulo, while preserving non-constant divisor behavior as runtime-only.
+- Added RED→GREEN tests for division-by-zero and modulo-by-zero (including non-constant LHS + literal zero RHS), plus a non-constant divisor no-error case.
+- Validation: `timeout 30 cargo test` PASS, `timeout 30 cargo make test` PASS (299 passed, 1 ignored), `cargo make lint` PASS, `cargo make lint-fix` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files.
+
+## [2026-04-10] Task 10: Integration Tests — COMPLETE (commit 096625e)
+
+### What Was Created
+- `src/type_system/test_integration.rs` — new file (430 lines, excluded from line-count check)
+- `src/type_system.rs` — added `#[cfg(test)] mod test_integration;`
+- 10 tests total: 8 active + 2 `#[ignore]`d spec-file tests
+
+### Tests Added
+1. `test_hello_world_full_pipeline_parses_and_type_checks` — full pipeline against `language-spec/hello_world.op`
+2. `test_fib_recursive_equivalent_parses_and_type_checks` — brace-syntax recursive fib (green)
+3. `test_fib_recursive_spec_file_parses_and_type_checks` — `#[ignore]`: colon-block syntax not yet supported
+4. `test_fib_iterative_equivalent_parses_and_type_checks` — brace-syntax iterative fib (green)
+5. `test_fib_iterative_spec_file_parses_and_type_checks` — `#[ignore]`: colon-block syntax not yet supported
+6. `test_multi_error_reporting_returns_all_errors` — ≥2 errors collected, not short-circuited
+7. `test_multi_error_reporting_errors_have_type_mismatch_kind` — error kind preserved through pipeline
+8. `test_multi_error_correct_and_bad_declarations_all_checked` — mixed valid/invalid, all checked
+9. `test_error_span_is_non_zero_for_type_mismatch` — span accuracy for TypeMismatch
+10. `test_error_span_for_undefined_symbol_is_non_zero` — span accuracy for SymbolNotFound
+11. `test_parse_succeeds_on_semantically_invalid_program` — parser/type-checker stage isolation
+12. `test_clean_program_produces_zero_errors_and_zero_warnings` — zero-noise golden path
+
+### Key Learnings
+- `src/type_system/tests.rs` is 5228 lines — NEVER add more tests there; use `test_integration.rs`
+- Spec files (`fib_recursive.op`, `fib_iterative.op`) use `if n is 0:` colon-block syntax — parser requires `{ }` braces; brace equivalents needed
+- Integer literals (`0`, `1`, `42`) infer as `int64`; params in fib sources must match (`int64` not `int32`)
+- `Decl::Let` without explicit type annotation is NOT pre-registered in first pass; use `public foo =` (`Decl::Function`) for forward-referenced functions
+- **clippy `pattern_type_mismatch`**: When iterating `Vec<TypeError>` with `.iter()`, closures receive `&TypeError`. In `matches!`, use `matches!(**err, TypeError::Foo { .. })` (double-deref since `.find()` adds one more `&`); in `is_some_and`, use `if let TypeError::Foo { .. } = *err { .. }` (single-deref)
+- Baseline after Task 10: **309 tests passing, 3 ignored** (1 pre-existing + 2 new spec-file ignores)
+
+## [2026-04-10] Task 11: Function System Completion
+- Entry-point cardinality validation implemented via `TypeChecker::validate_entry_points` with `TypeError::MissingEntryPoint` and `TypeError::DuplicateEntryPoint`; integrated as post-typecheck semantic validation so existing error-collection behavior remains intact.
+- Generic call inference now fails explicitly with `TypeError::CannotInferGenericType` when a declared generic parameter is not constrained by call arguments and no explicit generic args are provided.
+- Scope/closure behavior verified with integration coverage for lambda capture of outer variables inside function scope, plus guard/propagate with multi-return integration coverage.
+- Hot-reload signature stability metadata added in new `src/type_system/checker/hot_reload.rs` and wired through declaration signature registration; `TypeChecker` now records/retrieves per-function signature snapshots (`signature_stable`, params/returns).
+- Added integration tests for missing entry, duplicate entry, uninferable generic call, closure capture, and guard+multiple-returns success path.
+- Validation after changes: `timeout 30 cargo test` PASS (314 passed, 3 ignored), `cargo make lint-fix` PASS, `cargo make lint` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files.

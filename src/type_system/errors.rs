@@ -38,6 +38,34 @@ pub enum TypeError {
         span: SourceSpan,
     },
 
+    /// Program contains no entry point declaration.
+    #[error("Program is missing an `entry` function")]
+    #[diagnostic(
+        code(opalescent::type_system::missing_entry_point),
+        help("Define exactly one `entry` function to mark the program entry point")
+    )]
+    MissingEntryPoint {
+        /// Source span for whole-program entry validation failure.
+        #[label("no entry function declared")]
+        /// Label span used in diagnostics.
+        span: SourceSpan,
+    },
+
+    /// Program declares more than one entry point.
+    #[error("Program declares multiple `entry` functions ({count} found)")]
+    #[diagnostic(
+        code(opalescent::type_system::duplicate_entry_point),
+        help("Keep exactly one `entry` function and remove the extra entry annotations")
+    )]
+    DuplicateEntryPoint {
+        /// Number of entry declarations discovered.
+        count: usize,
+        /// Source span pointing at one duplicate entry declaration.
+        #[label("duplicate entry function declared here")]
+        /// Label span used in diagnostics.
+        span: SourceSpan,
+    },
+
     /// Types do not match in an expression
     #[error("Type mismatch: expected '{expected}', found '{found}'")]
     #[diagnostic(
@@ -102,6 +130,21 @@ pub enum TypeError {
         param_name: String,
         #[label("undefined generic parameter")]
         /// Source span highlighting where the parameter was referenced
+        span: SourceSpan,
+    },
+
+    /// Generic call-site inference failed for a declared type parameter.
+    #[error("Cannot infer generic type parameter '{param_name}' at this call site")]
+    #[diagnostic(
+        code(opalescent::type_system::cannot_infer_generic_type),
+        help("Provide explicit generic arguments or pass arguments that constrain this generic")
+    )]
+    CannotInferGenericType {
+        /// Name of the generic parameter that could not be inferred.
+        param_name: String,
+        /// Source span of the call expression causing inference failure.
+        #[label("generic type cannot be inferred here")]
+        /// Label span used in diagnostics.
         span: SourceSpan,
     },
 

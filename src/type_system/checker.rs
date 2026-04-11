@@ -15,7 +15,8 @@ use super::symbol_table::{SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::types::{CoreType, TypeVar};
 use crate::ast::Type;
 use crate::token::Span;
-use alloc::{boxed::Box, format, string::String, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeMap, format, string::String, vec::Vec};
+use hot_reload::FunctionHotReloadMetadata;
 
 // Sub-modules
 mod call_resolution;
@@ -23,6 +24,7 @@ mod control_flow;
 mod declarations;
 mod expressions;
 mod helpers;
+mod hot_reload;
 mod statements;
 mod unification;
 
@@ -56,6 +58,8 @@ pub struct TypeChecker {
     return_label_modes: Vec<ReturnLabelMode>,
     /// Collected non-fatal warnings produced while type checking.
     warnings: Vec<Warning>,
+    /// Cached function signatures for hot-reload compatibility checks.
+    function_hot_reload_metadata: BTreeMap<String, FunctionHotReloadMetadata>,
 }
 
 impl TypeChecker {
@@ -70,6 +74,7 @@ impl TypeChecker {
             guard_error_stack: Vec::new(),
             return_label_modes: Vec::new(),
             warnings: Vec::new(),
+            function_hot_reload_metadata: BTreeMap::new(),
         };
         checker.register_standard_builtins();
         checker
@@ -86,6 +91,7 @@ impl TypeChecker {
             guard_error_stack: Vec::new(),
             return_label_modes: Vec::new(),
             warnings: Vec::new(),
+            function_hot_reload_metadata: BTreeMap::new(),
         };
         checker.register_standard_builtins();
         checker
