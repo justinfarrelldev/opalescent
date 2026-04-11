@@ -53,3 +53,10 @@
 - `compile_program(source, output_dir)` should create its own `Context` and produce deterministic artifacts: `program.o` then `program` in the caller-provided output directory.
 - Integration tests need strict hygiene: gate under `feature = "integration"`, keep temporary artifacts inside `test-projects/<name>/target`, and remove outputs after assertions to avoid repository pollution.
 - Linker error ergonomics are much better when `CompileError::Linker` captures stderr from `cc`; this makes e2e failures actionable without rerunning under verbose shell tracing.
+
+## [2026-04-11] Task 3: resolve_callee_function stdlib registry
+- Where the function is in the codebase: `src/codegen/functions.rs:257` (`resolve_callee_function`) and `src/codegen/functions.rs:338` (`declare_stdlib_function` helper)
+- How you structured the registry: a dedicated matcher helper (`declare_stdlib_function`) that declares/reuses precise LLVM externs for known stdlib names and returns `None` for unknown names
+- What "print" maps to: puts (`declare i32 @puts(i8*)`)
+- How existing callers were affected: `codegen_call_expression` keeps calling through `resolve_callee_function`; now identifier callees either resolve to existing module functions, stdlib externs (`puts`/`printf`), or return a `CodegenError` for unknown names instead of emitting invalid fallback signatures
+- Any surprises or edge cases found: preserving monomorphization behavior required skipping explicit generic monomorphization for stdlib aliases (`print`/`printf`) to avoid generating invalid specialized symbols for external C functions

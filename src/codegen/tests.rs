@@ -658,6 +658,13 @@ fn test_codegen_propagate_and_guard_expressions_lower_error_flow() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "guard_propagate");
     let _host = create_codegen_function(&codegen_context, "host");
+    let fallible_type = codegen_context
+        .context
+        .i64_type()
+        .fn_type(&[codegen_context.context.i64_type().into()], false);
+    let _fallible = codegen_context
+        .module
+        .add_function("fallible", fallible_type, None);
     let mut env = CodegenEnv::new(true);
 
     let guard_result = codegen_guard_expression(

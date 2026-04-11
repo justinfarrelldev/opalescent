@@ -12,6 +12,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
+use inkwell::AddressSpace;
 
 #[doc = "Lower a function declaration and optionally emit a C main wrapper."]
 pub fn codegen_function_declaration<'context>(
@@ -261,24 +262,22 @@ fn resolve_callee_function<'context>(
 ) -> Result<FunctionValue<'context>, CodegenError> {
     match *callee {
         Expr::Identifier { ref name, .. } => {
-            let base_function = codegen_context
-                .module
-                .get_function(name.as_str())
-                .map_or_else(
-                    || {
-                        let fallback_type = codegen_context.context.i64_type().fn_type(&[], false);
-                        codegen_context
-                            .module
-                            .add_function(name.as_str(), fallback_type, None)
-                    },
-                    |existing| existing,
-                );
+            let is_stdlib_name = name == "print" || name == "printf";
+            let base_function = if let Some(existing) =
+                codegen_context.module.get_function(name.as_str())
+            {
+                existing
+            } else if let Some(stdlib_function) = declare_stdlib_function(codegen_context, name) {
+                stdlib_function
+            } else {
+                return Err(CodegenError::new(format!("unknown function: {name}")));
+            };
             if let Some(explicit_generic_args) = generic_args {
                 let concrete_types = explicit_generic_args
                     .iter()
                     .map(ast_type_to_core_type)
                     .collect::<Result<Vec<_>, _>>()?;
-                if !concrete_types.is_empty() {
+                if !concrete_types.is_empty() && !is_stdlib_name {
                     return Ok(ensure_monomorphized_function_declaration(
                         codegen_context,
                         env,
@@ -332,6 +331,33 @@ fn resolve_callee_function<'context>(
         _ => Err(CodegenError::new(String::from(
             "unsupported call callee expression",
         ))),
+    }
+}
+
+#[doc = "Declare known stdlib functions with precise LLVM prototypes."]
+fn declare_stdlib_function<'context>(
+    codegen_context: &CodegenContext<'context>,
+    name: &str,
+) -> Option<FunctionValue<'context>> {
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let i32_type = codegen_context.context.i32_type();
+    match name {
+        "print" => codegen_context.module.get_function("puts").or_else(|| {
+            let puts_type = i32_type.fn_type(&[i8_ptr_type.into()], false);
+            Some(codegen_context.module.add_function("puts", puts_type, None))
+        }),
+        "printf" => codegen_context.module.get_function("printf").or_else(|| {
+            let printf_type = i32_type.fn_type(&[i8_ptr_type.into()], true);
+            Some(
+                codegen_context
+                    .module
+                    .add_function("printf", printf_type, None),
+            )
+        }),
+        _ => None,
     }
 }
 
@@ -523,4 +549,150 @@ fn llvm_basic_type_to_core_type(llvm_type: inkwell::types::BasicTypeEnum<'_>) ->
         return CoreType::Array(alloc::boxed::Box::new(CoreType::Int64));
     }
     CoreType::Unit
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_callee_function;
+    use crate::ast::{Expr, NodeId};
+    use crate::codegen::context::CodegenContext;
+    use crate::codegen::expressions::CodegenEnv;
+    use crate::token::{Position, Span};
+    use inkwell::context::Context;
+
+    #[doc = "Create a deterministic test span for function-resolution unit tests."]
+    fn test_span() -> Span {
+        Span::single(Position::new(1, 1, 0))
+    }
+
+    #[doc = "Create an identifier expression for callee-resolution tests."]
+    fn identifier(name: &str) -> Expr {
+        Expr::Identifier {
+            name: name.to_owned(),
+            span: test_span(),
+            id: NodeId(1),
+        }
+    }
+
+    #[test]
+    fn resolve_print_to_puts() {
+        let context = Context::create();
+        let codegen_context = CodegenContext::new(&context, "resolve_print_to_puts");
+        let mut env = CodegenEnv::new(true);
+
+        let result =
+            resolve_callee_function(&codegen_context, &mut env, &identifier("print"), None);
+        assert!(
+            result.is_ok(),
+            "print should resolve successfully to stdlib puts"
+        );
+
+        let Ok(function) = result else {
+            return;
+        };
+        assert_eq!(
+            function.get_name().to_str(),
+            Ok("puts"),
+            "print should resolve to module function named puts"
+        );
+
+        let function_type = function.get_type();
+        assert!(
+            !function_type.is_var_arg(),
+            "puts prototype should not be variadic"
+        );
+
+        let return_type_text = function_type
+            .get_return_type()
+            .map_or_else(String::new, |return_type| {
+                return_type.print_to_string().to_string()
+            });
+        assert_eq!(return_type_text, "i32", "puts return type should be i32");
+
+        let parameter_types = function_type.get_param_types();
+        assert_eq!(
+            parameter_types.len(),
+            1,
+            "puts should accept exactly one parameter"
+        );
+        let parameter_type_text = parameter_types[0].print_to_string().to_string();
+        assert_eq!(
+            parameter_type_text, "i8*",
+            "puts first parameter should be i8 pointer"
+        );
+    }
+
+    #[test]
+    fn resolve_printf_to_variadic_printf() {
+        let context = Context::create();
+        let codegen_context = CodegenContext::new(&context, "resolve_printf_to_variadic_printf");
+        let mut env = CodegenEnv::new(true);
+
+        let result =
+            resolve_callee_function(&codegen_context, &mut env, &identifier("printf"), None);
+        assert!(
+            result.is_ok(),
+            "printf should resolve successfully to libc printf"
+        );
+
+        let Ok(function) = result else {
+            return;
+        };
+        assert_eq!(
+            function.get_name().to_str(),
+            Ok("printf"),
+            "printf should resolve to module function named printf"
+        );
+
+        let function_type = function.get_type();
+        assert!(
+            function_type.is_var_arg(),
+            "printf prototype should be variadic"
+        );
+
+        let return_type_text = function_type
+            .get_return_type()
+            .map_or_else(String::new, |return_type| {
+                return_type.print_to_string().to_string()
+            });
+        assert_eq!(return_type_text, "i32", "printf return type should be i32");
+
+        let parameter_types = function_type.get_param_types();
+        assert_eq!(
+            parameter_types.len(),
+            1,
+            "printf should declare one fixed parameter"
+        );
+        let parameter_type_text = parameter_types[0].print_to_string().to_string();
+        assert_eq!(
+            parameter_type_text, "i8*",
+            "printf first fixed parameter should be i8 pointer"
+        );
+    }
+
+    #[test]
+    fn unknown_function_produces_error() {
+        let context = Context::create();
+        let codegen_context = CodegenContext::new(&context, "unknown_function_produces_error");
+        let mut env = CodegenEnv::new(true);
+
+        let result = resolve_callee_function(
+            &codegen_context,
+            &mut env,
+            &identifier("definitely_not_registered"),
+            None,
+        );
+        assert!(
+            result.is_err(),
+            "unknown function names should return CodegenError"
+        );
+
+        let error_text = result
+            .err()
+            .map_or_else(String::new, |error| error.to_string());
+        assert!(
+            error_text.contains("unknown function: definitely_not_registered"),
+            "error should include unknown function name, got: {error_text}"
+        );
+    }
 }
