@@ -127,7 +127,9 @@ impl fmt::Display for CoreType {
                         write!(f, "{}", generic_param.name)?;
                         if !generic_param.constraints.is_empty() {
                             write!(f, ": ")?;
-                            for (constraint_index, constraint) in generic_param.constraints.iter().enumerate() {
+                            for (constraint_index, constraint) in
+                                generic_param.constraints.iter().enumerate()
+                            {
                                 if constraint_index > 0 {
                                     write!(f, " + ")?;
                                 }
