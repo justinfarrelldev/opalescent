@@ -267,7 +267,7 @@ Wave FINAL (After ALL tasks — verification):
 > EVERY task follows the chatmode workflow: Read requirements → Read PLAN.md → Read plan file → Write tests (TDD) → Implement → Lint → Commit
 > **A task WITHOUT QA Scenarios is INCOMPLETE. No exceptions.**
 
-- [ ] 1. Multiple Return Values (Phase 2 Blocker #2)
+- [x] 1. Multiple Return Values (Phase 2 Blocker #2)
 
   **What to do**:
   - Read `language-spec/requirements/overview.md`, `language-spec/requirements/modules.md`, `PLAN.md`, `plan/phase-2-blockers-plan.md`
@@ -373,7 +373,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement multiple return values with labeled returns`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 2. Standard Library Built-ins (Phase 2 Blocker #3)
+- [x] 2. Standard Library Built-ins (Phase 2 Blocker #3)
 
   **What to do**:
   - Read all requirements files and PLAN.md before starting
@@ -461,7 +461,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): register standard library built-in function signatures`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 3. If Expression Semantics (Phase 2 Blocker #5)
+- [x] 3. If Expression Semantics (Phase 2 Blocker #5)
 
   **What to do**:
   - Read all requirements files and PLAN.md
@@ -531,7 +531,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement if expression semantics with branch type unification`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 4. Warning System Infrastructure (Phase 2 Blocker #9)
+- [x] 4. Warning System Infrastructure (Phase 2 Blocker #9)
 
   **What to do**:
   - Read all requirements files and PLAN.md
@@ -595,7 +595,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): add warning system infrastructure with unsafe cast warnings`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 5. Documentation Synchronization (Phase 2 Blockers #10, #11)
+- [x] 5. Documentation Synchronization (Phase 2 Blockers #10, #11)
 
   **What to do**:
   - Read PLAN.md and plan/phase-2-blockers-plan.md and plan/type-system-core-plan.md
@@ -648,7 +648,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `docs: synchronize PLAN.md and type-system-core-plan with completed error handling`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 6. Generic Type Parameter Constraints (Phase 2 Blocker #4)
+- [x] 6. Generic Type Parameter Constraints (Phase 2 Blocker #4)
 
   **What to do**:
   - Read all requirements files, PLAN.md, and `plan/phase-2-blockers-plan.md`
@@ -722,7 +722,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement generic type parameter constraints and inference`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 7. Member Access Type Checking (Phase 2 Blocker #6)
+- [x] 7. Member Access Type Checking (Phase 2 Blocker #6)
 
   **What to do**:
   - Read all requirements files and PLAN.md
@@ -785,7 +785,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement member access type checking for modules and fields`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 8. Arithmetic Overflow Detection (Phase 2 Blocker #7)
+- [x] 8. Arithmetic Overflow Detection (Phase 2 Blocker #7)
 
   **What to do**:
   - Read all requirements files (especially `math.md`) and PLAN.md
@@ -849,7 +849,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement compile-time arithmetic overflow detection`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 9. Division by Zero Detection (Phase 2 Blocker #8)
+- [x] 9. Division by Zero Detection (Phase 2 Blocker #8)
 
   **What to do**:
   - Read all requirements files (especially `math.md`) and PLAN.md
@@ -905,7 +905,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement compile-time division and modulo by zero detection`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 10. Phase 1 Remaining — Integration Tests
+- [x] 10. Phase 1 Remaining — Integration Tests
 
   **What to do**:
   - Read all requirements files and PLAN.md
@@ -970,7 +970,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `test: add parser-type-checker integration tests with language-spec validation`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 11. Function System Completion (Phase 2)
+- [x] 11. Function System Completion (Phase 2)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `plan/function-system-plan.md`
@@ -1046,7 +1046,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): complete function system with entry validation and generic call resolution`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 12. Variable System Completion (Phase 2)
+- [x] 12. Variable System Completion (Phase 2)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Variable System section, lines 437-451)
@@ -1118,7 +1118,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): complete variable system with mutability validation and unused warnings`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 13. Control Flow Completion (Phase 2)
+- [x] 13. Control Flow Completion (Phase 2)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Control Flow section, lines 453-473)
@@ -1180,7 +1180,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): complete control flow with exhaustiveness, unreachable code, type narrowing`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 14. Arithmetic & Logic Completion (Phase 2)
+- [x] 14. Arithmetic & Logic Completion (Phase 2)
 
   **What to do**:
   - Read all requirements files (especially `math.md`), PLAN.md (Arithmetic & Logic section, lines 474-492)
@@ -1243,7 +1243,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): complete arithmetic with shift bounds, constant folding, masked shifts`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 15. ADT Implementation — Pattern Matching (Phase 3)
+- [x] 15. ADT Implementation — Pattern Matching (Phase 3)
 
   **What to do**:
   - Read all requirements files, PLAN.md (ADT Implementation section, lines 496-510)
@@ -1318,7 +1318,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement pattern matching with exhaustiveness checking`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 16. ADT Implementation — Constructors & Fields (Phase 3)
+- [x] 16. ADT Implementation — Constructors & Fields (Phase 3)
 
   **What to do**:
   - Read all requirements files, PLAN.md (ADT Implementation section, lines 496-510)
@@ -1384,7 +1384,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement ADT constructors, field access, and HasField constraints`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 17. Array & Collection Type Completion (Phase 3)
+- [x] 17. Array & Collection Type Completion (Phase 3)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Array & Collection Support section, lines 512-529)
@@ -1448,7 +1448,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): implement array/string methods and iterator interface`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 18. Generic System Completion (Phase 3)
+- [x] 18. Generic System Completion (Phase 3)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Generic System section, lines 531-546), `plan/generic-type-parsing-plan.md`
@@ -1513,7 +1513,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(type-system): complete generic system with ADT instantiation and monomorphization prep`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 19. Import/Export Resolution (Phase 4)
+- [x] 19. Import/Export Resolution (Phase 4)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Import/Export System section, lines 548-567), `language-spec/requirements/modules.md`
@@ -1592,7 +1592,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(modules): implement import/export resolution with dependency graph and circular detection`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 20. Module Validation (Phase 4)
+- [x] 20. Module Validation (Phase 4)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Module Validation section, lines 568-574)
@@ -1654,7 +1654,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(modules): implement module validation with visibility rules and interface generation`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 21. LLVM Backend Setup (Phase 5)
+- [x] 21. LLVM Backend Setup (Phase 5)
 
   **What to do**:
   - Read all requirements files, PLAN.md (LLVM Backend Setup section, lines 576-584)
@@ -1731,7 +1731,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(codegen): set up LLVM backend with inkwell, type mapping, and compilation pipeline`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 22. Code Generation — Expressions & Statements (Phase 5)
+- [x] 22. Code Generation — Expressions & Statements (Phase 5)
 
   **What to do**:
   - Read all requirements files, PLAN.md
@@ -1800,7 +1800,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(codegen): implement expression and statement code generation with overflow trapping`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 23. Code Generation — Functions & Control Flow (Phase 5)
+- [x] 23. Code Generation — Functions & Control Flow (Phase 5)
 
   **What to do**:
   - Read all requirements files, PLAN.md
@@ -1868,7 +1868,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(codegen): implement function and control flow code generation with error handling`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 24. Runtime System Foundation (Phase 5)
+- [x] 24. Runtime System Foundation (Phase 5)
 
   **What to do**:
   - Read all requirements files, PLAN.md (Runtime System section, lines 586-592)
@@ -1936,7 +1936,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(runtime): implement runtime system foundation with memory allocation and built-in functions`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 25. Code Generation — ADTs & Generics (Phase 5 continued)
+- [x] 25. Code Generation — ADTs & Generics (Phase 5 continued)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md` (module structure patterns)
@@ -2000,7 +2000,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(codegen): implement ADT code generation and monomorphization`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 26. Runtime System — Memory & Standard Library (Phase 5 continued)
+- [x] 26. Runtime System — Memory & Standard Library (Phase 5 continued)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `ERROR_HANDLING_STANDARDS.md`
@@ -2064,7 +2064,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(runtime): implement memory management and standard library runtime functions`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 27. Basic Optimization Passes (Phase 5 continued)
+- [x] 27. Basic Optimization Passes (Phase 5 continued)
 
   **What to do**:
   - Read all requirements files, PLAN.md
@@ -2126,7 +2126,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(codegen): implement basic optimization passes with dead code elimination and constant folding`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 28. Hot Reload Infrastructure (Phase 6 Start)
+- [x] 28. Hot Reload Infrastructure (Phase 6 Start)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `HOT_RELOAD_ARCHITECTURE.md` (ENTIRE file), `INTEGRATION_DEPENDENCIES.md`
@@ -2203,7 +2203,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(hot-reload): implement hot reload infrastructure with ABI signatures and module swapping`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 29. Change Detection & Hot Swap Classification (Phase 6)
+- [x] 29. Change Detection & Hot Swap Classification (Phase 6)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `HOT_RELOAD_ARCHITECTURE.md` (ENTIRE file — especially lines 250-284 Change Classification), `INTEGRATION_DEPENDENCIES.md`
@@ -2297,7 +2297,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(hot-reload): implement change detection, classification, and incremental compilation triggers`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 30. Hot Reload Safety & Error Recovery (Phase 6)
+- [x] 30. Hot Reload Safety & Error Recovery (Phase 6)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `HOT_RELOAD_ARCHITECTURE.md` (ENTIRE file — especially lines 286-362 Implementation Guidelines and Testing), `INTEGRATION_DEPENDENCIES.md`
@@ -2397,7 +2397,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(hot-reload): implement ABI guard, fallback restart, state preservation, and error recovery`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 31. Error Reporting System (Phase 7)
+- [x] 31. Error Reporting System (Phase 7)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `ERROR_HANDLING_STANDARDS.md`, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`
@@ -2485,7 +2485,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(errors): enhance error reporting with suggestions, multi-error collection, and beautiful formatting`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 32. Documentation Generation System (Phase 7)
+- [x] 32. Documentation Generation System (Phase 7)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`
@@ -2563,7 +2563,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(docs): implement documentation generation system with API docs and cross-references`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 33. Build System & Project Configuration (Phase 7)
+- [x] 33. Build System & Project Configuration (Phase 7)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`
@@ -2646,7 +2646,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(build): implement build system with project config, caching, incremental builds, and cross-compilation`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 34. Core Standard Library (Phase 8)
+- [x] 34. Core Standard Library (Phase 8)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`, `ERROR_HANDLING_STANDARDS.md`
@@ -3237,7 +3237,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(perf): implement performance optimization and benchmark suite with regression detection`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 41. Platform Support & Package Manager (Phase 10)
+- [x] 41. Platform Support & Package Manager (Phase 10)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`
@@ -3321,7 +3321,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(platform): implement cross-platform support and package manager with dependency resolution`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [ ] 42. Ecosystem Tooling & End-to-End Integration (Phase 10)
+- [x] 42. Ecosystem Tooling & End-to-End Integration (Phase 10)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `REFACTORING_GUIDE.md`, `refactor-lint.chatmode.md`, `FIXES.txt`
