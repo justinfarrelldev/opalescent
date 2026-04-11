@@ -13,6 +13,7 @@ use crate::codegen::functions::{
 use crate::codegen::monomorphization::monomorphized_function_name;
 use crate::codegen::statements::codegen_statement;
 use crate::codegen::types::core_type_to_llvm;
+use crate::compiler::compile_to_module;
 use crate::type_system::types::{CoreType, GenericTypeParameter, TypeVar};
 use crate::{
     ast::{
@@ -540,6 +541,86 @@ fn test_codegen_arithmetic_overflow_and_division_traps() {
     assert!(
         ir.contains("llvm.trap"),
         "division by zero checks should emit llvm.trap path: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_is_operator_on_int64_emits_icmp_eq() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "is_cmp_int64");
+    let _function = create_codegen_function(&codegen_context, "is_cmp_int64_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let x_binding = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("x"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("int64"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(8001),
+        },
+        initializer: Some(int_lit(8002, 5)),
+        span: test_span(),
+        id: test_node_id(8003),
+    };
+    let binding_result = codegen_statement(&codegen_context, &mut env, &x_binding);
+    assert!(
+        binding_result.is_ok(),
+        "int64 let binding should lower before is comparison"
+    );
+
+    let is_expr = binary(8004, ident(8005, "x"), BinaryOp::Is, int_lit(8006, 5));
+    let result = codegen_expression(&codegen_context, &mut env, &is_expr, Some(&CoreType::Int64));
+    assert!(
+        result.is_ok(),
+        "int64 is comparison should lower successfully"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("icmp eq i64"),
+        "is operator on int64 should lower to icmp eq i64 in LLVM IR: {ir}"
+    );
+}
+
+#[test]
+fn test_fibonacci_if_n_is_zero_compiles_to_valid_llvm_ir() {
+    let source = "
+public fib_recursive = f(n: int64): int64 =>
+    if n is 0 { return 0 }
+    if n is 1 { return 1 }
+    return fib_recursive(n - 1) + fib_recursive(n - 2)
+
+entry main = f(): void =>
+    let n: int64 = 10
+    let _result: int64 = fib_recursive(n)
+    return void
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, source);
+    assert!(
+        module_result.is_ok(),
+        "fib recursion source using 'if n is 0' should compile to LLVM module"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+
+    let verification = module.verify();
+    assert!(
+        verification.is_ok(),
+        "generated LLVM module should verify for fib recursion with 'is' guard: {verification:?}"
+    );
+
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("icmp eq i64"),
+        "fib recursion source should emit integer equality compare for 'n is 0': {ir}"
     );
 }
 

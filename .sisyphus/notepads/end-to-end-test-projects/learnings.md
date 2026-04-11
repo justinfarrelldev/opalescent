@@ -75,3 +75,11 @@
 - Test reads source from `test-projects/hello-world/src/main.op` via `std::fs::read_to_string`, compiles with `compile_program(source_str.as_str(), Path::new("test-projects/hello-world/target"))`, executes binary, asserts stdout contains `Hello world`, and asserts successful exit status.
 - Cleanup is guaranteed by running `cleanup_dir(temp_dir)` after execution block and asserting cleanup success before final outcome assertion, preventing lingering artifacts even when execution checks fail.
 - Linux linker compatibility required adding `-no-pie` in `link_object_file` (`src/compiler.rs`) to avoid PIE relocation failure (`R_X86_64_32S`) when linking emitted object files during integration execution.
+
+## [2026-04-11] Task 9: `is` operator integer equality codegen verification
+- `BinaryOp::Is` was already correctly lowered in `src/codegen/expressions.rs` through the shared comparison path (`codegen_cmp`) to `IntPredicate::EQ` for integer operands, producing LLVM `icmp eq`.
+- Added TDD regression coverage in `src/codegen/tests.rs`:
+  - `test_codegen_is_operator_on_int64_emits_icmp_eq` verifies direct expression lowering includes `icmp eq i64`.
+  - `test_fibonacci_if_n_is_zero_compiles_to_valid_llvm_ir` compiles recursive fib source using `if n is 0 { ... }`, verifies module validity, and asserts IR contains integer equality compare.
+- RED step exposed a test harness issue (module had no emitted instructions because literals-only compare was constant-folded from IR print perspective); resolved by binding and comparing an identifier (`x is 5`) so emitted IR deterministically contains `icmp eq i64`.
+- Additional fib test adjustment: use `entry main = f(): void` and avoid `print(result)` in this regression source to prevent unrelated pre-existing stdlib call-signature verification failures from masking `is` behavior.
