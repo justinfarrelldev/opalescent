@@ -14,10 +14,6 @@ use unicode_xid::UnicodeXID;
 /// This constant provides a single source of truth for all language keywords,
 /// used by both the lexer for tokenization and the parser tests for generating
 /// valid identifiers in property-based tests.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "Used in tests module for property-based testing")
-)]
 pub const RESERVED_KEYWORDS: &[&str] = &[
     "and",
     "as",

@@ -1,0 +1,28 @@
+{
+  "name": "opalescent-language-support",
+  "displayName": "Opalescent Language Support",
+  "description": "Language configuration for Opalescent (.op) files",
+  "version": "0.0.1",
+  "publisher": "opalescent",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "opalescent",
+        "aliases": [
+          "Opalescent",
+          "opalescent"
+        ],
+        "extensions": [
+          ".op"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  }
+}

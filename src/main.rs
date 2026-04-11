@@ -21,6 +21,8 @@ mod error;
 mod errors;
 #[path = "hot_reload.rs"]
 pub mod hot_reload;
+#[path = "lsp.rs"]
+pub mod lsp;
 mod lexer;
 mod parser;
 #[path = "runtime.rs"]
