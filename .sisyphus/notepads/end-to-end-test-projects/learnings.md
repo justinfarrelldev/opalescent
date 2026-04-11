@@ -69,3 +69,9 @@
 - How expression parts are codegen'd: expression values are lowered recursively, then widened/coerced for variadic `sprintf` ABI (`i1 -> i32`, integers -> `i64`, floats -> `f64`).
 - Result type: `i8*` pointer to the interpolation buffer so `print(...)` can pass it directly to `puts`.
 - Any edge cases or limitations: fixed stack buffer can truncate large outputs; numeric interpolation currently defaults to signed integer widening (`%lld`) and does not yet use static type info for signed/unsigned formatting.
+
+## [2026-04-11] Task 7: hello-world end-to-end integration test
+- Added `hello_world_compiles_links_and_runs` to `tests/integration_e2e.rs` using existing `prepare_dir`/`cleanup_dir` helpers and assertion style.
+- Test reads source from `test-projects/hello-world/src/main.op` via `std::fs::read_to_string`, compiles with `compile_program(source_str.as_str(), Path::new("test-projects/hello-world/target"))`, executes binary, asserts stdout contains `Hello world`, and asserts successful exit status.
+- Cleanup is guaranteed by running `cleanup_dir(temp_dir)` after execution block and asserting cleanup success before final outcome assertion, preventing lingering artifacts even when execution checks fail.
+- Linux linker compatibility required adding `-no-pie` in `link_object_file` (`src/compiler.rs`) to avoid PIE relocation failure (`R_X86_64_32S`) when linking emitted object files during integration execution.

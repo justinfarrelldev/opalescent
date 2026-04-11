@@ -170,4 +170,78 @@ mod tests {
         let cleanup = cleanup_dir(temp_dir);
         assert!(cleanup.is_ok(), "link temp directory should be removed");
     }
+
+    #[test]
+    fn hello_world_compiles_links_and_runs() {
+        let temp_dir = Path::new("test-projects/hello-world/target");
+        let prepare = prepare_dir(temp_dir);
+        assert!(
+            prepare.is_ok(),
+            "hello-world target directory should be created"
+        );
+
+        let execution_result: Result<(), String> = (|| {
+            let source_path = Path::new("test-projects/hello-world/src/main.op");
+            let source_result = fs::read_to_string(source_path);
+            let source_str = match source_result {
+                Ok(contents) => contents,
+                Err(error) => {
+                    return Err(format!(
+                        "hello-world source file should be readable from disk: {error}"
+                    ));
+                }
+            };
+
+            let binary_result = compile_program(source_str.as_str(), temp_dir);
+            let binary_path = match binary_result {
+                Ok(path) => path,
+                Err(error) => {
+                    return Err(format!(
+                        "hello-world source should compile and link into a binary: {error}"
+                    ));
+                }
+            };
+
+            let output_result = Command::new(&binary_path).output();
+            let run_output = match output_result {
+                Ok(output) => output,
+                Err(error) => {
+                    return Err(format!(
+                        "hello-world compiled binary should execute: {error}"
+                    ));
+                }
+            };
+
+            let stdout = String::from_utf8_lossy(&run_output.stdout);
+            if !stdout.contains("Hello world") {
+                return Err(format!(
+                    "hello-world binary stdout should contain exact greeting 'Hello world', got: '{stdout}'"
+                ));
+            }
+
+            if !run_output.status.success() {
+                return Err(format!(
+                    "hello-world binary should exit with status code 0, got: {:?}",
+                    run_output.status.code()
+                ));
+            }
+
+            Ok(())
+        })();
+
+        let cleanup = cleanup_dir(temp_dir);
+        assert!(
+            cleanup.is_ok(),
+            "hello-world target directory should be removed"
+        );
+
+        let failure_message = match execution_result {
+            Ok(()) => String::new(),
+            Err(message) => message,
+        };
+        assert!(
+            failure_message.is_empty(),
+            "hello-world end-to-end flow should compile, link, run, print greeting, and exit cleanly: {failure_message}"
+        );
+    }
 }

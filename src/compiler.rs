@@ -154,6 +154,9 @@ pub fn link_object_file(
     for source_path in extra_sources {
         command.arg(source_path);
     }
+    if cfg!(target_os = "linux") {
+        command.arg("-no-pie");
+    }
     command.arg("-o").arg(output_path);
 
     let output = command.output().map_err(CompileError::Io)?;
