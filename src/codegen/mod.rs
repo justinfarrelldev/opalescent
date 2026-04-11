@@ -12,11 +12,15 @@
     reason = "Task 21 explicitly requires src/codegen/mod.rs module root structure"
 )]
 
+/// ADT constructor, field-access, and match lowering support.
+pub mod adts;
 /// LLVM context/module/builder ownership and target setup.
 pub mod context;
+pub mod control_flow;
 pub mod expressions;
 pub mod functions;
-pub mod control_flow;
+/// Generic monomorphization naming and specialization cache wiring.
+pub mod monomorphization;
 pub mod statements;
 /// Core type to LLVM type conversion utilities.
 pub mod types;

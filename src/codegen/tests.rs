@@ -1,3 +1,6 @@
+use crate::codegen::adts::{
+    codegen_field_access_expression, codegen_match_expression, instantiate_generic_adt_name,
+};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::{
     codegen_if_expression, codegen_if_statement, codegen_loop_statement, codegen_return_statement,
@@ -7,6 +10,7 @@ use crate::codegen::functions::{
     codegen_call_expression, codegen_function_declaration, codegen_guard_expression,
     codegen_propagate_expression,
 };
+use crate::codegen::monomorphization::monomorphized_function_name;
 use crate::codegen::statements::codegen_statement;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::{CoreType, GenericTypeParameter, TypeVar};
@@ -640,6 +644,7 @@ fn test_codegen_call_expression_lowers_function_call() {
         &codegen_context,
         &mut env,
         &ident(614, "inc"),
+        None,
         &[int_lit(615, 41)],
     );
     assert!(
@@ -817,10 +822,174 @@ fn test_codegen_lambda_closure_as_function_value() {
         id: test_node_id(662),
     };
 
-    let call_result =
-        codegen_call_expression(&codegen_context, &mut env, &lambda_expr, &[int_lit(663, 3)]);
+    let call_result = codegen_call_expression(
+        &codegen_context,
+        &mut env,
+        &lambda_expr,
+        None,
+        &[int_lit(663, 3)],
+    );
     assert!(
         call_result.is_ok(),
         "lambda/closure codegen should lower captured lambda as callable function value"
+    );
+}
+
+#[test]
+fn test_codegen_adt_constructor_emits_tagged_union_layout_for_sum_variant() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "adt_constructor_sum");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+
+    let constructor_expr = Expr::Constructor {
+        callee: Box::new(Expr::Member {
+            object: Box::new(ident(700, "Result")),
+            member: String::from("Ok"),
+            span: test_span(),
+            id: test_node_id(701),
+        }),
+        fields: vec![crate::ast::ConstructorField {
+            name: String::from("value"),
+            value: int_lit(702, 42),
+            span: test_span(),
+        }],
+        span: test_span(),
+        id: test_node_id(703),
+    };
+
+    let result = codegen_expression(&codegen_context, &mut env, &constructor_expr, None);
+    assert!(result.is_ok(), "sum constructor codegen should succeed");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("{ i64, [64 x i8] }") || ir.contains("{i64, [64 x i8]}"),
+        "sum constructor should lower to tagged-union style struct layout: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_match_expression_lowers_to_switch() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "match_lowering");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+
+    let match_expr = Expr::Match {
+        scrutinee: Box::new(int_lit(710, 2)),
+        arms: vec![
+            crate::ast::MatchArm {
+                pattern: crate::ast::Pattern::Literal {
+                    value: LiteralValue::Integer(1),
+                    span: test_span(),
+                },
+                guard: None,
+                body: int_lit(711, 10),
+                span: test_span(),
+            },
+            crate::ast::MatchArm {
+                pattern: crate::ast::Pattern::Wildcard { span: test_span() },
+                guard: None,
+                body: int_lit(712, 20),
+                span: test_span(),
+            },
+        ],
+        span: test_span(),
+        id: test_node_id(713),
+    };
+
+    let lowered = codegen_match_expression(&codegen_context, &mut env, &match_expr);
+    assert!(lowered.is_ok(), "match lowering should succeed");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("switch i64"),
+        "match lowering should emit switch-based decision tree: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_monomorphization_name_generation_and_generic_adt_instantiation() {
+    let mono_name = monomorphized_function_name(
+        "identity",
+        &[
+            CoreType::Int64,
+            CoreType::Generic {
+                name: String::from("Result"),
+                type_args: vec![CoreType::Int32, CoreType::String],
+            },
+        ],
+    );
+    assert_eq!(
+        mono_name, "identity__int64__Result_int32_string",
+        "generic function calls should dispatch using deterministic monomorphized symbol names"
+    );
+
+    let instantiated = instantiate_generic_adt_name("Pair", &[CoreType::Int32, CoreType::Boolean]);
+    assert_eq!(
+        instantiated, "Pair__int32__boolean",
+        "generic ADT instantiation should produce deterministic concrete type name"
+    );
+}
+
+#[test]
+fn test_codegen_product_field_access_loads_named_field() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "product_field_access");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+
+    let point_constructor = Expr::Constructor {
+        callee: Box::new(ident(720, "Point")),
+        fields: vec![
+            crate::ast::ConstructorField {
+                name: String::from("x"),
+                value: int_lit(721, 5),
+                span: test_span(),
+            },
+            crate::ast::ConstructorField {
+                name: String::from("y"),
+                value: int_lit(722, 6),
+                span: test_span(),
+            },
+        ],
+        span: test_span(),
+        id: test_node_id(723),
+    };
+
+    let point_decl = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("point"),
+            type_annotation: None,
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(724),
+        },
+        initializer: Some(point_constructor),
+        span: test_span(),
+        id: test_node_id(725),
+    };
+    let decl_result = codegen_statement(&codegen_context, &mut env, &point_decl);
+    assert!(
+        decl_result.is_ok(),
+        "product constructor let should codegen"
+    );
+
+    let field_expr = Expr::Member {
+        object: Box::new(ident(726, "point")),
+        member: String::from("y"),
+        span: test_span(),
+        id: test_node_id(727),
+    };
+    let field_result = codegen_field_access_expression(&codegen_context, &mut env, &field_expr);
+    assert!(
+        field_result.is_ok(),
+        "field access on product should codegen"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("getelementptr"),
+        "field access should emit gep into product struct: {ir}"
     );
 }

@@ -3,6 +3,9 @@
 extern crate alloc;
 
 use crate::ast::{BinaryOp, Expr, LiteralValue, Type, UnaryOp};
+use crate::codegen::adts::{
+    codegen_constructor_expression, codegen_field_access_expression, codegen_match_expression,
+};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::codegen_if_expression;
 use crate::codegen::functions::{
@@ -54,6 +57,8 @@ pub struct VariableBinding<'context> {
 
 pub struct CodegenEnv<'context> {
     pub variables: BTreeMap<String, VariableBinding<'context>>,
+    pub variable_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
+    pub emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue<'context>>,
     pub debug_mode: bool,
     pub temp_counter: usize,
 }
@@ -63,6 +68,8 @@ impl CodegenEnv<'_> {
     pub const fn new(debug_mode: bool) -> Self {
         Self {
             variables: BTreeMap::new(),
+            variable_field_indices: BTreeMap::new(),
+            emitted_specializations: BTreeMap::new(),
             debug_mode,
             temp_counter: 0,
         }
@@ -115,9 +122,19 @@ pub fn codegen_expression<'context>(
         } => codegen_array_access(codegen_context, env, object, index, expected_type),
         Expr::Call {
             ref callee,
+            ref generic_args,
             ref args,
             ..
-        } => codegen_call_expression(codegen_context, env, callee.as_ref(), args.as_slice()),
+        } => codegen_call_expression(
+            codegen_context,
+            env,
+            callee.as_ref(),
+            generic_args.as_deref(),
+            args.as_slice(),
+        ),
+        Expr::Constructor { .. } => codegen_constructor_expression(codegen_context, env, expr),
+        Expr::Match { .. } => codegen_match_expression(codegen_context, env, expr),
+        Expr::Member { .. } => codegen_field_access_expression(codegen_context, env, expr),
         Expr::If {
             ref condition,
             ref then_branch,

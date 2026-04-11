@@ -7,6 +7,9 @@
     reason = "LLVM backend scaffolding is introduced incrementally across upcoming codegen tasks"
 )]
 
+#[doc = "ADT constructor, field-access, and match lowering support."]
+#[path = "codegen/adts.rs"]
+pub mod adts;
 #[path = "codegen/context.rs"]
 pub mod context;
 #[doc = "Control-flow code generation support."]
@@ -18,6 +21,9 @@ pub mod expressions;
 #[doc = "Function-level code generation support."]
 #[path = "codegen/functions.rs"]
 pub mod functions;
+#[doc = "Generic monomorphization naming and specialization cache wiring."]
+#[path = "codegen/monomorphization.rs"]
+pub mod monomorphization;
 /// Statement lowering for LLVM backend.
 #[path = "codegen/statements.rs"]
 pub mod statements;

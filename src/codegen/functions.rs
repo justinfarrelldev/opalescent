@@ -3,6 +3,7 @@ extern crate alloc;
 use crate::ast::{Decl, Expr, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError, VariableBinding};
+use crate::codegen::monomorphization::ensure_monomorphized_function_declaration;
 use crate::codegen::statements::codegen_statement;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
@@ -107,9 +108,10 @@ pub fn codegen_call_expression<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     callee: &Expr,
+    generic_args: Option<&[Type]>,
     args: &[Expr],
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let function = resolve_callee_function(codegen_context, env, callee)?;
+    let function = resolve_callee_function(codegen_context, env, callee, generic_args)?;
     let mut lowered_args = args
         .iter()
         .map(|arg| codegen_expression(codegen_context, env, arg, None).map(Into::into))
@@ -168,7 +170,7 @@ pub fn codegen_propagate_expression<'context>(
         ..
     } = call_expr
     {
-        codegen_call_expression(codegen_context, env, callee.as_ref(), args.as_slice())?
+        codegen_call_expression(codegen_context, env, callee.as_ref(), None, args.as_slice())?
     } else {
         codegen_expression(codegen_context, env, call_expr, None)?
     };
@@ -220,7 +222,7 @@ pub fn codegen_guard_expression<'context>(
         ..
     } = guarded_expr
     {
-        codegen_call_expression(codegen_context, env, callee.as_ref(), args.as_slice())?
+        codegen_call_expression(codegen_context, env, callee.as_ref(), None, args.as_slice())?
     } else {
         codegen_expression(codegen_context, env, guarded_expr, None)?
     };
@@ -255,20 +257,39 @@ fn resolve_callee_function<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     callee: &Expr,
+    generic_args: Option<&[Type]>,
 ) -> Result<FunctionValue<'context>, CodegenError> {
     match *callee {
-        Expr::Identifier { ref name, .. } => codegen_context
-            .module
-            .get_function(name.as_str())
-            .map_or_else(
-                || {
-                    let fallback_type = codegen_context.context.i64_type().fn_type(&[], false);
-                    Ok(codegen_context
-                        .module
-                        .add_function(name.as_str(), fallback_type, None))
-                },
-                Ok,
-            ),
+        Expr::Identifier { ref name, .. } => {
+            let base_function = codegen_context
+                .module
+                .get_function(name.as_str())
+                .map_or_else(
+                    || {
+                        let fallback_type = codegen_context.context.i64_type().fn_type(&[], false);
+                        codegen_context
+                            .module
+                            .add_function(name.as_str(), fallback_type, None)
+                    },
+                    |existing| existing,
+                );
+            if let Some(explicit_generic_args) = generic_args {
+                let concrete_types = explicit_generic_args
+                    .iter()
+                    .map(ast_type_to_core_type)
+                    .collect::<Result<Vec<_>, _>>()?;
+                if !concrete_types.is_empty() {
+                    return Ok(ensure_monomorphized_function_declaration(
+                        codegen_context,
+                        env,
+                        base_function,
+                        name,
+                        concrete_types.as_slice(),
+                    ));
+                }
+            }
+            Ok(base_function)
+        }
         Expr::Lambda {
             ref params,
             ref return_types,
@@ -446,7 +467,21 @@ fn ast_type_to_core_type(ast_type: &Type) -> Result<CoreType, CodegenError> {
         } => Ok(CoreType::Array(alloc::boxed::Box::new(
             ast_type_to_core_type(element_type.as_ref())?,
         ))),
-        _ => Err(CodegenError::new(String::from(
+        Type::Generic {
+            ref name,
+            ref type_args,
+            ..
+        } => {
+            let resolved_args = type_args
+                .iter()
+                .map(ast_type_to_core_type)
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(CoreType::Generic {
+                name: name.clone(),
+                type_args: resolved_args,
+            })
+        }
+        Type::Function { .. } => Err(CodegenError::new(String::from(
             "unsupported function type annotation",
         ))),
     }

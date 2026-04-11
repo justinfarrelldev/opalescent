@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use crate::ast::{Expr, Stmt, Type};
+use crate::codegen::adts::product_field_indices_from_constructor;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::{
     codegen_if_statement, codegen_loop_statement, codegen_return_statement,
@@ -22,24 +23,43 @@ pub fn codegen_statement<'context>(
             ref initializer,
             ..
         } => {
-            let declared_type = if let Some(ref annotation) = binding.type_annotation {
-                ast_type_to_core_type(annotation)?
-            } else if let Some(ref init_expr) = *initializer {
-                infer_core_type_from_expr(init_expr)
+            let (declared_type, lowered_initializer) =
+                if let Some(ref annotation) = binding.type_annotation {
+                    let declared_type = ast_type_to_core_type(annotation)?;
+                    let lowered = if let Some(ref init_expr) = *initializer {
+                        Some(codegen_expression(
+                            codegen_context,
+                            env,
+                            init_expr,
+                            Some(&declared_type),
+                        )?)
+                    } else {
+                        None
+                    };
+                    (declared_type, lowered)
+                } else if let Some(ref init_expr) = *initializer {
+                    (
+                        infer_core_type_from_expr(init_expr),
+                        Some(codegen_expression(codegen_context, env, init_expr, None)?),
+                    )
+                } else {
+                    (CoreType::Unit, None)
+                };
+
+            let alloca = if let Some(initializer_value) = lowered_initializer {
+                let alloca = codegen_context
+                    .builder
+                    .build_alloca(initializer_value.get_type(), binding.name.as_str())?;
+                let _store_instruction = codegen_context
+                    .builder
+                    .build_store(alloca, initializer_value)?;
+                alloca
             } else {
-                CoreType::Unit
+                let alloca_type = core_type_to_llvm(codegen_context.context, &declared_type);
+                codegen_context
+                    .builder
+                    .build_alloca(alloca_type, binding.name.as_str())?
             };
-
-            let alloca_type = core_type_to_llvm(codegen_context.context, &declared_type);
-            let alloca = codegen_context
-                .builder
-                .build_alloca(alloca_type, binding.name.as_str())?;
-
-            if let Some(ref init_expr) = *initializer {
-                let value =
-                    codegen_expression(codegen_context, env, init_expr, Some(&declared_type))?;
-                let _store_instruction = codegen_context.builder.build_store(alloca, value)?;
-            }
 
             env.variables.insert(
                 binding.name.clone(),
@@ -48,6 +68,15 @@ pub fn codegen_statement<'context>(
                     core_type: declared_type,
                 },
             );
+            if let Some(&Expr::Constructor { .. }) = initializer.as_ref() {
+                if let Some(field_indices) = initializer
+                    .as_ref()
+                    .and_then(product_field_indices_from_constructor)
+                {
+                    env.variable_field_indices
+                        .insert(binding.name.clone(), field_indices);
+                }
+            }
             Ok(())
         }
         Stmt::Assignment {

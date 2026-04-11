@@ -224,3 +224,12 @@
 - Updated crate wiring in `src/main.rs` with `#[path = "runtime.rs"] pub mod runtime;` so runtime module is registered in crate root.
 - Verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `timeout 30 bash -lc 'LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test'` PASS (389 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files (only expected unlinked-file hint on `src/runtime/mod.rs`).
 - Additional note: strict clippy profile rejects `Arc<String>` and `Arc<Vec<T>>` (`clippy::rc_buffer`), so runtime containers intentionally use `Arc<str>` and `Arc<[T]>` for equivalent reference-counted semantics.
+
+## [2026-04-11] Task 25: Codegen ADTs + Monomorphization
+- Added `src/codegen/adts.rs` with codegen for ADT constructors (`Expr::Constructor`), product field access (`Expr::Member` on constructor-backed values), and match lowering (`Expr::Match`) to LLVM `switch` + phi merge blocks.
+- Added `src/codegen/monomorphization.rs` with deterministic specialization naming (`name__Type...`) and specialization cache integration using `CodegenEnv::emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue>`.
+- Extended `CodegenEnv` with ADT/runtime metadata (`variable_field_indices`) and monomorphization state; wired expression dispatch for constructor/match/member plus generic call arguments.
+- Updated function call codegen to accept explicit generic args and dispatch to monomorphized declarations; extended AST type conversion in codegen to support `Type::Generic`.
+- Updated let-statement lowering to preserve constructor value layout (alloca based on lowered initializer type) and track product field indices for later member GEP loads.
+- Added RED→GREEN tests in `src/codegen/tests.rs` for sum ADT tagged-union constructor IR shape, switch-based match lowering, deterministic monomorphized naming, generic ADT name instantiation, and product field-access GEP generation.
+- Validation: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 timeout 30 cargo test` PASS (393 passed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, and LSP diagnostics show zero errors on `src/codegen`.
