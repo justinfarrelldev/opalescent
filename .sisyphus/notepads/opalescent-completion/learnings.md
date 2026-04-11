@@ -194,3 +194,14 @@
 - LLVM version: 14, dependency configured as `inkwell = { version = "0.8.0", features = ["llvm14-0", "llvm14-0-prefer-dynamic"] }` to avoid missing static Polly on this environment while keeping LLVM 14 API compatibility.
 - Env var: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14` used for all cargo build/test/lint commands.
 - Validation: `cargo make lint-fix` PASS, `timeout 30 cargo test` PASS (374 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, `cargo make lint` PASS, LSP diagnostics clean on changed files (one expected rust-analyzer unlinked hint on required `src/codegen/mod.rs`).
+
+## [2026-04-11] Task 22: Codegen Expressions + Statements (Phase 5)
+- Added `src/codegen/expressions.rs` implementing literal lowering (int/float/bool/string/unit), identifier loads, binary/unary operators, explicit numeric casts, array literal allocation/stores, and array index access via GEP+load.
+- Added `CodegenEnv` variable map (`alloc::collections::BTreeMap`) and `VariableBinding` to thread alloca slots + static types through lowering.
+- Implemented debug-mode integer overflow trapping for `+`, `-`, `*` via LLVM overflow intrinsics (`llvm.s/u{add,sub,mul}.with.overflow.iN`) with conditional trap blocks.
+- Implemented integer division/modulo runtime zero checks that branch to `llvm.trap` before `sdiv/udiv/srem/urem`.
+- Added `src/codegen/statements.rs` implementing `Stmt::Let` (alloca + optional initializer store + env registration) and identifier assignment statements (`store` to existing alloca).
+- Wired new modules in both `src/codegen/mod.rs` and `src/codegen.rs` to satisfy module resolution in current crate layout.
+- Expanded `src/codegen/tests.rs` with RED→GREEN tests covering literals, unary/cast, let/assignment, array literal/access, overflow trap intrinsic presence, and division-by-zero trap presence using in-memory LLVM IR assertions.
+- Inkwell 0.8.0 note: `build_in_bounds_gep` is `unsafe` and requires safety comments on preceding lines under strict lint configuration.
+- Validation: `timeout 30 LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` PASS (379 passed, 0 failed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on changed files.

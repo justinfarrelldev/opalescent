@@ -14,6 +14,8 @@
 
 /// LLVM context/module/builder ownership and target setup.
 pub mod context;
+pub mod expressions;
+pub mod statements;
 /// Core type to LLVM type conversion utilities.
 pub mod types;
 /// Value-construction helpers used by future expression lowering.
