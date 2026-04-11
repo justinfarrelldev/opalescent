@@ -104,3 +104,6 @@ mod test_integration_generics;
 
 #[cfg(test)]
 mod test_integration_modules;
+
+#[cfg(test)]
+mod test_integration_module_validation;

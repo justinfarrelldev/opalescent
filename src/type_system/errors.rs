@@ -633,6 +633,26 @@ pub enum TypeError {
         span: SourceSpan,
     },
 
+    /// Two imports introduce the same local binding name from different modules.
+    #[error(
+        "Import name conflict for '{name}': already imported from '{first_module}', cannot also import from '{second_module}'"
+    )]
+    #[diagnostic(
+        code(opalescent::type_system::import_name_conflict),
+        help("Use an alias on one import so each local imported name is unique")
+    )]
+    ImportNameConflict {
+        /// Local binding name introduced by conflicting imports.
+        name: String,
+        /// Module that first introduced this local binding name.
+        first_module: String,
+        /// Module that attempted to introduce the same local binding name.
+        second_module: String,
+        #[label("conflicting import name")]
+        /// Span of the second import that caused the conflict.
+        span: SourceSpan,
+    },
+
     /// Import attempts to read a private symbol from another module.
     #[error("Cannot access private symbol '{symbol}' from module '{module}'")]
     #[diagnostic(

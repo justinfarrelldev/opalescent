@@ -1,0 +1,263 @@
+extern crate alloc;
+
+use crate::ast::Program;
+use crate::lexer::Lexer;
+use crate::parser::Parser;
+use crate::token::{Position, Span};
+use crate::type_system::checker::TypeChecker;
+use crate::type_system::errors::TypeError;
+use crate::type_system::module_resolver::ModuleInterface;
+use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
+use crate::type_system::types::CoreType;
+
+fn parse_pipeline(source: &str) -> Program {
+    let lexer = Lexer::new(source);
+    let (tokens, lex_errors) = lexer.tokenize();
+    assert!(
+        lex_errors.is_empty(),
+        "integration source must lex without errors; lex errors: {:?}",
+        lex_errors.errors,
+    );
+
+    let parser = Parser::new(tokens);
+    let (program_opt, parse_errors) = parser.parse();
+    assert!(
+        parse_errors.is_empty(),
+        "integration source must parse without errors; parse errors: {:?}",
+        parse_errors.errors,
+    );
+
+    program_opt.map_or_else(
+        || Program {
+            declarations: Vec::new(),
+            span: Span::single(Position::start()),
+            id: crate::ast::NodeId(0),
+        },
+        |program| program,
+    )
+}
+
+fn function_symbol(name: &str, parameters: Vec<CoreType>, return_type: CoreType) -> SymbolInfo {
+    SymbolInfo {
+        name: name.to_owned(),
+        symbol_type: SymbolType::Function,
+        core_type: CoreType::Function {
+            generic_params: Vec::new(),
+            parameters,
+            return_types: vec![return_type],
+            error_types: Vec::new(),
+        },
+        visibility: Visibility::Public,
+        source_location: Span::single(Position::start()),
+        is_let_binding: false,
+        is_mutable: false,
+        read_count: 0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_importing_same_name_from_two_modules_reports_import_name_conflict() {
+        const SOURCE: &str = "
+import sqrt from math
+import sqrt from ./local_math
+
+entry main = f(): float64 =>
+    return sqrt(9.0)
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let mut local_math = ModuleInterface::new(String::from("./local_math"));
+        let register_result = local_math.register_symbol(function_symbol(
+            "sqrt",
+            vec![CoreType::Float64],
+            CoreType::Float64,
+        ));
+        assert!(
+            register_result.is_ok(),
+            "module symbol setup should succeed"
+        );
+        checker.register_module_interface(local_math);
+
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_err(),
+            "duplicate import names must fail type checking"
+        );
+        let errors = result.err().map_or_else(Vec::new, |errs| errs);
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::ImportNameConflict { .. })),
+            "expected ImportNameConflict error, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_private_symbol_access_from_other_module_reports_private_access_error() {
+        const SOURCE: &str = "
+import hidden_fn from ./local_lib
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+
+        let mut local_lib = ModuleInterface::new(String::from("./local_lib"));
+        let register_result = local_lib.register_symbol(SymbolInfo {
+            name: String::from("hidden_fn"),
+            symbol_type: SymbolType::Function,
+            core_type: CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: Vec::new(),
+                return_types: vec![CoreType::Unit],
+                error_types: Vec::new(),
+            },
+            visibility: Visibility::Private,
+            source_location: Span::single(Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+        });
+        assert!(
+            register_result.is_ok(),
+            "module symbol setup should succeed"
+        );
+        checker.register_module_interface(local_lib);
+
+        let result = checker.type_check_program(&program);
+        assert!(result.is_err(), "private import must fail type checking");
+        let errors = result.err().map_or_else(Vec::new, |errs| errs);
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::PrivateSymbolAccess { .. })),
+            "expected PrivateSymbolAccess error, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_module_alias_import_resolves_member_call() {
+        const SOURCE: &str = "
+import math as m from math
+
+entry main = f(): float64 =>
+    return m.sqrt(4.0)
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "aliased module member call should resolve correctly: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_module_alias_import_reports_type_mismatch_for_bad_argument() {
+        const SOURCE: &str = "
+import math as m from math
+
+entry main = f(): float64 =>
+    return m.sqrt('bad')
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_err(),
+            "calling imported function with wrong args must fail"
+        );
+        let errors = result.err().map_or_else(Vec::new, |errs| errs);
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::TypeMismatch { .. })),
+            "expected TypeMismatch error, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_two_modules_with_same_public_function_can_be_disambiguated_by_aliases() {
+        const SOURCE: &str = "
+import sqrt as std_sqrt from math
+import sqrt as local_sqrt from ./local_math
+
+entry main = f(): float64 => {
+    let a: float64 = std_sqrt(4.0)
+    let b: float64 = local_sqrt(9.0)
+    return a + b
+}
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let mut local_math = ModuleInterface::new(String::from("./local_math"));
+        let register_result = local_math.register_symbol(function_symbol(
+            "sqrt",
+            vec![CoreType::Float64],
+            CoreType::Float64,
+        ));
+        assert!(
+            register_result.is_ok(),
+            "module symbol setup should succeed"
+        );
+        checker.register_module_interface(local_math);
+
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "aliased imports should disambiguate same symbol names: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_module_interface_collects_public_symbols_only() {
+        let mut checker = TypeChecker::new();
+        checker.set_current_module_path(String::from("./sample"));
+        let source = "
+public let answer: int32 = 42
+let hidden: int32 = 7
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(source);
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "module interface generation fixture should type-check: {result:?}",
+        );
+
+        let interface_opt = checker.module_interface("./sample");
+        assert!(
+            interface_opt.is_some(),
+            "module interface should be generated"
+        );
+        let interface = interface_opt.map_or_else(
+            || ModuleInterface::new(String::from("__missing_interface__")),
+            |present_interface| present_interface,
+        );
+        assert!(
+            interface.exports.contains_key("answer"),
+            "public symbol should be exported",
+        );
+        assert!(
+            !interface.exports.contains_key("hidden"),
+            "private symbol must not be exported",
+        );
+        assert!(
+            interface.private_symbols.contains_key("hidden"),
+            "private symbol should be tracked as private",
+        );
+    }
+}

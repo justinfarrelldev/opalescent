@@ -5,7 +5,8 @@ use crate::ast::{ImportItem, Visibility as AstVisibility};
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
-use crate::type_system::symbol_table::SymbolInfo;
+use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
+use crate::type_system::types::CoreType;
 
 use alloc::string::String;
 
@@ -82,12 +83,38 @@ impl TypeChecker {
                     ref alias,
                     span: item_span,
                 } => {
+                    if name == source {
+                        if let Some(alias_name) = alias.as_ref() {
+                            self.module_resolver.validate_import_name_binding(
+                                &self.current_module_path,
+                                alias_name,
+                                source,
+                                item_span,
+                            )?;
+                            self.register_module_alias(alias_name, source, item_span)?;
+                            continue;
+                        }
+                    }
+
                     let imported_symbol = self
                         .module_resolver
                         .resolve_symbol(source, name, item_span)?;
                     let mut symbol_to_register = imported_symbol;
                     if let Some(alias_name) = alias.as_ref() {
+                        self.module_resolver.validate_import_name_binding(
+                            &self.current_module_path,
+                            alias_name,
+                            source,
+                            item_span,
+                        )?;
                         symbol_to_register.name.clone_from(alias_name);
+                    } else {
+                        self.module_resolver.validate_import_name_binding(
+                            &self.current_module_path,
+                            name,
+                            source,
+                            item_span,
+                        )?;
                     }
                     self.symbol_table.register(symbol_to_register);
                 }
@@ -96,10 +123,45 @@ impl TypeChecker {
                         .module_resolver
                         .resolve_all_exports(source, import_span)?
                     {
+                        self.module_resolver.validate_import_name_binding(
+                            &self.current_module_path,
+                            &symbol.name,
+                            source,
+                            import_span,
+                        )?;
                         self.symbol_table.register(symbol);
                     }
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    /// Register a module alias plus qualified member symbols (e.g. `m.sqrt`).
+    fn register_module_alias(
+        &mut self,
+        alias_name: &str,
+        source: &str,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        self.symbol_table.register(SymbolInfo {
+            name: alias_name.to_owned(),
+            symbol_type: SymbolType::Constant,
+            core_type: CoreType::Generic {
+                name: source.to_owned(),
+                type_args: Vec::new(),
+            },
+            visibility: Visibility::Private,
+            source_location: span,
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+        });
+
+        for mut symbol in self.module_resolver.resolve_all_exports(source, span)? {
+            symbol.name = alloc::format!("{alias_name}.{}", symbol.name);
+            self.symbol_table.register(symbol);
         }
 
         Ok(())

@@ -181,3 +181,10 @@
 - Extended diagnostics with `TypeError::CircularDependency`, `TypeError::UnresolvedImport`, and `TypeError::PrivateSymbolAccess`; kept existing `TypeMismatch` flow for cross-module call type checking.
 - Added and registered new integration tests in `src/type_system/test_integration_modules.rs` for standard imports, unknown imports, circular dependencies, private access enforcement, and cross-module type mismatch.
 - Validation: `cargo make lint-fix` PASS, `timeout 30 cargo test` PASS (365 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS (all non-test files <=1000 lines), `cargo make lint` PASS.
+
+## [2026-04-11] Task 20: Module Validation
+- Added import-name clash validation in module import processing with per-module local-binding tracking; conflicting imports now produce `TypeError::ImportNameConflict` carrying name, first/second source modules, and import span.
+- Extended alias import behavior so `import math as m from math` registers `m` as a module alias and also registers qualified exported members (`m.sqrt`, etc.), enabling member access/type checking through aliases.
+- Added `ModuleResolver::generate_module_interface(...)` and completed module-interface coverage in integration tests to ensure public exports and private symbol buckets are populated/usable for cross-module checks.
+- Added integration suite `src/type_system/test_integration_module_validation.rs` and registration in `src/type_system.rs` covering import conflicts, private access enforcement, aliased module member resolution, aliased mismatch (`TypeMismatch`), and alias disambiguation across modules.
+- Validation: `cargo make lint-fix` PASS, `timeout 30 cargo test` PASS (371 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, `cargo make lint` PASS.

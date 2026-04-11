@@ -66,6 +66,8 @@ pub struct ModuleResolver {
     modules: BTreeMap<String, ModuleInterface>,
     /// Directed import graph: module -> imported modules.
     dependency_graph: BTreeMap<String, Vec<String>>,
+    /// Imported local bindings per module for conflict detection.
+    import_name_bindings: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 impl ModuleResolver {
@@ -75,6 +77,7 @@ impl ModuleResolver {
         let mut resolver = Self {
             modules: BTreeMap::new(),
             dependency_graph: BTreeMap::new(),
+            import_name_bindings: BTreeMap::new(),
         };
         resolver.register_standard_modules();
         resolver
@@ -107,12 +110,62 @@ impl ModuleResolver {
         interface.register_symbol(symbol)
     }
 
+    /// Generate and register a module interface from provided symbols.
+    ///
+    /// # Errors
+    /// Returns duplicate-export errors from interface validation.
+    pub fn generate_module_interface(
+        &mut self,
+        module_path: &str,
+        symbols: &[SymbolInfo],
+    ) -> Result<(), TypeError> {
+        let mut interface = ModuleInterface::new(module_path.to_owned());
+        for symbol in symbols {
+            interface.register_symbol(symbol.clone())?;
+        }
+        self.register_module_interface(interface);
+        Ok(())
+    }
+
     /// Register an import edge `module -> dependency`.
     pub fn register_dependency(&mut self, module: &str, dependency: &str) {
         let dependencies = self.dependency_graph.entry(module.to_owned()).or_default();
         if !dependencies.iter().any(|entry| entry == dependency) {
             dependencies.push(dependency.to_owned());
         }
+    }
+
+    /// Validate and record one imported local binding in a module.
+    ///
+    /// # Errors
+    /// Returns `TypeError::ImportNameConflict` when the same local name was
+    /// already introduced from a different module.
+    pub fn validate_import_name_binding(
+        &mut self,
+        module_path: &str,
+        local_name: &str,
+        source_module: &str,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        let module_bindings = self
+            .import_name_bindings
+            .entry(module_path.to_owned())
+            .or_default();
+
+        if let Some(first_module) = module_bindings.get(local_name) {
+            if first_module != source_module {
+                return Err(TypeError::ImportNameConflict {
+                    name: local_name.to_owned(),
+                    first_module: first_module.clone(),
+                    second_module: source_module.to_owned(),
+                    span: TypeError::span_from_span(span),
+                });
+            }
+            return Ok(());
+        }
+
+        module_bindings.insert(local_name.to_owned(), source_module.to_owned());
+        Ok(())
     }
 
     /// Resolve a named symbol import from a source module.
