@@ -8,12 +8,15 @@
 //! - [`strings`] — string operations operating on `&str` and `alloc::string::String`
 //! - [`io`] — mockable I/O trait (`print`, `println`, `read_line`)
 //! - [`fs`] — file system trait abstraction with in-memory mock for testing
+//! - [`collections`] — generic collections: `OpalVec`, `OpalMap`, `OpalSet`, `OpalList`, `OpalIter`
 //!
 //! # `no_std` compatibility
 //!
 //! All sub-modules use only `core` and `alloc`; no `std`-exclusive APIs are used.
 //! This ensures the stdlib can be linked into embedded or LLVM-generated targets.
 
+#[path = "stdlib/collections.rs"]
+pub mod collections;
 #[path = "stdlib/fs.rs"]
 pub mod fs;
 #[path = "stdlib/io.rs"]

@@ -12,4 +12,4 @@
     clippy::pub_use,
     reason = "stdlib/mod.rs re-exports the public API surface for use crate::stdlib::... imports"
 )]
-pub use crate::stdlib::{fs, io, math, strings, types};
+pub use crate::stdlib::{collections, fs, io, math, strings, types};
