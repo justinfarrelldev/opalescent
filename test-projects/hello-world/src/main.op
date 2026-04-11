@@ -1,0 +1,9 @@
+##
+  Description: Entry point for the hello world test project.
+  Prints a greeting to stdout to verify basic string interpolation.
+##
+entry main = f(): void => {
+    let world = 'world'
+    print('Hello {world}')
+    return void
+}
