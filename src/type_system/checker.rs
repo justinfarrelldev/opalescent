@@ -12,7 +12,7 @@ use super::environment::TypeEnvironment;
 use super::errors::{TypeError, Warning};
 use super::substitution::Substitution;
 use super::symbol_table::{SymbolInfo, SymbolTable, SymbolType, Visibility};
-use super::types::{CoreType, TypeVar};
+use super::types::{CoreType, GenericTypeParameter, TypeVar};
 use crate::ast::Type;
 use crate::token::Span;
 use crate::type_system::arithmetic::ArithmeticMode;
@@ -21,13 +21,15 @@ use hot_reload::FunctionHotReloadMetadata;
 
 // Sub-modules
 mod call_resolution;
+mod collections;
 /// ADT constructor expression and schema validation helpers.
 mod constructors;
 mod control_flow;
 mod declarations;
-mod collections;
 mod expr_collections;
 mod expressions;
+/// Generic ADT and function instantiation metadata helpers.
+mod generics;
 mod helpers;
 mod hot_reload;
 /// Pattern-matching typing and exhaustiveness checks.
@@ -76,6 +78,10 @@ pub struct TypeChecker {
     adt_variants: BTreeMap<String, Vec<String>>,
     /// Field registry keyed by nominal owner type names.
     adt_fields: BTreeMap<String, BTreeMap<String, CoreType>>,
+    /// Generic parameter declarations keyed by nominal owner type names.
+    adt_generic_params: BTreeMap<String, Vec<GenericTypeParameter>>,
+    /// Unique concrete generic instantiations captured during type checking.
+    generic_instantiations: BTreeMap<String, Vec<Vec<CoreType>>>,
 }
 
 impl TypeChecker {
@@ -95,6 +101,8 @@ impl TypeChecker {
             constant_integer_values: BTreeMap::new(),
             adt_variants: BTreeMap::new(),
             adt_fields: BTreeMap::new(),
+            adt_generic_params: BTreeMap::new(),
+            generic_instantiations: BTreeMap::new(),
         };
         checker.register_standard_builtins();
         checker
@@ -116,6 +124,8 @@ impl TypeChecker {
             constant_integer_values: BTreeMap::new(),
             adt_variants: BTreeMap::new(),
             adt_fields: BTreeMap::new(),
+            adt_generic_params: BTreeMap::new(),
+            generic_instantiations: BTreeMap::new(),
         };
         checker.register_standard_builtins();
         checker

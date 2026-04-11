@@ -744,6 +744,10 @@ pub enum Decl {
     Type {
         /// Name of the type being declared
         name: String,
+        /// Optional generic type parameter names (e.g. `["T", "U"]`).
+        generic_params: Option<Vec<String>>,
+        /// Full generic parameter declarations including constraints.
+        generic_constraints: Option<Vec<TypeParameter>>,
         /// Type definition (sum, product, or alias)
         type_def: TypeDef,
         /// Visibility modifier (public/private)

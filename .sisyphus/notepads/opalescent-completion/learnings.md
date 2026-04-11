@@ -167,3 +167,10 @@
 - Improved call-site inference in `checker/call_resolution.rs` by composing local argument unification substitutions and applying them to return types, enabling `map/filter` and chained collection method inference to produce concrete return types.
 - Validation: `cargo make lint-fix` PASS, `timeout 30 cargo test` PASS (355 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, `cargo make lint` PASS, LSP diagnostics clean on all changed files.
 - Follow-up note: Collection intrinsics were split into dedicated checker submodules to keep core files under enforced line-count limits while preserving member-call typing behavior.
+
+## [2026-04-11] Task 18: Generic System Completion
+- Implemented generic ADT declaration plumbing end-to-end: parser now captures type-level generic params/constraints on `Decl::Type`, AST stores them, and type registration resolves ADT field types using generic bindings.
+- Completed generic constructor inference: constructor field checking now instantiates per-call fresh type vars for ADT generics, unifies field values to infer concrete type args, validates declared generic constraints, and returns concrete `CoreType::Generic` (e.g. `Node<int64>`, `Pair<string, boolean>`).
+- Added Phase 5-prep metadata tracking in `TypeChecker`: generic declarations per ADT plus `generic_instantiations: BTreeMap<String, Vec<Vec<CoreType>>>`, with helpers in new `checker/generics.rs` and recording from both function-call inference and ADT constructor instantiation.
+- Added new integration suite `src/type_system/test_integration_generics.rs` and module registration in `src/type_system.rs`, covering constructor inference, generic call inference (`identity(42)`), constraint failure, and unique instantiation metadata recording.
+- Validation: `cargo make lint-fix` PASS, `timeout 30 cargo test` PASS (360 passed, 0 failed, 3 ignored), `scripts/check-line-count.sh` PASS, `cargo make lint` PASS, LSP diagnostics clean on changed files.

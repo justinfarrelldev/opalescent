@@ -251,6 +251,8 @@ fn make_function_decl_with_errors(
 fn make_unit_type_decl(name: &str, id: usize) -> Decl {
     Decl::Type {
         name: name.to_owned(),
+        generic_params: None,
+        generic_constraints: None,
         type_def: TypeDef::Alias {
             target_type: Type::Basic {
                 name: "unit".to_owned(),

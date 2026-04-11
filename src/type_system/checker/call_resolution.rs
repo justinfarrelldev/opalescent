@@ -238,6 +238,28 @@ impl TypeChecker {
                     })?;
 
                 let inferred_return_type = local_inference.apply(&raw_return_type);
+                let mut inferred_generic_type_args = Vec::new();
+                let mut has_unresolved_generic = false;
+                for declared_generic in &generic_params {
+                    let variable_type = Self::instantiated_type_for_generic(
+                        declared_generic.type_var.id,
+                        instantiated_generic_variables.as_slice(),
+                        CoreType::Variable(declared_generic.type_var.clone()),
+                    );
+                    let inferred_generic_type = local_inference.apply(&variable_type);
+                    if let CoreType::Variable(_) = inferred_generic_type {
+                        has_unresolved_generic = true;
+                    }
+                    inferred_generic_type_args.push(inferred_generic_type);
+                }
+                if !generic_params.is_empty() && !has_unresolved_generic {
+                    if let Expr::Identifier { ref name, .. } = *callee {
+                        self.record_generic_instantiation(
+                            name,
+                            inferred_generic_type_args.as_slice(),
+                        );
+                    }
+                }
 
                 if let CoreType::Variable(ref return_var) = inferred_return_type {
                     Ok(Self::resolve_return_constraint_type(

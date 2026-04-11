@@ -22,11 +22,7 @@ impl TypeChecker {
     ) -> Result<CoreType, TypeError> {
         match *callee {
             Expr::Identifier { ref name, .. } => {
-                let owner_type = CoreType::Generic {
-                    name: name.clone(),
-                    type_args: Vec::new(),
-                };
-                self.type_check_constructor_fields(name, fields, span)?;
+                let owner_type = self.type_check_constructor_fields(name, fields, span)?;
                 Ok(owner_type)
             }
             Expr::Member {
@@ -50,11 +46,8 @@ impl TypeChecker {
                         });
                     }
 
-                    let owner_type = CoreType::Generic {
-                        name: name.clone(),
-                        type_args: Vec::new(),
-                    };
-                    self.type_check_constructor_fields(&qualified_variant, fields, type_span)?;
+                    let owner_type =
+                        self.type_check_constructor_fields(&qualified_variant, fields, type_span)?;
                     Ok(owner_type)
                 } else {
                     let callee_type = self.type_check_expr(callee)?;
@@ -82,7 +75,7 @@ impl TypeChecker {
         owner_name: &str,
         fields: &[ConstructorField],
         span: Span,
-    ) -> Result<(), TypeError> {
+    ) -> Result<CoreType, TypeError> {
         let Some(expected_fields) = self.adt_fields_for_owner(owner_name).cloned() else {
             return Err(TypeError::InvalidOperation {
                 operation: "constructor field initialization".to_owned(),
@@ -90,6 +83,17 @@ impl TypeChecker {
                 span: TypeError::span_from_span(span),
             });
         };
+
+        let type_owner_name = owner_name
+            .split_once('.')
+            .map_or_else(|| owner_name.to_owned(), |(owner, _)| owner.to_owned());
+        let adt_generic_params = self
+            .adt_generic_params_for(type_owner_name.as_str())
+            .cloned()
+            .unwrap_or_default();
+        let mut fresh_instantiations: alloc::collections::BTreeMap<usize, CoreType> =
+            alloc::collections::BTreeMap::new();
+        let mut inference_substitution = crate::type_system::substitution::Substitution::empty();
 
         let mut seen_fields: BTreeSet<String> = BTreeSet::new();
         for field in fields {
@@ -109,25 +113,41 @@ impl TypeChecker {
                 });
             };
 
+            let expected_field_instantiated =
+                self.instantiate_call_type(expected_type, &mut fresh_instantiations, field.span)?;
             let field_value_type = self.type_check_expr(&field.value)?;
-            let reconciled_value = if self.types_compatible(expected_type, &field_value_type) {
+            let expected_field_applied = inference_substitution.apply(&expected_field_instantiated);
+            let reconciled_value = if self
+                .types_compatible(&expected_field_applied, &field_value_type)
+                || matches!(expected_field_applied, CoreType::Variable(_))
+            {
                 field_value_type
             } else if let Some(adjusted) =
-                coerce_literal_to_expected(expected_type, &field.value, &field_value_type)
+                coerce_literal_to_expected(&expected_field_applied, &field.value, &field_value_type)
             {
                 adjusted
             } else {
                 return Err(TypeError::FieldTypeMismatch {
                     type_name: owner_name.to_owned(),
                     field_name: field.name.clone(),
-                    expected: expected_type.to_string(),
+                    expected: expected_field_applied.to_string(),
                     found: field_value_type.to_string(),
                     span: TypeError::span_from_span(field.value.span()),
                 });
             };
 
+            if !adt_generic_params.is_empty() {
+                let field_substitution = self.unify(
+                    &expected_field_applied,
+                    &reconciled_value,
+                    Some(field.span),
+                    Some(field.value.span()),
+                )?;
+                inference_substitution = inference_substitution.compose(&field_substitution);
+            }
+
             self.add_constraint(TypeConstraint::equality(
-                expected_type.clone(),
+                expected_field_instantiated,
                 reconciled_value,
                 Some(field.span),
                 Some(field.value.span()),
@@ -144,7 +164,59 @@ impl TypeChecker {
             }
         }
 
-        Ok(())
+        self.finalize_generic_constructor_type(
+            type_owner_name.as_str(),
+            adt_generic_params.as_slice(),
+            span,
+            &mut fresh_instantiations,
+            &inference_substitution,
+        )
+    }
+
+    /// Finalize inferred generic constructor arguments and emit constraints.
+    fn finalize_generic_constructor_type(
+        &mut self,
+        owner_name: &str,
+        generic_params: &[crate::type_system::types::GenericTypeParameter],
+        span: Span,
+        fresh_instantiations: &mut alloc::collections::BTreeMap<usize, CoreType>,
+        inference_substitution: &crate::type_system::substitution::Substitution,
+    ) -> Result<CoreType, TypeError> {
+        let mut inferred_type_args = Vec::new();
+        for generic_param in generic_params {
+            let variable_type = self.instantiate_call_type(
+                &CoreType::Variable(generic_param.type_var.clone()),
+                fresh_instantiations,
+                span,
+            )?;
+            let inferred_arg = inference_substitution.apply(&variable_type);
+            if let CoreType::Variable(_) = inferred_arg {
+                return Err(TypeError::CannotInferGenericType {
+                    param_name: generic_param.name.clone(),
+                    span: TypeError::span_from_span(span),
+                });
+            }
+
+            for constraint in &generic_param.constraints {
+                let resolved_constraint = inference_substitution.apply(constraint);
+                self.add_constraint(TypeConstraint::equality(
+                    inferred_arg.clone(),
+                    resolved_constraint,
+                    Some(span),
+                    Some(span),
+                ));
+            }
+            inferred_type_args.push(inferred_arg);
+        }
+
+        if !inferred_type_args.is_empty() {
+            self.record_generic_instantiation(owner_name, inferred_type_args.as_slice());
+        }
+
+        Ok(CoreType::Generic {
+            name: owner_name.to_owned(),
+            type_args: inferred_type_args,
+        })
     }
 
     /// Validate algebraic data type definitions against the known type environment to ensure all

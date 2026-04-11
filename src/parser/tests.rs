@@ -2703,8 +2703,7 @@ fn test_product_type_parsing() {
 
 #[test]
 fn test_generic_type_declaration_parsing() {
-    // Test a generic sum type - simplified for now
-    let input = "type Result:\n    Ok\n    Error";
+    let input = "type Result<T, E>:\n    Ok\n    Error";
 
     let result = parse_program_from_string(input);
     assert!(
@@ -2716,9 +2715,25 @@ fn test_generic_type_declaration_parsing() {
     let program = result.unwrap();
     assert_eq!(program.declarations.len(), 1);
 
-    if let Decl::Type { name, .. } = &program.declarations[0] {
+    if let Decl::Type {
+        name,
+        generic_params,
+        generic_constraints,
+        ..
+    } = &program.declarations[0]
+    {
         assert_eq!(name, "Result");
-        // TODO: Add tests for generic parameters once implemented
+        let generic_names = generic_params
+            .as_ref()
+            .expect("generic params should exist");
+        assert_eq!(generic_names.as_slice(), ["T", "E"]);
+
+        let declarations = generic_constraints
+            .as_ref()
+            .expect("generic constraints should exist");
+        assert_eq!(declarations.len(), 2);
+        assert_eq!(declarations[0].name, "T");
+        assert_eq!(declarations[1].name, "E");
     } else {
         panic!("Expected type declaration");
     }

@@ -7,7 +7,7 @@ extern crate alloc;
 use super::{next_node_id, ParseError, ParseResult, Parser};
 use crate::ast::{
     AstNode, Decl, Documentation, Field, HotReloadMetadata, ImportItem, LetBinding, Parameter,
-    Stmt, Type, TypeDef, Variant, Visibility,
+    Stmt, Type, TypeDef, TypeParameter, Variant, Visibility,
 };
 use crate::token::{Span, TokenType};
 use alloc::string::String;
@@ -337,7 +337,19 @@ impl Parser {
             });
         };
 
-        // TODO: Parse generic parameters (<T, E>) when implemented
+        let (generic_params, generic_constraints): (
+            Option<Vec<String>>,
+            Option<Vec<TypeParameter>>,
+        ) = if self.check(&TokenType::Less) {
+            let declarations = self.parse_type_parameter_declarations()?;
+            let names = declarations
+                .iter()
+                .map(|declaration| declaration.name.clone())
+                .collect::<Vec<String>>();
+            (Some(names), Some(declarations))
+        } else {
+            (None, None)
+        };
 
         // Consume colon
         self.consume(&TokenType::Colon, "Expected ':' after type name")?;
@@ -353,6 +365,8 @@ impl Parser {
 
         Ok(Decl::Type {
             name,
+            generic_params,
+            generic_constraints,
             type_def,
             visibility,
             doc_comment,
@@ -425,8 +439,17 @@ impl Parser {
 
                 if is_product_type.is_none() {
                     self.skip_newlines_and_comments();
-                    is_product_type =
-                        Some(self.is_type_keyword() || self.check(&TokenType::Function));
+                    let product_type_detected =
+                        if self.is_type_keyword() || self.check(&TokenType::Function) {
+                            true
+                        } else if let &TokenType::Identifier(ref type_name) =
+                            &self.current_token().token_type
+                        {
+                            type_name.chars().next().is_some_and(char::is_uppercase)
+                        } else {
+                            false
+                        };
+                    is_product_type = Some(product_type_detected);
                 }
 
                 if is_product_type == Some(true) {

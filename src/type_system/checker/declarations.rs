@@ -289,14 +289,70 @@ impl TypeChecker {
                 }
                 Ok(())
             }
-            Decl::Type { name, type_def, .. } => {
-                // Register nominal type so error declarations can resolve it later.
+            Decl::Type {
+                name,
+                type_def,
+                generic_constraints,
+                ..
+            } => {
+                let mut generic_bindings: Vec<(alloc::string::String, CoreType)> = Vec::new();
+                if let Some(declarations) = generic_constraints.as_ref() {
+                    for declaration in declarations {
+                        let variable_core =
+                            self.fresh_type_var(declaration.name.clone(), declaration.span)?;
+                        generic_bindings.push((declaration.name.clone(), variable_core));
+                    }
+                }
+
+                let mut generic_core_params = Vec::new();
+                if let Some(declarations) = generic_constraints.as_ref() {
+                    for declaration in declarations {
+                        let Some(variable_core) = generic_bindings.iter().find_map(|binding| {
+                            (binding.0 == declaration.name).then_some(binding.1.clone())
+                        }) else {
+                            return Err(TypeError::ConstraintSolvingFailed {
+                                reason: format!(
+                                    "failed to allocate type variable for generic parameter '{}'",
+                                    declaration.name
+                                ),
+                                span: TypeError::span_from_span(declaration.span),
+                            });
+                        };
+                        let CoreType::Variable(type_var) = variable_core else {
+                            return Err(TypeError::ConstraintSolvingFailed {
+                                reason: "failed to allocate generic type variable".to_owned(),
+                                span: TypeError::span_from_span(declaration.span),
+                            });
+                        };
+
+                        let mut constraint_types = Vec::new();
+                        for constraint in &declaration.constraints {
+                            let resolved_constraint = Self::ast_type_to_core_type_with_generics(
+                                constraint,
+                                &generic_bindings,
+                            )?;
+                            constraint_types.push(resolved_constraint);
+                        }
+
+                        generic_core_params.push(GenericTypeParameter {
+                            name: declaration.name.clone(),
+                            type_var,
+                            constraints: constraint_types,
+                        });
+                    }
+                }
+
+                let generic_type_args = generic_bindings
+                    .iter()
+                    .map(|binding| binding.1.clone())
+                    .collect::<Vec<CoreType>>();
                 let nominal_type = CoreType::Generic {
                     name: name.clone(),
-                    type_args: Vec::new(),
+                    type_args: generic_type_args,
                 };
                 self.environment_mut()
                     .register_type(name.clone(), nominal_type.clone());
+                self.register_adt_generic_params(name.clone(), generic_core_params);
                 self.symbol_table.register(SymbolInfo {
                     name: name.clone(),
                     symbol_type: SymbolType::Type,
@@ -315,8 +371,10 @@ impl TypeChecker {
                         qualified_variants.push(qualified_name.clone());
                         let mut variant_fields: BTreeMap<String, CoreType> = BTreeMap::new();
                         for field in &variant.fields {
-                            let core_field_type =
-                                Self::ast_type_to_core_type(&field.type_annotation)?;
+                            let core_field_type = Self::ast_type_to_core_type_with_generics(
+                                &field.type_annotation,
+                                generic_bindings.as_slice(),
+                            )?;
                             variant_fields.insert(field.name.clone(), core_field_type.clone());
                             self.symbol_table.register(SymbolInfo {
                                 name: format!("{qualified_name}.{}", field.name),
@@ -335,7 +393,10 @@ impl TypeChecker {
                             symbol_type: SymbolType::Constant,
                             core_type: CoreType::Generic {
                                 name: name.clone(),
-                                type_args: Vec::new(),
+                                type_args: generic_bindings
+                                    .iter()
+                                    .map(|binding| binding.1.clone())
+                                    .collect::<Vec<CoreType>>(),
                             },
                             visibility: Visibility::Public,
                             source_location: variant.span,
@@ -348,7 +409,10 @@ impl TypeChecker {
                 } else if let TypeDef::Product { fields, .. } = type_def {
                     let mut product_fields: BTreeMap<String, CoreType> = BTreeMap::new();
                     for field in fields {
-                        let core_field_type = Self::ast_type_to_core_type(&field.type_annotation)?;
+                        let core_field_type = Self::ast_type_to_core_type_with_generics(
+                            &field.type_annotation,
+                            generic_bindings.as_slice(),
+                        )?;
                         product_fields.insert(field.name.clone(), core_field_type.clone());
                         self.symbol_table.register(SymbolInfo {
                             name: format!("{name}.{}", field.name),
@@ -398,8 +462,7 @@ impl TypeChecker {
                 ref visibility,
                 ..
             } => self.type_check_let_declaration(binding, initializer, visibility),
-            Decl::Type { ref type_def, .. } => Self::validate_adt_type(type_def),
-            Decl::Import { .. } => Ok(()),
+            Decl::Type { .. } | Decl::Import { .. } => Ok(()),
         }
     }
 
