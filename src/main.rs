@@ -9,16 +9,18 @@
 )]
 
 mod ast;
+#[path = "build_system.rs"]
+pub mod build_system;
 #[path = "codegen.rs"]
 mod codegen;
+#[path = "doc_gen.rs"]
+pub mod doc_gen;
 mod error;
 /// Compiler-wide error reporting infrastructure modules.
 #[path = "errors.rs"]
 mod errors;
 #[path = "hot_reload.rs"]
 pub mod hot_reload;
-#[path = "doc_gen.rs"]
-pub mod doc_gen;
 mod lexer;
 mod parser;
 #[path = "runtime.rs"]

@@ -297,3 +297,13 @@
 - Added TDD suite in `src/doc_gen/tests.rs` validating attribute parsing, public-only extraction, cross-reference rewriting, markdown/html rendering, pipeline wiring, and AST doc-comment preservation.
 - Critical workflow note: `cargo make lint-fix` rewrote unrelated files (`src/codegen/adts.rs`, `src/codegen/functions.rs`, `src/errors/suggestions.rs`, plan/notepad metadata); reverted unrelated modifications immediately.
 - Verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `timeout 30 LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` PASS (445 passed, 3 ignored), `scripts/check-line-count.sh` PASS, and `lsp_diagnostics` clean on all changed files (expected unlinked hint for `src/doc_gen/mod.rs`).
+
+## [2026-04-11] Task 33: Build System & Project Configuration (Phase 7)
+- Added new build-system API surface in `src/build_system.rs` and compatibility re-export module `src/build_system/mod.rs`, then wired crate root exposure in `src/main.rs`.
+- Implemented `src/build_system/config.rs` with in-memory `opal.toml`-style parsing (`name`, `version`, `[dependencies]`, `[build].targets`), semantic version parsing (`major.minor.patch`), comparator-based constraint parsing (`>`, `>=`, `<`, `<=`, `=`), and clause satisfaction evaluation.
+- Implemented `src/build_system/dependency.rs` resolution flow with deterministic `BTreeMap` grouping by package name, highest-compatible-version selection, conflict detection for incompatible multi-constraints, and not-found handling.
+- Implemented `src/build_system/cache.rs` hash-based cache (`DJB2`-style) and hit/miss/update operations over `alloc::collections::BTreeMap<String, u64>`.
+- Implemented `src/build_system/incremental.rs` rebuild planner that combines changed modules with transitive dependents using existing `hot_reload::ModuleDependencyGraph` traversal behavior.
+- Implemented `src/build_system/targets.rs` target triple parsing for `x86_64-linux`, `aarch64-darwin`, `x86_64-windows`, plus dynamic library extension mapping (`.so`, `.dylib`, `.dll`).
+- Added RED→GREEN TDD coverage in `src/build_system/tests.rs` for config parsing success/failure, semver constraint parsing, dependency resolution success/conflict, build-cache hit/miss, incremental transitive rebuild sets, and target parsing/extension mapping.
+- Validation: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` (with unrelated file changes reverted), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `timeout 30 LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` PASS (454 passed, 3 ignored), `scripts/check-line-count.sh` PASS, and `lsp_diagnostics` clean on all changed build-system files.
