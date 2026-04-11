@@ -142,7 +142,7 @@
 - Validation: `timeout 30 cargo test` PASS (321 passed, 3 ignored), `cargo make lint-fix` PASS, `cargo make lint` PASS, `scripts/check-line-count.sh` PASS, LSP diagnostics clean on all changed files.
 
 ## [2026-04-11] Task 14: Arithmetic & Logic Completion
-- Reduced `src/type_system/checker.rs` line count by extracting return-shape context helpers into new `src/type_system/checker/returns.rs`; `checker.rs` is now below limit while keeping `expressions.rs` unchanged at 999 lines.
+- Reduced `src/type_system/checker.rs` line count by extracting return-shape context helpers into new `checker/returns.rs`; `checker.rs` is now below limit while keeping `expressions.rs` unchanged at 999 lines.
 - Extended compile-time shift bounds validation with `check_shift_bounds(op, lhs_type, rhs_expr, span)` and enriched `TypeError::InvalidShiftCount` metadata (`reason`, `count_value`) while preserving existing fields for compatibility.
 - Added `fold_constant_binary_op` helper in `checker/helpers.rs` and wired arithmetic overflow helper to use it for integer constant operations (`+`, `-`, `*`, `/`, `%`).
 - Registered masked shift intrinsics per spec names `bshl_masked` and `bshr_masked` (kept existing `masked_*` variants), and treated `*_masked` intrinsic calls as wrapping arithmetic mode.
@@ -242,3 +242,20 @@
 - Wired runtime module/re-exports in `src/runtime.rs` and `src/runtime/mod.rs` for new stdlib/reporting surfaces.
 - Added RED→GREEN tests in `src/runtime/tests.rs` for parse success/failure, deterministic random range, interpolation success/mismatch, array slicing success/error, runtime error formatting, and weak-ref upgrade semantics.
 - Verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 timeout 30 cargo test` PASS (402 passed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, `lsp_diagnostics src/runtime` clean (only expected unlinked-file hint for `src/runtime/mod.rs`).
+
+## [2026-04-11] Task 27: Basic Optimization Passes
+- Added `src/codegen/optimization.rs` with `OptimizationLevel::{Debug, Release}` and `apply_optimization_passes(module, level)` using inkwell `PassManager<Module>` + `PassManagerBuilder`.
+- Wired optimization module in both `src/codegen/mod.rs` and `src/codegen.rs`, plus dedicated test module registration `tests_optimization`.
+- Release pipeline now configures O2-class pass setup (`OptimizationLevel::Aggressive`) and integrates SCCP/instruction simplify, DCE-oriented cleanup (aggressive/global DCE + dead store elimination), dead arg/prototype cleanup, CFG simplify, and `AlwaysInliner`.
+- Added RED→GREEN tests in new `src/codegen/tests_optimization.rs` validating: O0 vs O2 IR divergence, constant folding to immediate return, dead-store elimination, and inlining of always-inline small function calls.
+- Validation: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 timeout 30 cargo test` PASS (406 passed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, and LSP diagnostics clean on changed files (with expected rust-analyzer unlinked-file hint for `src/codegen/mod.rs`).
+
+## [2026-04-11] Task 28: Hot Reload Infrastructure
+- Added path-based crate wiring in `src/hot_reload.rs` plus `#[path = "hot_reload.rs"] pub mod hot_reload;` in `src/main.rs`, mirroring runtime wiring pattern.
+- Added `src/hot_reload/mod.rs` re-export compatibility module (kept intentionally minimal and currently unlinked like existing `codegen/mod.rs` pattern).
+- Implemented ABI infrastructure in `src/hot_reload/abi.rs`: `ModuleVTable` narrow C ABI table, `FunctionSignature`, `ExportedFunction`, `PodLayout`, `AbiSignature`, deterministic ABI hashing, `generate_abi_signature`, and `signatures_compatible`.
+- Implemented versioning in `src/hot_reload/version.rs`: `ModuleVersion(u32)` newtype with display formatting `v{:04}` and `versioned_module_name(base, version)` producing `logic_v0001.so` style names.
+- Implemented host swap infrastructure in `src/hot_reload/loader.rs`: mockable `ModuleLoader` trait, `LoadedModule`, `HostProcess`, `HotReloadError`, and `hot_swap_module` with ABI compatibility gating and unload/load swap sequencing.
+- Added TDD suite in `src/hot_reload/tests.rs` covering deterministic ABI hash generation, ABI incompatibility detection, version formatting/name generation, successful module swap, and ABI-incompatible swap rejection with mocked loader only (no `.so` creation).
+- Critical workflow note: running `cargo make lint-fix` auto-modified pre-existing `src/codegen/adts.rs` and `src/codegen/functions.rs` into patterns that fail strict `clippy::pattern_type_mismatch`; restored explicit `&Expr` pattern style and re-verified lint/test clean.
+- Verification: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 timeout 30 cargo test` PASS (411 passed, 3 ignored), `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint-fix` PASS, `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` PASS, `scripts/check-line-count.sh` PASS, and `lsp_diagnostics` clean on changed hot-reload files (only expected unlinked-file hint for `src/hot_reload/mod.rs`).

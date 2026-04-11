@@ -16,6 +16,8 @@ mod lexer;
 mod parser;
 #[path = "runtime.rs"]
 pub mod runtime;
+#[path = "hot_reload.rs"]
+pub mod hot_reload;
 mod token;
 mod type_system;
 
