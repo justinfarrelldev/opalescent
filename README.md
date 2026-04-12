@@ -539,7 +539,7 @@ The Opalescent compiler pipeline processes source code through several stages to
 2. **Type Checking** — The AST is analyzed for type correctness and symbol resolution
 3. **Code Generation** — Type-checked AST is lowered to LLVM IR via Inkwell
 4. **Object Emission** — LLVM IR is compiled to native object code (`.o` file)
-5. **Linking** — The object file is linked with the C runtime to produce the final binary
+5. **Linking** — The object file is linked with the C runtime (embedded in the compiler binary) to produce the final binary. No `runtime/` folder is needed at runtime.
 
 The entry point is `compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, CompileError>`, which orchestrates all stages:
 
@@ -608,18 +608,19 @@ Test artifacts are automatically cleaned up after each test execution.
 All `.op` files in test projects must follow these conventions:
 
 **Syntax:**
-- Use **brace syntax `{ }`** for block expressions (the parser does not support colon-indentation blocks)
+- Colon-block syntax is the standard for control flow (`if`, `while`, `for`, `loop`)
+- Brace syntax `{ }` is also supported for block expressions
 - Statements use newlines for termination (no semicolons)
 
 **Types:**
-- Use **`int64` for all numeric types** (not `int32`)
+- Use **`int32` for all numeric types**
 - String types use the built-in `string` type
 
 **Entry Function:**
-- Entry function must be named `f()` with no parameters and return type `void`:
+- Entry function must be named `f(args: string[]): void` (legacy signatures without parameters are also supported):
 
 ```opal
-entry main = f(): void =>
+entry main = f(args: string[]): void =>
     print('Hello world')
     return void
 ```
