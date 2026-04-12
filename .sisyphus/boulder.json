@@ -27,6 +27,24 @@
       "agent": "Sisyphus-Junior",
       "category": "deep",
       "updated_at": "2026-04-12T21:13:13.363Z"
+    },
+    "todo:9": {
+      "task_key": "todo:9",
+      "task_label": "9",
+      "task_title": "Entry Function with args: string[] Parameter",
+      "session_id": "ses_27c71c531ffeYSMQUbI3KbruZJ",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-12T21:24:43.475Z"
+    },
+    "todo:11": {
+      "task_key": "todo:11",
+      "task_label": "11",
+      "task_title": "Loop Statement with Break (Multi-Value) and Continue",
+      "session_id": "ses_27c519d00ffeA23Jbcvh5ElNRC",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-12T21:58:16.785Z"
     }
   }
 }

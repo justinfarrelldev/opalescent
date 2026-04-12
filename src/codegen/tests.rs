@@ -1139,6 +1139,54 @@ fn test_codegen_loop_forms_and_return_multi_value() {
         "loop codegen should emit unconditional back-edge and break target"
     );
 
+    let destructured_loop = Stmt::LetDestructure {
+        bindings: vec![
+            LetBinding {
+                name: String::from("user_input"),
+                type_annotation: Some(Type::Basic {
+                    name: String::from("int64"),
+                    span: test_span(),
+                }),
+                is_mutable: false,
+                span: test_span(),
+                id: test_node_id(651),
+            },
+            LetBinding {
+                name: String::from("user_number"),
+                type_annotation: Some(Type::Basic {
+                    name: String::from("int64"),
+                    span: test_span(),
+                }),
+                is_mutable: false,
+                span: test_span(),
+                id: test_node_id(652),
+            },
+        ],
+        initializer: Expr::Loop {
+            body: Box::new(Stmt::Block {
+                statements: vec![Stmt::Break {
+                    values: vec![
+                        labeled_value(653, "user_input", int_lit(654, 11)),
+                        labeled_value(655, "user_number", int_lit(656, 22)),
+                    ],
+                    span: test_span(),
+                    id: test_node_id(657),
+                }],
+                span: test_span(),
+                id: test_node_id(658),
+            }),
+            span: test_span(),
+            id: test_node_id(659),
+        },
+        span: test_span(),
+        id: test_node_id(660),
+    };
+    let destructure_result = codegen_statement(&codegen_context, &mut env, &destructured_loop);
+    assert!(
+        destructure_result.is_ok(),
+        "let destructure from loop expression should lower with break payload slots"
+    );
+
     let return_result = codegen_return_statement(
         &codegen_context,
         &mut env,

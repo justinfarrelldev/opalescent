@@ -1,15 +1,17 @@
 extern crate alloc;
 
-use crate::ast::{Expr, Stmt, Type};
+use crate::ast::{Expr, LetBinding, Stmt, Type};
 use crate::codegen::adts::product_field_indices_from_constructor;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::{
-    codegen_if_statement, codegen_loop_statement, codegen_return_statement,
+    codegen_if_statement, codegen_loop_expression_into_slots, codegen_loop_statement,
+    codegen_return_statement,
 };
 use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError, VariableBinding};
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::string::String;
+use alloc::vec::Vec;
 
 /// Lower one typed statement into LLVM IR side effects.
 pub fn codegen_statement<'context>(
@@ -22,63 +24,17 @@ pub fn codegen_statement<'context>(
             ref binding,
             ref initializer,
             ..
-        } => {
-            let (declared_type, lowered_initializer) =
-                if let Some(ref annotation) = binding.type_annotation {
-                    let declared_type = ast_type_to_core_type(annotation)?;
-                    let lowered = if let Some(ref init_expr) = *initializer {
-                        Some(codegen_expression(
-                            codegen_context,
-                            env,
-                            init_expr,
-                            Some(&declared_type),
-                        )?)
-                    } else {
-                        None
-                    };
-                    (declared_type, lowered)
-                } else if let Some(ref init_expr) = *initializer {
-                    (
-                        infer_core_type_from_expr(init_expr),
-                        Some(codegen_expression(codegen_context, env, init_expr, None)?),
-                    )
-                } else {
-                    (CoreType::Unit, None)
-                };
-
-            let alloca = if let Some(initializer_value) = lowered_initializer {
-                let alloca = codegen_context
-                    .builder
-                    .build_alloca(initializer_value.get_type(), binding.name.as_str())?;
-                let _store_instruction = codegen_context
-                    .builder
-                    .build_store(alloca, initializer_value)?;
-                alloca
-            } else {
-                let alloca_type = core_type_to_llvm(codegen_context.context, &declared_type);
-                codegen_context
-                    .builder
-                    .build_alloca(alloca_type, binding.name.as_str())?
-            };
-
-            env.variables.insert(
-                binding.name.clone(),
-                VariableBinding {
-                    alloca,
-                    core_type: declared_type,
-                },
-            );
-            if let Some(&Expr::Constructor { .. }) = initializer.as_ref() {
-                if let Some(field_indices) = initializer
-                    .as_ref()
-                    .and_then(product_field_indices_from_constructor)
-                {
-                    env.variable_field_indices
-                        .insert(binding.name.clone(), field_indices);
-                }
-            }
-            Ok(())
-        }
+        } => codegen_let_statement(codegen_context, env, binding, initializer.as_ref()),
+        Stmt::LetDestructure {
+            ref bindings,
+            ref initializer,
+            ..
+        } => codegen_let_destructure_statement(
+            codegen_context,
+            env,
+            bindings.as_slice(),
+            initializer,
+        ),
         Stmt::Assignment {
             ref target,
             ref value,
@@ -114,6 +70,114 @@ pub fn codegen_statement<'context>(
         }
         Stmt::Break { .. } | Stmt::Continue { .. } => Ok(()),
     }
+}
+
+/// Lower a `let` statement by allocating storage and binding initializer values.
+fn codegen_let_statement<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    binding: &LetBinding,
+    initializer: Option<&Expr>,
+) -> Result<(), CodegenError> {
+    let (declared_type, lowered_initializer) = if let Some(ref annotation) = binding.type_annotation
+    {
+        let declared_type = ast_type_to_core_type(annotation)?;
+        let lowered = if let Some(init_expr) = initializer {
+            Some(codegen_expression(
+                codegen_context,
+                env,
+                init_expr,
+                Some(&declared_type),
+            )?)
+        } else {
+            None
+        };
+        (declared_type, lowered)
+    } else if let Some(init_expr) = initializer {
+        (
+            infer_core_type_from_expr(init_expr),
+            Some(codegen_expression(codegen_context, env, init_expr, None)?),
+        )
+    } else {
+        (CoreType::Unit, None)
+    };
+
+    let alloca = if let Some(initializer_value) = lowered_initializer {
+        let alloca = codegen_context
+            .builder
+            .build_alloca(initializer_value.get_type(), binding.name.as_str())?;
+        let _store_instruction = codegen_context
+            .builder
+            .build_store(alloca, initializer_value)?;
+        alloca
+    } else {
+        let alloca_type = core_type_to_llvm(codegen_context.context, &declared_type);
+        codegen_context
+            .builder
+            .build_alloca(alloca_type, binding.name.as_str())?
+    };
+
+    env.variables.insert(
+        binding.name.clone(),
+        VariableBinding {
+            alloca,
+            core_type: declared_type,
+        },
+    );
+    if let Some(&Expr::Constructor { .. }) = initializer {
+        if let Some(field_indices) = initializer.and_then(product_field_indices_from_constructor) {
+            env.variable_field_indices
+                .insert(binding.name.clone(), field_indices);
+        }
+    }
+
+    Ok(())
+}
+
+/// Lower a destructuring `let` from a loop expression into preallocated slots.
+fn codegen_let_destructure_statement<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    bindings: &[LetBinding],
+    initializer: &Expr,
+) -> Result<(), CodegenError> {
+    let Expr::Loop { ref body, .. } = *initializer else {
+        return Err(CodegenError::new(String::from(
+            "destructuring let currently requires loop expression initializer",
+        )));
+    };
+
+    let mut slots = Vec::new();
+    let mut labels = Vec::new();
+    for binding in bindings {
+        let binding_type = binding
+            .type_annotation
+            .as_ref()
+            .map(ast_type_to_core_type)
+            .transpose()?
+            .unwrap_or(CoreType::Int64);
+        let slot_type = core_type_to_llvm(codegen_context.context, &binding_type);
+        let alloca = codegen_context
+            .builder
+            .build_alloca(slot_type, binding.name.as_str())?;
+        slots.push(alloca);
+        labels.push(binding.name.clone());
+        env.variables.insert(
+            binding.name.clone(),
+            VariableBinding {
+                alloca,
+                core_type: binding_type,
+            },
+        );
+    }
+
+    codegen_loop_expression_into_slots(
+        codegen_context,
+        env,
+        body.as_ref(),
+        slots.as_slice(),
+        labels.as_slice(),
+    )
 }
 
 /// Lower a simple identifier assignment into a store.

@@ -173,6 +173,22 @@ fn check_stmt(stmt: &Stmt, violations: &mut Vec<NamingViolation>) {
                 check_expr(init, violations);
             }
         }
+        Stmt::LetDestructure {
+            ref bindings,
+            ref initializer,
+            ..
+        } => {
+            for binding in bindings {
+                if !is_snake_case(&binding.name) {
+                    violations.push(NamingViolation {
+                        name: binding.name.clone(),
+                        expected: NamingStyle::SnakeCase,
+                        location: "let destructure binding".to_owned(),
+                    });
+                }
+            }
+            check_expr(initializer, violations);
+        }
         Stmt::Block { ref statements, .. } => {
             for s in statements {
                 check_stmt(s, violations);
@@ -351,5 +367,6 @@ fn check_expr(expr: &Expr, violations: &mut Vec<NamingViolation>) {
             check_stmt(else_branch, violations);
         }
         Expr::Propagate { ref call, .. } => check_expr(call, violations),
+        Expr::Loop { ref body, .. } => check_stmt(body, violations),
     }
 }

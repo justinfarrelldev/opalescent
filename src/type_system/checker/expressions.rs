@@ -187,6 +187,10 @@ impl TypeChecker {
                 span,
                 ..
             } => self.type_check_match_expr(scrutinee, arms.as_slice(), span),
+            Expr::Loop { ref body, .. } => {
+                self.type_check_stmt_with_return(body.as_ref(), None)?;
+                Ok(CoreType::Unit)
+            }
             Expr::Lambda {
                 ref generic_params,
                 ref generic_constraints,

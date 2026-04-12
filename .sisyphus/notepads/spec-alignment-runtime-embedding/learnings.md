@@ -62,3 +62,8 @@
 - Added parser regression tests for the exact `simple_quiz` import lines and for top-level-only import placement.
 - Verification: `cargo build` passed; `cargo test` passed with `735 passed; 0 failed; 8 ignored` in unit suite.
 - Compatibility note: existing `Decl::Import { items, source, .. }` consumers continue to work via pattern `..`, while new code can read normalized `statement.names/module` directly.
+
+## [2026-04-12] T11 clippy cleanup for loop/break/continue
+- `clippy::missing_docs_in_private_items` now satisfied for newly introduced private helpers and parser/type-checker methods tied to loop expression/destructure flow.
+- `codegen_statement` line-count lint was resolved by extracting `Stmt::Let` and `Stmt::LetDestructure` lowering into focused private helpers, keeping behavior unchanged while reducing top-level match-arm size.
+- Verification: `cargo make lint` passed clean and `cargo test` passed (`745 passed; 0 failed; 8 ignored`).

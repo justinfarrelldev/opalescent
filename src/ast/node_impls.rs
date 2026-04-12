@@ -25,6 +25,7 @@ impl AstNode for Expr {
             | Self::If { span, .. }
             | Self::Array { span, .. }
             | Self::Match { span, .. }
+            | Self::Loop { span, .. }
             | Self::Lambda { span, .. }
             | Self::Guard { span, .. }
             | Self::Propagate { span, .. } => span,
@@ -48,6 +49,7 @@ impl AstNode for Expr {
             | Self::If { id, .. }
             | Self::Array { id, .. }
             | Self::Match { id, .. }
+            | Self::Loop { id, .. }
             | Self::Lambda { id, .. }
             | Self::Guard { id, .. }
             | Self::Propagate { id, .. } => id,
@@ -77,6 +79,7 @@ impl AstNode for Stmt {
     fn span(&self) -> Span {
         match *self {
             Self::Let { span, .. }
+            | Self::LetDestructure { span, .. }
             | Self::Assignment { span, .. }
             | Self::Return { span, .. }
             | Self::Expression { span, .. }
@@ -93,6 +96,7 @@ impl AstNode for Stmt {
     fn node_id(&self) -> NodeId {
         match *self {
             Self::Let { id, .. }
+            | Self::LetDestructure { id, .. }
             | Self::Assignment { id, .. }
             | Self::Return { id, .. }
             | Self::Expression { id, .. }

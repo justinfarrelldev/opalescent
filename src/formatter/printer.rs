@@ -438,6 +438,21 @@ impl Formatter {
                     .map_or_else(String::new, |i| format!(" = {}", self.print_expr(i, depth)));
                 format!("{indent}let {mutable}{}{type_ann}{init}", binding.name)
             }
+            Stmt::LetDestructure {
+                ref bindings,
+                ref initializer,
+                ..
+            } => {
+                let names: Vec<String> = bindings
+                    .iter()
+                    .map(|binding| binding.name.clone())
+                    .collect();
+                format!(
+                    "{indent}let {} = {}",
+                    names.join(", "),
+                    self.print_expr(initializer, depth)
+                )
+            }
             Stmt::Assignment {
                 ref target,
                 ref value,
@@ -676,6 +691,10 @@ impl Formatter {
                 ref arms,
                 ..
             } => self.print_match_expr(scrutinee, arms, depth),
+            Expr::Loop { ref body, .. } => {
+                let body_str = self.print_stmt(body, depth);
+                format!("loop => {body_str}")
+            }
             Expr::Lambda {
                 ref params,
                 ref return_types,

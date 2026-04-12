@@ -83,6 +83,7 @@ impl Expr {
             | Self::If { span, .. }
             | Self::Array { span, .. }
             | Self::Match { span, .. }
+            | Self::Loop { span, .. }
             | Self::Lambda { span, .. }
             | Self::Guard { span, .. }
             | Self::Propagate { span, .. } => span,
@@ -108,6 +109,7 @@ impl Expr {
             | Self::If { id, .. }
             | Self::Array { id, .. }
             | Self::Match { id, .. }
+            | Self::Loop { id, .. }
             | Self::Lambda { id, .. }
             | Self::Guard { id, .. }
             | Self::Propagate { id, .. } => id,
@@ -121,6 +123,7 @@ impl Stmt {
     pub const fn span_const(&self) -> Span {
         match *self {
             Self::Let { span, .. }
+            | Self::LetDestructure { span, .. }
             | Self::Assignment { span, .. }
             | Self::Return { span, .. }
             | Self::Expression { span, .. }
@@ -139,6 +142,7 @@ impl Stmt {
     pub const fn node_id_const(&self) -> NodeId {
         match *self {
             Self::Let { id, .. }
+            | Self::LetDestructure { id, .. }
             | Self::Assignment { id, .. }
             | Self::Return { id, .. }
             | Self::Expression { id, .. }
@@ -359,6 +363,12 @@ pub enum Expr {
         id: NodeId,
     },
 
+    Loop {
+        body: Box<Stmt>,
+        span: Span,
+        id: NodeId,
+    },
+
     /// Lambda expressions (f(x: T): U => expr, f<T, U>(x: T): U => block)
     ///
     /// Lambda expressions represent first-class functions in Opalescent. They can be:
@@ -564,6 +574,13 @@ pub enum Stmt {
         /// Source code span for the full statement
         span: Span,
         /// Unique identifier for this statement node
+        id: NodeId,
+    },
+
+    LetDestructure {
+        bindings: Vec<LetBinding>,
+        initializer: Expr,
+        span: Span,
         id: NodeId,
     },
 

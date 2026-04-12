@@ -59,6 +59,12 @@ impl TypeChecker {
                 ref initializer,
                 ..
             } => self.type_check_let_statement(binding, initializer.as_ref()),
+            Stmt::LetDestructure {
+                ref bindings,
+                ref initializer,
+                span,
+                ..
+            } => self.type_check_let_destructure(bindings.as_slice(), initializer, span),
             Stmt::Assignment {
                 ref target,
                 ref value,
@@ -282,6 +288,151 @@ impl TypeChecker {
         });
 
         Ok(())
+    }
+
+    /// Type-check a destructuring let binding, verifying each binding against the loop break values.
+    fn type_check_let_destructure(
+        &mut self,
+        bindings: &[LetBinding],
+        initializer: &Expr,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        if bindings.is_empty() {
+            return Err(TypeError::ConstraintSolvingFailed {
+                reason: "destructuring let requires at least one binding".to_owned(),
+                span: TypeError::span_from_span(span),
+            });
+        }
+
+        let Expr::Loop { ref body, .. } = *initializer else {
+            return Err(TypeError::InvalidOperation {
+                operation: "destructuring let initializer must be loop expression".to_owned(),
+                type_name: format!("{}", self.type_check_expr(initializer)?),
+                span: TypeError::span_from_span(initializer.span()),
+            });
+        };
+
+        self.type_check_stmt_with_return(body.as_ref(), None)?;
+        let return_types = self.infer_loop_break_types(body.as_ref(), span)?;
+
+        if return_types.len() != bindings.len() {
+            return Err(TypeError::ArityMismatch {
+                expected: bindings.len(),
+                found: return_types.len(),
+                span: TypeError::span_from_span(initializer.span()),
+            });
+        }
+
+        for (binding, value_type) in bindings.iter().zip(return_types.into_iter()) {
+            if let Some(annotation) = binding.type_annotation.as_ref() {
+                let annotated = Self::ast_type_to_core_type(annotation)?;
+                if !self.types_compatible(&annotated, &value_type) {
+                    return Err(type_mismatch_error(
+                        &annotated,
+                        Some(annotation.span()),
+                        &value_type,
+                        initializer.span(),
+                    ));
+                }
+            }
+
+            let symbol_type = if binding.is_mutable {
+                SymbolType::Variable
+            } else {
+                SymbolType::Constant
+            };
+
+            self.symbol_table.register(SymbolInfo {
+                name: binding.name.clone(),
+                symbol_type,
+                core_type: value_type,
+                visibility: Visibility::Private,
+                source_location: binding.span,
+                is_let_binding: true,
+                is_mutable: binding.is_mutable,
+                read_count: 0,
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Infer the break value types from a loop statement body.
+    fn infer_loop_break_types(
+        &mut self,
+        stmt: &Stmt,
+        span: Span,
+    ) -> Result<alloc::vec::Vec<CoreType>, TypeError> {
+        let mut found_break_types: Option<alloc::vec::Vec<CoreType>> = None;
+        self.collect_break_types(stmt, &mut found_break_types, span)?;
+        found_break_types.ok_or_else(|| TypeError::InvalidOperation {
+            operation: "loop expression used in destructuring must break with values".to_owned(),
+            type_name: "loop".to_owned(),
+            span: TypeError::span_from_span(span),
+        })
+    }
+
+    /// Recursively collect break value types from all break statements within the loop body.
+    fn collect_break_types(
+        &mut self,
+        stmt: &Stmt,
+        found_break_types: &mut Option<alloc::vec::Vec<CoreType>>,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        match *stmt {
+            Stmt::Break { ref values, .. } => {
+                let mut current_types = alloc::vec::Vec::new();
+                for value in values {
+                    current_types.push(self.type_check_expr(&value.value)?);
+                }
+
+                if let Some(existing) = found_break_types.as_ref() {
+                    if existing.len() != current_types.len() {
+                        return Err(TypeError::ArityMismatch {
+                            expected: existing.len(),
+                            found: current_types.len(),
+                            span: TypeError::span_from_span(span),
+                        });
+                    }
+
+                    for (expected, found) in existing.iter().zip(current_types.iter()) {
+                        if !self.types_compatible(expected, found) {
+                            return Err(type_mismatch_error(expected, None, found, span));
+                        }
+                    }
+                } else {
+                    *found_break_types = Some(current_types);
+                }
+                Ok(())
+            }
+            Stmt::Block { ref statements, .. } => {
+                for statement in statements {
+                    self.collect_break_types(statement, found_break_types, span)?;
+                }
+                Ok(())
+            }
+            Stmt::If {
+                ref then_branch,
+                ref else_branch,
+                ..
+            } => {
+                self.collect_break_types(then_branch, found_break_types, span)?;
+                if let Some(else_stmt) = else_branch.as_deref() {
+                    self.collect_break_types(else_stmt, found_break_types, span)?;
+                }
+                Ok(())
+            }
+            Stmt::For { ref body, .. } | Stmt::While { ref body, .. } => {
+                self.collect_break_types(body, found_break_types, span)
+            }
+            Stmt::Loop { .. }
+            | Stmt::Let { .. }
+            | Stmt::LetDestructure { .. }
+            | Stmt::Assignment { .. }
+            | Stmt::Return { .. }
+            | Stmt::Expression { .. }
+            | Stmt::Continue { .. } => Ok(()),
+        }
     }
 
     /// Ensure an assignment statement has a valid target and a value that is

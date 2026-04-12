@@ -3394,6 +3394,88 @@ fn test_type_check_single_return_backward_compatibility() {
 }
 
 #[test]
+fn test_type_check_let_destructure_loop_break_values() {
+    let mut checker = TypeChecker::new();
+
+    let destructure = Stmt::LetDestructure {
+        bindings: vec![
+            LetBinding {
+                name: "user_input".to_owned(),
+                type_annotation: Some(int_type("int64")),
+                is_mutable: false,
+                span: test_span(),
+                id: node_id(20_133),
+            },
+            LetBinding {
+                name: "user_number".to_owned(),
+                type_annotation: Some(int_type("int64")),
+                is_mutable: false,
+                span: test_span(),
+                id: node_id(20_134),
+            },
+        ],
+        initializer: Expr::Loop {
+            body: Box::new(Stmt::Block {
+                statements: vec![Stmt::Break {
+                    values: vec![
+                        LabeledValue {
+                            label: "user_input".to_owned(),
+                            value: literal_expr(LiteralValue::Integer(1), 20_135),
+                            span: test_span(),
+                            id: node_id(20_136),
+                        },
+                        LabeledValue {
+                            label: "user_number".to_owned(),
+                            value: literal_expr(LiteralValue::Integer(2), 20_137),
+                            span: test_span(),
+                            id: node_id(20_138),
+                        },
+                    ],
+                    span: test_span(),
+                    id: node_id(20_139),
+                }],
+                span: test_span(),
+                id: node_id(20_140),
+            }),
+            span: test_span(),
+            id: node_id(20_141),
+        },
+        span: test_span(),
+        id: node_id(20_142),
+    };
+
+    let function = Decl::Function {
+        name: "loop_destructure".to_owned(),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: vec![],
+        return_types: Some(vec![int_type("int64")]),
+        error_types: Vec::new(),
+        body: Stmt::Block {
+            statements: vec![
+                destructure,
+                return_stmt(identifier_expr("user_number", 20_143), 20_144),
+            ],
+            span: test_span(),
+            id: node_id(20_145),
+        },
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(20_146),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![function]);
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "let destructure with loop break payload should type-check"
+    );
+}
+
+#[test]
 fn test_type_check_labeled_returns_require_consistent_ordered_labels() {
     let mut checker = TypeChecker::new();
 

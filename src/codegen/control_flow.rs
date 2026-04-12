@@ -7,7 +7,7 @@ use crate::codegen::statements::codegen_statement;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue};
+use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue};
 
 #[doc = "Lower if statement control-flow blocks."]
 pub fn codegen_if_statement<'context>(
@@ -161,7 +161,15 @@ pub fn codegen_loop_statement<'context>(
                 exit,
             )?;
             codegen_context.builder.position_at_end(loop_body);
-            emit_loop_body_with_targets(codegen_context, env, body.as_ref(), header, exit)?;
+            emit_loop_body_with_targets(
+                codegen_context,
+                env,
+                body.as_ref(),
+                header,
+                exit,
+                &[],
+                &[],
+            )?;
             if let Some(current_block) = codegen_context.builder.get_insert_block() {
                 if current_block.get_terminator().is_none() {
                     let _back = codegen_context.builder.build_unconditional_branch(header)?;
@@ -171,27 +179,7 @@ pub fn codegen_loop_statement<'context>(
             Ok(())
         }
         Stmt::Loop { ref body, .. } => {
-            let function = current_function(codegen_context)?;
-            let loop_body = codegen_context
-                .context
-                .append_basic_block(function, env.next_name("loop.body").as_str());
-            let exit = codegen_context
-                .context
-                .append_basic_block(function, env.next_name("loop.exit").as_str());
-            let _jump_body = codegen_context
-                .builder
-                .build_unconditional_branch(loop_body)?;
-            codegen_context.builder.position_at_end(loop_body);
-            emit_loop_body_with_targets(codegen_context, env, body.as_ref(), loop_body, exit)?;
-            if let Some(current_block) = codegen_context.builder.get_insert_block() {
-                if current_block.get_terminator().is_none() {
-                    let _back = codegen_context
-                        .builder
-                        .build_unconditional_branch(loop_body)?;
-                }
-            }
-            codegen_context.builder.position_at_end(exit);
-            Ok(())
+            codegen_loop_expression_into_slots(codegen_context, env, body.as_ref(), &[], &[])
         }
         Stmt::For {
             ref iterable,
@@ -215,7 +203,15 @@ pub fn codegen_loop_statement<'context>(
                 .builder
                 .build_unconditional_branch(loop_body)?;
             codegen_context.builder.position_at_end(loop_body);
-            emit_loop_body_with_targets(codegen_context, env, body.as_ref(), header, exit)?;
+            emit_loop_body_with_targets(
+                codegen_context,
+                env,
+                body.as_ref(),
+                header,
+                exit,
+                &[],
+                &[],
+            )?;
             if let Some(current_block) = codegen_context.builder.get_insert_block() {
                 if current_block.get_terminator().is_none() {
                     let _back = codegen_context.builder.build_unconditional_branch(header)?;
@@ -226,6 +222,55 @@ pub fn codegen_loop_statement<'context>(
         }
         _ => Err(CodegenError::new(String::from("expected loop statement"))),
     }
+}
+
+#[doc = "Lower `loop =>` expression body and optionally store break payloads into slots."]
+pub fn codegen_loop_expression_into_slots<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    body: &Stmt,
+    break_slots: &[PointerValue<'context>],
+    break_labels: &[alloc::string::String],
+) -> Result<(), CodegenError> {
+    let function = current_function(codegen_context)?;
+    let loop_header = codegen_context
+        .context
+        .append_basic_block(function, env.next_name("loop.header").as_str());
+    let loop_body = codegen_context
+        .context
+        .append_basic_block(function, env.next_name("loop.body").as_str());
+    let exit = codegen_context
+        .context
+        .append_basic_block(function, env.next_name("loop.exit").as_str());
+
+    let _jump_header = codegen_context
+        .builder
+        .build_unconditional_branch(loop_header)?;
+    codegen_context.builder.position_at_end(loop_header);
+    let _jump_body = codegen_context
+        .builder
+        .build_unconditional_branch(loop_body)?;
+
+    codegen_context.builder.position_at_end(loop_body);
+    emit_loop_body_with_targets(
+        codegen_context,
+        env,
+        body,
+        loop_header,
+        exit,
+        break_slots,
+        break_labels,
+    )?;
+    if let Some(current_block) = codegen_context.builder.get_insert_block() {
+        if current_block.get_terminator().is_none() {
+            let _back = codegen_context
+                .builder
+                .build_unconditional_branch(loop_header)?;
+        }
+    }
+
+    codegen_context.builder.position_at_end(exit);
+    Ok(())
 }
 
 #[doc = "Lower return statement including aggregate multi-return values."]
@@ -313,12 +358,23 @@ fn emit_loop_body_with_targets<'context>(
     stmt: &Stmt,
     continue_target: inkwell::basic_block::BasicBlock<'context>,
     break_target: inkwell::basic_block::BasicBlock<'context>,
+    break_slots: &[PointerValue<'context>],
+    break_labels: &[alloc::string::String],
 ) -> Result<(), CodegenError> {
     match *stmt {
         Stmt::Block { ref statements, .. } => {
             for statement in statements {
                 match *statement {
                     Stmt::Break { .. } => {
+                        if let Stmt::Break { ref values, .. } = *statement {
+                            store_break_values_into_slots(
+                                codegen_context,
+                                env,
+                                values.as_slice(),
+                                break_slots,
+                                break_labels,
+                            )?;
+                        }
                         let _br = codegen_context
                             .builder
                             .build_unconditional_branch(break_target)?;
@@ -334,6 +390,15 @@ fn emit_loop_body_with_targets<'context>(
             Ok(())
         }
         Stmt::Break { .. } => {
+            if let Stmt::Break { ref values, .. } = *stmt {
+                store_break_values_into_slots(
+                    codegen_context,
+                    env,
+                    values.as_slice(),
+                    break_slots,
+                    break_labels,
+                )?;
+            }
             let _br = codegen_context
                 .builder
                 .build_unconditional_branch(break_target)?;
@@ -347,6 +412,33 @@ fn emit_loop_body_with_targets<'context>(
         }
         _ => codegen_statement(codegen_context, env, stmt),
     }
+}
+
+#[doc = "Store loop-break payload values into pre-allocated binding slots."]
+fn store_break_values_into_slots<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    values: &[LabeledValue],
+    break_slots: &[PointerValue<'context>],
+    break_labels: &[alloc::string::String],
+) -> Result<(), CodegenError> {
+    if break_slots.is_empty() {
+        return Ok(());
+    }
+
+    for (index, slot) in break_slots.iter().copied().enumerate() {
+        let matching_value = break_labels
+            .get(index)
+            .and_then(|label| values.iter().find(|value| value.label == *label))
+            .or_else(|| values.get(index));
+        let Some(value) = matching_value else {
+            continue;
+        };
+        let lowered_value = codegen_expression(codegen_context, env, &value.value, None)?;
+        let _store = codegen_context.builder.build_store(slot, lowered_value)?;
+    }
+
+    Ok(())
 }
 
 #[doc = "Fetch current LLVM function from builder insertion block."]

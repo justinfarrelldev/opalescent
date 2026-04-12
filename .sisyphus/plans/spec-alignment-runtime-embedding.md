@@ -849,7 +849,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 9. Entry Function with args: string[] Parameter
+- [x] 9. Entry Function with args: string[] Parameter
 
   **What to do**:
   - The spec uses `entry main = f(args: string[]): void =>` — the entry function takes an `args: string[]` parameter
@@ -928,7 +928,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 10. Import...from Syntax Parsing and Runtime Binding
+- [x] 10. Import...from Syntax Parsing and Runtime Binding
 
   **What to do**:
   - The spec uses: `import take_input, string_to_int32 from standard` and `import random_int32 from math`

@@ -153,6 +153,7 @@ impl Parser {
             &TokenType::Function => self.parse_lambda_expression(span),
             &TokenType::If => self.parse_if_expression(span),
             &TokenType::Match => self.parse_match_expression(span),
+            &TokenType::Loop => self.parse_loop_expression(span),
             &TokenType::Guard => self.parse_guard_expression(span),
             &TokenType::Propagate => self.parse_propagate_expression(span),
             _ => Err(ParseError::UnexpectedToken {
@@ -550,6 +551,28 @@ impl Parser {
             span: type_of_span,
             id: next_node_id(),
         })
+    }
+
+    /// Parse a loop expression, wrapping the inner loop statement as an expression node.
+    fn parse_loop_expression(&mut self, span: Span) -> ParseResult<Expr> {
+        let loop_stmt = self.parse_loop_statement()?;
+        if let Stmt::Loop {
+            body,
+            span: loop_span,
+            ..
+        } = loop_stmt
+        {
+            Ok(Expr::Loop {
+                body,
+                span: Span::new(span.start, loop_span.end),
+                id: next_node_id(),
+            })
+        } else {
+            Err(ParseError::InvalidSyntax {
+                message: "Expected loop statement while parsing loop expression".to_owned(),
+                span: LexError::span_from_span(span),
+            })
+        }
     }
 
     /// Parse lambda expressions (f(x: T): U => expr, f<T, U>(x: T): U => block)

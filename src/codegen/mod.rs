@@ -18,6 +18,7 @@ pub mod adts;
 pub mod context;
 pub mod control_flow;
 pub mod expressions;
+pub mod expressions_numeric;
 pub mod functions;
 pub mod monomorphization;
 pub mod optimization;

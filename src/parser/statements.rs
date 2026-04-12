@@ -120,6 +120,51 @@ impl Parser {
             });
         };
 
+        if self.check(&TokenType::Comma) {
+            let mut bindings = Vec::new();
+            bindings.push(Self::create_let_binding(name, name_span, None, is_mutable));
+
+            while self.check(&TokenType::Comma) {
+                self.advance();
+                let (next_name, next_span) = if self.check_identifier() {
+                    let token = self.advance();
+                    if let &TokenType::Identifier(ref value) = &token.token_type {
+                        (value.clone(), token.span)
+                    } else {
+                        return Err(ParseError::InvalidSyntax {
+                            message: "Expected identifier for destructured variable name"
+                                .to_owned(),
+                            span: ParseError::span_from_token(token),
+                        });
+                    }
+                } else {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "variable name".to_owned(),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                };
+
+                bindings.push(Self::create_let_binding(
+                    next_name, next_span, None, is_mutable,
+                ));
+            }
+
+            self.consume(
+                &TokenType::Assign,
+                "Expected '=' after destructured let bindings",
+            )?;
+            let initializer = self.parse_expression()?;
+            let span = Span::new(start_span.start, initializer.span().end);
+
+            return Ok(Stmt::LetDestructure {
+                bindings,
+                initializer,
+                span,
+                id: next_node_id(),
+            });
+        }
+
         // Parse optional type annotation
         let type_annotation = self
             .check(&TokenType::Colon)

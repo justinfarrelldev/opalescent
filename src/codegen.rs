@@ -13,6 +13,8 @@ pub mod control_flow;
 /// Expression lowering for LLVM backend.
 #[path = "codegen/expressions.rs"]
 pub mod expressions;
+#[path = "codegen/expressions_numeric.rs"]
+pub mod expressions_numeric;
 #[path = "codegen/expressions_string.rs"]
 pub mod expressions_string;
 #[doc = "Function-level code generation support."]

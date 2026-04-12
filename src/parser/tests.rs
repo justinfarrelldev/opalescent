@@ -201,6 +201,7 @@ fn expr_contains_feature(expr: &Expr, feature: AstFeature) -> bool {
                         || expr_contains_feature(&arm.body, feature)
                 })
         }
+        Expr::Loop { body, .. } => stmt_contains_feature(body, feature),
         Expr::Lambda { body, .. } => lambda_body_contains_feature(body, feature),
         Expr::StringInterpolation { parts, .. } => parts
             .iter()
@@ -223,6 +224,7 @@ fn stmt_contains_feature(stmt: &Stmt, feature: AstFeature) -> bool {
         Stmt::Let {
             initializer: None, ..
         } => false,
+        Stmt::LetDestructure { initializer, .. } => expr_contains_feature(initializer, feature),
         Stmt::Assignment { target, value, .. } => {
             expr_contains_feature(target, feature) || expr_contains_feature(value, feature)
         }
@@ -1237,6 +1239,41 @@ fn test_loop_with_various_statements() {
         }
     } else {
         unreachable!("Expected loop statement");
+    }
+}
+
+#[test]
+fn test_loop_expression_parses_in_expression_position() {
+    let expr = parse_expression_from_string("loop => { break result: 1 }")
+        .expect("loop expression should parse");
+    match expr {
+        Expr::Loop { body, .. } => match *body {
+            Stmt::Block { statements, .. } => {
+                assert_eq!(statements.len(), 1);
+                assert!(matches!(statements[0], Stmt::Break { .. }));
+            }
+            other => panic!("expected loop-expression block body, got {other:?}"),
+        },
+        other => panic!("expected Expr::Loop, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_let_destructure_loop_expression_statement() {
+    let stmt = parse_statement_from_string("let a, b = loop => { break a: 1, b: 2 }")
+        .expect("destructuring let with loop expression should parse");
+    match stmt {
+        Stmt::LetDestructure {
+            bindings,
+            initializer,
+            ..
+        } => {
+            assert_eq!(bindings.len(), 2);
+            assert_eq!(bindings[0].name, "a");
+            assert_eq!(bindings[1].name, "b");
+            assert!(matches!(initializer, Expr::Loop { .. }));
+        }
+        other => panic!("expected Stmt::LetDestructure, got {other:?}"),
     }
 }
 
