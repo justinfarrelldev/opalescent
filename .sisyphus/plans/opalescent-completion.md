@@ -2297,7 +2297,7 @@ Wave FINAL (After ALL tasks — verification):
   - Message: `feat(hot-reload): implement change detection, classification, and incremental compilation triggers`
   - Pre-commit: `cargo make lint-fix && cargo make test`
 
-- [x] 30. Hot Reload Safety & Error Recovery (Phase 6)
+- [ ] 30. Hot Reload Safety & Error Recovery (Phase 6)
 
   **What to do**:
   - Read all requirements files, PLAN.md, `HOT_RELOAD_ARCHITECTURE.md` (ENTIRE file — especially lines 286-362 Implementation Guidelines and Testing), `INTEGRATION_DEPENDENCIES.md`
