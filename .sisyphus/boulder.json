@@ -1,32 +1,40 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/opalescent-completion.md",
-  "started_at": "2026-04-10T23:02:58.432Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/fix-compiler-cli.md",
+  "started_at": "2026-04-12T17:33:04.259Z",
   "session_ids": [
-    "ses_2872f7850ffelJBNTW6k0UbCjb"
+    "ses_27d4f3c00ffejwAMkJttVW6R5Y",
+    "ses_27d3586a6ffeI1q0i38JXmIumP",
+    "ses_27d35677effe90CPg8HaiEOciH",
+    "ses_27d353a51ffeDKXEqRNkI9wwPv",
+    "ses_27d35080cffeu4PYoLp4JHF8ir"
   ],
   "session_origins": {
-    "ses_2872f7850ffelJBNTW6k0UbCjb": "direct"
+    "ses_27d4f3c00ffejwAMkJttVW6R5Y": "direct",
+    "ses_27d3586a6ffeI1q0i38JXmIumP": "appended",
+    "ses_27d35677effe90CPg8HaiEOciH": "appended",
+    "ses_27d353a51ffeDKXEqRNkI9wwPv": "appended",
+    "ses_27d35080cffeu4PYoLp4JHF8ir": "appended"
   },
-  "plan_name": "opalescent-completion",
+  "plan_name": "fix-compiler-cli",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Multiple Return Values (Phase 2 Blocker #2)",
-      "session_id": "ses_28369bdacffeqLZktqCUPcm2wT",
+      "task_title": "Rewrite `src/app.rs` — Proper CLI dispatch with `compile_program()`",
+      "session_id": "ses_27d3de862ffeifKhWA4iPlAMkA",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-11T13:05:45.369Z"
+      "category": "quick",
+      "updated_at": "2026-04-12T17:41:47.151Z"
     },
-    "todo:6": {
-      "task_key": "todo:6",
-      "task_label": "6",
-      "task_title": "Generic Type Parameter Constraints (Phase 2 Blocker #4)",
-      "session_id": "ses_2861b7487ffetHgJOydscl3PWX",
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "ses_27d313ec1ffeIj3ryD8gPgqLhW",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-11T00:40:07.653Z"
+      "category": "unspecified-high",
+      "updated_at": "2026-04-12T17:50:13.965Z"
     }
   }
 }
