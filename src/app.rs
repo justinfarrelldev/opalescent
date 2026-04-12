@@ -32,8 +32,8 @@ fn print_help(topic: Option<&str>) {
             println!("  --config    Path to opal-fmt.toml configuration file");
         }
         Some(unknown) => {
-            println!("Unknown help topic: {unknown}");
-            println!("Run `opal help` for the list of topics.");
+            eprintln!("Unknown help topic: {unknown}");
+            eprintln!("Run `opal help` for the list of topics.");
         }
         None => {
             println!("Opalescent Compiler");
