@@ -521,6 +521,19 @@ impl Formatter {
                 let body_str = self.print_stmt(body, depth);
                 format!("{indent}while {cond_str} {body_str}")
             }
+            Stmt::Guard {
+                ref expression,
+                ref success_binding,
+                ref error_binding,
+                ref else_body,
+                ..
+            } => {
+                let expression_str = self.print_expr(expression, depth);
+                let else_body_str = self.print_stmt(else_body, depth);
+                format!(
+                    "{indent}guard {expression_str} into {success_binding} else {error_binding} => {else_body_str}"
+                )
+            }
             Stmt::Loop { ref body, .. } => {
                 let body_str = self.print_stmt(body, depth);
                 format!("{indent}loop {body_str}")

@@ -1196,6 +1196,27 @@ fn test_guard_binding_available_after_guard() {
     );
 }
 
+#[test]
+fn test_guard_statement_binds_success_and_error_types() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        entry main = f(): void =>
+            guard string_to_int32('5') into n else e =>
+                let err_message: string = e
+                continue
+            let parsed: int64 = n
+            return void
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "guard statement should bind success value and string error in expected scopes: {result:?}"
+    );
+}
+
 /// Guard used as an expression should reject else branches whose fallback type
 /// does not match the guarded call's success type.
 #[test]

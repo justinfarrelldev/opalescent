@@ -52,6 +52,16 @@ pub fn codegen_statement<'context>(
             then_branch.as_ref(),
             else_branch.as_deref(),
         ),
+        Stmt::Guard {
+            ref expression,
+            ref success_binding,
+            ..
+        } => codegen_guard_statement(
+            codegen_context,
+            env,
+            expression.as_ref(),
+            success_binding.as_str(),
+        ),
         Stmt::For { .. } | Stmt::While { .. } | Stmt::Loop { .. } => {
             codegen_loop_statement(codegen_context, env, stmt)
         }
@@ -206,6 +216,31 @@ fn codegen_assignment<'context>(
     Err(CodegenError::new(String::from(
         "assignment target must be an identifier in task 22",
     )))
+}
+
+/// Lower a guard statement by evaluating and binding the success value.
+fn codegen_guard_statement<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    expression: &Expr,
+    success_binding: &str,
+) -> Result<(), CodegenError> {
+    let value = codegen_expression(codegen_context, env, expression, None)?;
+    let inferred_type = infer_core_type_from_expr(expression);
+    let alloca = codegen_context
+        .builder
+        .build_alloca(value.get_type(), success_binding)?;
+    let _store_instruction = codegen_context.builder.build_store(alloca, value)?;
+
+    env.variables.insert(
+        success_binding.to_owned(),
+        VariableBinding {
+            alloca,
+            core_type: inferred_type,
+        },
+    );
+
+    Ok(())
 }
 
 /// Convert parsed AST type annotations into backend core types.

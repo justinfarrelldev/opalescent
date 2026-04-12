@@ -131,6 +131,7 @@ impl Stmt {
             | Self::If { span, .. }
             | Self::For { span, .. }
             | Self::While { span, .. }
+            | Self::Guard { span, .. }
             | Self::Loop { span, .. }
             | Self::Break { span, .. }
             | Self::Continue { span, .. } => span,
@@ -150,6 +151,7 @@ impl Stmt {
             | Self::If { id, .. }
             | Self::For { id, .. }
             | Self::While { id, .. }
+            | Self::Guard { id, .. }
             | Self::Loop { id, .. }
             | Self::Break { id, .. }
             | Self::Continue { id, .. } => id,
@@ -666,6 +668,15 @@ pub enum Stmt {
         /// Source code location of this while loop
         span: Span,
         /// Unique identifier for this AST node
+        id: NodeId,
+    },
+
+    Guard {
+        expression: Box<Expr>,
+        success_binding: String,
+        error_binding: String,
+        else_body: Box<Stmt>,
+        span: Span,
         id: NodeId,
     },
 

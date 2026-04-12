@@ -48,6 +48,10 @@ impl TypeChecker {
 
     /// Type check a single statement, validating it within the context of an
     /// optional expected return type.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "exhaustive statement-typechecking dispatch across all Stmt variants"
+    )]
     pub(crate) fn type_check_stmt_with_return(
         &mut self,
         stmt: &Stmt,
@@ -141,6 +145,21 @@ impl TypeChecker {
                     checker.type_check_stmt_with_return(body.as_ref(), expected_return)
                 })
             }
+            Stmt::Guard {
+                ref expression,
+                ref success_binding,
+                ref error_binding,
+                ref else_body,
+                span,
+                ..
+            } => self.type_check_guard_stmt_with_return(
+                expression.as_ref(),
+                success_binding.as_str(),
+                error_binding.as_str(),
+                else_body.as_ref(),
+                span,
+                expected_return,
+            ),
             Stmt::Loop { ref body, .. } => self.within_new_scope(|checker| {
                 checker.type_check_stmt_with_return(body.as_ref(), expected_return)
             }),
@@ -425,6 +444,9 @@ impl TypeChecker {
             Stmt::For { ref body, .. } | Stmt::While { ref body, .. } => {
                 self.collect_break_types(body, found_break_types, span)
             }
+            Stmt::Guard { ref else_body, .. } => {
+                self.collect_break_types(else_body.as_ref(), found_break_types, span)
+            }
             Stmt::Loop { .. }
             | Stmt::Let { .. }
             | Stmt::LetDestructure { .. }
@@ -509,6 +531,58 @@ impl TypeChecker {
         }
 
         validity
+    }
+
+    /// Type-check a guard statement by binding success/error names and checking the else body.
+    fn type_check_guard_statement(
+        &mut self,
+        expression: &Expr,
+        success_binding: &str,
+        error_binding: &str,
+        else_body: &Stmt,
+        span: Span,
+        expected_return: Option<&[CoreType]>,
+    ) -> Result<(), TypeError> {
+        let success_type = self.type_check_expr(expression)?;
+
+        self.symbol_table.register(SymbolInfo {
+            name: success_binding.to_owned(),
+            symbol_type: SymbolType::Constant,
+            core_type: success_type,
+            visibility: Visibility::Private,
+            source_location: span,
+            is_let_binding: true,
+            is_mutable: false,
+            read_count: 0,
+        });
+
+        self.within_new_scope(|checker| {
+            if let Some(existing_success) = checker.symbol_table.lookup(success_binding).cloned() {
+                checker.symbol_table.register(SymbolInfo {
+                    name: success_binding.to_owned(),
+                    symbol_type: SymbolType::Constant,
+                    core_type: existing_success.core_type,
+                    visibility: Visibility::Private,
+                    source_location: span,
+                    is_let_binding: true,
+                    is_mutable: false,
+                    read_count: 0,
+                });
+            }
+
+            checker.symbol_table.register(SymbolInfo {
+                name: error_binding.to_owned(),
+                symbol_type: SymbolType::Constant,
+                core_type: CoreType::String,
+                visibility: Visibility::Private,
+                source_location: span,
+                is_let_binding: true,
+                is_mutable: false,
+                read_count: 0,
+            });
+
+            checker.type_check_stmt_with_return(else_body, expected_return)
+        })
     }
 
     /// Validate a return statement against the function's expected return type,
@@ -635,5 +709,25 @@ impl TypeChecker {
     /// Returns `TypeError` variants when statement typing fails.
     pub fn type_check_stmt(&mut self, stmt: &Stmt) -> Result<(), TypeError> {
         self.type_check_stmt_with_return(stmt, None)
+    }
+
+    /// Delegate guard statement typing while preserving expected return context.
+    fn type_check_guard_stmt_with_return(
+        &mut self,
+        expression: &Expr,
+        success_binding: &str,
+        error_binding: &str,
+        else_body: &Stmt,
+        span: Span,
+        expected_return: Option<&[CoreType]>,
+    ) -> Result<(), TypeError> {
+        self.type_check_guard_statement(
+            expression,
+            success_binding,
+            error_binding,
+            else_body,
+            span,
+            expected_return,
+        )
     }
 }

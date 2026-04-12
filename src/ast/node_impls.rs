@@ -87,6 +87,7 @@ impl AstNode for Stmt {
             | Self::If { span, .. }
             | Self::For { span, .. }
             | Self::While { span, .. }
+            | Self::Guard { span, .. }
             | Self::Loop { span, .. }
             | Self::Break { span, .. }
             | Self::Continue { span, .. } => span,
@@ -104,6 +105,7 @@ impl AstNode for Stmt {
             | Self::If { id, .. }
             | Self::For { id, .. }
             | Self::While { id, .. }
+            | Self::Guard { id, .. }
             | Self::Loop { id, .. }
             | Self::Break { id, .. }
             | Self::Continue { id, .. } => id,

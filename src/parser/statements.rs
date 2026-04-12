@@ -71,11 +71,45 @@ impl Parser {
             TokenType::If => self.parse_if_statement(),
             TokenType::For => self.parse_for_statement(),
             TokenType::While => self.parse_while_statement(),
+            TokenType::Guard => {
+                if self.is_guard_statement_form() {
+                    self.parse_guard_statement()
+                } else {
+                    self.parse_expression_statement()
+                }
+            }
             TokenType::Loop => self.parse_loop_statement(),
             TokenType::Break => self.parse_break_statement(),
             TokenType::Continue => self.parse_continue_statement(),
             _ => self.parse_expression_statement(),
         }
+    }
+
+    /// Return true when the current `guard` token uses statement-form syntax.
+    ///
+    /// Statement form: `guard <expr> into <ok> else <err> => <indent-body>`
+    /// Expression form remains: `guard <expr> into <ok> [: T] [mutable] else <expr-or-block>`.
+    fn is_guard_statement_form(&self) -> bool {
+        let mut index = self.current.saturating_add(1);
+
+        while let Some(current_token) = self.tokens.get(index) {
+            match current_token.token_type {
+                TokenType::Else => {
+                    let next = self.tokens.get(index.saturating_add(1));
+                    let after_next = self.tokens.get(index.saturating_add(2));
+                    return next.is_some_and(|next_token| {
+                        matches!(&next_token.token_type, &TokenType::Identifier(_))
+                    }) && after_next
+                        .is_some_and(|after_token| after_token.token_type == TokenType::Arrow);
+                }
+                TokenType::Newline | TokenType::EndOfFile => return false,
+                _ => {
+                    index = index.saturating_add(1);
+                }
+            }
+        }
+
+        false
     }
 
     /// Parse a let statement (variable binding within a function)
@@ -506,6 +540,63 @@ impl Parser {
         Ok(Stmt::While {
             condition,
             body,
+            span,
+            id: next_node_id(),
+        })
+    }
+
+    /// Parse a guard statement.
+    ///
+    /// Syntax: `guard <expr> into <success_binding> else <error_binding> => <indent-body>`
+    pub(super) fn parse_guard_statement(&mut self) -> ParseResult<Stmt> {
+        let start_span = self.current_token().span;
+        self.advance();
+
+        let expression = self.parse_expression()?;
+        self.consume(&TokenType::Into, "Expected 'into' after guard expression")?;
+
+        let success_binding = if self.check_identifier() {
+            let token = self.advance().clone();
+            if let TokenType::Identifier(name) = token.token_type {
+                name
+            } else {
+                unreachable!("check_identifier ensured Identifier")
+            }
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                expected: "identifier after 'into'".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        };
+
+        self.consume(&TokenType::Else, "Expected 'else' in guard statement")?;
+
+        let error_binding = if self.check_identifier() {
+            let token = self.advance().clone();
+            if let TokenType::Identifier(name) = token.token_type {
+                name
+            } else {
+                unreachable!("check_identifier ensured Identifier")
+            }
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                expected: "identifier after 'else'".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        };
+
+        self.consume(&TokenType::Arrow, "Expected '=>' after guard else binding")?;
+        self.skip_newlines_and_comments();
+        let else_body = Box::new(self.parse_indent_block()?);
+
+        let span = Span::new(start_span.start, else_body.span().end);
+        Ok(Stmt::Guard {
+            expression: Box::new(expression),
+            success_binding,
+            error_binding,
+            else_body,
             span,
             id: next_node_id(),
         })

@@ -933,6 +933,34 @@ entry main = f(): void => {
 }
 
 #[test]
+fn test_guard_statement_compiles_to_valid_llvm_ir() {
+    let source = "
+entry main = f(): void =>
+    guard string_to_int32('5') into n else e =>
+        continue
+    print('number: {n}')
+    return void
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, source);
+    assert!(
+        module_result.is_ok(),
+        "guard statement source should compile successfully"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+
+    let verification = module.verify();
+    assert!(
+        verification.is_ok(),
+        "module containing guard statement should verify: {verification:?}"
+    );
+}
+
+#[test]
 fn test_builtin_calls_emit_runtime_declarations_without_imports() {
     let source = "
 entry main = f(): void => {

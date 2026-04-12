@@ -155,6 +155,10 @@ fn check_decl(decl: &Decl, violations: &mut Vec<NamingViolation>) {
 
 /// Checks a statement for naming violations, appending any found to
 /// `violations`.
+#[expect(
+    clippy::too_many_lines,
+    reason = "exhaustive match over all Stmt variants"
+)]
 fn check_stmt(stmt: &Stmt, violations: &mut Vec<NamingViolation>) {
     match *stmt {
         Stmt::Let {
@@ -246,8 +250,49 @@ fn check_stmt(stmt: &Stmt, violations: &mut Vec<NamingViolation>) {
             check_expr(condition, violations);
             check_stmt(body, violations);
         }
+        Stmt::Guard {
+            ref expression,
+            ref success_binding,
+            ref error_binding,
+            ref else_body,
+            ..
+        } => check_guard_statement(
+            expression,
+            success_binding,
+            error_binding,
+            else_body,
+            violations,
+        ),
         Stmt::Loop { ref body, .. } => check_stmt(body, violations),
     }
+}
+
+/// Checks guard statement bindings and nested nodes for naming violations.
+fn check_guard_statement(
+    expression: &Expr,
+    success_binding: &str,
+    error_binding: &str,
+    else_body: &Stmt,
+    violations: &mut Vec<NamingViolation>,
+) {
+    if !is_snake_case(success_binding) {
+        violations.push(NamingViolation {
+            name: success_binding.to_owned(),
+            expected: NamingStyle::SnakeCase,
+            location: "guard success binding".to_owned(),
+        });
+    }
+
+    if !is_snake_case(error_binding) {
+        violations.push(NamingViolation {
+            name: error_binding.to_owned(),
+            expected: NamingStyle::SnakeCase,
+            location: "guard error binding".to_owned(),
+        });
+    }
+
+    check_expr(expression, violations);
+    check_stmt(else_body, violations);
 }
 
 /// Checks an expression for naming violations, appending any found to

@@ -249,6 +249,13 @@ fn stmt_contains_feature(stmt: &Stmt, feature: AstFeature) -> bool {
         Stmt::While {
             condition, body, ..
         } => expr_contains_feature(condition, feature) || stmt_contains_feature(body, feature),
+        Stmt::Guard {
+            expression,
+            else_body,
+            ..
+        } => {
+            expr_contains_feature(expression, feature) || stmt_contains_feature(else_body, feature)
+        }
         Stmt::Loop { body, .. } => stmt_contains_feature(body, feature),
         Stmt::Break { values, .. } | Stmt::Continue { values, .. } => values
             .iter()
@@ -1240,6 +1247,50 @@ fn test_loop_with_various_statements() {
     } else {
         unreachable!("Expected loop statement");
     }
+}
+
+#[test]
+fn test_guard_into_else_statement_parses() {
+    let src = "
+import string_to_int32 from standard
+entry main = f(): void =>
+    guard string_to_int32('5') into n else e =>
+        continue
+    return void
+";
+
+    let program = parse_program_from_string(src).expect("guard statement should parse");
+    assert!(!program.declarations.is_empty());
+
+    let mut found_guard = false;
+    for decl in &program.declarations {
+        if let Decl::Function {
+            body: Stmt::Block { statements, .. },
+            ..
+        } = decl
+        {
+            for statement in statements {
+                if let Stmt::Guard {
+                    success_binding,
+                    error_binding,
+                    else_body,
+                    ..
+                } = statement
+                {
+                    found_guard = true;
+                    assert_eq!(success_binding, "n");
+                    assert_eq!(error_binding, "e");
+                    assert!(matches!(
+                        else_body.as_ref(),
+                        Stmt::Block { statements, .. }
+                            if statements.iter().any(|stmt| matches!(stmt, Stmt::Continue { .. }))
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(found_guard, "expected function body to contain Stmt::Guard");
 }
 
 #[test]
