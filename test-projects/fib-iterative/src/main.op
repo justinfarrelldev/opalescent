@@ -1,18 +1,33 @@
 ##
-  Description: Entry point for the iterative Fibonacci test project.
-  Computes fib(10) using a while loop and prints the result to verify
-  mutable variables, loops, and integer arithmetic.
+  Description: Iterative fibonacci using a loop
+  Returns the nth fibonacci number in O(n) time and O(1) space
 ##
-entry main = f(): void => {
-    let mutable a: int64 = 0
-    let mutable b: int64 = 1
-    let mutable i: int64 = 0
-    while i < 10 {
-        let temp = b
-        b = a + b
-        a = temp
+let fib_iter = f(n: int32): int32 =>
+    if n is 0:
+        return 0
+    if n is 1:
+        return 1
+
+    let mutable a = 0
+    let mutable b = 1
+    let mutable i = 2
+    let mutable result = 0
+
+    while i <= n:
+        result = a + b
+        a = b
+        b = result
         i = i + 1
-    }
-    print('{a}')
+
+    return result
+
+
+##
+  Description: starting point of the application
+##
+entry main = f(args: string[]): void =>
+    let n = 10
+    let result = fib_iter(n)
+    print('fib({n}) = {result}')
+
     return void
-}
