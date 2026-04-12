@@ -49,3 +49,15 @@
 - Type declarations now require and consume outer `Indent`/`Dedent` around type bodies, and sum-type variant payload fields consume nested `Indent`/`Dedent` blocks.
 - Blockless body termination now treats `Dedent` as a hard boundary (`is_blockless_body_terminated`), preventing indented bodies from leaking into top-level declaration parsing.
 - Verification: `cargo test` passed with `728 passed; 0 failed; 8 ignored`.
+
+## [2026-04-12] T9 entry args support
+- Entry function codegen wrapper now builds zero-initialized placeholder arguments based on the lowered entry function signature, so `entry main = f(args: string[]): void =>` compiles without requiring real argv plumbing.
+- Backward compatibility remains intact: zero-parameter entry signatures (`f(): void`) still parse, type-check, and codegen through the same wrapper path.
+- Added parser/type-system/codegen tests for `args: string[]` entry signatures and explicit regression coverage for legacy no-arg entry signatures.
+
+## [2026-04-12] T10 import...from syntax + runtime alias binding
+- `Decl::Import` now carries a simplified `ImportStatement { names: Vec<String>, module: String }` representation in addition to existing detailed `items/source`, so `import take_input, string_to_int32 from standard` and `import random_int32 from math` are captured directly in AST form.
+- Parser import construction populates both AST shapes and enforces top-of-file import ordering (imports must precede non-import declarations).
+- Codegen runtime import aliasing already supported soft imports through `env.imported_functions` + `resolve_imported_runtime_name`; imported names bind to existing runtime functions (`opal_take_input`, `opal_string_to_int32`, `opal_random_int32`) without introducing a module loader.
+- Added parser regression tests for the exact `simple_quiz` import lines and for top-level-only import placement.
+- Verification: `cargo build` passed; `cargo test` passed with `735 passed; 0 failed; 8 ignored` in unit suite.

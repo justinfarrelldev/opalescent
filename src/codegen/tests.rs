@@ -805,6 +805,42 @@ fn test_codegen_function_declaration_lowers_function_definition() {
 }
 
 #[test]
+fn test_entry_function_with_string_array_parameter_emits_callable_main_wrapper() {
+    let source = "
+entry main = f(args: string[]): void => {
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, source);
+    assert!(
+        module_result.is_ok(),
+        "entry main(args: string[]) should compile successfully"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+
+    let verification = module.verify();
+    assert!(
+        verification.is_ok(),
+        "module containing entry args parameter should verify: {verification:?}"
+    );
+
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("define i32 @main()"),
+        "codegen should emit C ABI main wrapper: {ir}"
+    );
+    assert!(
+        ir.contains("call void @__opalescent_entry_main("),
+        "main wrapper should call lowered entry function with placeholder args: {ir}"
+    );
+}
+
+#[test]
 fn test_import_take_input_emits_opal_take_input_declaration() {
     let source = "
 import take_input from standard

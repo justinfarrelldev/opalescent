@@ -693,10 +693,33 @@ fn emit_c_main_wrapper<'context>(
         .add_function("main", c_main_type, None);
     let block = codegen_context.context.append_basic_block(c_main, "entry");
     codegen_context.builder.position_at_end(block);
-    let args: [BasicMetadataValueEnum<'context>; 0] = [];
-    let _call = codegen_context
-        .builder
-        .build_call(entry_function, &args, "entry.call")?;
+
+    let parameter_types = entry_function.get_type().get_param_types();
+    let mut args: Vec<BasicMetadataValueEnum<'context>> = Vec::with_capacity(parameter_types.len());
+    for parameter_type in parameter_types {
+        let argument = match parameter_type {
+            BasicMetadataTypeEnum::ArrayType(array_type) => array_type.const_zero().into(),
+            BasicMetadataTypeEnum::FloatType(float_type) => float_type.const_zero().into(),
+            BasicMetadataTypeEnum::IntType(int_type) => int_type.const_zero().into(),
+            BasicMetadataTypeEnum::PointerType(pointer_type) => pointer_type.const_null().into(),
+            BasicMetadataTypeEnum::StructType(struct_type) => struct_type.const_zero().into(),
+            BasicMetadataTypeEnum::VectorType(vector_type) => vector_type.const_zero().into(),
+            BasicMetadataTypeEnum::ScalableVectorType(vector_type) => {
+                vector_type.get_undef().into()
+            }
+            BasicMetadataTypeEnum::MetadataType(_) => {
+                return Err(CodegenError::new(String::from(
+                    "entry function cannot use metadata parameters",
+                )));
+            }
+        };
+        args.push(argument);
+    }
+
+    let _call =
+        codegen_context
+            .builder
+            .build_call(entry_function, args.as_slice(), "entry.call")?;
     let _ret = codegen_context.builder.build_return(Some(
         &codegen_context.context.i32_type().const_int(0, false),
     ))?;

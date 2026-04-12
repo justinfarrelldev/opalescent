@@ -86,6 +86,38 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_entry_function_with_args_string_array_type_checks() {
+        const SOURCE: &str = "
+entry main = f(args: string[]): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "entry main(args: string[]) should type check successfully: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_entry_function_without_args_remains_backward_compatible() {
+        const SOURCE: &str = "
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "entry main() should remain backward compatible: {result:?}",
+        );
+    }
+
     // ── Language-spec: fib_recursive (brace-syntax equivalent) ───────────────
 
     const FIB_RECURSIVE_BRACE_SOURCE: &str = "
