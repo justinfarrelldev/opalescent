@@ -268,11 +268,17 @@ impl TypeChecker {
             }
             Decl::Let {
                 binding,
+                initializer,
                 visibility,
                 ..
             } => {
-                if let Some(annotation) = binding.type_annotation.as_ref() {
-                    let annotated_type = Self::ast_type_to_core_type(annotation)?;
+                let inferred_type = if let Some(annotation) = binding.type_annotation.as_ref() {
+                    Some(Self::ast_type_to_core_type(annotation)?)
+                } else {
+                    Self::lambda_signature_type(initializer)?
+                };
+
+                if let Some(core_type) = inferred_type {
                     let symbol_type = if binding.is_mutable {
                         SymbolType::Variable
                     } else {
@@ -282,7 +288,7 @@ impl TypeChecker {
                     self.symbol_table.register(SymbolInfo {
                         name: binding.name.clone(),
                         symbol_type,
-                        core_type: annotated_type,
+                        core_type,
                         visibility: resolved_visibility,
                         source_location: binding.span,
                         is_let_binding: true,
@@ -546,6 +552,46 @@ impl TypeChecker {
         self.symbol_table.exit_function();
 
         result
+    }
+
+    /// Infer function core type from a lambda initializer when present.
+    fn lambda_signature_type(initializer: &Expr) -> Result<Option<CoreType>, TypeError> {
+        let &Expr::Lambda {
+            ref params,
+            ref return_types,
+            ref error_types,
+            ..
+        } = initializer
+        else {
+            return Ok(None);
+        };
+
+        let parameter_types = params
+            .iter()
+            .map(|param| Self::ast_type_to_core_type(&param.param_type))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let return_core_types = return_types
+            .iter()
+            .map(Self::ast_type_to_core_type)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let error_core_types = error_types
+            .iter()
+            .map(|error_type_name| {
+                Ok(CoreType::Generic {
+                    name: error_type_name.clone(),
+                    type_args: Vec::new(),
+                })
+            })
+            .collect::<Result<Vec<_>, TypeError>>()?;
+
+        Ok(Some(CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: parameter_types,
+            return_types: return_core_types,
+            error_types: error_core_types,
+        }))
     }
 
     /// Type check a module-level let declaration and ensure the registered symbol honors visibility.

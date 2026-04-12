@@ -1014,7 +1014,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 11. Loop Statement with Break (Multi-Value) and Continue
+- [x] 11. Loop Statement with Break (Multi-Value) and Continue
 
   **What to do**:
   - The spec uses `loop =>` as an infinite loop construct (see `simple_quiz.op:25`):
@@ -1121,7 +1121,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 12. Guard...into...else Error Handling
+- [x] 12. Guard...into...else Error Handling
 
   **What to do**:
   - The spec uses `guard...into...else` for error handling (see `simple_quiz.op:43-45`):
@@ -1218,7 +1218,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 13. Update Integration Test Assertions
+- [x] 13. Update Integration Test Assertions
 
   **What to do**:
   - The integration tests in `tests/integration_e2e.rs` assert specific output strings that will change when test project files are replaced with spec copies:

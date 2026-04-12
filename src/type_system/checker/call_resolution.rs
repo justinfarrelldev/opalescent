@@ -7,7 +7,9 @@ extern crate alloc;
 
 use crate::ast::{AstNode, Expr, Type};
 use crate::token::Span;
-use crate::type_system::checker::helpers::{coerce_literal_to_expected, type_mismatch_error};
+use crate::type_system::checker::helpers::{
+    coerce_literal_to_expected, is_integer_type, type_mismatch_error,
+};
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
@@ -202,6 +204,11 @@ impl TypeChecker {
                         coerce_literal_to_expected(&param_type, arg_expr, &arg_type)
                     {
                         adjusted
+                    } else if is_integer_type(&param_type)
+                        && is_integer_type(&arg_type)
+                        && !Self::core_type_contains_variable(&param_type)
+                    {
+                        param_type.clone()
                     } else {
                         return Err(type_mismatch_error(
                             &param_type,

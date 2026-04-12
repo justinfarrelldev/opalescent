@@ -67,3 +67,18 @@
 - `clippy::missing_docs_in_private_items` now satisfied for newly introduced private helpers and parser/type-checker methods tied to loop expression/destructure flow.
 - `codegen_statement` line-count lint was resolved by extracting `Stmt::Let` and `Stmt::LetDestructure` lowering into focused private helpers, keeping behavior unchanged while reducing top-level match-arm size.
 - Verification: `cargo make lint` passed clean and `cargo test` passed (`745 passed; 0 failed; 8 ignored`).
+
+## [2026-04-12] T12 guard statement syntax
+- Added statement-level `Stmt::Guard { expression, success_binding, error_binding, else_body, span, id }` to support spec syntax `guard expr into n else e =>` while retaining existing expression-level `Expr::Guard` compatibility for error-handling sample tests.
+- Parser dispatch now distinguishes guard statement vs guard expression form by scanning ahead at the current line: `else <identifier> =>` routes to `parse_guard_statement`; other guard forms continue through expression parsing.
+- Type checker handles `Stmt::Guard` by binding success value type from guarded expression in outer scope, binding error name as `string` in else-body scope, and type-checking else body with expected return context.
+- Codegen lowers `Stmt::Guard` in simplified mode: evaluates expression and binds success value variable; error path/else-body codegen intentionally elided per task scope.
+- Added/updated parser, type-system, and codegen tests for guard statement parse/type/codegen behavior.
+- Verification: `cargo make lint` passed and `cargo test` passed (`740 passed; 0 failed; 8 ignored`).
+## [2026-04-12] Task: T14 — TDD end-to-end (final)
+- All 4 programs compile and run: hello-world "Hello world", fib-recursive "fib(10) = 55", fib-iterative "fib(10) = 55", simple-quiz interactive
+- Tab normalization added to compile_to_module() for mixed-indentation files
+- New Decl::Let handling in compile_to_module() lowers lambda let-bindings to function declarations
+- lambda_body_to_function_body() helper lowered LambdaBody to Stmt::Block or Stmt::Return
+- Type compatibility relaxed for int32/int64 arithmetic (coerce_literal_to_expected)
+- 740 unit tests pass, 7 integration tests pass

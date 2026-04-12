@@ -188,6 +188,7 @@ impl Parser {
                 &TokenType::Assign,
                 "Expected '=' after destructured let bindings",
             )?;
+            self.skip_newlines_and_comments();
             let initializer = self.parse_expression()?;
             let span = Span::new(start_span.start, initializer.span().end);
 
@@ -213,6 +214,7 @@ impl Parser {
             .check(&TokenType::Assign)
             .then(|| {
                 self.advance();
+                self.skip_newlines_and_comments();
                 self.parse_expression()
             })
             .transpose()?;

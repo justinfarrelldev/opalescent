@@ -9,7 +9,7 @@ use super::helpers::{
     type_mismatch_error, unary_operation_name, validate_constant_shift_bounds,
     zero_divisor_operation_name,
 };
-use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Stmt, Type, UnaryOp};
+use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Type, UnaryOp};
 use crate::errors::suggestions::{closest_identifier_suggestion, SUGGESTION_DISTANCE_THRESHOLD};
 use crate::token::Span;
 use crate::type_system::arithmetic::{
@@ -21,19 +21,6 @@ use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 use alloc::{format, string::String, vec::Vec};
-
-/// Result of typing the `else` branch of a guard expression.
-///
-/// Statement-context handlers typically short-circuit control flow, while
-/// expression-context handlers yield fallback values compatible with the
-/// function's success type.
-#[derive(Debug, Clone, PartialEq)]
-enum GuardElseOutcome {
-    /// Handler yielded a fallback value that can substitute for the success type.
-    FallbackValue(CoreType),
-    /// Handler performs control-flow actions instead of yielding a value.
-    ControlFlow,
-}
 
 impl TypeChecker {
     /// Type check an expression and return its [`CoreType`]
@@ -238,274 +225,6 @@ impl TypeChecker {
         }
     }
 
-    /// Type-check a `guard` expression.
-    ///
-    /// This function ensures that:
-    /// 1. The guarded expression is a function call that can produce errors.
-    /// 2. The success value is correctly bound to a new variable.
-    /// 3. The `else` branch type-checks in isolation so that guard scopes remain precise.
-    pub(super) fn type_check_guard_expr(
-        &mut self,
-        expr: &Expr,
-        binding: &GuardBindingInfo<'_>,
-        else_branch: &Stmt,
-        usage: GuardUsage,
-        expected_return: Option<&[CoreType]>,
-    ) -> Result<CoreType, TypeError> {
-        let (callee_expr, args, call_span) = match *expr {
-            Expr::Call {
-                ref callee,
-                ref args,
-                span: call_span,
-                ..
-            } => (callee.as_ref(), args.as_slice(), call_span),
-            _ => {
-                return Err(TypeError::GuardOnNonErrorExpression {
-                    span: TypeError::span_from_span(expr.span()),
-                });
-            }
-        };
-
-        let (success_type, callee_error_types) =
-            self.resolve_guard_callee_signature(expr, callee_expr)?;
-
-        self.type_check_call_expr(callee_expr, None, args, call_span, expr.node_id().0)?;
-
-        if let Some(annotated_type_ast) = binding.annotation {
-            let annotated_type = Self::ast_type_to_core_type(annotated_type_ast)?;
-            if !self.types_compatible(&success_type, &annotated_type) {
-                return Err(TypeError::GuardBindingTypeMismatch {
-                    expected: success_type.to_string(),
-                    found: annotated_type.to_string(),
-                    span: TypeError::span_from_span(annotated_type_ast.span()),
-                });
-            }
-        }
-
-        if let Some(active_errors) = self.guard_error_stack.last() {
-            if !Self::guard_error_type_sets_match(active_errors.as_slice(), &callee_error_types) {
-                return Err(TypeError::GuardChainedErrorMismatch {
-                    expected: Self::format_error_type_list(active_errors.as_slice()),
-                    found: Self::format_error_type_list(&callee_error_types),
-                    span: TypeError::span_from_span(expr.span()),
-                });
-            }
-        }
-
-        let else_outcome = self.type_check_guard_else_with_scope(
-            else_branch,
-            callee_error_types.as_slice(),
-            usage,
-            &success_type,
-            expected_return,
-        )?;
-
-        let _: GuardElseOutcome = else_outcome;
-
-        let symbol_type = if binding.is_mutable {
-            SymbolType::Variable
-        } else {
-            SymbolType::Constant
-        };
-        self.symbol_table.register(SymbolInfo {
-            name: binding.name.to_owned(),
-            symbol_type,
-            core_type: success_type.clone(),
-            visibility: Visibility::Private,
-            source_location: binding.span,
-            is_let_binding: false,
-            is_mutable: false,
-            read_count: 0,
-        });
-
-        Ok(success_type)
-    }
-
-    /// Resolve and validate the guarded call signature, returning success and error types.
-    fn resolve_guard_callee_signature(
-        &mut self,
-        expr: &Expr,
-        callee_expr: &Expr,
-    ) -> Result<(CoreType, Vec<CoreType>), TypeError> {
-        let callee_type = self.type_check_expr(callee_expr)?;
-        match callee_type {
-            CoreType::Function {
-                return_types,
-                error_types,
-                ..
-            } => {
-                if error_types.is_empty() {
-                    return Err(TypeError::GuardOnNonErrorExpression {
-                        span: TypeError::span_from_span(expr.span()),
-                    });
-                }
-                if return_types.len() != 1 {
-                    return Err(TypeError::ArityMismatch {
-                        expected: 1,
-                        found: return_types.len(),
-                        span: TypeError::span_from_span(expr.span()),
-                    });
-                }
-                let Some(return_type) = return_types.first() else {
-                    return Err(TypeError::ConstraintSolvingFailed {
-                        reason: "guard callee has no declared return type".to_owned(),
-                        span: TypeError::span_from_span(expr.span()),
-                    });
-                };
-                Ok((return_type.clone(), error_types))
-            }
-            _ => Err(TypeError::GuardOnNonErrorExpression {
-                span: TypeError::span_from_span(expr.span()),
-            }),
-        }
-    }
-
-    /// Type-check a guard else-branch inside an isolated scope and guard context.
-    fn type_check_guard_else_with_scope(
-        &mut self,
-        else_branch: &Stmt,
-        callee_error_types: &[CoreType],
-        usage: GuardUsage,
-        success_type: &CoreType,
-        expected_return: Option<&[CoreType]>,
-    ) -> Result<GuardElseOutcome, TypeError> {
-        self.symbol_table.enter_scope();
-        self.guard_else_depth = self.guard_else_depth.saturating_add(1);
-        self.guard_error_stack.push(callee_error_types.to_vec());
-
-        let else_result = self.type_check_guard_else_branch(
-            else_branch,
-            callee_error_types,
-            usage,
-            success_type,
-            expected_return,
-        );
-
-        let popped = self.guard_error_stack.pop();
-        debug_assert!(
-            popped.is_some(),
-            "guard error stack underflow when exiting guard else handling"
-        );
-        debug_assert!(
-            self.guard_else_depth > 0,
-            "guard_else_depth should be positive when exiting guard else scope"
-        );
-        self.guard_else_depth = self.guard_else_depth.saturating_sub(1);
-        self.symbol_table.exit_scope();
-
-        else_result
-    }
-
-    /// Type-check the `else` branch of a guard expression.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`TypeError::GuardElseIncompatibleError`] when the handler fails to
-    /// align with the guard's success type or declared error types.
-    fn type_check_guard_else_branch(
-        &mut self,
-        else_branch: &Stmt,
-        error_types: &[CoreType],
-        usage: GuardUsage,
-        success_type: &CoreType,
-        expected_return: Option<&[CoreType]>,
-    ) -> Result<GuardElseOutcome, TypeError> {
-        match *else_branch {
-            Stmt::Expression { ref expr, span, .. } => {
-                let handler_type = self.type_check_expr(expr)?;
-                match usage {
-                    GuardUsage::Expression => {
-                        let fallback_type = if self.types_compatible(success_type, &handler_type) {
-                            handler_type
-                        } else if let Some(adjusted) =
-                            coerce_literal_to_expected(success_type, expr, &handler_type)
-                        {
-                            adjusted
-                        } else {
-                            return Err(TypeError::GuardElseIncompatibleError {
-                                expected: success_type.to_string(),
-                                found: handler_type.to_string(),
-                                span: TypeError::span_from_span(span),
-                            });
-                        };
-
-                        if !self.guard_error_types_are_homogeneous(error_types) {
-                            return Err(TypeError::GuardElseIncompatibleError {
-                                expected: Self::format_error_type_list(error_types),
-                                found: fallback_type.to_string(),
-                                span: TypeError::span_from_span(span),
-                            });
-                        }
-
-                        Ok(GuardElseOutcome::FallbackValue(fallback_type))
-                    }
-                    GuardUsage::Statement => {
-                        if matches!(expr, &Expr::Propagate { .. }) {
-                            // Propagate implicitly transfers control by bubbling the error upward.
-                            Ok(GuardElseOutcome::ControlFlow)
-                        } else if self.types_compatible(&CoreType::Unit, &handler_type) {
-                            Ok(GuardElseOutcome::ControlFlow)
-                        } else {
-                            Err(TypeError::GuardElseIncompatibleError {
-                                expected: CoreType::Unit.to_string(),
-                                found: handler_type.to_string(),
-                                span: TypeError::span_from_span(span),
-                            })
-                        }
-                    }
-                }
-            }
-            Stmt::Block { ref statements, .. } => {
-                self.type_check_statements(statements, expected_return)?;
-                Ok(GuardElseOutcome::ControlFlow)
-            }
-            ref other => {
-                // Future phases may introduce additional guard handler forms.
-                self.type_check_stmt_with_return(other, expected_return)?;
-                Ok(GuardElseOutcome::ControlFlow)
-            }
-        }
-    }
-
-    /// Determine whether all error types declared by the guard's callee are mutually compatible.
-    fn guard_error_types_are_homogeneous(&self, error_types: &[CoreType]) -> bool {
-        if error_types.is_empty() {
-            return true;
-        }
-
-        let reference = &error_types[0];
-        error_types.iter().all(|error_ty| {
-            self.types_compatible(reference, error_ty) && self.types_compatible(error_ty, reference)
-        })
-    }
-
-    /// Determine whether two error type sets are equivalent irrespective of ordering.
-    fn guard_error_type_sets_match(left: &[CoreType], right: &[CoreType]) -> bool {
-        if left.len() != right.len() {
-            return false;
-        }
-
-        let mut left_rendered: Vec<String> = left.iter().map(ToString::to_string).collect();
-        let mut right_rendered: Vec<String> = right.iter().map(ToString::to_string).collect();
-        left_rendered.sort();
-        right_rendered.sort();
-        left_rendered == right_rendered
-    }
-
-    /// Render a deterministic, comma-separated list of error type names for diagnostics.
-    fn format_error_type_list(error_types: &[CoreType]) -> String {
-        if error_types.is_empty() {
-            return "<none>".to_owned();
-        }
-
-        let mut rendered = Vec::with_capacity(error_types.len());
-        for error_type in error_types {
-            rendered.push(error_type.to_string());
-        }
-
-        rendered.join(", ")
-    }
-
     /// Type-check a `propagate` expression.
     ///
     /// This function ensures that:
@@ -679,6 +398,11 @@ impl TypeChecker {
         let right_type = self.type_check_expr(right)?;
         let op_name = binary_operation_name(operator);
 
+        let normalized_left_type = coerce_literal_to_expected(&right_type, left, &left_type)
+            .unwrap_or_else(|| left_type.clone());
+        let normalized_right_type = coerce_literal_to_expected(&left_type, right, &right_type)
+            .unwrap_or_else(|| right_type.clone());
+
         match *operator {
             BinaryOp::Add
             | BinaryOp::Subtract
@@ -691,8 +415,13 @@ impl TypeChecker {
                 ensure_numeric_type(&left_type, left.span(), op_name)?;
                 ensure_numeric_type(&right_type, right.span(), op_name)?;
                 Self::ensure_non_zero_divisor(operator, right)?;
-                ensure_same_type(&left_type, left.span(), &right_type, right.span())?;
-                let result_type = left_type.clone();
+                ensure_same_type(
+                    &normalized_left_type,
+                    left.span(),
+                    &normalized_right_type,
+                    right.span(),
+                )?;
+                let result_type = normalized_left_type.clone();
                 if matches!(
                     *operator,
                     BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply
@@ -705,8 +434,8 @@ impl TypeChecker {
                     }
                 }
                 self.add_constraint(TypeConstraint::equality(
-                    left_type,
-                    right_type,
+                    normalized_left_type,
+                    normalized_right_type,
                     Some(left.span()),
                     Some(right.span()),
                 ));
@@ -716,28 +445,38 @@ impl TypeChecker {
                 ensure_integer_type(&left_type, left.span(), op_name)?;
                 ensure_integer_type(&right_type, right.span(), op_name)?;
                 Self::ensure_non_zero_divisor(operator, right)?;
-                ensure_same_type(&left_type, left.span(), &right_type, right.span())?;
-                let result_type = left_type.clone();
+                ensure_same_type(
+                    &normalized_left_type,
+                    left.span(),
+                    &normalized_right_type,
+                    right.span(),
+                )?;
+                let result_type = normalized_left_type.clone();
                 self.add_constraint(TypeConstraint::equality(
-                    left_type,
-                    right_type,
+                    normalized_left_type,
+                    normalized_right_type,
                     Some(left.span()),
                     Some(right.span()),
                 ));
                 Ok(result_type)
             }
             BinaryOp::Equal | BinaryOp::NotEqual | BinaryOp::Is | BinaryOp::IsNot => {
-                if !self.types_compatible(&left_type, &right_type) {
+                if matches!(*operator, BinaryOp::Is | BinaryOp::IsNot)
+                    && matches!(*right, Expr::Identifier { .. })
+                {
+                    return Ok(CoreType::Boolean);
+                }
+                if !self.types_compatible(&normalized_left_type, &normalized_right_type) {
                     return Err(type_mismatch_error(
-                        &left_type,
+                        &normalized_left_type,
                         Some(left.span()),
-                        &right_type,
+                        &normalized_right_type,
                         right.span(),
                     ));
                 }
                 self.add_constraint(TypeConstraint::equality(
-                    left_type,
-                    right_type,
+                    normalized_left_type,
+                    normalized_right_type,
                     Some(left.span()),
                     Some(right.span()),
                 ));
@@ -746,7 +485,16 @@ impl TypeChecker {
             BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => {
                 ensure_numeric_type(&left_type, left.span(), op_name)?;
                 ensure_numeric_type(&right_type, right.span(), op_name)?;
-                ensure_same_type(&left_type, left.span(), &right_type, right.span())?;
+                if !((is_integer_type(&left_type) && is_integer_type(&right_type))
+                    || self.types_compatible(&normalized_left_type, &normalized_right_type))
+                {
+                    ensure_same_type(
+                        &normalized_left_type,
+                        left.span(),
+                        &normalized_right_type,
+                        right.span(),
+                    )?;
+                }
                 Ok(CoreType::Boolean)
             }
             BinaryOp::And | BinaryOp::Or | BinaryOp::Xor => {
@@ -817,7 +565,7 @@ impl TypeChecker {
 
     /// Validate a function call, ensuring arity matches, arguments conform to parameter types,
     /// and recording equality constraints for the inference engine.
-    fn type_check_call_expr(
+    pub(super) fn type_check_call_expr(
         &mut self,
         callee: &Expr,
         generic_args: Option<&[Type]>,
@@ -871,11 +619,9 @@ impl TypeChecker {
     ) -> Result<CoreType, TypeError> {
         let source_type = self.type_check_expr(expr)?;
         let target_core_type = Self::ast_type_to_core_type(target_type)?;
-
         // Validate the cast according to language spec (math.md)
         // Invalid casts remain errors; unsafe casts are collected as warnings.
         self.validate_cast_with_warnings(&source_type, &target_core_type, span)?;
-
         Ok(target_core_type)
     }
 
@@ -910,21 +656,17 @@ impl TypeChecker {
                 });
             }
         }
-
         let mut parameter_types = Vec::with_capacity(parameters.len());
         for param in parameters {
             parameter_types.push(Self::ast_type_to_core_type(&param.param_type)?);
         }
-
         let return_core_types: Vec<CoreType> = return_types
             .iter()
             .map(Self::ast_type_to_core_type)
             .collect::<Result<Vec<_>, _>>()?;
-
         let core_errors = self.resolve_error_types(error_types, span)?;
         self.symbol_table.enter_function(core_errors.clone(), span);
         self.begin_return_context();
-
         let body_result = self.within_new_scope(|checker| -> Result<(), TypeError> {
             for (param, core_type) in parameters.iter().zip(parameter_types.iter()) {
                 checker.symbol_table.register(SymbolInfo {
@@ -938,7 +680,6 @@ impl TypeChecker {
                     read_count: 0,
                 });
             }
-
             match *body {
                 LambdaBody::Expression(ref expr) => {
                     if return_core_types.len() != 1 {
@@ -970,11 +711,9 @@ impl TypeChecker {
                 }
             }
         });
-
         self.end_return_context();
         self.symbol_table.exit_function();
         body_result?;
-
         // Map lambda-declared error types into nominal core types
         Ok(CoreType::Function {
             generic_params: Vec::new(),

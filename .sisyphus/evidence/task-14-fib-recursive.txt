@@ -1,0 +1,2 @@
+target/program
+fib(10) = 55

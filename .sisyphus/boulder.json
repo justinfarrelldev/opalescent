@@ -41,10 +41,37 @@
       "task_key": "todo:11",
       "task_label": "11",
       "task_title": "Loop Statement with Break (Multi-Value) and Continue",
-      "session_id": "ses_27c519d00ffeA23Jbcvh5ElNRC",
+      "session_id": "ses_27c4841edffe1SQR4m771dTmzH",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-12T21:58:16.785Z"
+      "category": "deep",
+      "updated_at": "2026-04-12T22:06:07.681Z"
+    },
+    "todo:12": {
+      "task_key": "todo:12",
+      "task_label": "12",
+      "task_title": "Guard...into...else Error Handling",
+      "session_id": "ses_27c43cbbdffeAh2CJvzvkD77zC",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-12T22:21:41.740Z"
+    },
+    "todo:13": {
+      "task_key": "todo:13",
+      "task_label": "13",
+      "task_title": "Update Integration Test Assertions",
+      "session_id": "ses_27c357e20ffeGs8pHQeafl0VQW",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-12T22:25:18.990Z"
+    },
+    "todo:14": {
+      "task_key": "todo:14",
+      "task_label": "14",
+      "task_title": "TDD Iteration — Compile All 4 Spec Files End-to-End",
+      "session_id": "ses_27c2fb320ffe93nKp5BJCT00DA",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-12T22:49:32.794Z"
     }
   }
 }

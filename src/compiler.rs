@@ -5,7 +5,7 @@
 
 extern crate alloc;
 
-use crate::ast::Decl;
+use crate::ast::{Decl, Expr, LabeledValue, LambdaBody, NodeId, Stmt};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::expressions::CodegenError;
@@ -14,7 +14,7 @@ use crate::error::LexError;
 use crate::lexer::Lexer;
 use crate::parser::errors::ParseError;
 use crate::parser::Parser;
-use crate::token::Position;
+use crate::token::{Position, Span};
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use alloc::string::String;
@@ -101,7 +101,8 @@ pub fn compile_to_module<'context>(
     context: &'context Context,
     source: &str,
 ) -> Result<Module<'context>, CompileError> {
-    let lexer = Lexer::new(source);
+    let normalized_source = source.replace('\t', "    ");
+    let lexer = Lexer::new(&normalized_source);
     let (tokens, lex_errors) = lexer.tokenize();
     if let Some(error) = lex_errors.errors.into_iter().next() {
         return Err(CompileError::Lex(error));
@@ -144,11 +145,80 @@ pub fn compile_to_module<'context>(
                 codegen_function_declaration(&codegen_context, &mut env, declaration)
                     .map_err(CompileError::Codegen)?;
             }
-            _ => {}
+            Decl::Let {
+                ref binding,
+                initializer:
+                    Expr::Lambda {
+                        ref generic_params,
+                        ref generic_constraints,
+                        ref params,
+                        ref return_types,
+                        ref error_types,
+                        ref body,
+                        ..
+                    },
+                ref visibility,
+                ref doc_comment,
+                span,
+                ..
+            } => {
+                let lowered_body = lambda_body_to_function_body(body);
+                let lowered_declaration = Decl::Function {
+                    name: binding.name.clone(),
+                    generic_params: generic_params.clone(),
+                    generic_constraints: generic_constraints.clone(),
+                    parameters: params.clone(),
+                    return_types: Some(return_types.clone()),
+                    error_types: error_types.clone(),
+                    body: lowered_body,
+                    visibility: visibility.clone(),
+                    is_entry: false,
+                    doc_comment: doc_comment.clone(),
+                    span,
+                    id: NodeId(0),
+                    metadata: crate::ast::HotReloadMetadata::for_function(),
+                };
+
+                codegen_function_declaration(&codegen_context, &mut env, &lowered_declaration)
+                    .map_err(CompileError::Codegen)?;
+            }
+            Decl::Let { .. } | Decl::Type { .. } => {}
         }
     }
 
     Ok(codegen_context.module)
+}
+
+/// Lower a lambda body into a function-compatible statement body.
+fn lambda_body_to_function_body(body: &LambdaBody) -> Stmt {
+    match *body {
+        LambdaBody::Block(ref statements) => Stmt::Block {
+            statements: statements.clone(),
+            span: statements.first().zip(statements.last()).map_or_else(
+                || Span::single(Position::start()),
+                |(first_statement, last_statement)| {
+                    Span::new(
+                        first_statement.span_const().start,
+                        last_statement.span_const().end,
+                    )
+                },
+            ),
+            id: NodeId(0),
+        },
+        LambdaBody::Expression(ref expression) => {
+            let expression_span = expression.span_const();
+            Stmt::Return {
+                values: vec![LabeledValue {
+                    label: String::new(),
+                    value: *expression.clone(),
+                    span: expression_span,
+                    id: NodeId(0),
+                }],
+                span: expression_span,
+                id: NodeId(0),
+            }
+        }
+    }
 }
 
 /// Emit LLVM module as an object file at `path`.

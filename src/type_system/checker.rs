@@ -28,6 +28,7 @@ mod control_flow;
 mod declarations;
 mod expr_collections;
 mod expressions;
+mod expressions_guard;
 /// Generic ADT and function instantiation metadata helpers.
 mod generics;
 mod helpers;
@@ -78,6 +79,8 @@ pub struct TypeChecker {
     constant_integer_values: BTreeMap<usize, i128>,
     /// Sum-type variant registry used for match exhaustiveness checks.
     adt_variants: BTreeMap<String, Vec<String>>,
+    /// Stack of inferred break payload types for nested loop analysis.
+    loop_break_type_stack: Vec<Option<Vec<CoreType>>>,
     /// Field registry keyed by nominal owner type names.
     adt_fields: BTreeMap<String, BTreeMap<String, CoreType>>,
     /// Generic parameter declarations keyed by nominal owner type names.
@@ -106,6 +109,7 @@ impl TypeChecker {
             arithmetic_modes: BTreeMap::new(),
             constant_integer_values: BTreeMap::new(),
             adt_variants: BTreeMap::new(),
+            loop_break_type_stack: Vec::new(),
             adt_fields: BTreeMap::new(),
             adt_generic_params: BTreeMap::new(),
             generic_instantiations: BTreeMap::new(),
@@ -131,6 +135,7 @@ impl TypeChecker {
             arithmetic_modes: BTreeMap::new(),
             constant_integer_values: BTreeMap::new(),
             adt_variants: BTreeMap::new(),
+            loop_break_type_stack: Vec::new(),
             adt_fields: BTreeMap::new(),
             adt_generic_params: BTreeMap::new(),
             generic_instantiations: BTreeMap::new(),
@@ -938,7 +943,6 @@ impl TypeChecker {
         span: Span,
     ) -> Result<(), TypeError> {
         use super::checker::helpers::is_valid_cast;
-
         if !is_valid_cast(from_type, to_type) {
             return Err(TypeError::InvalidCast {
                 from_type: from_type.to_string(),
@@ -946,7 +950,6 @@ impl TypeChecker {
                 span: TypeError::span_from_span(span),
             });
         }
-
         Ok(())
     }
 

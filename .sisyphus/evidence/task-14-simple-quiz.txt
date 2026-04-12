@@ -1,0 +1,5 @@
+target/program
+What is your name?
+Hello, TestUser! Guess a number between 1 and 5
+3, huh? Let's see how close you are, TestUser...
+Too high, you lose!

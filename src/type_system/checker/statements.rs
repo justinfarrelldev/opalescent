@@ -4,7 +4,8 @@ extern crate alloc;
 
 use super::control_flow::{GuardBindingInfo, GuardUsage};
 use super::helpers::{
-    coerce_literal_to_expected, ensure_boolean_type, invalid_operation_error, type_mismatch_error,
+    coerce_literal_to_expected, ensure_boolean_type, invalid_operation_error, is_integer_type,
+    type_mismatch_error,
 };
 use crate::ast::{AstNode, Expr, LabeledValue, LetBinding, LiteralValue, Stmt, Type};
 use crate::token::Span;
@@ -161,9 +162,49 @@ impl TypeChecker {
                 expected_return,
             ),
             Stmt::Loop { ref body, .. } => self.within_new_scope(|checker| {
-                checker.type_check_stmt_with_return(body.as_ref(), expected_return)
+                checker.loop_break_type_stack.push(None);
+                let result = checker.type_check_stmt_with_return(body.as_ref(), expected_return);
+                checker.loop_break_type_stack.pop();
+                result
             }),
-            Stmt::Break { .. } | Stmt::Continue { .. } => Ok(()),
+            Stmt::Break {
+                ref values, span, ..
+            } => {
+                let mut current_types = alloc::vec::Vec::new();
+                for value in values {
+                    current_types.push(self.type_check_expr(&value.value)?);
+                }
+
+                let existing_break_types = self.loop_break_type_stack.last().cloned().flatten();
+
+                if let Some(expected_types) = existing_break_types {
+                    if expected_types.len() != current_types.len() {
+                        return Err(TypeError::ArityMismatch {
+                            expected: expected_types.len(),
+                            found: current_types.len(),
+                            span: TypeError::span_from_span(span),
+                        });
+                    }
+
+                    for (expected_type, found_type) in
+                        expected_types.iter().zip(current_types.iter())
+                    {
+                        if !self.types_compatible(expected_type, found_type) {
+                            return Err(type_mismatch_error(expected_type, None, found_type, span));
+                        }
+                    }
+                } else if let Some(loop_break_types) = self.loop_break_type_stack.last_mut() {
+                    *loop_break_types = Some(current_types);
+                }
+
+                Ok(())
+            }
+            Stmt::Continue { ref values, .. } => {
+                for value in values {
+                    self.type_check_expr(&value.value)?;
+                }
+                Ok(())
+            }
         }
     }
 
@@ -331,8 +372,10 @@ impl TypeChecker {
             });
         };
 
+        self.loop_break_type_stack.push(None);
         self.type_check_stmt_with_return(body.as_ref(), None)?;
         let return_types = self.infer_loop_break_types(body.as_ref(), span)?;
+        self.loop_break_type_stack.pop();
 
         if return_types.len() != bindings.len() {
             return Err(TypeError::ArityMismatch {
@@ -382,6 +425,17 @@ impl TypeChecker {
         stmt: &Stmt,
         span: Span,
     ) -> Result<alloc::vec::Vec<CoreType>, TypeError> {
+        if let Some(active_loop_break_types) = self.loop_break_type_stack.last() {
+            return active_loop_break_types
+                .clone()
+                .ok_or_else(|| TypeError::InvalidOperation {
+                    operation: "loop expression used in destructuring must break with values"
+                        .to_owned(),
+                    type_name: "loop".to_owned(),
+                    span: TypeError::span_from_span(span),
+                });
+        }
+
         let mut found_break_types: Option<alloc::vec::Vec<CoreType>> = None;
         self.collect_break_types(stmt, &mut found_break_types, span)?;
         found_break_types.ok_or_else(|| TypeError::InvalidOperation {
@@ -683,6 +737,8 @@ impl TypeChecker {
                 coerce_literal_to_expected(expected_type, &value.value, &value_type)
             {
                 adjusted
+            } else if is_integer_type(expected_type) && is_integer_type(&value_type) {
+                expected_type.clone()
             } else {
                 return Err(type_mismatch_error(
                     expected_type,

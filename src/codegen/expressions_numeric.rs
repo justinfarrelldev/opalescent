@@ -39,8 +39,13 @@ pub fn codegen_numeric_binop<'context>(
         return Ok(value);
     }
 
-    let lhs_int = lhs.into_int_value();
-    let rhs_int = rhs.into_int_value();
+    let signed = expected_type.is_none_or(is_signed_core_type);
+    let (lhs_int, rhs_int) = normalize_int_operands(
+        codegen_context,
+        lhs.into_int_value(),
+        rhs.into_int_value(),
+        signed,
+    )?;
     if env.debug_mode {
         return codegen_checked_overflow_intrinsic(
             codegen_context,
@@ -81,6 +86,7 @@ pub fn codegen_checked_overflow_intrinsic<'context>(
     op: &str,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let signed = expected_type.is_none_or(is_signed_core_type);
+    let (lhs, rhs) = normalize_int_operands(codegen_context, lhs, rhs, signed)?;
     let op_family = if signed { "s" } else { "u" };
     let bits = lhs.get_type().get_bit_width();
     let intrinsic_name = format!("llvm.{op_family}{op}.with.overflow.i{bits}");
@@ -156,10 +162,15 @@ pub fn codegen_div<'context>(
             .build_float_div(lhs.into_float_value(), rhs.into_float_value(), "fdiv")?
             .as_basic_value_enum());
     }
-    let lhs_int = lhs.into_int_value();
-    let rhs_int = rhs.into_int_value();
+    let signed = expected_type.is_none_or(is_signed_core_type);
+    let (lhs_int, rhs_int) = normalize_int_operands(
+        codegen_context,
+        lhs.into_int_value(),
+        rhs.into_int_value(),
+        signed,
+    )?;
     super::expressions::emit_div_by_zero_check(codegen_context, env, rhs_int)?;
-    let value = if expected_type.is_none_or(is_signed_core_type) {
+    let value = if signed {
         codegen_context
             .builder
             .build_int_signed_div(lhs_int, rhs_int, "sdiv")?
@@ -180,10 +191,15 @@ pub fn codegen_rem<'context>(
     rhs: BasicValueEnum<'context>,
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let lhs_int = lhs.into_int_value();
-    let rhs_int = rhs.into_int_value();
+    let signed = expected_type.is_none_or(is_signed_core_type);
+    let (lhs_int, rhs_int) = normalize_int_operands(
+        codegen_context,
+        lhs.into_int_value(),
+        rhs.into_int_value(),
+        signed,
+    )?;
     super::expressions::emit_div_by_zero_check(codegen_context, env, rhs_int)?;
-    let value = if expected_type.is_none_or(is_signed_core_type) {
+    let value = if signed {
         codegen_context
             .builder
             .build_int_signed_rem(lhs_int, rhs_int, "srem")?
@@ -221,6 +237,12 @@ pub fn codegen_cmp<'context>(
     }
 
     let signed = expected_type.is_none_or(is_signed_core_type);
+    let (lhs_int, rhs_int) = normalize_int_operands(
+        codegen_context,
+        lhs.into_int_value(),
+        rhs.into_int_value(),
+        signed,
+    )?;
     let pred = match *operator {
         BinaryOp::Equal | BinaryOp::Is => IntPredicate::EQ,
         BinaryOp::NotEqual | BinaryOp::IsNot => IntPredicate::NE,
@@ -261,8 +283,46 @@ pub fn codegen_cmp<'context>(
 
     Ok(codegen_context
         .builder
-        .build_int_compare(pred, lhs.into_int_value(), rhs.into_int_value(), "icmp")?
+        .build_int_compare(pred, lhs_int, rhs_int, "icmp")?
         .as_basic_value_enum())
+}
+
+/// Normalize integer operands to matching bit widths for LLVM integer ops.
+fn normalize_int_operands<'context>(
+    codegen_context: &CodegenContext<'context>,
+    lhs: IntValue<'context>,
+    rhs: IntValue<'context>,
+    signed: bool,
+) -> Result<(IntValue<'context>, IntValue<'context>), CodegenError> {
+    let lhs_bits = lhs.get_type().get_bit_width();
+    let rhs_bits = rhs.get_type().get_bit_width();
+    if lhs_bits == rhs_bits {
+        return Ok((lhs, rhs));
+    }
+
+    if lhs_bits > rhs_bits {
+        let widened_rhs = if signed {
+            codegen_context
+                .builder
+                .build_int_s_extend(rhs, lhs.get_type(), "int.widen.rhs")?
+        } else {
+            codegen_context
+                .builder
+                .build_int_z_extend(rhs, lhs.get_type(), "int.widen.rhs")?
+        };
+        Ok((lhs, widened_rhs))
+    } else {
+        let widened_lhs = if signed {
+            codegen_context
+                .builder
+                .build_int_s_extend(lhs, rhs.get_type(), "int.widen.lhs")?
+        } else {
+            codegen_context
+                .builder
+                .build_int_z_extend(lhs, rhs.get_type(), "int.widen.lhs")?
+        };
+        Ok((widened_lhs, rhs))
+    }
 }
 
 /// Returns true when the core type is a signed integer type (i8, i16, i32, i64).
