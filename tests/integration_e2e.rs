@@ -288,9 +288,9 @@ mod tests {
             };
 
             let stdout = String::from_utf8_lossy(&run_output.stdout);
-            if !stdout.contains("55") {
+            if !stdout.contains("fib(10) = 55") {
                 return Err(format!(
-                    "fib-recursive binary stdout should contain '55', got: '{stdout}'"
+                    "fib-recursive binary stdout should contain 'fib(10) = 55', got: '{stdout}'"
                 ));
             }
 
@@ -362,9 +362,9 @@ mod tests {
             };
 
             let stdout = String::from_utf8_lossy(&run_output.stdout);
-            if !stdout.contains("55") {
+            if !stdout.contains("fib(10) = 55") {
                 return Err(format!(
-                    "fib-iterative binary stdout should contain '55', got: '{stdout}'"
+                    "fib-iterative binary stdout should contain 'fib(10) = 55', got: '{stdout}'"
                 ));
             }
 
@@ -396,6 +396,10 @@ mod tests {
 
     #[cfg(feature = "integration")]
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "integration test covers full stdin/stdout quiz flow"
+    )]
     fn simple_quiz_compiles_links_and_runs() {
         let temp_dir = Path::new("test-projects/simple-quiz/target");
         let prepare = prepare_dir(temp_dir);
@@ -471,15 +475,24 @@ mod tests {
                 ));
             }
 
-            if !stdout.contains("TestUser") {
+            if !stdout.contains("Hello, TestUser!") {
                 return Err(format!(
-                    "simple-quiz stdout should contain provided name 'TestUser', got: '{stdout}'"
+                    "simple-quiz stdout should contain greeting 'Hello, TestUser!', got: '{stdout}'"
                 ));
             }
 
-            if !stdout.contains("Correct") && !stdout.contains("Wrong") {
+            if !stdout.contains("Guess a number") {
                 return Err(format!(
-                    "simple-quiz stdout should contain one of ['Correct', 'Wrong'] due to random outcome, got: '{stdout}'"
+                    "simple-quiz stdout should contain prompt 'Guess a number', got: '{stdout}'"
+                ));
+            }
+
+            if !stdout.contains("you guessed correctly")
+                && !stdout.contains("too low")
+                && !stdout.contains("Too high")
+            {
+                return Err(format!(
+                    "simple-quiz stdout should contain one of ['you guessed correctly', 'too low', 'Too high'] due to random outcome, got: '{stdout}'"
                 ));
             }
 
