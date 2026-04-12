@@ -1,0 +1,12 @@
+Task 4 Evidence: int64 compatibility preserved
+Date: 2026-04-12
+
+Command:
+printf 'entry main = f(): void => {\n  let x: int64 = 42\n  return void\n}\n' > /tmp/test_int64.op && cargo run -- /tmp/test_int64.op
+
+Observed output:
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+Running `target/debug/opalescent /tmp/test_int64.op`
+target/program
+
+Result: PASS (command exited 0)

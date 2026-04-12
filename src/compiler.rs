@@ -26,13 +26,17 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Embedded C runtime source used during native linking.
 const RUNTIME_SOURCE: &str = include_str!("../runtime/opal_runtime.c");
 
+/// Temporary runtime source file materialized for the system C compiler.
 struct RuntimeTempFile {
+    /// Path to the generated temporary C runtime source file.
     path: PathBuf,
 }
 
 impl RuntimeTempFile {
+    /// Create a uniquely named temporary runtime source file.
     fn create() -> Result<Self, CompileError> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -47,6 +51,11 @@ impl RuntimeTempFile {
         Ok(Self { path })
     }
 
+    /// Borrow the filesystem path for this temporary runtime source file.
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "PathBuf deref to Path is not const on stable"
+    )]
     fn path(&self) -> &Path {
         &self.path
     }
@@ -54,7 +63,7 @@ impl RuntimeTempFile {
 
 impl Drop for RuntimeTempFile {
     fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path);
+        drop(std::fs::remove_file(&self.path));
     }
 }
 

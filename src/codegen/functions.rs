@@ -159,12 +159,17 @@ pub fn codegen_import_declaration<'context>(
 }
 
 #[doc = "Lower a function call expression."]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Runtime-boundary widening/narrowing and closure capture lowering are handled in one call path"
+)]
 pub fn codegen_call_expression<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     callee: &Expr,
     generic_args: Option<&[Type]>,
     args: &[Expr],
+    expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let function = resolve_callee_function(codegen_context, env, callee, generic_args)?;
     let mut lowered_args = args
@@ -196,21 +201,93 @@ pub fn codegen_call_expression<'context>(
         }
     }
 
+    let mut call_args = lowered_args;
+    if let &Expr::Identifier { ref name, .. } = callee {
+        match name.as_str() {
+            "print_int" | "opal_print_int" => {
+                if call_args.len() == 1 {
+                    if let BasicMetadataValueEnum::IntValue(int_arg) = call_args[0] {
+                        if int_arg.get_type().get_bit_width() < 64 {
+                            call_args[0] = codegen_context
+                                .builder
+                                .build_int_s_extend(
+                                    int_arg,
+                                    codegen_context.context.i64_type(),
+                                    &env.next_name("print_int.sext"),
+                                )?
+                                .into();
+                        }
+                    }
+                }
+            }
+            "random_int32" | "opal_random_int32" => {
+                for arg in &mut call_args {
+                    if let BasicMetadataValueEnum::IntValue(int_arg) = *arg {
+                        if int_arg.get_type().get_bit_width() < 64 {
+                            *arg = codegen_context
+                                .builder
+                                .build_int_s_extend(
+                                    int_arg,
+                                    codegen_context.context.i64_type(),
+                                    &env.next_name("random_int32.arg.sext"),
+                                )?
+                                .into();
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
     let call = codegen_context.builder.build_call(
         function,
-        lowered_args.as_slice(),
+        call_args.as_slice(),
         env.next_name("call").as_str(),
     )?;
-    call.try_as_basic_value().basic().map_or_else(
+    let call_result = call.try_as_basic_value().basic().map_or_else(
         || {
-            Ok(codegen_context
+            codegen_context
                 .context
                 .struct_type(&[], false)
                 .const_zero()
-                .as_basic_value_enum())
+                .as_basic_value_enum()
         },
-        Ok,
-    )
+        |value| value,
+    );
+
+    if let &Expr::Identifier { ref name, .. } = callee {
+        if matches!(name.as_str(), "string_to_int32" | "opal_string_to_int32")
+            && call_result.is_int_value()
+        {
+            let narrowed = codegen_context.builder.build_int_truncate(
+                call_result.into_int_value(),
+                codegen_context.context.i32_type(),
+                &env.next_name("string_to_int32.ret.trunc"),
+            )?;
+            return Ok(narrowed.as_basic_value_enum());
+        }
+
+        if matches!(name.as_str(), "random_int32" | "opal_random_int32")
+            && call_result.is_int_value()
+        {
+            let target_int = match expected_type {
+                Some(&CoreType::Int64 | &CoreType::UInt64) => codegen_context.context.i64_type(),
+                _ => codegen_context.context.i32_type(),
+            };
+            let result_int = call_result.into_int_value();
+            if result_int.get_type().get_bit_width() != target_int.get_bit_width() {
+                let narrowed = codegen_context.builder.build_int_truncate(
+                    result_int,
+                    target_int,
+                    &env.next_name("random_int32.ret.trunc"),
+                )?;
+                return Ok(narrowed.as_basic_value_enum());
+            }
+        }
+    }
+
+    Ok(call_result)
 }
 
 #[doc = "Lower propagate expression control flow."]
@@ -225,7 +302,14 @@ pub fn codegen_propagate_expression<'context>(
         ..
     } = call_expr
     {
-        codegen_call_expression(codegen_context, env, callee.as_ref(), None, args.as_slice())?
+        codegen_call_expression(
+            codegen_context,
+            env,
+            callee.as_ref(),
+            None,
+            args.as_slice(),
+            None,
+        )?
     } else {
         codegen_expression(codegen_context, env, call_expr, None)?
     };
@@ -277,7 +361,14 @@ pub fn codegen_guard_expression<'context>(
         ..
     } = guarded_expr
     {
-        codegen_call_expression(codegen_context, env, callee.as_ref(), None, args.as_slice())?
+        codegen_call_expression(
+            codegen_context,
+            env,
+            callee.as_ref(),
+            None,
+            args.as_slice(),
+            None,
+        )?
     } else {
         codegen_expression(codegen_context, env, guarded_expr, None)?
     };

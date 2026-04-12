@@ -1,7 +1,6 @@
 #![doc(hidden)]
 
 extern crate alloc;
-
 use crate::ast::{BinaryOp, Expr, LiteralValue, Type, UnaryOp};
 use crate::codegen::adts::{
     codegen_constructor_expression, codegen_field_access_expression, codegen_match_expression,
@@ -134,6 +133,7 @@ pub fn codegen_expression<'context>(
             callee.as_ref(),
             generic_args.as_deref(),
             args.as_slice(),
+            expected_type,
         ),
         Expr::Constructor { .. } => codegen_constructor_expression(codegen_context, env, expr),
         Expr::Match { .. } => codegen_match_expression(codegen_context, env, expr),

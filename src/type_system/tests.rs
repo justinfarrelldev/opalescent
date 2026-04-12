@@ -4611,9 +4611,10 @@ entry demo = f(): string =>
 #[test]
 fn test_builtin_string_to_int32_signature_type_checks() {
     const SOURCE: &str = "
-entry parse_user_number = f(input: string): int64 =>
-    let n: int64 = string_to_int32(input)
-    return n
+entry parse_user_number = f(input: string): int64 => {
+let n: int64 = string_to_int32(input)
+return n
+}
 ";
 
     let program = parse_program_from_source(SOURCE);
@@ -4628,9 +4629,10 @@ entry parse_user_number = f(input: string): int64 =>
 #[test]
 fn test_builtin_random_int32_signature_type_checks() {
     const SOURCE: &str = "
-entry quiz_num = f(): int64 =>
-    let n: int64 = random_int32(1, 5)
-    return n
+entry quiz_num = f(): int64 => {
+let n: int64 = random_int32(1, 5)
+return n
+}
 ";
 
     let program = parse_program_from_source(SOURCE);

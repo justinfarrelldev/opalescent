@@ -931,6 +931,11 @@ entry main = f(): void => {
         ir.contains("declare i64 @opal_random_int32(i64, i64)"),
         "random_int32 builtin should emit opal_random_int32 declaration: {ir}"
     );
+
+    assert!(
+        ir.contains("trunc i64") || ir.contains("sext i32"),
+        "int32-runtime boundary lowering should include truncate/extend around runtime calls: {ir}"
+    );
 }
 
 #[test]
@@ -958,6 +963,7 @@ fn test_codegen_call_expression_lowers_function_call() {
         &ident(614, "inc"),
         None,
         &[int_lit(615, 41)],
+        None,
     );
     assert!(
         result.is_ok(),
@@ -1147,6 +1153,7 @@ fn test_codegen_lambda_closure_as_function_value() {
         &lambda_expr,
         None,
         &[int_lit(663, 3)],
+        None,
     );
     assert!(
         call_result.is_ok(),

@@ -208,7 +208,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ## TODOs
 
-- [ ] 1. Commit Current State
+- [x] 1. Commit Current State
 
   **What to do**:
   - Stage all current changes (including the modified `test-projects/simple-quiz/src/main.op` and untracked `.sisyphus/drafts/` directory)
@@ -262,7 +262,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 2. Replace Test-Project .op Files with Exact Language-Spec Copies
+- [x] 2. Replace Test-Project .op Files with Exact Language-Spec Copies
 
   **What to do**:
   - Copy `language-spec/hello_world.op` → `test-projects/hello-world/src/main.op`
@@ -328,7 +328,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 3. Embed C Runtime in Compiler Binary
+- [x] 3. Embed C Runtime in Compiler Binary
 
   **What to do**:
   - In `src/compiler.rs`, replace `let runtime_path = Path::new("runtime/opal_runtime.c");` (line 194) with embedded runtime using `include_str!("../runtime/opal_runtime.c")`
@@ -425,7 +425,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 4. Add int32 Type Support to Type Checker and Codegen
+- [x] 4. Add int32 Type Support to Type Checker and Codegen
 
   **What to do**:
   - Add `Int32` variant to the type system (wherever `Int64` is defined — likely `src/ast.rs` or `src/type_system/types.rs`)
@@ -504,7 +504,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 5. Implement Indent/Dedent Token Emission in Lexer
+- [x] 5. Implement Indent/Dedent Token Emission in Lexer
 
   **What to do**:
   - Modify `src/lexer.rs` to emit `Indent` and `Dedent` tokens based on indentation changes
@@ -607,7 +607,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 6. Add `is` Operator for Equality Comparison
+- [x] 6. Add `is` Operator for Equality Comparison
 
   **What to do**:
   - The spec uses `is` for equality comparison: `if n is 0:`, `if user_number is quiz_num:`
@@ -681,7 +681,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 7. Colon-Block Parsing for if/while/for Statements
+- [x] 7. Colon-Block Parsing for if/while/for Statements
 
   **What to do**:
   - Modify `parse_if_statement()` in `src/parser/statements.rs` to accept BOTH syntaxes:
@@ -769,7 +769,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 8. Add if...else: Chain Parsing
+- [x] 8. Add if...else: Chain Parsing
 
   **What to do**:
   - The spec uses `if...else:` chains: `if user_number is quiz_num:` → body → `if user_number < quiz_num:` → body → `else:` → body (see `simple_quiz.op` lines 61-68)

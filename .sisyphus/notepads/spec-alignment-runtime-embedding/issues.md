@@ -28,3 +28,7 @@
 - T3 implementation: embedded runtime with include_str! in src/compiler.rs; link_object_file now materializes runtime source to unique temp .c file and removes it via Drop guard after linking.
 - Verification: compiler succeeds when runtime/ is temporarily renamed, confirming no runtime path dependency at execution time.
 - Verification caveat: repository has pre-existing unrelated test failures on current branch state; task evidence captures a prior passing cargo test run and focused runtime-embedding QA outputs.
+
+- T4 int32 support: implemented codegen runtime boundary handling for int32 values (sign-extend to i64 at runtime call boundaries for print_int/random_int32 args; narrow i64 runtime returns to i32 when context expects int32).
+- T4 validation: required int32 and int64 compile samples both succeed via cargo run.
+- T4 caveat: full cargo test remains red on this branch due extensive pre-existing failures outside T4 scope (parser/doc_gen/type_system integration suites already failing before T4 changes).

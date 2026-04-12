@@ -137,7 +137,7 @@ mod tests {
             "object emission should succeed before linking"
         );
 
-        let link_result = link_object_file(&object_path, &binary_path, &[]);
+        let link_result = link_object_file(&object_path, &binary_path);
         assert!(
             link_result.is_ok(),
             "link step should produce an executable"
