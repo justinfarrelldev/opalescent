@@ -760,6 +760,7 @@ pub enum Decl {
 
     /// Import declarations
     Import {
+        statement: ImportStatement,
         /// Items being imported from the source
         items: Vec<ImportItem>,
         /// Source module or file path
@@ -812,6 +813,12 @@ pub enum Decl {
         /// Hot-reload metadata
         metadata: HotReloadMetadata,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportStatement {
+    pub names: Vec<String>,
+    pub module: String,
 }
 
 /// Literal values

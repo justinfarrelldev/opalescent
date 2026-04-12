@@ -2768,8 +2768,16 @@ fn test_import_single_item() {
     let program = result.unwrap();
     assert_eq!(program.declarations.len(), 1);
 
-    if let Decl::Import { items, source, .. } = &program.declarations[0] {
+    if let Decl::Import {
+        statement,
+        items,
+        source,
+        ..
+    } = &program.declarations[0]
+    {
         assert_eq!(source, "./nums");
+        assert_eq!(statement.module, "./nums");
+        assert_eq!(statement.names, ["is_prime"]);
         assert_eq!(items.len(), 1);
 
         if let ImportItem::Named { name, alias, .. } = &items[0] {
@@ -2796,8 +2804,16 @@ fn test_import_with_alias() {
     let program = result.unwrap();
     assert_eq!(program.declarations.len(), 1);
 
-    if let Decl::Import { items, source, .. } = &program.declarations[0] {
+    if let Decl::Import {
+        statement,
+        items,
+        source,
+        ..
+    } = &program.declarations[0]
+    {
         assert_eq!(source, "./nums");
+        assert_eq!(statement.module, "./nums");
+        assert_eq!(statement.names, ["is_prime"]);
         assert_eq!(items.len(), 1);
 
         if let ImportItem::Named { name, alias, .. } = &items[0] {
@@ -2824,8 +2840,16 @@ fn test_import_multiple_items() {
     let program = result.unwrap();
     assert_eq!(program.declarations.len(), 1);
 
-    if let Decl::Import { items, source, .. } = &program.declarations[0] {
+    if let Decl::Import {
+        statement,
+        items,
+        source,
+        ..
+    } = &program.declarations[0]
+    {
         assert_eq!(source, "./nums");
+        assert_eq!(statement.module, "./nums");
+        assert_eq!(statement.names, ["is_prime", "gcd", "pi"]);
         assert_eq!(items.len(), 3);
 
         let expected_names = ["is_prime", "gcd", "pi"];
@@ -2855,8 +2879,16 @@ fn test_import_type() {
     let program = result.unwrap();
     assert_eq!(program.declarations.len(), 1);
 
-    if let Decl::Import { items, source, .. } = &program.declarations[0] {
+    if let Decl::Import {
+        statement,
+        items,
+        source,
+        ..
+    } = &program.declarations[0]
+    {
         assert_eq!(source, "./models.types");
+        assert_eq!(statement.module, "./models.types");
+        assert_eq!(statement.names, ["User"]);
         assert_eq!(items.len(), 1);
 
         if let ImportItem::Type { name, alias, .. } = &items[0] {
@@ -2883,8 +2915,16 @@ fn test_import_mixed_with_aliases() {
     let program = result.unwrap();
     assert_eq!(program.declarations.len(), 1);
 
-    if let Decl::Import { items, source, .. } = &program.declarations[0] {
+    if let Decl::Import {
+        statement,
+        items,
+        source,
+        ..
+    } = &program.declarations[0]
+    {
         assert_eq!(source, "./nums");
+        assert_eq!(statement.module, "./nums");
+        assert_eq!(statement.names, ["is_prime", "gcd"]);
         assert_eq!(items.len(), 2);
 
         if let ImportItem::Named { name, alias, .. } = &items[0] {
@@ -2918,8 +2958,16 @@ fn test_import_mixed_types_and_items() {
     let program = result.unwrap();
     assert_eq!(program.declarations.len(), 1);
 
-    if let Decl::Import { items, source, .. } = &program.declarations[0] {
+    if let Decl::Import {
+        statement,
+        items,
+        source,
+        ..
+    } = &program.declarations[0]
+    {
         assert_eq!(source, "./models.types");
+        assert_eq!(statement.module, "./models.types");
+        assert_eq!(statement.names, ["User", "Address"]);
         assert_eq!(items.len(), 2);
 
         let expected_names = ["User", "Address"];
@@ -2957,6 +3005,74 @@ fn test_import_error_cases() {
     // Test missing item name
     let result = parse_program_from_string("import , gcd from ./nums");
     assert!(result.is_err(), "Should fail on missing item name");
+}
+
+#[test]
+fn test_import_simple_quiz_standard_syntax_builds_import_statement_ast() {
+    let input = "import take_input, string_to_int32 from standard";
+    let result = parse_program_from_string(input);
+    assert!(
+        result.is_ok(),
+        "simple_quiz standard import should parse successfully: {:?}",
+        result.err()
+    );
+
+    let program = result.unwrap();
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Import {
+        statement,
+        items,
+        source,
+        ..
+    } = &program.declarations[0]
+    {
+        assert_eq!(source, "standard");
+        assert_eq!(statement.module, "standard");
+        assert_eq!(statement.names, ["take_input", "string_to_int32"]);
+        assert_eq!(items.len(), 2);
+    } else {
+        panic!("Expected import declaration");
+    }
+}
+
+#[test]
+fn test_import_simple_quiz_math_syntax_builds_import_statement_ast() {
+    let input = "import random_int32 from math";
+    let result = parse_program_from_string(input);
+    assert!(
+        result.is_ok(),
+        "simple_quiz math import should parse successfully: {:?}",
+        result.err()
+    );
+
+    let program = result.unwrap();
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Import {
+        statement,
+        items,
+        source,
+        ..
+    } = &program.declarations[0]
+    {
+        assert_eq!(source, "math");
+        assert_eq!(statement.module, "math");
+        assert_eq!(statement.names, ["random_int32"]);
+        assert_eq!(items.len(), 1);
+    } else {
+        panic!("Expected import declaration");
+    }
+}
+
+#[test]
+fn test_import_must_be_top_level_prefix_before_other_declarations() {
+    let input = "entry main = f(): void => return void\nimport random_int32 from math";
+    let result = parse_program_from_string(input);
+    assert!(
+        result.is_err(),
+        "imports after non-import declarations should be rejected"
+    );
 }
 
 #[test]

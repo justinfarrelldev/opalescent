@@ -73,6 +73,10 @@ fn test_statement_span_and_node_id() {
 #[test]
 fn test_declaration_span_and_node_id() {
     let decl = Decl::Import {
+        statement: ImportStatement {
+            names: alloc::vec!["*".to_owned()],
+            module: "./module".to_owned(),
+        },
         items: alloc::vec![ImportItem::Glob { span: dummy_span() }],
         source: "./module".to_owned(),
         span: dummy_span(),

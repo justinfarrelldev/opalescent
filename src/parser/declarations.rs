@@ -6,8 +6,8 @@
 extern crate alloc;
 use super::{next_node_id, ParseError, ParseResult, Parser};
 use crate::ast::{
-    AstNode, Decl, Documentation, Field, HotReloadMetadata, ImportItem, LetBinding, Parameter,
-    Stmt, Type, TypeDef, TypeParameter, Variant, Visibility,
+    AstNode, Decl, Documentation, Field, HotReloadMetadata, ImportItem, ImportStatement,
+    LetBinding, Parameter, Stmt, Type, TypeDef, TypeParameter, Variant, Visibility,
 };
 use crate::token::{Span, TokenType};
 use alloc::string::String;
@@ -654,6 +654,17 @@ impl Parser {
         let import_span = Span::new(start_span.start, end_span.end);
 
         Ok(Decl::Import {
+            statement: ImportStatement {
+                names: items
+                    .iter()
+                    .map(|item| match item {
+                        &ImportItem::Named { ref name, .. }
+                        | &ImportItem::Type { ref name, .. } => name.clone(),
+                        &ImportItem::Glob { .. } => String::from("*"),
+                    })
+                    .collect(),
+                module: source.clone(),
+            },
             items,
             source,
             span: import_span,

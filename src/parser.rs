@@ -35,7 +35,7 @@ mod types;
 #[cfg(test)]
 mod tests;
 
-use crate::ast::{NodeId, Program};
+use crate::ast::{AstNode, NodeId, Program};
 use crate::token::{Span, Token};
 use core::sync::atomic::{AtomicUsize, Ordering};
 
@@ -76,6 +76,7 @@ impl Parser {
     pub fn parse(mut self) -> (Option<Program>, ParseErrors) {
         let start_span = self.current_token().span;
         let mut declarations = Vec::new();
+        let mut parsed_non_import_declaration = false;
 
         // Skip initial newlines and comments
         self.skip_trivia_preserving_doc_comments();
@@ -89,7 +90,23 @@ impl Parser {
             }
 
             match self.parse_declaration() {
-                Ok(decl) => declarations.push(decl),
+                Ok(decl) => {
+                    if matches!(&decl, &crate::ast::Decl::Import { .. }) {
+                        if parsed_non_import_declaration {
+                            self.errors.push(ParseError::InvalidSyntax {
+                                message: String::from(
+                                    "import declarations must appear before other declarations",
+                                ),
+                                span: crate::error::LexError::span_from_span(decl.span()),
+                            });
+                            self.synchronize();
+                            continue;
+                        }
+                    } else {
+                        parsed_non_import_declaration = true;
+                    }
+                    declarations.push(decl);
+                }
                 Err(error) => {
                     self.errors.push(error);
                     self.synchronize();

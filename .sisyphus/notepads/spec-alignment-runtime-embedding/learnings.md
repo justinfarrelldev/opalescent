@@ -61,3 +61,4 @@
 - Codegen runtime import aliasing already supported soft imports through `env.imported_functions` + `resolve_imported_runtime_name`; imported names bind to existing runtime functions (`opal_take_input`, `opal_string_to_int32`, `opal_random_int32`) without introducing a module loader.
 - Added parser regression tests for the exact `simple_quiz` import lines and for top-level-only import placement.
 - Verification: `cargo build` passed; `cargo test` passed with `735 passed; 0 failed; 8 ignored` in unit suite.
+- Compatibility note: existing `Decl::Import { items, source, .. }` consumers continue to work via pattern `..`, while new code can read normalized `statement.names/module` directly.
