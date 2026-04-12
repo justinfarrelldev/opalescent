@@ -1,0 +1,27 @@
+SCENARIO 6: Help command still works (regression check)
+Command: ./target/debug/opalescent help
+
+Output:
+  Opalescent Compiler
+
+  Usage:  opal <command> [arguments]
+
+  Commands:
+    <file.op>    Compile an Opalescent source file
+    --run        Execute the compiled binary after compilation
+    help         Show this help message
+    help pkg     Package manager commands
+    help fmt     Formatter commands
+
+  Examples:
+    opal src/main.op
+    opal src/main.op --run
+    opal help pkg
+
+Exit: 0
+
+RESULT: PASS
+Assert stdout contains "Opalescent Compiler" → ✓
+Assert stdout contains "--run" → ✓
+Assert stdout contains "Compile" (via "<file.op>    Compile an Opalescent source file") → ✓
+Assert exit code 0 → GOT: 0 ✓

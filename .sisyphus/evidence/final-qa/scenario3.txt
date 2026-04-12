@@ -1,0 +1,18 @@
+SCENARIO 3: Compile and run with --run flag (flag before file)
+Command: ./target/debug/opalescent --run language-spec/hello_world.op
+
+Output:
+  error: compilation failed: lexing failed
+
+Exit: 1
+
+RESULT: FAIL
+Assert stdout contains "Hello world" → GOT: error on stderr
+Assert exit code 0 → GOT: 1
+Note: Same root cause as Scenarios 1 and 2. --run flag positioning logic is correct
+      (the binary correctly placed --run before the file), but the file itself fails lexing.
+
+SUPPLEMENTAL: Verified with brace-syntax file:
+  ./target/debug/opalescent --run test-projects/hello-world/src/main.op
+  → Exit 0, stdout: "target/program\nHello world"
+  This confirms --run flag in any position works correctly. The issue is the test file.

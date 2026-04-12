@@ -1,0 +1,12 @@
+SCENARIO 4: Missing file argument (error case)
+Command: ./target/debug/opalescent 2>&1
+
+Output:
+  error: no source file specified
+  Usage: opal <file.op> [--run]
+
+Exit: 1
+
+RESULT: PASS
+Assert stderr contains error about missing file → "error: no source file specified" ✓
+Assert exit code non-zero (1) → GOT: 1 ✓

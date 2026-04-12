@@ -1,0 +1,50 @@
+GREP VERIFICATION FOR TASK: No hardcoded hello_world.op path
+
+=== COMMAND ===
+grep -n "language-spec/hello_world" src/app.rs
+
+=== RESULT ===
+No matches found
+
+✓ VERIFIED: All hardcoded "language-spec/hello_world" references have been completely removed
+
+=== IMPLEMENTATION SUMMARY ===
+
+**Before:** src/app.rs contained:
+- Hardcoded path: `fs::read_to_string("language-spec/hello_world.op")`
+- Verbose debug output (tokenization, parsing stages)
+- Unused imports: Lexer, Parser, AST modules
+- Explicit warm-up probe calls
+
+**After:** src/app.rs now contains:
+1. CLI argument parsing:
+   - Extracts file path from argv
+   - Respects --run flag (before or after file arg)
+   - Filters positional args vs flags
+
+2. Error handling (all to stderr via eprintln!):
+   - No source file specified → exit 1
+   - File not found → exit 1  
+   - Compilation failure → exit 1
+   - Execution failure → exit 1
+
+3. Success path:
+   - Compile-only: prints binary path to stdout, exit 0
+   - With --run: compiles, executes binary, forwards exit code
+
+4. Help system:
+   - Updated to show "Compile" instead of "Compile and run"
+   - Added --run flag documentation
+   - Example usage updated
+
+**Files modified:**
+- src/app.rs: 132 lines → clean refactored implementation
+- src/main.rs: Added proper exit code forwarding from library to binary
+
+**Code quality:**
+- No dead imports (removed ast, Lexer, Parser, unused error import)
+- Uses Result<(), i32> pattern for testability
+- Proper error propagation with eprintln! to stderr
+- Format strings use interpolation syntax for modern Rust
+- All clippy lints pass (including strict pedantic/nursery)
+- All doc comments on public/private items

@@ -1,0 +1,12 @@
+SCENARIO 2: Compile and run with --run flag (flag after file)
+Command: ./target/debug/opalescent language-spec/hello_world.op --run
+
+Output:
+  error: compilation failed: lexing failed
+
+Exit: 1
+
+RESULT: FAIL
+Assert stdout contains "Hello world" → GOT: error on stderr
+Assert exit code 0 → GOT: 1
+Note: Same root cause as Scenario 1 — language-spec/hello_world.op uses colon-syntax.

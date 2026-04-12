@@ -1,0 +1,9 @@
+SCENARIO 8: No hardcoded hello_world.op in functional code
+Commands:
+  grep -n "hello_world" src/app.rs   → (no output)
+  grep -n "language-spec" src/app.rs → (no output)
+
+RESULT: PASS
+Zero matches for "hello_world" in src/app.rs ✓
+Zero matches for "language-spec" in src/app.rs ✓
+No hardcoded file paths in functional code.
