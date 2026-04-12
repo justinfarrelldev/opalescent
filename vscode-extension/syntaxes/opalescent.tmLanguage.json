@@ -66,15 +66,15 @@
       "patterns": [
         {
           "name": "keyword.declaration.opalescent",
-          "match": "\\b(fn|type|module|import|export|entry|public)\\b"
+          "match": "\\b(f|type|module|import|export|entry|public)\\b"
         },
         {
           "name": "keyword.control.opalescent",
-          "match": "\\b(if|else|while|for|in|loop|match|break|return|guard|propagate)\\b"
+          "match": "\\b(if|else|while|for|in|loop|match|break|continue|return|guard|propagate|from|into)\\b"
         },
         {
           "name": "keyword.other.opalescent",
-          "match": "\\b(let|mutable|as|is|errors|unit)\\b"
+          "match": "\\b(let|mutable|as|is|errors)\\b"
         },
         {
           "name": "constant.language.boolean.opalescent",
@@ -82,7 +82,7 @@
         },
         {
           "name": "support.type.primitive.opalescent",
-          "match": "\\b(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64|boolean|string|char)\\b"
+          "match": "\\b(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64|boolean|string|char|void)\\b"
         }
       ]
     },

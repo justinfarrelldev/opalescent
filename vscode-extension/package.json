@@ -22,7 +22,8 @@
           "opalescent"
         ],
         "extensions": [
-          ".op"
+          ".op",
+          ".types.op"
         ],
         "configuration": "./language-configuration.json"
       }
