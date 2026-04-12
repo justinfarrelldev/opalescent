@@ -24,6 +24,39 @@ use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Tar
 use inkwell::OptimizationLevel;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+const RUNTIME_SOURCE: &str = include_str!("../runtime/opal_runtime.c");
+
+struct RuntimeTempFile {
+    path: PathBuf,
+}
+
+impl RuntimeTempFile {
+    fn create() -> Result<Self, CompileError> {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|error| CompileError::Io(std::io::Error::other(error)))?
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "opal_runtime_{}_{}.c",
+            std::process::id(),
+            timestamp
+        ));
+        std::fs::write(&path, RUNTIME_SOURCE).map_err(CompileError::Io)?;
+        Ok(Self { path })
+    }
+
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for RuntimeTempFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
 
 /// Error type spanning every stage of compiler orchestration.
 #[derive(Debug, thiserror::Error)]
@@ -146,21 +179,14 @@ pub fn emit_object_file(module: &Module<'_>, path: &Path) -> Result<(), CodegenE
 
 /// Link an object file into an executable binary.
 ///
-/// `extra_sources` allows additional C source files to be compiled and linked
-/// alongside the object file (used later for `runtime/opal_runtime.c`).
-///
 /// # Errors
 /// Returns `CompileError` if the linker process fails or produces errors.
-pub fn link_object_file(
-    object_path: &Path,
-    output_path: &Path,
-    extra_sources: &[&Path],
-) -> Result<PathBuf, CompileError> {
+pub fn link_object_file(object_path: &Path, output_path: &Path) -> Result<PathBuf, CompileError> {
+    let runtime_temp_file = RuntimeTempFile::create()?;
+
     let mut command = Command::new("cc");
     command.arg(object_path);
-    for source_path in extra_sources {
-        command.arg(source_path);
-    }
+    command.arg(runtime_temp_file.path());
     if cfg!(target_os = "linux") {
         command.arg("-no-pie");
     }
@@ -191,8 +217,7 @@ pub fn compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, Compi
     let binary_path = output_dir.join("program");
 
     emit_object_file(&module, &object_path).map_err(CompileError::Codegen)?;
-    let runtime_path = Path::new("runtime/opal_runtime.c");
-    link_object_file(&object_path, &binary_path, &[runtime_path])
+    link_object_file(&object_path, &binary_path)
 }
 
 #[cfg(test)]

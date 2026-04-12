@@ -1,0 +1,8 @@
+Command:
+mv runtime runtime_backup && ./target/debug/opalescent .sisyphus/evidence/task3_test.op; status=$?; mv runtime_backup runtime; exit $status
+
+Output:
+target/program
+
+Result:
+Compiler succeeded while runtime/ directory was temporarily renamed.

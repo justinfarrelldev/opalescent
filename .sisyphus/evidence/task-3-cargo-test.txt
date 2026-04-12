@@ -1,0 +1,22 @@
+Command:
+cargo test -q
+
+Output:
+running 732 tests
+...
+test result: ok. 724 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+running 9 tests
+iiiiiiiii
+test result: ok. 0 passed; 0 failed; 9 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+Result:
+cargo test completed successfully.

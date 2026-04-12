@@ -1,0 +1,13 @@
+Command:
+before=$(ls /tmp/opal_runtime_*.c 2>/dev/null | wc -l); ./target/debug/opalescent .sisyphus/evidence/task3_test.op; after=$(ls /tmp/opal_runtime_*.c 2>/dev/null | wc -l)
+
+Output:
+before=0
+after=0
+status=0
+stdout:
+target/program
+stderr:
+
+Result:
+No lingering /tmp/opal_runtime_*.c temp files remained after compilation.

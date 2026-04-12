@@ -23,4 +23,8 @@
 - All 4 test-project .op files diverge from language-spec (wrong syntax, types, signatures)
 
 ## Issues Found During Implementation
-(append here as work progresses)
+- T5 verification note: `cargo test` fails in this repository due to many pre-existing failures outside lexer scope (parser/type_system/doc_gen/hot_reload), while lexer-focused suites pass including new Indent/Dedent tests.
+
+- T3 implementation: embedded runtime with include_str! in src/compiler.rs; link_object_file now materializes runtime source to unique temp .c file and removes it via Drop guard after linking.
+- Verification: compiler succeeds when runtime/ is temporarily renamed, confirming no runtime path dependency at execution time.
+- Verification caveat: repository has pre-existing unrelated test failures on current branch state; task evidence captures a prior passing cargo test run and focused runtime-embedding QA outputs.
