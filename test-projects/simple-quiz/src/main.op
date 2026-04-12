@@ -25,13 +25,13 @@ entry main = f(): void => {
             user_number = n
             valid = true
         }
+
+        if user_number is quiz_num {
+            print('Correct! Well done, {name}!')
+            return void
+        } else {
+            print('Incorrect! The answer was {quiz_num}.')
+        }
     }
-    
-    if user_number is quiz_num {
-        print('Correct! Well done, {name}!')
-        return void
-    } else {
-        print('Wrong! The answer was {quiz_num}.')
-        return void
-    }
+
 }

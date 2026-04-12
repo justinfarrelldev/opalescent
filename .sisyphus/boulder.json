@@ -1,40 +1,13 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/fix-compiler-cli.md",
-  "started_at": "2026-04-12T17:33:04.259Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/spec-alignment-runtime-embedding.md",
+  "started_at": "2026-04-12T20:23:58.053Z",
   "session_ids": [
-    "ses_27d4f3c00ffejwAMkJttVW6R5Y",
-    "ses_27d3586a6ffeI1q0i38JXmIumP",
-    "ses_27d35677effe90CPg8HaiEOciH",
-    "ses_27d353a51ffeDKXEqRNkI9wwPv",
-    "ses_27d35080cffeu4PYoLp4JHF8ir"
+    "ses_27cea43dcffeIeIoSlKgj5HHz0"
   ],
   "session_origins": {
-    "ses_27d4f3c00ffejwAMkJttVW6R5Y": "direct",
-    "ses_27d3586a6ffeI1q0i38JXmIumP": "appended",
-    "ses_27d35677effe90CPg8HaiEOciH": "appended",
-    "ses_27d353a51ffeDKXEqRNkI9wwPv": "appended",
-    "ses_27d35080cffeu4PYoLp4JHF8ir": "appended"
+    "ses_27cea43dcffeIeIoSlKgj5HHz0": "direct"
   },
-  "plan_name": "fix-compiler-cli",
+  "plan_name": "spec-alignment-runtime-embedding",
   "agent": "atlas",
-  "task_sessions": {
-    "todo:1": {
-      "task_key": "todo:1",
-      "task_label": "1",
-      "task_title": "Rewrite `src/app.rs` — Proper CLI dispatch with `compile_program()`",
-      "session_id": "ses_27d3de862ffeifKhWA4iPlAMkA",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-12T17:41:47.151Z"
-    },
-    "final-wave:f1": {
-      "task_key": "final-wave:f1",
-      "task_label": "F1",
-      "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "ses_27d313ec1ffeIj3ryD8gPgqLhW",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-12T17:50:13.965Z"
-    }
-  }
+  "task_sessions": {}
 }
