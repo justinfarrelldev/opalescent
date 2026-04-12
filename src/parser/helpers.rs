@@ -115,7 +115,7 @@ impl Parser {
     /// Determine whether the current token indicates that a blockless function or lambda body has
     /// reached the boundary where a new top-level declaration is about to begin.
     pub(super) fn is_blockless_body_terminated(&self) -> bool {
-        self.is_at_end() || self.is_declaration_start()
+        self.is_at_end() || self.is_declaration_start() || self.check(&TokenType::Dedent)
     }
 
     /// Parse a sequence of statements that form the body of a function or lambda without explicit

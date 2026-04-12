@@ -624,7 +624,8 @@ impl Parser {
 
     /// Parse lambda body (expression or block)
     fn parse_lambda_body(&mut self) -> ParseResult<LambdaBody> {
-        // Check if this is a block body (starts with '{') or a single expression
+        self.skip_newlines_and_comments();
+
         if self.check(&TokenType::LeftBrace) {
             // Use existing block parsing for consistency with function bodies
             let block_stmt = self.parse_block_statement()?;
@@ -634,6 +635,16 @@ impl Parser {
                 // This should never happen since parse_block_statement always returns Block
                 Err(ParseError::InvalidSyntax {
                     message: "Expected block statement from parse_block_statement".to_owned(),
+                    span: ParseError::span_from_token(self.current_token()),
+                })
+            }
+        } else if self.check(&TokenType::Indent) {
+            let block_stmt = self.parse_indent_block()?;
+            if let Stmt::Block { statements, .. } = block_stmt {
+                Ok(LambdaBody::Block(statements))
+            } else {
+                Err(ParseError::InvalidSyntax {
+                    message: "Expected indented block statement from parse_indent_block".to_owned(),
                     span: ParseError::span_from_token(self.current_token()),
                 })
             }

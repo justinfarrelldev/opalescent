@@ -118,6 +118,10 @@ impl Parser {
     ///
     /// # Errors
     /// Returns detailed parse errors for missing tokens, invalid syntax, and unsupported patterns.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Function declaration parsing handles signature clauses and both brace/indent body forms"
+    )]
     fn parse_function_declaration(
         &mut self,
         visibility: Visibility,
@@ -209,20 +213,25 @@ impl Parser {
         let body = if self.check(&TokenType::LeftBrace) {
             self.parse_block_statement()?
         } else {
-            let statements = self.parse_blockless_body_statements();
-            let body_start = statements.first().map_or_else(
-                || self.previous_token().span.start,
-                |first_stmt| first_stmt.span().start,
-            );
-            let body_end = statements.last().map_or_else(
-                || self.previous_token().span.end,
-                |last_stmt| last_stmt.span().end,
-            );
-            let body_span = Span::new(body_start, body_end);
-            Stmt::Block {
-                statements,
-                span: body_span,
-                id: next_node_id(),
+            self.skip_newlines_and_comments();
+            if self.check(&TokenType::Indent) {
+                self.parse_indent_block()?
+            } else {
+                let statements = self.parse_blockless_body_statements();
+                let body_start = statements.first().map_or_else(
+                    || self.previous_token().span.start,
+                    |first_stmt| first_stmt.span().start,
+                );
+                let body_end = statements.last().map_or_else(
+                    || self.previous_token().span.end,
+                    |last_stmt| last_stmt.span().end,
+                );
+                let body_span = Span::new(body_start, body_end);
+                Stmt::Block {
+                    statements,
+                    span: body_span,
+                    id: next_node_id(),
+                }
             }
         };
 
@@ -357,8 +366,19 @@ impl Parser {
         // Skip newlines before type body
         self.skip_newlines_and_comments();
 
+        self.consume(
+            &TokenType::Indent,
+            "Expected indent after type declaration ':'",
+        )?;
+
         // Parse type definition body
         let type_def = self.parse_type_definition_body(start_span)?;
+
+        self.skip_newlines_and_comments();
+        self.consume(
+            &TokenType::Dedent,
+            "Expected dedent after type definition body",
+        )?;
 
         let end_span = self.previous_token().span;
         let span = Span::new(start_span.start, end_span.end);
@@ -394,6 +414,7 @@ impl Parser {
         let mut is_product_type = None;
 
         while !self.is_at_end()
+            && !self.check(&TokenType::Dedent)
             && !self.check(&TokenType::Type)
             && !self.check(&TokenType::Function)
             && !self.check(&TokenType::Import)
@@ -405,6 +426,7 @@ impl Parser {
             self.skip_newlines_and_comments();
 
             if self.is_at_end()
+                || self.check(&TokenType::Dedent)
                 || self.check(&TokenType::Type)
                 || self.check(&TokenType::Function)
                 || self.check(&TokenType::Import)
@@ -462,8 +484,13 @@ impl Parser {
                     });
                 } else {
                     self.skip_newlines_and_comments();
+                    self.consume(&TokenType::Indent, "Expected indent for variant fields")?;
+                    self.skip_newlines_and_comments();
                     let mut fields = Vec::new();
-                    while !self.is_at_end() && self.check_identifier() {
+                    while !self.is_at_end()
+                        && !self.check(&TokenType::Dedent)
+                        && self.check_identifier()
+                    {
                         let field_start = self.current_token().span;
                         let field_name = if self.check_identifier() {
                             let token = self.advance();
@@ -489,6 +516,8 @@ impl Parser {
                         });
                         self.skip_newlines_and_comments();
                     }
+
+                    self.consume(&TokenType::Dedent, "Expected dedent after variant fields")?;
 
                     let variant_end_span = self.previous_token().span;
                     sum_variants.push(Variant {

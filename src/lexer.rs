@@ -7,6 +7,7 @@ extern crate alloc;
 use crate::error::{LexError, LexErrors};
 use crate::token::{self, Position, Span, Token, TokenType};
 use alloc::collections::BTreeMap;
+use alloc::collections::VecDeque;
 use unicode_xid::UnicodeXID;
 
 /// Reserved keywords in the Opalescent language
@@ -85,6 +86,16 @@ pub struct Lexer<'input> {
     keywords: BTreeMap<&'static str, TokenType>,
     /// Type of whitespace detected for consistency checking
     whitespace_type: Option<WhitespaceType>,
+    /// Pending virtual tokens waiting to be emitted.
+    pending_tokens: VecDeque<Token>,
+    /// Active indentation widths, from root to current nesting.
+    indentation_stack: Vec<usize>,
+    /// Whether the lexer is currently positioned at line start.
+    at_line_start: bool,
+    /// Whether a block-introducing token was seen on this line.
+    line_has_block_starter: bool,
+    /// Whether the next line is expected to increase indentation.
+    awaiting_block_indent: bool,
 }
 
 /// Type of whitespace detected in the source code
@@ -165,6 +176,11 @@ impl<'input> Lexer<'input> {
             errors: LexErrors::new(),
             keywords,
             whitespace_type: None,
+            pending_tokens: VecDeque::new(),
+            indentation_stack: vec![0],
+            at_line_start: true,
+            line_has_block_starter: false,
+            awaiting_block_indent: false,
         }
     }
 
@@ -176,6 +192,11 @@ impl<'input> Lexer<'input> {
             if let Some(token) = self.next_token() {
                 tokens.push(token);
             }
+        }
+
+        while self.indentation_stack.len() > 1 {
+            self.indentation_stack.pop();
+            tokens.push(self.make_virtual_token(TokenType::Dedent));
         }
 
         // Add EOF token
@@ -190,7 +211,17 @@ impl<'input> Lexer<'input> {
 
     /// Get the next token from the input
     fn next_token(&mut self) -> Option<Token> {
-        self.skip_whitespace();
+        if let Some(token) = self.pending_tokens.pop_front() {
+            return Some(token);
+        }
+
+        self.handle_line_start_indentation();
+
+        if let Some(token) = self.pending_tokens.pop_front() {
+            return Some(token);
+        }
+
+        self.skip_inline_whitespace();
 
         if self.is_at_end() {
             return None;
@@ -198,7 +229,7 @@ impl<'input> Lexer<'input> {
 
         let start_pos = self.position;
 
-        match self.current_char() {
+        let token = match self.current_char() {
             // Single character tokens
             '(' => Some(self.make_token(TokenType::LeftParen, start_pos)),
             ')' => Some(self.make_token(TokenType::RightParen, start_pos)),
@@ -280,6 +311,121 @@ impl<'input> Lexer<'input> {
                 });
                 self.advance();
                 None
+            }
+        };
+
+        if let Some(ref token) = token {
+            self.update_block_indentation_state(token);
+        }
+
+        token
+    }
+
+    /// Build a virtual Indent or Dedent token at current position.
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "Token::new is not const, but helper clarity is preferred"
+    )]
+    fn make_virtual_token(&self, token_type: TokenType) -> Token {
+        Token::new(token_type, Span::single(self.position), String::new())
+    }
+
+    /// Process leading indentation and queue virtual indentation tokens.
+    fn handle_line_start_indentation(&mut self) {
+        if !self.at_line_start || self.is_at_end() {
+            return;
+        }
+
+        let mut indentation = 0_usize;
+
+        while !self.is_at_end() {
+            match self.current_char() {
+                ' ' => {
+                    if self.whitespace_type == Some(WhitespaceType::Tabs) {
+                        let tab_span = LexError::span_from_position(self.position, 1);
+                        let space_span = LexError::span_from_position(self.position, 1);
+                        self.errors.push(LexError::MixedWhitespace {
+                            tab_span,
+                            space_span,
+                        });
+                    } else {
+                        self.whitespace_type = Some(WhitespaceType::Spaces);
+                    }
+                    indentation = indentation.saturating_add(1);
+                    self.advance();
+                }
+                '\t' => {
+                    if self.whitespace_type == Some(WhitespaceType::Spaces) {
+                        let tab_span = LexError::span_from_position(self.position, 1);
+                        let space_span = LexError::span_from_position(self.position, 1);
+                        self.errors.push(LexError::MixedWhitespace {
+                            tab_span,
+                            space_span,
+                        });
+                    } else {
+                        self.whitespace_type = Some(WhitespaceType::Tabs);
+                    }
+                    indentation = indentation.saturating_add(1);
+                    self.advance();
+                }
+                '\r' => self.advance(),
+                _ => break,
+            }
+        }
+
+        if self.is_at_end() {
+            return;
+        }
+
+        if matches!(self.current_char(), '\n' | '#') {
+            return;
+        }
+
+        let current = self.indentation_stack.last().copied().unwrap_or(0);
+
+        if indentation < current {
+            while self
+                .indentation_stack
+                .last()
+                .copied()
+                .is_some_and(|level| level > indentation)
+            {
+                self.indentation_stack.pop();
+                self.pending_tokens
+                    .push_back(self.make_virtual_token(TokenType::Dedent));
+            }
+        } else if indentation > current && self.awaiting_block_indent {
+            self.indentation_stack.push(indentation);
+            self.pending_tokens
+                .push_back(self.make_virtual_token(TokenType::Indent));
+        }
+
+        self.awaiting_block_indent = false;
+        self.at_line_start = false;
+    }
+
+    /// Advance indentation state based on the emitted token.
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "State transitions mutate lexer runtime state"
+    )]
+    fn update_block_indentation_state(&mut self, token: &Token) {
+        match token.token_type {
+            TokenType::Colon | TokenType::Arrow => {
+                self.line_has_block_starter = true;
+                self.at_line_start = false;
+            }
+            TokenType::Newline => {
+                if self.line_has_block_starter {
+                    self.awaiting_block_indent = true;
+                }
+                self.line_has_block_starter = false;
+                self.at_line_start = true;
+            }
+            TokenType::Comment(_) | TokenType::DocComment(_) => {}
+            _ => {
+                self.line_has_block_starter = false;
+                self.at_line_start = false;
             }
         }
     }
@@ -578,8 +724,8 @@ impl<'input> Lexer<'input> {
         Token::new(token_type, span, identifier.to_owned())
     }
 
-    /// Skip whitespace and track whitespace type
-    fn skip_whitespace(&mut self) {
+    /// Skip inline whitespace while preserving newline token boundaries.
+    fn skip_inline_whitespace(&mut self) {
         while !self.is_at_end() {
             match self.current_char() {
                 ' ' => {
@@ -655,247 +801,5 @@ impl<'input> Lexer<'input> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_empty_input() {
-        let lexer = Lexer::new("");
-        let (tokens, errors) = lexer.tokenize();
-
-        assert!(errors.is_empty());
-        assert_eq!(tokens.len(), 1);
-        assert!(matches!(tokens[0].token_type, TokenType::EndOfFile));
-    }
-
-    #[test]
-    fn test_single_tokens() {
-        let input = "()[]{}:,";
-        let lexer = Lexer::new(input);
-        let (tokens, errors) = lexer.tokenize();
-
-        assert!(errors.is_empty());
-        assert_eq!(tokens.len(), 9); // 8 tokens + EOF
-
-        let expected = [
-            TokenType::LeftParen,
-            TokenType::RightParen,
-            TokenType::LeftBracket,
-            TokenType::RightBracket,
-            TokenType::LeftBrace,
-            TokenType::RightBrace,
-            TokenType::Colon,
-            TokenType::Comma,
-        ];
-
-        for (i, expected_type) in expected.iter().enumerate() {
-            assert_eq!(tokens[i].token_type, *expected_type);
-        }
-    }
-
-    #[test]
-    fn test_operators() {
-        let input = "+ - * / ^ % = < <= > >= =>";
-        let lexer = Lexer::new(input);
-        let (tokens, errors) = lexer.tokenize();
-
-        assert!(errors.is_empty());
-
-        let expected = [
-            TokenType::Plus,
-            TokenType::Minus,
-            TokenType::Multiply,
-            TokenType::Divide,
-            TokenType::Power,
-            TokenType::Modulo,
-            TokenType::Assign,
-            TokenType::Less,
-            TokenType::LessEqual,
-            TokenType::Greater,
-            TokenType::GreaterEqual,
-            TokenType::Arrow,
-        ];
-
-        for (i, expected_type) in expected.iter().enumerate() {
-            assert_eq!(tokens[i].token_type, *expected_type);
-        }
-    }
-
-    #[test]
-    fn test_keywords() {
-        let input = "let mutable f return void if else";
-        let lexer = Lexer::new(input);
-        let (tokens, errors) = lexer.tokenize();
-
-        assert!(errors.is_empty());
-
-        let expected = [
-            TokenType::Let,
-            TokenType::Mutable,
-            TokenType::Function,
-            TokenType::Return,
-            TokenType::Void,
-            TokenType::If,
-            TokenType::Else,
-        ];
-
-        for (i, expected_type) in expected.iter().enumerate() {
-            assert_eq!(tokens[i].token_type, *expected_type);
-        }
-    }
-
-    #[test]
-    fn test_identifiers() {
-        let input = "hello_world _private snake_case";
-        let lexer = Lexer::new(input);
-        let (tokens, errors) = lexer.tokenize();
-
-        assert!(errors.is_empty());
-        assert_eq!(tokens.len(), 4); // 3 identifiers + EOF
-
-        if let TokenType::Identifier(name) = tokens[0].token_type.clone() {
-            assert_eq!(name, "hello_world");
-        } else {
-            assert!(
-                matches!(tokens[0].token_type, TokenType::Identifier(_)),
-                "Expected identifier"
-            );
-        }
-    }
-
-    #[test]
-    #[expect(
-        clippy::approx_constant,
-        reason = "3.14 is not pi, just a test float value"
-    )]
-    fn test_numbers() {
-        let input = "42 3.14 0 999";
-        let lexer = Lexer::new(input);
-        let (tokens, errors) = lexer.tokenize();
-
-        assert!(errors.is_empty());
-        assert_eq!(tokens.len(), 5); // 4 numbers + EOF
-
-        assert!(matches!(
-            tokens[0].token_type,
-            TokenType::IntegerLiteral(42)
-        ));
-        assert!(matches!(
-            tokens[1].token_type,
-            TokenType::FloatLiteral(f) if (f - 3.14).abs() < f64::EPSILON
-        ));
-        assert!(matches!(tokens[2].token_type, TokenType::IntegerLiteral(0)));
-        assert!(matches!(
-            tokens[3].token_type,
-            TokenType::IntegerLiteral(999)
-        ));
-    }
-
-    #[test]
-    fn test_string_literals() {
-        let input = r"'hello' 'world with spaces' 'with\nescapes'";
-        let lexer = Lexer::new(input);
-        let (tokens, errors) = lexer.tokenize();
-
-        assert!(errors.is_empty());
-        assert_eq!(tokens.len(), 4); // 3 strings + EOF
-
-        if let TokenType::StringLiteral(s) = tokens[0].token_type.clone() {
-            assert_eq!(s, "hello");
-        } else {
-            assert!(
-                matches!(tokens[0].token_type, TokenType::StringLiteral(_)),
-                "Expected string literal"
-            );
-        }
-
-        if let TokenType::StringLiteral(s) = tokens[2].token_type.clone() {
-            assert_eq!(s, "with\nescapes");
-        } else {
-            assert!(
-                matches!(tokens[2].token_type, TokenType::StringLiteral(_)),
-                "Expected string literal with escape"
-            );
-        }
-    }
-
-    #[test]
-    fn test_multiline_comment_simple() {
-        let input = "## hello world ##";
-        let lexer = Lexer::new(input);
-        let (tokens, errors) = lexer.tokenize();
-
-        if !errors.is_empty() {
-            for error in &errors.errors {
-                println!("Error: {error}");
-            }
-        }
-
-        if !tokens.is_empty() {
-            println!("Found {} tokens", tokens.len());
-        }
-
-        assert!(errors.is_empty());
-        assert_eq!(tokens.len(), 2); // comment + EOF
-
-        if let TokenType::Comment(content) = tokens[0].token_type.clone() {
-            assert_eq!(content, "hello world");
-        } else {
-            assert!(
-                matches!(tokens[0].token_type, TokenType::Comment(_)),
-                "Expected comment token"
-            );
-        }
-    }
-
-    #[test]
-    fn test_comments() {
-        let input = "# single line comment\n##\nmulti-line\ncomment\n##";
-        let lexer = Lexer::new(input);
-        let (tokens, errors) = lexer.tokenize();
-
-        if !errors.is_empty() {
-            for error in &errors.errors {
-                println!("Error: {error}");
-            }
-        }
-
-        if !tokens.is_empty() {
-            println!("Found {} tokens in test", tokens.len());
-        }
-
-        assert!(errors.is_empty());
-        // single comment + newline + multiline comment + EOF
-        assert_eq!(tokens.len(), 4);
-
-        assert!(matches!(tokens[0].token_type, TokenType::Comment(_)));
-        assert!(matches!(tokens[1].token_type, TokenType::Newline));
-        assert!(matches!(tokens[2].token_type, TokenType::Comment(_)));
-    }
-
-    #[test]
-    fn test_unterminated_string() {
-        let input = "'unterminated string";
-        let lexer = Lexer::new(input);
-        let (_tokens, errors) = lexer.tokenize();
-
-        assert_eq!(errors.len(), 1);
-        assert!(matches!(
-            errors.errors[0],
-            LexError::UnterminatedString { .. }
-        ));
-    }
-
-    #[test]
-    fn test_unexpected_character() {
-        let input = "hello @ world";
-        let lexer = Lexer::new(input);
-        let (_tokens, errors) = lexer.tokenize();
-
-        assert_eq!(errors.len(), 1);
-        assert!(matches!(
-            errors.errors[0],
-            LexError::UnexpectedCharacter { character: '@', .. }
-        ));
-    }
-}
+#[path = "lexer/tests.rs"]
+mod tests;

@@ -16,6 +16,41 @@ use crate::parser::{next_node_id, ParseError, ParseResult, Parser};
 use crate::token::{Span, TokenType};
 
 impl Parser {
+    /// Parse a block delimited by `Indent` and `Dedent` tokens.
+    pub(super) fn parse_indent_block(&mut self) -> ParseResult<Stmt> {
+        let start_span = self.current_token().span;
+        self.consume(&TokenType::Indent, "Expected indentation block start")?;
+
+        let mut statements = Vec::new();
+        self.skip_newlines_and_comments();
+
+        while !self.check(&TokenType::Dedent) && !self.is_at_end() {
+            match self.parse_statement() {
+                Ok(stmt) => statements.push(stmt),
+                Err(error) => {
+                    self.errors.push(error);
+                    self.synchronize();
+                }
+            }
+
+            self.skip_newlines_and_comments();
+        }
+
+        self.consume(
+            &TokenType::Dedent,
+            "Expected dedent after indentation block",
+        )?;
+
+        let end_span = self.previous_token().span;
+        let span = Span::new(start_span.start, end_span.end);
+
+        Ok(Stmt::Block {
+            statements,
+            span,
+            id: next_node_id(),
+        })
+    }
+
     /// Parse a statement
     ///
     /// Dispatches to the appropriate statement parsing method based on
@@ -269,15 +304,41 @@ impl Parser {
         // Parse condition
         let condition = self.parse_expression()?;
 
-        // Parse then branch (must be a block)
-        let then_branch = Box::new(self.parse_block_statement()?);
+        let then_branch = if self.check(&TokenType::LeftBrace) {
+            Box::new(self.parse_block_statement()?)
+        } else if self.check(&TokenType::Colon) {
+            self.advance();
+            self.skip_newlines_and_comments();
+            Box::new(self.parse_indent_block()?)
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                expected: "'{' or ':' after if condition".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        };
 
         // Parse optional else branch
         let else_branch = self
             .check(&TokenType::Else)
             .then(|| {
                 self.advance(); // consume 'else'
-                self.parse_statement().map(Box::new)
+
+                if self.check(&TokenType::If) {
+                    self.parse_if_statement().map(Box::new)
+                } else if self.check(&TokenType::LeftBrace) {
+                    self.parse_block_statement().map(Box::new)
+                } else if self.check(&TokenType::Colon) {
+                    self.advance();
+                    self.skip_newlines_and_comments();
+                    self.parse_indent_block().map(Box::new)
+                } else {
+                    Err(ParseError::UnexpectedToken {
+                        expected: "'if', '{', or ':' after 'else'".to_owned(),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
+                    })
+                }
             })
             .transpose()?;
 
@@ -337,8 +398,19 @@ impl Parser {
         // Parse iterable expression
         let iterable = self.parse_expression()?;
 
-        // Parse body (must be a block)
-        let body = Box::new(self.parse_block_statement()?);
+        let body = if self.check(&TokenType::LeftBrace) {
+            Box::new(self.parse_block_statement()?)
+        } else if self.check(&TokenType::Colon) {
+            self.advance();
+            self.skip_newlines_and_comments();
+            Box::new(self.parse_indent_block()?)
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                expected: "'{' or ':' after for loop header".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        };
 
         let end_span = body.span();
         let span = Span::new(start_span.start, end_span.end);
@@ -369,8 +441,19 @@ impl Parser {
         // Parse condition
         let condition = self.parse_expression()?;
 
-        // Parse body (must be a block)
-        let body = Box::new(self.parse_block_statement()?);
+        let body = if self.check(&TokenType::LeftBrace) {
+            Box::new(self.parse_block_statement()?)
+        } else if self.check(&TokenType::Colon) {
+            self.advance();
+            self.skip_newlines_and_comments();
+            Box::new(self.parse_indent_block()?)
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                expected: "'{' or ':' after while condition".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        };
 
         let end_span = body.span();
         let span = Span::new(start_span.start, end_span.end);
@@ -408,8 +491,20 @@ impl Parser {
         }
         self.advance(); // consume '=>'
 
-        // Parse body (must be a block)
-        let body = Box::new(self.parse_block_statement()?);
+        let body = if self.check(&TokenType::LeftBrace) {
+            Box::new(self.parse_block_statement()?)
+        } else {
+            self.skip_newlines_and_comments();
+            if self.check(&TokenType::Indent) {
+                Box::new(self.parse_indent_block()?)
+            } else {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "'{' or indentation block after 'loop =>'".to_owned(),
+                    found: format!("{}", self.current_token().token_type),
+                    span: ParseError::span_from_token(self.current_token()),
+                });
+            }
+        };
 
         let end_span = body.span();
         let span = Span::new(start_span.start, end_span.end);
