@@ -1,5 +1,3 @@
-#![doc(hidden)]
-
 extern crate alloc;
 
 use crate::ast::StringPart;
@@ -10,6 +8,7 @@ use alloc::vec::Vec;
 use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
 use inkwell::AddressSpace;
 
+/// Lowers a `StringInterpolation` AST node to LLVM IR, using sprintf for mixed literal and expression parts, or a global string constant for literal-only parts.
 pub fn codegen_string_interpolation<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -73,6 +72,7 @@ pub fn codegen_string_interpolation<'context>(
     Ok(buffer_ptr.as_basic_value_enum())
 }
 
+/// Returns Some(concatenated text) if all parts are literal strings, or None if any expression parts exist.
 fn interpolation_literal_only(parts: &[StringPart]) -> Option<String> {
     let mut output = String::new();
     for part in parts {
@@ -84,6 +84,7 @@ fn interpolation_literal_only(parts: &[StringPart]) -> Option<String> {
     Some(output)
 }
 
+/// Escapes percent signs to double-percents so literal text can safely be used in printf-family format strings.
 fn escape_printf_literal(text: &str) -> String {
     let mut escaped = String::new();
     for ch in text.chars() {
@@ -97,6 +98,7 @@ fn escape_printf_literal(text: &str) -> String {
     escaped
 }
 
+/// Coerces a codegen'd expression value to a sprintf-compatible argument type, appending the appropriate format specifier to `format_text`.
 fn lower_interpolation_argument<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -163,6 +165,7 @@ fn lower_interpolation_argument<'context>(
     )))
 }
 
+/// Declares or retrieves the sprintf external function declaration from the LLVM module.
 fn ensure_sprintf_function<'context>(
     codegen_context: &CodegenContext<'context>,
 ) -> FunctionValue<'context> {
