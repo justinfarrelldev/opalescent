@@ -110,7 +110,7 @@ mod ecosystem_tests {
     /// `partition.op` uses colon-block syntax (`for x in xs:`, `if pred(x): ... else:`)
     /// which the parser does not yet support.
     #[test]
-    #[ignore = "partition.op uses colon-block syntax (for x in xs:, if pred(x):) not yet supported by the parser"]
+    #[ignore = "partition.op: type checker hits infinite loop during generic type resolution (separate bug, not parser issue)"]
     fn test_partition_spec_file_parses_and_type_checks() {
         const SOURCE: &str = include_str!("../../language-spec/partition.op");
         let result = run_pipeline(SOURCE);
@@ -125,7 +125,7 @@ mod ecosystem_tests {
     /// `unique_adjacent_sorted.op` uses colon-block syntax (`while i < length(xs):`,
     /// `if cmp(...) is 0:`) which the parser does not yet support.
     #[test]
-    #[ignore = "unique_adjacent_sorted.op uses colon-block syntax (while i < length(xs):) not yet supported by the parser"]
+    #[ignore = "unique_adjacent_sorted.op: type checker hits infinite loop during generic type resolution (separate bug, not parser issue)"]
     fn test_unique_adjacent_sorted_spec_file_parses_and_type_checks() {
         const SOURCE: &str = include_str!("../../language-spec/unique_adjacent_sorted.op");
         let result = run_pipeline(SOURCE);
@@ -140,7 +140,7 @@ mod ecosystem_tests {
     /// `simple_quiz.op` uses colon-block syntax and `loop => break label: value`
     /// multi-return syntax which the parser does not yet fully support.
     #[test]
-    #[ignore = "simple_quiz.op uses colon-block syntax and multi-return loop break not yet supported by the parser"]
+    #[ignore = "simple_quiz.op: requires labeled break/loop syntax and multi-return not yet implemented in type checker (separate bug, not parser issue)"]
     fn test_simple_quiz_spec_file_parses_and_type_checks() {
         const SOURCE: &str = include_str!("../../language-spec/simple_quiz.op");
         let result = run_pipeline(SOURCE);
