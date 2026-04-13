@@ -338,3 +338,19 @@ if self.check_identifier() {
 - src/type_system/test_integration_ecosystem.rs (line 87): Removed #[ignore] from types_example
 - src/type_system/test_integration_ecosystem.rs (line 98): Updated array_helpers reason
 - Evidence: .sisyphus/evidence/task-12-un-ignore.txt
+
+## [2026-04-13] Task 9 — Cast `as` Expression Parsing
+
+### Findings
+- Pratt precedence needed a dedicated `Cast` level between `Comparison` and `Shift` so `as` binds tighter than `is/<` but looser than arithmetic.
+- `parse_infix` must treat `TokenType::Cast` differently from normal binary operators: RHS is parsed with `parse_type()` (not `parse_precedence(...)`) and produces `Expr::Cast`.
+- Nested casts (`x as int32 as int64`) naturally become left-associative with current Pratt loop: outer cast wraps inner cast.
+
+### TDD Signal
+- RED phase produced `UnexpectedToken ... found: operator 'as'` in all new cast tests, confirming tokenization existed but parser lacked infix handling.
+
+### Verification
+- Added parser tests for `x as int32`, `value as float64`, `(a + b) as int64`, and nested casts.
+- `cargo test parser` passes with cast tests green.
+- Full `cargo test` passes with zero regressions.
+- Evidence captured at `.sisyphus/evidence/task-9-cast-parsing.txt`.

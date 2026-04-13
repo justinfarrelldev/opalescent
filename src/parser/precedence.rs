@@ -18,13 +18,14 @@ pub enum Precedence {
     BitAnd = 7,     // band
     Equality = 8,   // is, is not
     Comparison = 9, // <, <=, >, >=
-    Shift = 10,     // bshl, bshr, bushr
-    Term = 11,      // +, -
-    Factor = 12,    // *, /, %
-    Power = 13,     // ^ (right-associative)
-    Unary = 14,     // +x, -x, not x, bnot x
-    Call = 15,      // function calls, array access
-    Primary = 16,   // literals, identifiers, parentheses
+    Cast = 10,
+    Shift = 11,   // bshl, bshr, bushr
+    Term = 12,    // +, -
+    Factor = 13,  // *, /, %
+    Power = 14,   // ^ (right-associative)
+    Unary = 15,   // +x, -x, not x, bnot x
+    Call = 16,    // function calls, array access
+    Primary = 17, // literals, identifiers, parentheses
 }
 
 impl Precedence {
@@ -44,6 +45,7 @@ impl Precedence {
             | TokenType::LessEqual
             | TokenType::Greater
             | TokenType::GreaterEqual => Self::Comparison,
+            TokenType::Cast => Self::Cast,
             TokenType::BitShiftLeft
             | TokenType::BitShiftRight
             | TokenType::BitUnsignedShiftRight => Self::Shift,
@@ -67,7 +69,8 @@ impl Precedence {
             Self::BitXor => Self::BitAnd,
             Self::BitAnd => Self::Equality,
             Self::Equality => Self::Comparison,
-            Self::Comparison => Self::Shift,
+            Self::Comparison => Self::Cast,
+            Self::Cast => Self::Shift,
             Self::Shift => Self::Term,
             Self::Term => Self::Factor,
             Self::Factor => Self::Power,

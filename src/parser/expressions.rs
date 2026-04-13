@@ -785,6 +785,18 @@ impl Parser {
                     id: next_node_id(),
                 })
             }
+            TokenType::Cast => {
+                self.advance();
+                let target_type = self.parse_type()?;
+                let end_span = target_type.span();
+
+                Ok(Expr::Cast {
+                    expr: Box::new(left),
+                    target_type,
+                    span: Span::new(token.span.start, end_span.end),
+                    id: next_node_id(),
+                })
+            }
             TokenType::LeftParen => {
                 // Function call
                 self.advance();

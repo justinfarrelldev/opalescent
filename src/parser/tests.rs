@@ -980,6 +980,118 @@ fn test_binary_op_is_not() {
 }
 
 #[test]
+fn test_cast_expression_int32() {
+    let expr = parse_expression_from_string("x as int32").unwrap();
+    if let Expr::Cast {
+        expr: inner,
+        target_type,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(*inner, Expr::Identifier { name, .. } if name == "x"),
+            "Expected identifier 'x' as cast operand"
+        );
+        assert!(
+            matches!(target_type, Type::Basic { name, .. } if name == "int32"),
+            "Expected cast target type int32"
+        );
+    } else {
+        unreachable!("Expected cast expression for 'x as int32'");
+    }
+}
+
+#[test]
+fn test_cast_expression_float64() {
+    let expr = parse_expression_from_string("value as float64").unwrap();
+    if let Expr::Cast {
+        expr: inner,
+        target_type,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(*inner, Expr::Identifier { name, .. } if name == "value"),
+            "Expected identifier 'value' as cast operand"
+        );
+        assert!(
+            matches!(target_type, Type::Basic { name, .. } if name == "float64"),
+            "Expected cast target type float64"
+        );
+    } else {
+        unreachable!("Expected cast expression for 'value as float64'");
+    }
+}
+
+#[test]
+fn test_cast_expression_parenthesized_sum() {
+    let expr = parse_expression_from_string("(a + b) as int64").unwrap();
+    if let Expr::Cast {
+        expr: inner,
+        target_type,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *inner,
+                Expr::Parenthesized { expr, .. } if matches!(
+                    *expr,
+                    Expr::Binary {
+                        operator: BinaryOp::Add,
+                        ..
+                    }
+                )
+            ),
+            "Expected parenthesized addition as cast operand"
+        );
+        assert!(
+            matches!(target_type, Type::Basic { name, .. } if name == "int64"),
+            "Expected cast target type int64"
+        );
+    } else {
+        unreachable!("Expected cast expression for '(a + b) as int64'");
+    }
+}
+
+#[test]
+fn test_cast_expression_nested() {
+    let expr = parse_expression_from_string("x as int32 as int64").unwrap();
+    if let Expr::Cast {
+        expr: inner,
+        target_type,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(target_type, Type::Basic { name, .. } if name == "int64"),
+            "Expected outer cast target type int64"
+        );
+        assert!(
+            matches!(*inner, Expr::Cast { .. }),
+            "Expected nested cast with inner target type int32"
+        );
+        if let Expr::Cast {
+            expr: inner_expr,
+            target_type: inner_target_type,
+            ..
+        } = *inner
+        {
+            assert!(
+                matches!(*inner_expr, Expr::Identifier { name, .. } if name == "x"),
+                "Expected identifier 'x' as nested cast operand"
+            );
+            assert!(
+                matches!(inner_target_type, Type::Basic { name, .. } if name == "int32"),
+                "Expected inner cast target type int32"
+            );
+        }
+    } else {
+        unreachable!("Expected nested cast expression");
+    }
+}
+
+#[test]
 fn test_binary_op_or() {
     let expr = parse_expression_from_string("a or b").unwrap();
     assert!(
