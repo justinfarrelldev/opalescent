@@ -206,3 +206,68 @@
 - RED phase succeeded by adding a direct import test for new module path before module existed.
 - Once centralized function was introduced, multiple files failed due to missing imports and old associated-function references; fixing required explicit module imports in each checker submodule.
 - Verification grep must use exact definition pattern (`fn ast_type_to_core_type(`) to avoid counting wrapper helper names.
+
+## [2026-04-13] Task 11 — Parser unreachable!() Elimination
+
+### Problem Identified
+- Three unreachable!() macros in production parser code, all following same pattern:
+  * src/parser/expressions.rs:229 — guard binding name extraction
+  * src/parser/statements.rs:565 — guard success_binding extraction
+  * src/parser/statements.rs:582 — guard error_binding extraction
+
+### Root Cause
+All three locations used pattern:
+```rust
+if self.check_identifier() {
+    let tok = self.advance().clone();
+    if let TokenType::Identifier(n) = tok.token_type {
+        // ... success path
+    } else {
+        unreachable!("check_identifier ensured Identifier")  // ❌ WRONG
+    }
+}
+```
+The unreachable!() assumes that if check_identifier() was true, the next token MUST be Identifier.
+This is defensive programming anti-pattern; parser should handle edge cases gracefully.
+
+### Solution (TDD Protocol)
+1. **RED Phase**: Added 3 new tests that exercise invalid token scenarios:
+   - `test_guard_binding_with_invalid_token_after_into()` — expressions.rs:229
+   - `test_guard_success_binding_with_invalid_token()` — statements.rs:565
+   - `test_guard_error_binding_with_invalid_token()` — statements.rs:582
+   Tests verify that parser returns ParseError rather than panicking.
+
+2. **GREEN Phase**: Replaced all three unreachable!() with proper error handling:
+```rust
+if self.check_identifier() {
+    let tok = self.advance().clone();
+    if let TokenType::Identifier(n) = tok.token_type {
+        // ... success path
+    } else {
+        return Err(ParseError::UnexpectedToken {
+            expected: "identifier".to_owned(),
+            found: format!("{}", tok.token_type),
+            span: ParseError::span_from_token(&tok),
+        });
+    }
+}
+```
+
+### Key Insight
+- check_identifier() is infallible (returns bool), not try_parse (returns Result)
+- The pattern of check → advance → unwrap is inherently fragile
+- Future maintainers could accidentally break the invariant
+- Parser should **always** validate and return errors, never panic
+- This pattern appears 3 times; all follow exact same fix
+
+### Verification
+- grep -n "unreachable!" src/parser/*.rs | grep -v "tests.rs" → 0 results ✓
+- All parser tests pass (184 total, includes 3 new tests) ✓
+- Full test suite: 798 passing (was 795, gained 3 new tests) ✓
+- No regressions ✓
+
+### Files Changed
+- src/parser/expressions.rs (line 229): Replaced unreachable with error return
+- src/parser/statements.rs (line 565): Replaced unreachable with error return
+- src/parser/statements.rs (line 582): Replaced unreachable with error return
+- src/parser/tests.rs (3 new tests at end): Added test_guard_*_with_invalid_token functions

@@ -492,7 +492,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `refactor(types): centralize ast_type_to_core_type into single implementation`
   - Files: `src/type_system/checker.rs`, `src/codegen/statements.rs`, `src/codegen/functions.rs`, new shared module
 
-- [ ] 7. Update Language Spec — int64 as Default Literal Type
+- [x] 7. Update Language Spec — int64 as Default Literal Type
 
   **What to do**:
   - Review `language-spec/requirements/overview.md` and `language-spec/requirements/math.md` for any mention of default integer literal type
@@ -537,7 +537,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `docs(spec): update default integer literal type to int64`
   - Files: `language-spec/requirements/overview.md`, `language-spec/requirements/math.md`
 
-- [ ] 8. Fix Option::is_none_or Compile Errors
+- [x] 8. Fix Option::is_none_or Compile Errors
 
   **What to do**:
   - RED: Run `cargo test` and confirm that `Option::is_none_or` causes compile errors (or that it only works on nightly). Capture the error.

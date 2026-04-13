@@ -562,7 +562,11 @@ impl Parser {
             if let TokenType::Identifier(name) = token.token_type {
                 name
             } else {
-                unreachable!("check_identifier ensured Identifier")
+                return Err(ParseError::UnexpectedToken {
+                    expected: "identifier after 'into'".to_owned(),
+                    found: format!("{}", token.token_type),
+                    span: ParseError::span_from_token(&token),
+                });
             }
         } else {
             return Err(ParseError::UnexpectedToken {
@@ -579,7 +583,11 @@ impl Parser {
             if let TokenType::Identifier(name) = token.token_type {
                 name
             } else {
-                unreachable!("check_identifier ensured Identifier")
+                return Err(ParseError::UnexpectedToken {
+                    expected: "identifier after 'else'".to_owned(),
+                    found: format!("{}", token.token_type),
+                    span: ParseError::span_from_token(&token),
+                });
             }
         } else {
             return Err(ParseError::UnexpectedToken {

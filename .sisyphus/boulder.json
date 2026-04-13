@@ -63,6 +63,15 @@
       "agent": "Sisyphus-Junior",
       "category": "quick",
       "updated_at": "2026-04-13T22:54:32.706Z"
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "Update Language Spec — int64 as Default Literal Type",
+      "session_id": "ses_276eab012ffe6vWwkjybrmvTia",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-13T23:05:05.830Z"
     }
   }
 }

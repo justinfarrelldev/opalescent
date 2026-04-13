@@ -226,7 +226,11 @@ impl Parser {
             if let TokenType::Identifier(n) = tok.token_type {
                 (n, tok.span)
             } else {
-                unreachable!("check_identifier ensured Identifier")
+                return Err(ParseError::UnexpectedToken {
+                    expected: "identifier".to_owned(),
+                    found: format!("{}", tok.token_type),
+                    span: ParseError::span_from_token(&tok),
+                });
             }
         } else {
             return Err(ParseError::UnexpectedToken {

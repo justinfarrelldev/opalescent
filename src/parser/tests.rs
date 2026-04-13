@@ -5337,3 +5337,47 @@ fn test_function_type_with_multiple_errors() {
         unreachable!("Expected function type");
     }
 }
+
+// Tests for unreachable!() conversion to proper ParseError handling
+#[test]
+fn test_guard_binding_with_invalid_token_after_into() {
+    // RED test: guard into should receive identifier but might receive non-identifier
+    // If check_identifier is true but token is not Identifier, we should error gracefully
+    // This tests expressions.rs:229 unreachable
+    let input = "let x = guard foo(42) into 123 else err => {return void}";
+    let result = parse_expression_from_string(input);
+
+    // Should return ParseError, not panic
+    assert!(
+        result.is_err(),
+        "Expected parse error for invalid binding after 'into', but got: {result:?}"
+    );
+}
+
+#[test]
+fn test_guard_success_binding_with_invalid_token() {
+    // RED test: statements.rs:565 unreachable
+    // guard success_binding should receive identifier, error gracefully otherwise
+    let input = "guard foo() into 456 else err => {return void}";
+    let result = parse_statement_from_string(input);
+
+    // Should return ParseError, not panic
+    assert!(
+        result.is_err(),
+        "Expected parse error for invalid binding after 'into', but got: {result:?}"
+    );
+}
+
+#[test]
+fn test_guard_error_binding_with_invalid_token() {
+    // RED test: statements.rs:582 unreachable
+    // guard error_binding should receive identifier, error gracefully otherwise
+    let input = "guard foo() into x else 789 => {return void}";
+    let result = parse_statement_from_string(input);
+
+    // Should return ParseError, not panic
+    assert!(
+        result.is_err(),
+        "Expected parse error for invalid binding after 'else', but got: {result:?}"
+    );
+}
