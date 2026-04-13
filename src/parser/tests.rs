@@ -837,6 +837,1125 @@ fn test_operator_precedence() {
 }
 
 #[test]
+fn test_binary_op_subtract() {
+    let expr = parse_expression_from_string("a - b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::Subtract,
+                ..
+            }
+        ),
+        "Expected subtraction binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_divide() {
+    let expr = parse_expression_from_string("a / b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::Divide,
+                ..
+            }
+        ),
+        "Expected division binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_modulo() {
+    let expr = parse_expression_from_string("a % b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::Modulo,
+                ..
+            }
+        ),
+        "Expected modulo binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_power() {
+    let expr = parse_expression_from_string("a ^ b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::Power,
+                ..
+            }
+        ),
+        "Expected power binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_less_equal() {
+    let expr = parse_expression_from_string("a <= b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::LessEqual,
+                ..
+            }
+        ),
+        "Expected less-equal binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_greater() {
+    let expr = parse_expression_from_string("a > b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::Greater,
+                ..
+            }
+        ),
+        "Expected greater-than binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_greater_equal() {
+    let expr = parse_expression_from_string("a >= b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::GreaterEqual,
+                ..
+            }
+        ),
+        "Expected greater-equal binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_is() {
+    let expr = parse_expression_from_string("a is b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::Is,
+                ..
+            }
+        ),
+        "Expected identity binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_is_not() {
+    let expr = parse_expression_from_string("a is not b").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::Is,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(*left, Expr::Identifier { name, .. } if name == "a"),
+            "Expected identifier 'a' as left operand of Is"
+        );
+        assert!(
+            matches!(
+                *right,
+                Expr::Unary {
+                    operator: UnaryOp::Not,
+                    ..
+                }
+            ),
+            "Expected unary not expression as right operand of Is"
+        );
+    } else {
+        unreachable!("Expected Is operator with unary not on right side");
+    }
+}
+
+#[test]
+fn test_binary_op_or() {
+    let expr = parse_expression_from_string("a or b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::Or,
+                ..
+            }
+        ),
+        "Expected logical OR binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_xor() {
+    let expr = parse_expression_from_string("a xor b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::Xor,
+                ..
+            }
+        ),
+        "Expected logical XOR binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_bitand() {
+    let expr = parse_expression_from_string("a band b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::BitAnd,
+                ..
+            }
+        ),
+        "Expected bitwise AND binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_bitor() {
+    let expr = parse_expression_from_string("a bor b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::BitOr,
+                ..
+            }
+        ),
+        "Expected bitwise OR binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_bitxor() {
+    let expr = parse_expression_from_string("a bxor b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::BitXor,
+                ..
+            }
+        ),
+        "Expected bitwise XOR binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_bitshl() {
+    let expr = parse_expression_from_string("a bshl b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::BitShiftLeft,
+                ..
+            }
+        ),
+        "Expected bitwise left-shift binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_bitshr() {
+    let expr = parse_expression_from_string("a bshr b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::BitShiftRight,
+                ..
+            }
+        ),
+        "Expected bitwise right-shift binary operator"
+    );
+}
+
+#[test]
+fn test_binary_op_bitushr() {
+    let expr = parse_expression_from_string("a bushr b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::BitUnsignedShiftRight,
+                ..
+            }
+        ),
+        "Expected bitwise unsigned right-shift binary operator"
+    );
+}
+
+#[test]
+fn test_unary_op_plus() {
+    let expr = parse_expression_from_string("+x").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Unary {
+                operator: UnaryOp::Plus,
+                ..
+            }
+        ),
+        "Expected unary plus operator"
+    );
+}
+
+#[test]
+fn test_unary_op_bitnot() {
+    let expr = parse_expression_from_string("bnot x").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Unary {
+                operator: UnaryOp::BitNot,
+                ..
+            }
+        ),
+        "Expected unary bitwise not operator"
+    );
+}
+
+#[test]
+fn test_precedence_or_vs_xor() {
+    let expr = parse_expression_from_string("a or b xor c").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::Or,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::Xor,
+                    ..
+                }
+            ),
+            "Expected XOR to bind tighter than OR"
+        );
+    } else {
+        unreachable!("Expected OR as outer operator with XOR on right side");
+    }
+}
+
+#[test]
+fn test_precedence_xor_vs_and() {
+    let expr = parse_expression_from_string("a xor b and c").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::Xor,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::And,
+                    ..
+                }
+            ),
+            "Expected AND to bind tighter than XOR"
+        );
+    } else {
+        unreachable!("Expected XOR as outer operator with AND on right side");
+    }
+}
+
+#[test]
+fn test_precedence_and_vs_bitor() {
+    let expr = parse_expression_from_string("a and b bor c").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::And,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::BitOr,
+                    ..
+                }
+            ),
+            "Expected bitwise OR to bind tighter than AND"
+        );
+    } else {
+        unreachable!("Expected AND as outer operator with BitOr on right side");
+    }
+}
+
+#[test]
+fn test_precedence_bitor_vs_bitxor() {
+    let expr = parse_expression_from_string("a bor b bxor c").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::BitOr,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::BitXor,
+                    ..
+                }
+            ),
+            "Expected bitwise XOR to bind tighter than bitwise OR"
+        );
+    } else {
+        unreachable!("Expected BitOr as outer operator with BitXor on right side");
+    }
+}
+
+#[test]
+fn test_precedence_bitxor_vs_bitand() {
+    let expr = parse_expression_from_string("a bxor b band c").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::BitXor,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::BitAnd,
+                    ..
+                }
+            ),
+            "Expected bitwise AND to bind tighter than bitwise XOR"
+        );
+    } else {
+        unreachable!("Expected BitXor as outer operator with BitAnd on right side");
+    }
+}
+
+#[test]
+fn test_precedence_bitand_vs_equality() {
+    let expr = parse_expression_from_string("a band b is c band d").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::BitAnd,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Binary {
+                    operator: BinaryOp::BitAnd,
+                    right,
+                    ..
+                } if matches!(
+                    *right,
+                    Expr::Binary {
+                        operator: BinaryOp::Is,
+                        ..
+                    }
+                )
+            ),
+            "Expected left side to be nested bitwise AND containing Is expression"
+        );
+        assert!(
+            matches!(*right, Expr::Identifier { name, .. } if name == "d"),
+            "Expected right side to be identifier 'd'"
+        );
+    } else {
+        unreachable!("Expected outer BitAnd for bitand/equality precedence interaction");
+    }
+}
+
+#[test]
+fn test_precedence_equality_vs_comparison() {
+    let expr = parse_expression_from_string("1 < 2 is 3 < 4").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::Is,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Binary {
+                    operator: BinaryOp::Less,
+                    ..
+                }
+            ),
+            "Expected left side comparison to bind before identity comparison"
+        );
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::Less,
+                    ..
+                }
+            ),
+            "Expected right side comparison to bind before identity comparison"
+        );
+    } else {
+        unreachable!("Expected Is as outer operator with Less comparisons on both sides");
+    }
+}
+
+#[test]
+fn test_precedence_comparison_vs_shift() {
+    let expr = parse_expression_from_string("a < b bshl c").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::Less,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::BitShiftLeft,
+                    ..
+                }
+            ),
+            "Expected shift to bind tighter than comparison"
+        );
+    } else {
+        unreachable!("Expected Less as outer operator with shift expression on right side");
+    }
+}
+
+#[test]
+fn test_precedence_shift_vs_term() {
+    let expr = parse_expression_from_string("a bshl b + c").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::BitShiftLeft,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::Add,
+                    ..
+                }
+            ),
+            "Expected addition to bind tighter than shift"
+        );
+    } else {
+        unreachable!("Expected BitShiftLeft as outer operator with Add on right side");
+    }
+}
+
+#[test]
+fn test_precedence_term_vs_factor() {
+    let expr = parse_expression_from_string("a + b * c").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::Add,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::Multiply,
+                    ..
+                }
+            ),
+            "Expected multiplication to bind tighter than addition"
+        );
+    } else {
+        unreachable!("Expected Add as outer operator with Multiply on right side");
+    }
+}
+
+#[test]
+fn test_precedence_factor_vs_power() {
+    let expr = parse_expression_from_string("a * b ^ c").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::Multiply,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::Power,
+                    ..
+                }
+            ),
+            "Expected power to bind tighter than multiplication"
+        );
+    } else {
+        unreachable!("Expected Multiply as outer operator with Power on right side");
+    }
+}
+
+#[test]
+fn test_precedence_power_vs_unary() {
+    let expr = parse_expression_from_string("-a ^ b").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::Power,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Unary {
+                    operator: UnaryOp::Negate,
+                    ..
+                }
+            ),
+            "Expected unary negate to bind before power on left side"
+        );
+        assert!(
+            matches!(
+                *right,
+                Expr::Identifier { name, .. } if name == "b"
+            ),
+            "Expected identifier 'b' as right operand of power"
+        );
+    } else {
+        unreachable!("Expected Power as outer operator with unary-negated left operand");
+    }
+}
+
+#[test]
+fn test_associativity_power_right() {
+    let expr = parse_expression_from_string("2 ^ 3 ^ 4").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::Power,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Literal {
+                    value: LiteralValue::Integer(2),
+                    ..
+                }
+            ),
+            "Expected left operand to be literal 2 for right-associative power"
+        );
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::Power,
+                    ..
+                }
+            ),
+            "Expected right operand to be nested power expression"
+        );
+    } else {
+        unreachable!("Expected right-associative power expression");
+    }
+}
+
+#[test]
+fn test_associativity_subtract_left() {
+    let expr = parse_expression_from_string("1 - 2 - 3").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::Subtract,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Binary {
+                    operator: BinaryOp::Subtract,
+                    ..
+                }
+            ),
+            "Expected left operand to be nested subtraction for left associativity"
+        );
+        assert!(
+            matches!(
+                *right,
+                Expr::Literal {
+                    value: LiteralValue::Integer(3),
+                    ..
+                }
+            ),
+            "Expected right operand to be literal 3 for left-associative subtraction"
+        );
+    } else {
+        unreachable!("Expected left-associative subtraction expression");
+    }
+}
+
+#[test]
+fn test_associativity_and_left() {
+    let expr = parse_expression_from_string("a and b and c").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::And,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Binary {
+                    operator: BinaryOp::And,
+                    ..
+                }
+            ),
+            "Expected left operand to be nested AND expression for left associativity"
+        );
+        assert!(
+            matches!(*right, Expr::Identifier { name, .. } if name == "c"),
+            "Expected right operand to be identifier 'c'"
+        );
+    } else {
+        unreachable!("Expected left-associative logical AND expression");
+    }
+}
+
+#[test]
+fn test_precedence_chain_arithmetic() {
+    let expr = parse_expression_from_string("1 + 2 * 3 ^ 4").unwrap();
+    if let Expr::Binary {
+        right,
+        operator: BinaryOp::Add,
+        ..
+    } = expr
+    {
+        if let Expr::Binary {
+            right: multiply_right,
+            operator: BinaryOp::Multiply,
+            ..
+        } = *right
+        {
+            assert!(
+                matches!(
+                    *multiply_right,
+                    Expr::Binary {
+                        operator: BinaryOp::Power,
+                        ..
+                    }
+                ),
+                "Expected power at deepest right side of arithmetic precedence chain"
+            );
+        } else {
+            unreachable!("Expected Multiply as right child of Add in arithmetic chain");
+        }
+    } else {
+        unreachable!("Expected Add as outer operator in arithmetic precedence chain");
+    }
+}
+
+#[test]
+fn test_precedence_chain_logical_and_comparison() {
+    let expr = parse_expression_from_string("a or b and c <= d + e * g").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::Or,
+        right,
+        ..
+    } = expr
+    {
+        if let Expr::Binary {
+            operator: BinaryOp::And,
+            right: and_right,
+            ..
+        } = *right
+        {
+            if let Expr::Binary {
+                operator: BinaryOp::LessEqual,
+                right: less_right,
+                ..
+            } = *and_right
+            {
+                assert!(
+                    matches!(
+                        *less_right,
+                        Expr::Binary {
+                            operator: BinaryOp::Add,
+                            right,
+                            ..
+                        } if matches!(
+                            *right,
+                            Expr::Binary {
+                                operator: BinaryOp::Multiply,
+                                ..
+                            }
+                        )
+                    ),
+                    "Expected Add with nested Multiply on right side of Less comparison"
+                );
+            } else {
+                unreachable!(
+                    "Expected LessEqual as right child of And in logical/comparison chain"
+                );
+            }
+        } else {
+            unreachable!("Expected And as right child of Or in logical/comparison chain");
+        }
+    } else {
+        unreachable!("Expected Or as outer operator in logical/comparison chain");
+    }
+}
+
+#[test]
+fn test_precedence_chain_bitwise() {
+    let expr = parse_expression_from_string("a bor b bxor c band d").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::BitOr,
+        right,
+        ..
+    } = expr
+    {
+        if let Expr::Binary {
+            operator: BinaryOp::BitXor,
+            right: bitxor_right,
+            ..
+        } = *right
+        {
+            assert!(
+                matches!(
+                    *bitxor_right,
+                    Expr::Binary {
+                        operator: BinaryOp::BitAnd,
+                        ..
+                    }
+                ),
+                "Expected BitAnd to be deepest right child in bitwise precedence chain"
+            );
+        } else {
+            unreachable!("Expected BitXor as right child of BitOr in bitwise chain");
+        }
+    } else {
+        unreachable!("Expected BitOr as outer operator in bitwise precedence chain");
+    }
+}
+
+#[test]
+fn test_precedence_paren_overrides_multiplication() {
+    let expr = parse_expression_from_string("(a + b) * c").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::Multiply,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Parenthesized { expr, .. } if matches!(
+                    *expr,
+                    Expr::Binary {
+                        operator: BinaryOp::Add,
+                        ..
+                    }
+                )
+            ),
+            "Expected parenthesized addition on left side of multiplication"
+        );
+    } else {
+        unreachable!("Expected Multiply with parenthesized Add on left side");
+    }
+}
+
+#[test]
+fn test_precedence_paren_overrides_logical() {
+    let expr = parse_expression_from_string("(a or b) and c").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::And,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Parenthesized { expr, .. } if matches!(
+                    *expr,
+                    Expr::Binary {
+                        operator: BinaryOp::Or,
+                        ..
+                    }
+                )
+            ),
+            "Expected parenthesized OR on left side of AND"
+        );
+    } else {
+        unreachable!("Expected And with parenthesized Or on left side");
+    }
+}
+
+#[test]
+fn test_precedence_comparison_in_and() {
+    let expr = parse_expression_from_string("a < b and c > d").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::And,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Binary {
+                    operator: BinaryOp::Less,
+                    ..
+                }
+            ),
+            "Expected left operand of AND to be Less comparison"
+        );
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::Greater,
+                    ..
+                }
+            ),
+            "Expected right operand of AND to be Greater comparison"
+        );
+    } else {
+        unreachable!("Expected And expression with comparison operands");
+    }
+}
+
+#[test]
+fn test_precedence_comparison_in_or() {
+    let expr = parse_expression_from_string("a <= b or c >= d").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::Or,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Binary {
+                    operator: BinaryOp::LessEqual,
+                    ..
+                }
+            ),
+            "Expected left operand of OR to be LessEqual comparison"
+        );
+        assert!(
+            matches!(
+                *right,
+                Expr::Binary {
+                    operator: BinaryOp::GreaterEqual,
+                    ..
+                }
+            ),
+            "Expected right operand of OR to be GreaterEqual comparison"
+        );
+    } else {
+        unreachable!("Expected Or expression with comparison operands");
+    }
+}
+
+#[test]
+fn test_precedence_unary_not_with_and() {
+    let expr = parse_expression_from_string("not a and b").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::And,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Unary {
+                    operator: UnaryOp::Not,
+                    ..
+                }
+            ),
+            "Expected unary not expression on left side of AND"
+        );
+    } else {
+        unreachable!("Expected And with unary not on left side");
+    }
+}
+
+#[test]
+fn test_precedence_unary_bitnot_with_bitor() {
+    let expr = parse_expression_from_string("bnot x bor y").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::BitOr,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Unary {
+                    operator: UnaryOp::BitNot,
+                    ..
+                }
+            ),
+            "Expected unary bitnot expression on left side of BitOr"
+        );
+    } else {
+        unreachable!("Expected BitOr with unary bitnot on left side");
+    }
+}
+
+#[test]
+fn test_precedence_unary_negate_with_add() {
+    let expr = parse_expression_from_string("-a + b").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::Add,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Unary {
+                    operator: UnaryOp::Negate,
+                    ..
+                }
+            ),
+            "Expected unary negate expression on left side of Add"
+        );
+    } else {
+        unreachable!("Expected Add with unary negate on left side");
+    }
+}
+
+#[test]
+fn test_edge_case_less_equal_is_single_token() {
+    let expr = parse_expression_from_string("a <= b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::LessEqual,
+                ..
+            }
+        ),
+        "Expected <= to parse as single LessEqual operator"
+    );
+}
+
+#[test]
+fn test_edge_case_greater_equal_is_single_token() {
+    let expr = parse_expression_from_string("a >= b").unwrap();
+    assert!(
+        matches!(
+            expr,
+            Expr::Binary {
+                operator: BinaryOp::GreaterEqual,
+                ..
+            }
+        ),
+        "Expected >= to parse as single GreaterEqual operator"
+    );
+}
+
+#[test]
+fn test_edge_case_is_not_is_single_operator() {
+    let expr = parse_expression_from_string("a is not b").unwrap();
+    if let Expr::Binary {
+        operator: BinaryOp::Is,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *right,
+                Expr::Unary {
+                    operator: UnaryOp::Not,
+                    ..
+                }
+            ),
+            "Expected is not to parse as Is with unary not right operand"
+        );
+    } else {
+        unreachable!("Expected Is operator with unary not right side");
+    }
+}
+
+#[test]
+fn test_edge_case_not_a_is_not_b() {
+    let expr = parse_expression_from_string("not a is not b").unwrap();
+    if let Expr::Binary {
+        left,
+        operator: BinaryOp::Is,
+        right,
+        ..
+    } = expr
+    {
+        assert!(
+            matches!(
+                *left,
+                Expr::Unary {
+                    operator: UnaryOp::Not,
+                    ..
+                }
+            ),
+            "Expected unary not expression as left operand of IsNot"
+        );
+        assert!(
+            matches!(
+                *right,
+                Expr::Unary {
+                    operator: UnaryOp::Not,
+                    ..
+                }
+            ),
+            "Expected unary not expression as right operand of Is"
+        );
+    } else {
+        unreachable!("Expected Is with unary not on both sides");
+    }
+}
+
+#[test]
 fn test_break_continue_without_values() {
     let break_stmt = parse_statement_from_string("break").unwrap();
     if let Stmt::Break { values, .. } = break_stmt {
