@@ -401,7 +401,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix(tokens): unify As/Cast into single Cast token`
   - Files: `src/token.rs`, `src/lexer.rs`, `src/lexer/tests.rs`
 
-- [ ] 5. Fix IsNot Token Inconsistency
+- [x] 5. Fix IsNot Token Inconsistency
 
   **What to do**:
   - RED: Write a test that lexes `x is not None` and asserts that the lexer produces a single `TokenType::IsNot` token (or the intended token sequence). Test MUST fail first.

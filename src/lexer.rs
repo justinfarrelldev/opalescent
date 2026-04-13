@@ -152,7 +152,7 @@ impl<'input> Lexer<'input> {
         keywords.insert("entry", TokenType::Entry);
         keywords.insert("import", TokenType::Import);
         keywords.insert("from", TokenType::From);
-        keywords.insert("as", TokenType::As);
+        keywords.insert("as", TokenType::Cast);
         keywords.insert("type", TokenType::Type);
         keywords.insert("and", TokenType::And);
         keywords.insert("or", TokenType::Or);
@@ -837,9 +837,9 @@ impl<'input> Lexer<'input> {
 
     /// Advance to the next character
     fn advance(&mut self) {
-        if self.current.is_some() {
+        if let Some((_, ch)) = self.current {
             self.position.column = self.position.column.saturating_add(1_usize);
-            self.position.offset = self.position.offset.saturating_add(1_usize);
+            self.position.offset = self.position.offset.saturating_add(ch.len_utf8());
         }
 
         self.current = self.chars.next();
@@ -849,7 +849,9 @@ impl<'input> Lexer<'input> {
     fn advance_line(&mut self) {
         self.position.line = self.position.line.saturating_add(1_usize);
         self.position.column = 1_usize;
-        self.position.offset = self.position.offset.saturating_add(1_usize);
+        if let Some((_, ch)) = self.current {
+            self.position.offset = self.position.offset.saturating_add(ch.len_utf8());
+        }
         self.current = self.chars.next();
     }
 }

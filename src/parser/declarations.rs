@@ -694,7 +694,7 @@ impl Parser {
         };
 
         // Check for 'as' alias
-        let alias = if self.check(&TokenType::As) {
+        let alias = if self.check(&TokenType::Cast) {
             self.advance(); // consume 'as'
 
             match self.current_token().token_type {
