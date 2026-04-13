@@ -27,11 +27,11 @@ pub fn codegen_constructor_expression<'context>(
     env: &mut CodegenEnv<'context>,
     expr: &Expr,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    if let &Expr::Constructor {
+    if let Expr::Constructor {
         ref callee,
         ref fields,
         ..
-    } = expr
+    } = *expr
     {
         if matches!(callee.as_ref(), &Expr::Member { .. }) {
             return codegen_sum_variant_constructor(codegen_context, env, fields.as_slice());
@@ -96,11 +96,11 @@ pub fn codegen_match_expression<'context>(
     env: &mut CodegenEnv<'context>,
     expr: &Expr,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let &Expr::Match {
+    let Expr::Match {
         ref scrutinee,
         ref arms,
         ..
-    } = expr
+    } = *expr
     else {
         return Err(CodegenError::new(String::from("expected match expression")));
     };
@@ -223,7 +223,7 @@ pub fn codegen_match_expression<'context>(
 
 #[doc = "Capture field-name to index mapping from product constructors."]
 pub fn product_field_indices_from_constructor(constructor: &Expr) -> Option<BTreeMap<String, u32>> {
-    if let &Expr::Constructor { ref fields, .. } = constructor {
+    if let Expr::Constructor { ref fields, .. } = *constructor {
         let mut indices = BTreeMap::new();
         for (index, field) in fields.iter().enumerate() {
             let converted_index = u32::try_from(index).ok()?;

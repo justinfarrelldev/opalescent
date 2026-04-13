@@ -184,7 +184,7 @@ pub fn codegen_call_expression<'context>(
     } = callee
     {
         for capture in captured_variables {
-            if let Some(binding) = env.variables.get(capture) {
+            if let Some(binding) = env.variables.get(capture.as_str()) {
                 let loaded = codegen_context
                     .builder
                     .build_load(binding.alloca, capture.as_str())?;
