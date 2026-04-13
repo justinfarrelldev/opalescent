@@ -2,10 +2,18 @@
   "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/spec-alignment-runtime-embedding.md",
   "started_at": "2026-04-12T20:23:58.053Z",
   "session_ids": [
-    "ses_27cea43dcffeIeIoSlKgj5HHz0"
+    "ses_27cea43dcffeIeIoSlKgj5HHz0",
+    "ses_27bfdcaefffeJrOFlKBdsX7Pcb",
+    "ses_27bfd9fa7ffeK55r4Th3zLFAz3",
+    "ses_27bfd6db4ffe5jvr20Y2fEzVfA",
+    "ses_27bfd2537ffeMrWx56MQ13O6d6"
   ],
   "session_origins": {
-    "ses_27cea43dcffeIeIoSlKgj5HHz0": "direct"
+    "ses_27cea43dcffeIeIoSlKgj5HHz0": "direct",
+    "ses_27bfdcaefffeJrOFlKBdsX7Pcb": "appended",
+    "ses_27bfd9fa7ffeK55r4Th3zLFAz3": "appended",
+    "ses_27bfd6db4ffe5jvr20Y2fEzVfA": "appended",
+    "ses_27bfd2537ffeMrWx56MQ13O6d6": "appended"
   },
   "plan_name": "spec-alignment-runtime-embedding",
   "agent": "atlas",
@@ -72,6 +80,33 @@
       "agent": "Sisyphus-Junior",
       "category": "deep",
       "updated_at": "2026-04-12T22:49:32.794Z"
+    },
+    "todo:16": {
+      "task_key": "todo:16",
+      "task_label": "16",
+      "task_title": "Update README.md",
+      "session_id": "ses_27c02c02fffeRoDTGzuPkOmBzA",
+      "agent": "Sisyphus-Junior",
+      "category": "writing",
+      "updated_at": "2026-04-12T23:19:50.456Z"
+    },
+    "todo:17": {
+      "task_key": "todo:17",
+      "task_label": "17",
+      "task_title": "Update PLAN.md",
+      "session_id": "ses_27bff5b42ffeNaMged0KuRUKyn",
+      "agent": "Sisyphus-Junior",
+      "category": "writing",
+      "updated_at": "2026-04-12T23:23:08.843Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "ses_27be11783ffeeT080qw5DKmxrD",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-12T23:58:57.276Z"
     }
   }
 }

@@ -82,3 +82,7 @@
 - lambda_body_to_function_body() helper lowered LambdaBody to Stmt::Block or Stmt::Return
 - Type compatibility relaxed for int32/int64 arithmetic (coerce_literal_to_expected)
 - 740 unit tests pass, 7 integration tests pass
+
+## [2026-04-12] F4 rerun learning
+- Scope-fidelity rerun should explicitly treat `.sisyphus/plans/*` and `.sisyphus/boulder.json` as orchestrator bookkeeping, not deliverable scope-creep indicators.
+- T15 closure evidence is now anchored by commit `d6075da` plus direct verification of `vscode-extension/language-configuration.json` `indentationRules` for colon/arrow block indentation.

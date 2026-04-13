@@ -1,0 +1,59 @@
+F3. Real Manual QA — Evidence Report
+Date: Sun Apr 12 2026
+Working Directory: /home/justi/Projects/opalescent
+
+=== BUILD ===
+cargo build 2>&1 | tail -5
+Output:
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+
+=== TEST 1: hello-world ===
+Command: ./target/debug/opalescent test-projects/hello-world/src/main.op && ./target/program
+Compiler output: target/program
+Program output: Hello world
+EXPECTED: "Hello world"
+RESULT: PASS ✓
+
+=== TEST 2: fib-recursive ===
+Command: ./target/debug/opalescent test-projects/fib-recursive/src/main.op && ./target/program
+Compiler output: target/program
+Program output: fib(10) = 55
+EXPECTED: "fib(10) = 55"
+RESULT: PASS ✓
+
+=== TEST 3: fib-iterative ===
+Command: ./target/debug/opalescent test-projects/fib-iterative/src/main.op && ./target/program
+Compiler output: target/program
+Program output: fib(10) = 55
+EXPECTED: "fib(10) = 55"
+RESULT: PASS ✓
+
+=== TEST 4: simple-quiz ===
+Command: ./target/debug/opalescent test-projects/simple-quiz/src/main.op && printf 'TestUser\n3\n' | ./target/program
+Compiler output: target/program
+Program output:
+  What is your name?
+  Hello, TestUser! Guess a number between 1 and 5
+  3, huh? Let's see how close you are, TestUser...
+  Too high, you lose!
+EXPECTED: quiz questions, name greeting, result
+RESULT: PASS ✓
+
+=== TEST 5: No-Runtime Compilation ===
+Command: mv runtime/ runtime_backup/ && ./target/debug/opalescent test-projects/hello-world/src/main.op && ./target/program; mv runtime_backup/ runtime/
+Compiler output: target/program
+Program output: Hello world
+Exit code: 0
+runtime/ was renamed before compile, restored after.
+RESULT: PASS ✓
+
+=== TEST 6: Cross-Directory Compilation ===
+Working directory: /tmp
+Command: /home/justi/Projects/opalescent/target/debug/opalescent /home/justi/Projects/opalescent/test-projects/hello-world/src/main.op
+Compiler output: target/program  (created at /tmp/target/program)
+Binary run output: Hello world
+Exit code: 0
+RESULT: PASS ✓
+
+=== SUMMARY ===
+Programs [4/4 compile] | Output [4/4 correct] | No-runtime [PASS] | Cross-dir [PASS] | VERDICT: APPROVE

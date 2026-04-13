@@ -1295,7 +1295,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 14. TDD Iteration — Compile All 4 Spec Files End-to-End
+- [x] 14. TDD Iteration — Compile All 4 Spec Files End-to-End
 
   **What to do**:
   - This is the integration task. After all parser/codegen features are implemented (Tasks 3-13), run the full test suite and fix any remaining issues.
@@ -1392,7 +1392,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 15. Align VS Code Extension with Language-Spec
+- [x] 15. Align VS Code Extension with Language-Spec
 
   **What to do**:
   - Update `vscode-extension/package.json`:
@@ -1483,7 +1483,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 16. Update README.md
+- [x] 16. Update README.md
 
   **What to do**:
   - Update the "Test Project Conventions" section:
@@ -1557,7 +1557,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 17. Update PLAN.md
+- [x] 17. Update PLAN.md
 
   **What to do**:
   - Read `PLAN.md` and update any sections that reference:
@@ -1618,19 +1618,19 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 >
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. For each "Must Have": verify implementation exists (read file, run command). For each "Must NOT Have": search codebase for forbidden patterns — reject with file:line if found. Check evidence files exist in `.sisyphus/evidence/`. Compare deliverables against plan.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `cargo test`, `cargo test --features integration`, `cargo clippy`. Review all changed files for: `as any`/`unwrap()` in non-test code, empty match arms, `todo!()` macros, commented-out code, unused imports. Check for AI slop: excessive comments, over-abstraction, generic names.
   Output: `Build [PASS/FAIL] | Tests [N pass/N fail] | Clippy [PASS/FAIL] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high`
+- [x] F3. **Real Manual QA** — `unspecified-high`
   Start from clean state. Compile each test project individually: `cargo run -- test-projects/{name}/src/main.op`. Verify output matches expected. Test that compiler works WITHOUT `runtime/` folder (rename it temporarily). Test from a different working directory. Save evidence to `.sisyphus/evidence/final-qa/`.
   Output: `Programs [4/4 compile] | Output [4/4 correct] | No-runtime [PASS/FAIL] | Cross-dir [PASS/FAIL] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff (git log/diff). Verify 1:1 — everything in spec was built (no missing), nothing beyond spec was built (no creep). Check "Must NOT do" compliance. Detect cross-task contamination. Flag unaccounted changes.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 
