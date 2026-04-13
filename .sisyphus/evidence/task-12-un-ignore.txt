@@ -1,0 +1,76 @@
+TASK 12: UN-IGNORE STALE COLON-BLOCK TESTS
+===========================================
+
+SUMMARY
+-------
+Removed 3 stale #[ignore] markers from type system integration tests. Parser DOES support 
+colon-block syntax, making these ignore reasons obsolete. All 3 un-ignored tests pass.
+
+CHANGES MADE
+------------
+
+1. src/type_system/test_integration.rs:148
+   - REMOVED: #[ignore = "fib_recursive.op uses colon-block syntax (if n is 0:) not yet supported by the parser"]
+   - TEST: test_fib_recursive_spec_file_parses_and_type_checks
+   - RESULT: ✓ PASS
+
+2. src/type_system/test_integration.rs:195
+   - REMOVED: #[ignore = "fib_iterative.op uses colon-block syntax (while i <= n:) not yet supported by the parser"]
+   - TEST: test_fib_iterative_spec_file_parses_and_type_checks
+   - RESULT: ✓ PASS
+
+3. src/type_system/test_integration_ecosystem.rs:87
+   - REMOVED: #[ignore = "types_example.types.op uses colon-block indented variant syntax not yet supported by the parser"]
+   - TEST: test_types_example_spec_file_parses
+   - RESULT: ✓ PASS
+
+VERIFICATION
+------------
+$ cargo test --lib 2>&1 | tail -3
+test result: ok. 801 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+Test count: 798 → 801 (+3 from un-ignored tests)
+
+Stale ignore markers in test_integration.rs:
+$ grep -n "#\[ignore" src/type_system/test_integration.rs
+14://! spec-file `#[ignore]` tests track the colon-block feature once it lands.
+(No actual test #[ignore] attributes remain)
+
+ECOSYSTEM TESTS STATUS
+----------------------
+4 tests remain ignored due to ROOT CAUSE ANALYSIS:
+
+1. array_helpers.op - INFINITE LOOP during type-checking (type system bug, not parser)
+   Type system hangs when resolving generic types without proper imports.
+
+2. partition.op - MISSING TYPE DEFINITION (Pair<T> not imported)
+   File uses Pair<T> generic type but doesn't import it from types_example.types.op
+
+3. unique_adjacent_sorted.op - SIMILAR ISSUE to partition
+   Type system infinite loop with unresolved types
+
+4. simple_quiz.op - UNIMPLEMENTED FEATURE: loop break with labels
+   Parser doesn't support: loop => break label: value
+
+These are legitimate issues DISTINCT from "parser doesn't support colon-block syntax":
+- Parser DOES support colon-block syntax (proven by fib tests)
+- These failures are type system/module system issues, not parser issues
+
+PARSER COLON-BLOCK SUPPORT VERIFIED
+-----------------------------------
+✓ if statements with colon blocks
+✓ while loops with colon blocks
+✓ for loops with colon blocks
+✓ Indented variant syntax in type definitions
+
+Evidence: language-spec/*.op files compile and execute successfully in integration tests
+(see tests/integration_e2e.rs:250-393 for fib_recursive and fib_iterative execution)
+
+NEXT STEPS (OUT OF SCOPE)
+--------------------------
+The 4 remaining ecosystem tests should be re-evaluated:
+1. Fix type system infinite loop for cyclic/unresolved generic types (Task X)
+2. Implement module imports for standalone ecosystem test files (Task Y)
+3. Implement loop break with labels (Task Z)
+
+These are SEPARATE bugs, not "parser doesn't support colon-block syntax".

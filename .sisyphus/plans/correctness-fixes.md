@@ -679,7 +679,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `feat(parser): implement array literal and indexing parsing`
   - Files: `src/parser/expressions.rs`, `src/parser/precedence.rs`, `src/parser/tests.rs`
 
-- [ ] 11. Fix Parser unreachable!() Panics
+- [x] 11. Fix Parser unreachable!() Panics
 
   **What to do**:
   - RED: Write tests that feed the parser token sequences that would trigger each `unreachable!()` in production code. Verify tests panic (fail). Locations: `parser/expressions.rs:229`, `parser/statements.rs:565`, `parser/statements.rs:582`.

@@ -84,7 +84,6 @@ mod ecosystem_tests {
     /// (`type Message:` with `Text:`, `Join:` on indented lines) which the
     /// parser does not yet support — it expects `{ }` braces for type bodies.
     #[test]
-    #[ignore = "types_example.types.op uses colon-block indented variant syntax not yet supported by the parser"]
     fn test_types_example_spec_file_parses() {
         const SOURCE: &str = include_str!("../../language-spec/types_example.types.op");
         let passes = parses_successfully(SOURCE);
@@ -96,7 +95,7 @@ mod ecosystem_tests {
     /// `array_helpers.op` uses colon-block syntax (`for x in xs:`, `if pred(x):`,
     /// `while i < end_exclusive:`) which the parser does not yet support.
     #[test]
-    #[ignore = "array_helpers.op uses colon-block syntax (for x in xs:) not yet supported by the parser"]
+    #[ignore = "array_helpers.op uses colon-block syntax (for x in xs:) - causes infinite loop during type-checking"]
     fn test_array_helpers_spec_file_parses_and_type_checks() {
         const SOURCE: &str = include_str!("../../language-spec/array_helpers.op");
         let result = run_pipeline(SOURCE);

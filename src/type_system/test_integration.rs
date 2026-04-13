@@ -145,7 +145,6 @@ entry main = f(args: string[]): void =>
     }
 
     #[test]
-    #[ignore = "fib_recursive.op uses colon-block syntax (if n is 0:) not yet supported by the parser"]
     fn test_fib_recursive_spec_file_parses_and_type_checks() {
         const FIB_RECURSIVE_SOURCE: &str = include_str!("../../language-spec/fib_recursive.op");
         let program = parse_pipeline_with_spaces(FIB_RECURSIVE_SOURCE);
@@ -192,7 +191,6 @@ entry main = f(args: string[]): void =>
     }
 
     #[test]
-    #[ignore = "fib_iterative.op uses colon-block syntax (while i <= n:) not yet supported by the parser"]
     fn test_fib_iterative_spec_file_parses_and_type_checks() {
         const FIB_ITERATIVE_SOURCE: &str = include_str!("../../language-spec/fib_iterative.op");
         let program = parse_pipeline_with_spaces(FIB_ITERATIVE_SOURCE);

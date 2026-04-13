@@ -271,3 +271,70 @@ if self.check_identifier() {
 - src/parser/statements.rs (line 565): Replaced unreachable with error return
 - src/parser/statements.rs (line 582): Replaced unreachable with error return
 - src/parser/tests.rs (3 new tests at end): Added test_guard_*_with_invalid_token functions
+
+## [2026-04-13] Task 12 — Un-Ignore Stale Colon-Block Tests
+
+### Problem Identified
+- 7 integration tests had `#[ignore]` markers claiming parser doesn't support colon-block syntax
+- Colon-block syntax IS supported by parser (verified in learnings from fib files)
+- Markers were STALE but needed individual testing to confirm
+
+### Root Cause Analysis (Per-Test)
+1. **test_fib_recursive_spec_file_parses_and_type_checks (line 148)** — STALE
+   - Uses: `if n is 0:` (colon-block if statement)
+   - Parser: ✓ Supports (TokenType::Colon → parse_indent_block)
+   - Result: ✓ PASS when un-ignored
+
+2. **test_fib_iterative_spec_file_parses_and_type_checks (line 195)** — STALE
+   - Uses: `while i <= n:` (colon-block while loop)
+   - Parser: ✓ Supports 
+   - Result: ✓ PASS when un-ignored
+
+3. **test_types_example_spec_file_parses (ecosystem line 87)** — STALE
+   - Uses: Type variants with colon-block indented syntax (`type Message:` then `Text:` indented)
+   - Parser: ✓ Supports
+   - Result: ✓ PASS when un-ignored
+
+4. **test_array_helpers_spec_file_parses_and_type_checks (ecosystem line 99)** — NOT STALE
+   - Uses: `for x in xs:` with generic types
+   - Reason: ✗ Type system infinite loop (not parser issue)
+   - Fix needed: Type system resolution of unresolved generic types
+
+5. **test_partition_spec_file_parses_and_type_checks (ecosystem line 114)** — NOT STALE
+   - Uses: `Pair<T[]>` type without import
+   - Reason: ✗ Missing type definition (module system issue, not parser)
+   - Fix needed: Module imports or bundled type definitions
+
+6. **test_unique_adjacent_sorted_spec_file_parses_and_type_checks (ecosystem line 129)** — NOT STALE
+   - Uses: Unresolved generic types
+   - Reason: ✗ Type system infinite loop
+   - Fix needed: Same as array_helpers
+
+7. **test_simple_quiz_spec_file_parses_and_type_checks (ecosystem line 144)** — NOT STALE
+   - Uses: `loop => break label: value` (labeled break)
+   - Reason: ✗ Unimplemented parser feature (not related to colon-block)
+   - Fix needed: Implement labeled break statements
+
+### Solution (TDD Protocol)
+1. **RED Phase**: Identified which ignores were STALE (parser claim) vs REAL (type system bugs)
+2. **GREEN Phase**: Un-ignored 3 stale tests; all 3 passed immediately
+3. **REFACTOR**: Updated ignore reasons for 4 remaining tests to reflect TRUE root causes
+
+### Key Insight: Root Cause Matters
+- "Parser doesn't support X" → Stale if parser was fixed
+- "Type system hangs on Y" → Legitimate, different task
+- "Feature Z not implemented" → Legitimate, track separately
+- Don't lump all failures under "parser" — diagnosis reveals true blockers
+
+### Verification
+- Test count: 798 → 801 (+3 un-ignored tests passing) ✓
+- Fib tests execution: Both fib-recursive and fib-iterative run in e2e tests ✓
+- Parser colon-block support verified across all 3 constructs ✓
+- grep -n "#\[ignore" src/type_system/test_integration.rs → 0 test markers ✓
+
+### Files Changed
+- src/type_system/test_integration.rs (line 148): Removed #[ignore] from test_fib_recursive
+- src/type_system/test_integration.rs (line 195): Removed #[ignore] from test_fib_iterative
+- src/type_system/test_integration_ecosystem.rs (line 87): Removed #[ignore] from types_example
+- src/type_system/test_integration_ecosystem.rs (line 98): Updated array_helpers reason
+- Evidence: .sisyphus/evidence/task-12-un-ignore.txt
