@@ -145,6 +145,7 @@ impl Parser {
             &TokenType::String => Ok(self.parse_identifier("string".to_owned(), span)),
             &TokenType::Boolean => Ok(self.parse_identifier("boolean".to_owned(), span)),
             &TokenType::LeftParen => self.parse_parenthesized_expression(span),
+            &TokenType::LeftBracket => self.parse_array_literal(span),
             &TokenType::Minus | &TokenType::Plus | &TokenType::Not | &TokenType::BitNot => {
                 let token_type = token.token_type.clone();
                 self.parse_unary_expression(&token_type, span)
@@ -509,6 +510,33 @@ impl Parser {
         })
     }
 
+    /// Parse an array literal expression enclosed in square brackets.
+    fn parse_array_literal(&mut self, span: Span) -> ParseResult<Expr> {
+        self.advance();
+        let mut elements = Vec::new();
+
+        if !self.check(&TokenType::RightBracket) {
+            loop {
+                elements.push(self.parse_precedence(Precedence::Assignment)?);
+
+                if self.check(&TokenType::Comma) {
+                    self.advance();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        self.consume(&TokenType::RightBracket, "Expected ']' after array literal")?;
+        let end_span = self.previous_token().span;
+
+        Ok(Expr::Array {
+            elements,
+            span: Span::new(span.start, end_span.end),
+            id: next_node_id(),
+        })
+    }
+
     /// Parse unary expressions
     fn parse_unary_expression(&mut self, token_type: &TokenType, span: Span) -> ParseResult<Expr> {
         let operator = UnaryOp::try_from(token_type.clone()).map_err(|_original_error| {
@@ -826,6 +854,22 @@ impl Parser {
                     generic_args: None,
                     args,
                     span: call_span,
+                    id: next_node_id(),
+                })
+            }
+            TokenType::LeftBracket => {
+                self.advance();
+                let index = self.parse_precedence(Precedence::Assignment)?;
+                self.consume(
+                    &TokenType::RightBracket,
+                    "Expected ']' after index expression",
+                )?;
+
+                let span = Span::new(left.span().start, self.previous_token().span.end);
+                Ok(Expr::Index {
+                    object: Box::new(left),
+                    index: Box::new(index),
+                    span,
                     id: next_node_id(),
                 })
             }

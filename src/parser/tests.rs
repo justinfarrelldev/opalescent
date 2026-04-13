@@ -807,6 +807,115 @@ fn test_function_calls() {
 }
 
 #[test]
+fn test_array_literal_expression() {
+    let expr = parse_expression_from_string("[1, 2, 3]").unwrap();
+    if let Expr::Array { elements, .. } = expr {
+        assert_eq!(elements.len(), 3);
+        assert!(matches!(
+            elements[0],
+            Expr::Literal {
+                value: LiteralValue::Integer(1),
+                ..
+            }
+        ));
+        assert!(matches!(
+            elements[1],
+            Expr::Literal {
+                value: LiteralValue::Integer(2),
+                ..
+            }
+        ));
+        assert!(matches!(
+            elements[2],
+            Expr::Literal {
+                value: LiteralValue::Integer(3),
+                ..
+            }
+        ));
+    } else {
+        unreachable!("Expected Expr::Array for array literal");
+    }
+}
+
+#[test]
+fn test_empty_array_literal_expression() {
+    let expr = parse_expression_from_string("[]").unwrap();
+    if let Expr::Array { elements, .. } = expr {
+        assert!(elements.is_empty(), "Expected empty array literal");
+    } else {
+        unreachable!("Expected Expr::Array for empty array literal");
+    }
+}
+
+#[test]
+fn test_index_expression_literal_index() {
+    let expr = parse_expression_from_string("arr[0]").unwrap();
+    if let Expr::Index { object, index, .. } = expr {
+        assert!(matches!(*object, Expr::Identifier { name, .. } if name == "arr"));
+        assert!(matches!(
+            *index,
+            Expr::Literal {
+                value: LiteralValue::Integer(0),
+                ..
+            }
+        ));
+    } else {
+        unreachable!("Expected Expr::Index for arr[0]");
+    }
+}
+
+#[test]
+fn test_index_expression_with_binary_index() {
+    let expr = parse_expression_from_string("arr[i + 1]").unwrap();
+    if let Expr::Index { object, index, .. } = expr {
+        assert!(matches!(*object, Expr::Identifier { name, .. } if name == "arr"));
+        assert!(matches!(
+            *index,
+            Expr::Binary {
+                operator: BinaryOp::Add,
+                ..
+            }
+        ));
+    } else {
+        unreachable!("Expected Expr::Index for arr[i + 1]");
+    }
+}
+
+#[test]
+fn test_nested_index_expression() {
+    let expr = parse_expression_from_string("arr[0][1]").unwrap();
+    if let Expr::Index { object, index, .. } = expr {
+        assert!(matches!(
+            *index,
+            Expr::Literal {
+                value: LiteralValue::Integer(1),
+                ..
+            }
+        ));
+        assert!(matches!(*object, Expr::Index { .. }));
+    } else {
+        unreachable!("Expected outer Expr::Index for arr[0][1]");
+    }
+}
+
+#[test]
+fn test_function_result_index_expression() {
+    let expr = parse_expression_from_string("foo()[0]").unwrap();
+    if let Expr::Index { object, index, .. } = expr {
+        assert!(matches!(*object, Expr::Call { .. }));
+        assert!(matches!(
+            *index,
+            Expr::Literal {
+                value: LiteralValue::Integer(0),
+                ..
+            }
+        ));
+    } else {
+        unreachable!("Expected Expr::Index for foo()[0]");
+    }
+}
+
+#[test]
 fn test_operator_precedence() {
     // Test that multiplication has higher precedence than addition
     let precedence_expr = parse_expression_from_string("1 + 2 * 3").unwrap();
