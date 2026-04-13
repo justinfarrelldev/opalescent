@@ -4335,6 +4335,151 @@ fn test_solve_constraints_callable_wrong_argument_type() {
     );
 }
 
+#[test]
+fn test_constraint_solver_applies_substitution_to_inferred_top_level_bindings() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        public identity = f<T>(x: T): T =>
+            return x
+
+        let inferred = identity(42)
+
+        entry main = f(): int64 =>
+            return inferred
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "generic call-site inference should type check successfully: {result:?}"
+    );
+
+    let inferred_symbol = checker
+        .symbol_table()
+        .lookup("inferred")
+        .expect("top-level inferred binding should be registered");
+    assert_eq!(
+        inferred_symbol.core_type,
+        CoreType::Int64,
+        "constraint solving should apply substitution to inferred top-level binding type"
+    );
+}
+
+#[test]
+fn test_constraint_solver_unifies_compatible_type_variables_in_sequence() {
+    let mut checker = TypeChecker::new();
+    let span = test_span();
+    let var_a = checker
+        .fresh_type_var_auto(span)
+        .expect("should allocate type variable");
+    let var_b = checker
+        .fresh_type_var_auto(span)
+        .expect("should allocate type variable");
+    let var_c = checker
+        .fresh_type_var_auto(span)
+        .expect("should allocate type variable");
+
+    checker.add_constraint(TypeConstraint::equality(
+        var_a.clone(),
+        var_b.clone(),
+        Some(span),
+        Some(span),
+    ));
+    checker.add_constraint(TypeConstraint::equality(
+        var_b.clone(),
+        var_c.clone(),
+        Some(span),
+        Some(span),
+    ));
+    checker.add_constraint(TypeConstraint::equality(
+        var_c.clone(),
+        CoreType::Int64,
+        Some(span),
+        Some(span),
+    ));
+
+    let substitution = checker
+        .solve_constraints()
+        .expect("compatible chained variables should unify");
+    assert_eq!(substitution.apply(&var_a), CoreType::Int64);
+    assert_eq!(substitution.apply(&var_b), CoreType::Int64);
+    assert_eq!(substitution.apply(&var_c), CoreType::Int64);
+}
+
+#[test]
+fn test_constraint_solver_reports_incompatible_types_for_generic_call() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        public identity = f<T>(x: T): T =>
+            return x
+
+        entry main = f(): int64 =>
+            let bad: string = identity(42)
+            return 0
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("incompatible generic call assignment should fail type checking");
+
+    assert!(
+        errors.iter().any(|error| {
+            matches!(
+                *error,
+                TypeError::TypeMismatch { .. }
+                    | TypeError::UnificationFailed { .. }
+                    | TypeError::ConstraintSolvingFailed { .. }
+            )
+        }),
+        "expected a proper type incompatibility diagnostic, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_solve_constraints_applies_substitution_to_registered_symbols() {
+    let mut checker = TypeChecker::new();
+    let span = test_span();
+    let variable_type = checker
+        .fresh_type_var("resolved_symbol_type".to_owned(), span)
+        .expect("should allocate symbol type variable");
+
+    checker.symbol_table_mut().register(SymbolInfo {
+        name: "pending_value".to_owned(),
+        symbol_type: SymbolType::Variable,
+        core_type: variable_type.clone(),
+        visibility: Visibility::Private,
+        source_location: span,
+        is_let_binding: true,
+        is_mutable: false,
+        read_count: 0,
+    });
+
+    checker.add_constraint(TypeConstraint::equality(
+        variable_type,
+        CoreType::Int32,
+        Some(span),
+        Some(span),
+    ));
+
+    checker
+        .solve_constraints()
+        .expect("symbol substitution constraints should solve");
+
+    let pending_symbol = checker
+        .symbol_table()
+        .lookup("pending_value")
+        .expect("symbol should still be registered after solving");
+    assert_eq!(
+        pending_symbol.core_type,
+        CoreType::Int32,
+        "solved substitution should be applied to registered symbols"
+    );
+}
+
 // ============================================================================
 // Cast Validation Tests
 // ============================================================================

@@ -391,3 +391,23 @@ if self.check_identifier() {
 - Added unit test validating `Expr::Lambda` yields `CoreType::Function` with non-empty `generic_params` and matching param/return type variables.
 - `cargo test type_system` passes with new tests.
 - `cargo test` passes with zero regressions.
+
+## [2026-04-13] Task 15 — Constraint solver completion
+
+### Findings
+- Constraint solving needed to do more than return a composed `Substitution`: it also had to apply solved substitutions back into currently visible symbol table entries so deferred/inferred binding types are concretized after phase-2 unification.
+- Existing unification/constraint infrastructure in `checker.rs` and `checker/unification.rs` was already capable for equality/callable/has-field constraints; the missing integration step was propagation of substitution results into checker state.
+- Keeping solver diagnostics robust means preserving optional spans per-constraint and using fallback spans only when spans are unavailable from synthesized constraints.
+
+### TDD Signal
+- Added RED unit test `test_solve_constraints_applies_substitution_to_registered_symbols` that registered a symbol with a type variable and constrained it to `int32`; it failed before implementation because symbol table types were left as unresolved variables even after `solve_constraints()`.
+
+### Implementation Pattern
+- `solve_constraints()` now calls an internal pass that iterates visible symbol names and rewrites each symbol's `core_type` via the solved substitution.
+- This kept the existing constraint solver design intact (no redesign), while completing phase-2 integration semantics.
+
+### Verification
+- `lsp_diagnostics` clean on changed files (`src/type_system/checker.rs`, `src/type_system/tests.rs`).
+- `cargo test type_system` passed with new and existing constraint tests.
+- `cargo test` passed with no regressions (820 passed, 0 failed, 5 ignored).
+- Evidence captured at `.sisyphus/evidence/task-15-constraints.txt`.
