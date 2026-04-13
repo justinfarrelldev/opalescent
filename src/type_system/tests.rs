@@ -9,6 +9,7 @@ use super::environment::TypeEnvironment;
 use super::errors::{TypeError, Warning};
 use super::substitution::Substitution;
 use super::symbol_table::{ScopeId, SymbolInfo, SymbolTable, SymbolType, Visibility};
+use super::type_mapping::ast_type_to_core_type;
 use super::types::{CoreType, TypeVar};
 use crate::ast::{
     Decl, Expr, Field, HotReloadMetadata, LabeledValue, LambdaBody, LetBinding, LiteralValue,
@@ -2035,7 +2036,7 @@ fn test_generic_type_instantiation() {
         ],
         span,
     };
-    let core_type = TypeChecker::ast_type_to_core_type(&ast_type).unwrap();
+    let core_type = ast_type_to_core_type(&ast_type).unwrap();
     if let CoreType::Generic { name, type_args } = core_type {
         assert_eq!(name, "Result");
         assert_eq!(type_args.len(), 2);
@@ -2288,6 +2289,21 @@ fn test_type_checker_creation() {
 }
 
 #[test]
+fn test_centralized_ast_type_to_core_type_import() {
+    use crate::token::{Position, Span};
+
+    let start_pos = Position::new(1, 1, 0);
+    let end_pos = Position::new(1, 5, 4);
+    let span = Span::new(start_pos, end_pos);
+    let int8_type = Type::Basic {
+        name: "int8".to_owned(),
+        span,
+    };
+
+    assert_eq!(ast_type_to_core_type(&int8_type).unwrap(), CoreType::Int8);
+}
+
+#[test]
 fn test_ast_type_to_core_type() {
     use crate::token::{Position, Span};
 
@@ -2300,7 +2316,9 @@ fn test_ast_type_to_core_type() {
         span,
     };
     assert_eq!(
-        TypeChecker::ast_type_to_core_type(&int32_type).unwrap(),
+        ast_type_to_core_type(&int32_type)
+            .map_err(TypeError::from)
+            .unwrap(),
         CoreType::Int32
     );
 
@@ -2309,7 +2327,9 @@ fn test_ast_type_to_core_type() {
         span,
     };
     assert_eq!(
-        TypeChecker::ast_type_to_core_type(&string_type).unwrap(),
+        ast_type_to_core_type(&string_type)
+            .map_err(TypeError::from)
+            .unwrap(),
         CoreType::String
     );
 
@@ -2317,7 +2337,9 @@ fn test_ast_type_to_core_type() {
         name: "nonexistent".to_owned(),
         span,
     };
-    assert!(TypeChecker::ast_type_to_core_type(&invalid_type).is_err());
+    assert!(ast_type_to_core_type(&invalid_type)
+        .map_err(TypeError::from)
+        .is_err());
 }
 
 #[test]
@@ -2334,7 +2356,9 @@ fn test_ast_type_to_core_type_extended_integers() {
         span,
     };
     assert_eq!(
-        TypeChecker::ast_type_to_core_type(&int8_type).unwrap(),
+        ast_type_to_core_type(&int8_type)
+            .map_err(TypeError::from)
+            .unwrap(),
         CoreType::Int8
     );
 
@@ -2343,7 +2367,9 @@ fn test_ast_type_to_core_type_extended_integers() {
         span,
     };
     assert_eq!(
-        TypeChecker::ast_type_to_core_type(&int16_type).unwrap(),
+        ast_type_to_core_type(&int16_type)
+            .map_err(TypeError::from)
+            .unwrap(),
         CoreType::Int16
     );
 
@@ -2352,7 +2378,9 @@ fn test_ast_type_to_core_type_extended_integers() {
         span,
     };
     assert_eq!(
-        TypeChecker::ast_type_to_core_type(&uint8_type).unwrap(),
+        ast_type_to_core_type(&uint8_type)
+            .map_err(TypeError::from)
+            .unwrap(),
         CoreType::UInt8
     );
 
@@ -2361,7 +2389,9 @@ fn test_ast_type_to_core_type_extended_integers() {
         span,
     };
     assert_eq!(
-        TypeChecker::ast_type_to_core_type(&uint16_type).unwrap(),
+        ast_type_to_core_type(&uint16_type)
+            .map_err(TypeError::from)
+            .unwrap(),
         CoreType::UInt16
     );
 
@@ -2370,7 +2400,9 @@ fn test_ast_type_to_core_type_extended_integers() {
         span,
     };
     assert_eq!(
-        TypeChecker::ast_type_to_core_type(&uint32_type).unwrap(),
+        ast_type_to_core_type(&uint32_type)
+            .map_err(TypeError::from)
+            .unwrap(),
         CoreType::UInt32
     );
 
@@ -2379,7 +2411,9 @@ fn test_ast_type_to_core_type_extended_integers() {
         span,
     };
     assert_eq!(
-        TypeChecker::ast_type_to_core_type(&uint64_type).unwrap(),
+        ast_type_to_core_type(&uint64_type)
+            .map_err(TypeError::from)
+            .unwrap(),
         CoreType::UInt64
     );
 
@@ -2388,7 +2422,9 @@ fn test_ast_type_to_core_type_extended_integers() {
         span,
     };
     assert_eq!(
-        TypeChecker::ast_type_to_core_type(&int64_type).unwrap(),
+        ast_type_to_core_type(&int64_type)
+            .map_err(TypeError::from)
+            .unwrap(),
         CoreType::Int64
     );
 }
@@ -2406,7 +2442,9 @@ fn test_ast_type_to_core_type_float_types() {
         span,
     };
     assert_eq!(
-        TypeChecker::ast_type_to_core_type(&float32_type).unwrap(),
+        ast_type_to_core_type(&float32_type)
+            .map_err(TypeError::from)
+            .unwrap(),
         CoreType::Float32
     );
 
@@ -2415,7 +2453,9 @@ fn test_ast_type_to_core_type_float_types() {
         span,
     };
     assert_eq!(
-        TypeChecker::ast_type_to_core_type(&float64_type).unwrap(),
+        ast_type_to_core_type(&float64_type)
+            .map_err(TypeError::from)
+            .unwrap(),
         CoreType::Float64
     );
 }
@@ -2436,7 +2476,7 @@ fn test_ast_type_to_core_type_complex_types() {
         }),
         span,
     };
-    let array_result = TypeChecker::ast_type_to_core_type(&array_type);
+    let array_result = ast_type_to_core_type(&array_type);
     assert!(array_result.is_ok());
     assert_eq!(
         array_result.unwrap(),
@@ -2452,7 +2492,7 @@ fn test_ast_type_to_core_type_complex_types() {
         errors: None,
         span,
     };
-    let function_result = TypeChecker::ast_type_to_core_type(&function_type);
+    let function_result = ast_type_to_core_type(&function_type);
     assert!(function_result.is_ok());
     assert_eq!(
         function_result.unwrap(),
@@ -2472,7 +2512,7 @@ fn test_ast_type_to_core_type_complex_types() {
         }],
         span,
     };
-    let generic_result = TypeChecker::ast_type_to_core_type(&generic_type);
+    let generic_result = ast_type_to_core_type(&generic_type);
     assert!(generic_result.is_ok());
     assert_eq!(
         generic_result.unwrap(),

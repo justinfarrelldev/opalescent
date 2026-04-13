@@ -9,6 +9,7 @@ use crate::ast::{
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
+use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{collections::BTreeMap, format, vec::Vec};
 
@@ -61,7 +62,7 @@ impl TypeChecker {
                 {
                     return Ok(core_type.clone());
                 }
-                match Self::ast_type_to_core_type(ast_type) {
+                match ast_type_to_core_type(ast_type).map_err(TypeError::from) {
                     Ok(core_type) => Ok(core_type),
                     Err(TypeError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {
                         name: type_name,
@@ -181,17 +182,17 @@ impl TypeChecker {
 
                         let mut constraint_types = Vec::new();
                         for constraint in &declaration.constraints {
-                            let resolved_constraint = match Self::ast_type_to_core_type(constraint)
-                            {
-                                Ok(core_type) => core_type,
-                                Err(TypeError::TypeNotFound { type_name, .. }) => {
-                                    CoreType::Generic {
-                                        name: type_name,
-                                        type_args: Vec::new(),
+                            let resolved_constraint =
+                                match ast_type_to_core_type(constraint).map_err(TypeError::from) {
+                                    Ok(core_type) => core_type,
+                                    Err(TypeError::TypeNotFound { type_name, .. }) => {
+                                        CoreType::Generic {
+                                            name: type_name,
+                                            type_args: Vec::new(),
+                                        }
                                     }
-                                }
-                                Err(other) => return Err(other),
-                            };
+                                    Err(other) => return Err(other),
+                                };
                             constraint_types.push(resolved_constraint);
                         }
 
@@ -273,7 +274,7 @@ impl TypeChecker {
                 ..
             } => {
                 let inferred_type = if let Some(annotation) = binding.type_annotation.as_ref() {
-                    Some(Self::ast_type_to_core_type(annotation)?)
+                    Some(ast_type_to_core_type(annotation).map_err(TypeError::from)?)
                 } else {
                     Self::lambda_signature_type(initializer)?
                 };
@@ -568,12 +569,12 @@ impl TypeChecker {
 
         let parameter_types = params
             .iter()
-            .map(|param| Self::ast_type_to_core_type(&param.param_type))
+            .map(|param| ast_type_to_core_type(&param.param_type).map_err(TypeError::from))
             .collect::<Result<Vec<_>, _>>()?;
 
         let return_core_types = return_types
             .iter()
-            .map(Self::ast_type_to_core_type)
+            .map(|return_type| ast_type_to_core_type(return_type).map_err(TypeError::from))
             .collect::<Result<Vec<_>, _>>()?;
 
         let error_core_types = error_types

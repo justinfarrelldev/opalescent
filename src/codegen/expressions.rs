@@ -15,6 +15,7 @@ use crate::codegen::functions::{
     codegen_call_expression, codegen_guard_expression, codegen_propagate_expression,
 };
 use crate::codegen::types::core_type_to_llvm;
+use crate::type_system::type_mapping::{ast_type_to_core_type, AstTypeMappingError};
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
 use alloc::format;
@@ -332,7 +333,7 @@ fn codegen_cast<'context>(
     expr: &Expr,
     target: &Type,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let target_type = ast_type_to_core_type(target)?;
+    let target_type = ast_type_to_core_type_for_cast(target)?;
     let value = codegen_expression(codegen_context, env, expr, None)?;
 
     if value.is_int_value() {
@@ -657,33 +658,18 @@ pub fn current_function<'context>(
     Ok(function)
 }
 
-fn ast_type_to_core_type(ast_type: &Type) -> Result<CoreType, CodegenError> {
-    match *ast_type {
-        Type::Basic { ref name, .. } => match name.as_str() {
-            "int8" => Ok(CoreType::Int8),
-            "int16" => Ok(CoreType::Int16),
-            "int32" => Ok(CoreType::Int32),
-            "int64" => Ok(CoreType::Int64),
-            "uint8" => Ok(CoreType::UInt8),
-            "uint16" => Ok(CoreType::UInt16),
-            "uint32" => Ok(CoreType::UInt32),
-            "uint64" => Ok(CoreType::UInt64),
-            "float32" => Ok(CoreType::Float32),
-            "float64" => Ok(CoreType::Float64),
-            "string" => Ok(CoreType::String),
-            "boolean" => Ok(CoreType::Boolean),
-            "void" | "unit" => Ok(CoreType::Unit),
-            _ => Err(CodegenError::new(format!("unsupported type '{name}'"))),
-        },
-        Type::Array {
-            ref element_type, ..
-        } => Ok(CoreType::Array(alloc::boxed::Box::new(
-            ast_type_to_core_type(element_type)?,
-        ))),
-        _ => Err(CodegenError::new(String::from(
+fn ast_type_to_core_type_for_cast(ast_type: &Type) -> Result<CoreType, CodegenError> {
+    if matches!(*ast_type, Type::Function { .. } | Type::Generic { .. }) {
+        return Err(CodegenError::new(String::from(
             "function/generic cast targets unsupported in task 22",
-        ))),
+        )));
     }
+
+    ast_type_to_core_type(ast_type).map_err(|error| match error {
+        AstTypeMappingError::TypeNotFound { type_name, .. } => {
+            CodegenError::new(format!("unsupported type '{type_name}'"))
+        }
+    })
 }
 
 fn integer_type_for<'context>(

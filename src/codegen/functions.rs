@@ -6,6 +6,7 @@ use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError, 
 use crate::codegen::monomorphization::ensure_monomorphized_function_declaration;
 use crate::codegen::statements::codegen_statement;
 use crate::codegen::types::core_type_to_llvm;
+use crate::type_system::type_mapping::{ast_type_to_core_type, AstTypeMappingError};
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
@@ -36,14 +37,14 @@ pub fn codegen_function_declaration<'context>(
 
     let parameter_core_types = parameters
         .iter()
-        .map(|parameter| ast_type_to_core_type(&parameter.param_type))
+        .map(|parameter| ast_type_to_core_type_for_signature(&parameter.param_type))
         .collect::<Result<Vec<_>, _>>()?;
     let returns = return_types.as_ref().map_or_else(
         || Ok(vec![CoreType::Unit]),
         |types| {
             types
                 .iter()
-                .map(ast_type_to_core_type)
+                .map(ast_type_to_core_type_for_signature)
                 .collect::<Result<Vec<_>, _>>()
         },
     )?;
@@ -444,7 +445,7 @@ fn resolve_callee_function<'context>(
             if let Some(explicit_generic_args) = generic_args {
                 let concrete_types = explicit_generic_args
                     .iter()
-                    .map(ast_type_to_core_type)
+                    .map(ast_type_to_core_type_for_signature)
                     .collect::<Result<Vec<_>, _>>()?;
                 if !concrete_types.is_empty() && !is_stdlib_name {
                     return Ok(ensure_monomorphized_function_declaration(
@@ -466,7 +467,7 @@ fn resolve_callee_function<'context>(
         } => {
             let mut parameter_types = params
                 .iter()
-                .map(|param| ast_type_to_core_type(&param.param_type))
+                .map(|param| ast_type_to_core_type_for_signature(&param.param_type))
                 .collect::<Result<Vec<_>, _>>()?;
             for capture in captured_variables {
                 if let Some(binding) = env.variables.get(capture) {
@@ -477,7 +478,7 @@ fn resolve_callee_function<'context>(
             }
             let return_core_types = return_types
                 .iter()
-                .map(ast_type_to_core_type)
+                .map(ast_type_to_core_type_for_signature)
                 .collect::<Result<Vec<_>, _>>()?;
             let metadata_params = parameter_types
                 .iter()
@@ -727,47 +728,18 @@ fn emit_c_main_wrapper<'context>(
 }
 
 #[doc = "Map AST types to core types needed for codegen signatures."]
-fn ast_type_to_core_type(ast_type: &Type) -> Result<CoreType, CodegenError> {
-    match *ast_type {
-        Type::Basic { ref name, .. } => match name.as_str() {
-            "int8" => Ok(CoreType::Int8),
-            "int16" => Ok(CoreType::Int16),
-            "int32" => Ok(CoreType::Int32),
-            "int64" => Ok(CoreType::Int64),
-            "uint8" => Ok(CoreType::UInt8),
-            "uint16" => Ok(CoreType::UInt16),
-            "uint32" => Ok(CoreType::UInt32),
-            "uint64" => Ok(CoreType::UInt64),
-            "float32" => Ok(CoreType::Float32),
-            "float64" => Ok(CoreType::Float64),
-            "string" => Ok(CoreType::String),
-            "boolean" => Ok(CoreType::Boolean),
-            "void" | "unit" => Ok(CoreType::Unit),
-            _ => Err(CodegenError::new(format!("unsupported type '{name}'"))),
-        },
-        Type::Array {
-            ref element_type, ..
-        } => Ok(CoreType::Array(alloc::boxed::Box::new(
-            ast_type_to_core_type(element_type.as_ref())?,
-        ))),
-        Type::Generic {
-            ref name,
-            ref type_args,
-            ..
-        } => {
-            let resolved_args = type_args
-                .iter()
-                .map(ast_type_to_core_type)
-                .collect::<Result<Vec<_>, _>>()?;
-            Ok(CoreType::Generic {
-                name: name.clone(),
-                type_args: resolved_args,
-            })
-        }
-        Type::Function { .. } => Err(CodegenError::new(String::from(
+fn ast_type_to_core_type_for_signature(ast_type: &Type) -> Result<CoreType, CodegenError> {
+    if matches!(*ast_type, Type::Function { .. }) {
+        return Err(CodegenError::new(String::from(
             "unsupported function type annotation",
-        ))),
+        )));
     }
+
+    ast_type_to_core_type(ast_type).map_err(|error| match error {
+        AstTypeMappingError::TypeNotFound { type_name, .. } => {
+            CodegenError::new(format!("unsupported type '{type_name}'"))
+        }
+    })
 }
 
 #[doc = "Fetch current LLVM function from builder insertion block."]

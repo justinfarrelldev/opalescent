@@ -14,6 +14,7 @@ use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::substitution::Substitution;
+use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
@@ -329,7 +330,8 @@ impl TypeChecker {
         for (declared_generic, explicit_ast_type) in
             generic_params.iter().zip(explicit_generic_args.iter())
         {
-            let explicit_core_type = Self::ast_type_to_core_type(explicit_ast_type)?;
+            let explicit_core_type =
+                ast_type_to_core_type(explicit_ast_type).map_err(TypeError::from)?;
             let target_generic_type = Self::instantiated_type_for_generic(
                 declared_generic.type_var.id,
                 instantiated_generic_variables,

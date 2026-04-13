@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::collections::BTreeSet;
 
+use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::{
     ast::{AstNode, ConstructorField, Expr, TypeDef},
     token::Span,
@@ -230,19 +231,19 @@ impl TypeChecker {
             TypeDef::Sum { ref variants, .. } => {
                 for variant in variants {
                     for field in &variant.fields {
-                        Self::ast_type_to_core_type(&field.type_annotation)?;
+                        ast_type_to_core_type(&field.type_annotation).map_err(TypeError::from)?;
                     }
                 }
             }
             TypeDef::Product { ref fields, .. } => {
                 for field in fields {
-                    Self::ast_type_to_core_type(&field.type_annotation)?;
+                    ast_type_to_core_type(&field.type_annotation).map_err(TypeError::from)?;
                 }
             }
             TypeDef::Alias {
                 ref target_type, ..
             } => {
-                Self::ast_type_to_core_type(target_type)?;
+                ast_type_to_core_type(target_type).map_err(TypeError::from)?;
             }
         }
         Ok(())

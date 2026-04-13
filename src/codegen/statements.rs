@@ -9,6 +9,7 @@ use crate::codegen::control_flow::{
 };
 use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError, VariableBinding};
 use crate::codegen::types::core_type_to_llvm;
+use crate::type_system::type_mapping::{ast_type_to_core_type, AstTypeMappingError};
 use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -91,7 +92,7 @@ fn codegen_let_statement<'context>(
 ) -> Result<(), CodegenError> {
     let (declared_type, lowered_initializer) = if let Some(ref annotation) = binding.type_annotation
     {
-        let declared_type = ast_type_to_core_type(annotation)?;
+        let declared_type = ast_type_to_core_type_for_let(annotation)?;
         let lowered = if let Some(init_expr) = initializer {
             Some(codegen_expression(
                 codegen_context,
@@ -163,7 +164,7 @@ fn codegen_let_destructure_statement<'context>(
         let binding_type = binding
             .type_annotation
             .as_ref()
-            .map(ast_type_to_core_type)
+            .map(ast_type_to_core_type_for_let)
             .transpose()?
             .unwrap_or(CoreType::Int64);
         let slot_type = core_type_to_llvm(codegen_context.context, &binding_type);
@@ -244,32 +245,28 @@ fn codegen_guard_statement<'context>(
 }
 
 /// Convert parsed AST type annotations into backend core types.
-fn ast_type_to_core_type(ast_type: &Type) -> Result<CoreType, CodegenError> {
+fn ast_type_to_core_type_for_let(ast_type: &Type) -> Result<CoreType, CodegenError> {
+    if !is_supported_let_type(ast_type) {
+        return Err(CodegenError::new(String::from(
+            "unsupported let type annotation for task 22",
+        )));
+    }
+
+    ast_type_to_core_type(ast_type).map_err(|error| match error {
+        AstTypeMappingError::TypeNotFound { type_name, .. } => {
+            CodegenError::new(format!("unsupported type '{type_name}'"))
+        }
+    })
+}
+
+/// Return whether an AST type is currently supported for let annotations.
+fn is_supported_let_type(ast_type: &Type) -> bool {
     match *ast_type {
-        Type::Basic { ref name, .. } => match name.as_str() {
-            "int8" => Ok(CoreType::Int8),
-            "int16" => Ok(CoreType::Int16),
-            "int32" => Ok(CoreType::Int32),
-            "int64" => Ok(CoreType::Int64),
-            "uint8" => Ok(CoreType::UInt8),
-            "uint16" => Ok(CoreType::UInt16),
-            "uint32" => Ok(CoreType::UInt32),
-            "uint64" => Ok(CoreType::UInt64),
-            "float32" => Ok(CoreType::Float32),
-            "float64" => Ok(CoreType::Float64),
-            "string" => Ok(CoreType::String),
-            "boolean" => Ok(CoreType::Boolean),
-            "void" | "unit" => Ok(CoreType::Unit),
-            _ => Err(CodegenError::new(format!("unsupported type '{name}'"))),
-        },
+        Type::Basic { .. } => true,
         Type::Array {
             ref element_type, ..
-        } => Ok(CoreType::Array(alloc::boxed::Box::new(
-            ast_type_to_core_type(element_type)?,
-        ))),
-        _ => Err(CodegenError::new(String::from(
-            "unsupported let type annotation for task 22",
-        ))),
+        } => is_supported_let_type(element_type),
+        Type::Function { .. } | Type::Generic { .. } => false,
     }
 }
 

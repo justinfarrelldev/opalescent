@@ -12,11 +12,11 @@ use super::errors::{TypeError, Warning};
 use super::module_resolver::ModuleResolver;
 use super::substitution::Substitution;
 use super::symbol_table::{SymbolInfo, SymbolTable, SymbolType, Visibility};
+use super::type_mapping::AstTypeMappingError;
 use super::types::{CoreType, GenericTypeParameter, TypeVar};
-use crate::ast::Type;
 use crate::token::Span;
 use crate::type_system::arithmetic::ArithmeticMode;
-use alloc::{boxed::Box, collections::BTreeMap, format, string::String, vec::Vec};
+use alloc::{collections::BTreeMap, format, string::String, vec::Vec};
 use hot_reload::FunctionHotReloadMetadata;
 
 // Sub-modules
@@ -659,99 +659,6 @@ impl TypeChecker {
         self.fresh_type_var(format!("t{}", self.next_var_id), span)
     }
 
-    /// Convert an AST Type to a `CoreType` for validation and instantiation
-    /// Supports generics, arrays, and function types.
-    ///
-    /// # Errors
-    ///
-    /// Returns `TypeError` variants when type conversion fails
-    pub fn ast_type_to_core_type(ast_type: &Type) -> Result<CoreType, TypeError> {
-        match *ast_type {
-            Type::Basic { ref name, span } => match name.as_str() {
-                "int8" => Ok(CoreType::Int8),
-                "int16" => Ok(CoreType::Int16),
-                "int32" => Ok(CoreType::Int32),
-                "int64" => Ok(CoreType::Int64),
-                "uint8" => Ok(CoreType::UInt8),
-                "uint16" => Ok(CoreType::UInt16),
-                "uint32" => Ok(CoreType::UInt32),
-                "uint64" => Ok(CoreType::UInt64),
-                "float32" => Ok(CoreType::Float32),
-                "float64" => Ok(CoreType::Float64),
-                "string" => Ok(CoreType::String),
-                "boolean" => Ok(CoreType::Boolean),
-                "unit" | "void" => Ok(CoreType::Unit),
-                _ => Err(TypeError::TypeNotFound {
-                    type_name: name.clone(),
-                    span: TypeError::span_from_span(span),
-                }),
-            },
-            Type::Array {
-                ref element_type, ..
-            } => {
-                let core_element = Self::ast_type_to_core_type(element_type.as_ref())?;
-                Ok(CoreType::Array(Box::new(core_element)))
-            }
-            Type::Function {
-                ref parameters,
-                ref return_types,
-                ..
-            } => {
-                let mut core_params = Vec::with_capacity(parameters.len());
-                for param in parameters {
-                    core_params.push(Self::ast_type_to_core_type(param)?);
-                }
-                let mut core_return_types = Vec::with_capacity(return_types.len());
-                for return_type in return_types {
-                    core_return_types.push(Self::ast_type_to_core_type(return_type)?);
-                }
-                // NOTE: Function type node may carry an errors clause for pretty-printing
-                // and documentation. For conversion, we attempt to resolve these types; if a
-                // type is unknown at this stage (e.g., custom ADT not yet declared), we map
-                // it into a nominal `Generic { name, args: [] }` form to preserve intent
-                // without failing conversion.
-                let mut core_errors: Vec<CoreType> = Vec::new();
-                if let Type::Function { ref errors, .. } = *ast_type {
-                    if let Some(list) = errors.as_ref() {
-                        for err_ty in list {
-                            match Self::ast_type_to_core_type(err_ty) {
-                                Ok(core) => core_errors.push(core),
-                                Err(TypeError::TypeNotFound { type_name, .. }) => {
-                                    core_errors.push(CoreType::Generic {
-                                        name: type_name,
-                                        type_args: Vec::new(),
-                                    });
-                                }
-                                Err(other) => return Err(other),
-                            }
-                        }
-                    }
-                }
-
-                Ok(CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: core_params,
-                    return_types: core_return_types,
-                    error_types: core_errors,
-                })
-            }
-            Type::Generic {
-                ref name,
-                ref type_args,
-                ..
-            } => {
-                let mut core_args = Vec::with_capacity(type_args.len());
-                for arg in type_args {
-                    core_args.push(Self::ast_type_to_core_type(arg)?);
-                }
-                Ok(CoreType::Generic {
-                    name: name.clone(),
-                    type_args: core_args,
-                })
-            }
-        }
-    }
-
     /// Resolve error type names into nominal [`CoreType`]s using the type environment.
     ///
     /// This ensures that error declarations reference existing types and produces an
@@ -990,6 +897,17 @@ impl TypeChecker {
         let result = action(self);
         self.symbol_table.exit_scope();
         result
+    }
+}
+
+impl From<AstTypeMappingError> for TypeError {
+    fn from(value: AstTypeMappingError) -> Self {
+        match value {
+            AstTypeMappingError::TypeNotFound { type_name, span } => Self::TypeNotFound {
+                type_name,
+                span: Self::span_from_span(span),
+            },
+        }
     }
 }
 

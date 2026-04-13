@@ -85,6 +85,7 @@ mod memory;
 mod module_resolver;
 mod substitution;
 mod symbol_table;
+pub mod type_mapping;
 pub mod types;
 
 #[cfg(test)]

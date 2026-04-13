@@ -13,6 +13,7 @@ use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::{TypeError, Warning};
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
+use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
 use alloc::format;
 
@@ -255,14 +256,16 @@ impl TypeChecker {
         let annotated_type = binding
             .type_annotation
             .as_ref()
-            .map(|annotation| match Self::ast_type_to_core_type(annotation) {
-                Ok(core_type) => Ok(core_type),
-                Err(TypeError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {
-                    name: type_name,
-                    type_args: Vec::new(),
-                }),
-                Err(other) => Err(other),
-            })
+            .map(
+                |annotation| match ast_type_to_core_type(annotation).map_err(TypeError::from) {
+                    Ok(core_type) => Ok(core_type),
+                    Err(TypeError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {
+                        name: type_name,
+                        type_args: Vec::new(),
+                    }),
+                    Err(other) => Err(other),
+                },
+            )
             .transpose()?;
 
         let initializer_info = match initializer {
@@ -387,7 +390,7 @@ impl TypeChecker {
 
         for (binding, value_type) in bindings.iter().zip(return_types.into_iter()) {
             if let Some(annotation) = binding.type_annotation.as_ref() {
-                let annotated = Self::ast_type_to_core_type(annotation)?;
+                let annotated = ast_type_to_core_type(annotation).map_err(TypeError::from)?;
                 if !self.types_compatible(&annotated, &value_type) {
                     return Err(type_mismatch_error(
                         &annotated,

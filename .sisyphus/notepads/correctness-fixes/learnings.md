@@ -183,3 +183,26 @@
 - src/lexer.rs: Added peek_keyword_after_whitespace() helper; modified scan_identifier() lookahead
 - src/lexer/tests.rs (new test lines 407-423): test_is_not_operator_consistency()
 - src/parser/tests.rs (3 updated tests): Expect TokenType::IsNot, BinaryOp::IsNot instead of two-token Is+Not
+
+## [2026-04-13] Task 6 — Centralize `ast_type_to_core_type`
+
+### Canonical location
+- New single authoritative implementation: `src/type_system/type_mapping.rs::ast_type_to_core_type`.
+- Shared error type `AstTypeMappingError` allows both type checker and codegen to map failures into their domain errors.
+
+### Call site migration
+- Removed duplicate `ast_type_to_core_type` definitions from:
+  - `src/type_system/checker.rs`
+  - `src/codegen/functions.rs`
+  - `src/codegen/statements.rs`
+  - `src/codegen/expressions.rs`
+- Updated type-system call sites to import centralized function and convert via `TypeError::from`.
+- Updated codegen call sites to wrap centralized mapper with context-specific helpers preserving existing task-22 restrictions/messages:
+  - `ast_type_to_core_type_for_signature` (functions)
+  - `ast_type_to_core_type_for_let` (statements)
+  - `ast_type_to_core_type_for_cast` (expressions)
+
+### TDD gotcha
+- RED phase succeeded by adding a direct import test for new module path before module existed.
+- Once centralized function was introduced, multiple files failed due to missing imports and old associated-function references; fixing required explicit module imports in each checker submodule.
+- Verification grep must use exact definition pattern (`fn ast_type_to_core_type(`) to avoid counting wrapper helper names.

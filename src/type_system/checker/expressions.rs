@@ -19,6 +19,7 @@ use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
+use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
 use alloc::{format, string::String, vec::Vec};
 
@@ -618,7 +619,7 @@ impl TypeChecker {
         span: Span,
     ) -> Result<CoreType, TypeError> {
         let source_type = self.type_check_expr(expr)?;
-        let target_core_type = Self::ast_type_to_core_type(target_type)?;
+        let target_core_type = ast_type_to_core_type(target_type).map_err(TypeError::from)?;
         // Validate the cast according to language spec (math.md)
         // Invalid casts remain errors; unsafe casts are collected as warnings.
         self.validate_cast_with_warnings(&source_type, &target_core_type, span)?;
@@ -658,11 +659,12 @@ impl TypeChecker {
         }
         let mut parameter_types = Vec::with_capacity(parameters.len());
         for param in parameters {
-            parameter_types.push(Self::ast_type_to_core_type(&param.param_type)?);
+            parameter_types
+                .push(ast_type_to_core_type(&param.param_type).map_err(TypeError::from)?);
         }
         let return_core_types: Vec<CoreType> = return_types
             .iter()
-            .map(Self::ast_type_to_core_type)
+            .map(|return_type| ast_type_to_core_type(return_type).map_err(TypeError::from))
             .collect::<Result<Vec<_>, _>>()?;
         let core_errors = self.resolve_error_types(error_types, span)?;
         self.symbol_table.enter_function(core_errors.clone(), span);
