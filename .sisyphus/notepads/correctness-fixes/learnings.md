@@ -354,3 +354,24 @@ if self.check_identifier() {
 - `cargo test parser` passes with cast tests green.
 - Full `cargo test` passes with zero regressions.
 - Evidence captured at `.sisyphus/evidence/task-9-cast-parsing.txt`.
+
+## [2026-04-13] Task 13 — Builtin signature alignment (type checker)
+
+### Findings
+- `print` must declare its generic parameter in `generic_params`; using a raw `TypeVar::new(0, "T")` in parameters without declaration creates an unconstrained type var and risks collision with inference-generated IDs.
+- Safe pattern for builtin generics: use a sentinel `TypeVar` in both `generic_params` and parameter position (here `usize::MAX`), so the function’s type variable is self-contained and non-colliding with `fresh_type_var` IDs.
+- `string_to_int32` and `random_int32` in `register_standard_builtins` were returning `int64`; aligning name/type in the checker required changing both to `int32`.
+- `random_int32` parameter contract from stdlib/spec remains two arguments (`min`, `max`), and checker signature now enforces both as `int32`.
+
+### TDD notes
+- RED first was explicit and useful:
+  - Changed builtin signature tests to require `int32` returns for `string_to_int32` and `random_int32`.
+  - Added direct structure test asserting `print` has exactly one declared generic parameter and that the parameter type reuses that declared `TypeVar`.
+  - Added negative-availability tests for `string_to_int64`/`random_int64` to ensure no premature rename happened before runtime task.
+- Existing guard test that bound `string_to_int32('5')` needed expectation update from `int64` to `int32` after signature fix.
+
+### Verification
+- `lsp_diagnostics` clean on changed files (`checker.rs`, `tests.rs`).
+- `cargo test type_system` passed after adjustments.
+- `cargo test` passed (814 passed, 0 failed, 5 ignored; doc-tests unchanged).
+- Evidence captured at `.sisyphus/evidence/task-13-builtins.txt`.

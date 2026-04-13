@@ -169,10 +169,15 @@ impl TypeChecker {
 
     /// Register all phase-2 standard-library built-in signatures.
     fn register_standard_builtins(&mut self) {
-        let generic_print_param = CoreType::Variable(TypeVar::new(0, "T".to_owned()));
+        let print_type_var = TypeVar::new(usize::MAX, "T".to_owned());
+        let generic_print_param = CoreType::Variable(print_type_var.clone());
 
         let print_signature = CoreType::Function {
-            generic_params: Vec::new(),
+            generic_params: vec![GenericTypeParameter {
+                name: "T".to_owned(),
+                type_var: print_type_var,
+                constraints: Vec::new(),
+            }],
             parameters: vec![generic_print_param],
             return_types: vec![CoreType::Unit],
             error_types: Vec::new(),
@@ -212,7 +217,7 @@ impl TypeChecker {
         let string_to_int32_signature = CoreType::Function {
             generic_params: Vec::new(),
             parameters: vec![CoreType::String],
-            return_types: vec![CoreType::Int64],
+            return_types: vec![CoreType::Int32],
             error_types: Vec::new(),
         };
         self.environment.register_builtin(
@@ -240,8 +245,8 @@ impl TypeChecker {
 
         let random_int32_signature = CoreType::Function {
             generic_params: Vec::new(),
-            parameters: vec![CoreType::Int64, CoreType::Int64],
-            return_types: vec![CoreType::Int64],
+            parameters: vec![CoreType::Int32, CoreType::Int32],
+            return_types: vec![CoreType::Int32],
             error_types: Vec::new(),
         };
         self.environment

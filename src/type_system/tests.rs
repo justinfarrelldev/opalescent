@@ -1205,7 +1205,7 @@ fn test_guard_statement_binds_success_and_error_types() {
             guard string_to_int32('5') into n else e =>
                 let err_message: string = e
                 continue
-            let parsed: int64 = n
+            let parsed: int32 = n
             return void
         ",
     );
@@ -4754,8 +4754,8 @@ entry demo = f(): string =>
 #[test]
 fn test_builtin_string_to_int32_signature_type_checks() {
     const SOURCE: &str = "
-entry parse_user_number = f(input: string): int64 => {
-let n: int64 = string_to_int32(input)
+entry parse_user_number = f(input: string): int32 => {
+let n: int32 = string_to_int32(input)
 return n
 }
 ";
@@ -4765,15 +4765,37 @@ return n
     let result = checker.type_check_program(&program);
     assert!(
         result.is_ok(),
-        "string_to_int32(input) should type check and return int64: {result:?}"
+        "string_to_int32(input) should type check and return int32: {result:?}"
+    );
+}
+
+#[test]
+fn test_builtin_string_to_int64_is_not_registered() {
+    const SOURCE: &str = "
+entry parse_user_number = f(input: string): int64 => {
+let n: int64 = string_to_int64(input)
+return n
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("string_to_int64 should not be available in this runtime-aligned phase");
+    assert!(
+        errors.iter().any(
+            |error| matches!(*error, TypeError::SymbolNotFound { ref name, .. } if name == "string_to_int64")
+        ),
+        "expected SymbolNotFound for string_to_int64, got: {errors:?}"
     );
 }
 
 #[test]
 fn test_builtin_random_int32_signature_type_checks() {
     const SOURCE: &str = "
-entry quiz_num = f(): int64 => {
-let n: int64 = random_int32(1, 5)
+entry quiz_num = f(): int32 => {
+let n: int32 = random_int32(1, 5)
 return n
 }
 ";
@@ -4783,7 +4805,70 @@ return n
     let result = checker.type_check_program(&program);
     assert!(
         result.is_ok(),
-        "random_int32(min, max) should type check and return int64: {result:?}"
+        "random_int32(min, max) should type check and return int32: {result:?}"
+    );
+}
+
+#[test]
+fn test_builtin_random_int64_is_not_registered() {
+    const SOURCE: &str = "
+entry quiz_num = f(): int64 => {
+let n: int64 = random_int64(1, 5)
+return n
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("random_int64 should not be available in this runtime-aligned phase");
+    assert!(
+        errors.iter().any(|error| {
+            matches!(*error, TypeError::SymbolNotFound { ref name, .. } if name == "random_int64")
+        }),
+        "expected SymbolNotFound for random_int64, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_builtin_print_declares_generic_parameter() {
+    let checker = TypeChecker::new();
+    let signature = checker
+        .environment()
+        .lookup_builtin("print")
+        .cloned()
+        .expect("print builtin should be registered");
+
+    let signature_is_expected = match signature {
+        CoreType::Function {
+            generic_params,
+            parameters,
+            return_types,
+            ..
+        } => {
+            assert_eq!(
+                generic_params.len(),
+                1,
+                "print should declare exactly one generic type parameter"
+            );
+            assert_eq!(
+                parameters,
+                vec![CoreType::Variable(generic_params[0].type_var.clone())],
+                "print parameter type should reuse the declared generic type variable"
+            );
+            assert_eq!(
+                return_types,
+                vec![CoreType::Unit],
+                "print should return unit"
+            );
+            true
+        }
+        _ => false,
+    };
+    assert!(
+        signature_is_expected,
+        "print should be registered as a function type"
     );
 }
 
