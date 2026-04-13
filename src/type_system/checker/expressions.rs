@@ -9,7 +9,7 @@ use super::helpers::{
     type_mismatch_error, unary_operation_name, validate_constant_shift_bounds,
     zero_divisor_operation_name,
 };
-use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Type, UnaryOp};
+use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Type, TypeParameter, UnaryOp};
 use crate::errors::suggestions::{closest_identifier_suggestion, SUGGESTION_DISTANCE_THRESHOLD};
 use crate::token::Span;
 use crate::type_system::arithmetic::{
@@ -20,10 +20,93 @@ use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::type_mapping::ast_type_to_core_type;
-use crate::type_system::types::CoreType;
+use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{format, string::String, vec::Vec};
 
 impl TypeChecker {
+    /// Resolve lambda signature/core AST types with in-scope lambda generic bindings.
+    fn ast_type_to_core_type_with_lambda_generics(
+        ast_type: &Type,
+        generic_bindings: &[(alloc::string::String, CoreType)],
+    ) -> Result<CoreType, TypeError> {
+        match *ast_type {
+            Type::Basic { ref name, .. } => {
+                if let Some(core_type) = generic_bindings
+                    .iter()
+                    .find_map(|binding| (&binding.0 == name).then_some(&binding.1))
+                {
+                    return Ok(core_type.clone());
+                }
+                match ast_type_to_core_type(ast_type).map_err(TypeError::from) {
+                    Ok(core_type) => Ok(core_type),
+                    Err(TypeError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {
+                        name: type_name,
+                        type_args: Vec::new(),
+                    }),
+                    Err(other) => Err(other),
+                }
+            }
+            Type::Array {
+                ref element_type, ..
+            } => Ok(CoreType::Array(alloc::boxed::Box::new(
+                Self::ast_type_to_core_type_with_lambda_generics(element_type, generic_bindings)?,
+            ))),
+            Type::Generic {
+                ref name,
+                ref type_args,
+                ..
+            } => {
+                let mut resolved_args = Vec::new();
+                for type_arg in type_args {
+                    resolved_args.push(Self::ast_type_to_core_type_with_lambda_generics(
+                        type_arg,
+                        generic_bindings,
+                    )?);
+                }
+                Ok(CoreType::Generic {
+                    name: name.clone(),
+                    type_args: resolved_args,
+                })
+            }
+            Type::Function {
+                ref parameters,
+                ref return_types,
+                ref errors,
+                ..
+            } => {
+                let mut resolved_params = Vec::new();
+                for parameter in parameters {
+                    resolved_params.push(Self::ast_type_to_core_type_with_lambda_generics(
+                        parameter,
+                        generic_bindings,
+                    )?);
+                }
+                let mut resolved_returns = Vec::new();
+                for return_type in return_types {
+                    resolved_returns.push(Self::ast_type_to_core_type_with_lambda_generics(
+                        return_type,
+                        generic_bindings,
+                    )?);
+                }
+                let mut resolved_errors = Vec::new();
+                if let Some(ref error_types) = *errors {
+                    for error_type in error_types {
+                        resolved_errors.push(Self::ast_type_to_core_type_with_lambda_generics(
+                            error_type,
+                            generic_bindings,
+                        )?);
+                    }
+                }
+                Ok(CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: resolved_params,
+                    return_types: resolved_returns,
+                    error_types: resolved_errors,
+                })
+            }
+        }
+    }
+
     /// Type check an expression and return its [`CoreType`]
     ///
     /// # Errors
@@ -631,6 +714,10 @@ impl TypeChecker {
         clippy::too_many_arguments,
         reason = "Lambda typing requires signature, body, span, and optional generic metadata"
     )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Lambda typing handles generic binding resolution and body validation in one path"
+    )]
     pub(super) fn type_check_lambda_expr(
         &mut self,
         parameters: &[Parameter],
@@ -639,32 +726,76 @@ impl TypeChecker {
         body: &LambdaBody,
         span: Span,
         generic_params: Option<&[alloc::string::String]>,
-        generic_constraints: Option<&[crate::ast::TypeParameter]>,
+        generic_constraints: Option<&[TypeParameter]>,
     ) -> Result<CoreType, TypeError> {
-        if let Some(params) = generic_params {
-            if !params.is_empty() {
-                return Err(TypeError::NotImplementedYet {
-                    feature: "generic lambda type checking".to_owned(),
-                    span: TypeError::span_from_span(span),
-                });
-            }
-        }
+        let mut lambda_generic_params: Vec<GenericTypeParameter> = Vec::new();
+        let mut generic_bindings: Vec<(alloc::string::String, CoreType)> = Vec::new();
         if let Some(constraints) = generic_constraints {
-            if !constraints.is_empty() {
-                return Err(TypeError::NotImplementedYet {
-                    feature: "generic lambda constraints type checking".to_owned(),
-                    span: TypeError::span_from_span(span),
+            for declaration in constraints {
+                let variable_core =
+                    self.fresh_type_var(declaration.name.clone(), declaration.span)?;
+                let CoreType::Variable(type_var) = variable_core else {
+                    return Err(TypeError::ConstraintSolvingFailed {
+                        reason: "failed to allocate generic type variable".to_owned(),
+                        span: TypeError::span_from_span(declaration.span),
+                    });
+                };
+                generic_bindings.push((
+                    declaration.name.clone(),
+                    CoreType::Variable(type_var.clone()),
+                ));
+                lambda_generic_params.push(GenericTypeParameter {
+                    name: declaration.name.clone(),
+                    type_var,
+                    constraints: Vec::new(),
+                });
+            }
+
+            for (index, declaration) in constraints.iter().enumerate() {
+                let mut constraint_types = Vec::new();
+                for constraint in &declaration.constraints {
+                    constraint_types.push(Self::ast_type_to_core_type_with_lambda_generics(
+                        constraint,
+                        generic_bindings.as_slice(),
+                    )?);
+                }
+                if let Some(generic_param) = lambda_generic_params.get_mut(index) {
+                    generic_param.constraints = constraint_types;
+                }
+            }
+        } else if let Some(params) = generic_params {
+            for param_name in params {
+                let variable_core = self.fresh_type_var(param_name.clone(), span)?;
+                let CoreType::Variable(type_var) = variable_core else {
+                    return Err(TypeError::ConstraintSolvingFailed {
+                        reason: "failed to allocate generic type variable".to_owned(),
+                        span: TypeError::span_from_span(span),
+                    });
+                };
+                generic_bindings.push((param_name.clone(), CoreType::Variable(type_var.clone())));
+                lambda_generic_params.push(GenericTypeParameter {
+                    name: param_name.clone(),
+                    type_var,
+                    constraints: Vec::new(),
                 });
             }
         }
+
         let mut parameter_types = Vec::with_capacity(parameters.len());
         for param in parameters {
-            parameter_types
-                .push(ast_type_to_core_type(&param.param_type).map_err(TypeError::from)?);
+            parameter_types.push(Self::ast_type_to_core_type_with_lambda_generics(
+                &param.param_type,
+                generic_bindings.as_slice(),
+            )?);
         }
         let return_core_types: Vec<CoreType> = return_types
             .iter()
-            .map(|return_type| ast_type_to_core_type(return_type).map_err(TypeError::from))
+            .map(|return_type| {
+                Self::ast_type_to_core_type_with_lambda_generics(
+                    return_type,
+                    generic_bindings.as_slice(),
+                )
+            })
             .collect::<Result<Vec<_>, _>>()?;
         let core_errors = self.resolve_error_types(error_types, span)?;
         self.symbol_table.enter_function(core_errors.clone(), span);
@@ -718,7 +849,7 @@ impl TypeChecker {
         body_result?;
         // Map lambda-declared error types into nominal core types
         Ok(CoreType::Function {
-            generic_params: Vec::new(),
+            generic_params: lambda_generic_params,
             parameters: parameter_types,
             return_types: return_core_types,
             error_types: core_errors,

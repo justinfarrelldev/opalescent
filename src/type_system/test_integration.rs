@@ -484,6 +484,25 @@ entry main = f(): int64 => {
     }
 
     #[test]
+    fn test_generic_lambda_identity_type_checks() {
+        const SOURCE: &str = "
+entry main = f(): int64 => {
+    let id = f<T>(x: T): T => { return x }
+    return id(42)
+}
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+
+        assert!(
+            result.is_ok(),
+            "generic lambda identity should type check successfully: {result:?}",
+        );
+    }
+
+    #[test]
     fn test_guard_propagate_and_multiple_returns_integrate() {
         const SOURCE: &str = "
 entry main = f(): int64, int64 => {

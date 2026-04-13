@@ -375,3 +375,19 @@ if self.check_identifier() {
 - `cargo test type_system` passed after adjustments.
 - `cargo test` passed (814 passed, 0 failed, 5 ignored; doc-tests unchanged).
 - Evidence captured at `.sisyphus/evidence/task-13-builtins.txt`.
+
+## [2026-04-13] Task 14 — Generic lambda type checking
+
+### Findings
+- Generic lambda checking can reuse function-declaration generic resolution patterns: allocate fresh `TypeVar`s via `fresh_type_var`, build `(name -> CoreType::Variable)` bindings, then resolve parameter/return AST types against those bindings.
+- For lambda-scoped generics, `CoreType::Function.generic_params` must be populated with `GenericTypeParameter` entries so downstream call inference sees declared polymorphism.
+- Type-checking lambda bodies does not require extra symbol-table type-variable scope when parameter/return/core annotations are pre-resolved to concrete `CoreType::Variable` instances; value-level scope registration for parameters remains sufficient.
+
+### TDD signal
+- RED integration test failed with `TypeError::NotImplementedYet { feature: "generic lambda type checking" }`, confirming the exact stub path before implementation.
+
+### Verification
+- Added integration test: generic lambda identity assigned and called (`let id = f<T>(x: T): T => ...`).
+- Added unit test validating `Expr::Lambda` yields `CoreType::Function` with non-empty `generic_params` and matching param/return type variables.
+- `cargo test type_system` passes with new tests.
+- `cargo test` passes with zero regressions.

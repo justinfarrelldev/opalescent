@@ -13,7 +13,7 @@ use super::type_mapping::ast_type_to_core_type;
 use super::types::{CoreType, TypeVar};
 use crate::ast::{
     Decl, Expr, Field, HotReloadMetadata, LabeledValue, LambdaBody, LetBinding, LiteralValue,
-    NodeId, Parameter, Program, Stmt, StringPart, Type, TypeDef, Variant,
+    NodeId, Parameter, Program, Stmt, StringPart, Type, TypeDef, TypeParameter, Variant,
     Visibility as AstVisibility,
 };
 use crate::lexer::Lexer;
@@ -4012,6 +4012,65 @@ fn test_lambda_return_type_mismatch_is_reported() {
         matches!(result, Err(TypeError::TypeMismatch { .. })),
         "lambda returning the wrong type should fail"
     );
+}
+
+#[test]
+fn test_generic_lambda_populates_function_generic_params() {
+    let mut checker = TypeChecker::new();
+    let lambda = Expr::Lambda {
+        generic_params: Some(vec!["T".to_owned()]),
+        generic_constraints: Some(vec![TypeParameter {
+            name: "T".to_owned(),
+            constraints: Vec::new(),
+            span: test_span(),
+        }]),
+        params: vec![make_parameter(
+            "x",
+            Type::Basic {
+                name: "T".to_owned(),
+                span: test_span(),
+            },
+        )],
+        return_types: vec![Type::Basic {
+            name: "T".to_owned(),
+            span: test_span(),
+        }],
+        error_types: Vec::new(),
+        body: LambdaBody::Expression(Box::new(identifier_expr("x", 32_300))),
+        captured_variables: vec![],
+        metadata: Box::new(HotReloadMetadata::for_expression()),
+        span: test_span(),
+        id: node_id(32_301),
+    };
+
+    let result = checker.within_new_scope(|inner| inner.type_check_expr(&lambda));
+    assert!(
+        result.is_ok(),
+        "generic lambda should type check: {result:?}"
+    );
+
+    let core_type = result.expect("type checked above");
+    assert!(
+        matches!(core_type, CoreType::Function { .. }),
+        "expected function type for generic lambda, got {core_type:?}"
+    );
+
+    if let CoreType::Function {
+        generic_params,
+        parameters,
+        return_types,
+        ..
+    } = core_type
+    {
+        assert_eq!(
+            generic_params.len(),
+            1,
+            "generic lambda function type should declare one generic parameter"
+        );
+        let expected_var = CoreType::Variable(generic_params[0].type_var.clone());
+        assert_eq!(parameters, vec![expected_var.clone()]);
+        assert_eq!(return_types, vec![expected_var]);
+    }
 }
 
 #[test]
