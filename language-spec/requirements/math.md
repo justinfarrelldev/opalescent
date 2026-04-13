@@ -2,6 +2,25 @@ Math is straightforward, barring a couple things.
 
 It follows the same model as math in C# as far as evaluation order.
 
+# Numeric Literal Types
+
+## Default Integer Literal Type
+
+Integer literals (e.g., `0`, `1`, `42`, `-10`) are inferred as `int64` by default. When you write a literal integer without an explicit type annotation, the compiler treats it as a 64-bit signed integer. This choice provides a safe default that avoids accidental overflow for common use cases.
+
+If you need a different integer type, use explicit type annotations or casts:
+- `let x: int32 = 42` — explicit int32
+- `let y: int64 = 42` — explicit int64 (redundant but allowed)
+- `let z: uint64 = 42` — explicit uint64
+- `let w = 42 as int32` — cast to int32
+
+## Default Float Literal Type
+
+Float literals (e.g., `3.14`, `2.5`, `-0.001`) are inferred as `float64` by default. Like integers, explicit type annotations or casts can override this:
+- `let a: float32 = 3.14` — explicit float32
+- `let b: float64 = 3.14` — explicit float64 (redundant but allowed)
+- `let c = 3.14 as float32` — cast to float32
+
 # Basic Algebraic Operators
 
 Addition:
