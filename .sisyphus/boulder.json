@@ -1,112 +1,48 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/spec-alignment-runtime-embedding.md",
-  "started_at": "2026-04-12T20:23:58.053Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/operator-tests.md",
+  "started_at": "2026-04-13T15:59:04.400Z",
   "session_ids": [
-    "ses_27cea43dcffeIeIoSlKgj5HHz0",
-    "ses_27bfdcaefffeJrOFlKBdsX7Pcb",
-    "ses_27bfd9fa7ffeK55r4Th3zLFAz3",
-    "ses_27bfd6db4ffe5jvr20Y2fEzVfA",
-    "ses_27bfd2537ffeMrWx56MQ13O6d6"
+    "ses_278af0f40ffeine3x4SQlVAVTM",
+    "ses_2785d84b2ffewTFcP670JD3SHX",
+    "ses_2785d0b43ffek0PBa2p4yP3qcO",
+    "ses_2785d0988ffe2VcQ9oTpFTEiYA",
+    "ses_2785cf552ffeL5O2whQ8eXiplp"
   ],
-  "session_origins": {
-    "ses_27cea43dcffeIeIoSlKgj5HHz0": "direct",
-    "ses_27bfdcaefffeJrOFlKBdsX7Pcb": "appended",
-    "ses_27bfd9fa7ffeK55r4Th3zLFAz3": "appended",
-    "ses_27bfd6db4ffe5jvr20Y2fEzVfA": "appended",
-    "ses_27bfd2537ffeMrWx56MQ13O6d6": "appended"
-  },
-  "plan_name": "spec-alignment-runtime-embedding",
+  "plan_name": "operator-tests",
   "agent": "atlas",
+  "session_origins": {
+    "ses_278af0f40ffeine3x4SQlVAVTM": "direct",
+    "ses_2785d84b2ffewTFcP670JD3SHX": "appended",
+    "ses_2785d0b43ffek0PBa2p4yP3qcO": "appended",
+    "ses_2785d0988ffe2VcQ9oTpFTEiYA": "appended",
+    "ses_2785cf552ffeL5O2whQ8eXiplp": "appended"
+  },
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Commit Current State",
-      "session_id": "ses_27ca0bd31ffef3kUT2jNM9ntFM",
+      "task_title": "Add comprehensive operator parsing tests (individual operators)",
+      "session_id": "ses_2786ae28effeQ5ZNWCYcCJxUN3",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-13T16:12:11.472Z"
+    },
+    "todo:3": {
+      "task_key": "todo:3",
+      "task_label": "3",
+      "task_title": "Code review and commit",
+      "session_id": "ses_278600917ffeJ76UP54pdx3gcL",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-04-12T20:26:21.981Z"
-    },
-    "todo:2": {
-      "task_key": "todo:2",
-      "task_label": "2",
-      "task_title": "Replace Test-Project .op Files with Exact Language-Spec Copies",
-      "session_id": "ses_27c7c661dffec5ktOSuG6sWHUj",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-12T21:13:13.363Z"
-    },
-    "todo:9": {
-      "task_key": "todo:9",
-      "task_label": "9",
-      "task_title": "Entry Function with args: string[] Parameter",
-      "session_id": "ses_27c71c531ffeYSMQUbI3KbruZJ",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-12T21:24:43.475Z"
-    },
-    "todo:11": {
-      "task_key": "todo:11",
-      "task_label": "11",
-      "task_title": "Loop Statement with Break (Multi-Value) and Continue",
-      "session_id": "ses_27c4841edffe1SQR4m771dTmzH",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-12T22:06:07.681Z"
-    },
-    "todo:12": {
-      "task_key": "todo:12",
-      "task_label": "12",
-      "task_title": "Guard...into...else Error Handling",
-      "session_id": "ses_27c43cbbdffeAh2CJvzvkD77zC",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-12T22:21:41.740Z"
-    },
-    "todo:13": {
-      "task_key": "todo:13",
-      "task_label": "13",
-      "task_title": "Update Integration Test Assertions",
-      "session_id": "ses_27c357e20ffeGs8pHQeafl0VQW",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-12T22:25:18.990Z"
-    },
-    "todo:14": {
-      "task_key": "todo:14",
-      "task_label": "14",
-      "task_title": "TDD Iteration — Compile All 4 Spec Files End-to-End",
-      "session_id": "ses_27c2fb320ffe93nKp5BJCT00DA",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-12T22:49:32.794Z"
-    },
-    "todo:16": {
-      "task_key": "todo:16",
-      "task_label": "16",
-      "task_title": "Update README.md",
-      "session_id": "ses_27c02c02fffeRoDTGzuPkOmBzA",
-      "agent": "Sisyphus-Junior",
-      "category": "writing",
-      "updated_at": "2026-04-12T23:19:50.456Z"
-    },
-    "todo:17": {
-      "task_key": "todo:17",
-      "task_label": "17",
-      "task_title": "Update PLAN.md",
-      "session_id": "ses_27bff5b42ffeNaMged0KuRUKyn",
-      "agent": "Sisyphus-Junior",
-      "category": "writing",
-      "updated_at": "2026-04-12T23:23:08.843Z"
+      "updated_at": "2026-04-13T16:16:55.491Z"
     },
     "final-wave:f1": {
       "task_key": "final-wave:f1",
       "task_label": "F1",
       "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "ses_27be11783ffeeT080qw5DKmxrD",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-12T23:58:57.276Z"
+      "session_id": "ses_278556895ffe47KbSnQEcf3UAl",
+      "agent": "oracle",
+      "updated_at": "2026-04-13T16:32:24.048Z"
     }
   }
 }

@@ -1,0 +1,198 @@
+    Blocking waiting for file lock on build directory
+    Checking opalescent v0.1.0 (/home/justi/Projects/opalescent)
+error: dereferencing a struct pattern where every field's pattern takes a reference
+  --> src/codegen/adts.rs:30:12
+   |
+30 |       if let &Expr::Constructor {
+   |  ____________^
+31 | |         ref callee,
+32 | |         ref fields,
+33 | |         ..
+34 | |     } = expr
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+   = note: `-D clippy::needless-borrowed-reference` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::needless_borrowed_reference)]`
+help: try removing the `&` and `ref` parts
+   |
+30 ~     if let Expr::Constructor {
+31 ~         callee,
+32 ~         fields,
+   |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/adts.rs:99:9
+    |
+99  |       let &Expr::Match {
+    |  _________^
+100 | |         ref scrutinee,
+101 | |         ref arms,
+102 | |         ..
+103 | |     } = expr
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+99  ~     let Expr::Match {
+100 ~         scrutinee,
+101 ~         arms,
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/adts.rs:226:12
+    |
+226 |     if let &Expr::Constructor { ref fields, .. } = constructor {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+226 -     if let &Expr::Constructor { ref fields, .. } = constructor {
+226 +     if let Expr::Constructor { fields, .. } = constructor {
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/adts.rs:253:12
+    |
+253 |       if let &Expr::Member {
+    |  ____________^
+254 | |         ref object,
+255 | |         ref member,
+256 | |         ..
+257 | |     } = expr
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+253 ~     if let Expr::Member {
+254 ~         object,
+255 ~         member,
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/functions.rs:113:9
+    |
+113 |       let &Decl::Import {
+    |  _________^
+114 | |         ref items,
+115 | |         ref source,
+116 | |         ..
+117 | |     } = declaration
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+113 ~     let Decl::Import {
+114 ~         items,
+115 ~         source,
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/functions.rs:180:12
+    |
+180 |       if let &Expr::Lambda {
+    |  ____________^
+181 | |         ref captured_variables,
+182 | |         ..
+183 | |     } = callee
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+180 ~     if let Expr::Lambda {
+181 ~         captured_variables,
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/functions.rs:205:12
+    |
+205 |     if let &Expr::Identifier { ref name, .. } = callee {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+205 -     if let &Expr::Identifier { ref name, .. } = callee {
+205 +     if let Expr::Identifier { name, .. } = callee {
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/functions.rs:259:12
+    |
+259 |     if let &Expr::Identifier { ref name, .. } = callee {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+259 -     if let &Expr::Identifier { ref name, .. } = callee {
+259 +     if let Expr::Identifier { name, .. } = callee {
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/functions.rs:299:24
+    |
+299 |       let value = if let &Expr::Call {
+    |  ________________________^
+300 | |         ref callee,
+301 | |         ref args,
+302 | |         ..
+303 | |     } = call_expr
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+299 ~     let value = if let Expr::Call {
+300 ~         callee,
+301 ~         args,
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/functions.rs:358:24
+    |
+358 |       let value = if let &Expr::Call {
+    |  ________________________^
+359 | |         ref callee,
+360 | |         ref args,
+361 | |         ..
+362 | |     } = guarded_expr
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+358 ~     let value = if let Expr::Call {
+359 ~         callee,
+360 ~         args,
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/type_system/checker/declarations.rs:559:13
+    |
+559 |           let &Expr::Lambda {
+    |  _____________^
+560 | |             ref params,
+561 | |             ref return_types,
+562 | |             ref error_types,
+563 | |             ..
+564 | |         } = initializer
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+559 ~         let Expr::Lambda {
+560 ~             params,
+561 ~             return_types,
+562 ~             error_types,
+    |
+
+error: could not compile `opalescent` (lib) due to 11 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `opalescent` (lib test) due to 11 previous errors

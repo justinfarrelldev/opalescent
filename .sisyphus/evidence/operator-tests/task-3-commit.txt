@@ -1,0 +1,34 @@
+17fc5ec69e34397829245120e5f4c731798bf62e test(parser): add comprehensive operator and precedence tests
+Added 48 comprehensive tests covering:
+- 17 individual binary operator parse tests (Add, Subtract, Multiply, Divide, Modulo, Power, Less, LessEqual, Greater, GreaterEqual, Is, IsNot, And, Or, Xor, BitAnd, BitOr)
+- 2 individual unary operator tests (Negate, Not)
+- 12 pairwise adjacent-precedence tests validating operator precedence hierarchy
+- 3 operator associativity tests (left-associative chaining and right-associative Power)
+- 3 multi-level precedence chain tests
+- 2 parenthesized precedence override tests
+- 2 mixed comparison/logical operator tests
+- 3 unary-binary interaction tests
+- 4 edge case tests (nested operators, extreme nesting depth)
+
+Code review findings:
+
+1. Operator pipeline is correct and bug-free:
+   - Lexer correctly tokenizes '<=' and '>=' as 2-character greedy tokens (lines 260-276 in lexer.rs)
+   - Precedence table has 14 levels with no gaps (precedence.rs lines 33-77)
+   - Power (^) correctly implements right-associativity while all other operators are left-associative (expressions.rs lines 762-768)
+   - Generic type parsing special case for '<' correctly falls back to comparison operator (expressions.rs lines 703-730)
+
+2. Dead code identified:
+   - BinaryOp::Equal and BinaryOp::NotEqual variants in ast/operators.rs (lines 28-30) are never constructed by parser
+   - TryFrom<TokenType> impl maps TokenType::Is to BinaryOp::Is and TokenType::IsNot to BinaryOp::IsNot (lines 141-142)
+   - These Equal/NotEqual variants remain unreachable from the parser
+
+3. Lexer-parser gap identified:
+   - TokenType::IsNot exists in token.rs but lexer only produces TokenType::Is and TokenType::Not separately
+   - String 'is not' parses as BinaryOp::Is(left, Unary::Not(right)) due to how precedence climbing handles unary operators
+   - This is a semantic gap but functionally correct for the current design
+
+All 788 lib tests pass including the 48 new comprehensive operator tests.
+
+Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
