@@ -441,7 +441,7 @@ impl TypeChecker {
                 ));
                 Ok(result_type)
             }
-            BinaryOp::Modulo => {
+            BinaryOp::Modulo | BinaryOp::DivEuclid | BinaryOp::ModEuclid => {
                 ensure_integer_type(&left_type, left.span(), op_name)?;
                 ensure_integer_type(&right_type, right.span(), op_name)?;
                 Self::ensure_non_zero_divisor(operator, right)?;

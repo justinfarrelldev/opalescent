@@ -81,6 +81,8 @@ const fn print_binary_op(op: &BinaryOp) -> &'static str {
         BinaryOp::Multiply => "*",
         BinaryOp::Divide => "/",
         BinaryOp::Modulo => "%",
+        BinaryOp::DivEuclid => "div_euclid",
+        BinaryOp::ModEuclid => "mod_euclid",
         BinaryOp::Power => "^",
         BinaryOp::Equal | BinaryOp::Is => "is",
         BinaryOp::NotEqual | BinaryOp::IsNot => "is not",

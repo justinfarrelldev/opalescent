@@ -166,6 +166,8 @@ impl<'input> Lexer<'input> {
         keywords.insert("bshr", TokenType::BitShiftRight);
         keywords.insert("bushr", TokenType::BitUnsignedShiftRight);
         keywords.insert("is", TokenType::Is);
+        keywords.insert("div_euclid", TokenType::DivEuclid);
+        keywords.insert("mod_euclid", TokenType::ModEuclid);
         keywords.insert("type_of", TokenType::TypeOf);
 
         Self {
@@ -713,15 +715,67 @@ impl<'input> Lexer<'input> {
         };
 
         let identifier = self.input.get(start_offset..end_offset).unwrap_or_default();
-        let span = Span::new(start_pos, self.position);
+        let mut span = Span::new(start_pos, self.position);
 
-        // Check if it's a keyword
-        let token_type = self.keywords.get(identifier).map_or_else(
+        let mut token_type = self.keywords.get(identifier).map_or_else(
             || TokenType::Identifier(identifier.to_owned()),
             Clone::clone,
         );
 
+        if identifier == "is"
+            && matches!(token_type, TokenType::Is)
+            && self.peek_keyword_after_whitespace().is_some()
+        {
+            self.skip_inline_whitespace();
+            self.advance();
+            while !self.is_at_end() {
+                let c = self.current_char();
+                if c.is_xid_continue() || c == '_' {
+                    self.advance();
+                } else {
+                    break;
+                }
+            }
+            span = Span::new(start_pos, self.position);
+            token_type = TokenType::IsNot;
+        }
+
         Token::new(token_type, span, identifier.to_owned())
+    }
+
+    /// Peek ahead for the next keyword after skipping inline whitespace, returning the keyword name if found.
+    /// Returns Some("not") if the next keyword after whitespace is "not", otherwise None.
+    fn peek_keyword_after_whitespace(&self) -> Option<&'static str> {
+        let start_offset = self.current.map_or(self.input.len(), |(off, _)| off);
+        let mut chars = self.input.chars().skip(start_offset).collect::<Vec<_>>();
+
+        // Skip inline whitespace (space, tab, carriage return)
+        while let Some(&c) = chars.first() {
+            match c {
+                ' ' | '\t' | '\r' => {
+                    chars.remove(0);
+                }
+                _ => break,
+            }
+        }
+
+        // Collect the next identifier
+        let mut ident = String::new();
+        for c in &chars {
+            if c.is_xid_continue() || *c == '_' {
+                ident.push(*c);
+            } else {
+                break;
+            }
+        }
+
+        if ident.is_empty() {
+            return None;
+        }
+
+        self.keywords
+            .get(ident.as_str())
+            .and_then(|tt| (*tt == TokenType::Not).then_some("not"))
     }
 
     /// Skip inline whitespace while preserving newline token boundaries.

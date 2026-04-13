@@ -186,6 +186,10 @@ pub enum TokenType {
     Power, // ^
     /// Modulo operator (%)
     Modulo, // %
+    /// Euclidean division operator (`div_euclid`)
+    DivEuclid,
+    /// Euclidean modulo operator (`mod_euclid`)
+    ModEuclid,
 
     // Assignment
     /// Assignment operator (=)
@@ -372,6 +376,8 @@ impl fmt::Display for TokenType {
             Self::Divide => write!(f, "operator '/'"),
             Self::Power => write!(f, "operator '^'"),
             Self::Modulo => write!(f, "operator '%'"),
+            Self::DivEuclid => write!(f, "operator 'div_euclid'"),
+            Self::ModEuclid => write!(f, "operator 'mod_euclid'"),
             Self::Assign => write!(f, "operator '='"),
             Self::Less => write!(f, "operator '<'"),
             Self::LessEqual => write!(f, "operator '<='"),

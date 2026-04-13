@@ -5,7 +5,7 @@ fn test_empty_input() {
     let lexer = Lexer::new("");
     let (tokens, errors) = lexer.tokenize();
 
-    assert!(errors.is_empty());
+    assert!(errors.is_empty(), "unexpected lexer errors: {errors:?}");
     assert_eq!(tokens.len(), 1);
     assert!(matches!(tokens[0].token_type, TokenType::EndOfFile));
 }
@@ -329,4 +329,93 @@ fn test_eof_emits_remaining_dedent_tokens() {
         .map(|token| token.token_type.clone())
         .collect();
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn test_utf8_byte_offsets_for_multibyte_identifier() {
+    let input = "let π = 42";
+    let lexer = Lexer::new(input);
+    let (tokens, errors) = lexer.tokenize();
+
+    assert!(errors.is_empty(), "unexpected lexer errors: {errors:?}");
+
+    let assign = tokens
+        .iter()
+        .find(|token| matches!(token.token_type, TokenType::Assign))
+        .expect("expected '=' token");
+
+    assert_eq!(assign.span.start.offset, 7);
+    assert_eq!(assign.span.end.offset, 8);
+    assert_eq!(assign.lexeme, "=");
+}
+
+#[test]
+fn test_div_euclid_keyword() {
+    let input = "div_euclid";
+    let lexer = Lexer::new(input);
+    let (tokens, errors) = lexer.tokenize();
+
+    assert!(errors.is_empty(), "unexpected lexer errors: {errors:?}");
+    assert_eq!(tokens.len(), 2); // div_euclid + EOF
+
+    assert!(matches!(tokens[0].token_type, TokenType::DivEuclid));
+    assert_eq!(tokens[0].lexeme, "div_euclid");
+}
+
+#[test]
+fn test_mod_euclid_keyword() {
+    let input = "mod_euclid";
+    let lexer = Lexer::new(input);
+    let (tokens, errors) = lexer.tokenize();
+
+    assert!(errors.is_empty(), "unexpected lexer errors: {errors:?}");
+    assert_eq!(tokens.len(), 2); // mod_euclid + EOF
+
+    assert!(matches!(tokens[0].token_type, TokenType::ModEuclid));
+    assert_eq!(tokens[0].lexeme, "mod_euclid");
+}
+
+#[test]
+fn test_euclidean_operators_in_expression() {
+    let input = "a div_euclid b mod_euclid c";
+    let lexer = Lexer::new(input);
+    let (tokens, errors) = lexer.tokenize();
+
+    assert!(errors.is_empty(), "unexpected lexer errors: {errors:?}");
+    assert_eq!(tokens.len(), 6); // a, div_euclid, b, mod_euclid, c, EOF
+
+    assert!(matches!(tokens[1].token_type, TokenType::DivEuclid));
+    assert!(matches!(tokens[3].token_type, TokenType::ModEuclid));
+}
+
+#[test]
+fn test_cast_token_as_keyword() {
+    let input = "x as int32";
+    let lexer = Lexer::new(input);
+    let (tokens, errors) = lexer.tokenize();
+
+    assert!(errors.is_empty(), "unexpected lexer errors: {errors:?}");
+    assert_eq!(tokens.len(), 4);
+
+    assert!(
+        matches!(tokens[1].token_type, TokenType::Cast),
+        "Expected TokenType::Cast for 'as' keyword, got {:?}",
+        tokens[1].token_type
+    );
+}
+
+#[test]
+fn test_is_not_operator_consistency() {
+    let input = "x is not None";
+    let lexer = Lexer::new(input);
+    let (tokens, errors) = lexer.tokenize();
+
+    assert!(errors.is_empty(), "unexpected lexer errors: {errors:?}");
+
+    assert_eq!(tokens.len(), 4, "Expected 4 tokens: x, is not, None, EOF");
+
+    assert!(matches!(tokens[0].token_type, TokenType::Identifier(ref name) if name == "x"));
+    assert!(matches!(tokens[1].token_type, TokenType::IsNot));
+    assert!(matches!(tokens[2].token_type, TokenType::Identifier(ref name) if name == "None"));
+    assert!(matches!(tokens[3].token_type, TokenType::EndOfFile));
 }

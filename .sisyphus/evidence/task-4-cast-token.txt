@@ -1,0 +1,60 @@
+TASK 4: As/Cast Token Duplication Resolution
+=============================================
+
+OBJECTIVE:
+Resolve the duplication where both TokenType::As and TokenType::Cast exist.
+The lexer should map "as" → TokenType::Cast (not TokenType::As).
+The AST uses Expr::Cast for type casting, so Cast is the canonical token.
+
+CHANGES MADE:
+=============
+
+1. TESTS (src/lexer/tests.rs)
+   - Added test_cast_token_as_keyword() that verifies "x as int32" lexes to TokenType::Cast
+   - Test was RED (failed) before fix, GREEN (passed) after fix
+
+2. LEXER (src/lexer.rs:155)
+   - Changed: keywords.insert("as", TokenType::As);
+   - To:      keywords.insert("as", TokenType::Cast);
+   - Effect: The "as" keyword now maps to TokenType::Cast instead of TokenType::As
+
+3. PARSER (src/parser/declarations.rs:697)
+   - Changed: if self.check(&TokenType::As)
+   - To:      if self.check(&TokenType::Cast)
+   - Context: Import aliasing (import foo as bar) now uses TokenType::Cast
+   - Note: Parser's context-sensitive logic handles both cast and import alias uses
+
+4. TOKEN DEFINITIONS (src/token.rs)
+   - Removed: TokenType::As variant (line 172)
+   - Removed: Display impl for TokenType::As (line 369)
+   - Effect: TokenType::Cast is now the single canonical token for the "as" keyword
+
+VERIFICATION:
+==============
+
+Test Results:
+✓ test_cast_token_as_keyword - PASSED (verifies "as" → TokenType::Cast)
+✓ cargo test - 793 passed, 0 failed, 8 ignored (baseline was 792, +1 new test)
+
+Regression Check:
+✓ No regressions - all 792 existing tests still pass
+✓ New test added: 1 (+1 total = 793)
+
+Duplication Resolution:
+✓ TokenType::As removed completely
+✓ TokenType::Cast is now the canonical token
+✓ Lexer maps "as" → TokenType::Cast
+✓ Parser updated to use TokenType::Cast
+✓ AST Expr::Cast already uses Cast semantics
+
+Code Search Verification:
+✓ grep -rn "TokenType::As\b" - No matches (fully removed)
+✓ grep -rn "TokenType::Cast\b" - Only matches in lexer, parser, and tests (correctly used)
+
+OUTCOME:
+========
+✅ Task complete. The "as" keyword now uniquely maps to TokenType::Cast.
+✅ Both import aliasing (import foo as bar) and type casts (x as int32) 
+   use the same canonical TokenType::Cast token.
+✅ Parser's context-sensitive logic handles distinguishing these uses.
+✅ No regressions - all tests pass.

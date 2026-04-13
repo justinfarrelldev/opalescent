@@ -288,9 +288,11 @@ fn codegen_binary<'context>(
         BinaryOp::BitShiftLeft | BinaryOp::BitShiftRight | BinaryOp::BitUnsignedShiftRight => {
             codegen_shift(codegen_context, lhs, rhs, operator)
         }
-        BinaryOp::Power | BinaryOp::Assign => Err(CodegenError::new(format!(
-            "binary operator {operator} is unsupported in task 22"
-        ))),
+        BinaryOp::Power | BinaryOp::Assign | BinaryOp::DivEuclid | BinaryOp::ModEuclid => {
+            Err(CodegenError::new(format!(
+                "binary operator {operator} is unsupported in task 22"
+            )))
+        }
     }
 }
 

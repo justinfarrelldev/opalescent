@@ -20,6 +20,10 @@ pub enum BinaryOp {
     Divide,
     /// Modulo operator (%)
     Modulo,
+    /// Euclidean division operator (`div_euclid`)
+    DivEuclid,
+    /// Euclidean modulo operator (`mod_euclid`)
+    ModEuclid,
     /// Exponentiation operator (^)
     Power,
 
@@ -89,6 +93,8 @@ impl fmt::Display for BinaryOp {
             Self::Multiply => "*",
             Self::Divide => "/",
             Self::Modulo => "%",
+            Self::DivEuclid => "div_euclid",
+            Self::ModEuclid => "mod_euclid",
             Self::Power => "^",
             Self::Equal | Self::Is => "is",
             Self::NotEqual | Self::IsNot => "is not",
@@ -133,6 +139,8 @@ impl TryFrom<TokenType> for BinaryOp {
             TokenType::Multiply => Ok(Self::Multiply),
             TokenType::Divide => Ok(Self::Divide),
             TokenType::Modulo => Ok(Self::Modulo),
+            TokenType::DivEuclid => Ok(Self::DivEuclid),
+            TokenType::ModEuclid => Ok(Self::ModEuclid),
             TokenType::Power => Ok(Self::Power),
             TokenType::Less => Ok(Self::Less),
             TokenType::LessEqual => Ok(Self::LessEqual),

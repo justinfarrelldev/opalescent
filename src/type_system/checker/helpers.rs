@@ -180,6 +180,8 @@ pub(super) const fn binary_operation_name(operator: &BinaryOp) -> &'static str {
         BinaryOp::Multiply => "multiplication",
         BinaryOp::Divide => "division",
         BinaryOp::Modulo => "modulo",
+        BinaryOp::DivEuclid => "euclidean division",
+        BinaryOp::ModEuclid => "euclidean modulo",
         BinaryOp::Power => "exponentiation",
         BinaryOp::Equal => "equality comparison",
         BinaryOp::NotEqual => "inequality comparison",

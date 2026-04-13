@@ -961,27 +961,21 @@ fn test_binary_op_is_not() {
     let expr = parse_expression_from_string("a is not b").unwrap();
     if let Expr::Binary {
         left,
-        operator: BinaryOp::Is,
+        operator: BinaryOp::IsNot,
         right,
         ..
     } = expr
     {
         assert!(
             matches!(*left, Expr::Identifier { name, .. } if name == "a"),
-            "Expected identifier 'a' as left operand of Is"
+            "Expected identifier 'a' as left operand of IsNot"
         );
         assert!(
-            matches!(
-                *right,
-                Expr::Unary {
-                    operator: UnaryOp::Not,
-                    ..
-                }
-            ),
-            "Expected unary not expression as right operand of Is"
+            matches!(*right, Expr::Identifier { name, .. } if name == "b"),
+            "Expected identifier 'b' as right operand of IsNot"
         );
     } else {
-        unreachable!("Expected Is operator with unary not on right side");
+        unreachable!("Expected IsNot operator with identifier operands");
     }
 }
 
@@ -1900,23 +1894,12 @@ fn test_edge_case_greater_equal_is_single_token() {
 fn test_edge_case_is_not_is_single_operator() {
     let expr = parse_expression_from_string("a is not b").unwrap();
     if let Expr::Binary {
-        operator: BinaryOp::Is,
-        right,
+        operator: BinaryOp::IsNot,
         ..
     } = expr
     {
-        assert!(
-            matches!(
-                *right,
-                Expr::Unary {
-                    operator: UnaryOp::Not,
-                    ..
-                }
-            ),
-            "Expected is not to parse as Is with unary not right operand"
-        );
     } else {
-        unreachable!("Expected Is operator with unary not right side");
+        unreachable!("Expected IsNot operator for 'a is not b'");
     }
 }
 
@@ -1925,7 +1908,7 @@ fn test_edge_case_not_a_is_not_b() {
     let expr = parse_expression_from_string("not a is not b").unwrap();
     if let Expr::Binary {
         left,
-        operator: BinaryOp::Is,
+        operator: BinaryOp::IsNot,
         right,
         ..
     } = expr
@@ -1938,20 +1921,14 @@ fn test_edge_case_not_a_is_not_b() {
                     ..
                 }
             ),
-            "Expected unary not expression as left operand of IsNot"
+            "Expected unary not expression as left operand"
         );
         assert!(
-            matches!(
-                *right,
-                Expr::Unary {
-                    operator: UnaryOp::Not,
-                    ..
-                }
-            ),
-            "Expected unary not expression as right operand of Is"
+            matches!(*right, Expr::Identifier { name, .. } if name == "b"),
+            "Expected identifier 'b' as right operand"
         );
     } else {
-        unreachable!("Expected Is with unary not on both sides");
+        unreachable!("Expected IsNot operator for 'not a is not b'");
     }
 }
 

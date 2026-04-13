@@ -1,48 +1,59 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/operator-tests.md",
-  "started_at": "2026-04-13T15:59:04.400Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/correctness-fixes.md",
+  "started_at": "2026-04-13T18:18:47.558Z",
   "session_ids": [
-    "ses_278af0f40ffeine3x4SQlVAVTM",
-    "ses_2785d84b2ffewTFcP670JD3SHX",
-    "ses_2785d0b43ffek0PBa2p4yP3qcO",
-    "ses_2785d0988ffe2VcQ9oTpFTEiYA",
-    "ses_2785cf552ffeL5O2whQ8eXiplp"
+    "ses_2781b1133ffeobDAJiQiFS4nqF"
   ],
-  "plan_name": "operator-tests",
+  "plan_name": "correctness-fixes",
   "agent": "atlas",
   "session_origins": {
-    "ses_278af0f40ffeine3x4SQlVAVTM": "direct",
-    "ses_2785d84b2ffewTFcP670JD3SHX": "appended",
-    "ses_2785d0b43ffek0PBa2p4yP3qcO": "appended",
-    "ses_2785d0988ffe2VcQ9oTpFTEiYA": "appended",
-    "ses_2785cf552ffeL5O2whQ8eXiplp": "appended"
+    "ses_2781b1133ffeobDAJiQiFS4nqF": "direct"
   },
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Add comprehensive operator parsing tests (individual operators)",
-      "session_id": "ses_2786ae28effeQ5ZNWCYcCJxUN3",
+      "task_title": "Establish Test Baseline",
+      "session_id": "ses_277ecd49cffeWZV7fdbIuIZk6Q",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-13T18:22:06.551Z"
+    },
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "Fix UTF-8 Byte Offset Bug in Lexer",
+      "session_id": "ses_277eadcdfffexwfuoDyP1atNHo",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-04-13T16:12:11.472Z"
+      "updated_at": "2026-04-13T18:27:36.288Z"
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "Code review and commit",
-      "session_id": "ses_278600917ffeJ76UP54pdx3gcL",
+      "task_title": "Add div_euclid / mod_euclid Operator Tokens",
+      "session_id": "ses_277e61a6fffekfpys7xuaLECZU",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-04-13T16:16:55.491Z"
+      "updated_at": "2026-04-13T18:33:43.469Z"
     },
-    "final-wave:f1": {
-      "task_key": "final-wave:f1",
-      "task_label": "F1",
-      "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "ses_278556895ffe47KbSnQEcf3UAl",
-      "agent": "oracle",
-      "updated_at": "2026-04-13T16:32:24.048Z"
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Resolve As/Cast Token Duplication",
+      "session_id": "ses_277e0737affeCMSjmlX2TBu8v2",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-13T18:39:17.708Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Fix IsNot Token Inconsistency",
+      "session_id": "ses_277da2977ffedpHI5tu0hbCIcW",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-13T18:56:42.531Z"
     }
   }
 }
