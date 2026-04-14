@@ -10,7 +10,7 @@ use alloc::string::String;
 
 /// Return declaration location for symbol at `position`.
 #[must_use]
-pub fn get_definition(source: &str, position: Position) -> Option<Location> {
+pub fn get_definition(source: &str, position: Position, uri: &str) -> Option<Location> {
     let symbol_name = word_at_position(source, position)?;
 
     let lexer = Lexer::new(source);
@@ -25,14 +25,14 @@ pub fn get_definition(source: &str, position: Position) -> Option<Location> {
     if let Some(parsed_program) = program {
         for declaration in parsed_program.declarations {
             if let Some(location) =
-                declaration_location_for_symbol(&declaration, &symbol_name, source)
+                declaration_location_for_symbol(&declaration, &symbol_name, source, uri)
             {
                 return Some(location);
             }
         }
     }
 
-    textual_definition_fallback(source, &symbol_name)
+    textual_definition_fallback(source, &symbol_name, uri)
 }
 
 /// Extract identifier-like word at `position`.
@@ -101,13 +101,14 @@ fn declaration_location_for_symbol(
     declaration: &Decl,
     symbol_name: &str,
     source: &str,
+    uri: &str,
 ) -> Option<Location> {
     match *declaration {
         Decl::Function { ref name, .. } | Decl::Type { ref name, .. } => {
             if name == symbol_name {
                 let range = span_to_range(source, declaration.span());
                 return Some(Location {
-                    uri: String::from("file:///main.op"),
+                    uri: uri.to_owned(),
                     range,
                 });
             }
@@ -116,7 +117,7 @@ fn declaration_location_for_symbol(
             if binding.name == symbol_name {
                 let range = span_to_range(source, declaration.span());
                 return Some(Location {
-                    uri: String::from("file:///main.op"),
+                    uri: uri.to_owned(),
                     range,
                 });
             }
@@ -157,14 +158,14 @@ fn byte_offset_to_position(source: &str, offset: usize) -> Position {
 }
 
 /// Fallback declaration lookup based on textual `f <name>`/`let <name>` patterns.
-fn textual_definition_fallback(source: &str, symbol_name: &str) -> Option<Location> {
+fn textual_definition_fallback(source: &str, symbol_name: &str, uri: &str) -> Option<Location> {
     for (line_index, line_text) in source.split('\n').enumerate() {
         let function_pattern = format!("f {symbol_name}");
         if let Some(column_index) = line_text.find(&function_pattern) {
             let start_column = column_index.saturating_add(2_usize);
             let end_column = start_column.saturating_add(symbol_name.chars().count());
             return Some(Location {
-                uri: String::from("file:///main.op"),
+                uri: uri.to_owned(),
                 range: Range {
                     start: Position {
                         line: line_index,
@@ -183,7 +184,7 @@ fn textual_definition_fallback(source: &str, symbol_name: &str) -> Option<Locati
             let start_column = column_index.saturating_add(4_usize);
             let end_column = start_column.saturating_add(symbol_name.chars().count());
             return Some(Location {
-                uri: String::from("file:///main.op"),
+                uri: uri.to_owned(),
                 range: Range {
                     start: Position {
                         line: line_index,

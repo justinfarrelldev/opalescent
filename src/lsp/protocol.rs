@@ -105,16 +105,44 @@ pub enum LspRequest {
     /// Shutdown server state.
     Shutdown,
     /// Compute diagnostics for source text.
-    Diagnostics { source: String },
+    Diagnostics {
+        /// Document URI.
+        uri: String,
+        /// Current source content.
+        source: String,
+    },
     /// Compute completion items at `position`.
-    Completion { source: String, position: Position },
+    Completion {
+        /// Document URI.
+        uri: String,
+        /// Current source content.
+        source: String,
+        /// Cursor position.
+        position: Position,
+    },
     /// Compute hover contents at `position`.
-    Hover { source: String, position: Position },
+    Hover {
+        /// Document URI.
+        uri: String,
+        /// Current source content.
+        source: String,
+        /// Cursor position.
+        position: Position,
+    },
     /// Compute declaration location at `position`.
-    Definition { source: String, position: Position },
+    Definition {
+        /// Document URI.
+        uri: String,
+        /// Current source content.
+        source: String,
+        /// Cursor position.
+        position: Position,
+    },
     /// Compute rename edits for symbol at `position`.
     Rename {
-        /// Source content.
+        /// Document URI where rename was triggered.
+        uri: String,
+        /// Current source content.
         source: String,
         /// Symbol location.
         position: Position,
@@ -122,7 +150,12 @@ pub enum LspRequest {
         new_name: String,
     },
     /// Compute semantic tokens for source text.
-    SemanticTokens { source: String },
+    SemanticTokens {
+        /// Document URI.
+        uri: String,
+        /// Current source content.
+        source: String,
+    },
 }
 
 /// Simplified LSP notifications for transport-level integration tests.
@@ -167,8 +200,8 @@ pub enum LspResponse {
     Hover(Option<HoverResult>),
     /// Definition payload.
     Definition(Option<Location>),
-    /// Rename payload.
-    Rename(Vec<TextEdit>),
+    /// Rename payload grouped by document URI.
+    Rename(BTreeMap<String, Vec<TextEdit>>),
     /// Semantic-token payload.
     SemanticTokens(Vec<SemanticToken>),
     /// Request failure.
