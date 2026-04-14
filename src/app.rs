@@ -2,12 +2,13 @@
 //!
 //! This module centralizes command-line behavior so `main.rs` remains a thin
 //! entry point while the executable behavior stays testable and reusable.
+// `cfg_attr` does not support `#[expect]`, so `allow` is required here.
 #![cfg_attr(
     test,
     allow(
         clippy::default_numeric_fallback,
         clippy::str_to_string,
-        reason = "existing test fixtures intentionally use string literals and Err(1) style"
+        reason = "test fixtures use string literals and numeric Err(1) style by convention"
     )
 )]
 
@@ -26,7 +27,6 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-// Imports for CLI command implementations (tasks 6-10)
 use crate::benchmarks::compile_time::{bench_parse, bench_typecheck};
 use crate::benchmarks::suite::BenchmarkSuite;
 use crate::hot_reload::change_detection::{FileWatcher, PollingFileWatcher};
@@ -538,7 +538,7 @@ fn run_watch_command(args: &[String]) -> Result<(), i32> {
         return Err(1);
     }
     let mut watcher = PollingFileWatcher::new(vec![src.to_owned()]);
-    if let Err(_e) = watcher.start() {
+    if watcher.start().is_err() {
         eprintln!("error: failed to start file watcher");
         return Err(1);
     }
@@ -756,9 +756,9 @@ mod tests {
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
-    /// Ensures test command runs an empty suite and returns Ok(()).
+    /// Ensures the test command runs an empty suite and returns `Ok(())`.
     #[test]
-    fn unimplemented_test_returns_error() {
+    fn test_command_empty_suite_returns_ok() {
         let args = ["opal".to_string(), "test".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
@@ -794,9 +794,9 @@ mod tests {
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures bench command returns `Ok(())` when wired to `BenchmarkSuite`.
+    /// Ensures the bench command runs `BenchmarkSuite` and returns `Ok(())`.
     #[test]
-    fn unimplemented_bench_returns_error() {
+    fn bench_command_returns_ok() {
         let args = ["opal".to_string(), "bench".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
