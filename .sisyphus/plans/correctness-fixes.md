@@ -1243,7 +1243,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `refactor(runtime): rename C functions, add size-specific variants, align types`
   - Files: `runtime/opal_runtime.c`, `src/codegen/functions.rs`, `src/codegen/expressions.rs`, `src/type_system/checker.rs`, `src/runtime.rs`
 
-- [ ] 22. Fix Memory Layout Placeholders
+- [x] 22. Fix Memory Layout Placeholders
 
   **What to do**:
   - RED: Write tests for `memory_layout()` that assert correct sizes for each CoreType (e.g., Int8 = 1 byte, Int32 = 4 bytes, Int64 = 8 bytes, Float64 = 8 bytes). Tests MUST fail first (currently returns placeholder values).

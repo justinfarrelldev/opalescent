@@ -23,11 +23,6 @@ impl CoreType {
     /// # Returns
     ///
     /// The memory layout (size and alignment) for this type.
-    ///
-    /// # Note
-    ///
-    /// Currently returns placeholder values. These should be updated to match
-    /// the actual LLVM backend layout in Phase 5.
     pub const fn memory_layout(&self) -> MemoryLayout {
         match *self {
             Self::Int8 | Self::UInt8 | Self::Boolean => MemoryLayout { size: 1, align: 1 },
@@ -43,5 +38,45 @@ impl CoreType {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_integer_type_sizes() {
+        assert_eq!(CoreType::Int8.memory_layout().size, 1);
+        assert_eq!(CoreType::Int16.memory_layout().size, 2);
+        assert_eq!(CoreType::Int32.memory_layout().size, 4);
+        assert_eq!(CoreType::Int64.memory_layout().size, 8);
+    }
+
+    #[test]
+    fn test_unsigned_integer_type_sizes() {
+        assert_eq!(CoreType::UInt8.memory_layout().size, 1);
+        assert_eq!(CoreType::UInt16.memory_layout().size, 2);
+        assert_eq!(CoreType::UInt32.memory_layout().size, 4);
+        assert_eq!(CoreType::UInt64.memory_layout().size, 8);
+    }
+
+    #[test]
+    fn test_float_type_sizes() {
+        assert_eq!(CoreType::Float32.memory_layout().size, 4);
+        assert_eq!(CoreType::Float64.memory_layout().size, 8);
+    }
+
+    #[test]
+    fn test_boolean_size() {
+        assert_eq!(CoreType::Boolean.memory_layout().size, 1);
+    }
+
+    #[test]
+    fn test_integer_type_alignments() {
+        assert_eq!(CoreType::Int8.memory_layout().align, 1);
+        assert_eq!(CoreType::Int16.memory_layout().align, 2);
+        assert_eq!(CoreType::Int32.memory_layout().align, 4);
+        assert_eq!(CoreType::Int64.memory_layout().align, 8);
     }
 }
