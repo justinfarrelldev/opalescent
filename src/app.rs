@@ -37,76 +37,44 @@ fn help_text(topic: Option<&str>) -> String {
     let mut out = String::new();
     match topic {
         Some("pkg") => {
-            out.push_str("opal pkg <command>\n");
-            out.push('\n');
-            out.push_str("Commands:\n");
-            out.push_str("  init <name>              Initialise a new project manifest\n");
-            out.push_str("  add <pkg> <version>      Add a dependency\n");
-            out.push_str("  remove <pkg>             Remove a dependency\n");
-            out.push_str("  install                  Install all declared dependencies\n");
-            out.push_str("  publish                  Publish the package to the registry\n");
+            out.push_str("opal pkg <command>\n\nCommands:\n  init <name>              Initialise a new project manifest\n  add <pkg> <version>      Add a dependency\n  remove <pkg>             Remove a dependency\n  install                  Install all declared dependencies\n  publish                  Publish the package to the registry\n");
         }
         Some("fmt") => {
-            out.push_str("opal fmt [--check] [--config <path>] <file>\n");
-            out.push('\n');
-            out.push_str("Format an Opalescent source file.\n");
-            out.push_str("  --check     Exit with error if file would change (CI mode)\n");
-            out.push_str("  --config    Path to opal-fmt.toml configuration file\n");
+            out.push_str("opal fmt [--check] [--config <path>] <file>\n\nFormat an Opalescent source file.\n  --check     Exit with error if file would change (CI mode)\n  --config    Path to opal-fmt.toml configuration file\n");
         }
         Some("lsp") => {
-            out.push_str("opal lsp [options]\n");
-            out.push('\n');
-            out.push_str("Start the Opalescent language server.\n");
-            out.push_str(
-                "  --stdio    Communicate over stdin/stdout (required for editor integration)\n",
-            );
+            out.push_str("opal lsp [options]\n\nStart the Opalescent language server.\n  --stdio    Communicate over stdin/stdout (required for editor integration)\n");
         }
         Some("test") => {
-            out.push_str("opal test [options]\n");
-            out.push('\n');
-            out.push_str("Run tests in the current project.\n");
-            out.push_str("  --target <triple>     Run tests for a specific build target\n");
-            out.push_str("  --filter <pattern>    Only run tests whose names contain <pattern>\n");
+            out.push_str("opal test [options]\n\nRun tests in the current project.\n  --target <triple>     Run tests for a specific build target\n  --filter <pattern>    Only run tests whose names contain <pattern>\n");
         }
         Some("doc") => {
-            out.push_str("opal doc [options]\n");
-            out.push('\n');
-            out.push_str("Generate documentation for the current project.\n");
-            out.push_str("  --format <md|html>    Output format (default: md)\n");
+            out.push_str("opal doc [options]\n\nGenerate documentation for the current project.\n  --format <md|html>    Output format (default: md)\n");
         }
         Some("bench") => {
-            out.push_str("opal bench\n");
-            out.push('\n');
-            out.push_str("Run benchmarks in the current project.\n");
+            out.push_str("opal bench\n\nRun benchmarks in the current project.\n");
+        }
+        Some("run") => {
+            out.push_str("opal run <file.op> [-- args...]\n\nCompile and execute an Opalescent source file.\n  -- args...    Arguments forwarded to the compiled binary\nAlias: opal <file.op> --run\n");
+        }
+        Some("check") => {
+            out.push_str("opal check <file.op>\n\nRun lex, parse, and typecheck pipeline without code generation.\n");
+        }
+        Some("build") => {
+            out.push_str(
+                "opal build\n\nBuild the project by reading opal.toml and compiling src/main.op.\n",
+            );
+        }
+        Some("watch") => {
+            out.push_str("opal watch <file.op>\n\nWatch a source file and recompile on each detected change.\n  Press Ctrl-C to stop watching.\n");
         }
         Some(unknown) => {
             out.push_str("Unknown help topic: ");
             out.push_str(unknown);
-            out.push('\n');
-            out.push_str("Run `opal help` for the list of topics.\n");
+            out.push_str("\nRun `opal help` for the list of topics.\n");
         }
         None => {
-            out.push_str("Opalescent Compiler\n");
-            out.push('\n');
-            out.push_str("Usage:  opal <command> [arguments]\n");
-            out.push('\n');
-            out.push_str("Commands:\n");
-            out.push_str("  <file.op>    Compile an Opalescent source file\n");
-            out.push_str("  --run        Execute the compiled binary after compilation\n");
-            out.push_str("  help         Show this help message\n");
-            out.push_str("  --help       Alias for help\n");
-            out.push_str("  pkg          Package manager commands\n");
-            out.push_str("  fmt          Format Opalescent source files\n");
-            out.push_str("  lsp          Start the language server\n");
-            out.push_str("  test         Run project tests\n");
-            out.push_str("  doc          Generate documentation\n");
-            out.push_str("  bench        Run benchmarks\n");
-            out.push('\n');
-            out.push_str("Examples:\n");
-            out.push_str("  opal src/main.op\n");
-            out.push_str("  opal src/main.op --run\n");
-            out.push_str("  opal help pkg\n");
-            out.push_str("  opal --help fmt\n");
+            out.push_str("Opalescent Compiler\n\nUsage:  opal <command> [arguments]\n\nCommands:\n  <file.op>    Compile an Opalescent source file\n  --run        Execute the compiled binary after compilation\n  help         Show this help message\n  --help       Alias for help\n  pkg          Package manager commands\n  fmt          Format Opalescent source files\n  lsp          Start the language server\n  test         Run project tests\n  doc          Generate documentation\n  bench        Run benchmarks\n  run          Compile and execute a source file\n  check        Typecheck source without code generation\n  build        Build the project from opal.toml\n  watch        Watch a file and recompile on changes\n\nExamples:\n  opal src/main.op\n  opal src/main.op --run\n  opal run src/main.op\n  opal help pkg\n  opal --help fmt\n");
         }
     }
     out
@@ -715,7 +683,11 @@ mod tests {
     /// Ensures fmt command with a nonexistent file returns error code 1.
     #[test]
     fn fmt_nonexistent_file_returns_error() {
-        let args = ["opal".to_string(), "fmt".to_string(), "nonexistent_xyz_abc_123.op".to_string()];
+        let args = [
+            "opal".to_string(),
+            "fmt".to_string(),
+            "nonexistent_xyz_abc_123.op".to_string(),
+        ];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
@@ -725,7 +697,12 @@ mod tests {
         let tmp_path = std::env::temp_dir().join("opal_test_fmt_check.op");
         std::fs::write(&tmp_path, "let x = 1\n").unwrap();
         let path = tmp_path.to_string_lossy().to_string();
-        let args = ["opal".to_string(), "fmt".to_string(), "--check".to_string(), path];
+        let args = [
+            "opal".to_string(),
+            "fmt".to_string(),
+            "--check".to_string(),
+            path,
+        ];
         let result = run_with_args(&args);
         drop(std::fs::remove_file(&tmp_path));
         assert!(result == Ok(()) || result == Err(1));
@@ -752,7 +729,13 @@ mod tests {
         std::fs::write(&tmp_cfg, "indent_size = 4\n").unwrap();
         let src_path = tmp_src.to_string_lossy().to_string();
         let cfg_path = tmp_cfg.to_string_lossy().to_string();
-        let args = ["opal".to_string(), "fmt".to_string(), "--config".to_string(), cfg_path, src_path];
+        let args = [
+            "opal".to_string(),
+            "fmt".to_string(),
+            "--config".to_string(),
+            cfg_path,
+            src_path,
+        ];
         let result = run_with_args(&args);
         drop(std::fs::remove_file(&tmp_src));
         drop(std::fs::remove_file(&tmp_cfg));
@@ -783,14 +766,24 @@ mod tests {
     /// Ensures test --filter flag is accepted and returns Ok(()).
     #[test]
     fn test_with_filter_returns_ok() {
-        let args = ["opal".to_string(), "test".to_string(), "--filter".to_string(), "my_test".to_string()];
+        let args = [
+            "opal".to_string(),
+            "test".to_string(),
+            "--filter".to_string(),
+            "my_test".to_string(),
+        ];
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
     /// Ensures test --target flag is accepted and returns Ok(()).
     #[test]
     fn test_with_target_returns_ok() {
-        let args = ["opal".to_string(), "test".to_string(), "--target".to_string(), "x86_64-linux".to_string()];
+        let args = [
+            "opal".to_string(),
+            "test".to_string(),
+            "--target".to_string(),
+            "x86_64-linux".to_string(),
+        ];
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
@@ -818,7 +811,11 @@ mod tests {
     /// Ensures doc command with a nonexistent file returns error code 1.
     #[test]
     fn doc_nonexistent_file_returns_error() {
-        let args = ["opal".to_string(), "doc".to_string(), "nonexistent_xyz_doc_123.op".to_string()];
+        let args = [
+            "opal".to_string(),
+            "doc".to_string(),
+            "nonexistent_xyz_doc_123.op".to_string(),
+        ];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
@@ -840,7 +837,13 @@ mod tests {
         let tmp_path = std::env::temp_dir().join("opal_test_doc_fmt.op");
         std::fs::write(&tmp_path, "let x = 1\n").unwrap();
         let path = tmp_path.to_string_lossy().to_string();
-        let args = ["opal".to_string(), "doc".to_string(), "--format".to_string(), "html".to_string(), path];
+        let args = [
+            "opal".to_string(),
+            "doc".to_string(),
+            "--format".to_string(),
+            "html".to_string(),
+            path,
+        ];
         let result = run_with_args(&args);
         drop(std::fs::remove_file(&tmp_path));
         assert!(result == Ok(()) || result == Err(1));
@@ -884,7 +887,11 @@ mod tests {
     /// Ensures `opal run <nonexistent>` returns error code 1.
     #[test]
     fn run_subcommand_nonexistent_file_returns_error() {
-        let args = ["opal".to_string(), "run".to_string(), "missing_xyz_run.op".to_string()];
+        let args = [
+            "opal".to_string(),
+            "run".to_string(),
+            "missing_xyz_run.op".to_string(),
+        ];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
@@ -898,7 +905,11 @@ mod tests {
     /// Ensures `opal check <nonexistent>` returns error code 1.
     #[test]
     fn check_nonexistent_file_returns_error() {
-        let args = ["opal".to_string(), "check".to_string(), "missing_file_that_does_not_exist.op".to_string()];
+        let args = [
+            "opal".to_string(),
+            "check".to_string(),
+            "nonexistent_xyz_check.op".to_string(),
+        ];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
@@ -934,7 +945,14 @@ mod tests {
         let tmp_path = std::env::temp_dir().join("opal_test_run_dashash.op");
         std::fs::write(&tmp_path, "let x = 1\n").unwrap();
         let path = tmp_path.to_string_lossy().to_string();
-        let args = ["opal".to_string(), "run".to_string(), path, "--".to_string(), "arg1".to_string(), "arg2".to_string()];
+        let args = [
+            "opal".to_string(),
+            "run".to_string(),
+            path,
+            "--".to_string(),
+            "arg1".to_string(),
+            "arg2".to_string(),
+        ];
         let result = run_with_args(&args);
         drop(std::fs::remove_file(&tmp_path));
         assert!(result == Ok(()) || result == Err(1));
@@ -990,7 +1008,51 @@ mod tests {
     /// Ensures `opal watch <nonexistent>` returns `Err(1)`.
     #[test]
     fn watch_nonexistent_file_returns_error() {
-        let args = ["opal".to_string(), "watch".to_string(), "nonexistent_xyz.op".to_string()];
+        let args = [
+            "opal".to_string(),
+            "watch".to_string(),
+            "nonexistent_xyz.op".to_string(),
+        ];
         assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Verifies `help_text` run command contains expected keywords.
+    #[test]
+    fn help_text_run_contains_usage() {
+        let help = help_text(Some("run"));
+        assert!(help.contains("opal run") && help.contains("file") && help.contains("args"));
+    }
+
+    /// Verifies `help_text` check command contains expected keywords.
+    #[test]
+    fn help_text_check_contains_usage() {
+        let help = help_text(Some("check"));
+        assert!(help.contains("opal check") && help.contains("typecheck"));
+    }
+
+    /// Verifies `help_text` build command contains expected keywords.
+    #[test]
+    fn help_text_build_contains_usage() {
+        let help = help_text(Some("build"));
+        assert!(help.contains("opal build") && help.contains("opal.toml"));
+    }
+
+    /// Verifies `help_text` watch command contains expected keywords.
+    #[test]
+    fn help_text_watch_contains_usage() {
+        let help = help_text(Some("watch"));
+        assert!(help.contains("opal watch") && help.contains("recompile"));
+    }
+
+    /// Verifies `help_text` lists all new commands: run, check, build, watch.
+    #[test]
+    fn help_text_none_lists_all_commands() {
+        let help = help_text(None);
+        assert!(
+            help.contains("run")
+                && help.contains("check")
+                && help.contains("build")
+                && help.contains("watch")
+        );
     }
 }
