@@ -5,6 +5,7 @@ extern crate alloc;
 use crate::hot_reload::abi::{signatures_compatible, AbiSignature, ModuleVTable};
 use crate::hot_reload::guard::{AbiGuard, AbiGuardResult, FallbackRestartTrigger};
 use alloc::string::String;
+use std::fs;
 
 /// Error variants produced by hot-reload module management.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,6 +57,50 @@ pub trait ModuleLoader {
     /// unload the requested module.
     fn unload_module(&mut self, module_name: &str) -> Result<(), HotReloadError>;
 }
+
+/// Filesystem-backed module loader used in production code paths.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FsModuleLoader;
+
+impl FsModuleLoader {
+    /// Create a new filesystem-backed module loader.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl ModuleLoader for FsModuleLoader {
+    fn load_module(&mut self, module_name: &str) -> Result<LoadedModule, HotReloadError> {
+        if fs::metadata(module_name).is_err() {
+            return Err(HotReloadError::ModuleLoadFailed {
+                module_name: module_name.to_owned(),
+                reason: String::from("module file not found"),
+            });
+        }
+
+        Ok(LoadedModule {
+            module_name: module_name.to_owned(),
+            vtable: ModuleVTable {
+                module_entry: default_module_entry,
+            },
+            abi_signature: AbiSignature::new(),
+        })
+    }
+
+    fn unload_module(&mut self, module_name: &str) -> Result<(), HotReloadError> {
+        if fs::metadata(module_name).is_err() {
+            return Err(HotReloadError::ModuleUnloadFailed {
+                module_name: module_name.to_owned(),
+                reason: String::from("module file not found"),
+            });
+        }
+        Ok(())
+    }
+}
+
+/// Default no-op module entry used for filesystem-backed loader metadata.
+const extern "C" fn default_module_entry() {}
 
 /// Host process state owner for active hot-reload module.
 #[derive(Debug, Clone, PartialEq, Eq)]

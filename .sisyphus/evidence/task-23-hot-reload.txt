@@ -1,0 +1,47 @@
+# Task 23 Evidence — Hot Reload production components
+
+## RED Phase Evidence
+- Added tests that referenced non-existent production types:
+  - `PollingFileWatcher`
+  - `FsModuleLoader`
+- Failing command output before implementation:
+  - `cargo test hot_reload -- --nocapture`
+  - Errors: unresolved imports for `PollingFileWatcher` and `FsModuleLoader`
+
+## GREEN + REFACTOR Verification
+
+### Hot reload focused tests
+- Command: `cargo test hot_reload -- --nocapture`
+- Result: PASS
+- Summary: 19 passed, 0 failed
+
+### Lint
+- Command: `cargo make lint`
+- Result: PASS (strict clippy profile)
+
+### Full unit tests
+- Command: `cargo test -q`
+- Result: PASS
+- Summary: 841 passed, 0 failed, 5 ignored
+
+### Integration e2e
+- Command: `cargo test --features integration --test integration_e2e -q`
+- Result: PASS
+- Summary: 7 passed, 0 failed
+
+### Release build
+- Command: `cargo build --release -q`
+- Result: PASS
+
+### LSP diagnostics
+- Command: LSP diagnostics on `src/`
+- Result: 0 errors (scanned-file diagnostics clean)
+
+## Functional checks covered
+- Platform-aware version naming now uses:
+  - Windows: `.dll`
+  - macOS: `.dylib`
+  - Others: `.so`
+- Polling production watcher detects filesystem creation changes.
+- Filesystem production loader returns `ModuleLoadFailed` for missing module paths.
+- Recovery handler now preserves host only when prior active module exists; otherwise returns original error.

@@ -2,8 +2,11 @@
 
 extern crate alloc;
 
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
+use std::fs;
+use std::time::SystemTime;
 
 /// Error variants produced by file-change detection implementations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,5 +89,71 @@ impl FileWatcher for MockFileWatcher {
         let mut drained = Vec::new();
         core::mem::swap(&mut drained, &mut self.queued_changes);
         drained
+    }
+}
+
+/// Polling watcher backed by file metadata timestamps.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PollingFileWatcher {
+    /// Watched file paths.
+    watched_paths: Vec<String>,
+    /// Last observed modification timestamp per watched file path.
+    last_modified: BTreeMap<String, Option<SystemTime>>,
+    /// Startup failure reason used to simulate watcher init errors.
+    fail_reason: Option<String>,
+}
+
+impl PollingFileWatcher {
+    /// Create a new polling watcher over the provided file paths.
+    #[must_use]
+    pub const fn new(watched_paths: Vec<String>) -> Self {
+        Self {
+            watched_paths,
+            last_modified: BTreeMap::new(),
+            fail_reason: None,
+        }
+    }
+
+    /// Create a polling watcher that fails on startup.
+    #[must_use]
+    pub fn failing_start(watched_paths: Vec<String>, reason: &str) -> Self {
+        Self {
+            watched_paths,
+            last_modified: BTreeMap::new(),
+            fail_reason: Some(reason.to_owned()),
+        }
+    }
+
+    /// Read the current filesystem modification timestamp for a path.
+    fn read_modified(path: &str) -> Option<SystemTime> {
+        let metadata = fs::metadata(path).ok()?;
+        metadata.modified().ok()
+    }
+}
+
+impl FileWatcher for PollingFileWatcher {
+    fn start(&mut self) -> Result<(), ChangeDetectionError> {
+        if let Some(reason) = self.fail_reason.clone() {
+            return Err(ChangeDetectionError::StartFailed { reason });
+        }
+        self.last_modified.clear();
+        for path in &self.watched_paths {
+            self.last_modified
+                .insert(path.clone(), Self::read_modified(path));
+        }
+        Ok(())
+    }
+
+    fn poll_changes(&mut self) -> Vec<FileChangeEvent> {
+        let mut changes = Vec::new();
+        for path in &self.watched_paths {
+            let current = Self::read_modified(path);
+            let previous = self.last_modified.get(path).copied().flatten();
+            if current != previous {
+                changes.push(FileChangeEvent::new(path));
+                self.last_modified.insert(path.clone(), current);
+            }
+        }
+        changes
     }
 }

@@ -33,5 +33,22 @@ impl fmt::Display for ModuleVersion {
 /// Creates a platform-artifact name with embedded module version.
 #[must_use]
 pub fn versioned_module_name(base_name: &str, version: ModuleVersion) -> String {
-    format!("{base_name}_{version}.so")
+    format!("{base_name}_{version}{}", shared_library_extension())
+}
+
+/// Returns the platform shared-library extension for hot-reload artifacts.
+#[must_use]
+const fn shared_library_extension() -> &'static str {
+    #[cfg(target_os = "windows")]
+    {
+        return ".dll";
+    }
+    #[cfg(target_os = "macos")]
+    {
+        return ".dylib";
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        ".so"
+    }
 }

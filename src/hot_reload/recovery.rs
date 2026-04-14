@@ -13,10 +13,13 @@ impl ErrorRecovery {
     ///
     /// Returns the original [`HotReloadError`] only when recovery policy
     /// decides the host can no longer remain operational.
-    pub const fn handle_load_failure(
-        _host_process: &mut HostProcess,
-        _error: &HotReloadError,
+    pub fn handle_load_failure(
+        host_process: &mut HostProcess,
+        error: &HotReloadError,
     ) -> Result<(), HotReloadError> {
+        if host_process.active_module().is_none() {
+            return Err(error.clone());
+        }
         Ok(())
     }
 

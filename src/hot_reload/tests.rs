@@ -5,12 +5,14 @@ use crate::hot_reload::abi::{
     ModuleVTable, PodLayout,
 };
 use crate::hot_reload::cache::AbiSignatureCache;
-use crate::hot_reload::change_detection::{FileChangeEvent, FileWatcher, MockFileWatcher};
+use crate::hot_reload::change_detection::{
+    FileChangeEvent, FileWatcher, MockFileWatcher, PollingFileWatcher,
+};
 use crate::hot_reload::classifier::{ChangeClassifier, HotReloadCategory};
 use crate::hot_reload::dependency_graph::ModuleDependencyGraph;
 use crate::hot_reload::guard::{AbiGuard, AbiGuardResult, FallbackRestartTrigger};
 use crate::hot_reload::loader::{
-    hot_swap_module, HostProcess, HotReloadError, LoadedModule, ModuleLoader,
+    hot_swap_module, FsModuleLoader, HostProcess, HotReloadError, LoadedModule, ModuleLoader,
 };
 use crate::hot_reload::recovery::ErrorRecovery;
 use crate::hot_reload::state::{HostState, StatePreserver};
@@ -19,6 +21,8 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
+use std::fs;
+use std::path::Path;
 
 extern "C" fn noop_entry() {}
 
@@ -210,10 +214,64 @@ fn module_version_formats_zero_padded_identifier() {
     );
 
     let versioned_name = versioned_module_name("logic", version);
+    let expected_extension = if cfg!(target_os = "windows") {
+        ".dll"
+    } else if cfg!(target_os = "macos") {
+        ".dylib"
+    } else {
+        ".so"
+    };
     assert_eq!(
         versioned_name,
-        String::from("logic_v0001.so"),
+        format!("logic_v0001{expected_extension}"),
         "versioned module file name must include suffix and extension"
+    );
+}
+
+#[test]
+fn polling_file_watcher_detects_file_creation_changes() {
+    let mut test_file = std::env::temp_dir();
+    test_file.push(format!(
+        "opalescent_hot_reload_watcher_{}.tmp",
+        std::process::id()
+    ));
+    if test_file.exists() {
+        let _remove_existing = fs::remove_file(&test_file);
+    }
+
+    let watched_path = path_to_string(&test_file);
+    let mut watcher = PollingFileWatcher::new(vec![watched_path.clone()]);
+    let started = watcher.start();
+    assert!(started.is_ok(), "polling watcher should start");
+
+    let initial_changes = watcher.poll_changes();
+    assert!(
+        initial_changes.is_empty(),
+        "no changes should be reported before file exists"
+    );
+
+    let write_result = fs::write(&test_file, b"hot reload");
+    assert!(
+        write_result.is_ok(),
+        "test file write should succeed for polling change test"
+    );
+
+    let changed = watcher.poll_changes();
+    assert!(
+        changed.iter().any(|event| event.file_path == watched_path),
+        "watcher should report created file as changed"
+    );
+
+    let _cleanup = fs::remove_file(&test_file);
+}
+
+#[test]
+fn fs_module_loader_returns_load_error_for_missing_library_path() {
+    let mut loader = FsModuleLoader::new();
+    let result = loader.load_module("/definitely/missing/opalescent/lib_missing_hot_reload.so");
+    assert!(
+        matches!(result, Err(HotReloadError::ModuleLoadFailed { .. })),
+        "missing library path must return ModuleLoadFailed"
     );
 }
 
@@ -340,6 +398,10 @@ fn make_exported_function(
             return_types,
         },
     }
+}
+
+fn path_to_string(path: &Path) -> String {
+    path.to_string_lossy().into_owned()
 }
 
 #[test]

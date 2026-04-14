@@ -29,11 +29,15 @@ pub use abi::{
     FunctionSignature, ModuleVTable, PodLayout,
 };
 pub use cache::AbiSignatureCache;
-pub use change_detection::{ChangeDetectionError, FileChangeEvent, FileWatcher, MockFileWatcher};
+pub use change_detection::{
+    ChangeDetectionError, FileChangeEvent, FileWatcher, MockFileWatcher, PollingFileWatcher,
+};
 pub use classifier::{ChangeClassifier, HotReloadCategory, ReloadDecision};
 pub use dependency_graph::ModuleDependencyGraph;
 pub use guard::{AbiGuard, AbiGuardResult, FallbackRestartTrigger};
-pub use loader::{hot_swap_module, HostProcess, HotReloadError, LoadedModule, ModuleLoader};
+pub use loader::{
+    hot_swap_module, FsModuleLoader, HostProcess, HotReloadError, LoadedModule, ModuleLoader,
+};
 pub use recovery::ErrorRecovery;
 pub use state::{HostState, StateError, StatePreserver};
 pub use version::{versioned_module_name, ModuleVersion};

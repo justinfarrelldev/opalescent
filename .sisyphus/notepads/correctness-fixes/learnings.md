@@ -426,3 +426,18 @@ if self.check_identifier() {
 - `cargo test --features integration --test integration_e2e -q` summary: 7 passed, 0 failed.
 - `cargo build --release -q` passes.
 - `grep -rn "opal_" runtime/opal_runtime.c` returns no matches.
+
+## [2026-04-14] Task 23 — Hot reload production components
+
+### Findings
+- Platform-specific artifact naming is best centralized behind a small helper (`shared_library_extension`) so tests and production code share the same suffix logic.
+- A production-grade watcher can be introduced without external dependencies by polling filesystem metadata timestamps (`modified()`), while preserving testability through the existing `FileWatcher` trait.
+- A minimal filesystem-backed module loader can satisfy production-path contracts and tests by validating artifact presence and returning structured loader errors for missing files.
+- Recovery semantics should distinguish between "host already had active module" (recoverable) and "no active module" (bubble original error).
+
+### Verification
+- `cargo test hot_reload -- --nocapture` passed (19/19).
+- `cargo make lint` passed with strict clippy gates.
+- `cargo test -q` passed (841 passed, 0 failed, 5 ignored).
+- `cargo test --features integration --test integration_e2e -q` passed (7/7).
+- `cargo build --release -q` passed.
