@@ -44,11 +44,11 @@ A statically-typed, expression-oriented programming language with first-class er
 cargo build --release
 
 # Run a source file
-./target/release/opalescent hello_world.op
+opal run hello_world.op
 
 # Get help
-./target/release/opalescent help
-./target/release/opalescent --help
+opal help
+opal --help
 
 # Get help for a specific subcommand
 ./target/release/opalescent help pkg
@@ -100,6 +100,10 @@ opal <command> [arguments]
 |---------|-------------|
 | `opal <file.op>` | Compile an Opalescent source file |
 | `opal <file.op> --run` | Compile and execute an Opalescent source file |
+| `opal run <file.op>` | Alias for `opal <file.op> --run` |
+| `opal check <file.op>` | Typecheck source without code generation |
+| `opal build` | Build the project from `opal.toml` |
+| `opal watch <file.op>` | Watch a file and recompile on changes |
 | `opal help` | Show the top-level help message |
 | `opal --help` | Alias for `opal help` |
 | `opal help <topic>` | Show help for a specific command |
@@ -109,8 +113,6 @@ opal <command> [arguments]
 | `opal test [options]` | Run project tests |
 | `opal doc [options]` | Generate documentation |
 | `opal bench` | Run benchmarks |
-
-Commands that are not yet fully wired will print `error: '<cmd>' not yet implemented` when invoked.
 
 ### `opal <file.op>` — Compile
 
@@ -247,6 +249,72 @@ Run benchmarks in the current project.
 
 ```bash
 opal bench
+```
+
+### `opal run` — Compile and Execute
+
+```
+opal run <file.op> [-- args...]
+```
+
+Compile and execute an Opalescent source file.
+
+| Flag | Description |
+|------|-------------|
+| `-- args...` | Arguments forwarded to the compiled binary |
+
+**Alias:** `opal <file.op> --run`
+
+**Examples:**
+
+```bash
+# Compile and run a file
+opal run src/main.op
+
+# Pass arguments to the program
+opal run src/main.op -- --verbose --input data.json
+```
+
+### `opal check` — Typecheck
+
+```
+opal check <file.op>
+```
+
+Run lex, parse, and typecheck pipeline without code generation.
+
+**Examples:**
+
+```bash
+opal check src/main.op
+```
+
+### `opal build` — Build Project
+
+```
+opal build
+```
+
+Build the project by reading `opal.toml` and compiling `src/main.op`.
+
+**Examples:**
+
+```bash
+opal build
+```
+
+### `opal watch` — Watch and Recompile
+
+```
+opal watch <file.op>
+```
+
+Watch a source file and recompile on each detected change. Press Ctrl-C to stop watching.
+
+**Examples:**
+
+```bash
+opal watch src/main.op
 ```
 
 ### `opal help` — Help
@@ -799,8 +867,6 @@ Validates the manifest and uploads the package to the registry. Requires a valid
 
 The formatter ensures consistent code style across all `.op` files.
 
-Status: formatter execution is not wired through `src/app.rs` yet; current CLI behavior exposes formatter help topics.
-
 ### Usage
 
 ```bash
@@ -878,8 +944,6 @@ Any editor that supports the Language Server Protocol can connect to `opal-lsp`.
 ```bash
 opal lsp --stdio
 ```
-
-Status: LSP stdio server command is documented but not currently wired in `src/app.rs`.
 
 Configure your editor to launch this command for `.op` files.
 
