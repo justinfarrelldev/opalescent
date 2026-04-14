@@ -426,14 +426,14 @@ pub enum Expr {
         /// Block bodies are used for complex logic with multiple statements.
         /// See `LambdaBody` for details on each variant.
         body: LambdaBody,
-        /// Captured variables from enclosing scope (TODO: implement in closure phase)
+        /// Captured variables from enclosing scope
         ///
-        /// When closures are implemented, this will track which variables from
-        /// the enclosing scope are captured by this lambda. Critical for:
+        /// Tracks which variables from the enclosing scope are captured by this lambda.
+        /// Populated during parsing via capture analysis. Critical for:
         /// - Hot-reload dependency tracking
         /// - Memory management in LLVM backend
         /// - ABI signature generation for module boundaries
-        captured_variables: Vec<String>, // TODO: Phase 4-5
+        captured_variables: Vec<String>,
         /// ABI compatibility metadata for hot-reload (TODO: implement in hot-reload phase)  
         ///
         /// Metadata needed for hot-reload compatibility, including:

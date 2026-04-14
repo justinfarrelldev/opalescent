@@ -10,7 +10,9 @@
 //! - Lambda expressions
 //! - String interpolation
 
-use super::{next_node_id, ParseError, ParseResult, Parser, Precedence};
+use super::{
+    captures::collect_captured_variables, next_node_id, ParseError, ParseResult, Parser, Precedence,
+};
 use crate::ast::{
     AstNode, BinaryOp, ConstructorField, Expr, HotReloadMetadata, LambdaBody, LiteralValue, Stmt,
     StringPart, UnaryOp,
@@ -666,11 +668,11 @@ impl Parser {
         Ok(Expr::Lambda {
             generic_params,
             generic_constraints,
-            params,
+            params: params.clone(),
             return_types,
             error_types,
-            body,
-            captured_variables: Vec::new(), // TODO: Implement closure capture analysis
+            body: body.clone(),
+            captured_variables: collect_captured_variables(&body, &params),
             metadata: Box::new(HotReloadMetadata::for_expression()),
             span: lambda_span,
             id: next_node_id(),

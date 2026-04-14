@@ -13,6 +13,8 @@
     reason = "Parser implementation is split across multiple submodules for maintainability - this is the intended design"
 )]
 
+/// Parser submodule for closure capture analysis
+mod captures;
 /// Parser submodule for declaration parsing (functions, types, imports, let)
 mod declarations;
 /// Parser error types and error collection

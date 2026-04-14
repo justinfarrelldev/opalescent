@@ -5602,3 +5602,94 @@ fn test_guard_error_binding_with_invalid_token() {
         "Expected parse error for invalid binding after 'else', but got: {result:?}"
     );
 }
+
+#[test]
+fn test_closure_captures_outer_variable() {
+    // RED test: closure capture analysis
+    // let add_x = f(y: int64): int64 => x + y
+    // "x" is NOT a parameter so it should be in captured_variables
+    let input = "let add_x = f(y: int64): int64 => x + y";
+    let result = parse_program_from_string(input);
+    assert!(result.is_ok(), "Failed to parse closure: {result:?}");
+
+    let program = result.unwrap();
+    if let Decl::Let { initializer, .. } = &program.declarations[0] {
+        if let Expr::Lambda {
+            params,
+            captured_variables,
+            ..
+        } = initializer
+        {
+            assert_eq!(params.len(), 1);
+            assert_eq!(params[0].name, "y");
+            assert!(
+                captured_variables.contains(&"x".to_owned()),
+                "Expected 'x' in captured_variables, got: {captured_variables:?}"
+            );
+            assert!(
+                !captured_variables.contains(&"y".to_owned()),
+                "Parameter 'y' should NOT be in captured_variables"
+            );
+        } else {
+            unreachable!("Expected lambda expression");
+        }
+    } else {
+        unreachable!("Expected let declaration");
+    }
+}
+
+#[test]
+fn test_lambda_with_no_captures() {
+    // Lambda that only uses its own parameters — captured_variables should be empty
+    let input = "let add = f(x: int64, y: int64): int64 => x + y";
+    let result = parse_program_from_string(input);
+    assert!(result.is_ok(), "Failed to parse lambda: {result:?}");
+
+    let program = result.unwrap();
+    if let Decl::Let { initializer, .. } = &program.declarations[0] {
+        if let Expr::Lambda {
+            captured_variables, ..
+        } = initializer
+        {
+            assert!(
+                captured_variables.is_empty(),
+                "Expected no captures for self-contained lambda, got: {captured_variables:?}"
+            );
+        } else {
+            unreachable!("Expected lambda expression");
+        }
+    } else {
+        unreachable!("Expected let declaration");
+    }
+}
+
+#[test]
+fn test_closure_block_body_captures() {
+    // Closure with block body capturing an outer variable
+    // add_base(y: int64): int64 => { return base + y }
+    // "base" is captured, "y" is a parameter
+    let input = "let add_base = f(y: int64): int64 => {\n    return base + y\n}";
+    let result = parse_program_from_string(input);
+    assert!(result.is_ok(), "Failed to parse block closure: {result:?}");
+
+    let program = result.unwrap();
+    if let Decl::Let { initializer, .. } = &program.declarations[0] {
+        if let Expr::Lambda {
+            captured_variables, ..
+        } = initializer
+        {
+            assert!(
+                captured_variables.contains(&"base".to_owned()),
+                "Expected 'base' in captured_variables, got: {captured_variables:?}"
+            );
+            assert!(
+                !captured_variables.contains(&"y".to_owned()),
+                "Parameter 'y' should NOT be in captured_variables"
+            );
+        } else {
+            unreachable!("Expected lambda expression");
+        }
+    } else {
+        unreachable!("Expected let declaration");
+    }
+}
