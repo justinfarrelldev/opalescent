@@ -688,12 +688,23 @@ fn emit_c_main_wrapper<'context>(
     if codegen_context.module.get_function("main").is_some() {
         return Ok(());
     }
-    let c_main_type = codegen_context.context.i32_type().fn_type(&[], false);
+    let i32_type = codegen_context.context.i32_type();
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let argv_type = i8_ptr_type.ptr_type(AddressSpace::default());
+    let c_main_type = i32_type.fn_type(&[i32_type.into(), argv_type.into()], false);
     let c_main = codegen_context
         .module
         .add_function("main", c_main_type, None);
     let block = codegen_context.context.append_basic_block(c_main, "entry");
     codegen_context.builder.position_at_end(block);
+
+    let _argv = c_main
+        .get_nth_param(1)
+        .expect("main must have argv param")
+        .into_pointer_value();
 
     let parameter_types = entry_function.get_type().get_param_types();
     let mut args: Vec<BasicMetadataValueEnum<'context>> = Vec::with_capacity(parameter_types.len());

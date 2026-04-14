@@ -831,12 +831,40 @@ entry main = f(args: string[]): void => {
 
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("define i32 @main()"),
-        "codegen should emit C ABI main wrapper: {ir}"
+        ir.contains("define i32 @main(i32"),
+        "codegen should emit C ABI main wrapper with argc param: {ir}"
     );
     assert!(
         ir.contains("call void @__opalescent_entry_main("),
-        "main wrapper should call lowered entry function with placeholder args: {ir}"
+        "main wrapper should call lowered entry function with args: {ir}"
+    );
+}
+
+#[test]
+fn test_entry_main_wrapper_has_argc_argv_params() {
+    let source = "
+entry main = f(args: string[]): void => {
+    return void
+}
+";
+    let context = Context::create();
+    let module_result = compile_to_module(&context, source);
+    assert!(
+        module_result.is_ok(),
+        "entry main(args: string[]) should compile: {:?}",
+        module_result.err()
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("define i32 @main(i32"),
+        "C main wrapper must declare argc (i32) as first param: {ir}"
+    );
+    assert!(
+        ir.contains("i8**") || ir.contains("ptr"),
+        "C main wrapper must declare argv (i8** or ptr) as second param: {ir}"
     );
 }
 
