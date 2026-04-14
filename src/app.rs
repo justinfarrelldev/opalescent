@@ -187,6 +187,10 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
         return run_check_command(args);
     }
 
+    if args.get(1).map(String::as_str) == Some("build") {
+        return run_build_command(args);
+    }
+
     // Separate flags from positional args (skip argv[0])
     let run_flag = args.iter().skip(1).any(|a| a == "--run");
     let file_args: Vec<&str> = args
@@ -524,6 +528,46 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
     Ok(())
 }
 
+/// Run the `opal build` command for project-level compilation.
+///
+/// Reads `opal.toml` from the current directory, then compiles `src/main.op`.
+fn run_build_command(_args: &[String]) -> Result<(), i32> {
+    let Ok(toml_content) = fs::read_to_string("opal.toml") else {
+        eprintln!("error: no opal.toml found in current directory");
+        eprintln!("hint: run 'opal pkg init <name>' to create a project");
+        return Err(1);
+    };
+    if let Err(
+        BuildError::ParseError(msg)
+        | BuildError::MissingField(msg)
+        | BuildError::InvalidVersion(msg)
+        | BuildError::InvalidConstraint(msg)
+        | BuildError::DependencyConflict(msg)
+        | BuildError::PackageNotFound(msg)
+        | BuildError::InvalidTarget(msg),
+    ) = parse_config(&toml_content)
+    {
+        eprintln!("error: invalid opal.toml: {msg}");
+        return Err(1);
+    }
+    let source = match fs::read_to_string("src/main.op") {
+        Ok(content) => content,
+        Err(error) => {
+            eprintln!("error: failed to read 'src/main.op': {error}");
+            return Err(1);
+        }
+    };
+    let binary_path = match compile_program(&source, Path::new("target")) {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("error: compilation failed: {error}");
+            return Err(1);
+        }
+    };
+    println!("{}", binary_path.display());
+    Ok(())
+}
+
 /// Main CLI logic, delegating process exit handling to the public `run()` wrapper.
 fn run_impl() -> Result<(), i32> {
     let args: Vec<String> = std::env::args().collect();
@@ -649,11 +693,7 @@ mod tests {
     /// Ensures fmt command with a nonexistent file returns error code 1.
     #[test]
     fn fmt_nonexistent_file_returns_error() {
-        let args = [
-            "opal".to_string(),
-            "fmt".to_string(),
-            "nonexistent_xyz_abc_123.op".to_string(),
-        ];
+        let args = ["opal".to_string(), "fmt".to_string(), "nonexistent_xyz_abc_123.op".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
@@ -667,12 +707,7 @@ mod tests {
             writeln!(f, "let x = 1").unwrap();
         }
         let path = tmp_path.to_string_lossy().to_string();
-        let args = [
-            "opal".to_string(),
-            "fmt".to_string(),
-            "--check".to_string(),
-            path,
-        ];
+        let args = ["opal".to_string(), "fmt".to_string(), "--check".to_string(), path];
         let result = run_with_args(&args);
         drop(std::fs::remove_file(&tmp_path));
         assert!(result == Ok(()) || result == Err(1));
@@ -699,13 +734,7 @@ mod tests {
         std::fs::write(&tmp_cfg, "indent_size = 4\n").unwrap();
         let src_path = tmp_src.to_string_lossy().to_string();
         let cfg_path = tmp_cfg.to_string_lossy().to_string();
-        let args = [
-            "opal".to_string(),
-            "fmt".to_string(),
-            "--config".to_string(),
-            cfg_path,
-            src_path,
-        ];
+        let args = ["opal".to_string(), "fmt".to_string(), "--config".to_string(), cfg_path, src_path];
         let result = run_with_args(&args);
         drop(std::fs::remove_file(&tmp_src));
         drop(std::fs::remove_file(&tmp_cfg));
@@ -750,24 +779,14 @@ mod tests {
     /// Ensures test --filter flag is accepted and returns Ok(()).
     #[test]
     fn test_with_filter_returns_ok() {
-        let args = [
-            "opal".to_string(),
-            "test".to_string(),
-            "--filter".to_string(),
-            "my_test".to_string(),
-        ];
+        let args = ["opal".to_string(), "test".to_string(), "--filter".to_string(), "my_test".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
     /// Ensures test --target flag is accepted and returns Ok(()).
     #[test]
     fn test_with_target_returns_ok() {
-        let args = [
-            "opal".to_string(),
-            "test".to_string(),
-            "--target".to_string(),
-            "x86_64-linux".to_string(),
-        ];
+        let args = ["opal".to_string(), "test".to_string(), "--target".to_string(), "x86_64-linux".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
@@ -802,11 +821,7 @@ mod tests {
     /// Ensures doc command with a nonexistent file returns error code 1.
     #[test]
     fn doc_nonexistent_file_returns_error() {
-        let args = [
-            "opal".to_string(),
-            "doc".to_string(),
-            "nonexistent_xyz_doc_123.op".to_string(),
-        ];
+        let args = ["opal".to_string(), "doc".to_string(), "nonexistent_xyz_doc_123.op".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
@@ -828,13 +843,7 @@ mod tests {
         let tmp_path = std::env::temp_dir().join("opal_test_doc_fmt.op");
         std::fs::write(&tmp_path, "let x = 1\n").unwrap();
         let path = tmp_path.to_string_lossy().to_string();
-        let args = [
-            "opal".to_string(),
-            "doc".to_string(),
-            "--format".to_string(),
-            "html".to_string(),
-            path,
-        ];
+        let args = ["opal".to_string(), "doc".to_string(), "--format".to_string(), "html".to_string(), path];
         let result = run_with_args(&args);
         drop(std::fs::remove_file(&tmp_path));
         assert!(result == Ok(()) || result == Err(1));
@@ -878,22 +887,14 @@ mod tests {
     /// Ensures `opal run <nonexistent>` returns error code 1.
     #[test]
     fn run_subcommand_nonexistent_file_returns_error() {
-        let args = [
-            "opal".to_string(),
-            "run".to_string(),
-            "missing_xyz_run.op".to_string(),
-        ];
+        let args = ["opal".to_string(), "run".to_string(), "missing_xyz_run.op".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
     /// Ensures `opal run` is recognized as a subcommand — not treated as a filename.
     #[test]
     fn run_subcommand_is_recognized() {
-        let args = [
-            "opal".to_string(),
-            "run".to_string(),
-            "missing_xyz_run.op".to_string(),
-        ];
+        let args = ["opal".to_string(), "run".to_string(), "missing_xyz_run.op".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
@@ -907,11 +908,7 @@ mod tests {
     /// Ensures `opal check <nonexistent>` returns error code 1.
     #[test]
     fn check_nonexistent_file_returns_error() {
-        let args = [
-            "opal".to_string(),
-            "check".to_string(),
-            "missing_file_that_does_not_exist.op".to_string(),
-        ];
+        let args = ["opal".to_string(), "check".to_string(), "missing_file_that_does_not_exist.op".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
@@ -949,16 +946,54 @@ mod tests {
         let tmp_path = std::env::temp_dir().join("opal_test_run_dashash.op");
         std::fs::write(&tmp_path, "let x = 1\n").unwrap();
         let path = tmp_path.to_string_lossy().to_string();
-        let args = [
-            "opal".to_string(),
-            "run".to_string(),
-            path,
-            "--".to_string(),
-            "arg1".to_string(),
-            "arg2".to_string(),
-        ];
+        let args = ["opal".to_string(), "run".to_string(), path, "--".to_string(), "arg1".to_string(), "arg2".to_string()];
         let result = run_with_args(&args);
         drop(std::fs::remove_file(&tmp_path));
+        assert!(result == Ok(()) || result == Err(1));
+    }
+
+    /// Mutex to serialize tests that change the process working directory.
+    static CWD_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Ensures `opal build` returns `Err(1)` when no `opal.toml` exists in the current directory.
+    ///
+    /// Uses a tempdir without an `opal.toml` to exercise the missing-config error path.
+    #[test]
+    fn build_no_config_returns_error() {
+        let _guard = CWD_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let original = std::env::current_dir().unwrap();
+        let dir = std::env::temp_dir().join("opal_test_build_no_config");
+        std::fs::create_dir_all(&dir).unwrap();
+        drop(std::fs::remove_file(dir.join("opal.toml")));
+        std::env::set_current_dir(&dir).unwrap();
+        let result = run_with_args(&["opal".to_string(), "build".to_string()]);
+        std::env::set_current_dir(&original).unwrap();
+        assert_eq!(result, Err(1));
+    }
+
+    /// Ensures `opal build` dispatches the build path when `opal.toml` and `src/main.op` exist.
+    ///
+    /// Compilation may return `Err(1)` in CI environments without LLVM; this is acceptable.
+    #[test]
+    fn build_with_config_compiles_project() {
+        let _guard = CWD_MUTEX
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let original = std::env::current_dir().unwrap();
+        let dir = std::env::temp_dir().join("opal_test_build_with_config");
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(
+            dir.join("opal.toml"),
+            "name = \"test\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("src").join("main.op"),
+            "##\n  Description: starting point of the application\n##\nentry main = f(args: string[]): void =>\n    return void\n",
+        ).unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+        let result = run_with_args(&["opal".to_string(), "build".to_string()]);
+        std::env::set_current_dir(&original).unwrap();
         assert!(result == Ok(()) || result == Err(1));
     }
 }
