@@ -102,6 +102,8 @@ opal <command> [arguments]
 | `opal help pkg` | Show package manager command reference |
 | `opal help fmt` | Show formatter command reference |
 
+`opal pkg`, `opal fmt`, and `opal lsp --stdio` are currently documented interfaces, but they are not dispatched as executable subcommands in `src/app.rs` yet.
+
 ### `opal <file.op>` — Compile and Run
 
 Pass any `.op` source file as the first argument to compile and execute it:
@@ -240,6 +242,12 @@ let mutable buffer: string[] = []
 ### Types
 
 Algebraic data types (sum and product types) are declared in `.types.op` files:
+
+Built-in numeric primitives are explicitly sized:
+
+- Signed integers: `int8`, `int16`, `int32`, `int64`
+- Unsigned integers: `uint8`, `uint16`, `uint32`, `uint64`
+- Floating-point: `float32`, `float64`
 
 **Product type (record):**
 
@@ -648,6 +656,8 @@ test-projects/hello-world/
 
 The package manager is invoked via `opal pkg`. It reads from and writes to `opal.pkg.toml`.
 
+Status: package-manager execution is not wired through `src/app.rs` yet; current CLI behavior exposes package manager help topics.
+
 ### Initialise a project
 
 ```bash
@@ -696,6 +706,8 @@ Validates the manifest and uploads the package to the registry. Requires a valid
 ## Formatter
 
 The formatter ensures consistent code style across all `.op` files.
+
+Status: formatter execution is not wired through `src/app.rs` yet; current CLI behavior exposes formatter help topics.
 
 ### Usage
 
@@ -774,6 +786,8 @@ Any editor that supports the Language Server Protocol can connect to `opal-lsp`.
 ```bash
 opal lsp --stdio
 ```
+
+Status: LSP stdio server command is documented but not currently wired in `src/app.rs`.
 
 Configure your editor to launch this command for `.op` files.
 

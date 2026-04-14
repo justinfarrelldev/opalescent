@@ -316,7 +316,7 @@ impl Parser {
         Ok(parameters)
     }
 
-    /// Parse a type declaration (placeholder)
+    /// Parse a type declaration.
     fn parse_type_declaration(
         &mut self,
         visibility: Visibility,

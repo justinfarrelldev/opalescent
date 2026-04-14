@@ -434,7 +434,7 @@ pub enum Expr {
         /// - Memory management in LLVM backend
         /// - ABI signature generation for module boundaries
         captured_variables: Vec<String>,
-        /// ABI compatibility metadata for hot-reload (TODO: implement in hot-reload phase)  
+        /// ABI compatibility metadata for hot-reload.
         ///
         /// Metadata needed for hot-reload compatibility, including:
         /// - Function signature hash for ABI compatibility checks

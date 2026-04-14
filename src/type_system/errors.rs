@@ -373,22 +373,6 @@ pub enum TypeError {
         span: SourceSpan,
     },
 
-    /// Feature not yet implemented
-    #[error("Feature not yet implemented: {feature}")]
-    #[diagnostic(
-        code(opalescent::type_system::not_implemented),
-        help(
-            "This feature is planned but not yet available. Check the project roadmap for implementation status"
-        )
-    )]
-    NotImplementedYet {
-        /// Description of the feature not yet implemented
-        feature: String,
-        #[label("unimplemented feature used here")]
-        /// Source span highlighting where the unimplemented feature was used
-        span: SourceSpan,
-    },
-
     /// Function arity mismatch (wrong number of arguments)
     #[error("Function arity mismatch: expected {expected} argument(s), found {found}")]
     #[diagnostic(
