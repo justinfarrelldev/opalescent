@@ -1434,7 +1434,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix(pkg): support multi-clause version constraints and transitive deps`
   - Files: `src/package_manager/resolver.rs`, `src/build_system/config.rs`
 
-- [ ] 26. LSP Stdio Transport + Document Sync
+- [x] 26. LSP Stdio Transport + Document Sync
 
   **What to do**:
   - RED: Write tests for JSON-RPC message framing (Content-Length header parsing, message reading/writing) and document sync (DidOpen, DidChange, DidClose handlers). Tests MUST fail first.
@@ -1483,7 +1483,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `feat(lsp): implement stdio transport and document synchronization`
   - Files: `src/lsp.rs`, `src/lsp/` (multiple files)
 
-- [ ] 27. Update README to Match Reality
+- [x] 27. Update README to Match Reality
 
   **What to do**:
   - Review each section of README.md against actual implementation state
@@ -1552,7 +1552,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `docs(readme): align with actual implementation state`
   - Files: `README.md`
 
-- [ ] 28. Fix Makefile.toml Broken Task
+- [x] 28. Fix Makefile.toml Broken Task
 
   **What to do**:
   - RED: Run `cargo make --list-all-steps 2>&1 | grep -i "install-deps"` to verify the task is listed, then run `cargo make --print-steps 2>&1` to see if it parses correctly. If `&&` in args causes a parse error, capture it. Do NOT run `cargo make install-deps-debian` itself (it requires sudo and mutates system state).
@@ -1598,7 +1598,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix(build): fix cargo-make install-deps-debian task syntax`
   - Files: `Makefile.toml`
 
-- [ ] 29. Clean Up Remaining TODOs/Stale Comments
+- [x] 29. Clean Up Remaining TODOs/Stale Comments
 
   **What to do**:
   - Search ALL production source files for `TODO`, `FIXME`, `HACK`, `STUB`, `placeholder`, "not yet implemented", "Phase [0-5]" comments
@@ -1648,7 +1648,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `chore: clean up stale TODOs and misleading comments`
   - Files: multiple
 
-- [ ] 30. Track Learnings to Serena Memory
+- [x] 30. Track Learnings to Serena Memory
 
   **What to do**:
   - Write learnings from this audit to Serena memory for future reference
@@ -1698,19 +1698,19 @@ Max Concurrent: 8 (Wave 2)
 
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit "okay" before completing.
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. For each "Must Have": verify implementation exists (read file, run command). For each "Must NOT Have": search codebase for forbidden patterns — reject with file:line if found. Check evidence files exist in .sisyphus/evidence/. Compare deliverables against plan.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `cargo build --release 2>&1`, `cargo test 2>&1`, `cargo test --features integration 2>&1`. Review all changed files for: `as any` equivalent casts, empty error handlers, commented-out code, unused imports, `unreachable!()` in non-test code. Check AI slop: excessive comments, over-abstraction, generic variable names.
   Output: `Build [PASS/FAIL] | Tests [N pass/N fail] | Integration [N pass/N fail] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high`
+- [x] F3. **Real Manual QA** — `unspecified-high`
   Start from clean state. Compile and run each test-project (hello-world, fib-recursive, fib-iterative, simple-quiz). Verify outputs match expectations. Test edge cases: empty source file, syntax errors, type errors. Save evidence to `.sisyphus/evidence/final-qa/`.
   Output: `Test Projects [N/N pass] | Edge Cases [N tested] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff (git log/diff). Verify 1:1 — everything in spec was built, nothing beyond spec was built. Check "Must NOT do" compliance. Detect cross-task contamination. Flag unaccounted changes.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 
