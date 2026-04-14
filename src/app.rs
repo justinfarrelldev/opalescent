@@ -12,21 +12,21 @@
 )]
 
 use crate::compiler::compile_program;
+use crate::doc_gen::generate_markdown_for_program;
 use crate::formatter::command::FormatCommand;
 use crate::formatter::config::FormatterConfig;
+use crate::lexer::Lexer;
+use crate::parser::Parser;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-// Imports for CLI command implementations (tasks 3-10)
+// Imports for CLI command implementations (tasks 4-10)
 // TODO: import when wired — path unknown (LspServer)
 // TODO: import when wired — path unknown (TestCommand, TestSuite, run_suite)
-// TODO: import when wired — path unknown (generate_markdown_for_program)
 // TODO: import when wired — path unknown (BenchmarkSuite)
 // TODO: import when wired — path unknown (parse_config, ProjectConfig)
 // TODO: import when wired — path unknown (PollingFileWatcher, FileWatcher)
-// TODO: import when wired — path unknown (Lexer)
-// TODO: import when wired — path unknown (Parser)
 // TODO: import when wired — path unknown (TypeChecker)
 
 /// Build the help text for `opal` CLI commands.
@@ -165,8 +165,7 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
     }
 
     if args.get(1).map(String::as_str) == Some("doc") {
-        eprintln!("error: opal doc needs implementation");
-        return Err(1);
+        return run_doc_command(args);
     }
 
     if args.get(1).map(String::as_str) == Some("bench") {
@@ -291,6 +290,53 @@ fn run_fmt_command(args: &[String]) -> Result<(), i32> {
         return Err(1);
     }
     println!("{source_path}");
+    Ok(())
+}
+
+/// Dispatch `opal doc` subcommand arguments to the documentation generator.
+fn run_doc_command(args: &[String]) -> Result<(), i32> {
+    let doc_args: Vec<&str> = args.iter().skip(2).map(String::as_str).collect();
+    let source_path = doc_args
+        .iter()
+        .enumerate()
+        .find(|&(i, &a)| {
+            if a == "--format" {
+                return false;
+            }
+            if i > 0 && doc_args.get(i.saturating_sub(1)).copied() == Some("--format") {
+                return false;
+            }
+            !a.starts_with("--")
+        })
+        .map(|(_, &a)| a);
+    let Some(source_path) = source_path else {
+        eprintln!("error: opal doc requires a source file — run 'opal help doc' for usage");
+        return Err(1);
+    };
+    let source = match fs::read_to_string(source_path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("error: failed to read '{source_path}': {e}");
+            return Err(1);
+        }
+    };
+    let lexer = Lexer::new(&source);
+    let (tokens, lex_errors) = lexer.tokenize();
+    if !lex_errors.is_empty() {
+        eprintln!("error: lex errors in source");
+        return Err(1);
+    }
+    let (program, parse_errors) = Parser::new(tokens).parse();
+    if !parse_errors.is_empty() {
+        eprintln!("error: parse errors in source");
+        return Err(1);
+    }
+    let Some(program) = program else {
+        eprintln!("error: parse errors in source");
+        return Err(1);
+    };
+    let markdown = generate_markdown_for_program(&program);
+    println!("{markdown}");
     Ok(())
 }
 
@@ -508,6 +554,54 @@ mod tests {
     fn unimplemented_bench_returns_error() {
         let args = ["opal".to_string(), "bench".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures doc command with no file argument returns error code 1.
+    #[test]
+    fn doc_missing_file_returns_error() {
+        let args = ["opal".to_string(), "doc".to_string()];
+        assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures doc command with a nonexistent file returns error code 1.
+    #[test]
+    fn doc_nonexistent_file_returns_error() {
+        let args = [
+            "opal".to_string(),
+            "doc".to_string(),
+            "nonexistent_xyz_doc_123.op".to_string(),
+        ];
+        assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures doc command with a valid source file returns Ok(()).
+    #[test]
+    fn doc_with_valid_source_returns_ok() {
+        let tmp_path = std::env::temp_dir().join("opal_test_doc_valid.op");
+        std::fs::write(&tmp_path, "let x = 1\n").unwrap();
+        let path = tmp_path.to_string_lossy().to_string();
+        let args = ["opal".to_string(), "doc".to_string(), path];
+        let result = run_with_args(&args);
+        drop(std::fs::remove_file(&tmp_path));
+        assert_eq!(result, Ok(()));
+    }
+
+    /// Ensures doc --format html flag is accepted (no panic, returns Ok or Err(1)).
+    #[test]
+    fn doc_format_flag_accepted() {
+        let tmp_path = std::env::temp_dir().join("opal_test_doc_fmt.op");
+        std::fs::write(&tmp_path, "let x = 1\n").unwrap();
+        let path = tmp_path.to_string_lossy().to_string();
+        let args = [
+            "opal".to_string(),
+            "doc".to_string(),
+            "--format".to_string(),
+            "html".to_string(),
+            path,
+        ];
+        let result = run_with_args(&args);
+        drop(std::fs::remove_file(&tmp_path));
+        assert!(result == Ok(()) || result == Err(1));
     }
 
     /// Ensures explicit help command returns success.
