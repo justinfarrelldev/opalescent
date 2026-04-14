@@ -52,7 +52,7 @@ fn parse_config_reports_missing_required_fields() {
 }
 
 #[test]
-fn parse_version_constraint_supports_range_and_equality() {
+fn parse_version_constraint_supports_range_equality_and_bare_versions() {
     let parsed_range = parse_version_constraint(">=1.0.0 <2.0.0");
     assert!(
         parsed_range.is_ok(),
@@ -63,6 +63,12 @@ fn parse_version_constraint_supports_range_and_equality() {
     assert!(
         parsed_eq.is_ok(),
         "equality constraint should parse successfully"
+    );
+
+    let parsed_bare = parse_version_constraint("2.5.1");
+    assert!(
+        parsed_bare.is_ok(),
+        "bare version constraint should parse as equality"
     );
 }
 

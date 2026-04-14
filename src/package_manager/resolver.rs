@@ -5,7 +5,9 @@
 
 extern crate alloc;
 
-use crate::build_system::config::{Version, VersionClause, VersionComparator, VersionConstraint};
+use crate::build_system::config::{
+    version_satisfies_constraint, Version, VersionClause, VersionComparator, VersionConstraint,
+};
 use crate::package_manager::manifest::{Manifest, ManifestDependency};
 use crate::package_manager::registry::{PackageEntry, Registry, RegistryError};
 use alloc::collections::BTreeMap;
@@ -93,9 +95,16 @@ fn resolve_one<R: Registry>(
         return Err(ResolveError::DependencyCycle(dep.name.clone()));
     }
 
-    if visited.contains_key(&dep.name) {
-        // Already resolved — check version compatibility
-        return Ok(());
+    if let Some(existing_version) = visited.get(&dep.name) {
+        // Already resolved — ensure existing version still satisfies this constraint.
+        let constraint = parse_constraint(&dep.version_constraint)?;
+        let Some(existing_parsed) = parse_version(existing_version) else {
+            return Err(ResolveError::NoMatchingVersion(dep.name.clone()));
+        };
+        if version_satisfies_constraint(&existing_parsed, &constraint) {
+            return Ok(());
+        }
+        return Err(ResolveError::ConflictingConstraints(dep.name.clone()));
     }
 
     let candidates = registry.list_versions(&dep.name).map_err(|err| match err {
@@ -112,6 +121,19 @@ fn resolve_one<R: Registry>(
         version: selected.version.clone(),
         url: selected.url,
     });
+
+    let mut next_path: Vec<&str> = path.to_vec();
+    next_path.push(dep.name.as_str());
+    let transitive_deps = registry
+        .list_dependencies(&selected.name, &selected.version)
+        .map_err(|err| match err {
+            RegistryError::NotFound(name) => ResolveError::NoMatchingVersion(name),
+            RegistryError::NetworkError(msg) => ResolveError::RegistryError(msg),
+        })?;
+
+    for child in &transitive_deps {
+        resolve_one(child, registry, graph, visited, &next_path)?;
+    }
 
     Ok(())
 }
@@ -158,45 +180,59 @@ fn select_best(
         .ok_or_else(|| ResolveError::NoMatchingVersion(package_name.to_owned()))
 }
 
-/// Parse a semver constraint string such as `>=1.0.0` or `=2.3.1`.
+/// Parse a semver constraint string such as `>=1.0.0`, `=2.3.1`, or
+/// multi-clause expressions like `>=0.5.0 <1.0.0`.
 ///
 /// # Errors
 ///
-/// Returns [`ResolveError::InvalidConstraint`] when the version part cannot be
-/// parsed as `major.minor.patch`.
+/// Returns [`ResolveError::InvalidConstraint`] when any clause cannot be parsed
+/// as `major.minor.patch` with an optional comparator.
 pub fn parse_constraint(constraint_str: &str) -> Result<VersionConstraint, ResolveError> {
-    let s = constraint_str.trim();
+    let normalized = constraint_str.trim().replace(',', " ");
+    if normalized.trim().is_empty() {
+        return Err(ResolveError::InvalidConstraint(constraint_str.trim().to_owned()));
+    }
 
-    let (comparator, version_str) = s
-        .strip_prefix(">=")
-        .map(|rest| (VersionComparator::GreaterEq, rest))
-        .or_else(|| {
-            s.strip_prefix('>')
-                .map(|rest| (VersionComparator::Greater, rest))
-        })
-        .or_else(|| {
-            s.strip_prefix("<=")
-                .map(|rest| (VersionComparator::LessEq, rest))
-        })
-        .or_else(|| {
-            s.strip_prefix('<')
-                .map(|rest| (VersionComparator::Less, rest))
-        })
-        .or_else(|| {
-            s.strip_prefix('=')
-                .map(|rest| (VersionComparator::Eq, rest))
-        })
-        .unwrap_or((VersionComparator::Eq, s));
+    let mut clauses = Vec::new();
+    for token in normalized.split_whitespace() {
+        let (comparator, version_str) = token
+            .strip_prefix(">=")
+            .map(|rest| (VersionComparator::GreaterEq, rest))
+            .or_else(|| {
+                token
+                    .strip_prefix("<=")
+                    .map(|rest| (VersionComparator::LessEq, rest))
+            })
+            .or_else(|| {
+                token
+                    .strip_prefix('>')
+                    .map(|rest| (VersionComparator::Greater, rest))
+            })
+            .or_else(|| {
+                token
+                    .strip_prefix('<')
+                    .map(|rest| (VersionComparator::Less, rest))
+            })
+            .or_else(|| {
+                token
+                    .strip_prefix('=')
+                    .map(|rest| (VersionComparator::Eq, rest))
+            })
+            .unwrap_or((VersionComparator::Eq, token));
 
-    let version =
-        parse_version(version_str).ok_or_else(|| ResolveError::InvalidConstraint(s.to_owned()))?;
-
-    Ok(VersionConstraint {
-        clauses: alloc::vec![VersionClause {
+        let version = parse_version(version_str)
+            .ok_or_else(|| ResolveError::InvalidConstraint(constraint_str.trim().to_owned()))?;
+        clauses.push(VersionClause {
             comparator,
-            version
-        }],
-    })
+            version,
+        });
+    }
+
+    if clauses.is_empty() {
+        return Err(ResolveError::InvalidConstraint(constraint_str.trim().to_owned()));
+    }
+
+    Ok(VersionConstraint { clauses })
 }
 
 /// Parse a `major.minor.patch` version string.

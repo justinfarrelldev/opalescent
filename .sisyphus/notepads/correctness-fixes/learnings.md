@@ -454,3 +454,22 @@ if self.check_identifier() {
 - `cargo test` passed (full suite green).
 - `cargo make lint` passed with strict clippy gates.
 - LSP diagnostics clean on `src/formatter/printer.rs`, `src/formatter/rules.rs`, `src/formatter/tests.rs`.
+
+## [2026-04-14] Task 25 — Package resolver transitive deps and multi-clause constraints
+
+### Findings
+- `parse_constraint` in package resolver must support multi-clause expressions by tokenizing normalized input (`","` -> whitespace) and parsing each clause independently; bare versions should map to equality.
+- Resolver transitive behavior is best implemented by extending the registry trait with `list_dependencies(package, version)` and recursively resolving child dependencies via the existing `resolve_one` flow.
+- Re-visiting an already-resolved package must validate the existing selected version against the new constraint; otherwise return `ConflictingConstraints`.
+- Build-system `parse_version_constraint` should accept bare versions as equality and map parse failures to `InvalidConstraint` for consistent error reporting.
+
+### Verification
+- New targeted tests pass for:
+  - package manager multi-clause parse
+  - package manager transitive dependency resolution
+  - build-system bare-version constraint parsing
+- `cargo test package_manager` passed (33/33).
+- `cargo test build_system` passed (9/9).
+- `cargo make lint` passed with strict clippy profile.
+- `cargo test` full suite passed.
+- LSP diagnostics clean on changed files (`resolver.rs`, `registry.rs`, `package_manager/tests.rs`, `build_system/config.rs`, `build_system/tests.rs`).

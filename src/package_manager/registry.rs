@@ -2,6 +2,7 @@
 
 extern crate alloc;
 
+use crate::package_manager::manifest::ManifestDependency;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -48,6 +49,22 @@ pub trait Registry {
         package_name: &str,
         version: &str,
     ) -> Result<PackageEntry, RegistryError>;
+
+    /// List dependencies declared by a specific package version.
+    ///
+    /// Default implementation returns no dependencies, allowing simple registry
+    /// implementations to omit transitive graph support.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RegistryError`] when dependency metadata cannot be read.
+    fn list_dependencies(
+        &self,
+        _package_name: &str,
+        _version: &str,
+    ) -> Result<Vec<ManifestDependency>, RegistryError> {
+        Ok(Vec::new())
+    }
 }
 
 /// In-memory mock registry used in tests.
@@ -55,6 +72,8 @@ pub trait Registry {
 pub struct MockRegistry {
     /// Package entries keyed by `name::version`.
     entries: BTreeMap<String, PackageEntry>,
+    /// Dependency lists keyed by `name::version`.
+    dependencies: BTreeMap<String, Vec<ManifestDependency>>,
 }
 
 impl MockRegistry {
@@ -63,13 +82,24 @@ impl MockRegistry {
     pub const fn new() -> Self {
         Self {
             entries: BTreeMap::new(),
+            dependencies: BTreeMap::new(),
         }
     }
 
     /// Register a package entry in the mock.
     pub fn register(&mut self, entry: PackageEntry) {
+        self.register_with_dependencies(entry, Vec::new());
+    }
+
+    /// Register a package entry plus transitive dependency declarations.
+    pub fn register_with_dependencies(
+        &mut self,
+        entry: PackageEntry,
+        dependencies: Vec<ManifestDependency>,
+    ) {
         let key = alloc::format!("{}::{}", entry.name, entry.version);
-        self.entries.insert(key, entry);
+        self.entries.insert(key.clone(), entry);
+        self.dependencies.insert(key, dependencies);
     }
 }
 
@@ -94,6 +124,18 @@ impl Registry for MockRegistry {
     ) -> Result<PackageEntry, RegistryError> {
         let key = alloc::format!("{package_name}::{version}");
         self.entries
+            .get(&key)
+            .cloned()
+            .ok_or_else(|| RegistryError::NotFound(alloc::format!("{package_name}@{version}")))
+    }
+
+    fn list_dependencies(
+        &self,
+        package_name: &str,
+        version: &str,
+    ) -> Result<Vec<ManifestDependency>, RegistryError> {
+        let key = alloc::format!("{package_name}::{version}");
+        self.dependencies
             .get(&key)
             .cloned()
             .ok_or_else(|| RegistryError::NotFound(alloc::format!("{package_name}@{version}")))

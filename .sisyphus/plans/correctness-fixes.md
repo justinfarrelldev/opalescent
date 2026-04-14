@@ -1384,7 +1384,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix(formatter): use single quotes, fix match output to parseable syntax`
   - Files: `src/formatter/rules.rs`, `src/formatter/printer.rs`
 
-- [ ] 25. Fix Package Manager Transitive Deps + Version Parsing
+- [x] 25. Fix Package Manager Transitive Deps + Version Parsing
 
   **What to do**:
   - RED: Write tests for multi-clause version constraints (`>=0.5.0 <1.0.0`) and transitive dependency resolution. Tests MUST fail first.

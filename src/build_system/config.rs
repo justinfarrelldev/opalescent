@@ -180,21 +180,10 @@ pub fn parse_version_constraint(input: &str) -> Result<VersionConstraint, BuildE
     let mut clauses = Vec::new();
 
     for token in normalized.split_whitespace() {
-        let (operator, version_text) = if let Some(rest) = token.strip_prefix(">=") {
-            (VersionComparator::GreaterEq, rest)
-        } else if let Some(rest) = token.strip_prefix("<=") {
-            (VersionComparator::LessEq, rest)
-        } else if let Some(rest) = token.strip_prefix('>') {
-            (VersionComparator::Greater, rest)
-        } else if let Some(rest) = token.strip_prefix('<') {
-            (VersionComparator::Less, rest)
-        } else if let Some(rest) = token.strip_prefix('=') {
-            (VersionComparator::Eq, rest)
-        } else {
-            return Err(BuildError::InvalidConstraint(input.to_owned()));
-        };
+        let (operator, version_text) = parse_constraint_token(token);
 
-        let parsed_version = parse_version(version_text)?;
+        let parsed_version = parse_version(version_text)
+            .map_err(|_parse_error| BuildError::InvalidConstraint(input.to_owned()))?;
         clauses.push(VersionClause {
             comparator: operator,
             version: parsed_version,
@@ -206,6 +195,34 @@ pub fn parse_version_constraint(input: &str) -> Result<VersionConstraint, BuildE
     }
 
     Ok(VersionConstraint { clauses })
+}
+
+/// Parse one version-constraint token into `(comparator, version_text)`.
+fn parse_constraint_token(token: &str) -> (VersionComparator, &str) {
+    token.strip_prefix(">=").map_or_else(
+        || {
+            token.strip_prefix("<=").map_or_else(
+                || {
+                    token.strip_prefix('>').map_or_else(
+                        || {
+                            token.strip_prefix('<').map_or_else(
+                                || {
+                                    token.strip_prefix('=').map_or_else(
+                                        || (VersionComparator::Eq, token),
+                                        |rest| (VersionComparator::Eq, rest),
+                                    )
+                                },
+                                |rest| (VersionComparator::Less, rest),
+                            )
+                        },
+                        |rest| (VersionComparator::Greater, rest),
+                    )
+                },
+                |rest| (VersionComparator::LessEq, rest),
+            )
+        },
+        |rest| (VersionComparator::GreaterEq, rest),
+    )
 }
 
 /// Evaluate whether a version satisfies all clauses in a constraint.

@@ -1,0 +1,28 @@
+# Task 25 Evidence — Package Manager transitive deps + version parsing
+
+Date: 2026-04-14
+
+## RED/GREEN summary
+- Added RED tests for:
+  - package manager multi-clause constraint parsing
+  - package manager transitive dependency resolution
+  - build-system bare-version constraint parsing
+- Implemented GREEN changes in resolver/registry/config to satisfy those tests.
+
+## Verification commands and outcomes
+- `cargo test package_manager::tests::package_manager_tests::parse_constraint_parses_multi_clause_constraints -- --nocapture` ✅
+- `cargo test package_manager::tests::package_manager_tests::resolver_resolves_transitive_dependencies -- --nocapture` ✅
+- `cargo test build_system::tests::parse_version_constraint_supports_range_equality_and_bare_versions -- --nocapture` ✅
+- `cargo test package_manager` ✅ (33 passed, 0 failed)
+- `cargo test build_system` ✅ (9 passed, 0 failed)
+- `cargo make lint` ✅
+- `cargo test` ✅ (full suite green)
+- LSP diagnostics on changed files ✅
+  - src/package_manager/resolver.rs: no diagnostics
+  - src/package_manager/registry.rs: no diagnostics
+  - src/package_manager/tests.rs: no diagnostics
+  - src/build_system/config.rs: no diagnostics
+  - src/build_system/tests.rs: no diagnostics
+
+## Scope confirmation
+- Changes are limited to Task 25 implementation files + evidence/notepad/plan tracking updates.

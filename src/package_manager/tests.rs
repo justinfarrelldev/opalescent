@@ -7,7 +7,7 @@ mod package_manager_tests {
     use crate::build_system::targets::{dynamic_lib_extension, parse_target_triple, Platform};
     use crate::package_manager::commands::{dispatch_pkg_command, PkgCommand};
     use crate::package_manager::installer::{FailingDownloader, Installer, MockDownloader};
-    use crate::package_manager::manifest::{parse_manifest, serialize_manifest};
+    use crate::package_manager::manifest::{parse_manifest, serialize_manifest, ManifestDependency};
     use crate::package_manager::publisher::{FailingUploader, MockUploader, Publisher};
     use crate::package_manager::registry::{MockRegistry, PackageEntry, Registry};
     use crate::package_manager::resolver::{parse_constraint, resolve_manifest_deps};
@@ -201,6 +201,49 @@ lib = ">=2.0.0"
     fn parse_constraint_parses_bare_version_as_exact() {
         let constraint = parse_constraint("1.0.0").expect("bare version");
         assert_eq!(constraint.clauses.len(), 1);
+    }
+
+    #[test]
+    fn parse_constraint_parses_multi_clause_constraints() {
+        let constraint = parse_constraint(">=0.5.0 <1.0.0").expect("multi-clause constraint");
+        assert_eq!(constraint.clauses.len(), 2);
+    }
+
+    #[test]
+    fn resolver_resolves_transitive_dependencies() {
+        let mut registry = MockRegistry::new();
+        registry.register_with_dependencies(
+            PackageEntry {
+                name: String::from("app_core"),
+                version: String::from("1.0.0"),
+                url: String::from("https://example.com/app_core"),
+                checksum: String::new(),
+            },
+            vec![ManifestDependency {
+                name: String::from("shared"),
+                version_constraint: String::from(">=2.0.0 <3.0.0"),
+            }],
+        );
+        registry.register(PackageEntry {
+            name: String::from("shared"),
+            version: String::from("2.4.0"),
+            url: String::from("https://example.com/shared"),
+            checksum: String::new(),
+        });
+
+        let toml =
+            "name = \"app\"\nversion = \"1.0.0\"\n\n[dependencies]\napp_core = \"=1.0.0\"\n";
+        let manifest = parse_manifest(toml).expect("manifest ok");
+        let graph = resolve_manifest_deps(&manifest, &registry).expect("resolve ok");
+
+        assert!(
+            graph.nodes.contains_key("app_core"),
+            "direct dependency should resolve"
+        );
+        assert!(
+            graph.nodes.contains_key("shared"),
+            "transitive dependency should resolve"
+        );
     }
 
     // ─── installer tests ──────────────────────────────────────────────────────
