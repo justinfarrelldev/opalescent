@@ -29,8 +29,8 @@ use std::process::Command;
 // Imports for CLI command implementations (tasks 6-10)
 use crate::benchmarks::compile_time::{bench_parse, bench_typecheck};
 use crate::benchmarks::suite::BenchmarkSuite;
+use crate::type_system::checker::TypeChecker;
 // TODO: import when wired — path unknown (PollingFileWatcher, FileWatcher)
-// TODO: import when wired — path unknown (TypeChecker)
 
 /// Build the help text for `opal` CLI commands.
 ///
@@ -181,6 +181,10 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
 
     if args.get(1).map(String::as_str) == Some("run") {
         return run_run_command(args);
+    }
+
+    if args.get(1).map(String::as_str) == Some("check") {
+        return run_check_command(args);
     }
 
     // Separate flags from positional args (skip argv[0])
@@ -477,6 +481,46 @@ fn run_bench_command(_args: &[String]) -> Result<(), i32> {
     suite.add_result(bench_typecheck("let x = 1"));
     let report = suite.report();
     println!("{} benchmarks completed", report.results.len());
+    Ok(())
+}
+
+/// Dispatch `opal check` subcommand — run the lex → parse → [`TypeChecker`] pipeline.
+///
+/// Reads the source file at `args[2]`, lexes, parses, and type-checks it.
+/// Prints `check passed` on success.  All errors are printed to stderr and `Err(1)` is returned.
+fn run_check_command(args: &[String]) -> Result<(), i32> {
+    let Some(source_path) = args.get(2).map(String::as_str) else {
+        eprintln!("error: no source file specified");
+        eprintln!("Usage: opal check <file.op>");
+        return Err(1);
+    };
+    let source = match fs::read_to_string(source_path) {
+        Ok(content) => content,
+        Err(error) => {
+            eprintln!("error: failed to read '{source_path}': {error}");
+            return Err(1);
+        }
+    };
+    let (tokens, lex_errors) = Lexer::new(&source).tokenize();
+    if !lex_errors.is_empty() {
+        eprintln!("error: lex errors in source");
+        return Err(1);
+    }
+    let (program_opt, parse_errors) = Parser::new(tokens).parse();
+    if !parse_errors.is_empty() {
+        eprintln!("error: parse errors in source");
+        return Err(1);
+    }
+    let Some(program) = program_opt else {
+        eprintln!("error: parse errors in source");
+        return Err(1);
+    };
+    let mut checker = TypeChecker::new();
+    if let Err(errors) = checker.type_check_program(&program) {
+        eprintln!("error: type check failed with {} error(s)", errors.len());
+        return Err(1);
+    }
+    println!("check passed");
     Ok(())
 }
 
@@ -851,6 +895,50 @@ mod tests {
             "missing_xyz_run.op".to_string(),
         ];
         assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures `opal check` with no file argument returns error code 1.
+    #[test]
+    fn check_missing_file_arg_returns_error() {
+        let args = ["opal".to_string(), "check".to_string()];
+        assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures `opal check <nonexistent>` returns error code 1.
+    #[test]
+    fn check_nonexistent_file_returns_error() {
+        let args = [
+            "opal".to_string(),
+            "check".to_string(),
+            "missing_file_that_does_not_exist.op".to_string(),
+        ];
+        assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures `opal check <valid-file>` returns `Ok(())` for valid source.
+    #[test]
+    fn check_valid_source_returns_ok() {
+        let source = "##\n  Description: starting point of the application\n##\nentry main = f(args: string[]): void =>\n    return void\n";
+        let tmp_path = std::env::temp_dir().join("opal_test_check_valid.op");
+        std::fs::write(&tmp_path, source).unwrap();
+        let path = tmp_path.to_string_lossy().to_string();
+        let args = ["opal".to_string(), "check".to_string(), path];
+        let result = run_with_args(&args);
+        drop(std::fs::remove_file(&tmp_path));
+        assert_eq!(result, Ok(()));
+    }
+
+    /// Ensures `opal check <invalid-source>` returns error code 1 when type-checking fails.
+    #[test]
+    fn check_invalid_source_returns_error() {
+        let source = "##\n  Description: starting point of the application\n##\nentry main = f(args: string[]): void =>\n    let x: int32 = \"not a number\"\n    return void\n";
+        let tmp_path = std::env::temp_dir().join("opal_test_check_invalid.op");
+        std::fs::write(&tmp_path, source).unwrap();
+        let path = tmp_path.to_string_lossy().to_string();
+        let args = ["opal".to_string(), "check".to_string(), path];
+        let result = run_with_args(&args);
+        drop(std::fs::remove_file(&tmp_path));
+        assert_eq!(result, Err(1));
     }
 
     /// Ensures `opal run <file> -- arg1 arg2` parses args after `--` without panicking.
