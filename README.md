@@ -48,6 +48,7 @@ cargo build --release
 
 # Get help
 ./target/release/opalescent help
+./target/release/opalescent --help
 
 # Get help for a specific subcommand
 ./target/release/opalescent help pkg
@@ -97,16 +98,23 @@ opal <command> [arguments]
 
 | Command | Description |
 |---------|-------------|
-| `opal <file.op>` | Compile and run an Opalescent source file |
+| `opal <file.op>` | Compile an Opalescent source file |
+| `opal <file.op> --run` | Compile and execute an Opalescent source file |
 | `opal help` | Show the top-level help message |
-| `opal help pkg` | Show package manager command reference |
-| `opal help fmt` | Show formatter command reference |
+| `opal --help` | Alias for `opal help` |
+| `opal help <topic>` | Show help for a specific command |
+| `opal pkg <command>` | Package manager commands |
+| `opal fmt [options] <file>` | Format an Opalescent source file |
+| `opal lsp [options]` | Start the language server |
+| `opal test [options]` | Run project tests |
+| `opal doc [options]` | Generate documentation |
+| `opal bench` | Run benchmarks |
 
-`opal pkg`, `opal fmt`, and `opal lsp --stdio` are currently documented interfaces, but they are not dispatched as executable subcommands in `src/app.rs` yet.
+Commands that are not yet fully wired will print `error: '<cmd>' not yet implemented` when invoked.
 
-### `opal <file.op>` — Compile and Run
+### `opal <file.op>` — Compile
 
-Pass any `.op` source file as the first argument to compile and execute it:
+Pass any `.op` source file as the first argument to compile it:
 
 ```bash
 opal hello_world.op
@@ -114,6 +122,12 @@ opal src/main.op
 ```
 
 The compiler performs lexing, parsing, and type-checking. Errors are printed with source-location context and actionable suggestions.
+
+Pass `--run` to execute the compiled binary immediately after compilation:
+
+```bash
+opal src/main.op --run
+```
 
 ### `opal fmt` — Formatter
 
@@ -163,13 +177,91 @@ opal pkg install
 opal pkg publish
 ```
 
+### `opal lsp` — Language Server
+
+```
+opal lsp [options]
+```
+
+Start the Opalescent language server.
+
+| Flag | Description |
+|------|-------------|
+| `--stdio` | Communicate over stdin/stdout (required for editor integration) |
+
+**Examples:**
+
+```bash
+opal lsp --stdio
+```
+
+### `opal test` — Test Runner
+
+```
+opal test [options]
+```
+
+Run tests in the current project.
+
+| Flag | Description |
+|------|-------------|
+| `--target <triple>` | Run tests for a specific build target |
+| `--filter <pattern>` | Only run tests whose names contain `<pattern>` |
+
+**Examples:**
+
+```bash
+opal test
+opal test --filter my_test
+opal test --target x86_64-linux
+```
+
+### `opal doc` — Documentation Generator
+
+```
+opal doc [options]
+```
+
+Generate documentation for the current project.
+
+| Flag | Description |
+|------|-------------|
+| `--format <md\|html>` | Output format (default: `md`) |
+
+**Examples:**
+
+```bash
+opal doc
+opal doc --format html
+```
+
+### `opal bench` — Benchmarks
+
+```
+opal bench
+```
+
+Run benchmarks in the current project.
+
+**Examples:**
+
+```bash
+opal bench
+```
+
 ### `opal help` — Help
 
 ```bash
-opal help         # Top-level usage summary
-opal help pkg     # Package manager subcommands
-opal help fmt     # Formatter flags
+opal help              # Top-level usage summary
+opal --help            # Alias for opal help
+opal help pkg          # Package manager subcommands
+opal help fmt          # Formatter flags
+opal help lsp          # Language server flags
+opal help test         # Test runner flags
+opal help doc          # Documentation generator flags
+opal help bench        # Benchmark runner usage
 ```
+
 
 ---
 
