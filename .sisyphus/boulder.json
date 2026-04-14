@@ -59,10 +59,10 @@
       "task_key": "todo:6",
       "task_label": "6",
       "task_title": "Centralize ast_type_to_core_type",
-      "session_id": "ses_276e1eb5affexfEZHCY06HITJr",
+      "session_id": "ses_276be2800ffeLvae2xVkROtrON",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-13T23:17:46.377Z"
+      "category": "deep",
+      "updated_at": "2026-04-13T23:59:03.976Z"
     },
     "todo:7": {
       "task_key": "todo:7",
@@ -72,6 +72,15 @@
       "agent": "Sisyphus-Junior",
       "category": "quick",
       "updated_at": "2026-04-13T23:05:05.830Z"
+    },
+    "todo:14": {
+      "task_key": "todo:14",
+      "task_label": "14",
+      "task_title": "Implement Generic Lambda Type Checking",
+      "session_id": "ses_276c57b92ffehkRXCC8t1HU13w",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-13T23:50:17.676Z"
     }
   }
 }
