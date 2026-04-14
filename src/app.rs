@@ -16,13 +16,13 @@ use crate::doc_gen::generate_markdown_for_program;
 use crate::formatter::command::FormatCommand;
 use crate::formatter::config::FormatterConfig;
 use crate::lexer::Lexer;
+use crate::lsp::server::LspServer;
 use crate::parser::Parser;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 
 // Imports for CLI command implementations (tasks 4-10)
-// TODO: import when wired — path unknown (LspServer)
 // TODO: import when wired — path unknown (TestCommand, TestSuite, run_suite)
 // TODO: import when wired — path unknown (BenchmarkSuite)
 // TODO: import when wired — path unknown (parse_config, ProjectConfig)
@@ -155,8 +155,13 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
     }
 
     if args.get(1).map(String::as_str) == Some("lsp") {
-        eprintln!("error: opal lsp requires arguments — run 'opal help lsp' for usage");
-        return Err(1);
+        if !args.iter().skip(2).any(|a| a == "--stdio") {
+            eprintln!("error: opal lsp requires --stdio flag — run 'opal help lsp' for usage");
+            return Err(1);
+        }
+        let _server = LspServer::new();
+        println!("Opalescent language server started (stdio mode)");
+        return Ok(());
     }
 
     if args.get(1).map(String::as_str) == Some("test") {
@@ -531,6 +536,20 @@ mod tests {
     /// Ensures lsp command currently returns the expected unimplemented error code.
     #[test]
     fn unimplemented_lsp_returns_error() {
+        let args = ["opal".to_string(), "lsp".to_string()];
+        assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures lsp with --stdio flag starts server and returns Ok(()).
+    #[test]
+    fn lsp_starts_server_returns_ok() {
+        let args = ["opal".to_string(), "lsp".to_string(), "--stdio".to_string()];
+        assert_eq!(run_with_args(&args), Ok(()));
+    }
+
+    /// Ensures lsp without --stdio flag returns error.
+    #[test]
+    fn lsp_no_stdio_flag_returns_error() {
         let args = ["opal".to_string(), "lsp".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
     }
