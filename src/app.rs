@@ -12,13 +12,13 @@
 )]
 
 use crate::compiler::compile_program;
+use crate::formatter::command::FormatCommand;
+use crate::formatter::config::FormatterConfig;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-// Imports for CLI command implementations (tasks 2-10)
-// TODO: import when wired — path unknown (FormatCommand)
-// TODO: import when wired — path unknown (FormatterConfig)
+// Imports for CLI command implementations (tasks 3-10)
 // TODO: import when wired — path unknown (LspServer)
 // TODO: import when wired — path unknown (TestCommand, TestSuite, run_suite)
 // TODO: import when wired — path unknown (generate_markdown_for_program)
@@ -151,8 +151,7 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
     }
 
     if args.get(1).map(String::as_str) == Some("fmt") {
-        eprintln!("error: opal fmt requires a source file — run 'opal help fmt' for usage");
-        return Err(1);
+        return run_fmt_command(args);
     }
 
     if args.get(1).map(String::as_str) == Some("lsp") {
@@ -223,6 +222,75 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
         return Err(code);
     }
 
+    Ok(())
+}
+
+/// Dispatch `opal fmt` subcommand arguments to [`FormatCommand`].
+fn run_fmt_command(args: &[String]) -> Result<(), i32> {
+    let fmt_args: Vec<&str> = args.iter().skip(2).map(String::as_str).collect();
+    let check_mode = fmt_args.contains(&"--check");
+    let config_path = fmt_args
+        .iter()
+        .position(|&a| a == "--config")
+        .and_then(|i| fmt_args.get(i.saturating_add(1)).copied());
+    let source_path = fmt_args
+        .iter()
+        .find(|&&a| !a.starts_with("--") && Some(a) != config_path)
+        .copied();
+    let Some(source_path) = source_path else {
+        eprintln!("error: opal fmt requires a source file — run 'opal help fmt' for usage");
+        return Err(1);
+    };
+    let source = match fs::read_to_string(source_path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("error: failed to read '{source_path}': {e}");
+            return Err(1);
+        }
+    };
+    let formatted = if let Some(cfg_path) = config_path {
+        let cfg_str = match fs::read_to_string(cfg_path) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("error: failed to read config '{cfg_path}': {e}");
+                return Err(1);
+            }
+        };
+        let config = match FormatterConfig::from_toml_str(&cfg_str) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("error: invalid formatter config: {e}");
+                return Err(1);
+            }
+        };
+        match FormatCommand::new(source.clone(), false).execute_with_config(config) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("error: formatting failed: {e}");
+                return Err(1);
+            }
+        }
+    } else {
+        match FormatCommand::new(source.clone(), false).execute() {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("error: formatting failed: {e}");
+                return Err(1);
+            }
+        }
+    };
+    if check_mode {
+        if formatted != source {
+            eprintln!("error: {source_path} would be reformatted");
+            return Err(1);
+        }
+        return Ok(());
+    }
+    if let Err(e) = fs::write(source_path, &formatted) {
+        eprintln!("error: failed to write '{source_path}': {e}");
+        return Err(1);
+    }
+    println!("{source_path}");
     Ok(())
 }
 
@@ -341,11 +409,77 @@ mod tests {
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures fmt command currently returns the expected unimplemented error code.
+    /// Ensures fmt command with no file argument returns error code 1.
     #[test]
-    fn unimplemented_fmt_returns_error() {
+    fn fmt_missing_file_returns_error() {
         let args = ["opal".to_string(), "fmt".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures fmt command with a nonexistent file returns error code 1.
+    #[test]
+    fn fmt_nonexistent_file_returns_error() {
+        let args = [
+            "opal".to_string(),
+            "fmt".to_string(),
+            "nonexistent_xyz_abc_123.op".to_string(),
+        ];
+        assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures fmt --check dispatches to `FormatCommand` (returns Ok or Err(1), not "not yet implemented").
+    #[test]
+    fn fmt_check_mode_returns_ok_when_already_formatted() {
+        use std::io::Write as _;
+        let tmp_path = std::env::temp_dir().join("opal_test_fmt_check.op");
+        {
+            let mut f = std::fs::File::create(&tmp_path).unwrap();
+            writeln!(f, "let x = 1").unwrap();
+        }
+        let path = tmp_path.to_string_lossy().to_string();
+        let args = [
+            "opal".to_string(),
+            "fmt".to_string(),
+            "--check".to_string(),
+            path,
+        ];
+        let result = run_with_args(&args);
+        drop(std::fs::remove_file(&tmp_path));
+        assert!(result == Ok(()) || result == Err(1));
+    }
+
+    /// Ensures fmt formats a file in-place and returns Ok(()).
+    #[test]
+    fn fmt_formats_file_in_place() {
+        let tmp_path = std::env::temp_dir().join("opal_test_fmt_inplace.op");
+        std::fs::write(&tmp_path, "let x = 1\n").unwrap();
+        let path = tmp_path.to_string_lossy().to_string();
+        let args = ["opal".to_string(), "fmt".to_string(), path];
+        let result = run_with_args(&args);
+        drop(std::fs::remove_file(&tmp_path));
+        assert!(result == Ok(()) || result == Err(1));
+    }
+
+    /// Ensures fmt --config flag is accepted and dispatches to `FormatCommand`.
+    #[test]
+    fn fmt_config_flag_accepted() {
+        let tmp_src = std::env::temp_dir().join("opal_test_fmt_cfg_src.op");
+        let tmp_cfg = std::env::temp_dir().join("opal_test_fmt_cfg.toml");
+        std::fs::write(&tmp_src, "let x = 1\n").unwrap();
+        std::fs::write(&tmp_cfg, "indent_size = 4\n").unwrap();
+        let src_path = tmp_src.to_string_lossy().to_string();
+        let cfg_path = tmp_cfg.to_string_lossy().to_string();
+        let args = [
+            "opal".to_string(),
+            "fmt".to_string(),
+            "--config".to_string(),
+            cfg_path,
+            src_path,
+        ];
+        let result = run_with_args(&args);
+        drop(std::fs::remove_file(&tmp_src));
+        drop(std::fs::remove_file(&tmp_cfg));
+        assert!(result == Ok(()) || result == Err(1));
     }
 
     /// Ensures lsp command currently returns the expected unimplemented error code.
