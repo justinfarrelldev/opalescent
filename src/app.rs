@@ -11,6 +11,9 @@
     )
 )]
 
+use crate::build_system::config::{parse_config, ProjectConfig, Version};
+use crate::build_system::targets::{parse_target_triple, BuildTarget};
+use crate::build_system::BuildError;
 use crate::compiler::compile_program;
 use crate::doc_gen::generate_markdown_for_program;
 use crate::formatter::command::FormatCommand;
@@ -18,14 +21,13 @@ use crate::formatter::config::FormatterConfig;
 use crate::lexer::Lexer;
 use crate::lsp::server::LspServer;
 use crate::parser::Parser;
+use crate::testing::runner::{TestCommand, TestSuite};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-// Imports for CLI command implementations (tasks 4-10)
-// TODO: import when wired — path unknown (TestCommand, TestSuite, run_suite)
+// Imports for CLI command implementations (tasks 6-10)
 // TODO: import when wired — path unknown (BenchmarkSuite)
-// TODO: import when wired — path unknown (parse_config, ProjectConfig)
 // TODO: import when wired — path unknown (PollingFileWatcher, FileWatcher)
 // TODO: import when wired — path unknown (TypeChecker)
 
@@ -165,8 +167,7 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
     }
 
     if args.get(1).map(String::as_str) == Some("test") {
-        eprintln!("error: opal test needs implementation");
-        return Err(1);
+        return run_test_command(args);
     }
 
     if args.get(1).map(String::as_str) == Some("doc") {
@@ -296,6 +297,77 @@ fn run_fmt_command(args: &[String]) -> Result<(), i32> {
     }
     println!("{source_path}");
     Ok(())
+}
+
+/// Dispatch `opal test` subcommand arguments to [`TestCommand`].
+fn run_test_command(args: &[String]) -> Result<(), i32> {
+    let test_args: Vec<&str> = args.iter().skip(2).map(String::as_str).collect();
+
+    let filter = test_args
+        .iter()
+        .position(|&a| a == "--filter")
+        .and_then(|i| test_args.get(i.saturating_add(1)).copied());
+
+    let target_str = test_args
+        .iter()
+        .position(|&a| a == "--target")
+        .and_then(|i| test_args.get(i.saturating_add(1)).copied());
+
+    let config = match fs::read_to_string("opal.toml") {
+        Ok(toml) => match parse_config(&toml) {
+            Ok(c) => c,
+            Err(
+                BuildError::ParseError(msg)
+                | BuildError::MissingField(msg)
+                | BuildError::InvalidVersion(msg)
+                | BuildError::InvalidConstraint(msg)
+                | BuildError::DependencyConflict(msg)
+                | BuildError::PackageNotFound(msg)
+                | BuildError::InvalidTarget(msg),
+            ) => {
+                eprintln!("error: invalid opal.toml: {msg}");
+                return Err(1);
+            }
+        },
+        Err(_) => ProjectConfig {
+            name: String::from("project"),
+            version: Version {
+                major: 0,
+                minor: 1,
+                patch: 0,
+            },
+            dependencies: vec![],
+            build_targets: vec![],
+        },
+    };
+
+    let mut command = TestCommand::new(config);
+
+    if let Some(pattern) = filter {
+        command = command.with_filter(pattern);
+    }
+
+    if let Some(triple) = target_str {
+        if let Ok(t) = parse_target_triple(triple) {
+            command = command.with_target(BuildTarget { triple: t });
+        } else {
+            eprintln!("error: invalid target triple: {triple}");
+            return Err(1);
+        }
+    }
+
+    let suite = TestSuite::new("project");
+    let report = command.execute(&suite);
+    println!(
+        "{} passed, {} failed, {} skipped",
+        report.passed, report.failed, report.skipped
+    );
+
+    if report.is_success() {
+        Ok(())
+    } else {
+        Err(1)
+    }
 }
 
 /// Dispatch `opal doc` subcommand arguments to the documentation generator.
@@ -554,11 +626,42 @@ mod tests {
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures test command currently returns the expected unimplemented error code.
+    /// Ensures test command runs an empty suite and returns Ok(()).
     #[test]
     fn unimplemented_test_returns_error() {
         let args = ["opal".to_string(), "test".to_string()];
-        assert_eq!(run_with_args(&args), Err(1));
+        assert_eq!(run_with_args(&args), Ok(()));
+    }
+
+    /// Ensures test command runs empty suite without panicking.
+    #[test]
+    fn test_command_runs_empty_suite() {
+        let args = ["opal".to_string(), "test".to_string()];
+        assert_eq!(run_with_args(&args), Ok(()));
+    }
+
+    /// Ensures test --filter flag is accepted and returns Ok(()).
+    #[test]
+    fn test_with_filter_returns_ok() {
+        let args = [
+            "opal".to_string(),
+            "test".to_string(),
+            "--filter".to_string(),
+            "my_test".to_string(),
+        ];
+        assert_eq!(run_with_args(&args), Ok(()));
+    }
+
+    /// Ensures test --target flag is accepted and returns Ok(()).
+    #[test]
+    fn test_with_target_returns_ok() {
+        let args = [
+            "opal".to_string(),
+            "test".to_string(),
+            "--target".to_string(),
+            "x86_64-linux".to_string(),
+        ];
+        assert_eq!(run_with_args(&args), Ok(()));
     }
 
     /// Ensures doc command currently returns the expected unimplemented error code.
