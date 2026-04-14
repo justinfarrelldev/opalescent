@@ -171,6 +171,17 @@ mod formatter_tests {
         assert_eq!(once, twice, "apply_all must be idempotent");
     }
 
+    /// Operator spacing must preserve spaces inside single-quoted strings.
+    #[test]
+    fn test_rules_operator_spacing_preserves_single_quoted_string_whitespace() {
+        let input = "entry main = f(): void =>\n    print('a    b')\n";
+        let output = rules::apply_all(input);
+        assert!(
+            output.contains("'a    b'"),
+            "single-quoted string whitespace should be preserved: {output}"
+        );
+    }
+
     // ─── Naming Convention Tests ─────────────────────────────────────────────────
 
     /// `is_snake_case` accepts valid `snake_case` identifiers.
@@ -376,6 +387,58 @@ mod formatter_tests {
         assert!(
             result.contains("true"),
             "formatted output should contain the boolean literal"
+        );
+    }
+
+    /// Formatter should emit single-quoted strings for string literals.
+    #[test]
+    fn test_formatter_emits_single_quoted_string_literals() {
+        let source = "entry greet = f(): string => return 'hi'";
+        let fmt = Formatter::with_defaults();
+        let result = fmt
+            .format_source(source)
+            .expect("string literal formatting should succeed");
+        assert!(
+            result.contains("'hi'"),
+            "formatter should output single-quoted literal, got: {result}"
+        );
+        assert!(
+            !result.contains("\"hi\""),
+            "formatter output should not contain double-quoted literal, got: {result}"
+        );
+    }
+
+    /// Match expressions should print with brace-arm syntax so output stays parseable.
+    #[test]
+    fn test_formatter_emits_match_brace_syntax() {
+        let source =
+            "entry classify = f(n: int32): string => return match n { 0 => 'zero', _ => 'other' }";
+        let fmt = Formatter::with_defaults();
+        let formatted = fmt
+            .format_source(source)
+            .expect("match formatting should succeed");
+
+        assert!(
+            formatted.contains("match n {"),
+            "match expression should use brace syntax, got: {formatted}"
+        );
+        assert!(
+            !formatted.contains("match n:"),
+            "match expression should not emit colon-block syntax, got: {formatted}"
+        );
+
+        let lexer = crate::lexer::Lexer::new(&formatted);
+        let (tokens, lex_errors) = lexer.tokenize();
+        assert!(
+            lex_errors.errors.is_empty(),
+            "formatted output should lex without errors: {lex_errors:?}"
+        );
+
+        let parser = crate::parser::Parser::new(tokens);
+        let (_program, parse_errors) = parser.parse();
+        assert!(
+            parse_errors.errors.is_empty(),
+            "formatted output should parse without errors: {parse_errors:?}"
         );
     }
 

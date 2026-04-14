@@ -1338,7 +1338,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `feat(hot-reload): implement production file watcher, module loader, and recovery`
   - Files: `src/hot_reload/recovery.rs`, `src/hot_reload/` (new files), `Cargo.toml` (if new deps needed)
 
-- [ ] 24. Fix Formatter Quote Handling + Output Correctness
+- [x] 24. Fix Formatter Quote Handling + Output Correctness
 
   **What to do**:
   - RED: Write formatter tests that format code with single-quoted strings and verify the output uses single quotes (not double). Write tests for match expression formatting that produces parseable output. Tests MUST fail first.

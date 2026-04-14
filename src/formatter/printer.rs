@@ -67,7 +67,7 @@ fn print_literal(lit: &LiteralValue) -> String {
                 format!("{s}.0")
             }
         }
-        LiteralValue::String(ref s) => format!("\"{s}\""),
+        LiteralValue::String(ref s) => format!("'{}'", escape_single_quoted_string(s)),
         LiteralValue::Boolean(b) => (if b { "true" } else { "false" }).to_owned(),
         LiteralValue::Void => String::from("void"),
     }
@@ -148,6 +148,11 @@ fn print_pattern(pattern: &Pattern) -> String {
             format!("({})", ps.join(", "))
         }
     }
+}
+
+/// Escape a string for single-quoted literal rendering.
+fn escape_single_quoted_string(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('\'', "\\'")
 }
 
 // ─── Formatter struct ─────────────────────────────────────────────────────────
@@ -771,14 +776,10 @@ impl Formatter {
             .map(|arm| {
                 let pat = print_pattern(&arm.pattern);
                 let body = self.print_expr(&arm.body, depth.saturating_add(1));
-                format!("{}{pat} => {body}", self.indent(depth.saturating_add(1)))
+                format!("{pat} => {body}")
             })
             .collect();
-        format!(
-            "match {scrut} {{\n{}\n{}}}",
-            arm_strs.join(",\n"),
-            self.indent(depth)
-        )
+        format!("match {scrut} {{ {} }}", arm_strs.join(", "))
     }
 
     /// Pretty-print constructor fields.

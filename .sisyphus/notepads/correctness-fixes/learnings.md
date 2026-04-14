@@ -441,3 +441,16 @@ if self.check_identifier() {
 - `cargo test -q` passed (841 passed, 0 failed, 5 ignored).
 - `cargo test --features integration --test integration_e2e -q` passed (7/7).
 - `cargo build --release -q` passed.
+
+## [2026-04-14] Task 24 — Formatter quote handling and parseable match output
+
+### Findings
+- The parser currently requires brace-style match expressions (`match <expr> { arm, ... }`) in `parse_match_expression`; colon-block match formatting is not parseable in this path.
+- Formatter printer should emit single-quoted string literals and escape embedded `'` and `\` via a dedicated helper to keep output valid and consistent.
+- Operator-spacing normalization must treat single-quoted strings as protected regions and honor escaped quotes so internal whitespace is preserved exactly.
+
+### Verification
+- `cargo test formatter -- --nocapture` passed (37/37).
+- `cargo test` passed (full suite green).
+- `cargo make lint` passed with strict clippy gates.
+- LSP diagnostics clean on `src/formatter/printer.rs`, `src/formatter/rules.rs`, `src/formatter/tests.rs`.

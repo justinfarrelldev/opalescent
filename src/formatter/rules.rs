@@ -101,8 +101,8 @@ pub fn normalize_operator_spacing(source: &str) -> String {
 
 /// Apply operator-spacing normalisation to a single line.
 ///
-/// String literals inside the line are left unchanged by detecting the
-/// presence of a `"` and skipping operator normalisation for those segments.
+/// String literals inside the line are left unchanged by detecting single
+/// quote delimiters and skipping whitespace normalisation for those segments.
 fn normalize_operator_spacing_line(line: &str) -> String {
     // Only strip excess spaces around `=`, `==`, `!=`, `<=`, `>=`.
     // We do this carefully to avoid mangling `=>` arrows or `::`.
@@ -130,11 +130,12 @@ fn collapse_spaces_around_ops(line: &str) -> String {
     // requirement because a second pass on already-normalised output leaves
     // it unchanged.
     //
-    // We detect the inside of a double-quoted string and preserve whitespace
+    // We detect the inside of a single-quoted string and preserve whitespace
     // there verbatim.
 
     let mut result = String::with_capacity(line.len());
     let mut in_string = false;
+    let mut escaped = false;
     let mut prev_was_space = false;
 
     let chars: Vec<char> = line.chars().collect();
@@ -143,15 +144,31 @@ fn collapse_spaces_around_ops(line: &str) -> String {
     while idx < chars.len() {
         let ch = chars[idx];
 
-        if ch == '"' {
-            in_string = !in_string;
+        if in_string {
             result.push(ch);
+            if escaped {
+                escaped = false;
+                prev_was_space = false;
+                idx = idx.saturating_add(1);
+                continue;
+            }
+            if ch == '\\' {
+                escaped = true;
+                prev_was_space = false;
+                idx = idx.saturating_add(1);
+                continue;
+            }
+            if ch == '\'' {
+                in_string = false;
+            }
             prev_was_space = false;
             idx = idx.saturating_add(1);
             continue;
         }
 
-        if in_string {
+        if ch == '\'' {
+            in_string = true;
+            escaped = false;
             result.push(ch);
             prev_was_space = false;
             idx = idx.saturating_add(1);
