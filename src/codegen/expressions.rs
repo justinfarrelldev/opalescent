@@ -170,7 +170,7 @@ pub fn codegen_expression<'context>(
             codegen_string_interpolation(codegen_context, env, parts.as_slice())
         }
         _ => Err(CodegenError::new(String::from(
-            "unsupported expression kind for task 22",
+            "unsupported expression kind",
         ))),
     }
 }
@@ -663,7 +663,7 @@ pub fn current_function<'context>(
 fn ast_type_to_core_type_for_cast(ast_type: &Type) -> Result<CoreType, CodegenError> {
     if matches!(*ast_type, Type::Function { .. } | Type::Generic { .. }) {
         return Err(CodegenError::new(String::from(
-            "function/generic cast targets unsupported in task 22",
+            "function and generic types cannot be cast targets",
         )));
     }
 

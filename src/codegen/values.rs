@@ -9,7 +9,7 @@ pub struct ValueBuilder;
 impl ValueBuilder {
     /// Build a UTF-8 C-string pointer value.
     ///
-    /// This is a placeholder API for Task 22 expression lowering work.
+    /// Build a UTF-8 C-string pointer for string literal lowering.
     #[must_use]
     pub const fn build_string_placeholder<'context>(
         codegen_context: &CodegenContext<'context>,

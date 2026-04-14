@@ -215,7 +215,7 @@ fn codegen_assignment<'context>(
     }
 
     Err(CodegenError::new(String::from(
-        "assignment target must be an identifier in task 22",
+        "assignment target must be an identifier",
     )))
 }
 
@@ -248,7 +248,7 @@ fn codegen_guard_statement<'context>(
 fn ast_type_to_core_type_for_let(ast_type: &Type) -> Result<CoreType, CodegenError> {
     if !is_supported_let_type(ast_type) {
         return Err(CodegenError::new(String::from(
-            "unsupported let type annotation for task 22",
+            "unsupported type annotation in let binding",
         )));
     }
 

@@ -1520,3 +1520,148 @@ fn test_codegen_mod_euclid_operator() {
         "mod_euclid expression should lower successfully, got: {result:?}"
     );
 }
+
+#[test]
+fn test_codegen_unsupported_expression_kind_error_message() {
+    // Verify that unsupported expression kinds produce the correct error message (no "task 22").
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "unsupported_expr_test");
+    let _function = create_codegen_function(&codegen_context, "unsupported_expr_fn");
+    let mut env = CodegenEnv::new(false);
+
+    // Expr::TypeOf is currently unsupported — hits the catch-all arm.
+    let expr = Expr::TypeOf {
+        expr: Box::new(int_lit(9100, 42)),
+        span: test_span(),
+        id: test_node_id(9101),
+    };
+    let result = codegen_expression(&codegen_context, &mut env, &expr, None);
+    assert!(result.is_err(), "TypeOf expression should produce an error");
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("unsupported expression kind"),
+        "error should say 'unsupported expression kind', got: {err_msg}"
+    );
+    assert!(
+        !err_msg.contains("task 22"),
+        "error must not reference 'task 22', got: {err_msg}"
+    );
+}
+
+#[test]
+fn test_codegen_cast_function_type_error_message() {
+    // Verify that casting to a function type produces the correct error (no "task 22").
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "cast_fn_type_test");
+    let _function = create_codegen_function(&codegen_context, "cast_fn_type_fn");
+    let mut env = CodegenEnv::new(false);
+
+    // Cast to a function type — unsupported as a cast target.
+    let expr = Expr::Cast {
+        expr: Box::new(int_lit(9110, 1)),
+        target_type: Type::Function {
+            parameters: Vec::new(),
+            return_types: vec![Type::Basic {
+                name: String::from("int64"),
+                span: test_span(),
+            }],
+            errors: None,
+            span: test_span(),
+        },
+        span: test_span(),
+        id: test_node_id(9111),
+    };
+    let result = codegen_expression(&codegen_context, &mut env, &expr, None);
+    assert!(
+        result.is_err(),
+        "cast to function type should produce an error"
+    );
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("function and generic types cannot be cast targets"),
+        "error should say 'function and generic types cannot be cast targets', got: {err_msg}"
+    );
+    assert!(
+        !err_msg.contains("task 22"),
+        "error must not reference 'task 22', got: {err_msg}"
+    );
+}
+
+#[test]
+fn test_codegen_assignment_non_identifier_target_error_message() {
+    // Verify that assigning to a non-identifier produces the correct error (no "task 22").
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "assign_non_ident_test");
+    let _function = create_codegen_function(&codegen_context, "assign_non_ident_fn");
+    let mut env = CodegenEnv::new(false);
+
+    // Assignment where the target is a literal (not an identifier) — must error.
+    let stmt = Stmt::Assignment {
+        target: int_lit(9120, 99),
+        value: int_lit(9121, 1),
+        span: test_span(),
+        id: test_node_id(9122),
+    };
+    let result = codegen_statement(&codegen_context, &mut env, &stmt);
+    assert!(
+        result.is_err(),
+        "assignment to non-identifier should produce an error"
+    );
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("assignment target must be an identifier"),
+        "error should say 'assignment target must be an identifier', got: {err_msg}"
+    );
+    assert!(
+        !err_msg.contains("task 22"),
+        "error must not reference 'task 22', got: {err_msg}"
+    );
+}
+
+#[test]
+fn test_codegen_unsupported_let_type_annotation_error_message() {
+    // Verify that a let binding with a function-type annotation produces the correct error.
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "unsupported_let_type_test");
+    let _function = create_codegen_function(&codegen_context, "unsupported_let_type_fn");
+    let mut env = CodegenEnv::new(false);
+
+    // Let binding with a function-type annotation — not supported for let bindings.
+    let stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("callback"),
+            type_annotation: Some(Type::Function {
+                parameters: vec![Type::Basic {
+                    name: String::from("int64"),
+                    span: test_span(),
+                }],
+                return_types: vec![Type::Basic {
+                    name: String::from("int64"),
+                    span: test_span(),
+                }],
+                errors: None,
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(9130),
+        },
+        initializer: Some(int_lit(9131, 0)),
+        span: test_span(),
+        id: test_node_id(9132),
+    };
+    let result = codegen_statement(&codegen_context, &mut env, &stmt);
+    assert!(
+        result.is_err(),
+        "let with function-type annotation should produce an error"
+    );
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("unsupported type annotation in let binding"),
+        "error should say 'unsupported type annotation in let binding', got: {err_msg}"
+    );
+    assert!(
+        !err_msg.contains("task 22"),
+        "error must not reference 'task 22', got: {err_msg}"
+    );
+}
