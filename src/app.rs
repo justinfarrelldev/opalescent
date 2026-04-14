@@ -27,7 +27,8 @@ use std::path::Path;
 use std::process::Command;
 
 // Imports for CLI command implementations (tasks 6-10)
-// TODO: import when wired — path unknown (BenchmarkSuite)
+use crate::benchmarks::compile_time::{bench_parse, bench_typecheck};
+use crate::benchmarks::suite::BenchmarkSuite;
 // TODO: import when wired — path unknown (PollingFileWatcher, FileWatcher)
 // TODO: import when wired — path unknown (TypeChecker)
 
@@ -175,8 +176,7 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
     }
 
     if args.get(1).map(String::as_str) == Some("bench") {
-        eprintln!("error: opal bench needs implementation");
-        return Err(1);
+        return run_bench_command(args);
     }
 
     // Separate flags from positional args (skip argv[0])
@@ -414,6 +414,20 @@ fn run_doc_command(args: &[String]) -> Result<(), i32> {
     };
     let markdown = generate_markdown_for_program(&program);
     println!("{markdown}");
+    Ok(())
+}
+
+/// Dispatch `opal bench` subcommand to [`BenchmarkSuite`].
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "return type matches run_with_args dispatch pattern"
+)]
+fn run_bench_command(_args: &[String]) -> Result<(), i32> {
+    let mut suite = BenchmarkSuite::new();
+    suite.add_result(bench_parse("let x = 1"));
+    suite.add_result(bench_typecheck("let x = 1"));
+    let report = suite.report();
+    println!("{} benchmarks completed", report.results.len());
     Ok(())
 }
 
@@ -671,11 +685,18 @@ mod tests {
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures bench command currently returns the expected unimplemented error code.
+    /// Ensures bench command returns `Ok(())` when wired to `BenchmarkSuite`.
     #[test]
     fn unimplemented_bench_returns_error() {
         let args = ["opal".to_string(), "bench".to_string()];
-        assert_eq!(run_with_args(&args), Err(1));
+        assert_eq!(run_with_args(&args), Ok(()));
+    }
+
+    /// Ensures bench command runs and returns Ok(()).
+    #[test]
+    fn bench_command_runs_and_returns_ok() {
+        let args = ["opal".to_string(), "bench".to_string()];
+        assert_eq!(run_with_args(&args), Ok(()));
     }
 
     /// Ensures doc command with no file argument returns error code 1.
