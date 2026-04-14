@@ -8,7 +8,8 @@ use crate::codegen::adts::{
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::codegen_if_expression;
 use crate::codegen::expressions_numeric::{
-    codegen_cmp, codegen_div, codegen_numeric_binop, codegen_rem,
+    codegen_cmp, codegen_div, codegen_div_euclid, codegen_mod_euclid, codegen_numeric_binop,
+    codegen_power, codegen_rem,
 };
 use crate::codegen::expressions_string::codegen_string_interpolation;
 use crate::codegen::functions::{
@@ -289,11 +290,12 @@ fn codegen_binary<'context>(
         BinaryOp::BitShiftLeft | BinaryOp::BitShiftRight | BinaryOp::BitUnsignedShiftRight => {
             codegen_shift(codegen_context, lhs, rhs, operator)
         }
-        BinaryOp::Power | BinaryOp::Assign | BinaryOp::DivEuclid | BinaryOp::ModEuclid => {
-            Err(CodegenError::new(format!(
-                "binary operator {operator} is unsupported in task 22"
-            )))
-        }
+        BinaryOp::Power => codegen_power(codegen_context, env, lhs, rhs, expected_type),
+        BinaryOp::DivEuclid => codegen_div_euclid(codegen_context, env, lhs, rhs, expected_type),
+        BinaryOp::ModEuclid => codegen_mod_euclid(codegen_context, env, lhs, rhs, expected_type),
+        BinaryOp::Assign => Err(CodegenError::new(String::from(
+            "assignment is not a binary expression",
+        ))),
     }
 }
 

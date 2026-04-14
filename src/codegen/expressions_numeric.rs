@@ -332,3 +332,263 @@ const fn is_signed_core_type(core_type: &CoreType) -> bool {
         CoreType::Int8 | CoreType::Int16 | CoreType::Int32 | CoreType::Int64
     )
 }
+
+/// Lower `base ^ exp` for integer types using a loop-based repeated multiplication.
+///
+/// The exponent is treated as a non-negative i64. Negative exponents produce 0
+/// (integer power with negative exponent is 0 for any non-zero base in integer arithmetic).
+/// Emits LLVM basic blocks: entry → `loop_header` → `loop_body` → done.
+pub fn codegen_power<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    lhs: BasicValueEnum<'context>,
+    rhs: BasicValueEnum<'context>,
+    expected_type: Option<&CoreType>,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    if lhs.is_float_value() {
+        return codegen_float_power(codegen_context, lhs, rhs);
+    }
+    codegen_int_power(codegen_context, env, lhs, rhs, expected_type)
+}
+
+/// Lower `base ^ exp` for float types using the `llvm.pow` intrinsic.
+fn codegen_float_power<'context>(
+    codegen_context: &CodegenContext<'context>,
+    lhs: BasicValueEnum<'context>,
+    rhs: BasicValueEnum<'context>,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let lhs_float = lhs.into_float_value();
+    let rhs_float = rhs.into_float_value();
+    let bits = lhs_float.get_type().get_bit_width();
+    let intrinsic_name = format!("llvm.pow.f{bits}");
+
+    let float_type = lhs_float.get_type();
+    let fn_type = float_type.fn_type(
+        &[
+            BasicMetadataTypeEnum::from(float_type),
+            BasicMetadataTypeEnum::from(float_type),
+        ],
+        false,
+    );
+    let function = codegen_context
+        .module
+        .get_function(&intrinsic_name)
+        .unwrap_or_else(|| {
+            codegen_context
+                .module
+                .add_function(&intrinsic_name, fn_type, None)
+        });
+
+    let args: [BasicMetadataValueEnum<'context>; 2] = [lhs_float.into(), rhs_float.into()];
+    let call = codegen_context
+        .builder
+        .build_call(function, &args, "fpow")?;
+    call.try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("llvm.pow returned void")))
+}
+
+/// Lower `base ^ exp` for integer types using PHI-node loop: acc=1, count down exponent, multiply each iteration.
+fn codegen_int_power<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    lhs: BasicValueEnum<'context>,
+    rhs: BasicValueEnum<'context>,
+    expected_type: Option<&CoreType>,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let signed = expected_type.is_none_or(is_signed_core_type);
+    let (base, exponent) = normalize_int_operands(
+        codegen_context,
+        lhs.into_int_value(),
+        rhs.into_int_value(),
+        signed,
+    )?;
+    let int_type = base.get_type();
+    let zero = int_type.const_zero();
+    let one = int_type.const_int(1, false);
+
+    let entry_block = codegen_context
+        .builder
+        .get_insert_block()
+        .ok_or_else(|| CodegenError::new(String::from("no insert block for power loop")))?;
+
+    let current_fn = super::expressions::current_function(codegen_context)?;
+    let loop_header = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("pow.header"));
+    let loop_body = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("pow.body"));
+    let exit_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("pow.exit"));
+
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_header)?;
+
+    codegen_context.builder.position_at_end(loop_header);
+    let remaining_phi = codegen_context
+        .builder
+        .build_phi(int_type, "pow.remaining")?;
+    let acc_phi = codegen_context.builder.build_phi(int_type, "pow.acc")?;
+    let cond = codegen_context.builder.build_int_compare(
+        IntPredicate::SLE,
+        remaining_phi.as_basic_value().into_int_value(),
+        zero,
+        "pow.done",
+    )?;
+    codegen_context
+        .builder
+        .build_conditional_branch(cond, exit_block, loop_body)?;
+
+    codegen_context.builder.position_at_end(loop_body);
+    let new_acc = codegen_context.builder.build_int_mul(
+        acc_phi.as_basic_value().into_int_value(),
+        base,
+        "pow.mul",
+    )?;
+    let next_remaining = codegen_context.builder.build_int_sub(
+        remaining_phi.as_basic_value().into_int_value(),
+        one,
+        "pow.dec",
+    )?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_header)?;
+
+    remaining_phi.add_incoming(&[(&exponent, entry_block), (&next_remaining, loop_body)]);
+    acc_phi.add_incoming(&[(&one, entry_block), (&new_acc, loop_body)]);
+
+    codegen_context.builder.position_at_end(exit_block);
+    Ok(acc_phi.as_basic_value())
+}
+
+/// Lower `a div_euclid b` — floor division where the result rounds toward negative infinity.
+///
+/// For unsigned operands this is identical to truncating division.
+/// For signed operands the result is adjusted by -1 when the remainder is
+/// non-zero and has a different sign from the divisor, matching Rust's
+/// `i64::div_euclid` semantics.
+pub fn codegen_div_euclid<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    lhs: BasicValueEnum<'context>,
+    rhs: BasicValueEnum<'context>,
+    expected_type: Option<&CoreType>,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let signed = expected_type.is_none_or(is_signed_core_type);
+    let (lhs_int, rhs_int) = normalize_int_operands(
+        codegen_context,
+        lhs.into_int_value(),
+        rhs.into_int_value(),
+        signed,
+    )?;
+    super::expressions::emit_div_by_zero_check(codegen_context, env, rhs_int)?;
+    let int_type = lhs_int.get_type();
+
+    // Unsigned: plain truncating division is already floor division.
+    if !signed {
+        return Ok(codegen_context
+            .builder
+            .build_int_unsigned_div(lhs_int, rhs_int, "diveuc.uq")?
+            .as_basic_value_enum());
+    }
+
+    let q = codegen_context
+        .builder
+        .build_int_signed_div(lhs_int, rhs_int, "diveuc.q")?;
+    let r = codegen_context
+        .builder
+        .build_int_signed_rem(lhs_int, rhs_int, "diveuc.r")?;
+    let zero = int_type.const_zero();
+    let neg_one = int_type.const_all_ones();
+
+    // Adjust q by -1 when remainder is non-zero AND (r XOR b) < 0  (i.e. signs differ).
+    let r_nonzero =
+        codegen_context
+            .builder
+            .build_int_compare(IntPredicate::NE, r, zero, "diveuc.r_ne_zero")?;
+    let r_xor_b = codegen_context
+        .builder
+        .build_xor(r, rhs_int, "diveuc.r_xor_b")?;
+    let signs_differ = codegen_context.builder.build_int_compare(
+        IntPredicate::SLT,
+        r_xor_b,
+        zero,
+        "diveuc.signs_differ",
+    )?;
+    let need_adjust =
+        codegen_context
+            .builder
+            .build_and(r_nonzero, signs_differ, "diveuc.need_adjust")?;
+    let adjust =
+        codegen_context
+            .builder
+            .build_select(need_adjust, neg_one, zero, "diveuc.adjust")?;
+    Ok(codegen_context
+        .builder
+        .build_int_add(q, adjust.into_int_value(), "diveuc.result")?
+        .as_basic_value_enum())
+}
+
+/// Lower `a mod_euclid b` — remainder that is always non-negative (matches Rust's
+/// `i64::rem_euclid` semantics).
+///
+/// For unsigned operands this is the ordinary unsigned remainder.
+/// For signed operands the result is `r + abs(b)` when `r < 0`, otherwise `r`.
+pub fn codegen_mod_euclid<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    lhs: BasicValueEnum<'context>,
+    rhs: BasicValueEnum<'context>,
+    expected_type: Option<&CoreType>,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let signed = expected_type.is_none_or(is_signed_core_type);
+    let (lhs_int, rhs_int) = normalize_int_operands(
+        codegen_context,
+        lhs.into_int_value(),
+        rhs.into_int_value(),
+        signed,
+    )?;
+    super::expressions::emit_div_by_zero_check(codegen_context, env, rhs_int)?;
+    let int_type = lhs_int.get_type();
+    let zero = int_type.const_zero();
+
+    // Unsigned: ordinary remainder is always non-negative.
+    if !signed {
+        return Ok(codegen_context
+            .builder
+            .build_int_unsigned_rem(lhs_int, rhs_int, "modeuc.urem")?
+            .as_basic_value_enum());
+    }
+
+    let r = codegen_context
+        .builder
+        .build_int_signed_rem(lhs_int, rhs_int, "modeuc.r")?;
+    let r_negative =
+        codegen_context
+            .builder
+            .build_int_compare(IntPredicate::SLT, r, zero, "modeuc.r_neg")?;
+    let b_neg = codegen_context
+        .builder
+        .build_int_neg(rhs_int, "modeuc.neg_b")?;
+    let b_negative = codegen_context.builder.build_int_compare(
+        IntPredicate::SLT,
+        rhs_int,
+        zero,
+        "modeuc.b_neg",
+    )?;
+    let abs_b = codegen_context
+        .builder
+        .build_select(b_negative, b_neg, rhs_int, "modeuc.abs_b")?
+        .into_int_value();
+    let r_adjusted = codegen_context
+        .builder
+        .build_int_add(r, abs_b, "modeuc.adjusted")?;
+    Ok(codegen_context
+        .builder
+        .build_select(r_negative, r_adjusted, r, "modeuc.result")?
+        .into_int_value()
+        .as_basic_value_enum())
+}

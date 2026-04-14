@@ -1431,3 +1431,92 @@ fn test_codegen_product_field_access_loads_named_field() {
         "field access should emit gep into product struct: {ir}"
     );
 }
+
+#[test]
+fn test_codegen_power_operator_int_computes_correct_value() {
+    // Verify that the `^` (power) binary operator lowers to correct LLVM IR for integers.
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "power_int_test");
+    let _function = create_codegen_function(&codegen_context, "power_int_fn");
+    let mut env = CodegenEnv::new(false);
+
+    // 2 ^ 10 — must produce a value (not an error)
+    let expr = binary(9001, int_lit(9002, 2), BinaryOp::Power, int_lit(9003, 10));
+    let result = codegen_expression(&codegen_context, &mut env, &expr, Some(&CoreType::Int64));
+    assert!(
+        result.is_ok(),
+        "integer power expression 2^10 should lower successfully, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_codegen_power_operator_float_computes_correct_value() {
+    // Verify that the `^` operator lowers to `pow` intrinsic for float types.
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "power_float_test");
+    let _function = create_codegen_function(&codegen_context, "power_float_fn");
+    let mut env = CodegenEnv::new(false);
+
+    // 2.0 ^ 3.0
+    let expr = binary(
+        9010,
+        float_lit(9011, 2.0),
+        BinaryOp::Power,
+        float_lit(9012, 3.0),
+    );
+    let result = codegen_expression(&codegen_context, &mut env, &expr, Some(&CoreType::Float64));
+    assert!(
+        result.is_ok(),
+        "float power expression 2.0^3.0 should lower successfully, got: {result:?}"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("llvm.pow"),
+        "float power should emit llvm.pow intrinsic call in LLVM IR: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_div_euclid_operator() {
+    // Verify that `div_euclid` binary operator lowers to correct LLVM IR.
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "div_euclid_test");
+    let _function = create_codegen_function(&codegen_context, "div_euclid_fn");
+    let mut env = CodegenEnv::new(false);
+
+    // -7 div_euclid 2 should produce floor division (result = -4)
+    let expr = binary(
+        9020,
+        int_lit(9021, -7),
+        BinaryOp::DivEuclid,
+        int_lit(9022, 2),
+    );
+    let result = codegen_expression(&codegen_context, &mut env, &expr, Some(&CoreType::Int64));
+    assert!(
+        result.is_ok(),
+        "div_euclid expression should lower successfully, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_codegen_mod_euclid_operator() {
+    // Verify that `mod_euclid` binary operator lowers to always-positive remainder LLVM IR.
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "mod_euclid_test");
+    let _function = create_codegen_function(&codegen_context, "mod_euclid_fn");
+    let mut env = CodegenEnv::new(false);
+
+    // -7 mod_euclid 2 should produce positive remainder (result = 1, since -7 = (-4)*2 + 1)
+    let expr = binary(
+        9030,
+        int_lit(9031, -7),
+        BinaryOp::ModEuclid,
+        int_lit(9032, 2),
+    );
+    let result = codegen_expression(&codegen_context, &mut env, &expr, Some(&CoreType::Int64));
+    assert!(
+        result.is_ok(),
+        "mod_euclid expression should lower successfully, got: {result:?}"
+    );
+}
