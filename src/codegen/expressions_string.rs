@@ -5,7 +5,9 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError};
 use alloc::string::String;
 use alloc::vec::Vec;
-use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
+use inkwell::values::{
+    BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PointerValue,
+};
 use inkwell::AddressSpace;
 
 /// Lowers a `StringInterpolation` AST node to LLVM IR, using sprintf for mixed literal and expression parts, or a global string constant for literal-only parts.
@@ -22,20 +24,19 @@ pub fn codegen_string_interpolation<'context>(
         return Ok(ptr.as_basic_value_enum());
     }
 
-    let i8_type = codegen_context.context.i8_type();
-    let buffer_type = i8_type.array_type(256_u32);
-    let buffer_alloca = codegen_context
+    // Heap-allocate a 256-byte buffer via malloc so the returned pointer is valid
+    // after the current LLVM stack frame is retired.  Callers are responsible for
+    // the lifetime of the allocated string; Opalescent strings are not currently
+    // freed (consistent with how string constants are handled in the runtime).
+    let malloc_fn = ensure_malloc_function(codegen_context);
+    let buf_size = codegen_context.context.i64_type().const_int(256_u64, false);
+    let buffer_ptr: PointerValue<'context> = codegen_context
         .builder
-        .build_alloca(buffer_type, &env.next_name("interp.buf"))?;
-    let zero = codegen_context.context.i32_type().const_zero();
-    // SAFETY: the indices [0, 0] point to the first byte of the fixed-size stack buffer.
-    let buffer_ptr = unsafe {
-        codegen_context.builder.build_in_bounds_gep(
-            buffer_alloca,
-            &[zero, zero],
-            &env.next_name("interp.buf.ptr"),
-        )?
-    };
+        .build_call(malloc_fn, &[buf_size.into()], &env.next_name("interp.buf"))?
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new("malloc returned void".to_owned()))?
+        .into_pointer_value();
 
     let mut format_text = String::new();
     let mut format_args: Vec<BasicMetadataValueEnum<'context>> = Vec::new();
@@ -180,6 +181,26 @@ fn ensure_sprintf_function<'context>(
             codegen_context
                 .module
                 .add_function("sprintf", sprintf_type, None)
+        },
+        |existing| existing,
+    )
+}
+
+/// Declares or retrieves the `malloc` external function declaration from the LLVM module.
+fn ensure_malloc_function<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let i64_type = codegen_context.context.i64_type();
+    codegen_context.module.get_function("malloc").map_or_else(
+        || {
+            let malloc_type = i8_ptr_type.fn_type(&[i64_type.into()], false);
+            codegen_context
+                .module
+                .add_function("malloc", malloc_type, None)
         },
         |existing| existing,
     )

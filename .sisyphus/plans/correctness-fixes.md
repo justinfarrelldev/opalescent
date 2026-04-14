@@ -445,7 +445,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix(lexer): resolve IsNot token inconsistency`
   - Files: `src/token.rs`, `src/lexer.rs`, `src/lexer/tests.rs`
 
-- [ ] 6. Centralize ast_type_to_core_type
+- [x] 6. Centralize ast_type_to_core_type
 
   **What to do**:
   - RED: Write a test (or modify existing) that asserts the centralized function handles all 10 numeric types correctly, including edge cases. Verify the test fails if the function is missing/wrong.
@@ -583,7 +583,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix: replace nightly-only Option::is_none_or with stable equivalent`
   - Files: `src/testing/discovery.rs`, `src/codegen/expressions_numeric.rs`, `src/type_system/checker/hot_reload.rs`
 
-- [ ] 9. Implement Cast "as" Parsing
+- [x] 9. Implement Cast "as" Parsing
 
   **What to do**:
   - RED: Write parser tests for `x as int32`, `value as float64`, `(a + b) as int64` that assert `Expr::Cast` nodes are produced. Tests MUST fail first.
@@ -635,7 +635,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `feat(parser): implement cast "as" expression parsing`
   - Files: `src/parser/expressions.rs`, `src/parser/precedence.rs`, `src/parser/tests.rs`
 
-- [ ] 10. Implement Array Literal + Indexing Parsing
+- [x] 10. Implement Array Literal + Indexing Parsing
 
   **What to do**:
   - RED: Write parser tests for array literals (`[1, 2, 3]`), empty arrays (`[]`), typed empty arrays (`int32[]`), and indexing (`arr[0]`, `arr[i + 1]`). Tests MUST fail first.
@@ -724,7 +724,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix(parser): replace unreachable!() with proper ParseError returns`
   - Files: `src/parser/expressions.rs`, `src/parser/statements.rs`
 
-- [ ] 12. Un-ignore Stale Colon-Block Tests
+- [x] 12. Un-ignore Stale Colon-Block Tests
 
   **What to do**:
   - Remove the `#[ignore = "...colon-block syntax..."]` attribute from ALL tests in `src/type_system/test_integration.rs` and `src/type_system/test_integration_ecosystem.rs` that have stale reasons about colon-block syntax not being supported by the parser.
@@ -790,7 +790,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix(tests): un-ignore stale colon-block tests — parser supports this syntax`
   - Files: `src/type_system/test_integration.rs`, `src/type_system/test_integration_ecosystem.rs`
 
-- [ ] 13. Fix Builtin Function Signatures
+- [x] 13. Fix Builtin Function Signatures
 
   **What to do**:
   - RED: Write type checker tests that call `string_to_int64`, `random_int64` (the corrected names from Task 21) and assert they return `CoreType::Int64`. Also test `print` with various types. Tests MUST fail first.
@@ -840,7 +840,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix(types): align builtin function signatures with actual types`
   - Files: `src/type_system/checker.rs`
 
-- [ ] 14. Implement Generic Lambda Type Checking
+- [x] 14. Implement Generic Lambda Type Checking
 
   **What to do**:
   - RED: Write type checker tests for generic lambdas (e.g., `let id = f<T>(x: T): T => return x`) that assert successful type checking. Tests MUST fail first (currently returns `NotImplementedYet`).
@@ -884,7 +884,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `feat(types): implement generic lambda type checking`
   - Files: `src/type_system/checker/expressions.rs`
 
-- [ ] 15. Complete Constraint Solver
+- [x] 15. Complete Constraint Solver
 
   **What to do**:
   - RED: Write tests for constraint solving scenarios: unifying type variables, applying substitutions, resolving generic function calls with inferred types. Tests MUST fail first.
@@ -928,7 +928,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `feat(types): complete constraint solver implementation`
   - Files: `src/type_system/checker.rs`, `src/type_system/constraints.rs`
 
-- [ ] 16. Implement Closure Capture Analysis
+- [x] 16. Implement Closure Capture Analysis
 
   **What to do**:
   - RED: Write parser + type checker tests for closures that capture outer variables (e.g., `let x = 5; let add_x = f(y: int64): int64 => return x + y`). Assert that `captured_variables` is populated correctly in the AST. Tests MUST fail first.
@@ -973,7 +973,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `feat(parser): implement closure capture analysis`
   - Files: `src/parser/expressions.rs`, `src/ast.rs`
 
-- [ ] 17. Fix String Interpolation Dangling Pointer UB
+- [x] 17. Fix String Interpolation Dangling Pointer UB
 
   **What to do**:
   - RED: Write a codegen test that generates and runs code with string interpolation where the interpolated string is returned from a function or stored in a variable that outlives the function scope. Test MUST demonstrate the UB (crash, corrupt output, or sanitizer error).
