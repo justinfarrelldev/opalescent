@@ -8,51 +8,63 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
+/// Build the help text for `opal` CLI commands.
+///
+/// When `topic` is `None`, returns the top-level help summary.
+/// When `topic` is `Some(t)`, returns topic-specific guidance for the named topic.
+fn help_text(topic: Option<&str>) -> String {
+    let mut out = String::new();
+    match topic {
+        Some("pkg") => {
+            out.push_str("opal pkg <command>\n");
+            out.push('\n');
+            out.push_str("Commands:\n");
+            out.push_str("  init <name>              Initialise a new project manifest\n");
+            out.push_str("  add <pkg> <version>      Add a dependency\n");
+            out.push_str("  remove <pkg>             Remove a dependency\n");
+            out.push_str("  install                  Install all declared dependencies\n");
+            out.push_str("  publish                  Publish the package to the registry\n");
+        }
+        Some("fmt") => {
+            out.push_str("opal fmt [--check] [--config <path>] <file>\n");
+            out.push('\n');
+            out.push_str("Format an Opalescent source file.\n");
+            out.push_str("  --check     Exit with error if file would change (CI mode)\n");
+            out.push_str("  --config    Path to opal-fmt.toml configuration file\n");
+        }
+        Some(unknown) => {
+            out.push_str("Unknown help topic: ");
+            out.push_str(unknown);
+            out.push('\n');
+            out.push_str("Run `opal help` for the list of topics.\n");
+        }
+        None => {
+            out.push_str("Opalescent Compiler\n");
+            out.push('\n');
+            out.push_str("Usage:  opal <command> [arguments]\n");
+            out.push('\n');
+            out.push_str("Commands:\n");
+            out.push_str("  <file.op>    Compile an Opalescent source file\n");
+            out.push_str("  --run        Execute the compiled binary after compilation\n");
+            out.push_str("  help         Show this help message\n");
+            out.push_str("  help pkg     Package manager commands\n");
+            out.push_str("  help fmt     Formatter commands\n");
+            out.push('\n');
+            out.push_str("Examples:\n");
+            out.push_str("  opal src/main.op\n");
+            out.push_str("  opal src/main.op --run\n");
+            out.push_str("  opal help pkg\n");
+        }
+    }
+    out
+}
+
 /// Print usage help for `opal` CLI commands.
 ///
 /// When `topic` is `None`, prints the top-level help summary.
 /// When `topic` is `Some(t)`, prints topic-specific guidance for the named topic.
 fn print_help(topic: Option<&str>) {
-    match topic {
-        Some("pkg") => {
-            println!("opal pkg <command>");
-            println!();
-            println!("Commands:");
-            println!("  init <name>              Initialise a new project manifest");
-            println!("  add <pkg> <version>      Add a dependency");
-            println!("  remove <pkg>             Remove a dependency");
-            println!("  install                  Install all declared dependencies");
-            println!("  publish                  Publish the package to the registry");
-        }
-        Some("fmt") => {
-            println!("opal fmt [--check] [--config <path>] <file>");
-            println!();
-            println!("Format an Opalescent source file.");
-            println!("  --check     Exit with error if file would change (CI mode)");
-            println!("  --config    Path to opal-fmt.toml configuration file");
-        }
-        Some(unknown) => {
-            eprintln!("Unknown help topic: {unknown}");
-            eprintln!("Run `opal help` for the list of topics.");
-        }
-        None => {
-            println!("Opalescent Compiler");
-            println!();
-            println!("Usage:  opal <command> [arguments]");
-            println!();
-            println!("Commands:");
-            println!("  <file.op>    Compile an Opalescent source file");
-            println!("  --run        Execute the compiled binary after compilation");
-            println!("  help         Show this help message");
-            println!("  help pkg     Package manager commands");
-            println!("  help fmt     Formatter commands");
-            println!();
-            println!("Examples:");
-            println!("  opal src/main.op");
-            println!("  opal src/main.op --run");
-            println!("  opal help pkg");
-        }
-    }
+    print!("{}", help_text(topic));
 }
 
 /// Run the Opalescent CLI application entry workflow.
@@ -65,10 +77,11 @@ pub fn run() -> i32 {
     }
 }
 
-/// Main CLI logic, delegating process exit handling to the public `run()` wrapper.
-fn run_impl() -> Result<(), i32> {
-    let args: Vec<String> = std::env::args().collect();
-
+/// Main CLI logic for processing arguments.
+///
+/// Takes a slice of command-line arguments and executes the appropriate
+/// command or workflow based on the arguments provided.
+fn run_with_args(args: &[String]) -> Result<(), i32> {
     if args.get(1).map(String::as_str) == Some("help") {
         print_help(args.get(2).map(String::as_str));
         return Ok(());
@@ -123,4 +136,10 @@ fn run_impl() -> Result<(), i32> {
     }
 
     Ok(())
+}
+
+/// Main CLI logic, delegating process exit handling to the public `run()` wrapper.
+fn run_impl() -> Result<(), i32> {
+    let args: Vec<String> = std::env::args().collect();
+    run_with_args(&args)
 }
