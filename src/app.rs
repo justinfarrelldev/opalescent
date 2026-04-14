@@ -16,6 +16,19 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
+// Imports for CLI command implementations (tasks 2-10)
+// TODO: import when wired — path unknown (FormatCommand)
+// TODO: import when wired — path unknown (FormatterConfig)
+// TODO: import when wired — path unknown (LspServer)
+// TODO: import when wired — path unknown (TestCommand, TestSuite, run_suite)
+// TODO: import when wired — path unknown (generate_markdown_for_program)
+// TODO: import when wired — path unknown (BenchmarkSuite)
+// TODO: import when wired — path unknown (parse_config, ProjectConfig)
+// TODO: import when wired — path unknown (PollingFileWatcher, FileWatcher)
+// TODO: import when wired — path unknown (Lexer)
+// TODO: import when wired — path unknown (Parser)
+// TODO: import when wired — path unknown (TypeChecker)
+
 /// Build the help text for `opal` CLI commands.
 ///
 /// When `topic` is `None`, returns the top-level help summary.
@@ -132,10 +145,33 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
         return Ok(());
     }
 
-    if let Some(cmd @ ("pkg" | "fmt" | "lsp" | "test" | "doc" | "bench")) =
-        args.get(1).map(String::as_str)
-    {
-        eprintln!("error: '{cmd}' not yet implemented");
+    if args.get(1).map(String::as_str) == Some("pkg") {
+        eprintln!("error: 'pkg' not yet implemented");
+        return Err(1);
+    }
+
+    if args.get(1).map(String::as_str) == Some("fmt") {
+        eprintln!("error: opal fmt requires a source file — run 'opal help fmt' for usage");
+        return Err(1);
+    }
+
+    if args.get(1).map(String::as_str) == Some("lsp") {
+        eprintln!("error: opal lsp requires arguments — run 'opal help lsp' for usage");
+        return Err(1);
+    }
+
+    if args.get(1).map(String::as_str) == Some("test") {
+        eprintln!("error: opal test needs implementation");
+        return Err(1);
+    }
+
+    if args.get(1).map(String::as_str) == Some("doc") {
+        eprintln!("error: opal doc needs implementation");
+        return Err(1);
+    }
+
+    if args.get(1).map(String::as_str) == Some("bench") {
+        eprintln!("error: opal bench needs implementation");
         return Err(1);
     }
 
