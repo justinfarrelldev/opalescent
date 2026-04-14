@@ -160,17 +160,13 @@ pub fn codegen_import_declaration<'context>(
 }
 
 #[doc = "Lower a function call expression."]
-#[expect(
-    clippy::too_many_lines,
-    reason = "Runtime-boundary widening/narrowing and closure capture lowering are handled in one call path"
-)]
 pub fn codegen_call_expression<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     callee: &Expr,
     generic_args: Option<&[Type]>,
     args: &[Expr],
-    expected_type: Option<&CoreType>,
+    _expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let function = resolve_callee_function(codegen_context, env, callee, generic_args)?;
     let mut lowered_args = args
@@ -202,44 +198,7 @@ pub fn codegen_call_expression<'context>(
         }
     }
 
-    let mut call_args = lowered_args;
-    if let &Expr::Identifier { ref name, .. } = callee {
-        match name.as_str() {
-            "print_int" | "opal_print_int" => {
-                if call_args.len() == 1 {
-                    if let BasicMetadataValueEnum::IntValue(int_arg) = call_args[0] {
-                        if int_arg.get_type().get_bit_width() < 64 {
-                            call_args[0] = codegen_context
-                                .builder
-                                .build_int_s_extend(
-                                    int_arg,
-                                    codegen_context.context.i64_type(),
-                                    &env.next_name("print_int.sext"),
-                                )?
-                                .into();
-                        }
-                    }
-                }
-            }
-            "random_int32" | "opal_random_int32" => {
-                for arg in &mut call_args {
-                    if let BasicMetadataValueEnum::IntValue(int_arg) = *arg {
-                        if int_arg.get_type().get_bit_width() < 64 {
-                            *arg = codegen_context
-                                .builder
-                                .build_int_s_extend(
-                                    int_arg,
-                                    codegen_context.context.i64_type(),
-                                    &env.next_name("random_int32.arg.sext"),
-                                )?
-                                .into();
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
+    let call_args = lowered_args;
 
     let call = codegen_context.builder.build_call(
         function,
@@ -256,37 +215,6 @@ pub fn codegen_call_expression<'context>(
         },
         |value| value,
     );
-
-    if let &Expr::Identifier { ref name, .. } = callee {
-        if matches!(name.as_str(), "string_to_int32" | "opal_string_to_int32")
-            && call_result.is_int_value()
-        {
-            let narrowed = codegen_context.builder.build_int_truncate(
-                call_result.into_int_value(),
-                codegen_context.context.i32_type(),
-                &env.next_name("string_to_int32.ret.trunc"),
-            )?;
-            return Ok(narrowed.as_basic_value_enum());
-        }
-
-        if matches!(name.as_str(), "random_int32" | "opal_random_int32")
-            && call_result.is_int_value()
-        {
-            let target_int = match expected_type {
-                Some(&CoreType::Int64 | &CoreType::UInt64) => codegen_context.context.i64_type(),
-                _ => codegen_context.context.i32_type(),
-            };
-            let result_int = call_result.into_int_value();
-            if result_int.get_type().get_bit_width() != target_int.get_bit_width() {
-                let narrowed = codegen_context.builder.build_int_truncate(
-                    result_int,
-                    target_int,
-                    &env.next_name("random_int32.ret.trunc"),
-                )?;
-                return Ok(narrowed.as_basic_value_enum());
-            }
-        }
-    }
 
     Ok(call_result)
 }
@@ -400,6 +328,10 @@ pub fn codegen_guard_expression<'context>(
 }
 
 #[doc = "Resolve the called function value for identifier or lambda callees."]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Identifier/lambda dispatch and monomorphization guard are intentionally centralized"
+)]
 fn resolve_callee_function<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -412,14 +344,34 @@ fn resolve_callee_function<'context>(
                 name.as_str(),
                 "print"
                     | "printf"
+                    | "print_string"
+                    | "print_int8"
+                    | "print_int16"
+                    | "print_int32"
+                    | "print_int64"
+                    | "print_uint8"
+                    | "print_uint16"
+                    | "print_uint32"
+                    | "print_uint64"
+                    | "print_float32"
+                    | "print_float64"
                     | "take_input"
-                    | "opal_take_input"
+                    | "random_int8"
+                    | "random_int16"
                     | "random_int32"
-                    | "opal_random_int32"
+                    | "random_int64"
+                    | "random_uint8"
+                    | "random_uint16"
+                    | "random_uint32"
+                    | "random_uint64"
+                    | "string_to_int8"
+                    | "string_to_int16"
                     | "string_to_int32"
-                    | "opal_string_to_int32"
-                    | "print_int"
-                    | "opal_print_int"
+                    | "string_to_int64"
+                    | "string_to_uint8"
+                    | "string_to_uint16"
+                    | "string_to_uint32"
+                    | "string_to_uint64"
             );
             let base_function = if let Some(imported_runtime_name) =
                 env.imported_functions.get(name)
@@ -509,72 +461,85 @@ fn declare_stdlib_function<'context>(
     codegen_context: &CodegenContext<'context>,
     name: &str,
 ) -> Option<FunctionValue<'context>> {
-    let i8_ptr_type = codegen_context
-        .context
-        .i8_type()
-        .ptr_type(AddressSpace::default());
-    let i32_type = codegen_context.context.i32_type();
-    let i64_type = codegen_context.context.i64_type();
+    let ctx = codegen_context.context;
+    let module = &codegen_context.module;
+    let i8_ptr = ctx.i8_type().ptr_type(AddressSpace::default());
+    let void_type = ctx.void_type();
+    let i8_type = ctx.i8_type();
+    let i16_type = ctx.i16_type();
+    let i32_type = ctx.i32_type();
+    let i64_type = ctx.i64_type();
+    let f32_type = ctx.f32_type();
+    let f64_type = ctx.f64_type();
+
+    // Helper: get existing or add a new void(T) function.
+    macro_rules! void_fn {
+        ($nm:expr, $param:expr) => {
+            module.get_function($nm).or_else(|| {
+                let ft = void_type.fn_type(&[$param.into()], false);
+                Some(module.add_function($nm, ft, None))
+            })
+        };
+    }
+    // Helper: get existing or add T(T, T) function.
+    macro_rules! binary_int_fn {
+        ($nm:expr, $t:expr) => {
+            module.get_function($nm).or_else(|| {
+                let ft = $t.fn_type(&[$t.into(), $t.into()], false);
+                Some(module.add_function($nm, ft, None))
+            })
+        };
+    }
+    // Helper: get existing or add T(i8*) function.
+    macro_rules! ptr_to_int_fn {
+        ($nm:expr, $t:expr) => {
+            module.get_function($nm).or_else(|| {
+                let ft = $t.fn_type(&[i8_ptr.into()], false);
+                Some(module.add_function($nm, ft, None))
+            })
+        };
+    }
+
     match name {
-        "print" => codegen_context.module.get_function("puts").or_else(|| {
-            let puts_type = i32_type.fn_type(&[i8_ptr_type.into()], false);
-            Some(codegen_context.module.add_function("puts", puts_type, None))
+        "print" => module.get_function("puts").or_else(|| {
+            let ft = i32_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("puts", ft, None))
         }),
-        "printf" => codegen_context.module.get_function("printf").or_else(|| {
-            let printf_type = i32_type.fn_type(&[i8_ptr_type.into()], true);
-            Some(
-                codegen_context
-                    .module
-                    .add_function("printf", printf_type, None),
-            )
+        "printf" => module.get_function("printf").or_else(|| {
+            let ft = i32_type.fn_type(&[i8_ptr.into()], true);
+            Some(module.add_function("printf", ft, None))
         }),
-        "opal_take_input" | "take_input" => codegen_context
-            .module
-            .get_function("opal_take_input")
-            .or_else(|| {
-                let function_type = i8_ptr_type.fn_type(&[], false);
-                Some(
-                    codegen_context
-                        .module
-                        .add_function("opal_take_input", function_type, None),
-                )
-            }),
-        "opal_string_to_int32" | "string_to_int32" => codegen_context
-            .module
-            .get_function("opal_string_to_int32")
-            .or_else(|| {
-                let function_type = i64_type.fn_type(&[i8_ptr_type.into()], false);
-                Some(codegen_context.module.add_function(
-                    "opal_string_to_int32",
-                    function_type,
-                    None,
-                ))
-            }),
-        "opal_random_int32" | "random_int32" => codegen_context
-            .module
-            .get_function("opal_random_int32")
-            .or_else(|| {
-                let function_type = i64_type.fn_type(&[i64_type.into(), i64_type.into()], false);
-                Some(
-                    codegen_context
-                        .module
-                        .add_function("opal_random_int32", function_type, None),
-                )
-            }),
-        "opal_print_int" | "print_int" => codegen_context
-            .module
-            .get_function("opal_print_int")
-            .or_else(|| {
-                let function_type = codegen_context
-                    .context
-                    .void_type()
-                    .fn_type(&[i64_type.into()], false);
-                Some(
-                    codegen_context
-                        .module
-                        .add_function("opal_print_int", function_type, None),
-                )
-            }),
+        "take_input" => module.get_function("take_input").or_else(|| {
+            let ft = i8_ptr.fn_type(&[], false);
+            Some(module.add_function("take_input", ft, None))
+        }),
+        "print_string" => void_fn!("print_string", i8_ptr),
+        "print_int8" => void_fn!("print_int8", i8_type),
+        "print_int16" => void_fn!("print_int16", i16_type),
+        "print_int32" => void_fn!("print_int32", i32_type),
+        "print_int64" => void_fn!("print_int64", i64_type),
+        "print_uint8" => void_fn!("print_uint8", i8_type),
+        "print_uint16" => void_fn!("print_uint16", i16_type),
+        "print_uint32" => void_fn!("print_uint32", i32_type),
+        "print_uint64" => void_fn!("print_uint64", i64_type),
+        "print_float32" => void_fn!("print_float32", f32_type),
+        "print_float64" => void_fn!("print_float64", f64_type),
+        "random_int8" => binary_int_fn!("random_int8", i8_type),
+        "random_int16" => binary_int_fn!("random_int16", i16_type),
+        "random_int32" => binary_int_fn!("random_int32", i32_type),
+        "random_int64" => binary_int_fn!("random_int64", i64_type),
+        "random_uint8" => binary_int_fn!("random_uint8", i8_type),
+        "random_uint16" => binary_int_fn!("random_uint16", i16_type),
+        "random_uint32" => binary_int_fn!("random_uint32", i32_type),
+        "random_uint64" => binary_int_fn!("random_uint64", i64_type),
+        "string_to_int8" => ptr_to_int_fn!("string_to_int8", i8_type),
+        "string_to_int16" => ptr_to_int_fn!("string_to_int16", i16_type),
+        "string_to_int32" => ptr_to_int_fn!("string_to_int32", i32_type),
+        "string_to_int64" => ptr_to_int_fn!("string_to_int64", i64_type),
+        "string_to_uint8" => ptr_to_int_fn!("string_to_uint8", i8_type),
+        "string_to_uint16" => ptr_to_int_fn!("string_to_uint16", i16_type),
+        "string_to_uint32" => ptr_to_int_fn!("string_to_uint32", i32_type),
+        "string_to_uint64" => ptr_to_int_fn!("string_to_uint64", i64_type),
         _ => None,
     }
 }
@@ -585,11 +550,35 @@ fn resolve_imported_runtime_name(
     symbol_name: &str,
 ) -> Result<String, CodegenError> {
     match (module_name, symbol_name) {
-        ("standard", "take_input") => Ok(String::from("opal_take_input")),
-        ("standard", "string_to_int32") => Ok(String::from("opal_string_to_int32")),
-        ("standard", "print_int") => Ok(String::from("opal_print_int")),
-        ("math", "random_int32") => Ok(String::from("opal_random_int32")),
-        ("standard", "print") => Ok(String::from("print")),
+        ("standard", "take_input") => Ok("take_input".to_owned()),
+        ("standard", "print") => Ok("print".to_owned()),
+        ("standard", "print_string") => Ok("print_string".to_owned()),
+        ("standard", "print_int8") => Ok("print_int8".to_owned()),
+        ("standard", "print_int16") => Ok("print_int16".to_owned()),
+        ("standard", "print_int32") => Ok("print_int32".to_owned()),
+        ("standard", "print_int64") => Ok("print_int64".to_owned()),
+        ("standard", "print_uint8") => Ok("print_uint8".to_owned()),
+        ("standard", "print_uint16") => Ok("print_uint16".to_owned()),
+        ("standard", "print_uint32") => Ok("print_uint32".to_owned()),
+        ("standard", "print_uint64") => Ok("print_uint64".to_owned()),
+        ("standard", "print_float32") => Ok("print_float32".to_owned()),
+        ("standard", "print_float64") => Ok("print_float64".to_owned()),
+        ("standard", "string_to_int8") => Ok("string_to_int8".to_owned()),
+        ("standard", "string_to_int16") => Ok("string_to_int16".to_owned()),
+        ("standard", "string_to_int32") => Ok("string_to_int32".to_owned()),
+        ("standard", "string_to_int64") => Ok("string_to_int64".to_owned()),
+        ("standard", "string_to_uint8") => Ok("string_to_uint8".to_owned()),
+        ("standard", "string_to_uint16") => Ok("string_to_uint16".to_owned()),
+        ("standard", "string_to_uint32") => Ok("string_to_uint32".to_owned()),
+        ("standard", "string_to_uint64") => Ok("string_to_uint64".to_owned()),
+        ("math", "random_int8") => Ok("random_int8".to_owned()),
+        ("math", "random_int16") => Ok("random_int16".to_owned()),
+        ("math", "random_int32") => Ok("random_int32".to_owned()),
+        ("math", "random_int64") => Ok("random_int64".to_owned()),
+        ("math", "random_uint8") => Ok("random_uint8".to_owned()),
+        ("math", "random_uint16") => Ok("random_uint16".to_owned()),
+        ("math", "random_uint32") => Ok("random_uint32".to_owned()),
+        ("math", "random_uint64") => Ok("random_uint64".to_owned()),
         _ => Err(CodegenError::new(format!(
             "unknown import symbol '{symbol_name}' in module '{module_name}'"
         ))),
@@ -937,43 +926,40 @@ mod tests {
     }
 
     #[test]
-    fn resolve_print_int_to_opal_print_int_declaration() {
+    fn resolve_print_int64_declaration() {
         let context = Context::create();
         let codegen_context = CodegenContext::new(&context, "resolve_print_int");
         let mut env = CodegenEnv::new(true);
 
         let result =
-            resolve_callee_function(&codegen_context, &mut env, &identifier("print_int"), None);
-        assert!(
-            result.is_ok(),
-            "print_int should resolve successfully to opal_print_int"
-        );
+            resolve_callee_function(&codegen_context, &mut env, &identifier("print_int64"), None);
+        assert!(result.is_ok(), "print_int64 should resolve successfully");
 
         let Ok(function) = result else {
             return;
         };
         assert_eq!(
             function.get_name().to_str(),
-            Ok("opal_print_int"),
-            "print_int should resolve to module function named opal_print_int"
+            Ok("print_int64"),
+            "print_int64 should resolve to module function named print_int64"
         );
 
         let function_type = function.get_type();
         assert!(
             function_type.get_return_type().is_none(),
-            "opal_print_int should return void in LLVM"
+            "print_int64 should return void in LLVM"
         );
 
         let parameter_types = function_type.get_param_types();
         assert_eq!(
             parameter_types.len(),
             1,
-            "opal_print_int should accept exactly one parameter"
+            "print_int64 should accept exactly one parameter"
         );
         let parameter_type_text = parameter_types[0].print_to_string().to_string();
         assert_eq!(
             parameter_type_text, "i64",
-            "opal_print_int first parameter should be i64"
+            "print_int64 first parameter should be i64"
         );
     }
 }

@@ -1028,7 +1028,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix(codegen): heap-allocate interpolated strings to prevent UB`
   - Files: `src/codegen/expressions_string.rs`
 
-- [ ] 18. Implement Power (^) Operator Codegen
+- [x] 18. Implement Power (^) Operator Codegen
 
   **What to do**:
   - RED: Write a codegen/integration test that uses the power operator (`2 ^ 10`) and asserts the result is 1024. Test MUST fail first (currently returns "unsupported in task 22" error).
@@ -1073,7 +1073,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `feat(codegen): implement power (^) operator`
   - Files: `src/codegen/expressions.rs`, `src/codegen/expressions_numeric.rs`
 
-- [ ] 19. Fix Entry Main argv Construction
+- [x] 19. Fix Entry Main argv Construction
 
   **What to do**:
   - RED: Write an integration test that compiles a program accessing `args[0]` and verifies it receives the program name. Test MUST fail first (currently uses placeholder zero/undef values).
@@ -1117,7 +1117,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix(codegen): implement proper argv construction for entry main`
   - Files: `src/codegen/functions.rs`
 
-- [ ] 20. Remove "task 22" Stubs in Codegen
+- [x] 20. Remove "task 22" Stubs in Codegen
 
   **What to do**:
   - RED: Search for ALL occurrences of "task 22" in codegen. For each, write a test that exercises the code path. Tests MUST fail with the "unsupported in task 22" error.
@@ -1162,7 +1162,7 @@ Max Concurrent: 8 (Wave 2)
   - Message: `fix(codegen): implement all remaining "task 22" stubs`
   - Files: `src/codegen/expressions.rs`, `src/codegen/values.rs`, and others as discovered
 
-- [ ] 21. Overhaul C Runtime — Rename + Size-Specific Variants
+- [x] 21. Overhaul C Runtime — Rename + Size-Specific Variants
 
   **What to do**:
   - RED: Write integration tests that call the renamed runtime functions (e.g., `random_int32()`, `random_int64()`, `print_int32()`, `string_to_int64()`). Tests MUST fail first (functions don't exist yet).

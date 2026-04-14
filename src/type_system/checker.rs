@@ -38,6 +38,7 @@ mod module_checking;
 /// Pattern-matching typing and exhaustiveness checks.
 mod patterns;
 mod returns;
+mod size_specific_builtins;
 mod statements;
 mod unification;
 
@@ -261,6 +262,8 @@ impl TypeChecker {
             is_mutable: false,
             read_count: 0,
         });
+
+        self.register_size_specific_builtins();
 
         self.register_integer_intrinsics_for_type("int8", &CoreType::Int8);
         self.register_integer_intrinsics_for_type("int16", &CoreType::Int16);

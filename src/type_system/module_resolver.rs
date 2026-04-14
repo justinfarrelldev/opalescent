@@ -322,6 +322,16 @@ impl ModuleResolver {
                 },
                 SymbolType::Function,
             ),
+            (
+                String::from("string_to_int64"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::Int64],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
         ];
 
         for (name, core_type, symbol_type) in standard_symbols {
@@ -344,6 +354,15 @@ impl ModuleResolver {
         let math_symbols = [
             (
                 String::from("random_int32"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Int64, CoreType::Int64],
+                    return_types: vec![CoreType::Int64],
+                    error_types: Vec::new(),
+                },
+            ),
+            (
+                String::from("random_int64"),
                 CoreType::Function {
                     generic_params: Vec::new(),
                     parameters: vec![CoreType::Int64, CoreType::Int64],

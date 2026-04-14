@@ -869,7 +869,7 @@ entry main = f(args: string[]): void => {
 }
 
 #[test]
-fn test_import_take_input_emits_opal_take_input_declaration() {
+fn test_import_take_input_emits_take_input_declaration() {
     let source = "
 import take_input from standard
 
@@ -892,13 +892,13 @@ entry main = f(): void => {
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("declare i8* @opal_take_input()"),
-        "import take_input from standard should emit declare i8* @opal_take_input(): {ir}"
+        ir.contains("declare i8* @take_input()"),
+        "import take_input from standard should emit declare i8* @take_input(): {ir}"
     );
 }
 
 #[test]
-fn test_import_random_int32_emits_opal_random_int32_declaration() {
+fn test_import_random_int32_emits_random_int32_declaration() {
     let source = "
 import random_int32 from math
 
@@ -921,8 +921,66 @@ entry main = f(): void => {
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("declare i64 @opal_random_int32(i64, i64)"),
-        "import random_int32 from math should emit declare i64 @opal_random_int32(i64, i64): {ir}"
+        ir.contains("declare i32 @random_int32(i32, i32)"),
+        "import random_int32 from math should emit declare i32 @random_int32(i32, i32): {ir}"
+    );
+}
+
+#[test]
+fn test_import_random_int64_emits_correct_declaration() {
+    let source = "
+import random_int64 from math
+
+entry main = f(): void => {
+    let roll = random_int64(1, 100)
+    print('roll: {roll}')
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, source);
+    assert!(
+        module_result.is_ok(),
+        "imported random_int64 should compile and be callable"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i64 @random_int64(i64, i64)"),
+        "import random_int64 from math should emit declare i64 @random_int64(i64, i64): {ir}"
+    );
+}
+
+#[test]
+fn test_import_string_to_int64_emits_correct_declaration() {
+    let source = "
+import string_to_int64 from standard
+
+entry main = f(): void => {
+    let n = string_to_int64('42')
+    print('n: {n}')
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, source);
+    assert!(
+        module_result.is_ok(),
+        "imported string_to_int64 should compile and be callable"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i64 @string_to_int64(i8*)"),
+        "import string_to_int64 from standard should emit declare i64 @string_to_int64(i8*): {ir}"
     );
 }
 
@@ -951,11 +1009,11 @@ entry main = f(): void => {
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("declare i8* @opal_take_input()"),
+        ir.contains("declare i8* @take_input()"),
         "take_input declaration should exist when imported from standard: {ir}"
     );
     assert!(
-        ir.contains("declare i64 @opal_string_to_int32(i8*)"),
+        ir.contains("declare i32 @string_to_int32(i8*)"),
         "string_to_int32 declaration should exist when imported from standard: {ir}"
     );
 }
@@ -1012,21 +1070,16 @@ entry main = f(): void => {
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("declare i8* @opal_take_input()"),
-        "take_input builtin should emit opal_take_input declaration: {ir}"
+        ir.contains("declare i8* @take_input()"),
+        "take_input builtin should emit take_input declaration: {ir}"
     );
     assert!(
-        ir.contains("declare i64 @opal_string_to_int32(i8*)"),
-        "string_to_int32 builtin should emit opal_string_to_int32 declaration: {ir}"
+        ir.contains("declare i32 @string_to_int32(i8*)"),
+        "string_to_int32 builtin should emit string_to_int32 declaration: {ir}"
     );
     assert!(
-        ir.contains("declare i64 @opal_random_int32(i64, i64)"),
-        "random_int32 builtin should emit opal_random_int32 declaration: {ir}"
-    );
-
-    assert!(
-        ir.contains("trunc i64") || ir.contains("sext i32"),
-        "int32-runtime boundary lowering should include truncate/extend around runtime calls: {ir}"
+        ir.contains("declare i32 @random_int32(i32, i32)"),
+        "random_int32 builtin should emit random_int32 declaration: {ir}"
     );
 }
 

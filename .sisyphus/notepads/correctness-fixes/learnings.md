@@ -411,3 +411,18 @@ if self.check_identifier() {
 - `cargo test type_system` passed with new and existing constraint tests.
 - `cargo test` passed with no regressions (820 passed, 0 failed, 5 ignored).
 - Evidence captured at `.sisyphus/evidence/task-15-constraints.txt`.
+
+## [2026-04-14] Task 21 — C runtime rename + size-specific variants
+
+### Findings
+- Runtime-side naming can be safely de-prefixed (`opal_*` -> bare names) when codegen declaration/import resolution tables are migrated in lockstep.
+- `checker.rs` line-budget pressure was solved by extracting size-specific builtin registration into a dedicated checker submodule (`checker/size_specific_builtins.rs`) and keeping `checker.rs` under 1000 lines.
+- `string_to_int64` and `random_int64` must remain import-only for compatibility with existing type-system expectations; global checker registration for these two breaks `*_is_not_registered` tests.
+- Import-only availability is correctly achieved by adding those symbols to `ModuleResolver` standard/math module interfaces while omitting them from global builtin registration.
+
+### Verification
+- `cargo make lint` passes under strict clippy profile.
+- `cargo test -q` summary: 839 passed, 0 failed, 5 ignored.
+- `cargo test --features integration --test integration_e2e -q` summary: 7 passed, 0 failed.
+- `cargo build --release -q` passes.
+- `grep -rn "opal_" runtime/opal_runtime.c` returns no matches.

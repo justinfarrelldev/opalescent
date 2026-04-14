@@ -1,0 +1,47 @@
+# Task 21 Evidence — C runtime rename + size-specific variants
+
+Timestamp (UTC): 2026-04-14T02:22:40Z
+
+## Verification Commands
+
+### 1) Lint
+- Command: `cargo make lint`
+- Result: PASS
+
+### 2) Unit tests
+- Command: `cargo test -q`
+- Result: PASS
+- Summary: `839 passed; 0 failed; 5 ignored`
+
+### 3) Integration e2e tests
+- Command: `cargo test --features integration --test integration_e2e -q`
+- Result: PASS
+- Summary: `7 passed; 0 failed`
+
+### 4) Release build
+- Command: `cargo build --release -q`
+- Result: PASS
+
+### 5) Runtime prefix check
+- Command: `grep -rn "opal_" runtime/opal_runtime.c`
+- Result: PASS (no matches)
+
+### 6) Runtime signature spot-checks
+- Command: `grep -n "random_int32\|random_int64\|print_int32\|print_uint8\|string_to_int32" runtime/opal_runtime.c`
+- Result:
+  - `void print_int32(int32_t n)`
+  - `void print_uint8(uint8_t n)`
+  - `int32_t random_int32(int32_t min, int32_t max)`
+  - `int64_t random_int64(int64_t min, int64_t max)`
+  - `int32_t string_to_int32(const char* s)`
+
+### 7) Non-test Rust line-count guard
+- Command: `wc -l src/type_system/checker.rs src/codegen/functions.rs runtime/opal_runtime.c`
+- Result:
+  - `src/type_system/checker.rs`: 922
+  - `src/codegen/functions.rs`: 965
+  - `runtime/opal_runtime.c`: 181
+
+## Notes
+- Added `src/type_system/checker/size_specific_builtins.rs` and wired module from `checker.rs`.
+- Kept `string_to_int64` and `random_int64` import-only via module resolver interfaces (`standard` / `math`) to preserve existing type-system non-registration expectations while allowing explicit imports in codegen tests.
