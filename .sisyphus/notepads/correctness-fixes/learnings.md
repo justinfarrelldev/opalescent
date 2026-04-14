@@ -473,3 +473,57 @@ if self.check_identifier() {
 - `cargo make lint` passed with strict clippy profile.
 - `cargo test` full suite passed.
 - LSP diagnostics clean on changed files (`resolver.rs`, `registry.rs`, `package_manager/tests.rs`, `build_system/config.rs`, `build_system/tests.rs`).
+
+## [2026-04-14] Task 26 — LSP stdio transport + document sync
+
+### Findings
+- LSP transport framing can be implemented as small reusable helpers (`read_framed_message` / `write_framed_message`) using `BufRead`/`Write` with strict `Content-Length` parsing and UTF-8 payload validation.
+- Current server-side document sync model (DidOpen/DidChange/DidClose with URI->source map) already supports multi-document rename when rename fan-out iterates open docs and computes per-doc edits.
+- Definition URI correctness is guaranteed by passing the request URI through server dispatch into `get_definition(...)` and preserving it in `Location`.
+- Strict clippy profile in this repo requires avoiding `let _ = must_use`, avoiding `panic!` in tests, and handling style conflicts (`map_unwrap_or` vs `unnecessary_map_or`) by preferring `Option::is_some_and`/boolean negation where applicable.
+
+### Verification
+- `cargo test lsp` passed (14/14), including new framing tests and document sync/URI/rename coverage.
+- `cargo make lint` passed under strict clippy gates.
+- `cargo test` full suite passed (853 passed, 0 failed, 5 ignored in lib tests).
+- Evidence written to `.sisyphus/evidence/task-26-lsp.txt`.
+
+## [2026-04-14] Task 27 — README accuracy alignment
+
+### Findings
+- `src/app.rs` currently dispatches compile/run and help topics; `fmt`, `pkg`, and `lsp --stdio` are documented but not yet executable subcommands.
+- README needed explicit status notes to avoid claiming those commands are already wired.
+- Types section previously did not explicitly enumerate all numeric primitives; now it lists the full 10-type matrix.
+- `opal_` runtime prefix is absent from README after runtime rename work.
+
+### Verification
+- Grep checks confirm added status lines for `pkg`, `fmt`, and `lsp --stdio` wiring status.
+- Grep confirms README now explicitly mentions `int8/int16/int32/int64`, `uint8/uint16/uint32/uint64`, and `float32/float64`.
+- `cargo test lsp`, `cargo test`, and `cargo make lint` all passed after README updates.
+- Evidence written to `.sisyphus/evidence/task-27-readme-cli.txt`.
+
+## [2026-04-14] Task 28 — cargo-make install-deps-debian syntax
+
+### Findings
+- `cargo-make` task args arrays cannot safely encode shell chaining operators such as `&&`; this should be expressed as a `script` task with one command per line.
+- Rewriting `install-deps-debian` from `command + args (with &&)` to a `script` array preserves intent and eliminates parser/execution ambiguity.
+- Validation should use `cargo make --list-all-steps` and `cargo make --print-steps` only; do not execute sudo-mutating tasks during verification.
+
+### Verification
+- `cargo make --list-all-steps` passed and includes `install-deps-debian`.
+- `cargo make --print-steps` passed (no parse errors).
+- Regression checks still green: `cargo test lsp`, `cargo test`, `cargo make lint`.
+- Evidence written to `.sisyphus/evidence/task-28-makefile.txt`.
+
+## [2026-04-14] Task 29 — stale TODO/comment cleanup
+
+### Findings
+- Removed stale wording in parser/AST docs where implementation already exists (`parse_type_declaration` and lambda hot-reload metadata docs).
+- `TypeError::NotImplementedYet` was no longer referenced anywhere in `src/`; removing the dead enum variant reduced stale "not yet implemented" surface without behavior changes.
+- Kept legitimate phase/context comments and runtime placeholder terminology used for actual interpolation semantics (not stale TODO markers).
+
+### Verification
+- `cargo test lsp` passed (14/14).
+- `cargo test` passed (full suite green).
+- `cargo make lint` passed under strict clippy gates.
+- Evidence written to \.sisyphus/evidence/task-29-todo-cleanup.txt.
