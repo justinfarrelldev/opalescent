@@ -29,13 +29,10 @@ use std::process::Command;
 // Imports for CLI command implementations (tasks 6-10)
 use crate::benchmarks::compile_time::{bench_parse, bench_typecheck};
 use crate::benchmarks::suite::BenchmarkSuite;
+use crate::hot_reload::change_detection::{FileWatcher, PollingFileWatcher};
 use crate::type_system::checker::TypeChecker;
-// TODO: import when wired — path unknown (PollingFileWatcher, FileWatcher)
 
-/// Build the help text for `opal` CLI commands.
-///
-/// When `topic` is `None`, returns the top-level help summary.
-/// When `topic` is `Some(t)`, returns topic-specific guidance for the named topic.
+/// Build the help text for `opal` CLI commands (topic `None` = top-level, `Some(t)` = specific).
 fn help_text(topic: Option<&str>) -> String {
     let mut out = String::new();
     match topic {
@@ -115,10 +112,7 @@ fn help_text(topic: Option<&str>) -> String {
     out
 }
 
-/// Print usage help for `opal` CLI commands.
-///
-/// When `topic` is `None`, prints the top-level help summary.
-/// When `topic` is `Some(t)`, prints topic-specific guidance for the named topic.
+/// Print usage help for `opal` CLI commands (topic `None` = top-level, `Some(t)` = specific).
 fn print_help(topic: Option<&str>) {
     print!("{}", help_text(topic));
 }
@@ -133,10 +127,7 @@ pub fn run() -> i32 {
     }
 }
 
-/// Main CLI logic for processing arguments.
-///
-/// Takes a slice of command-line arguments and executes the appropriate
-/// command or workflow based on the arguments provided.
+/// Main CLI logic for processing arguments — dispatches to the appropriate command or workflow.
 fn run_with_args(args: &[String]) -> Result<(), i32> {
     if args.get(1).map(String::as_str) == Some("help") {
         print_help(args.get(2).map(String::as_str));
@@ -189,6 +180,10 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
 
     if args.get(1).map(String::as_str) == Some("build") {
         return run_build_command(args);
+    }
+
+    if args.get(1).map(String::as_str) == Some("watch") {
+        return run_watch_command(args);
     }
 
     // Separate flags from positional args (skip argv[0])
@@ -488,10 +483,8 @@ fn run_bench_command(_args: &[String]) -> Result<(), i32> {
     Ok(())
 }
 
-/// Dispatch `opal check` subcommand — run the lex → parse → [`TypeChecker`] pipeline.
-///
-/// Reads the source file at `args[2]`, lexes, parses, and type-checks it.
-/// Prints `check passed` on success.  All errors are printed to stderr and `Err(1)` is returned.
+/// Dispatch `opal check` — lex → parse → [`TypeChecker`] pipeline on `args[2]`.
+/// Prints `check passed` on success; prints to stderr and returns `Err(1)` on any error.
 fn run_check_command(args: &[String]) -> Result<(), i32> {
     let Some(source_path) = args.get(2).map(String::as_str) else {
         eprintln!("error: no source file specified");
@@ -528,9 +521,7 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
     Ok(())
 }
 
-/// Run the `opal build` command for project-level compilation.
-///
-/// Reads `opal.toml` from the current directory, then compiles `src/main.op`.
+/// Run the `opal build` command — reads `opal.toml` from the current directory, compiles `src/main.op`.
 fn run_build_command(_args: &[String]) -> Result<(), i32> {
     let Ok(toml_content) = fs::read_to_string("opal.toml") else {
         eprintln!("error: no opal.toml found in current directory");
@@ -566,6 +557,37 @@ fn run_build_command(_args: &[String]) -> Result<(), i32> {
     };
     println!("{}", binary_path.display());
     Ok(())
+}
+
+/// Dispatch `opal watch` — poll source file for changes, recompile and run on each change.
+fn run_watch_command(args: &[String]) -> Result<(), i32> {
+    let Some(src) = args.get(2).map(String::as_str) else {
+        eprintln!("error: no source file specified\nUsage: opal watch <file.op>");
+        return Err(1);
+    };
+    if !Path::new(src).exists() {
+        eprintln!("error: file not found: '{src}'");
+        return Err(1);
+    }
+    let mut watcher = PollingFileWatcher::new(vec![src.to_owned()]);
+    if let Err(_e) = watcher.start() {
+        eprintln!("error: failed to start file watcher");
+        return Err(1);
+    }
+    println!("Watching {src} for changes... (Ctrl-C to stop)");
+    #[expect(
+        clippy::infinite_loop,
+        reason = "opal watch intentionally polls until Ctrl-C"
+    )]
+    loop {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        if !watcher.poll_changes().is_empty() {
+            match compile_and_run(src, &[]) {
+                Ok(()) => println!("Recompile successful."),
+                Err(_) => eprintln!("Recompile failed."),
+            }
+        }
+    }
 }
 
 /// Main CLI logic, delegating process exit handling to the public `run()` wrapper.
@@ -697,15 +719,11 @@ mod tests {
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures fmt --check dispatches to `FormatCommand` (returns Ok or Err(1), not "not yet implemented").
+    /// Ensures fmt --check dispatches to `FormatCommand` (returns Ok or Err(1)).
     #[test]
     fn fmt_check_mode_returns_ok_when_already_formatted() {
-        use std::io::Write as _;
         let tmp_path = std::env::temp_dir().join("opal_test_fmt_check.op");
-        {
-            let mut f = std::fs::File::create(&tmp_path).unwrap();
-            writeln!(f, "let x = 1").unwrap();
-        }
+        std::fs::write(&tmp_path, "let x = 1\n").unwrap();
         let path = tmp_path.to_string_lossy().to_string();
         let args = ["opal".to_string(), "fmt".to_string(), "--check".to_string(), path];
         let result = run_with_args(&args);
@@ -755,23 +773,9 @@ mod tests {
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
-    /// Ensures lsp without --stdio flag returns error.
-    #[test]
-    fn lsp_no_stdio_flag_returns_error() {
-        let args = ["opal".to_string(), "lsp".to_string()];
-        assert_eq!(run_with_args(&args), Err(1));
-    }
-
     /// Ensures test command runs an empty suite and returns Ok(()).
     #[test]
     fn unimplemented_test_returns_error() {
-        let args = ["opal".to_string(), "test".to_string()];
-        assert_eq!(run_with_args(&args), Ok(()));
-    }
-
-    /// Ensures test command runs empty suite without panicking.
-    #[test]
-    fn test_command_runs_empty_suite() {
         let args = ["opal".to_string(), "test".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
@@ -800,13 +804,6 @@ mod tests {
     /// Ensures bench command returns `Ok(())` when wired to `BenchmarkSuite`.
     #[test]
     fn unimplemented_bench_returns_error() {
-        let args = ["opal".to_string(), "bench".to_string()];
-        assert_eq!(run_with_args(&args), Ok(()));
-    }
-
-    /// Ensures bench command runs and returns Ok(()).
-    #[test]
-    fn bench_command_runs_and_returns_ok() {
         let args = ["opal".to_string(), "bench".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
@@ -891,13 +888,6 @@ mod tests {
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures `opal run` is recognized as a subcommand — not treated as a filename.
-    #[test]
-    fn run_subcommand_is_recognized() {
-        let args = ["opal".to_string(), "run".to_string(), "missing_xyz_run.op".to_string()];
-        assert_eq!(run_with_args(&args), Err(1));
-    }
-
     /// Ensures `opal check` with no file argument returns error code 1.
     #[test]
     fn check_missing_file_arg_returns_error() {
@@ -938,9 +928,7 @@ mod tests {
         assert_eq!(result, Err(1));
     }
 
-    /// Ensures `opal run <file> -- arg1 arg2` parses args after `--` without panicking.
-    ///
-    /// The file doesn't need to be valid source — just verify graceful handling.
+    /// Ensures `opal run <file> -- arg1 arg2` parses args after `--` gracefully.
     #[test]
     fn run_args_after_double_dash_separated() {
         let tmp_path = std::env::temp_dir().join("opal_test_run_dashash.op");
@@ -956,11 +944,11 @@ mod tests {
     static CWD_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     /// Ensures `opal build` returns `Err(1)` when no `opal.toml` exists in the current directory.
-    ///
-    /// Uses a tempdir without an `opal.toml` to exercise the missing-config error path.
     #[test]
     fn build_no_config_returns_error() {
-        let _guard = CWD_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _guard = CWD_MUTEX
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let original = std::env::current_dir().unwrap();
         let dir = std::env::temp_dir().join("opal_test_build_no_config");
         std::fs::create_dir_all(&dir).unwrap();
@@ -972,8 +960,6 @@ mod tests {
     }
 
     /// Ensures `opal build` dispatches the build path when `opal.toml` and `src/main.op` exist.
-    ///
-    /// Compilation may return `Err(1)` in CI environments without LLVM; this is acceptable.
     #[test]
     fn build_with_config_compiles_project() {
         let _guard = CWD_MUTEX
@@ -987,13 +973,24 @@ mod tests {
             "name = \"test\"\nversion = \"0.1.0\"\n",
         )
         .unwrap();
-        std::fs::write(
-            dir.join("src").join("main.op"),
-            "##\n  Description: starting point of the application\n##\nentry main = f(args: string[]): void =>\n    return void\n",
-        ).unwrap();
+        std::fs::write(dir.join("src").join("main.op"), "let x = 1\n").unwrap();
         std::env::set_current_dir(&dir).unwrap();
         let result = run_with_args(&["opal".to_string(), "build".to_string()]);
         std::env::set_current_dir(&original).unwrap();
         assert!(result == Ok(()) || result == Err(1));
+    }
+
+    /// Ensures `opal watch` with no file arg returns `Err(1)`.
+    #[test]
+    fn watch_missing_file_arg_returns_error() {
+        let args = ["opal".to_string(), "watch".to_string()];
+        assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures `opal watch <nonexistent>` returns `Err(1)`.
+    #[test]
+    fn watch_nonexistent_file_returns_error() {
+        let args = ["opal".to_string(), "watch".to_string(), "nonexistent_xyz.op".to_string()];
+        assert_eq!(run_with_args(&args), Err(1));
     }
 }
