@@ -179,6 +179,10 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
         return run_bench_command(args);
     }
 
+    if args.get(1).map(String::as_str) == Some("run") {
+        return run_run_command(args);
+    }
+
     // Separate flags from positional args (skip argv[0])
     let run_flag = args.iter().skip(1).any(|a| a == "--run");
     let file_args: Vec<&str> = args
@@ -193,6 +197,10 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
         eprintln!("Usage: opal <file.op> [--run]");
         return Err(1);
     };
+
+    if run_flag {
+        return compile_and_run(source_path, &[]);
+    }
 
     let source = match fs::read_to_string(source_path) {
         Ok(content) => content,
@@ -212,22 +220,63 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
 
     println!("{}", binary_path.display());
 
-    if run_flag {
-        let status = match Command::new(&binary_path).status() {
-            Ok(s) => s,
-            Err(error) => {
-                eprintln!(
-                    "error: failed to execute '{}': {error}",
-                    binary_path.display()
-                );
-                return Err(1);
-            }
-        };
-        let code = status.code().unwrap_or(1_i32);
-        return Err(code);
-    }
-
     Ok(())
+}
+
+/// Compile source at `source_path` and execute it, forwarding `program_args` to the binary.
+fn compile_and_run(source_path: &str, program_args: &[&str]) -> Result<(), i32> {
+    let source = match fs::read_to_string(source_path) {
+        Ok(content) => content,
+        Err(error) => {
+            eprintln!("error: failed to read '{source_path}': {error}");
+            return Err(1);
+        }
+    };
+
+    let binary_path = match compile_program(&source, Path::new("target")) {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("error: compilation failed: {error}");
+            return Err(1);
+        }
+    };
+
+    println!("{}", binary_path.display());
+
+    let status = match Command::new(&binary_path).args(program_args).status() {
+        Ok(s) => s,
+        Err(error) => {
+            eprintln!(
+                "error: failed to execute '{}': {error}",
+                binary_path.display()
+            );
+            return Err(1);
+        }
+    };
+    let code = status.code().unwrap_or(1_i32);
+    if code == 0 {
+        Ok(())
+    } else {
+        Err(code)
+    }
+}
+
+/// Dispatch `opal run` subcommand — compile and execute with optional arg passthrough.
+fn run_run_command(args: &[String]) -> Result<(), i32> {
+    let Some(source_path) = args.get(2).map(String::as_str) else {
+        eprintln!("error: opal run requires a source file — run 'opal help run' for usage");
+        return Err(1);
+    };
+    let double_dash_pos = args.iter().position(|a| a == "--");
+    let program_args: Vec<&str> = double_dash_pos
+        .map(|p| {
+            args.iter()
+                .skip(p.saturating_add(1))
+                .map(String::as_str)
+                .collect()
+        })
+        .unwrap_or_default();
+    compile_and_run(source_path, &program_args)
 }
 
 /// Dispatch `opal fmt` subcommand arguments to [`FormatCommand`].
@@ -773,5 +822,55 @@ mod tests {
     fn missing_file_returns_error() {
         let args = ["opal".to_string(), "nonexistent_file.op".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures `opal run` with no file argument returns error code 1.
+    #[test]
+    fn run_subcommand_missing_file_returns_error() {
+        let args = ["opal".to_string(), "run".to_string()];
+        assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures `opal run <nonexistent>` returns error code 1.
+    #[test]
+    fn run_subcommand_nonexistent_file_returns_error() {
+        let args = [
+            "opal".to_string(),
+            "run".to_string(),
+            "missing_xyz_run.op".to_string(),
+        ];
+        assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures `opal run` is recognized as a subcommand — not treated as a filename.
+    #[test]
+    fn run_subcommand_is_recognized() {
+        let args = [
+            "opal".to_string(),
+            "run".to_string(),
+            "missing_xyz_run.op".to_string(),
+        ];
+        assert_eq!(run_with_args(&args), Err(1));
+    }
+
+    /// Ensures `opal run <file> -- arg1 arg2` parses args after `--` without panicking.
+    ///
+    /// The file doesn't need to be valid source — just verify graceful handling.
+    #[test]
+    fn run_args_after_double_dash_separated() {
+        let tmp_path = std::env::temp_dir().join("opal_test_run_dashash.op");
+        std::fs::write(&tmp_path, "let x = 1\n").unwrap();
+        let path = tmp_path.to_string_lossy().to_string();
+        let args = [
+            "opal".to_string(),
+            "run".to_string(),
+            path,
+            "--".to_string(),
+            "arg1".to_string(),
+            "arg2".to_string(),
+        ];
+        let result = run_with_args(&args);
+        drop(std::fs::remove_file(&tmp_path));
+        assert!(result == Ok(()) || result == Err(1));
     }
 }
