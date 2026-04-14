@@ -1044,7 +1044,6 @@ mod tests {
         assert!(help.contains("opal watch") && help.contains("recompile"));
     }
 
-    /// Verifies `help_text` lists all new commands: run, check, build, watch.
     #[test]
     fn help_text_none_lists_all_commands() {
         let help = help_text(None);
@@ -1054,5 +1053,48 @@ mod tests {
                 && help.contains("build")
                 && help.contains("watch")
         );
+    }
+    #[test]
+    fn test_all_commands_no_unimplemented() {
+        let commands: Vec<&str> = vec![
+            "fmt", "lsp", "test", "doc", "bench", "run", "check", "build", "watch",
+        ];
+        for cmd in commands {
+            let args = ["opal".to_owned(), cmd.to_owned()];
+            let result = run_with_args(&args);
+            match cmd {
+                "test" | "bench" => assert_eq!(result, Ok(()), "{cmd} should be wired and executable"),
+                _ => assert_eq!(result, Err(1), "{cmd} should be wired and return argument/file errors, not unimplemented fallback"),
+            }
+        }
+    }
+    #[test]
+    fn test_pkg_still_unimplemented() {
+        let args = ["opal".to_owned(), "pkg".to_owned(), "status".to_owned()];
+        assert_eq!(run_with_args(&args), Err(1));
+    }
+    #[test]
+    fn test_run_is_alternative_to_run_flag() {
+        let subcommand_args = [
+            "opal".to_owned(),
+            "run".to_owned(),
+            "nonexistent_alt_run.op".to_owned(),
+        ];
+        let flag_args = [
+            "opal".to_owned(),
+            "nonexistent_alt_run.op".to_owned(),
+            "--run".to_owned(),
+        ];
+        assert_eq!(run_with_args(&subcommand_args), Err(1));
+        assert_eq!(run_with_args(&flag_args), Err(1));
+    }
+    #[test]
+    fn test_help_lists_all_commands_integration() {
+        let help = help_text(None);
+        for cmd in [
+            "pkg", "fmt", "lsp", "test", "doc", "bench", "run", "check", "build", "watch",
+        ] {
+            assert!(help.contains(cmd), "help text should list command: {cmd}");
+        }
     }
 }
