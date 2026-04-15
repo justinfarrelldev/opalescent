@@ -65,6 +65,11 @@ impl Parser {
         let mut raw_parts = Vec::new();
         let mut span: Option<Span> = None;
 
+        for (content, doc_span) in self.deferred_doc_comments.drain(..) {
+            span = Some(span.map_or(doc_span, |existing| Span::new(existing.start, doc_span.end)));
+            raw_parts.push(content);
+        }
+
         while self.check(&TokenType::DocComment(String::new())) {
             let token = self.advance().clone();
             if let TokenType::DocComment(content) = token.token_type {
@@ -213,7 +218,7 @@ impl Parser {
         let body = if self.check(&TokenType::LeftBrace) {
             self.parse_block_statement()?
         } else {
-            self.skip_trivia_preserving_doc_comments();
+            self.skip_newlines();
             if self.check(&TokenType::Indent) {
                 self.parse_indent_block()?
             } else {

@@ -126,10 +126,32 @@ impl Parser {
         let mut statements = Vec::new();
 
         while !self.is_blockless_body_terminated() {
-            self.skip_trivia_preserving_doc_comments();
+            self.skip_newlines();
 
             if self.is_blockless_body_terminated() {
                 break;
+            }
+
+            if matches!(
+                self.current_token().token_type,
+                TokenType::Comment(_) if self.current_token().span.start.column == 1
+            ) {
+                break;
+            }
+
+            if self.check(&TokenType::Indent) {
+                match self.parse_indent_block() {
+                    Ok(Stmt::Block {
+                        statements: mut nested,
+                        ..
+                    }) => statements.append(&mut nested),
+                    Ok(statement) => statements.push(statement),
+                    Err(error) => {
+                        self.errors.push(error);
+                        self.synchronize();
+                    }
+                }
+                continue;
             }
 
             if self.consume_inline_doc_comment() {
@@ -236,6 +258,18 @@ impl Parser {
         while !self.is_at_end() {
             match self.current_token().token_type {
                 TokenType::Newline | TokenType::Comment(_) => {
+                    self.advance();
+                }
+                _ => break,
+            }
+        }
+    }
+
+    /// Skip newline tokens only, preserving all comment tokens.
+    pub(super) fn skip_newlines(&mut self) {
+        while !self.is_at_end() {
+            match self.current_token().token_type {
+                TokenType::Newline => {
                     self.advance();
                 }
                 _ => break,

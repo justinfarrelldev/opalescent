@@ -22,9 +22,52 @@ impl Parser {
         self.consume(&TokenType::Indent, "Expected indentation block start")?;
 
         let mut statements = Vec::new();
-        self.skip_newlines_and_comments();
+        self.skip_newlines();
 
         while !self.check(&TokenType::Dedent) && !self.is_at_end() {
+            if let &TokenType::DocComment(ref content) = &self.current_token().token_type {
+                if self.current_token().span.start.column == 1 {
+                    let doc_comment_span = self.current_token().span;
+                    self.deferred_doc_comments
+                        .push((content.clone(), doc_comment_span));
+                    self.advance();
+                    self.skip_newlines();
+                    continue;
+                }
+
+                self.advance();
+                self.skip_newlines();
+                continue;
+            }
+
+            if self.consume_inline_doc_comment() {
+                self.skip_newlines();
+                continue;
+            }
+
+            if let &TokenType::Comment(_) = &self.current_token().token_type {
+                if self.current_token().span.start.column == 1 {
+                    let comment_token = self.advance().clone();
+                    self.deferred_comment_declarations
+                        .push(crate::ast::Decl::Comment {
+                            text: comment_token.lexeme,
+                            span: comment_token.span,
+                            id: next_node_id(),
+                        });
+                    self.skip_newlines();
+                    continue;
+                }
+
+                let comment_token = self.advance().clone();
+                statements.push(Stmt::Comment {
+                    text: comment_token.lexeme,
+                    span: comment_token.span,
+                    id: next_node_id(),
+                });
+                self.skip_newlines();
+                continue;
+            }
+
             match self.parse_statement() {
                 Ok(stmt) => statements.push(stmt),
                 Err(error) => {
@@ -33,7 +76,7 @@ impl Parser {
                 }
             }
 
-            self.skip_newlines_and_comments();
+            self.skip_newlines();
         }
 
         self.consume(
@@ -62,9 +105,17 @@ impl Parser {
     /// # Errors
     /// Returns a parse error if the statement syntax is invalid.
     pub(super) fn parse_statement(&mut self) -> ParseResult<Stmt> {
-        self.skip_trivia_preserving_doc_comments();
+        self.skip_newlines();
 
         match self.current_token().token_type {
+            TokenType::Comment(_) => {
+                let comment_token = self.advance().clone();
+                Ok(Stmt::Comment {
+                    text: comment_token.lexeme,
+                    span: comment_token.span,
+                    id: next_node_id(),
+                })
+            }
             TokenType::Let => self.parse_let_statement(),
             TokenType::Return => self.parse_return_statement(),
             TokenType::LeftBrace => self.parse_block_statement(),
@@ -338,9 +389,24 @@ impl Parser {
         self.consume(&TokenType::LeftBrace, "Expected '{'")?;
 
         let mut statements = Vec::new();
+        self.skip_newlines();
 
         while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
-            self.skip_newlines_and_comments();
+            if self.consume_inline_doc_comment() {
+                self.skip_newlines();
+                continue;
+            }
+
+            if let &TokenType::Comment(_) = &self.current_token().token_type {
+                let comment_token = self.advance().clone();
+                statements.push(Stmt::Comment {
+                    text: comment_token.lexeme,
+                    span: comment_token.span,
+                    id: next_node_id(),
+                });
+                self.skip_newlines();
+                continue;
+            }
 
             if self.check(&TokenType::RightBrace) {
                 break;
@@ -353,6 +419,8 @@ impl Parser {
                     self.synchronize();
                 }
             }
+
+            self.skip_newlines();
         }
 
         self.consume(&TokenType::RightBrace, "Expected '}' after block")?;
@@ -389,7 +457,7 @@ impl Parser {
             Box::new(self.parse_block_statement()?)
         } else if self.check(&TokenType::Colon) {
             self.advance();
-            self.skip_newlines_and_comments();
+            self.skip_newlines();
             Box::new(self.parse_indent_block()?)
         } else {
             return Err(ParseError::UnexpectedToken {
@@ -411,7 +479,7 @@ impl Parser {
                     self.parse_block_statement().map(Box::new)
                 } else if self.check(&TokenType::Colon) {
                     self.advance();
-                    self.skip_newlines_and_comments();
+                    self.skip_newlines();
                     self.parse_indent_block().map(Box::new)
                 } else {
                     Err(ParseError::UnexpectedToken {
@@ -483,7 +551,7 @@ impl Parser {
             Box::new(self.parse_block_statement()?)
         } else if self.check(&TokenType::Colon) {
             self.advance();
-            self.skip_newlines_and_comments();
+            self.skip_newlines();
             Box::new(self.parse_indent_block()?)
         } else {
             return Err(ParseError::UnexpectedToken {
@@ -526,7 +594,7 @@ impl Parser {
             Box::new(self.parse_block_statement()?)
         } else if self.check(&TokenType::Colon) {
             self.advance();
-            self.skip_newlines_and_comments();
+            self.skip_newlines();
             Box::new(self.parse_indent_block()?)
         } else {
             return Err(ParseError::UnexpectedToken {
@@ -598,7 +666,7 @@ impl Parser {
         };
 
         self.consume(&TokenType::Arrow, "Expected '=>' after guard else binding")?;
-        self.skip_newlines_and_comments();
+        self.skip_newlines();
         let else_body = Box::new(self.parse_indent_block()?);
 
         let span = Span::new(start_span.start, else_body.span().end);
@@ -640,7 +708,7 @@ impl Parser {
         let body = if self.check(&TokenType::LeftBrace) {
             Box::new(self.parse_block_statement()?)
         } else {
-            self.skip_newlines_and_comments();
+            self.skip_newlines();
             if self.check(&TokenType::Indent) {
                 Box::new(self.parse_indent_block()?)
             } else {

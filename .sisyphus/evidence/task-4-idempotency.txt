@@ -1,0 +1,9 @@
+Scenario C: Idempotency
+
+Commands:
+  cargo run -- fmt --output /tmp/test_idem2.op /tmp/test_comments_out.op
+  diff /tmp/test_comments_out.op /tmp/test_idem2.op
+
+Result:
+  diff output: <empty>
+  status: pass

@@ -1,0 +1,7 @@
+Build verification
+
+Command:
+  cargo build
+
+Result:
+  exit code: 0

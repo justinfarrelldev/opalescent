@@ -37,8 +37,8 @@ mod types;
 #[cfg(test)]
 mod tests;
 
-use crate::ast::{AstNode, NodeId, Program};
-use crate::token::{Span, Token};
+use crate::ast::{AstNode, Decl, NodeId, Program};
+use crate::token::{Span, Token, TokenType};
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use errors::{ParseError, ParseErrors, ParseResult};
@@ -62,6 +62,10 @@ pub struct Parser {
     current: usize,
     /// Collection of parse errors encountered during parsing
     errors: ParseErrors,
+    /// Comment declarations deferred while finishing indentation blocks.
+    deferred_comment_declarations: Vec<Decl>,
+    /// Documentation comments deferred while finishing indentation blocks.
+    deferred_doc_comments: Vec<(String, Span)>,
 }
 
 impl Parser {
@@ -71,6 +75,8 @@ impl Parser {
             tokens,
             current: 0,
             errors: ParseErrors::new(),
+            deferred_comment_declarations: Vec::new(),
+            deferred_doc_comments: Vec::new(),
         }
     }
 
@@ -80,12 +86,26 @@ impl Parser {
         let mut declarations = Vec::new();
         let mut parsed_non_import_declaration = false;
 
-        // Skip initial newlines and comments
-        self.skip_trivia_preserving_doc_comments();
-
         while !self.is_at_end() {
-            // Skip newlines between declarations while preserving doc comments
-            self.skip_trivia_preserving_doc_comments();
+            if !self.deferred_comment_declarations.is_empty() {
+                declarations.append(&mut self.deferred_comment_declarations);
+            }
+
+            // Skip newlines between declarations and preserve comments as declarations.
+            while !self.is_at_end() {
+                if self.check(&TokenType::Newline) {
+                    self.advance();
+                } else if matches!(self.current_token().token_type, TokenType::Comment(_)) {
+                    let comment_token = self.advance().clone();
+                    declarations.push(Decl::Comment {
+                        text: comment_token.lexeme,
+                        span: comment_token.span,
+                        id: next_node_id(),
+                    });
+                } else {
+                    break;
+                }
+            }
 
             if self.is_at_end() {
                 break;
@@ -114,6 +134,10 @@ impl Parser {
                     self.synchronize();
                 }
             }
+        }
+
+        if !self.deferred_comment_declarations.is_empty() {
+            declarations.append(&mut self.deferred_comment_declarations);
         }
 
         let end_span = self
