@@ -565,6 +565,49 @@ mod formatter_tests {
         assert!(!output.contains('\t'), "output must not contain tab");
     }
 
+    // VERIFIED: use_tabs=true produces tabs
+    #[test]
+    fn test_use_tabs_produces_tab_indentation() {
+        let input = "entry main = f(args: string[]): void =>\n    let x = 1\n    return void\n";
+        let config = FormatterConfig::new(4, 100, true);
+        let output = FormatCommand::new(input.to_owned(), false)
+            .execute_with_config(config)
+            .expect("format should succeed");
+
+        assert!(
+            output.lines().any(|l| l.starts_with('\t')),
+            "expected at least one indented line to start with a tab, got: {output:?}"
+        );
+        assert!(
+            output
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .all(|l| !l.starts_with("    ")),
+            "expected no non-empty output lines to start with four spaces, got: {output:?}"
+        );
+    }
+
+    // VERIFIED: tab-indented input is converted to spaces with default config
+    #[test]
+    fn test_tab_input_converted_to_spaces_by_default() {
+        let input = "entry main = f(args: string[]): void =>\n\tlet x = 1\n\treturn void\n";
+        let config = FormatterConfig::default();
+        let output = FormatCommand::new(input.to_owned(), false)
+            .execute_with_config(config)
+            .expect("format should succeed");
+
+        assert!(
+            !output.contains('\t'),
+            "output should not contain tabs, got: {output:?}"
+        );
+        assert!(
+            output
+                .lines()
+                .any(|l| l.starts_with("    ") && !l.trim().is_empty()),
+            "expected at least one non-empty line with 4-space indentation, got: {output:?}"
+        );
+    }
+
     // ─── Idempotency Tests ───────────────────────────────────────────────────────
 
     /// Formatting is idempotent for a simple function.
