@@ -412,4 +412,73 @@ mod tests {
             "temp directory for source-preservation test should be removed after test"
         );
     }
+
+    #[test]
+    fn fmt_output_preserves_comments_golden() {
+        let input = fmt_test_src("input-comments.op");
+        let expected = fmt_test_expected("input-comments.expected.op");
+        let output = temp_output_path("fmt_output_preserves_comments_golden");
+
+        let binary = binary_path();
+        let status = Command::new(&binary)
+            .arg("fmt")
+            .arg("--output")
+            .arg(&output)
+            .arg(&input)
+            .status()
+            .expect("opalescent fmt command should spawn and complete");
+
+        assert!(
+            status.success(),
+            "formatter should succeed on input-comments.op"
+        );
+
+        let actual = fs::read_to_string(&output).expect("output file should be readable");
+        let golden =
+            fs::read_to_string(&expected).expect("expected golden file should be readable");
+        assert_eq!(
+            actual, golden,
+            "formatter output should match golden file for input-comments.op"
+        );
+
+        let cleanup = cleanup_temp(&output);
+        assert!(
+            cleanup.is_ok(),
+            "temp directory for fmt_output_preserves_comments_golden test should be removed after test"
+        );
+    }
+
+    #[test]
+    fn fmt_output_comments_idempotent() {
+        let expected = fmt_test_expected("input-comments.expected.op");
+        let output = temp_output_path("fmt_output_comments_idempotent");
+
+        let binary = binary_path();
+        let status = Command::new(&binary)
+            .arg("fmt")
+            .arg("--output")
+            .arg(&output)
+            .arg(&expected)
+            .status()
+            .expect("opalescent fmt command should spawn and complete");
+
+        assert!(
+            status.success(),
+            "formatter should succeed on the expected golden file"
+        );
+
+        let actual = fs::read_to_string(&output).expect("output file should be readable");
+        let golden =
+            fs::read_to_string(&expected).expect("expected golden file should be readable");
+        assert_eq!(
+            actual, golden,
+            "formatting the expected output again should be idempotent"
+        );
+
+        let cleanup = cleanup_temp(&output);
+        assert!(
+            cleanup.is_ok(),
+            "temp directory for fmt_output_comments_idempotent test should be removed after test"
+        );
+    }
 }

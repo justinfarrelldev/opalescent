@@ -1,7 +1,9 @@
 # File header comment
+
 # This file tests comment preservation in the formatter
+
 ##
-  Description: Adds two integers together
+Description: Adds two integers together
 ##
 let add = f(a: int32, b: int32): int32 => {
     # Step 1: Add the values
@@ -9,9 +11,11 @@ let add = f(a: int32, b: int32): int32 => {
     # Step 2: Return the result
     return result
 }
+
 # Section separator - utility functions follow
+
 ##
-  Description: Multiplies two integers
+Description: Multiplies two integers
 ##
 let multiply = f(x: int32, y: int32): int32 => {
     # Initialize accumulator
@@ -24,7 +28,9 @@ let multiply = f(x: int32, y: int32): int32 => {
     }
     return acc
 }
+
 # Entry point
+
 entry main = f(args: string[]): void => {
     # Call add function
     let sum = add(5, 3)

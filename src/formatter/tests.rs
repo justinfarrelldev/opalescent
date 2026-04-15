@@ -889,4 +889,119 @@ mod formatter_tests {
             "nested if with default config must have lines with 8-space indent, got: {output:?}"
         );
     }
+
+    // ─── Comment Preservation Tests ─────────────────────────────────────────────
+
+    /// Single-line `#` comment between two declarations must appear in output.
+    #[test]
+    fn test_formatter_preserves_single_line_comments_between_declarations() {
+        let source = "# Section header\nentry main = f(): void =>\n    return void\n";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).unwrap();
+        assert!(
+            result.contains("# Section header"),
+            "single-line comment between declarations should be preserved, got: {result}"
+        );
+    }
+
+    /// `#` comments between statements inside a function body must appear in output.
+    #[test]
+    fn test_formatter_preserves_body_comments() {
+        let source = "entry main = f(): void =>\n    # Step 1: setup\n    let x = 42\n    # Step 2: finish\n    return void\n";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).unwrap();
+        assert!(
+            result.contains("# Step 1: setup"),
+            "first body comment should be preserved, got: {result}"
+        );
+        assert!(
+            result.contains("# Step 2: finish"),
+            "second body comment should be preserved, got: {result}"
+        );
+    }
+
+    /// `## ... ##` doc comment before a function must appear in output.
+    #[test]
+    fn test_formatter_preserves_doc_comments() {
+        let source =
+            "## Description: Adds two integers ##\nlet add = f(a: int32, b: int32): int32 =>\n    return a\n";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).unwrap();
+        assert!(
+            result.contains("##"),
+            "doc comment delimiters should be preserved, got: {result}"
+        );
+        assert!(
+            result.contains("Description: Adds two integers"),
+            "doc comment content should be preserved, got: {result}"
+        );
+    }
+
+    /// A `#` comment at the very start of the file must appear in output.
+    #[test]
+    fn test_formatter_preserves_file_header_comment() {
+        let source = "# File header comment\nentry main = f(): void =>\n    return void\n";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).unwrap();
+        assert!(
+            result.contains("# File header comment"),
+            "file header comment should be preserved, got: {result}"
+        );
+    }
+
+    /// Regression: first body comment was dropped when a doc comment preceded the function.
+    #[test]
+    fn test_formatter_preserves_first_body_comment_after_doc_comment() {
+        let source = concat!(
+            "## Description: Adds two integers ##\n",
+            "let add = f(a: int32, b: int32): int32 =>\n",
+            "    # Step 1: Add the values\n",
+            "    let result = a + b\n",
+            "    # Step 2: Return\n",
+            "    return result\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).unwrap();
+        assert!(
+            result.contains("# Step 1: Add the values"),
+            "first body comment after doc comment should be preserved, got: {result}"
+        );
+        assert!(
+            result.contains("# Step 2: Return"),
+            "second body comment should be preserved, got: {result}"
+        );
+    }
+
+    /// Formatting a file with comments twice should produce identical output.
+    #[test]
+    fn test_formatter_comment_idempotency() {
+        let source = "# Header\nentry main = f(): void =>\n    # Body comment\n    return void\n";
+        let fmt = Formatter::with_defaults();
+        let first_pass = fmt.format_source(source).unwrap();
+        let second_pass = fmt.format_source(&first_pass).unwrap();
+        assert_eq!(
+            first_pass, second_pass,
+            "formatting with comments should be idempotent"
+        );
+    }
+
+    /// Multi-line `## ... ##` non-doc comment blocks should be preserved in output.
+    #[test]
+    fn test_formatter_preserves_multiline_non_doc_comment() {
+        let source = concat!(
+            "##\n",
+            "  This is a multi-line comment block\n",
+            "##\n",
+            "entry main = f(): void =>\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let result = fmt
+            .format_source(source)
+            .expect("formatter should handle multi-line non-doc comments without panicking");
+        assert!(
+            result.contains("##"),
+            "multi-line comment delimiters should be preserved in output, got: {result}"
+        );
+    }
 }
