@@ -254,25 +254,22 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
 fn run_fmt_command(args: &[String]) -> Result<(), i32> {
     let fmt_args: Vec<&str> = args.iter().skip(2).map(String::as_str).collect();
     let check_mode = fmt_args.contains(&"--check");
-    let config_path = fmt_args
-        .iter()
-        .position(|&a| a == "--config")
-        .and_then(|i| fmt_args.get(i.saturating_add(1)).copied());
-    let source_path = fmt_args
-        .iter()
-        .find(|&&a| !a.starts_with("--") && Some(a) != config_path)
-        .copied();
+    let find_flag = |flag: &str| fmt_args.iter().position(|&a| a == flag).and_then(|i| fmt_args.get(i.saturating_add(1)).copied());
+    let config_path = find_flag("--config");
+    let output_path = find_flag("--output");
+    let source_path = fmt_args.iter().find(|&&a| !a.starts_with("--") && Some(a) != config_path && Some(a) != output_path).copied();
     let Some(source_path) = source_path else {
         eprintln!("error: opal fmt requires a source file — run 'opal help fmt' for usage");
         return Err(1);
     };
-    let source = match fs::read_to_string(source_path) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("error: failed to read '{source_path}': {e}");
-            return Err(1);
-        }
-    };
+    if check_mode && output_path.is_some() {
+        eprintln!("error: --check and --output cannot be used together");
+        return Err(1);
+    }
+    let source = fs::read_to_string(source_path).map_err(|e| {
+        eprintln!("error: failed to read '{source_path}': {e}");
+        1_i32
+    })?;
     let formatted = if let Some(cfg_path) = config_path {
         let cfg_str = match fs::read_to_string(cfg_path) {
             Ok(c) => c,
@@ -311,11 +308,12 @@ fn run_fmt_command(args: &[String]) -> Result<(), i32> {
         }
         return Ok(());
     }
-    if let Err(e) = fs::write(source_path, &formatted) {
-        eprintln!("error: failed to write '{source_path}': {e}");
-        return Err(1);
-    }
-    println!("{source_path}");
+    let write_path = output_path.unwrap_or(source_path);
+    fs::write(write_path, &formatted).map_err(|e| {
+        eprintln!("error: failed to write '{write_path}': {e}");
+        1_i32
+    })?;
+    println!("{write_path}");
     Ok(())
 }
 
