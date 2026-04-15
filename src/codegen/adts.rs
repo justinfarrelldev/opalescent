@@ -250,11 +250,11 @@ fn current_function<'context>(
 
 #[doc = "Extract receiver/member string slices from member access expression."]
 fn member_parts(expr: &Expr) -> Result<(&str, &str), CodegenError> {
-    if let &Expr::Member {
+    if let Expr::Member {
         ref object,
         ref member,
         ..
-    } = expr
+    } = *expr
     {
         if let Expr::Identifier { ref name, .. } = *object.as_ref() {
             return Ok((name.as_str(), member.as_str()));

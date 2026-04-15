@@ -155,6 +155,47 @@ fn escape_single_quoted_string(value: &str) -> String {
     value.replace('\\', "\\\\").replace('\'', "\\'")
 }
 
+/// Replace leading tab characters with spaces on each line.
+///
+/// This pre-pass allows the formatter to handle source files that use tabs
+/// (or mix tabs and spaces) for indentation. The lexer requires consistent
+/// whitespace; by converting leading tabs to spaces before lexing, the
+/// formatter can normalise any valid indentation style rather than failing
+/// with a `MixedWhitespace` error.
+///
+/// Only the leading whitespace on each line is affected — tabs that appear
+/// after the first non-whitespace character (e.g. inside string literals)
+/// are left untouched.
+fn normalize_indentation(source: &str, indent_size: usize) -> String {
+    let indent_spaces = " ".repeat(indent_size);
+    let mut normalized = String::with_capacity(source.len());
+
+    for line in source.split_inclusive('\n') {
+        let (line_content, line_ending) = line
+            .strip_suffix('\n')
+            .map_or((line, ""), |content| (content, "\n"));
+
+        let first_non_whitespace = line_content
+            .char_indices()
+            .find(|&(_, ch)| !ch.is_whitespace())
+            .map_or(line_content.len(), |(idx, _)| idx);
+
+        let (leading_whitespace, rest) = line_content.split_at(first_non_whitespace);
+        for ch in leading_whitespace.chars() {
+            if ch == '\t' {
+                normalized.push_str(&indent_spaces);
+            } else {
+                normalized.push(ch);
+            }
+        }
+
+        normalized.push_str(rest);
+        normalized.push_str(line_ending);
+    }
+
+    normalized
+}
+
 // ─── Formatter struct ─────────────────────────────────────────────────────────
 
 /// Idempotent pretty-printer for Opalescent source code.
@@ -190,7 +231,8 @@ impl Formatter {
     ///
     /// Returns [`FormatterError::ParseError`] when the source fails to parse.
     pub fn format_source(&self, source: &str) -> FormatterResult<String> {
-        let lexer = Lexer::new(source);
+        let normalized = normalize_indentation(source, self.config.indent_size);
+        let lexer = Lexer::new(&normalized);
         let (tokens, lex_errors) = lexer.tokenize();
 
         if !lex_errors.errors.is_empty() {

@@ -111,11 +111,11 @@ pub fn codegen_import_declaration<'context>(
     env: &mut CodegenEnv<'context>,
     declaration: &Decl,
 ) -> Result<(), CodegenError> {
-    let &Decl::Import {
+    let Decl::Import {
         ref items,
         ref source,
         ..
-    } = declaration
+    } = *declaration
     else {
         return Err(CodegenError::new(String::from(
             "expected import declaration",
@@ -174,10 +174,10 @@ pub fn codegen_call_expression<'context>(
         .map(|arg| codegen_expression(codegen_context, env, arg, None).map(Into::into))
         .collect::<Result<Vec<BasicMetadataValueEnum<'context>>, CodegenError>>()?;
 
-    if let &Expr::Lambda {
+    if let Expr::Lambda {
         ref captured_variables,
         ..
-    } = callee
+    } = *callee
     {
         for capture in captured_variables {
             if let Some(binding) = env.variables.get(capture.as_str()) {
@@ -225,11 +225,11 @@ pub fn codegen_propagate_expression<'context>(
     env: &mut CodegenEnv<'context>,
     call_expr: &Expr,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let value = if let &Expr::Call {
+    let value = if let Expr::Call {
         ref callee,
         ref args,
         ..
-    } = call_expr
+    } = *call_expr
     {
         codegen_call_expression(
             codegen_context,
@@ -284,11 +284,11 @@ pub fn codegen_guard_expression<'context>(
     guarded_expr: &Expr,
     binding_name: &str,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let value = if let &Expr::Call {
+    let value = if let Expr::Call {
         ref callee,
         ref args,
         ..
-    } = guarded_expr
+    } = *guarded_expr
     {
         codegen_call_expression(
             codegen_context,

@@ -557,12 +557,12 @@ impl TypeChecker {
 
     /// Infer function core type from a lambda initializer when present.
     fn lambda_signature_type(initializer: &Expr) -> Result<Option<CoreType>, TypeError> {
-        let &Expr::Lambda {
+        let Expr::Lambda {
             ref params,
             ref return_types,
             ref error_types,
             ..
-        } = initializer
+        } = *initializer
         else {
             return Ok(None);
         };

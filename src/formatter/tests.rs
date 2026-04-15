@@ -457,6 +457,22 @@ mod formatter_tests {
         );
     }
 
+    #[test]
+    fn test_formatter_handles_tab_indented_source() {
+        let source = "##\n  Description: entry point\n##\nentry main = f(args: string[]): void =>\n\treturn void\n";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source);
+        assert!(
+            result.is_ok(),
+            "formatter should succeed on tab-indented source, got: {result:?}"
+        );
+        let output = result.unwrap();
+        assert!(
+            !output.contains('\t'),
+            "formatter output must not contain raw tab characters"
+        );
+    }
+
     // ─── Idempotency Tests ───────────────────────────────────────────────────────
 
     /// Formatting is idempotent for a simple function.
