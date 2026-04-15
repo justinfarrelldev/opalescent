@@ -16,24 +16,19 @@ use crate::formatter::printer::Formatter;
 /// # Examples
 ///
 /// ```ignore
-/// let cmd = FormatCommand::new("function main(): unit {}".to_owned(), false);
+/// let cmd = FormatCommand::new("function main(): unit {}".to_owned());
 /// let output = cmd.execute()?;
 /// ```
 pub struct FormatCommand {
     /// The Opalescent source code to format.
     pub source: String,
-    /// When `true`, the formatted output should be written back in-place.
-    ///
-    /// In the CLI this controls whether the file is overwritten; in tests this
-    /// field is consulted but no actual file I/O is performed.
-    pub in_place: bool,
 }
 
 impl FormatCommand {
     /// Construct a new [`FormatCommand`].
     #[must_use]
-    pub const fn new(source: String, in_place: bool) -> Self {
-        Self { source, in_place }
+    pub const fn new(source: String) -> Self {
+        Self { source }
     }
 
     /// Execute the format command using default configuration.

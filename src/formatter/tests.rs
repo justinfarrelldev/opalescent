@@ -570,7 +570,7 @@ mod formatter_tests {
     fn test_use_tabs_produces_tab_indentation() {
         let input = "entry main = f(args: string[]): void =>\n    let x = 1\n    return void\n";
         let config = FormatterConfig::new(4, 100, true);
-        let output = FormatCommand::new(input.to_owned(), false)
+        let output = FormatCommand::new(input.to_owned())
             .execute_with_config(config)
             .expect("format should succeed");
 
@@ -592,7 +592,7 @@ mod formatter_tests {
     fn test_tab_input_converted_to_spaces_by_default() {
         let input = "entry main = f(args: string[]): void =>\n\tlet x = 1\n\treturn void\n";
         let config = FormatterConfig::default();
-        let output = FormatCommand::new(input.to_owned(), false)
+        let output = FormatCommand::new(input.to_owned())
             .execute_with_config(config)
             .expect("format should succeed");
 
@@ -666,7 +666,7 @@ mod formatter_tests {
     /// `FormatCommand::execute` returns formatted source.
     #[test]
     fn test_format_command_execute() {
-        let cmd = FormatCommand::new(String::from("entry main = f(): void => return void"), false);
+        let cmd = FormatCommand::new(String::from("entry main = f(): void => return void"));
         let result = cmd
             .execute()
             .expect("FormatCommand::execute should succeed");
@@ -680,7 +680,7 @@ mod formatter_tests {
     #[test]
     fn test_format_command_custom_config() {
         let source = "entry main = f(): void => return void";
-        let cmd = FormatCommand::new(String::from(source), false);
+        let cmd = FormatCommand::new(String::from(source));
         let cfg = FormatterConfig::new(2, 80, false);
         let result = cmd
             .execute_with_config(cfg)
@@ -695,10 +695,7 @@ mod formatter_tests {
     /// output without performing any file I/O.
     #[test]
     fn test_format_command_in_place_no_file_io() {
-        let cmd = FormatCommand::new(
-            String::from("let n = 1"),
-            true, // in_place flag
-        );
+        let cmd = FormatCommand::new(String::from("let n = 1"));
         let result = cmd.execute().expect("in_place command should succeed");
         assert!(
             !result.is_empty(),
@@ -713,7 +710,7 @@ mod formatter_tests {
     fn test_tabs_to_spaces_default_config() {
         let source = "entry main = f(args: string[]): void =>\n\tlet x = 1\n\treturn void\n";
         let config = FormatterConfig::default();
-        let output = FormatCommand::new(source.to_owned(), false)
+        let output = FormatCommand::new(source.to_owned())
             .execute_with_config(config)
             .unwrap();
         assert!(
@@ -733,7 +730,7 @@ mod formatter_tests {
     fn test_spaces_to_tabs() {
         let source = "entry main = f(args: string[]): void =>\n    let x = 1\n    return void\n";
         let config = FormatterConfig::new(4, 100, true);
-        let output = FormatCommand::new(source.to_owned(), false)
+        let output = FormatCommand::new(source.to_owned())
             .execute_with_config(config)
             .unwrap();
         assert!(
@@ -747,7 +744,7 @@ mod formatter_tests {
     fn test_mixed_to_spaces() {
         let source = "entry main = f(args: string[]): void =>\n\tlet x = 1\n    return void\n";
         let config = FormatterConfig::default();
-        let output = FormatCommand::new(source.to_owned(), false)
+        let output = FormatCommand::new(source.to_owned())
             .execute_with_config(config)
             .unwrap();
         assert!(
@@ -761,7 +758,7 @@ mod formatter_tests {
     fn test_mixed_to_tabs() {
         let source = "entry main = f(args: string[]): void =>\n\tlet x = 1\n    return void\n";
         let config = FormatterConfig::new(4, 100, true);
-        let output = FormatCommand::new(source.to_owned(), false)
+        let output = FormatCommand::new(source.to_owned())
             .execute_with_config(config)
             .unwrap();
         assert!(
@@ -775,10 +772,10 @@ mod formatter_tests {
     fn test_idempotent_spaces() {
         let source = "entry main = f(args: string[]): void =>\n    let x = 1\n    return void\n";
         let config = FormatterConfig::default();
-        let once = FormatCommand::new(source.to_owned(), false)
+        let once = FormatCommand::new(source.to_owned())
             .execute_with_config(config.clone())
             .unwrap();
-        let twice = FormatCommand::new(once.clone(), false)
+        let twice = FormatCommand::new(once.clone())
             .execute_with_config(config)
             .unwrap();
         assert_eq!(
@@ -792,10 +789,10 @@ mod formatter_tests {
     fn test_idempotent_tabs() {
         let source = "entry main = f(args: string[]): void =>\n\tlet x = 1\n\treturn void\n";
         let config = FormatterConfig::new(4, 100, true);
-        let once = FormatCommand::new(source.to_owned(), false)
+        let once = FormatCommand::new(source.to_owned())
             .execute_with_config(config.clone())
             .unwrap();
-        let twice = FormatCommand::new(once.clone(), false)
+        let twice = FormatCommand::new(once.clone())
             .execute_with_config(config)
             .unwrap();
         assert_eq!(
@@ -809,7 +806,7 @@ mod formatter_tests {
     fn test_custom_indent_size_2() {
         let source = "entry main = f(args: string[]): void =>\n    let x = 1\n    return void\n";
         let config = FormatterConfig::new(2, 100, false);
-        let output = FormatCommand::new(source.to_owned(), false)
+        let output = FormatCommand::new(source.to_owned())
             .execute_with_config(config)
             .unwrap();
         assert!(
@@ -832,7 +829,7 @@ mod formatter_tests {
     fn test_custom_indent_size_8() {
         let source = "entry main = f(args: string[]): void =>\n    let x = 1\n    return void\n";
         let config = FormatterConfig::new(8, 100, false);
-        let output = FormatCommand::new(source.to_owned(), false)
+        let output = FormatCommand::new(source.to_owned())
             .execute_with_config(config)
             .unwrap();
         assert!(
@@ -858,7 +855,7 @@ mod formatter_tests {
             "}"
         );
         let config = FormatterConfig::new(4, 100, true);
-        let output = FormatCommand::new(source.to_owned(), false)
+        let output = FormatCommand::new(source.to_owned())
             .execute_with_config(config)
             .unwrap();
         assert!(
@@ -882,7 +879,7 @@ mod formatter_tests {
             "}"
         );
         let config = FormatterConfig::default();
-        let output = FormatCommand::new(source.to_owned(), false)
+        let output = FormatCommand::new(source.to_owned())
             .execute_with_config(config)
             .unwrap();
         assert!(

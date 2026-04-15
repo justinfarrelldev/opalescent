@@ -285,7 +285,7 @@ fn run_fmt_command(args: &[String]) -> Result<(), i32> {
                 return Err(1);
             }
         };
-        match FormatCommand::new(source.clone(), false).execute_with_config(config) {
+        match FormatCommand::new(source.clone()).execute_with_config(config) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("error: formatting failed: {e}");
@@ -293,7 +293,7 @@ fn run_fmt_command(args: &[String]) -> Result<(), i32> {
             }
         }
     } else {
-        match FormatCommand::new(source.clone(), false).execute() {
+        match FormatCommand::new(source.clone()).execute() {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("error: formatting failed: {e}");
