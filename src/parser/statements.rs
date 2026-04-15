@@ -62,7 +62,7 @@ impl Parser {
     /// # Errors
     /// Returns a parse error if the statement syntax is invalid.
     pub(super) fn parse_statement(&mut self) -> ParseResult<Stmt> {
-        self.skip_newlines_and_comments();
+        self.skip_trivia_preserving_doc_comments();
 
         match self.current_token().token_type {
             TokenType::Let => self.parse_let_statement(),

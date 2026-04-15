@@ -303,6 +303,7 @@ impl Formatter {
                 ref body,
                 ref visibility,
                 ref is_entry,
+                ref doc_comment,
                 ..
             } => {
                 let vis = if *visibility == Visibility::Public {
@@ -329,15 +330,32 @@ impl Formatter {
                     format!(" errors {}", error_types.join(", "))
                 };
                 let body_str = self.print_stmt(body, depth);
-                format!(
+                let decl_str = format!(
                     "{indent}{vis}{entry}{name} = f({params_str}){returns}{errors} => {body_str}",
                     indent = self.indent(depth)
-                )
+                );
+                if let Some(ref doc) = *doc_comment {
+                    let doc_lines: Vec<String> = doc
+                        .raw
+                        .lines()
+                        .map(|line| format!("{}{}", self.indent(depth), line))
+                        .collect();
+                    format!(
+                        "{}##\n{}\n{}##\n{}",
+                        self.indent(depth),
+                        doc_lines.join("\n"),
+                        self.indent(depth),
+                        decl_str
+                    )
+                } else {
+                    decl_str
+                }
             }
             Decl::Type {
                 ref name,
                 ref type_def,
                 ref visibility,
+                ref doc_comment,
                 ..
             } => {
                 let vis = if *visibility == Visibility::Public {
@@ -346,7 +364,23 @@ impl Formatter {
                     ""
                 };
                 let body = self.print_type_def(type_def, depth);
-                format!("{}{}type {name}:{body}", self.indent(depth), vis)
+                let decl_str = format!("{}{}type {name}:{body}", self.indent(depth), vis);
+                if let Some(ref doc) = *doc_comment {
+                    let doc_lines: Vec<String> = doc
+                        .raw
+                        .lines()
+                        .map(|line| format!("{}{}", self.indent(depth), line))
+                        .collect();
+                    format!(
+                        "{}##\n{}\n{}##\n{}",
+                        self.indent(depth),
+                        doc_lines.join("\n"),
+                        self.indent(depth),
+                        decl_str
+                    )
+                } else {
+                    decl_str
+                }
             }
             Decl::Import {
                 ref items,
@@ -384,6 +418,7 @@ impl Formatter {
                 ref binding,
                 ref initializer,
                 ref visibility,
+                ref doc_comment,
                 ..
             } => {
                 let vis = if *visibility == Visibility::Public {
@@ -397,12 +432,28 @@ impl Formatter {
                     .as_ref()
                     .map_or_else(String::new, |ta| format!(": {}", print_type(ta)));
                 let init_str = self.print_expr(initializer, depth);
-                format!(
+                let decl_str = format!(
                     "{}{}let {mutable}{}{type_ann} = {init_str}",
                     self.indent(depth),
                     vis,
                     binding.name
-                )
+                );
+                if let Some(ref doc) = *doc_comment {
+                    let doc_lines: Vec<String> = doc
+                        .raw
+                        .lines()
+                        .map(|line| format!("{}{}", self.indent(depth), line))
+                        .collect();
+                    format!(
+                        "{}##\n{}\n{}##\n{}",
+                        self.indent(depth),
+                        doc_lines.join("\n"),
+                        self.indent(depth),
+                        decl_str
+                    )
+                } else {
+                    decl_str
+                }
             }
         }
     }

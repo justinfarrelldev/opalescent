@@ -213,7 +213,7 @@ impl Parser {
         let body = if self.check(&TokenType::LeftBrace) {
             self.parse_block_statement()?
         } else {
-            self.skip_newlines_and_comments();
+            self.skip_trivia_preserving_doc_comments();
             if self.check(&TokenType::Indent) {
                 self.parse_indent_block()?
             } else {
