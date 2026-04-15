@@ -182,6 +182,68 @@ mod formatter_tests {
         );
     }
 
+    #[test]
+    fn test_rules_apply_all_preserves_four_space_leading_indent() {
+        let input = "    print('hello')\n";
+        let output = rules::apply_all(input);
+        assert!(
+            output.starts_with("    print('hello')"),
+            "4-space indentation should be preserved, got: {output:?}"
+        );
+    }
+
+    #[test]
+    fn test_rules_apply_all_preserves_eight_space_leading_indent() {
+        let input = "        let x = 1\n";
+        let output = rules::apply_all(input);
+        assert!(
+            output.starts_with("        let x = 1"),
+            "8-space indentation should be preserved, got: {output:?}"
+        );
+    }
+
+    #[test]
+    fn test_formatter_preserves_multi_level_indentation_for_nested_block() {
+        let source = "entry main = f(): void => {\n    print('hello')\n    while true {\n        print('loop')\n    }\n}";
+        let fmt = Formatter::with_defaults();
+        let output = fmt
+            .format_source(source)
+            .expect("nested block should format successfully");
+
+        assert!(
+            output.contains("\n    print('hello')\n"),
+            "level-1 statement should keep 4-space indentation, got: {output}"
+        );
+        assert!(
+            output.contains("\n    while true {\n"),
+            "while header should keep 4-space indentation, got: {output}"
+        );
+        assert!(
+            output.contains("\n        print('loop')\n"),
+            "nested statement should keep 8-space indentation, got: {output}"
+        );
+    }
+
+    #[test]
+    fn test_rules_operator_spacing_collapses_non_leading_spaces() {
+        let input = "  let x  =  1\n";
+        let output = rules::apply_all(input);
+        assert!(
+            output.starts_with("  let x = 1"),
+            "non-leading operator spacing should normalize while preserving indent, got: {output:?}"
+        );
+    }
+
+    #[test]
+    fn test_rules_operator_spacing_preserves_leading_spaces_inside_string_literals() {
+        let input = "entry main = f(): void =>\n    print('    keep')\n";
+        let output = rules::apply_all(input);
+        assert!(
+            output.contains("'    keep'"),
+            "leading string-literal whitespace should be preserved, got: {output}"
+        );
+    }
+
     // ─── Naming Convention Tests ─────────────────────────────────────────────────
 
     /// `is_snake_case` accepts valid `snake_case` identifiers.

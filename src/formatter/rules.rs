@@ -125,20 +125,20 @@ fn normalize_operator_spacing_line(line: &str) -> String {
 /// This is a simplified, line-level operation that avoids touching string
 /// content by scanning character by character.
 fn collapse_spaces_around_ops(line: &str) -> String {
-    // For the formatter's purposes, we normalise runs of spaces to a single
-    // space. This keeps lines readable and satisfies the idempotency
-    // requirement because a second pass on already-normalised output leaves
-    // it unchanged.
-    //
-    // We detect the inside of a single-quoted string and preserve whitespace
-    // there verbatim.
+    let leading_end = line
+        .char_indices()
+        .find(|&(_, ch)| !ch.is_whitespace())
+        .map_or(line.len(), |(idx, _)| idx);
+    let (leading_whitespace, rest) = line.split_at(leading_end);
 
     let mut result = String::with_capacity(line.len());
+    result.push_str(leading_whitespace);
+
     let mut in_string = false;
     let mut escaped = false;
     let mut prev_was_space = false;
 
-    let chars: Vec<char> = line.chars().collect();
+    let chars: Vec<char> = rest.chars().collect();
     let mut idx = 0_usize;
 
     while idx < chars.len() {
