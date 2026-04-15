@@ -1,0 +1,76 @@
+# imports MUST be on the top of the file before any application logic
+
+# to prevent name clashes for "take_input", for example
+
+# You can also use the following syntaxes:
+
+# import standard.take_input as input
+
+# import standard.take_input
+
+# However, importing the entire module is not allowed:
+
+# import standard # not allowed
+
+import take_input, string_to_int32 from standard
+
+import random_int32 from math
+
+##
+Description: starting point of the application
+##
+entry main = f(args: string[]): void => {
+    print('What is your name?')
+    let name = take_input()
+    # a random number between 1 and 5, inclusive for both (can be 1, can be 5)
+    let quiz_num = random_int32(1, 5)
+    print('Hello, {name}! Guess a number between 1 and 5')
+    # while and for are still available, but they're for loops that do not return values
+    # These variables (user_input, user_number) are still immutable
+    let user_input, user_number = loop => {
+        # take_input is part of standard library package
+        let s = take_input()
+        ##
+               guard is used for errors - makes sure if there is an error, it is handled. Required for functions that can have errors.
+               If this were just returning to the caller function, we could use the "propagate" keyword to propagate the error.
+               functions must declare possible errors, or it is a compile error.
+               if one occurs, otherwise returning the value to the variable.
+               Functions must declare if errors can propagate from there, or it is a compile error:
+               f string_to_int32(s: string): int32 errors ParseError
+               If multiple errors can happen, then the syntax looks like this (this is an example function):
+               f example(s: string): int32 errors ParseError, WriteError
+               This is how it looks with multiple returns too:
+               f example(s: string): int32, string, int64 errors ParseError, WriteError
+
+               Note that you can use 'mutable', 'public', etc (things you would normally put after let) in front of n in the guard clause to narrow things down
+            ##
+        guard string_to_int32(s) into n else e => {
+            print('Error: {e}')
+            continue
+            # loop jumps here, no value expected
+            # labelling the values in multiple returns / breaks is required at the return site (not the binding site) for clarity
+            # it makes it easy to skim and determine what is going on
+        }
+        break user_input: s, user_number: n
+        # success -> exit loop returning both values. Treated similar to a multiple-return
+    }
+    print('{user_number}, huh? Let's see how close you are, {name}...')
+    ##
+      using "is" for == since it is more readable and you would use
+      a standard library function to compare actual memory addresses directly
+      Is there perhaps a better way to handle Boolean true?
+      == is a bit ugly in my opinion...
+      type_of() function can be used to determine type equivalence... for example "if type_of(user_number) is type_of(quiz_num)"
+    ##
+    if user_number is quiz_num {
+        print('Wow, you guessed correctly! Congratulations!')
+        return void
+    }
+    if user_number < quiz_num {
+        print('Oh no, too low, you lose!')
+    } else {
+        print('Too high, you lose!')
+    }
+    return void
+    # explicit "return void" is always required to ensure termination of functions is intentional
+}

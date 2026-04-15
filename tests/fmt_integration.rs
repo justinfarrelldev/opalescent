@@ -481,4 +481,93 @@ mod tests {
             "temp directory for fmt_output_comments_idempotent test should be removed after test"
         );
     }
+
+    #[test]
+    fn fmt_output_simple_quiz_golden() {
+        let input = fmt_test_src("input-simple-quiz.op");
+        let expected = fmt_test_expected("input-simple-quiz.expected.op");
+        let output = temp_output_path("fmt_output_simple_quiz_golden");
+
+        let binary = binary_path();
+        let status = Command::new(&binary)
+            .arg("fmt")
+            .arg("--output")
+            .arg(&output)
+            .arg(&input)
+            .status()
+            .expect("opalescent fmt command should spawn and complete");
+
+        assert!(
+            status.success(),
+            "formatter should succeed on input-simple-quiz.op"
+        );
+
+        let actual = fs::read_to_string(&output).expect("output file should be readable");
+        let golden =
+            fs::read_to_string(&expected).expect("expected golden file should be readable");
+        assert_eq!(
+            actual, golden,
+            "formatter output should match golden file for input-simple-quiz.op"
+        );
+
+        let cleanup = cleanup_temp(&output);
+        assert!(
+            cleanup.is_ok(),
+            "temp directory for fmt_output_simple_quiz_golden test should be removed after test"
+        );
+    }
+
+    #[test]
+    fn fmt_output_simple_quiz_idempotent() {
+        let input = fmt_test_src("input-simple-quiz.op");
+        let first_output = temp_output_path("fmt_output_simple_quiz_idempotent_first");
+        let second_output = temp_output_path("fmt_output_simple_quiz_idempotent_second");
+
+        let binary = binary_path();
+        let first_status = Command::new(&binary)
+            .arg("fmt")
+            .arg("--output")
+            .arg(&first_output)
+            .arg(&input)
+            .status()
+            .expect("opalescent fmt command should spawn and complete");
+
+        assert!(
+            first_status.success(),
+            "formatter should succeed on input-simple-quiz.op"
+        );
+
+        let second_status = Command::new(&binary)
+            .arg("fmt")
+            .arg("--output")
+            .arg(&second_output)
+            .arg(&input)
+            .status()
+            .expect("opalescent fmt command should spawn and complete");
+
+        assert!(
+            second_status.success(),
+            "formatter should succeed on input-simple-quiz.op for second pass"
+        );
+
+        let actual =
+            fs::read_to_string(&first_output).expect("first output file should be readable");
+        let golden =
+            fs::read_to_string(&second_output).expect("second output file should be readable");
+        assert_eq!(
+            actual, golden,
+            "formatting input-simple-quiz.op repeatedly should produce identical output"
+        );
+
+        let cleanup_first = cleanup_temp(&first_output);
+        let cleanup_second = cleanup_temp(&second_output);
+        assert!(
+            cleanup_first.is_ok(),
+            "temp directory for first idempotent run should be removed after test"
+        );
+        assert!(
+            cleanup_second.is_ok(),
+            "temp directory for second idempotent run should be removed after test"
+        );
+    }
 }

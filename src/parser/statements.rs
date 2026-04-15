@@ -435,6 +435,57 @@ impl Parser {
         })
     }
 
+    /// Parse an indentation-based statement body while preserving leading comments.
+    ///
+    /// This helper consumes any `Comment`/`DocComment` tokens that appear after
+    /// `skip_newlines()` and before the `Indent` token, then prepends them to the
+    /// resulting block statement so control-flow statement bodies keep first-line
+    /// comments.
+    fn parse_indented_body_with_leading_comments(
+        &mut self,
+        expected_message: &str,
+    ) -> ParseResult<Box<Stmt>> {
+        let mut leading_comments: Vec<Stmt> = Vec::new();
+        while matches!(
+            self.current_token().token_type,
+            TokenType::Comment(_) | TokenType::DocComment(_)
+        ) {
+            let comment_token = self.advance().clone();
+            leading_comments.push(Stmt::Comment {
+                text: comment_token.lexeme,
+                span: comment_token.span,
+                id: next_node_id(),
+            });
+            self.skip_newlines();
+        }
+
+        if self.check(&TokenType::Indent) {
+            let block_stmt = self.parse_indent_block()?;
+            if let Stmt::Block {
+                mut statements,
+                span,
+                id,
+            } = block_stmt
+            {
+                let mut all_stmts = leading_comments;
+                all_stmts.append(&mut statements);
+                Ok(Box::new(Stmt::Block {
+                    statements: all_stmts,
+                    span,
+                    id,
+                }))
+            } else {
+                Ok(Box::new(block_stmt))
+            }
+        } else {
+            Err(ParseError::UnexpectedToken {
+                expected: expected_message.to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            })
+        }
+    }
+
     /// Parse an if statement
     ///
     /// Syntax: `if condition { ... } [else { ... }]`
@@ -458,7 +509,7 @@ impl Parser {
         } else if self.check(&TokenType::Colon) {
             self.advance();
             self.skip_newlines();
-            Box::new(self.parse_indent_block()?)
+            self.parse_indented_body_with_leading_comments("'{' or ':' after if condition")?
         } else {
             return Err(ParseError::UnexpectedToken {
                 expected: "'{' or ':' after if condition".to_owned(),
@@ -480,7 +531,7 @@ impl Parser {
                 } else if self.check(&TokenType::Colon) {
                     self.advance();
                     self.skip_newlines();
-                    self.parse_indent_block().map(Box::new)
+                    self.parse_indented_body_with_leading_comments("'if', '{', or ':' after 'else'")
                 } else {
                     Err(ParseError::UnexpectedToken {
                         expected: "'if', '{', or ':' after 'else'".to_owned(),
@@ -552,7 +603,7 @@ impl Parser {
         } else if self.check(&TokenType::Colon) {
             self.advance();
             self.skip_newlines();
-            Box::new(self.parse_indent_block()?)
+            self.parse_indented_body_with_leading_comments("'{' or ':' after for loop header")?
         } else {
             return Err(ParseError::UnexpectedToken {
                 expected: "'{' or ':' after for loop header".to_owned(),
@@ -595,7 +646,7 @@ impl Parser {
         } else if self.check(&TokenType::Colon) {
             self.advance();
             self.skip_newlines();
-            Box::new(self.parse_indent_block()?)
+            self.parse_indented_body_with_leading_comments("'{' or ':' after while condition")?
         } else {
             return Err(ParseError::UnexpectedToken {
                 expected: "'{' or ':' after while condition".to_owned(),
@@ -667,7 +718,9 @@ impl Parser {
 
         self.consume(&TokenType::Arrow, "Expected '=>' after guard else binding")?;
         self.skip_newlines();
-        let else_body = Box::new(self.parse_indent_block()?);
+        let else_body = self.parse_indented_body_with_leading_comments(
+            "indentation block after '=>' in guard statement",
+        )?;
 
         let span = Span::new(start_span.start, else_body.span().end);
         Ok(Stmt::Guard {
@@ -709,15 +762,9 @@ impl Parser {
             Box::new(self.parse_block_statement()?)
         } else {
             self.skip_newlines();
-            if self.check(&TokenType::Indent) {
-                Box::new(self.parse_indent_block()?)
-            } else {
-                return Err(ParseError::UnexpectedToken {
-                    expected: "'{' or indentation block after 'loop =>'".to_owned(),
-                    found: format!("{}", self.current_token().token_type),
-                    span: ParseError::span_from_token(self.current_token()),
-                });
-            }
+            self.parse_indented_body_with_leading_comments(
+                "'{' or indentation block after 'loop =>'",
+            )?
         };
 
         let end_span = body.span();

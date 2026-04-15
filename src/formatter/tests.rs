@@ -1033,4 +1033,142 @@ mod formatter_tests {
             "formatted output with comments should parse without errors: {parse_errors:?}"
         );
     }
+
+    #[test]
+    fn test_formatter_loop_body_leading_comment() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    loop =>\n",
+            "        # first\n",
+            "        break\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).unwrap();
+        let expected = concat!(
+            "entry main = f(): void => {\n",
+            "    loop {\n",
+            "        # first\n",
+            "        break\n",
+            "    }\n",
+            "    return void\n",
+            "}\n"
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_formatter_for_body_leading_comment() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    for x in items:\n",
+            "        # first\n",
+            "        continue\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).unwrap();
+        let expected = concat!(
+            "entry main = f(): void => {\n",
+            "    for x in items {\n",
+            "        # first\n",
+            "        continue\n",
+            "    }\n",
+            "    return void\n",
+            "}\n"
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_formatter_while_body_leading_comment() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    while cond:\n",
+            "        # first\n",
+            "        continue\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).unwrap();
+        let expected = concat!(
+            "entry main = f(): void => {\n",
+            "    while cond {\n",
+            "        # first\n",
+            "        continue\n",
+            "    }\n",
+            "    return void\n",
+            "}\n"
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_formatter_if_body_leading_comment() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    if cond:\n",
+            "        # first\n",
+            "        return void\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).unwrap();
+        let expected = concat!(
+            "entry main = f(): void => {\n",
+            "    if cond {\n",
+            "        # first\n",
+            "        return void\n",
+            "    }\n",
+            "    return void\n",
+            "}\n"
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_formatter_guard_body_leading_comment() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    guard expr into n else e =>\n",
+            "        # first\n",
+            "        return void\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).unwrap();
+        let expected = concat!(
+            "entry main = f(): void => {\n",
+            "    guard expr into n else e => {\n",
+            "        # first\n",
+            "        return void\n",
+            "    }\n",
+            "    return void\n",
+            "}\n"
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_formatter_loop_body_leading_doc_comment() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    loop =>\n",
+            "        ## doc ##\n",
+            "        break\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).unwrap();
+        let expected = concat!(
+            "entry main = f(): void => {\n",
+            "    loop {\n",
+            "        ## doc ##\n",
+            "        break\n",
+            "    }\n",
+            "    return void\n",
+            "}\n"
+        );
+        assert_eq!(result, expected);
+    }
 }
