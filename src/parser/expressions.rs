@@ -681,15 +681,25 @@ impl Parser {
 
     /// Parse lambda body (expression or block)
     fn parse_lambda_body(&mut self) -> ParseResult<LambdaBody> {
-        self.skip_newlines_and_comments();
+        self.skip_newlines();
+        let mut leading_comments: Vec<Stmt> = Vec::new();
+        while matches!(self.current_token().token_type, TokenType::Comment(_)) {
+            let comment_token = self.advance().clone();
+            leading_comments.push(Stmt::Comment {
+                text: comment_token.lexeme,
+                span: comment_token.span,
+                id: crate::parser::next_node_id(),
+            });
+            self.skip_newlines();
+        }
 
         if self.check(&TokenType::LeftBrace) {
             // Use existing block parsing for consistency with function bodies
             let block_stmt = self.parse_block_statement()?;
-            if let Stmt::Block { statements, .. } = block_stmt {
-                Ok(LambdaBody::Block(statements))
+            if let Stmt::Block { mut statements, .. } = block_stmt {
+                leading_comments.append(&mut statements);
+                Ok(LambdaBody::Block(leading_comments))
             } else {
-                // This should never happen since parse_block_statement always returns Block
                 Err(ParseError::InvalidSyntax {
                     message: "Expected block statement from parse_block_statement".to_owned(),
                     span: ParseError::span_from_token(self.current_token()),
@@ -697,29 +707,34 @@ impl Parser {
             }
         } else if self.check(&TokenType::Indent) {
             let block_stmt = self.parse_indent_block()?;
-            if let Stmt::Block { statements, .. } = block_stmt {
-                Ok(LambdaBody::Block(statements))
+            if let Stmt::Block { mut statements, .. } = block_stmt {
+                leading_comments.append(&mut statements);
+                Ok(LambdaBody::Block(leading_comments))
             } else {
                 Err(ParseError::InvalidSyntax {
                     message: "Expected indented block statement from parse_indent_block".to_owned(),
                     span: ParseError::span_from_token(self.current_token()),
                 })
             }
-        } else if self.check(&TokenType::Newline)
-            || self.check(&TokenType::Return)
-            || self.check(&TokenType::Let)
-            || self.check(&TokenType::If)
-            || self.check(&TokenType::For)
-            || self.check(&TokenType::While)
-            || self.check(&TokenType::Loop)
-            || self.check(&TokenType::Break)
-            || self.check(&TokenType::Continue)
-            || self.check(&TokenType::Guard)
+        } else if leading_comments.is_empty()
+            && (self.check(&TokenType::Newline)
+                || self.check(&TokenType::Return)
+                || self.check(&TokenType::Let)
+                || self.check(&TokenType::If)
+                || self.check(&TokenType::For)
+                || self.check(&TokenType::While)
+                || self.check(&TokenType::Loop)
+                || self.check(&TokenType::Break)
+                || self.check(&TokenType::Continue)
+                || self.check(&TokenType::Guard))
         {
             let statements = self.parse_blockless_body_statements();
             Ok(LambdaBody::Block(statements))
+        } else if !leading_comments.is_empty() {
+            let mut statements = self.parse_blockless_body_statements();
+            leading_comments.append(&mut statements);
+            Ok(LambdaBody::Block(leading_comments))
         } else {
-            // Parse as single expression
             let expr = self.parse_expression()?;
             Ok(LambdaBody::Expression(Box::new(expr)))
         }
