@@ -5,5 +5,19 @@
     "ses_26e0ec0e7ffehFlYpOPtxbAqQr"
   ],
   "plan_name": "fmt-preserve-comments",
-  "agent": "atlas"
+  "agent": "atlas",
+  "session_origins": {
+    "ses_26e0ec0e7ffehFlYpOPtxbAqQr": "direct"
+  },
+  "task_sessions": {
+    "todo:0": {
+      "task_key": "todo:0",
+      "task_label": "0",
+      "task_title": "Commit Previous Work",
+      "session_id": "ses_26df2f086ffe4MNJ0Xiv9UMWO7",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-15T16:51:01.173Z"
+    }
+  }
 }

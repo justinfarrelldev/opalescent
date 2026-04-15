@@ -182,7 +182,7 @@ Max Concurrent: 2 (Wave 1) / 4 (Wave FINAL)
 
 ## TODOs
 
-- [ ] 0. Commit Previous Work
+- [x] 0. Commit Previous Work
 
   **What to do**:
   - Stage all modified and untracked `.sisyphus/` files (evidence, notepads, plans, boulder.json, learnings.md)
