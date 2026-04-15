@@ -206,6 +206,7 @@ impl TypeChecker {
                 }
                 Ok(())
             }
+            Stmt::Comment { .. } => Ok(()),
         }
     }
 
@@ -510,7 +511,8 @@ impl TypeChecker {
             | Stmt::Assignment { .. }
             | Stmt::Return { .. }
             | Stmt::Expression { .. }
-            | Stmt::Continue { .. } => Ok(()),
+            | Stmt::Continue { .. }
+            | Stmt::Comment { .. } => Ok(()),
         }
     }
 

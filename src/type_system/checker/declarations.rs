@@ -449,6 +449,7 @@ impl TypeChecker {
                 span,
                 ..
             } => self.register_import_declaration(items, source, *span),
+            &Decl::Comment { .. } => Ok(()),
         }
     }
 
@@ -481,7 +482,7 @@ impl TypeChecker {
                 ref visibility,
                 ..
             } => self.type_check_let_declaration(binding, initializer, visibility),
-            Decl::Type { .. } | Decl::Import { .. } => Ok(()),
+            Decl::Type { .. } | Decl::Import { .. } | Decl::Comment { .. } => Ok(()),
         }
     }
 

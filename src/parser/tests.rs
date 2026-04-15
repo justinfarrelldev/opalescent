@@ -223,7 +223,8 @@ fn stmt_contains_feature(stmt: &Stmt, feature: AstFeature) -> bool {
             .any(|value| expr_contains_feature(&value.value, feature)),
         Stmt::Let {
             initializer: None, ..
-        } => false,
+        }
+        | Stmt::Comment { .. } => false,
         Stmt::LetDestructure { initializer, .. } => expr_contains_feature(initializer, feature),
         Stmt::Assignment { target, value, .. } => {
             expr_contains_feature(target, feature) || expr_contains_feature(value, feature)

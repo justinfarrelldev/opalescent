@@ -134,7 +134,8 @@ impl Stmt {
             | Self::Guard { span, .. }
             | Self::Loop { span, .. }
             | Self::Break { span, .. }
-            | Self::Continue { span, .. } => span,
+            | Self::Continue { span, .. }
+            | Self::Comment { span, .. } => span,
         }
     }
 
@@ -154,7 +155,8 @@ impl Stmt {
             | Self::Guard { id, .. }
             | Self::Loop { id, .. }
             | Self::Break { id, .. }
-            | Self::Continue { id, .. } => id,
+            | Self::Continue { id, .. }
+            | Self::Comment { id, .. } => id,
         }
     }
 }
@@ -167,7 +169,8 @@ impl Decl {
             Self::Function { span, .. }
             | Self::Type { span, .. }
             | Self::Import { span, .. }
-            | Self::Let { span, .. } => span,
+            | Self::Let { span, .. }
+            | Self::Comment { span, .. } => span,
         }
     }
 
@@ -178,7 +181,8 @@ impl Decl {
             Self::Function { id, .. }
             | Self::Type { id, .. }
             | Self::Import { id, .. }
-            | Self::Let { id, .. } => id,
+            | Self::Let { id, .. }
+            | Self::Comment { id, .. } => id,
         }
     }
 }
@@ -709,6 +713,16 @@ pub enum Stmt {
         /// Unique identifier for this AST node
         id: NodeId,
     },
+
+    /// Comment statements (single-line `#` comments between statements in a function body)
+    Comment {
+        /// Raw comment text including the `#` prefix (e.g., `"# This is a comment"`)
+        text: String,
+        /// Source code location of this comment
+        span: Span,
+        /// Unique identifier for this AST node
+        id: NodeId,
+    },
 }
 
 impl Program {
@@ -840,6 +854,16 @@ pub enum Decl {
         id: NodeId,
         /// Hot-reload metadata
         metadata: HotReloadMetadata,
+    },
+
+    /// Comment declarations (single-line `#` comments between top-level declarations)
+    Comment {
+        /// Raw comment text including the `#` prefix (e.g., `"# This is a comment"`)
+        text: String,
+        /// Source code location of this comment
+        span: Span,
+        /// Unique identifier for this AST node
+        id: NodeId,
     },
 }
 

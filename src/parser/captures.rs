@@ -202,5 +202,6 @@ fn collect_identifiers_in_stmt(
         Stmt::Loop { body, .. } => {
             collect_identifiers_in_stmt(body, param_names, seen, captures);
         }
+        Stmt::Comment { .. } => {}
     }
 }

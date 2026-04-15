@@ -182,7 +182,7 @@ pub fn compile_to_module<'context>(
                 codegen_function_declaration(&codegen_context, &mut env, &lowered_declaration)
                     .map_err(CompileError::Codegen)?;
             }
-            Decl::Let { .. } | Decl::Type { .. } => {}
+            Decl::Let { .. } | Decl::Type { .. } | Decl::Comment { .. } => {}
         }
     }
 

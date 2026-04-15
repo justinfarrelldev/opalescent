@@ -455,6 +455,9 @@ impl Formatter {
                     decl_str
                 }
             }
+            Decl::Comment { ref text, .. } => {
+                format!("{}{}", self.indent(depth), text)
+            }
         }
     }
 
@@ -683,6 +686,9 @@ impl Formatter {
                         .collect();
                     format!("{indent}continue {}", parts.join(", "))
                 }
+            }
+            Stmt::Comment { ref text, .. } => {
+                format!("{indent}{text}")
             }
         }
     }

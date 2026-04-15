@@ -90,7 +90,8 @@ impl AstNode for Stmt {
             | Self::Guard { span, .. }
             | Self::Loop { span, .. }
             | Self::Break { span, .. }
-            | Self::Continue { span, .. } => span,
+            | Self::Continue { span, .. }
+            | Self::Comment { span, .. } => span,
         }
     }
 
@@ -108,7 +109,8 @@ impl AstNode for Stmt {
             | Self::Guard { id, .. }
             | Self::Loop { id, .. }
             | Self::Break { id, .. }
-            | Self::Continue { id, .. } => id,
+            | Self::Continue { id, .. }
+            | Self::Comment { id, .. } => id,
         }
     }
 }
@@ -119,7 +121,8 @@ impl AstNode for Decl {
             Self::Function { span, .. }
             | Self::Type { span, .. }
             | Self::Import { span, .. }
-            | Self::Let { span, .. } => span,
+            | Self::Let { span, .. }
+            | Self::Comment { span, .. } => span,
         }
     }
 
@@ -128,7 +131,8 @@ impl AstNode for Decl {
             Self::Function { id, .. }
             | Self::Type { id, .. }
             | Self::Import { id, .. }
-            | Self::Let { id, .. } => id,
+            | Self::Let { id, .. }
+            | Self::Comment { id, .. } => id,
         }
     }
 
@@ -138,6 +142,7 @@ impl AstNode for Decl {
             | Self::Type { ref metadata, .. }
             | Self::Import { ref metadata, .. }
             | Self::Let { ref metadata, .. } => metadata.abi_symbol.iter().cloned().collect(),
+            Self::Comment { .. } => alloc::vec::Vec::new(),
         }
     }
 
@@ -147,6 +152,7 @@ impl AstNode for Decl {
             | Self::Type { ref metadata, .. }
             | Self::Import { ref metadata, .. }
             | Self::Let { ref metadata, .. } => metadata.dependencies.clone(),
+            Self::Comment { .. } => alloc::vec::Vec::new(),
         }
     }
 
@@ -156,6 +162,7 @@ impl AstNode for Decl {
             | Self::Type { ref metadata, .. }
             | Self::Import { ref metadata, .. }
             | Self::Let { ref metadata, .. } => metadata.is_hot_reloadable,
+            Self::Comment { .. } => false,
         }
     }
 }

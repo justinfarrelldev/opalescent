@@ -149,7 +149,7 @@ fn check_decl(decl: &Decl, violations: &mut Vec<NamingViolation>) {
             }
             check_expr(initializer, violations);
         }
-        Decl::Import { .. } => {}
+        Decl::Import { .. } | Decl::Comment { .. } => {}
     }
 }
 
@@ -264,6 +264,7 @@ fn check_stmt(stmt: &Stmt, violations: &mut Vec<NamingViolation>) {
             violations,
         ),
         Stmt::Loop { ref body, .. } => check_stmt(body, violations),
+        Stmt::Comment { .. } => {}
     }
 }
 

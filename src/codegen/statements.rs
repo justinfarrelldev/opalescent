@@ -79,7 +79,7 @@ pub fn codegen_statement<'context>(
             let _value = codegen_expression(codegen_context, env, expr, None)?;
             Ok(())
         }
-        Stmt::Break { .. } | Stmt::Continue { .. } => Ok(()),
+        Stmt::Break { .. } | Stmt::Continue { .. } | Stmt::Comment { .. } => Ok(()),
     }
 }
 
