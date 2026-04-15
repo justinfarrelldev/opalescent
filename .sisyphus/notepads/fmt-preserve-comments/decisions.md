@@ -21,3 +21,7 @@
 - Keep lexer and shared helper behavior unchanged; apply fix only in `src/parser/expressions.rs::parse_lambda_body()` to avoid cross-context regressions.
 - Collect leading comment tokens before `Indent` into `Vec<Stmt>` and prepend into the resulting lambda block statements.
 - Use `if let Stmt::Block { mut statements, .. }` destructuring to avoid unused-field warnings under pedantic clippy.
+
+## [2026-04-15] simple-quiz scope decisions
+- Accepted Bug 4 as out-of-scope parser behavior (no inline trailing-comment support changes).
+- Kept guard-statement formatter behavior as multiline `guard ... =>` followed by indented body statements (no brace injection), and aligned golden generation/integration tests to that canonical output.

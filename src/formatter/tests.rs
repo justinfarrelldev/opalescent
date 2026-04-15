@@ -985,6 +985,27 @@ mod formatter_tests {
         );
     }
 
+    #[test]
+    fn test_formatter_string_interpolation_escaped_quote() {
+        // String interpolation containing a single quote must be escaped in output
+        let source = "entry main = f(): void =>\n    print('Let\\'s go {name}')\n    return void\n";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source);
+        assert!(
+            result.is_ok(),
+            "formatter should succeed on string with escaped quote"
+        );
+        let output = result.unwrap();
+        assert!(
+            output.contains("\\'"),
+            "formatted output should contain escaped quote"
+        );
+        assert!(
+            !output.contains("Let's go"),
+            "formatted output should not contain unescaped quote in string"
+        );
+    }
+
     /// Multi-line `## ... ##` non-doc comment blocks should be preserved in output.
     #[test]
     fn test_formatter_preserves_multiline_non_doc_comment() {
@@ -1139,10 +1160,9 @@ mod formatter_tests {
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
             "entry main = f(): void => {\n",
-            "    guard expr into n else e => {\n",
+            "    guard expr into n else e =>\n",
             "        # first\n",
             "        return void\n",
-            "    }\n",
             "    return void\n",
             "}\n"
         );

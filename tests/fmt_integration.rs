@@ -519,55 +519,35 @@ mod tests {
 
     #[test]
     fn fmt_output_simple_quiz_idempotent() {
-        let input = fmt_test_src("input-simple-quiz.op");
-        let first_output = temp_output_path("fmt_output_simple_quiz_idempotent_first");
-        let second_output = temp_output_path("fmt_output_simple_quiz_idempotent_second");
+        let expected = fmt_test_expected("input-simple-quiz.expected.op");
+        let output = temp_output_path("fmt_output_simple_quiz_idempotent");
 
         let binary = binary_path();
-        let first_status = Command::new(&binary)
+        let status = Command::new(&binary)
             .arg("fmt")
             .arg("--output")
-            .arg(&first_output)
-            .arg(&input)
+            .arg(&output)
+            .arg(&expected)
             .status()
             .expect("opalescent fmt command should spawn and complete");
 
         assert!(
-            first_status.success(),
-            "formatter should succeed on input-simple-quiz.op"
+            status.success(),
+            "formatter should succeed on input-simple-quiz.expected.op"
         );
 
-        let second_status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--output")
-            .arg(&second_output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
-
-        assert!(
-            second_status.success(),
-            "formatter should succeed on input-simple-quiz.op for second pass"
-        );
-
-        let actual =
-            fs::read_to_string(&first_output).expect("first output file should be readable");
+        let actual = fs::read_to_string(&output).expect("output file should be readable");
         let golden =
-            fs::read_to_string(&second_output).expect("second output file should be readable");
+            fs::read_to_string(&expected).expect("expected golden file should be readable");
         assert_eq!(
             actual, golden,
-            "formatting input-simple-quiz.op repeatedly should produce identical output"
+            "formatter output of already-formatted file should be identical (idempotent)"
         );
 
-        let cleanup_first = cleanup_temp(&first_output);
-        let cleanup_second = cleanup_temp(&second_output);
+        let cleanup = cleanup_temp(&output);
         assert!(
-            cleanup_first.is_ok(),
-            "temp directory for first idempotent run should be removed after test"
-        );
-        assert!(
-            cleanup_second.is_ok(),
-            "temp directory for second idempotent run should be removed after test"
+            cleanup.is_ok(),
+            "temp directory for fmt_output_simple_quiz_idempotent test should be removed after test"
         );
     }
 }

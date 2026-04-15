@@ -144,3 +144,16 @@ The pre-commit hook runs `cargo make lint` with `-D clippy::pedantic` which incl
 - For block and indent bodies, prepend collected leading comments to parsed block statements; for blockless fallback, prepend leading comments before parsing remaining statements.
 - Preserve comment source exactly with `comment_token.lexeme` and allocate IDs via `crate::parser::next_node_id()`.
 - Verification: pedantic lint clean (`cargo make lint`), full tests pass (`cargo test`), formatter outputs preserve both Step 1/Step 2 comments for let/entry cases, and fmt idempotency holds.
+
+
+## [2026-04-15] Parser leading-comment body fix
+- Parser statement body entry points that call `skip_newlines()` before requiring `Indent` can still fail on leading comment/doc-comment tokens unless those tokens are explicitly consumed and reattached to the parsed `Stmt::Block`.
+- Generalizing the pattern into `parse_indented_body_with_leading_comments` keeps `if/else`, `for`, `while`, `guard`, and `loop` behavior consistent while reducing duplication and keeping the file under the pre-commit 1000-line cap.
+- For large formatter fixtures, generating the expected golden via `opal fmt` avoids hand-authored drift when formatter normalization choices (e.g., brace form) differ from source style.
+- Idempotency coverage is more robust by formatting the same source twice to separate outputs and comparing them, rather than reformatting a golden fixture that may include lexer-sensitive content.
+
+## [2026-04-15] simple-quiz formatter regression fixes
+- `Expr::StringInterpolation` must escape literal segments with `escape_single_quoted_string` because interpolation literals are stored unescaped in the AST.
+- Top-level declaration spacing should use single newline between consecutive `Decl::Comment` entries and double newline for all other declaration boundaries.
+- Preserving doc-comment content indentation requires keeping lexer `DocComment` content without `.trim()`; using `trim_matches('\n')` retains interior leading spaces while dropping delimiter-adjacent empty lines.
+- The `simple-quiz` fixture is parser-sensitive; golden files must be generated via formatter output and validated with `opal check` plus second-pass idempotency diff.

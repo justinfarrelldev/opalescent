@@ -534,11 +534,13 @@ impl<'input> Lexer<'input> {
             self.current.map_or(self.input.len(), |(offset, _)| offset)
         };
 
+        let normalized_content = content.trim_matches('\n').to_owned();
+
         let span = Span::new(start_pos, self.position);
-        let token_type = if content.trim_start().starts_with("Description:") {
-            TokenType::DocComment(content.trim().to_owned())
+        let token_type = if normalized_content.trim_start().starts_with("Description:") {
+            TokenType::DocComment(normalized_content)
         } else {
-            TokenType::Comment(content.trim().to_owned())
+            TokenType::Comment(normalized_content.trim().to_owned())
         };
 
         Token::new(

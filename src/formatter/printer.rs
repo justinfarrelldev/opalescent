@@ -282,10 +282,22 @@ impl Formatter {
     /// Pretty-print a complete [`Program`].
     fn print_program(&self, program: &Program) -> String {
         let mut parts: Vec<String> = Vec::new();
-        for decl in &program.declarations {
+        for (idx, decl) in program.declarations.iter().enumerate() {
+            if idx > 0 {
+                let prev = &program.declarations[idx.saturating_sub(1)];
+                let prev_is_comment = matches!(*prev, Decl::Comment { .. });
+                let current_is_comment = matches!(*decl, Decl::Comment { .. });
+
+                if prev_is_comment && current_is_comment {
+                    parts.push(String::from("\n"));
+                } else {
+                    parts.push(String::from("\n\n"));
+                }
+            }
+
             parts.push(self.print_decl(decl, 0));
         }
-        parts.join("\n\n")
+        parts.concat()
     }
 
     /// Pretty-print a declaration at the given indent `depth`.
@@ -644,10 +656,22 @@ impl Formatter {
                 ..
             } => {
                 let expression_str = self.print_expr(expression, depth);
-                let else_body_str = self.print_stmt(else_body, depth);
-                format!(
-                    "{indent}guard {expression_str} into {success_binding} else {error_binding} => {else_body_str}"
-                )
+                if let Stmt::Block { ref statements, .. } = **else_body {
+                    let mut lines = vec![format!(
+                        "{indent}guard {expression_str} into {success_binding} else {error_binding} =>"
+                    )];
+                    lines.extend(
+                        statements
+                            .iter()
+                            .map(|statement| self.print_stmt(statement, depth.saturating_add(1))),
+                    );
+                    lines.join("\n")
+                } else {
+                    let else_body_str = self.print_stmt(else_body, depth.saturating_add(1));
+                    format!(
+                        "{indent}guard {expression_str} into {success_binding} else {error_binding} =>\n{else_body_str}"
+                    )
+                }
             }
             Stmt::Loop { ref body, .. } => {
                 let body_str = self.print_stmt(body, depth);
@@ -785,7 +809,9 @@ impl Formatter {
                 let mut s = String::from("'");
                 for part in parts {
                     match *part {
-                        StringPart::Literal(ref lit) => s.push_str(lit),
+                        StringPart::Literal(ref lit) => {
+                            s.push_str(&escape_single_quoted_string(lit));
+                        }
                         StringPart::Expression(ref e) => {
                             s.push('{');
                             s.push_str(&self.print_expr(e, depth));

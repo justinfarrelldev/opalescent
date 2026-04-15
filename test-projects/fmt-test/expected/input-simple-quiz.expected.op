@@ -1,15 +1,9 @@
 # imports MUST be on the top of the file before any application logic
-
 # to prevent name clashes for "take_input", for example
-
 # You can also use the following syntaxes:
-
 # import standard.take_input as input
-
 # import standard.take_input
-
 # However, importing the entire module is not allowed:
-
 # import standard # not allowed
 
 import take_input, string_to_int32 from standard
@@ -17,7 +11,7 @@ import take_input, string_to_int32 from standard
 import random_int32 from math
 
 ##
-Description: starting point of the application
+  Description: starting point of the application
 ##
 entry main = f(args: string[]): void => {
     print('What is your name?')
@@ -44,17 +38,16 @@ entry main = f(args: string[]): void => {
 
                Note that you can use 'mutable', 'public', etc (things you would normally put after let) in front of n in the guard clause to narrow things down
             ##
-        guard string_to_int32(s) into n else e => {
+        guard string_to_int32(s) into n else e =>
             print('Error: {e}')
             continue
             # loop jumps here, no value expected
             # labelling the values in multiple returns / breaks is required at the return site (not the binding site) for clarity
             # it makes it easy to skim and determine what is going on
-        }
         break user_input: s, user_number: n
         # success -> exit loop returning both values. Treated similar to a multiple-return
     }
-    print('{user_number}, huh? Let's see how close you are, {name}...')
+    print('{user_number}, huh? Let\'s see how close you are, {name}...')
     ##
       using "is" for == since it is more readable and you would use
       a standard library function to compare actual memory addresses directly
