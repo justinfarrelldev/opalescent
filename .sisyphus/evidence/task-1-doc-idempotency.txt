@@ -1,0 +1,39 @@
+EVIDENCE: Idempotency Verification
+===================================
+Date: 2026-04-15 (Post-Implementation)
+Commit: 32c102a fix(fmt): render doc comments in formatted output
+
+TEST: Format the same file twice and verify output is identical
+
+INPUT:
+------
+##
+  Description: Idempotency test function
+##
+let idempotent = f(n: int32): int32 =>
+    return n * 2
+
+FIRST FORMAT:
+-------------
+##
+Description: Idempotency test function
+##
+let idempotent = f(n: int32): int32 => {
+    return n * 2
+}
+
+SECOND FORMAT (same file):
+--------------------------
+##
+Description: Idempotency test function
+##
+let idempotent = f(n: int32): int32 => {
+    return n * 2
+}
+
+RESULT:
+✅ IDEMPOTENT - First and second format are byte-for-byte identical
+✅ Doc comments are preserved consistently across multiple format passes
+✅ No formatting drift or instability detected
+
+CONCLUSION: Formatter is idempotent with doc comments
