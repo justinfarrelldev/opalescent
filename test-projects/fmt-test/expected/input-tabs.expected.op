@@ -1,0 +1,9 @@
+entry main = f(args: string[]): void => {
+    let x = 1
+    let y = 2
+    if x is 1 {
+        let z = x + y
+        return void
+    }
+    return void
+}
