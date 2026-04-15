@@ -155,22 +155,34 @@ fn escape_single_quoted_string(value: &str) -> String {
     value.replace('\\', "\\\\").replace('\'', "\\'")
 }
 
-/// Replace leading tab characters with spaces on each line.
+/// Normalise line endings and indentation so the source can be safely lexed.
 ///
-/// This pre-pass allows the formatter to handle source files that use tabs
-/// (or mix tabs and spaces) for indentation. The lexer requires consistent
-/// whitespace; by converting leading tabs to spaces before lexing, the
-/// formatter can normalise any valid indentation style rather than failing
-/// with a `MixedWhitespace` error.
+/// This pre-pass performs two transformations before the source is handed to
+/// the lexer:
 ///
-/// Only the leading whitespace on each line is affected — tabs that appear
-/// after the first non-whitespace character (e.g. inside string literals)
-/// are left untouched.
+/// 1. **CRLF → LF**: Windows-style `\r\n` line endings (and any bare `\r`
+///    characters) are replaced with plain `\n`.  Without this step a `\r`
+///    that appears immediately before a closing quote is treated as an
+///    unexpected character by the lexer, producing spurious parse errors.
+///
+/// 2. **Leading tabs → spaces**: Every tab character that appears in the
+///    leading whitespace of a line is replaced with `indent_size` spaces.
+///    This allows files that use tab indentation (or mix tabs and spaces) to
+///    pass through the formatter without triggering a `MixedWhitespace` lex
+///    error.  Tabs that appear *after* the first non-whitespace character
+///    (e.g. inside string literals) are left untouched.
 fn normalize_indentation(source: &str, indent_size: usize) -> String {
-    let indent_spaces = " ".repeat(indent_size);
-    let mut normalized = String::with_capacity(source.len());
+    let cr_stripped: alloc::borrow::Cow<'_, str> = if source.contains('\r') {
+        alloc::borrow::Cow::Owned(source.replace('\r', ""))
+    } else {
+        alloc::borrow::Cow::Borrowed(source)
+    };
+    let lf_source = cr_stripped.as_ref();
 
-    for line in source.split_inclusive('\n') {
+    let indent_spaces = " ".repeat(indent_size);
+    let mut normalized = String::with_capacity(lf_source.len());
+
+    for line in lf_source.split_inclusive('\n') {
         let (line_content, line_ending) = line
             .strip_suffix('\n')
             .map_or((line, ""), |content| (content, "\n"));

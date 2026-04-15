@@ -473,6 +473,36 @@ mod formatter_tests {
         );
     }
 
+    #[test]
+    fn test_formatter_handles_crlf_line_endings() {
+        let source = "##\r\n  Description: entry point\r\n##\r\nentry main = f(args: string[]): void =>\r\n    return void\r\n";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source);
+        assert!(
+            result.is_ok(),
+            "formatter should succeed on CRLF source, got: {result:?}"
+        );
+        let output = result.unwrap();
+        assert!(
+            !output.contains('\r'),
+            "formatter output must not contain carriage return characters"
+        );
+    }
+
+    #[test]
+    fn test_formatter_handles_crlf_and_tabs_combined() {
+        let source = "##\r\n  Description: entry point\r\n##\r\nentry main = f(args: string[]): void =>\r\n\treturn void\r\n";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source);
+        assert!(
+            result.is_ok(),
+            "formatter should succeed on CRLF + tab-indented source, got: {result:?}"
+        );
+        let output = result.unwrap();
+        assert!(!output.contains('\r'), "output must not contain CR");
+        assert!(!output.contains('\t'), "output must not contain tab");
+    }
+
     // ─── Idempotency Tests ───────────────────────────────────────────────────────
 
     /// Formatting is idempotent for a simple function.
