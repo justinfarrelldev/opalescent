@@ -1004,4 +1004,33 @@ mod formatter_tests {
             "multi-line comment delimiters should be preserved in output, got: {result}"
         );
     }
+
+    /// Formatted output containing comments should lex and parse without errors.
+    #[test]
+    fn test_formatter_comments_reparse_clean() {
+        let source = concat!(
+            "# File header\n",
+            "entry main = f(): void =>\n",
+            "    # Body comment\n",
+            "    return void\n",
+        );
+        let fmt = Formatter::with_defaults();
+        let formatted = fmt
+            .format_source(source)
+            .expect("formatter should succeed on source with comments");
+
+        let lexer = crate::lexer::Lexer::new(&formatted);
+        let (tokens, lex_errors) = lexer.tokenize();
+        assert!(
+            lex_errors.errors.is_empty(),
+            "formatted output with comments should lex without errors: {lex_errors:?}"
+        );
+
+        let parser = crate::parser::Parser::new(tokens);
+        let (_program, parse_errors) = parser.parse();
+        assert!(
+            parse_errors.errors.is_empty(),
+            "formatted output with comments should parse without errors: {parse_errors:?}"
+        );
+    }
 }
