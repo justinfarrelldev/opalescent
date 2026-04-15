@@ -1,0 +1,4 @@
+=== TEST 13: watch (no file) ===
+error: no source file specified
+Usage: opal watch <file.op>
+EXIT: 1

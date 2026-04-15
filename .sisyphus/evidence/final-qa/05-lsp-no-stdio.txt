@@ -1,0 +1,3 @@
+=== TEST 5: lsp (no --stdio) ===
+error: opal lsp requires --stdio flag — run 'opal help lsp' for usage
+EXIT: 1

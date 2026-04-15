@@ -1,0 +1,5 @@
+Command: ./target/debug/opalescent fmt --check --output /tmp/x.op test-projects/hello-world/src/main.op
+error: --check and --output cannot be used together
+EXIT: 1
+
+Output file /tmp/x.op exists: NO

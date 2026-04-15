@@ -1,0 +1,3 @@
+=== TEST 9: bench ===
+2 benchmarks completed
+EXIT: 0

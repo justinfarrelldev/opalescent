@@ -1,0 +1,28 @@
+=== TEST 2: --help ===
+Opalescent Compiler
+
+Usage:  opal <command> [arguments]
+
+Commands:
+  <file.op>    Compile an Opalescent source file
+  --run        Execute the compiled binary after compilation
+  help         Show this help message
+  --help       Alias for help
+  pkg          Package manager commands
+  fmt          Format Opalescent source files
+  lsp          Start the language server
+  test         Run project tests
+  doc          Generate documentation
+  bench        Run benchmarks
+  run          Compile and execute a source file
+  check        Typecheck source without code generation
+  build        Build the project from opal.toml
+  watch        Watch a file and recompile on changes
+
+Examples:
+  opal src/main.op
+  opal src/main.op --run
+  opal run src/main.op
+  opal help pkg
+  opal --help fmt
+EXIT: 0

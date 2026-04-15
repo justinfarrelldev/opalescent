@@ -1,0 +1,3 @@
+=== TEST 3: pkg status ===
+error: 'pkg' not yet implemented
+EXIT: 1

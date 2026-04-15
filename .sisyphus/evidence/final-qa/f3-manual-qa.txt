@@ -1,0 +1,13 @@
+Build: PASS
+
+Scenario 1 (--output writes file): PASS — Exit code 0, /tmp/f3-out-spaces.op created and matches golden exactly
+Scenario 2 (tabs config): PASS — Exit code 0, matches golden; grep confirmed 7 lines with leading tabs
+Scenario 3 (mutual exclusion): PASS — Exit code 1, error message "error: --check and --output cannot be used together"; no output file created
+Scenario 4 (source preserved): PASS — diff shows source file /tmp/f3-source-copy.op unchanged vs original after --output run
+Scenario 5 (in-place still works): PASS — Exit code 0, in-place formatted file matches golden exactly
+Scenario 6 (2-space config): PASS — output matches input-spaces-2indent.expected.op golden exactly
+
+Scenarios 6/6 pass
+
+VERDICT: APPROVE
+Reason: All 6 scenarios passed cleanly. The --output flag correctly writes formatted output to a specified file without touching the source. Mutual exclusion with --check is enforced at the CLI level with a clear error message. Tab and 2-space indent configs both produce correct output matching their respective golden files. In-place formatting regression is clean.

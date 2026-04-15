@@ -1,0 +1,8 @@
+Command: ./target/debug/opalescent fmt test-projects/hello-world/src/main.op --output /tmp/fmt-output-test.op
+/tmp/fmt-output-test.op
+EXIT: 0
+
+Source timestamp unchanged:
+-rw-r--r-- 1 justi justi 664 Apr 12 16:27 test-projects/hello-world/src/main.op
+Output file created:
+-rw-r--r-- 1 justi justi 111 Apr 15 02:41 /tmp/fmt-output-test.op

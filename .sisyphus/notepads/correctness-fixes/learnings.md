@@ -527,3 +527,17 @@ if self.check_identifier() {
 - `cargo test` passed (full suite green).
 - `cargo make lint` passed under strict clippy gates.
 - Evidence written to \.sisyphus/evidence/task-29-todo-cleanup.txt.
+
+## [2026-04-15] Task — preserve formatter indentation in operator-spacing pass
+
+### Findings
+- Root cause confirmed: `collapse_spaces_around_ops` collapsed all consecutive spaces across the whole line, including indentation prefix.
+- Safe fix pattern: split each line at the first non-whitespace byte index, copy the leading whitespace prefix verbatim, and run existing collapsing logic only on the non-leading segment.
+- This keeps operator normalization effective in code content (`a  =  b` → `a = b`) while preserving printer-generated indentation (`" ".repeat(indent_size).repeat(depth)`).
+- String literal behavior remains intact because string-aware collapsing logic still runs in the non-leading segment and preserves spaces inside single-quoted strings.
+
+### Verification
+- RED tests added first and failed against old behavior for 4-space indent, 8-space indent, nested block formatting, and mixed indent+operator normalization.
+- GREEN after fix: `cargo test --quiet` passed (913 passed, 5 ignored; total 918).
+- `cargo clippy -- -D warnings` passed clean.
+- `./target/release/opalescent fmt /tmp/old-main.op` now preserves 4/8/12-space indentation in nested blocks.

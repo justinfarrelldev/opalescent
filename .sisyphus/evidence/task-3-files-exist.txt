@@ -1,0 +1,8 @@
+total 28
+drwxr-xr-x 2 justi justi 4096 Apr 15 02:40 .
+drwxr-xr-x 4 justi justi 4096 Apr 15 02:40 ..
+-rw-r--r-- 1 justi justi  141 Apr 15 02:40 input-clean-spaces.op
+-rw-r--r-- 1 justi justi  117 Apr 15 02:40 input-clean-tabs.op
+-rw-r--r-- 1 justi justi  129 Apr 15 02:40 input-mixed.op
+-rw-r--r-- 1 justi justi  157 Apr 15 02:40 input-spaces.op
+-rw-r--r-- 1 justi justi  123 Apr 15 02:40 input-tabs.op

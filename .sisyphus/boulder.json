@@ -1,86 +1,9 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/correctness-fixes.md",
-  "started_at": "2026-04-13T18:18:47.558Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/fmt-preserve-comments.md",
+  "started_at": "2026-04-15T16:48:47.817Z",
   "session_ids": [
-    "ses_2781b1133ffeobDAJiQiFS4nqF"
+    "ses_26e0ec0e7ffehFlYpOPtxbAqQr"
   ],
-  "plan_name": "correctness-fixes",
-  "agent": "atlas",
-  "session_origins": {
-    "ses_2781b1133ffeobDAJiQiFS4nqF": "direct"
-  },
-  "task_sessions": {
-    "todo:1": {
-      "task_key": "todo:1",
-      "task_label": "1",
-      "task_title": "Establish Test Baseline",
-      "session_id": "ses_277ecd49cffeWZV7fdbIuIZk6Q",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-13T18:22:06.551Z"
-    },
-    "todo:2": {
-      "task_key": "todo:2",
-      "task_label": "2",
-      "task_title": "Fix UTF-8 Byte Offset Bug in Lexer",
-      "session_id": "ses_277eadcdfffexwfuoDyP1atNHo",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-13T18:27:36.288Z"
-    },
-    "todo:3": {
-      "task_key": "todo:3",
-      "task_label": "3",
-      "task_title": "Add div_euclid / mod_euclid Operator Tokens",
-      "session_id": "ses_277e61a6fffekfpys7xuaLECZU",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-13T18:33:43.469Z"
-    },
-    "todo:4": {
-      "task_key": "todo:4",
-      "task_label": "4",
-      "task_title": "Resolve As/Cast Token Duplication",
-      "session_id": "ses_277e0737affeCMSjmlX2TBu8v2",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-13T18:39:17.708Z"
-    },
-    "todo:5": {
-      "task_key": "todo:5",
-      "task_label": "5",
-      "task_title": "Fix IsNot Token Inconsistency",
-      "session_id": "ses_277da2977ffedpHI5tu0hbCIcW",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-13T18:56:42.531Z"
-    },
-    "todo:6": {
-      "task_key": "todo:6",
-      "task_label": "6",
-      "task_title": "Centralize ast_type_to_core_type",
-      "session_id": "ses_276be2800ffeLvae2xVkROtrON",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-13T23:59:03.976Z"
-    },
-    "todo:7": {
-      "task_key": "todo:7",
-      "task_label": "7",
-      "task_title": "Update Language Spec — int64 as Default Literal Type",
-      "session_id": "ses_276eab012ffe6vWwkjybrmvTia",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-13T23:05:05.830Z"
-    },
-    "todo:14": {
-      "task_key": "todo:14",
-      "task_label": "14",
-      "task_title": "Implement Generic Lambda Type Checking",
-      "session_id": "ses_276c57b92ffehkRXCC8t1HU13w",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-13T23:50:17.676Z"
-    }
-  }
+  "plan_name": "fmt-preserve-comments",
+  "agent": "atlas"
 }

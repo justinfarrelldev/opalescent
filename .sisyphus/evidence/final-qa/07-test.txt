@@ -1,0 +1,3 @@
+=== TEST 7: test ===
+0 passed, 0 failed, 0 skipped
+EXIT: 0
