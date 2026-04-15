@@ -705,4 +705,191 @@ mod formatter_tests {
             "in_place command should still return formatted output"
         );
     }
+
+    // ─── Tab/Space Conversion Matrix Tests ──────────────────────────────────────
+
+    /// Tab-indented input formatted with default config produces 4-space output.
+    #[test]
+    fn test_tabs_to_spaces_default_config() {
+        let source = "entry main = f(args: string[]): void =>\n\tlet x = 1\n\treturn void\n";
+        let config = FormatterConfig::default();
+        let output = FormatCommand::new(source.to_owned(), false)
+            .execute_with_config(config)
+            .unwrap();
+        assert!(
+            !output.contains('\t'),
+            "tab-indented input with default config must produce no tabs, got: {output:?}"
+        );
+        assert!(
+            output
+                .lines()
+                .any(|l| l.starts_with("    ") && !l.trim().is_empty()),
+            "expected at least one 4-space-indented line, got: {output:?}"
+        );
+    }
+
+    /// Space-indented input formatted with `use_tabs=true` produces tab output.
+    #[test]
+    fn test_spaces_to_tabs() {
+        let source = "entry main = f(args: string[]): void =>\n    let x = 1\n    return void\n";
+        let config = FormatterConfig::new(4, 100, true);
+        let output = FormatCommand::new(source.to_owned(), false)
+            .execute_with_config(config)
+            .unwrap();
+        assert!(
+            output.lines().any(|l| l.starts_with('\t')),
+            "space-indented input with use_tabs=true must produce tab output, got: {output:?}"
+        );
+    }
+
+    /// Mixed tab+space input formatted with default config produces 4-space output (no tabs).
+    #[test]
+    fn test_mixed_to_spaces() {
+        let source = "entry main = f(args: string[]): void =>\n\tlet x = 1\n    return void\n";
+        let config = FormatterConfig::default();
+        let output = FormatCommand::new(source.to_owned(), false)
+            .execute_with_config(config)
+            .unwrap();
+        assert!(
+            !output.contains('\t'),
+            "mixed-indent input with default config must produce no tabs, got: {output:?}"
+        );
+    }
+
+    /// Mixed tab+space input formatted with `use_tabs=true` produces tab output.
+    #[test]
+    fn test_mixed_to_tabs() {
+        let source = "entry main = f(args: string[]): void =>\n\tlet x = 1\n    return void\n";
+        let config = FormatterConfig::new(4, 100, true);
+        let output = FormatCommand::new(source.to_owned(), false)
+            .execute_with_config(config)
+            .unwrap();
+        assert!(
+            output.lines().any(|l| l.starts_with('\t')),
+            "mixed-indent input with use_tabs=true must produce tab output, got: {output:?}"
+        );
+    }
+
+    /// Formatting already-4-space-indented code with default config is idempotent.
+    #[test]
+    fn test_idempotent_spaces() {
+        let source = "entry main = f(args: string[]): void =>\n    let x = 1\n    return void\n";
+        let config = FormatterConfig::default();
+        let once = FormatCommand::new(source.to_owned(), false)
+            .execute_with_config(config.clone())
+            .unwrap();
+        let twice = FormatCommand::new(once.clone(), false)
+            .execute_with_config(config)
+            .unwrap();
+        assert_eq!(
+            once, twice,
+            "formatting 4-space input twice with default config must be idempotent"
+        );
+    }
+
+    /// Formatting already-tab-indented code with `use_tabs=true` is idempotent.
+    #[test]
+    fn test_idempotent_tabs() {
+        let source = "entry main = f(args: string[]): void =>\n\tlet x = 1\n\treturn void\n";
+        let config = FormatterConfig::new(4, 100, true);
+        let once = FormatCommand::new(source.to_owned(), false)
+            .execute_with_config(config.clone())
+            .unwrap();
+        let twice = FormatCommand::new(once.clone(), false)
+            .execute_with_config(config)
+            .unwrap();
+        assert_eq!(
+            once, twice,
+            "formatting tab-indented input twice with use_tabs=true must be idempotent"
+        );
+    }
+
+    /// Custom `indent_size=2` produces 2-space-indented output.
+    #[test]
+    fn test_custom_indent_size_2() {
+        let source = "entry main = f(args: string[]): void =>\n    let x = 1\n    return void\n";
+        let config = FormatterConfig::new(2, 100, false);
+        let output = FormatCommand::new(source.to_owned(), false)
+            .execute_with_config(config)
+            .unwrap();
+        assert!(
+            output
+                .lines()
+                .any(|l| l.starts_with("  ") && !l.trim().is_empty()),
+            "indent_size=2 must produce at least one 2-space-indented line, got: {output:?}"
+        );
+        assert!(
+            output
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .all(|l| !l.starts_with("    ")),
+            "indent_size=2 must not produce 4-space-indented lines, got: {output:?}"
+        );
+    }
+
+    /// Custom `indent_size=8` produces 8-space-indented output.
+    #[test]
+    fn test_custom_indent_size_8() {
+        let source = "entry main = f(args: string[]): void =>\n    let x = 1\n    return void\n";
+        let config = FormatterConfig::new(8, 100, false);
+        let output = FormatCommand::new(source.to_owned(), false)
+            .execute_with_config(config)
+            .unwrap();
+        assert!(
+            output
+                .lines()
+                .any(|l| l.starts_with("        ") && !l.trim().is_empty()),
+            "indent_size=8 must produce at least one 8-space-indented line, got: {output:?}"
+        );
+    }
+
+    /// Multi-level nesting (if inside if) with `use_tabs=true` produces 2-tab depth-2 indentation.
+    #[test]
+    fn test_nested_indentation_tabs() {
+        let source = concat!(
+            "entry main = f(args: string[]): void => {\n",
+            "    let x = 1\n",
+            "    if x is 1 {\n",
+            "        if x is 1 {\n",
+            "            return void\n",
+            "        }\n",
+            "    }\n",
+            "    return void\n",
+            "}"
+        );
+        let config = FormatterConfig::new(4, 100, true);
+        let output = FormatCommand::new(source.to_owned(), false)
+            .execute_with_config(config)
+            .unwrap();
+        assert!(
+            output.lines().any(|l| l.starts_with("\t\t")),
+            "nested if with use_tabs=true must have lines starting with 2 tabs, got: {output:?}"
+        );
+    }
+
+    /// Multi-level nesting (if inside if) with default config produces 8-space depth-2 indentation.
+    #[test]
+    fn test_nested_indentation_spaces() {
+        let source = concat!(
+            "entry main = f(args: string[]): void => {\n",
+            "    let x = 1\n",
+            "    if x is 1 {\n",
+            "        if x is 1 {\n",
+            "            return void\n",
+            "        }\n",
+            "    }\n",
+            "    return void\n",
+            "}"
+        );
+        let config = FormatterConfig::default();
+        let output = FormatCommand::new(source.to_owned(), false)
+            .execute_with_config(config)
+            .unwrap();
+        assert!(
+            output
+                .lines()
+                .any(|l| l.starts_with("        ") && !l.trim().is_empty()),
+            "nested if with default config must have lines with 8-space indent, got: {output:?}"
+        );
+    }
 }
