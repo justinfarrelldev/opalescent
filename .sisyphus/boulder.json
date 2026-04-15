@@ -2,12 +2,20 @@
   "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/fmt-preserve-comments.md",
   "started_at": "2026-04-15T16:48:47.817Z",
   "session_ids": [
-    "ses_26e0ec0e7ffehFlYpOPtxbAqQr"
+    "ses_26e0ec0e7ffehFlYpOPtxbAqQr",
+    "ses_26ce1f3f9ffemOmvdZcq8EfzaG",
+    "ses_26ce1b083ffeuAgELopSRc7tLM",
+    "ses_26ce16e1bffeOU9hxFzBmr0z4j",
+    "ses_26ce12574ffe6Mpcnu4iVgfipu"
   ],
   "plan_name": "fmt-preserve-comments",
   "agent": "atlas",
   "session_origins": {
-    "ses_26e0ec0e7ffehFlYpOPtxbAqQr": "direct"
+    "ses_26e0ec0e7ffehFlYpOPtxbAqQr": "direct",
+    "ses_26ce1f3f9ffemOmvdZcq8EfzaG": "appended",
+    "ses_26ce1b083ffeuAgELopSRc7tLM": "appended",
+    "ses_26ce16e1bffeOU9hxFzBmr0z4j": "appended",
+    "ses_26ce12574ffe6Mpcnu4iVgfipu": "appended"
   },
   "task_sessions": {
     "todo:0": {
@@ -18,6 +26,41 @@
       "agent": "Sisyphus-Junior",
       "category": "quick",
       "updated_at": "2026-04-15T16:51:01.173Z"
+    },
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "Render Doc Comments in Printer",
+      "session_id": "ses_26df152abffeHpZACq2UDsKxP8",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-15T17:12:29.721Z"
+    },
+    "todo:3": {
+      "task_key": "todo:3",
+      "task_label": "3",
+      "task_title": "Add Comment AST Variants and Update All Match Sites",
+      "session_id": "ses_26ddadf2cffe1G0YP2BSgl10IF",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-15T17:27:33.942Z"
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Modify Parser to Preserve Comments and Update Printer",
+      "session_id": "ses_26cef62f9ffeGgJf89xfUwkfK1",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-15T21:40:12.112Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Add Unit Tests and Integration Tests for Comment Preservation",
+      "session_id": "ses_26ce1f3f9ffemOmvdZcq8EfzaG",
+      "agent": "oracle",
+      "updated_at": "2026-04-15T22:06:20.833Z"
     }
   }
 }

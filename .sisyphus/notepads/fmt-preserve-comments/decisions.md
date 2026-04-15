@@ -16,3 +16,8 @@
 - No comments inside type definitions
 - No comments inside expressions
 - No comment text normalization
+
+## [2026-04-15] Lambda parser fix approach
+- Keep lexer and shared helper behavior unchanged; apply fix only in `src/parser/expressions.rs::parse_lambda_body()` to avoid cross-context regressions.
+- Collect leading comment tokens before `Indent` into `Vec<Stmt>` and prepend into the resulting lambda block statements.
+- Use `if let Stmt::Block { mut statements, .. }` destructuring to avoid unused-field warnings under pedantic clippy.

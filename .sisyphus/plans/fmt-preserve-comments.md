@@ -233,7 +233,7 @@ Max Concurrent: 2 (Wave 1) / 4 (Wave FINAL)
   - Files: `.sisyphus/*`
   - Pre-commit: N/A
 
-- [ ] 1. Render Doc Comments in Printer
+- [x] 1. Render Doc Comments in Printer
 
   **What to do**:
   - In `src/formatter/printer.rs`, modify `print_decl()` (line 296) to emit the `doc_comment` field for `Decl::Function`, `Decl::Type`, and `Decl::Let` variants
@@ -328,7 +328,7 @@ Max Concurrent: 2 (Wave 1) / 4 (Wave FINAL)
   - Files: `src/formatter/printer.rs`
   - Pre-commit: `cargo test`
 
-- [ ] 2. Create Golden Test Fixture Files with Comments
+- [x] 2. Create Golden Test Fixture Files with Comments
 
   **What to do**:
   - Create a new input fixture file `test-projects/fmt-test/src/input-comments.op` containing Opalescent source with various comment patterns:
@@ -407,7 +407,7 @@ Max Concurrent: 2 (Wave 1) / 4 (Wave FINAL)
   - Files: `test-projects/fmt-test/src/input-comments.op`, `test-projects/fmt-test/expected/input-comments.expected.op`
   - Pre-commit: N/A
 
-- [ ] 3. Add Comment AST Variants and Update All Match Sites
+- [x] 3. Add Comment AST Variants and Update All Match Sites
 
   **What to do**:
   - In `src/ast.rs`, add a new `Comment` variant to `Decl` enum (after `Let`, around line 843):
@@ -538,7 +538,7 @@ Max Concurrent: 2 (Wave 1) / 4 (Wave FINAL)
   - Files: `src/ast.rs`, `src/ast/node_impls.rs`, `src/formatter/printer.rs`, `src/formatter/naming.rs`, `src/doc_gen/extractor.rs`, `src/type_system/checker/declarations.rs`, `src/type_system/checker/statements.rs`, `src/type_system/checker/control_flow.rs`, `src/type_system/checker/expressions_guard.rs`, `src/codegen/functions.rs`, `src/codegen/statements.rs`, `src/codegen/control_flow.rs`, `src/lsp/definition.rs`, `src/parser/captures.rs`, `src/compiler.rs`
   - Pre-commit: `cargo test`
 
-- [ ] 4. Modify Parser to Preserve Comments and Update Printer
+- [x] 4. Modify Parser to Preserve Comments and Update Printer
 
   **What to do**:
 
@@ -676,7 +676,7 @@ Max Concurrent: 2 (Wave 1) / 4 (Wave FINAL)
   - Files: `src/parser/helpers.rs`, `src/parser.rs`, `src/parser/statements.rs`, `src/parser/declarations.rs`, `src/formatter/printer.rs`
   - Pre-commit: `cargo test`
 
-- [ ] 5. Add Unit Tests and Integration Tests for Comment Preservation
+- [x] 5. Add Unit Tests and Integration Tests for Comment Preservation
 
   **What to do**:
 
@@ -782,19 +782,19 @@ Max Concurrent: 2 (Wave 1) / 4 (Wave FINAL)
 >
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read `.sisyphus/plans/fmt-preserve-comments.md` end-to-end. For each "Must Have": verify implementation exists (read file, run command). For each "Must NOT Have": search codebase for forbidden patterns — reject with file:line if found. Check evidence files exist in `.sisyphus/evidence/`. Compare deliverables against plan.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `cargo build`, `cargo clippy -- -D warnings`, `cargo test`. Review all changed files for: `as any`/`#[allow]` abuse, empty match arms, `todo!()` or `unimplemented!()` in production paths, dead code. Check for AI slop: excessive comments, over-abstraction, generic variable names.
   Output: `Build [PASS/FAIL] | Clippy [PASS/FAIL] | Tests [N pass/N fail] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high`
+- [x] F3. **Real Manual QA** — `unspecified-high`
   Start from clean state. Create temp `.op` files with various comment patterns. Run `cargo run -- fmt --output <out> <input>` for each. Verify comments appear in output. Test idempotency by formatting output again. Test `--check` mode with commented files. Save evidence to `.sisyphus/evidence/final-qa/`.
   Output: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff (`git log/diff`). Verify 1:1 — everything in spec was built, nothing beyond spec was built. Check "Must NOT do" compliance (no trailing comments, no type def comments, no comment normalization). Flag unaccounted changes.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 

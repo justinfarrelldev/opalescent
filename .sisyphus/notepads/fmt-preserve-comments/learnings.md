@@ -137,3 +137,10 @@ The pre-commit hook runs `cargo make lint` with `-D clippy::pedantic` which incl
 - Added deferred handoff for column-1 comments and doc comments encountered while unwinding a dedent boundary, so top-level comments/doc-comments after indented bodies are preserved and associated with the following declaration.
 - `parse_blockless_body_statements` now preserves comment boundaries by stopping on column-1 comments and consuming explicit `Indent` blocks without swallowing declaration-leading comments.
 - Verified pipeline behavior with formatter scenarios: comments between declarations and within function bodies are present in output, idempotent formatting holds, and formatted output re-parses.
+
+## [2026-04-15] Lambda body first-comment preservation
+- Root cause is lexer ordering: for comment-first indented lines after `=>`, token stream can be `Arrow, Newline, Comment, Newline, Indent, ...`, so consuming comments before indentation loses the first body comment.
+- `parse_lambda_body()` must use `skip_newlines()` (not `skip_newlines_and_comments()`) and explicitly collect leading `TokenType::Comment(_)` into `Stmt::Comment` nodes before `Indent` is consumed.
+- For block and indent bodies, prepend collected leading comments to parsed block statements; for blockless fallback, prepend leading comments before parsing remaining statements.
+- Preserve comment source exactly with `comment_token.lexeme` and allocate IDs via `crate::parser::next_node_id()`.
+- Verification: pedantic lint clean (`cargo make lint`), full tests pass (`cargo test`), formatter outputs preserve both Step 1/Step 2 comments for let/entry cases, and fmt idempotency holds.

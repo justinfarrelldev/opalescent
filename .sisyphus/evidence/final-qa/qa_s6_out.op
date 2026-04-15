@@ -1,0 +1,9 @@
+# Comment one
+
+# Comment two
+
+# Comment three
+
+entry main = f(): void => {
+    return void
+}

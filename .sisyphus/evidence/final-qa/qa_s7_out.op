@@ -1,0 +1,5 @@
+entry main = f(): void => {
+    return void
+}
+
+# End of file comment

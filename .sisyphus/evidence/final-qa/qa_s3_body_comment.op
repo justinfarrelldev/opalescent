@@ -1,0 +1,5 @@
+entry main = f(): void =>
+    let x = 5
+    # comment between statements
+    let y = 10
+    return void

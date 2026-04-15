@@ -1,0 +1,9 @@
+let add = f(a: int32, b: int32): int32 => {
+    return a + b
+}
+
+# Between declarations
+
+let sub = f(a: int32, b: int32): int32 => {
+    return a - b
+}

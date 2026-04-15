@@ -1,0 +1,9 @@
+let add = f(a: int32, b: int32): int32 =>
+    return a + b
+
+##
+  This is a non-doc multi-line comment block
+##
+
+let sub = f(a: int32, b: int32): int32 =>
+    return a - b
