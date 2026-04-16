@@ -13,6 +13,7 @@ use crate::type_system::type_mapping::{ast_type_to_core_type, AstTypeMappingErro
 use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::vec::Vec;
+use inkwell::types::BasicTypeEnum;
 
 /// Lower one typed statement into LLVM IR side effects.
 pub fn codegen_statement<'context>(
@@ -106,7 +107,7 @@ fn codegen_let_statement<'context>(
         (declared_type, lowered)
     } else if let Some(init_expr) = initializer {
         (
-            infer_core_type_from_expr(init_expr),
+            infer_core_type_from_expr(codegen_context, env, init_expr),
             Some(codegen_expression(codegen_context, env, init_expr, None)?),
         )
     } else {
@@ -227,7 +228,7 @@ fn codegen_guard_statement<'context>(
     success_binding: &str,
 ) -> Result<(), CodegenError> {
     let value = codegen_expression(codegen_context, env, expression, None)?;
-    let inferred_type = infer_core_type_from_expr(expression);
+    let inferred_type = infer_core_type_from_expr(codegen_context, env, expression);
     let alloca = codegen_context
         .builder
         .build_alloca(value.get_type(), success_binding)?;
@@ -271,7 +272,11 @@ fn is_supported_let_type(ast_type: &Type) -> bool {
 }
 
 /// Infer a fallback core type for let initializers without explicit annotations.
-fn infer_core_type_from_expr(expr: &Expr) -> CoreType {
+fn infer_core_type_from_expr<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &CodegenEnv<'context>,
+    expr: &Expr,
+) -> CoreType {
     match *expr {
         Expr::Literal { ref value, .. } => match *value {
             crate::ast::LiteralValue::Integer(_) => CoreType::Int64,
@@ -281,6 +286,83 @@ fn infer_core_type_from_expr(expr: &Expr) -> CoreType {
             crate::ast::LiteralValue::Void => CoreType::Unit,
         },
         Expr::Array { .. } => CoreType::Array(alloc::boxed::Box::new(CoreType::Int64)),
+        Expr::Call { ref callee, .. } => {
+            infer_call_return_type(codegen_context, env, callee).unwrap_or(CoreType::Int64)
+        }
         _ => CoreType::Int64,
     }
+}
+
+/// Infer return core type for call expressions when callee metadata is available.
+fn infer_call_return_type<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &CodegenEnv<'context>,
+    callee: &Expr,
+) -> Option<CoreType> {
+    let Expr::Identifier { ref name, .. } = *callee else {
+        return None;
+    };
+
+    if let Some(runtime_name) = env.imported_functions.get(name) {
+        if let Some(runtime_return_type) = known_runtime_return_type(runtime_name.as_str()) {
+            return Some(runtime_return_type);
+        }
+    }
+    if let Some(runtime_return_type) = known_runtime_return_type(name) {
+        return Some(runtime_return_type);
+    }
+
+    if let Some(function) = codegen_context.module.get_function(name) {
+        return llvm_return_type_to_core_type(function.get_type().get_return_type());
+    }
+
+    env.imported_functions.get(name).and_then(|runtime_name| {
+        codegen_context
+            .module
+            .get_function(runtime_name.as_str())
+            .and_then(|function| {
+                llvm_return_type_to_core_type(function.get_type().get_return_type())
+            })
+    })
+}
+
+/// Map known runtime functions to language-level return `CoreType`.
+fn known_runtime_return_type(name: &str) -> Option<CoreType> {
+    match name {
+        "take_input" => Some(CoreType::String),
+        "random_int8" | "string_to_int8" => Some(CoreType::Int8),
+        "random_int16" | "string_to_int16" => Some(CoreType::Int16),
+        "random_int32" | "string_to_int32" => Some(CoreType::Int32),
+        "random_int64" | "string_to_int64" => Some(CoreType::Int64),
+        "random_uint8" | "string_to_uint8" => Some(CoreType::UInt8),
+        "random_uint16" | "string_to_uint16" => Some(CoreType::UInt16),
+        "random_uint32" | "string_to_uint32" => Some(CoreType::UInt32),
+        "random_uint64" | "string_to_uint64" => Some(CoreType::UInt64),
+        _ => None,
+    }
+}
+
+/// Convert LLVM return type metadata to fallback `CoreType` when possible.
+fn llvm_return_type_to_core_type(return_type: Option<BasicTypeEnum<'_>>) -> Option<CoreType> {
+    return_type.map(|llvm_type| match llvm_type {
+        BasicTypeEnum::IntType(int_type) => match int_type.get_bit_width() {
+            1 => CoreType::Boolean,
+            8 => CoreType::Int8,
+            16 => CoreType::Int16,
+            32 => CoreType::Int32,
+            _ => CoreType::Int64,
+        },
+        BasicTypeEnum::FloatType(float_type) => {
+            if float_type.get_bit_width() == 32 {
+                CoreType::Float32
+            } else {
+                CoreType::Float64
+            }
+        }
+        BasicTypeEnum::PointerType(_) => CoreType::String,
+        BasicTypeEnum::ArrayType(_) => CoreType::Array(alloc::boxed::Box::new(CoreType::Int64)),
+        BasicTypeEnum::StructType(_)
+        | BasicTypeEnum::VectorType(_)
+        | BasicTypeEnum::ScalableVectorType(_) => CoreType::Unit,
+    })
 }
