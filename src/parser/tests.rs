@@ -255,7 +255,9 @@ fn stmt_contains_feature(stmt: &Stmt, feature: AstFeature) -> bool {
             else_body,
             ..
         } => {
-            expr_contains_feature(expression, feature) || stmt_contains_feature(else_body, feature)
+            matches!(feature, AstFeature::Guard)
+                || expr_contains_feature(expression, feature)
+                || stmt_contains_feature(else_body, feature)
         }
         Stmt::Loop { body, .. } => stmt_contains_feature(body, feature),
         Stmt::Break { values, .. } | Stmt::Continue { values, .. } => values

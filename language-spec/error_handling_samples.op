@@ -26,10 +26,9 @@ let parse_number_core = f(text: string): int32 errors ParseError =>
     Description: Parses text into an int32 while handling failures locally.
 ##
 let parse_number = f(text: string): int32 errors ParseError =>
-    guard parse_number_core(text) into parsed else {
+    guard parse_number_core(text) into parsed else _e =>
         log_parse_failure(text)
         return 0
-    }
     return parsed
 
 ##
@@ -43,7 +42,7 @@ let read_line_from_disk = f(path: string): string errors IoError =>
 ##
 let load_number = f(path: string): int32 errors IoError, ParseError =>
     let content = propagate read_line_from_disk(path)
-    guard parse_number(content) into value else {
+    guard parse_number(content) into value else _e =>
         return 0
-    }
+    
     return value
