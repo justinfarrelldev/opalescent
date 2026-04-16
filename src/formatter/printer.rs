@@ -530,7 +530,43 @@ impl Formatter {
         }
     }
 
+    /// Print the body statements of a block at the given indent depth.
+    ///
+    /// This helper is used by control flow statements (if/while/for/loop) to
+    /// print block contents WITHOUT surrounding braces. The caller is responsible
+    /// for emitting the header line (e.g., `if cond:` or `loop =>`).
+    ///
+    /// # Language Spec Compliance
+    /// Control flow uses colon-block syntax per the Opalescent language spec.
+    fn print_block_body_indented(&self, block: &Stmt, depth: usize) -> String {
+        if let Stmt::Block { ref statements, .. } = *block {
+            if statements.is_empty() {
+                // Per language spec: empty block uses comment placeholder
+                return format!("{}# empty", self.indent(depth));
+            }
+            statements
+                .iter()
+                .map(|s| self.print_stmt(s, depth))
+                .collect::<Vec<_>>()
+                .join("\n")
+        } else {
+            // Non-block body: print as single statement
+            self.print_stmt(block, depth)
+        }
+    }
+
     /// Pretty-print a statement at the given indent `depth`.
+    ///
+    /// # Language Spec Compliance
+    ///
+    /// This method outputs control flow statements using Opalescent's colon-block
+    /// syntax per the language specification:
+    /// - `if condition:` followed by indented body (no braces)
+    /// - `while condition:` followed by indented body (no braces)
+    /// - `for var in iter:` followed by indented body (no braces)
+    /// - `loop =>` followed by indented body (no braces)
+    ///
+    /// See `language-spec/*.op` for canonical examples.
     #[expect(
         clippy::too_many_lines,
         reason = "exhaustive match over all Stmt variants"
@@ -622,12 +658,14 @@ impl Formatter {
                 ref else_branch,
                 ..
             } => {
+                // Per language spec: colon-block syntax
                 let cond_str = self.print_expr(condition, depth);
-                let then_str = self.print_stmt(then_branch, depth);
+                let body_str = self.print_block_body_indented(then_branch, depth.saturating_add(1));
                 let else_str = else_branch.as_ref().map_or_else(String::new, |eb| {
-                    format!(" else {}", self.print_stmt(eb, depth))
+                    let else_body = self.print_block_body_indented(eb, depth.saturating_add(1));
+                    format!("\n{indent}else:\n{else_body}")
                 });
-                format!("{indent}if {cond_str} {then_str}{else_str}")
+                format!("{indent}if {cond_str}:\n{body_str}{else_str}")
             }
             Stmt::For {
                 ref variable,
@@ -635,18 +673,20 @@ impl Formatter {
                 ref body,
                 ..
             } => {
+                // Per language spec: colon-block syntax
                 let iter_str = self.print_expr(iterable, depth);
-                let body_str = self.print_stmt(body, depth);
-                format!("{indent}for {variable} in {iter_str} {body_str}")
+                let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
+                format!("{indent}for {variable} in {iter_str}:\n{body_str}")
             }
             Stmt::While {
                 ref condition,
                 ref body,
                 ..
             } => {
+                // Per language spec: colon-block syntax
                 let cond_str = self.print_expr(condition, depth);
-                let body_str = self.print_stmt(body, depth);
-                format!("{indent}while {cond_str} {body_str}")
+                let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
+                format!("{indent}while {cond_str}:\n{body_str}")
             }
             Stmt::Guard {
                 ref expression,
@@ -674,8 +714,9 @@ impl Formatter {
                 }
             }
             Stmt::Loop { ref body, .. } => {
-                let body_str = self.print_stmt(body, depth);
-                format!("{indent}loop {body_str}")
+                // Per language spec: colon-block syntax
+                let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
+                format!("{indent}loop =>\n{body_str}")
             }
             Stmt::Break { ref values, .. } => {
                 if values.is_empty() {

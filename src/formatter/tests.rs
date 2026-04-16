@@ -215,7 +215,7 @@ mod formatter_tests {
             "level-1 statement should keep 4-space indentation, got: {output}"
         );
         assert!(
-            output.contains("\n    while true {\n"),
+            output.contains("\n    while true:\n"),
             "while header should keep 4-space indentation, got: {output}"
         );
         assert!(
@@ -1068,10 +1068,9 @@ mod formatter_tests {
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
             "entry main = f(): void => {\n",
-            "    loop {\n",
+            "    loop =>\n",
             "        # first\n",
             "        break\n",
-            "    }\n",
             "    return void\n",
             "}\n"
         );
@@ -1091,10 +1090,9 @@ mod formatter_tests {
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
             "entry main = f(): void => {\n",
-            "    for x in items {\n",
+            "    for x in items:\n",
             "        # first\n",
             "        continue\n",
-            "    }\n",
             "    return void\n",
             "}\n"
         );
@@ -1114,10 +1112,9 @@ mod formatter_tests {
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
             "entry main = f(): void => {\n",
-            "    while cond {\n",
+            "    while cond:\n",
             "        # first\n",
             "        continue\n",
-            "    }\n",
             "    return void\n",
             "}\n"
         );
@@ -1137,10 +1134,9 @@ mod formatter_tests {
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
             "entry main = f(): void => {\n",
-            "    if cond {\n",
+            "    if cond:\n",
             "        # first\n",
             "        return void\n",
-            "    }\n",
             "    return void\n",
             "}\n"
         );
@@ -1182,13 +1178,236 @@ mod formatter_tests {
         let result = fmt.format_source(source).unwrap();
         let expected = concat!(
             "entry main = f(): void => {\n",
-            "    loop {\n",
+            "    loop =>\n",
             "        ## doc ##\n",
             "        break\n",
-            "    }\n",
             "    return void\n",
             "}\n"
         );
         assert_eq!(result, expected);
+    }
+
+    // ─── Language Spec Compliance Tests (Regression Prevention) ────────────────
+    //
+    // These tests enforce that the formatter outputs syntactically valid
+    // Opalescent code per the language specification. They use colon-block
+    // syntax for control flow (if/while/for) and arrow syntax for loop.
+    //
+    // IMPORTANT: These tests are expected to FAIL before the formatter is fixed
+    // (TDD RED phase). After fixing printer.rs, they should all pass (GREEN).
+
+    // REGRESSION TEST: Ensures if-statements use colon-block syntax per the Opalescent
+    // language spec. See language-spec/fib_iterative.op for canonical examples.
+    #[test]
+    fn test_spec_compliance_if_no_braces() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    if true:\n",
+            "        return void\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let formatted = fmt.format_source(source).expect("should format");
+        assert!(
+            formatted.contains("if true:"),
+            "if-statement should use colon syntax per language spec, got: {formatted}"
+        );
+        assert!(
+            !formatted.contains("if true {"),
+            "if-statement must NOT use brace syntax, got: {formatted}"
+        );
+    }
+
+    // REGRESSION TEST: Ensures while-loops use colon-block syntax per the Opalescent
+    // language spec. See language-spec/fib_iterative.op for canonical examples.
+    #[test]
+    fn test_spec_compliance_while_no_braces() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    while true:\n",
+            "        break\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let formatted = fmt.format_source(source).expect("should format");
+        assert!(
+            formatted.contains("while true:"),
+            "while-loop should use colon syntax per language spec, got: {formatted}"
+        );
+        assert!(
+            !formatted.contains("while true {"),
+            "while-loop must NOT use brace syntax, got: {formatted}"
+        );
+    }
+
+    // REGRESSION TEST: Ensures for-loops use colon-block syntax per the Opalescent
+    // language spec. See language-spec/array_helpers.op for canonical examples.
+    #[test]
+    fn test_spec_compliance_for_no_braces() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    for x in items:\n",
+            "        break\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let formatted = fmt.format_source(source).expect("should format");
+        assert!(
+            formatted.contains("for x in items:"),
+            "for-loop should use colon syntax per language spec, got: {formatted}"
+        );
+        assert!(
+            !formatted.contains("for x in items {"),
+            "for-loop must NOT use brace syntax, got: {formatted}"
+        );
+    }
+
+    // REGRESSION TEST: Ensures loop expressions use arrow syntax per the Opalescent
+    // language spec. See language-spec/simple_quiz.op for canonical examples.
+    #[test]
+    fn test_spec_compliance_loop_no_braces() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    loop =>\n",
+            "        break\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let formatted = fmt.format_source(source).expect("should format");
+        assert!(
+            formatted.contains("loop =>"),
+            "loop should use arrow syntax per language spec, got: {formatted}"
+        );
+        assert!(
+            !formatted.contains("loop {"),
+            "loop must NOT use brace syntax, got: {formatted}"
+        );
+    }
+
+    // REGRESSION TEST: Ensures control flow statements do not contain semicolons
+    // per the Opalescent language spec (statements use newlines for termination).
+    #[test]
+    fn test_spec_compliance_no_semicolons_in_control_flow() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    if true:\n",
+            "        return void\n",
+            "    while true:\n",
+            "        break\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let formatted = fmt.format_source(source).expect("should format");
+        assert!(
+            !formatted.contains(';'),
+            "formatted output must not contain semicolons per language spec, got: {formatted}"
+        );
+    }
+
+    // REGRESSION TEST: Ensures function bodies use arrow-brace syntax (=> {)
+    // while control flow uses colon-block syntax. Function bodies KEEP braces.
+    #[test]
+    fn test_spec_compliance_function_body_arrow_syntax() {
+        let source = "entry main = f(): void =>\n    return void\n";
+        let fmt = Formatter::with_defaults();
+        let formatted = fmt.format_source(source).expect("should format");
+        assert!(
+            formatted.contains("=> {"),
+            "function bodies should use arrow-brace syntax per language spec, got: {formatted}"
+        );
+        assert!(
+            !formatted.contains("=> :"),
+            "function bodies must NOT use colon syntax, got: {formatted}"
+        );
+    }
+
+    // REGRESSION TEST: Ensures nested control flow statements all use colon-block
+    // syntax (no braces) per the Opalescent language spec.
+    #[test]
+    fn test_spec_compliance_nested_control_flow_no_braces() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    while true:\n",
+            "        if true:\n",
+            "            break\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let formatted = fmt.format_source(source).expect("should format");
+        assert!(
+            !formatted.contains("while true {"),
+            "nested while should use colon syntax, got: {formatted}"
+        );
+        assert!(
+            !formatted.contains("if true {"),
+            "nested if should use colon syntax, got: {formatted}"
+        );
+        assert!(
+            formatted.contains("while true:"),
+            "while should use colon syntax, got: {formatted}"
+        );
+        assert!(
+            formatted.contains("if true:"),
+            "if should use colon syntax, got: {formatted}"
+        );
+    }
+
+    // REGRESSION TEST: Ensures formatted output with control flow statements
+    // can be lexed and parsed cleanly (no syntax errors). This validates that
+    // the formatter produces valid Opalescent code per the language spec.
+    #[test]
+    fn test_spec_compliance_formatted_output_parses_cleanly() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    if true:\n",
+            "        return void\n",
+            "    while true:\n",
+            "        break\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let formatted = fmt.format_source(source).expect("should format");
+
+        let lexer = crate::lexer::Lexer::new(&formatted);
+        let (tokens, lex_errors) = lexer.tokenize();
+        assert!(
+            lex_errors.errors.is_empty(),
+            "formatted output should lex cleanly, got errors: {lex_errors:?}"
+        );
+
+        let parser = crate::parser::Parser::new(tokens);
+        let (_program, parse_errors) = parser.parse();
+        assert!(
+            parse_errors.errors.is_empty(),
+            "formatted output should parse cleanly, got errors: {parse_errors:?}"
+        );
+    }
+
+    #[test]
+    fn test_spec_files_format_and_reparse() {
+        // REGRESSION TEST: Ensures formatted output of language spec files is valid
+        // Opalescent syntax per language spec. Formatted code must lex and parse without errors.
+        let spec_files = [
+            include_str!("../../language-spec/fib_iterative.op"),
+            include_str!("../../language-spec/fib_recursive.op"),
+            include_str!("../../language-spec/array_helpers.op"),
+        ];
+        for source in spec_files {
+            let formatted = Formatter::with_defaults()
+                .format_source(source)
+                .expect("formatter should succeed on spec file");
+            let lexer = crate::lexer::Lexer::new(&formatted);
+            let (tokens, lex_errors) = lexer.tokenize();
+            assert!(
+                lex_errors.errors.is_empty(),
+                "formatted spec file output should lex without errors: {lex_errors:?}"
+            );
+            let parser = crate::parser::Parser::new(tokens);
+            let (_program, parse_errors) = parser.parse();
+            assert!(
+                parse_errors.errors.is_empty(),
+                "formatted spec file output should parse without errors: {parse_errors:?}"
+            );
+        }
     }
 }
