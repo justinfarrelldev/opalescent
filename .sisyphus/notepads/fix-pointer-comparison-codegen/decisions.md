@@ -1,0 +1,3 @@
+- Implemented pointer compare handling only for equality-family operators (`==`, `!=`, `is`, `is not`) and left relational operators unchanged.
+- String pointer comparison lowers through external `strcmp` declaration with `Linkage::External`.
+- Function pointer comparison lowers through `ptrtoint(i64)` followed by integer `icmp eq/ne`.

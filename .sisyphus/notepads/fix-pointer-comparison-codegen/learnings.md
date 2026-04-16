@@ -1,0 +1,3 @@
+- `codegen_cmp` must branch on `lhs.is_pointer_value()` before any `into_int_value()` conversion to avoid pointer/int panics.
+- Passing inferred operand type from `codegen_binary` is enough to disambiguate string pointers (`strcmp`) from function pointers (`ptrtoint` + `icmp`).
+- `ensure_*_function` helpers should follow the existing module declaration pattern used by string interpolation helpers.

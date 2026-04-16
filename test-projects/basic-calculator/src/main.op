@@ -1,0 +1,29 @@
+
+let handleAdd = f(num1: float64, num2: float64): float64 =>
+    return num1 + num2
+
+let handleSubtract = f(num1: float64, num2: float64): float64 =>
+    return num1 - num2
+
+let handleMultiply = f(num1: float64, num2: float64): float64 =>
+    return num1 * num2
+
+let handleDivide = f(num1: float64, num2: float64): float64 =>
+    return num1 / num2
+
+##
+    Entry point of the calculator app
+##
+entry main = f(): void => 
+    print('Enter +, -, *, /')
+    let operation = take_input()
+    if operation is '+':
+        print('Operation is +')
+    if operation is '-':
+        print('Operation is -')
+    if operation is '*':
+        print('Operation is *')
+    if operation is '/':
+        print('Operation is /')
+
+    return void    

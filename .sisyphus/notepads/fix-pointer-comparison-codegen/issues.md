@@ -1,0 +1,2 @@
+- `cargo make lint-fix`/`lint` raised strict Clippy constraints (`doc_markdown`, `pattern_type_mismatch`, `missing_docs_in_private_items`) requiring minor style-safe follow-up edits.
+- `cargo make lint-fix` touched `.sisyphus/boulder.json` (unrelated); excluded from commit.
