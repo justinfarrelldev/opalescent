@@ -6,8 +6,12 @@ use crate::codegen::expressions::{CodegenEnv, CodegenError};
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
+use inkwell::module::Linkage;
 use inkwell::types::BasicMetadataTypeEnum;
-use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, IntValue};
+use inkwell::values::{
+    BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue,
+};
+use inkwell::AddressSpace;
 use inkwell::{FloatPredicate, IntPredicate};
 
 pub fn codegen_numeric_binop<'context>(
@@ -218,7 +222,7 @@ pub fn codegen_cmp<'context>(
     lhs: BasicValueEnum<'context>,
     rhs: BasicValueEnum<'context>,
     operator: &BinaryOp,
-    expected_type: Option<&CoreType>,
+    operand_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     if lhs.is_float_value() {
         let pred = match *operator {
@@ -236,7 +240,11 @@ pub fn codegen_cmp<'context>(
             .as_basic_value_enum());
     }
 
-    let signed = expected_type.is_none_or(is_signed_core_type);
+    if lhs.is_pointer_value() {
+        return codegen_pointer_cmp(codegen_context, lhs, rhs, operator, operand_type);
+    }
+
+    let signed = operand_type.is_none_or(is_signed_core_type);
     let (lhs_int, rhs_int) = normalize_int_operands(
         codegen_context,
         lhs.into_int_value(),
@@ -285,6 +293,100 @@ pub fn codegen_cmp<'context>(
         .builder
         .build_int_compare(pred, lhs_int, rhs_int, "icmp")?
         .as_basic_value_enum())
+}
+
+/// Declares or retrieves the strcmp external function declaration from the LLVM module.
+fn ensure_strcmp_function<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let i8_ptr = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let i32_type = codegen_context.context.i32_type();
+    let fn_type = i32_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
+    codegen_context
+        .module
+        .get_function("strcmp")
+        .unwrap_or_else(|| {
+            codegen_context
+                .module
+                .add_function("strcmp", fn_type, Some(Linkage::External))
+        })
+}
+
+/// Lower pointer comparisons for supported pointer-typed operands.
+///
+/// String pointers use `strcmp` and compare the result against zero.
+/// Function pointers are converted to integers and compared via integer predicates.
+fn codegen_pointer_cmp<'context>(
+    codegen_context: &CodegenContext<'context>,
+    lhs: BasicValueEnum<'context>,
+    rhs: BasicValueEnum<'context>,
+    operator: &BinaryOp,
+    operand_type: Option<&CoreType>,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let lhs_ptr = lhs.into_pointer_value();
+    let rhs_ptr = rhs.into_pointer_value();
+
+    // Strings use strcmp; function pointers use direct pointer icmp.
+    let is_string = matches!(operand_type, Some(&CoreType::String) | None);
+
+    if is_string {
+        let strcmp_fn = ensure_strcmp_function(codegen_context);
+        let strcmp_call = codegen_context.builder.build_call(
+            strcmp_fn,
+            &[lhs_ptr.into(), rhs_ptr.into()],
+            "strcmp_result",
+        )?;
+        let strcmp_result = strcmp_call
+            .try_as_basic_value()
+            .basic()
+            .ok_or_else(|| CodegenError::new(String::from("strcmp returned void")))?
+            .into_int_value();
+
+        let zero = codegen_context.context.i32_type().const_int(0, false);
+        let pred = match *operator {
+            BinaryOp::Equal | BinaryOp::Is => IntPredicate::EQ,
+            BinaryOp::NotEqual | BinaryOp::IsNot => IntPredicate::NE,
+            _ => {
+                return Err(CodegenError::new(String::from(
+                    "unsupported string comparison operator",
+                )))
+            }
+        };
+
+        Ok(codegen_context
+            .builder
+            .build_int_compare(pred, strcmp_result, zero, "str_cmp")?
+            .as_basic_value_enum())
+    } else {
+        // Function pointer comparison: ptrtoint + icmp.
+        let pred = match *operator {
+            BinaryOp::Equal | BinaryOp::Is => IntPredicate::EQ,
+            BinaryOp::NotEqual | BinaryOp::IsNot => IntPredicate::NE,
+            _ => {
+                return Err(CodegenError::new(String::from(
+                    "unsupported pointer comparison operator",
+                )))
+            }
+        };
+
+        let ptr_int_type = codegen_context.context.i64_type();
+        let lhs_int =
+            codegen_context
+                .builder
+                .build_ptr_to_int(lhs_ptr, ptr_int_type, "lhs_ptr_int")?;
+        let rhs_int =
+            codegen_context
+                .builder
+                .build_ptr_to_int(rhs_ptr, ptr_int_type, "rhs_ptr_int")?;
+
+        Ok(codegen_context
+            .builder
+            .build_int_compare(pred, lhs_int, rhs_int, "ptr_cmp")?
+            .as_basic_value_enum())
+    }
 }
 
 /// Normalize integer operands to matching bit widths for LLVM integer ops.

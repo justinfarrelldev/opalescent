@@ -256,6 +256,25 @@ fn codegen_identifier<'context>(
     Ok(codegen_context.builder.build_load(binding.alloca, name)?)
 }
 
+/// Infer the `CoreType` of an expression for comparison purposes.
+/// Returns None if type cannot be determined (fallback to strcmp).
+fn infer_operand_type(expr: &Expr, env: &CodegenEnv<'_>) -> Option<CoreType> {
+    match *expr {
+        Expr::Identifier { ref name, .. } => env
+            .variables
+            .get(name)
+            .map(|binding| binding.core_type.clone()),
+        Expr::Literal { ref value, .. } => Some(match *value {
+            LiteralValue::String(_) => CoreType::String,
+            LiteralValue::Integer(_) => CoreType::Int64,
+            LiteralValue::Float(_) => CoreType::Float64,
+            LiteralValue::Boolean(_) => CoreType::Boolean,
+            LiteralValue::Void => CoreType::Unit,
+        }),
+        _ => None,
+    }
+}
+
 fn codegen_binary<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -273,14 +292,13 @@ fn codegen_binary<'context>(
         BinaryOp::Multiply => codegen_mul(codegen_context, env, lhs, rhs, expected_type),
         BinaryOp::Divide => codegen_div(codegen_context, env, lhs, rhs, expected_type),
         BinaryOp::Modulo => codegen_rem(codegen_context, env, lhs, rhs, expected_type),
-        BinaryOp::Equal
-        | BinaryOp::NotEqual
-        | BinaryOp::Less
-        | BinaryOp::LessEqual
-        | BinaryOp::Greater
-        | BinaryOp::GreaterEqual
-        | BinaryOp::Is
-        | BinaryOp::IsNot => codegen_cmp(codegen_context, lhs, rhs, operator, expected_type),
+        BinaryOp::Equal | BinaryOp::NotEqual | BinaryOp::Is | BinaryOp::IsNot => {
+            let operand_type = infer_operand_type(left, env);
+            codegen_cmp(codegen_context, lhs, rhs, operator, operand_type.as_ref())
+        }
+        BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => {
+            codegen_cmp(codegen_context, lhs, rhs, operator, expected_type)
+        }
         BinaryOp::And | BinaryOp::Or | BinaryOp::Xor => {
             codegen_bool(codegen_context, lhs, rhs, operator)
         }
