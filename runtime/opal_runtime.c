@@ -539,3 +539,79 @@ ParseResultF64 string_to_float64(const char* s) {
     result.value = val;
     return result;
 }
+
+/* ── Numeric-to-string conversion functions (infallible) ── */
+
+char* int8_to_string(int8_t value) {
+    int len = snprintf(NULL, 0, "%d", (int)value);
+    char* buf = (char*)malloc(len + 1);
+    snprintf(buf, len + 1, "%d", (int)value);
+    return buf;
+}
+
+char* int16_to_string(int16_t value) {
+    int len = snprintf(NULL, 0, "%d", (int)value);
+    char* buf = (char*)malloc(len + 1);
+    snprintf(buf, len + 1, "%d", (int)value);
+    return buf;
+}
+
+char* int32_to_string(int32_t value) {
+    int len = snprintf(NULL, 0, "%d", value);
+    char* buf = (char*)malloc(len + 1);
+    snprintf(buf, len + 1, "%d", value);
+    return buf;
+}
+
+char* int64_to_string(int64_t value) {
+    int len = snprintf(NULL, 0, "%ld", value);
+    char* buf = (char*)malloc(len + 1);
+    snprintf(buf, len + 1, "%ld", value);
+    return buf;
+}
+
+char* uint8_to_string(uint8_t value) {
+    int len = snprintf(NULL, 0, "%u", (unsigned)value);
+    char* buf = (char*)malloc(len + 1);
+    snprintf(buf, len + 1, "%u", (unsigned)value);
+    return buf;
+}
+
+char* uint16_to_string(uint16_t value) {
+    int len = snprintf(NULL, 0, "%u", (unsigned)value);
+    char* buf = (char*)malloc(len + 1);
+    snprintf(buf, len + 1, "%u", (unsigned)value);
+    return buf;
+}
+
+char* uint32_to_string(uint32_t value) {
+    int len = snprintf(NULL, 0, "%u", value);
+    char* buf = (char*)malloc(len + 1);
+    snprintf(buf, len + 1, "%u", value);
+    return buf;
+}
+
+char* uint64_to_string(uint64_t value) {
+    int len = snprintf(NULL, 0, "%lu", value);
+    char* buf = (char*)malloc(len + 1);
+    snprintf(buf, len + 1, "%lu", value);
+    return buf;
+}
+
+char* float32_to_string(float value) {
+    int len = snprintf(NULL, 0, "%g", (double)value);
+    char* buf = (char*)malloc(len + 1);
+    snprintf(buf, len + 1, "%g", (double)value);
+    return buf;
+}
+
+char* float64_to_string(double value) {
+    int len = snprintf(NULL, 0, "%g", value);
+    char* buf = (char*)malloc(len + 1);
+    snprintf(buf, len + 1, "%g", value);
+    return buf;
+}
+
+char* bool_to_string(int8_t value) {
+    return strdup(value ? "true" : "false");
+}
