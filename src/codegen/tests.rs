@@ -5,7 +5,7 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::{
     codegen_if_expression, codegen_if_statement, codegen_loop_statement, codegen_return_statement,
 };
-use crate::codegen::expressions::{codegen_expression, CodegenEnv};
+use crate::codegen::expressions::{codegen_expression, CodegenEnv, VariableBinding};
 use crate::codegen::functions::{
     codegen_call_expression, codegen_function_declaration, codegen_guard_expression,
     codegen_propagate_expression,
@@ -1744,5 +1744,257 @@ fn test_codegen_unsupported_let_type_annotation_error_message() {
     assert!(
         !err_msg.contains("task 22"),
         "error must not reference 'task 22', got: {err_msg}"
+    );
+}
+
+#[test]
+fn test_codegen_string_is_comparison_emits_strcmp() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "str_is_cmp");
+    let _function = create_codegen_function(&codegen_context, "str_is_cmp_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let x_binding = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("x"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("string"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(9200),
+        },
+        initializer: Some(string_lit(9201, "hello")),
+        span: test_span(),
+        id: test_node_id(9202),
+    };
+    let binding_result = codegen_statement(&codegen_context, &mut env, &x_binding);
+    assert!(
+        binding_result.is_ok(),
+        "string let binding should lower before is comparison"
+    );
+
+    let is_expr = binary(
+        9203,
+        ident(9204, "x"),
+        BinaryOp::Is,
+        string_lit(9205, "hello"),
+    );
+    let result = codegen_expression(
+        &codegen_context,
+        &mut env,
+        &is_expr,
+        Some(&CoreType::String),
+    );
+    assert!(
+        result.is_ok(),
+        "string is comparison should lower successfully"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("strcmp"),
+        "is operator on string should lower to strcmp in LLVM IR: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_string_is_not_comparison_emits_strcmp() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "str_is_not_cmp");
+    let _function = create_codegen_function(&codegen_context, "str_is_not_cmp_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let x_binding = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("x"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("string"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(9210),
+        },
+        initializer: Some(string_lit(9211, "hello")),
+        span: test_span(),
+        id: test_node_id(9212),
+    };
+    let binding_result = codegen_statement(&codegen_context, &mut env, &x_binding);
+    assert!(
+        binding_result.is_ok(),
+        "string let binding should lower before is not comparison"
+    );
+
+    let is_not_expr = binary(
+        9213,
+        ident(9214, "x"),
+        BinaryOp::IsNot,
+        string_lit(9215, "hello"),
+    );
+    let result = codegen_expression(
+        &codegen_context,
+        &mut env,
+        &is_not_expr,
+        Some(&CoreType::String),
+    );
+    assert!(
+        result.is_ok(),
+        "string is not comparison should lower successfully"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("strcmp"),
+        "is not operator on string should lower to strcmp in LLVM IR: {ir}"
+    );
+    assert!(
+        ir.contains("icmp ne"),
+        "is not operator on string should lower to icmp ne in LLVM IR: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_function_pointer_is_comparison_emits_icmp() {
+    use inkwell::AddressSpace;
+
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "fn_ptr_is_cmp");
+    let _function = create_codegen_function(&codegen_context, "fn_ptr_is_cmp_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let i8_ptr_type = context.i8_type().ptr_type(AddressSpace::default());
+    let f1_alloca = codegen_context
+        .builder
+        .build_alloca(i8_ptr_type, "f1")
+        .unwrap();
+    env.variables.insert(
+        String::from("f1"),
+        VariableBinding {
+            alloca: f1_alloca,
+            core_type: CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: Vec::new(),
+                return_types: vec![CoreType::Unit],
+                error_types: Vec::new(),
+            },
+        },
+    );
+
+    let f2_alloca = codegen_context
+        .builder
+        .build_alloca(i8_ptr_type, "f2")
+        .unwrap();
+    env.variables.insert(
+        String::from("f2"),
+        VariableBinding {
+            alloca: f2_alloca,
+            core_type: CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: Vec::new(),
+                return_types: vec![CoreType::Unit],
+                error_types: Vec::new(),
+            },
+        },
+    );
+
+    let is_expr = binary(9220, ident(9221, "f1"), BinaryOp::Is, ident(9222, "f2"));
+    let result = codegen_expression(
+        &codegen_context,
+        &mut env,
+        &is_expr,
+        Some(&CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: Vec::new(),
+            return_types: vec![CoreType::Unit],
+            error_types: Vec::new(),
+        }),
+    );
+    assert!(
+        result.is_ok(),
+        "function pointer is comparison should lower successfully"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("icmp eq"),
+        "is operator on function pointer should lower to icmp eq in LLVM IR: {ir}"
+    );
+    assert!(
+        !ir.contains("strcmp"),
+        "is operator on function pointer should NOT use strcmp: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
+    use inkwell::AddressSpace;
+
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "fn_ptr_is_not_cmp");
+    let _function = create_codegen_function(&codegen_context, "fn_ptr_is_not_cmp_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let i8_ptr_type = context.i8_type().ptr_type(AddressSpace::default());
+    let f1_alloca = codegen_context
+        .builder
+        .build_alloca(i8_ptr_type, "f1")
+        .unwrap();
+    env.variables.insert(
+        String::from("f1"),
+        VariableBinding {
+            alloca: f1_alloca,
+            core_type: CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: Vec::new(),
+                return_types: vec![CoreType::Unit],
+                error_types: Vec::new(),
+            },
+        },
+    );
+
+    let f2_alloca = codegen_context
+        .builder
+        .build_alloca(i8_ptr_type, "f2")
+        .unwrap();
+    env.variables.insert(
+        String::from("f2"),
+        VariableBinding {
+            alloca: f2_alloca,
+            core_type: CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: Vec::new(),
+                return_types: vec![CoreType::Unit],
+                error_types: Vec::new(),
+            },
+        },
+    );
+
+    let is_not_expr = binary(9230, ident(9231, "f1"), BinaryOp::IsNot, ident(9232, "f2"));
+    let result = codegen_expression(
+        &codegen_context,
+        &mut env,
+        &is_not_expr,
+        Some(&CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: Vec::new(),
+            return_types: vec![CoreType::Unit],
+            error_types: Vec::new(),
+        }),
+    );
+    assert!(
+        result.is_ok(),
+        "function pointer is not comparison should lower successfully"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("icmp ne"),
+        "is not operator on function pointer should lower to icmp ne in LLVM IR: {ir}"
+    );
+    assert!(
+        !ir.contains("strcmp"),
+        "is not operator on function pointer should NOT use strcmp: {ir}"
     );
 }
