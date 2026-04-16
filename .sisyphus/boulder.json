@@ -1,66 +1,59 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/fmt-preserve-comments.md",
-  "started_at": "2026-04-15T16:48:47.817Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/fix-formatter-lang-spec.md",
+  "started_at": "2026-04-16T03:43:19.503Z",
   "session_ids": [
-    "ses_26e0ec0e7ffehFlYpOPtxbAqQr",
-    "ses_26ce1f3f9ffemOmvdZcq8EfzaG",
-    "ses_26ce1b083ffeuAgELopSRc7tLM",
-    "ses_26ce16e1bffeOU9hxFzBmr0z4j",
-    "ses_26ce12574ffe6Mpcnu4iVgfipu"
+    "ses_26c1c59d6ffem32vwVwKBsQ2vq"
   ],
-  "plan_name": "fmt-preserve-comments",
-  "agent": "atlas",
   "session_origins": {
-    "ses_26e0ec0e7ffehFlYpOPtxbAqQr": "direct",
-    "ses_26ce1f3f9ffemOmvdZcq8EfzaG": "appended",
-    "ses_26ce1b083ffeuAgELopSRc7tLM": "appended",
-    "ses_26ce16e1bffeOU9hxFzBmr0z4j": "appended",
-    "ses_26ce12574ffe6Mpcnu4iVgfipu": "appended"
+    "ses_26c1c59d6ffem32vwVwKBsQ2vq": "direct"
   },
+  "plan_name": "fix-formatter-lang-spec",
+  "agent": "atlas",
   "task_sessions": {
-    "todo:0": {
-      "task_key": "todo:0",
-      "task_label": "0",
-      "task_title": "Commit Previous Work",
-      "session_id": "ses_26df2f086ffe4MNJ0Xiv9UMWO7",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-15T16:51:01.173Z"
-    },
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Render Doc Comments in Printer",
-      "session_id": "ses_26df152abffeHpZACq2UDsKxP8",
+      "task_title": "Write TDD regression tests for language spec compliance",
+      "session_id": "ses_26b96c5a5fferUmhPgxHTddj5c",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-04-15T17:12:29.721Z"
+      "updated_at": "2026-04-16T03:51:24.032Z"
     },
-    "todo:3": {
-      "task_key": "todo:3",
-      "task_label": "3",
-      "task_title": "Add Comment AST Variants and Update All Match Sites",
-      "session_id": "ses_26ddadf2cffe1G0YP2BSgl10IF",
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "Special-case control flow printing (keep Stmt::Block braced globally)",
+      "session_id": "ses_26b92e78bffeoLXzdfXLE5EId3",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-16T03:56:16.771Z"
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "Update existing tests expecting brace syntax to expect colon syntax",
+      "session_id": "ses_26b8a4959ffeSy6P1EWaxhv8hA",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-16T04:04:35.132Z"
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "Add documentation comments, spec file reparse test, and final verification",
+      "session_id": "ses_26b806e52ffeUcTYt6dNJxZ2Do",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-16T04:16:38.294Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "ses_26b5f347dffeXu3tuBz3S2HQAr",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-04-15T17:27:33.942Z"
-    },
-    "todo:4": {
-      "task_key": "todo:4",
-      "task_label": "4",
-      "task_title": "Modify Parser to Preserve Comments and Update Printer",
-      "session_id": "ses_26cef62f9ffeGgJf89xfUwkfK1",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-15T21:40:12.112Z"
-    },
-    "todo:5": {
-      "task_key": "todo:5",
-      "task_label": "5",
-      "task_title": "Add Unit Tests and Integration Tests for Comment Preservation",
-      "session_id": "ses_26ce1f3f9ffemOmvdZcq8EfzaG",
-      "agent": "oracle",
-      "updated_at": "2026-04-15T22:06:20.833Z"
+      "updated_at": "2026-04-16T05:20:59.931Z"
     }
   }
 }

@@ -1,0 +1,28 @@
+
+running 8 tests
+test formatter::tests::formatter_tests::test_spec_compliance_for_no_braces ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_nested_control_flow_no_braces ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_function_body_arrow_syntax ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_if_no_braces ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_formatted_output_parses_cleanly ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_loop_no_braces ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_no_semicolons_in_control_flow ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_while_no_braces ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 945 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

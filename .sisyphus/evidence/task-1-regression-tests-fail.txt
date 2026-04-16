@@ -1,0 +1,84 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-2bc6f09e335443f4)
+
+running 8 tests
+test formatter::tests::formatter_tests::test_spec_compliance_formatted_output_parses_cleanly ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_if_no_braces ... FAILED
+test formatter::tests::formatter_tests::test_spec_compliance_no_semicolons_in_control_flow ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_nested_control_flow_no_braces ... FAILED
+test formatter::tests::formatter_tests::test_spec_compliance_for_no_braces ... FAILED
+test formatter::tests::formatter_tests::test_spec_compliance_loop_no_braces ... FAILED
+test formatter::tests::formatter_tests::test_spec_compliance_function_body_arrow_syntax ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_while_no_braces ... FAILED
+
+failures:
+
+---- formatter::tests::formatter_tests::test_spec_compliance_if_no_braces stdout ----
+
+thread 'formatter::tests::formatter_tests::test_spec_compliance_if_no_braces' panicked at src/formatter/tests.rs:1216:9:
+if-statement should use colon syntax per language spec, got: entry main = f(): void => {
+    if true {
+        return void
+    }
+    return void
+}
+
+
+---- formatter::tests::formatter_tests::test_spec_compliance_nested_control_flow_no_braces stdout ----
+
+thread 'formatter::tests::formatter_tests::test_spec_compliance_nested_control_flow_no_braces' panicked at src/formatter/tests.rs:1342:9:
+nested while should use colon syntax, got: entry main = f(): void => {
+    while true {
+        if true {
+            break
+        }
+    }
+    return void
+}
+
+
+---- formatter::tests::formatter_tests::test_spec_compliance_for_no_braces stdout ----
+
+thread 'formatter::tests::formatter_tests::test_spec_compliance_for_no_braces' panicked at src/formatter/tests.rs:1260:9:
+for-loop should use colon syntax per language spec, got: entry main = f(): void => {
+    for x in items {
+        break
+    }
+    return void
+}
+
+
+---- formatter::tests::formatter_tests::test_spec_compliance_loop_no_braces stdout ----
+
+thread 'formatter::tests::formatter_tests::test_spec_compliance_loop_no_braces' panicked at src/formatter/tests.rs:1282:9:
+loop should use arrow syntax per language spec, got: entry main = f(): void => {
+    loop {
+        break
+    }
+    return void
+}
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- formatter::tests::formatter_tests::test_spec_compliance_while_no_braces stdout ----
+
+thread 'formatter::tests::formatter_tests::test_spec_compliance_while_no_braces' panicked at src/formatter/tests.rs:1238:9:
+while-loop should use colon syntax per language spec, got: entry main = f(): void => {
+    while true {
+        break
+    }
+    return void
+}
+
+
+
+failures:
+    formatter::tests::formatter_tests::test_spec_compliance_for_no_braces
+    formatter::tests::formatter_tests::test_spec_compliance_if_no_braces
+    formatter::tests::formatter_tests::test_spec_compliance_loop_no_braces
+    formatter::tests::formatter_tests::test_spec_compliance_nested_control_flow_no_braces
+    formatter::tests::formatter_tests::test_spec_compliance_while_no_braces
+
+test result: FAILED. 3 passed; 5 failed; 0 ignored; 0 measured; 945 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p opalescent --lib`
