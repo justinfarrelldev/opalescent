@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use crate::errors::reporter::CompilerError;
+use crate::errors::suggestions::get_suggestion;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -73,16 +74,9 @@ pub fn format_diagnostic(phase: CompilerPhase, error: &CompilerError) -> String 
                 .as_str(),
         ),
         CompilerError::TypeChecker(ref type_error) => {
-            let help_suffix = match *type_error {
-                crate::type_system::errors::TypeError::SymbolNotFound {
-                    suggestion: Some(ref suggestion),
-                    ..
-                } => format!("\n  suggestion: did you mean '{suggestion}'?"),
-                crate::type_system::errors::TypeError::CannotInferGenericType { .. } => {
-                    String::from("\n  suggestion: Consider adding type annotation.")
-                }
-                _ => String::new(),
-            };
+            let help_suffix = get_suggestion(error).map_or_else(String::new, |suggestion| {
+                format!("\n  suggestion: {suggestion}")
+            });
 
             format!(
                 "{}{}",
