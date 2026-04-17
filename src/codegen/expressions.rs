@@ -15,7 +15,7 @@ use crate::codegen::expressions_string::codegen_string_interpolation;
 use crate::codegen::functions::{
     codegen_call_expression, codegen_guard_expression, codegen_propagate_expression,
 };
-use crate::codegen::types::core_type_to_llvm;
+use crate::codegen::types::{core_type_to_llvm, integer_literal_bits, is_signed_core_type};
 use crate::type_system::type_mapping::{ast_type_to_core_type, AstTypeMappingError};
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
@@ -736,24 +736,4 @@ const fn is_integer_core_type(core_type: &CoreType) -> bool {
 
 const fn is_float_core_type(core_type: &CoreType) -> bool {
     matches!(*core_type, CoreType::Float32 | CoreType::Float64)
-}
-
-const fn is_signed_core_type(core_type: &CoreType) -> bool {
-    matches!(
-        *core_type,
-        CoreType::Int8 | CoreType::Int16 | CoreType::Int32 | CoreType::Int64
-    )
-}
-
-fn integer_literal_bits(number: i64) -> Result<u64, CodegenError> {
-    if number >= 0 {
-        return u64::try_from(number).map_err(|conversion_error| {
-            CodegenError::new(format!(
-                "failed converting non-negative integer literal to u64: {conversion_error}"
-            ))
-        });
-    }
-
-    let magnitude = number.unsigned_abs();
-    Ok((!magnitude).wrapping_add(1))
 }

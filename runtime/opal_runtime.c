@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <limits.h>
 #include <float.h>
@@ -22,6 +23,11 @@ static const char* invalid_digit_error(char ch) {
     static char msg[64];
     snprintf(msg, sizeof(msg), "invalid digit '%c' in input", ch);
     return msg;
+}
+
+void opal_runtime_error(const char* message) {
+    fprintf(stderr, "%s\n", message);
+    exit(1);
 }
 
 static const char* skip_leading_whitespace(const char* s) {
@@ -564,9 +570,9 @@ char* int32_to_string(int32_t value) {
 }
 
 char* int64_to_string(int64_t value) {
-    int len = snprintf(NULL, 0, "%ld", value);
+    int len = snprintf(NULL, 0, "%" PRId64, value);
     char* buf = (char*)malloc(len + 1);
-    snprintf(buf, len + 1, "%ld", value);
+    snprintf(buf, len + 1, "%" PRId64, value);
     return buf;
 }
 
@@ -592,9 +598,9 @@ char* uint32_to_string(uint32_t value) {
 }
 
 char* uint64_to_string(uint64_t value) {
-    int len = snprintf(NULL, 0, "%lu", value);
+    int len = snprintf(NULL, 0, "%" PRIu64, value);
     char* buf = (char*)malloc(len + 1);
-    snprintf(buf, len + 1, "%lu", value);
+    snprintf(buf, len + 1, "%" PRIu64, value);
     return buf;
 }
 

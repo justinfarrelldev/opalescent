@@ -3,6 +3,7 @@ extern crate alloc;
 use crate::ast::BinaryOp;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::expressions::{CodegenEnv, CodegenError};
+use crate::codegen::types::is_signed_core_type;
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
@@ -425,14 +426,6 @@ fn normalize_int_operands<'context>(
         };
         Ok((widened_lhs, rhs))
     }
-}
-
-/// Returns true when the core type is a signed integer type (i8, i16, i32, i64).
-const fn is_signed_core_type(core_type: &CoreType) -> bool {
-    matches!(
-        *core_type,
-        CoreType::Int8 | CoreType::Int16 | CoreType::Int32 | CoreType::Int64
-    )
 }
 
 /// Lower `base ^ exp` for integer types using a loop-based repeated multiplication.

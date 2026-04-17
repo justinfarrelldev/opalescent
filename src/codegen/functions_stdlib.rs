@@ -20,6 +20,10 @@ pub fn declare_stdlib_function<'context>(
     codegen_context: &CodegenContext<'context>,
     name: &str,
 ) -> Option<FunctionValue<'context>> {
+    if !STDLIB_NAMES.contains(&name) {
+        return None;
+    }
+
     let ctx = codegen_context.context;
     let module = &codegen_context.module;
     let i8_ptr = ctx.i8_type().ptr_type(AddressSpace::default());
@@ -171,6 +175,7 @@ pub fn declare_stdlib_function<'context>(
             let ft = i8_ptr.fn_type(&[i8_type.into()], false);
             Some(module.add_function("bool_to_string", ft, None))
         }),
+        "opal_runtime_error" => void_fn!("opal_runtime_error", i8_ptr),
         _ => None,
     }
 }
@@ -181,50 +186,83 @@ pub fn resolve_imported_runtime_name(
     symbol_name: &str,
 ) -> Result<String, CodegenError> {
     match (module_name, symbol_name) {
-        ("standard", "take_input") => Ok("take_input".to_owned()),
-        ("standard", "print") => Ok("print".to_owned()),
-        ("standard", "print_string") => Ok("print_string".to_owned()),
-        ("standard", "print_int8") => Ok("print_int8".to_owned()),
-        ("standard", "print_int16") => Ok("print_int16".to_owned()),
-        ("standard", "print_int32") => Ok("print_int32".to_owned()),
-        ("standard", "print_int64") => Ok("print_int64".to_owned()),
-        ("standard", "print_uint8") => Ok("print_uint8".to_owned()),
-        ("standard", "print_uint16") => Ok("print_uint16".to_owned()),
-        ("standard", "print_uint32") => Ok("print_uint32".to_owned()),
-        ("standard", "print_uint64") => Ok("print_uint64".to_owned()),
-        ("standard", "print_float32") => Ok("print_float32".to_owned()),
-        ("standard", "print_float64") => Ok("print_float64".to_owned()),
-        ("standard", "string_to_int8") => Ok("string_to_int8".to_owned()),
-        ("standard", "string_to_int16") => Ok("string_to_int16".to_owned()),
-        ("standard", "string_to_int32") => Ok("string_to_int32".to_owned()),
-        ("standard", "string_to_int64") => Ok("string_to_int64".to_owned()),
-        ("standard", "string_to_uint8") => Ok("string_to_uint8".to_owned()),
-        ("standard", "string_to_uint16") => Ok("string_to_uint16".to_owned()),
-        ("standard", "string_to_uint32") => Ok("string_to_uint32".to_owned()),
-        ("standard", "string_to_uint64") => Ok("string_to_uint64".to_owned()),
-        ("standard", "string_to_float32") => Ok("string_to_float32".to_owned()),
-        ("standard", "string_to_float64") => Ok("string_to_float64".to_owned()),
-        ("standard", "int8_to_string") => Ok("int8_to_string".to_owned()),
-        ("standard", "int16_to_string") => Ok("int16_to_string".to_owned()),
-        ("standard", "int32_to_string") => Ok("int32_to_string".to_owned()),
-        ("standard", "int64_to_string") => Ok("int64_to_string".to_owned()),
-        ("standard", "uint8_to_string") => Ok("uint8_to_string".to_owned()),
-        ("standard", "uint16_to_string") => Ok("uint16_to_string".to_owned()),
-        ("standard", "uint32_to_string") => Ok("uint32_to_string".to_owned()),
-        ("standard", "uint64_to_string") => Ok("uint64_to_string".to_owned()),
-        ("standard", "float32_to_string") => Ok("float32_to_string".to_owned()),
-        ("standard", "float64_to_string") => Ok("float64_to_string".to_owned()),
-        ("standard", "bool_to_string") => Ok("bool_to_string".to_owned()),
-        ("math", "random_int8") => Ok("random_int8".to_owned()),
-        ("math", "random_int16") => Ok("random_int16".to_owned()),
-        ("math", "random_int32") => Ok("random_int32".to_owned()),
-        ("math", "random_int64") => Ok("random_int64".to_owned()),
-        ("math", "random_uint8") => Ok("random_uint8".to_owned()),
-        ("math", "random_uint16") => Ok("random_uint16".to_owned()),
-        ("math", "random_uint32") => Ok("random_uint32".to_owned()),
-        ("math", "random_uint64") => Ok("random_uint64".to_owned()),
+        ("standard" | "math", name) if STDLIB_NAMES.contains(&name) => Ok(name.to_owned()),
         _ => Err(CodegenError::new(format!(
             "unknown import symbol '{symbol_name}' in module '{module_name}'"
         ))),
+    }
+}
+
+#[doc = "Authoritative list of all stdlib function names."]
+pub const STDLIB_NAMES: &[&str] = &[
+    "print",
+    "printf",
+    "take_input",
+    "print_string",
+    "print_int8",
+    "print_int16",
+    "print_int32",
+    "print_int64",
+    "print_uint8",
+    "print_uint16",
+    "print_uint32",
+    "print_uint64",
+    "print_float32",
+    "print_float64",
+    "random_int8",
+    "random_int16",
+    "random_int32",
+    "random_int64",
+    "random_uint8",
+    "random_uint16",
+    "random_uint32",
+    "random_uint64",
+    "string_to_int8",
+    "string_to_int16",
+    "string_to_int32",
+    "string_to_int64",
+    "string_to_uint8",
+    "string_to_uint16",
+    "string_to_uint32",
+    "string_to_uint64",
+    "string_to_float32",
+    "string_to_float64",
+    "int8_to_string",
+    "int16_to_string",
+    "int32_to_string",
+    "int64_to_string",
+    "uint8_to_string",
+    "uint16_to_string",
+    "uint32_to_string",
+    "uint64_to_string",
+    "float32_to_string",
+    "float64_to_string",
+    "bool_to_string",
+    "opal_runtime_error",
+];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stdlib_names_registry_exists_and_has_correct_count() {
+        assert_eq!(
+            STDLIB_NAMES.len(),
+            44,
+            "stdlib registry should have 44 names"
+        );
+        assert!(
+            STDLIB_NAMES.contains(&"opal_runtime_error"),
+            "opal_runtime_error should be in registry"
+        );
+        assert!(
+            STDLIB_NAMES.contains(&"print"),
+            "print should be in registry"
+        );
+        assert!(
+            STDLIB_NAMES.contains(&"random_int32"),
+            "random_int32 should be in registry"
+        );
     }
 }

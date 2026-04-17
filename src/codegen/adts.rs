@@ -3,6 +3,7 @@ extern crate alloc;
 use crate::ast::{Expr, Pattern};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError};
+use crate::codegen::types::integer_literal_bits;
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
 use alloc::format;
@@ -362,19 +363,6 @@ fn codegen_product_constructor<'context>(
         .builder
         .build_load(alloca, &env.next_name("product.value"))
         .map_err(CodegenError::from)
-}
-
-#[doc = "Encode signed integer literals as two's-complement bit patterns."]
-fn integer_literal_bits(number: i64) -> Result<u64, CodegenError> {
-    if number >= 0 {
-        return u64::try_from(number).map_err(|conversion_error| {
-            CodegenError::new(format!(
-                "failed converting non-negative integer literal to u64: {conversion_error}"
-            ))
-        });
-    }
-    let magnitude = number.unsigned_abs();
-    Ok((!magnitude).wrapping_add(1))
 }
 
 #[doc = "Render type argument to specialization suffix fragment."]

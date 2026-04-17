@@ -342,10 +342,6 @@ pub fn codegen_guard_expression<'context>(
 }
 
 #[doc = "Resolve the called function value for identifier or lambda callees."]
-#[expect(
-    clippy::too_many_lines,
-    reason = "Identifier/lambda dispatch and monomorphization guard are intentionally centralized"
-)]
 fn resolve_callee_function<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -354,41 +350,8 @@ fn resolve_callee_function<'context>(
 ) -> Result<FunctionValue<'context>, CodegenError> {
     match *callee {
         Expr::Identifier { ref name, .. } => {
-            let is_stdlib_name = matches!(
-                name.as_str(),
-                "print"
-                    | "printf"
-                    | "print_string"
-                    | "print_int8"
-                    | "print_int16"
-                    | "print_int32"
-                    | "print_int64"
-                    | "print_uint8"
-                    | "print_uint16"
-                    | "print_uint32"
-                    | "print_uint64"
-                    | "print_float32"
-                    | "print_float64"
-                    | "take_input"
-                    | "random_int8"
-                    | "random_int16"
-                    | "random_int32"
-                    | "random_int64"
-                    | "random_uint8"
-                    | "random_uint16"
-                    | "random_uint32"
-                    | "random_uint64"
-                    | "string_to_int8"
-                    | "string_to_int16"
-                    | "string_to_int32"
-                    | "string_to_int64"
-                    | "string_to_uint8"
-                    | "string_to_uint16"
-                    | "string_to_uint32"
-                    | "string_to_uint64"
-                    | "string_to_float32"
-                    | "string_to_float64"
-            );
+            let is_stdlib_name =
+                crate::codegen::functions_stdlib::STDLIB_NAMES.contains(&name.as_str());
             let base_function =
                 if let Some(imported_runtime_name) = env.imported_functions.get(name) {
                     codegen_context
@@ -851,6 +814,51 @@ mod tests {
         assert_eq!(
             parameter_type_text, "i64",
             "print_int64 first parameter should be i64"
+        );
+    }
+
+    #[test]
+    fn opal_runtime_error_is_stdlib_name() {
+        let context = Context::create();
+        let codegen_context = CodegenContext::new(&context, "opal_runtime_error_is_stdlib_name");
+        let mut env = CodegenEnv::new(true);
+
+        let result = resolve_callee_function(
+            &codegen_context,
+            &mut env,
+            &identifier("opal_runtime_error"),
+            None,
+        );
+        assert!(
+            result.is_ok(),
+            "opal_runtime_error should resolve successfully to stdlib function"
+        );
+
+        let Ok(function) = result else {
+            return;
+        };
+        assert_eq!(
+            function.get_name().to_str(),
+            Ok("opal_runtime_error"),
+            "opal_runtime_error should resolve to module function named opal_runtime_error"
+        );
+
+        let function_type = function.get_type();
+        assert!(
+            function_type.get_return_type().is_none(),
+            "opal_runtime_error should return void in LLVM"
+        );
+
+        let parameter_types = function_type.get_param_types();
+        assert_eq!(
+            parameter_types.len(),
+            1,
+            "opal_runtime_error should accept exactly one parameter"
+        );
+        let parameter_type_text = parameter_types[0].print_to_string().to_string();
+        assert_eq!(
+            parameter_type_text, "i8*",
+            "opal_runtime_error first parameter should be i8 pointer (string message)"
         );
     }
 }
