@@ -27,7 +27,19 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Embedded C runtime source used during native linking.
-const RUNTIME_SOURCE: &str = include_str!("../runtime/opal_runtime.c");
+const RUNTIME_SOURCE: &str = concat!(
+    include_str!("../runtime/opal_error.c"),
+    "\n",
+    include_str!("../runtime/opal_io.c"),
+    "\n",
+    include_str!("../runtime/opal_print.c"),
+    "\n",
+    include_str!("../runtime/opal_rng.c"),
+    "\n",
+    include_str!("../runtime/opal_parse.c"),
+    "\n",
+    include_str!("../runtime/opal_string.c"),
+);
 
 /// Temporary runtime source file materialized for the system C compiler.
 struct RuntimeTempFile {
