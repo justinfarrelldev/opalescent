@@ -26,7 +26,7 @@ use inkwell::types::BasicType;
 use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
 };
-use inkwell::IntPredicate;
+use inkwell::{FloatPredicate, IntPredicate};
 
 #[derive(Debug, Clone)]
 pub struct CodegenError {
@@ -58,6 +58,7 @@ impl From<BuilderError> for CodegenError {
 pub struct VariableBinding<'context> {
     pub alloca: PointerValue<'context>,
     pub core_type: CoreType,
+    pub length: Option<u32>,
 }
 
 pub struct CodegenEnv<'context> {
@@ -347,6 +348,16 @@ fn codegen_unary<'context>(
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    clippy::cast_precision_loss,
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_lossless,
+    clippy::arithmetic_side_effects,
+    clippy::let_underscore_untyped,
+    reason = "Float-to-int cast range checking requires complex arithmetic and type conversions"
+)]
 fn codegen_cast<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -415,6 +426,142 @@ fn codegen_cast<'context>(
 
         if is_integer_core_type(&target_type) {
             let int_type = integer_type_for(codegen_context, &target_type)?;
+            let float_bits = float_value.get_type().get_bit_width();
+
+            // NaN check: fcmp uno value, value (true if value is NaN)
+            let isnan = codegen_context.builder.build_float_compare(
+                FloatPredicate::UNO,
+                float_value,
+                float_value,
+                &env.next_name("cast.nan"),
+            )?;
+            let current_fn = current_function(codegen_context)?;
+            let trap_block = codegen_context
+                .context
+                .append_basic_block(current_fn, &env.next_name("cast.trap"));
+            let cont_block = codegen_context
+                .context
+                .append_basic_block(current_fn, &env.next_name("cast.cont"));
+            let _branch_nan = codegen_context
+                .builder
+                .build_conditional_branch(isnan, trap_block, cont_block)?;
+
+            // Position trap block: call runtime error
+            codegen_context.builder.position_at_end(trap_block);
+            let msg = codegen_context
+                .builder
+                .build_global_string_ptr(
+                    "float-to-integer cast out of range",
+                    &env.next_name("cast.msg"),
+                )?
+                .as_pointer_value();
+            let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
+                codegen_context,
+                "opal_runtime_error",
+            )
+            .ok_or_else(|| {
+                CodegenError::new(String::from("opal_runtime_error declaration missing"))
+            })?;
+            let _ = codegen_context.builder.build_call(
+                runtime_fn,
+                &[msg.into()],
+                &env.next_name("cast.trap.call"),
+            )?;
+            let _ = codegen_context.builder.build_unreachable()?;
+
+            // Continue block: perform range comparisons
+            codegen_context.builder.position_at_end(cont_block);
+
+            // Compute integer min/max as float constants based on target bit width and signedness
+            let bits = int_type.get_bit_width();
+            let (min_int, max_int) = if is_signed_core_type(&target_type) {
+                let min = -(1_i128 << (bits - 1));
+                let max = (1_i128 << (bits - 1)) - 1;
+                (min as f64, max as f64)
+            } else {
+                let min = 0_f64;
+                let max = ((1_u128 << bits) - 1) as f64;
+                (min, max)
+            };
+
+            // Create float constants of appropriate width (f32/f64)
+            let min_fp_const = if float_bits == 32 {
+                codegen_context
+                    .context
+                    .f32_type()
+                    .const_float((min_int as f32) as f64)
+                    .as_basic_value_enum()
+            } else {
+                codegen_context
+                    .context
+                    .f64_type()
+                    .const_float(min_int)
+                    .as_basic_value_enum()
+            };
+            let max_fp_const = if float_bits == 32 {
+                codegen_context
+                    .context
+                    .f32_type()
+                    .const_float((max_int as f32) as f64)
+                    .as_basic_value_enum()
+            } else {
+                codegen_context
+                    .context
+                    .f64_type()
+                    .const_float(max_int)
+                    .as_basic_value_enum()
+            };
+
+            // Compare value >= min && value <= max
+            let ge_min = codegen_context.builder.build_float_compare(
+                FloatPredicate::OGE,
+                float_value,
+                min_fp_const.into_float_value(),
+                &env.next_name("cast.ge_min"),
+            )?;
+            let le_max = codegen_context.builder.build_float_compare(
+                FloatPredicate::OLE,
+                float_value,
+                max_fp_const.into_float_value(),
+                &env.next_name("cast.le_max"),
+            )?;
+            let in_range = codegen_context.builder.build_and(
+                ge_min,
+                le_max,
+                &env.next_name("cast.in_range"),
+            )?;
+
+            let ok_block = codegen_context
+                .context
+                .append_basic_block(current_fn, &env.next_name("cast.ok"));
+            let trap_block2 = codegen_context
+                .context
+                .append_basic_block(current_fn, &env.next_name("cast.trap2"));
+            let _branch = codegen_context.builder.build_conditional_branch(
+                in_range,
+                ok_block,
+                trap_block2,
+            )?;
+
+            // Position trap_block2: call runtime error (same as NaN trap)
+            codegen_context.builder.position_at_end(trap_block2);
+            let msg2 = codegen_context
+                .builder
+                .build_global_string_ptr(
+                    "float-to-integer cast out of range",
+                    &env.next_name("cast.msg2"),
+                )?
+                .as_pointer_value();
+            let _ = codegen_context.builder.build_call(
+                runtime_fn,
+                &[msg2.into()],
+                &env.next_name("cast.trap.call2"),
+            )?;
+            let _ = codegen_context.builder.build_unreachable()?;
+
+            // Position ok_block: perform the actual conversion
+            codegen_context.builder.position_at_end(ok_block);
+
             let casted = if is_signed_core_type(&target_type) {
                 codegen_context.builder.build_float_to_signed_int(
                     float_value,

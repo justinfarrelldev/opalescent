@@ -1889,6 +1889,7 @@ fn test_codegen_function_pointer_is_comparison_emits_icmp() {
                 return_types: vec![CoreType::Unit],
                 error_types: Vec::new(),
             },
+            length: None,
         },
     );
 
@@ -1906,6 +1907,7 @@ fn test_codegen_function_pointer_is_comparison_emits_icmp() {
                 return_types: vec![CoreType::Unit],
                 error_types: Vec::new(),
             },
+            length: None,
         },
     );
 
@@ -1961,6 +1963,7 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
                 return_types: vec![CoreType::Unit],
                 error_types: Vec::new(),
             },
+            length: None,
         },
     );
 
@@ -1978,6 +1981,7 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
                 return_types: vec![CoreType::Unit],
                 error_types: Vec::new(),
             },
+            length: None,
         },
     );
 

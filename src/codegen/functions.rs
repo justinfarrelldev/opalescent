@@ -87,6 +87,7 @@ pub fn codegen_function_declaration<'context>(
             VariableBinding {
                 alloca,
                 core_type: parameter_core_types[index].clone(),
+                length: None,
             },
         );
     }
@@ -94,7 +95,7 @@ pub fn codegen_function_declaration<'context>(
     codegen_statement(codegen_context, env, body)?;
     if let Some(block) = codegen_context.builder.get_insert_block() {
         if block.get_terminator().is_none() {
-            emit_default_return(codegen_context, &returns)?;
+            emit_default_return(codegen_context, env, &returns)?;
         }
     }
 
@@ -190,14 +191,9 @@ pub fn codegen_call_expression<'context>(
                     .build_load(binding.alloca, capture.as_str())?;
                 lowered_args.push(loaded.into());
             } else {
-                lowered_args.push(
-                    codegen_context
-                        .context
-                        .i64_type()
-                        .const_zero()
-                        .as_basic_value_enum()
-                        .into(),
-                );
+                return Err(CodegenError::new(format!(
+                    "captured variable not found: {capture}"
+                )));
             }
         }
     }
@@ -333,6 +329,7 @@ pub fn codegen_guard_expression<'context>(
                 VariableBinding {
                     alloca,
                     core_type: llvm_basic_type_to_core_type(success_value.get_type()),
+                    length: None,
                 },
             );
             return Ok(success_value);
@@ -342,6 +339,13 @@ pub fn codegen_guard_expression<'context>(
 }
 
 #[doc = "Resolve the called function value for identifier or lambda callees."]
+#[expect(
+    clippy::too_many_lines,
+    clippy::arithmetic_side_effects,
+    clippy::uninlined_format_args,
+    clippy::pattern_type_mismatch,
+    reason = "Lambda body codegen requires complex parameter/capture binding and body generation"
+)]
 fn resolve_callee_function<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -398,6 +402,7 @@ fn resolve_callee_function<'context>(
             ref params,
             ref return_types,
             ref captured_variables,
+            ref body,
             ..
         } => {
             let mut parameter_types = params
@@ -430,7 +435,64 @@ fn resolve_callee_function<'context>(
                 .context
                 .append_basic_block(function, "entry");
             codegen_context.builder.position_at_end(entry);
-            emit_default_return(codegen_context, &return_core_types)?;
+
+            // Bind parameters to allocas
+            let args: Vec<_> = function.get_params().into_iter().collect();
+            for (i, param) in params.iter().enumerate() {
+                let param_value = args[i];
+                let alloca = codegen_context
+                    .builder
+                    .build_alloca(param_value.get_type(), &param.name)?;
+                codegen_context.builder.build_store(alloca, param_value)?;
+                env.variables.insert(
+                    param.name.clone(),
+                    VariableBinding {
+                        alloca,
+                        core_type: parameter_types[i].clone(),
+                        length: None,
+                    },
+                );
+            }
+
+            // Bind captured variables to allocas
+            for (i, capture) in captured_variables.iter().enumerate() {
+                let capture_value = args[params.len() + i];
+                let alloca = codegen_context
+                    .builder
+                    .build_alloca(capture_value.get_type(), &format!("capture_{}", capture))?;
+                codegen_context.builder.build_store(alloca, capture_value)?;
+                env.variables.insert(
+                    capture.clone(),
+                    VariableBinding {
+                        alloca,
+                        core_type: parameter_types[params.len() + i].clone(),
+                        length: None,
+                    },
+                );
+            }
+
+            // Codegen lambda body
+            match body {
+                crate::ast::LambdaBody::Expression(expr) => {
+                    let result = crate::codegen::expressions::codegen_expression(
+                        codegen_context,
+                        env,
+                        expr,
+                        None,
+                    )?;
+                    codegen_context.builder.build_return(Some(&result))?;
+                }
+                crate::ast::LambdaBody::Block(stmts) => {
+                    for stmt in stmts {
+                        crate::codegen::statements::codegen_statement(codegen_context, env, stmt)?;
+                    }
+                    // If no explicit return, emit default
+                    if codegen_context.builder.get_insert_block().is_some() {
+                        emit_default_return(codegen_context, env, &return_core_types)?;
+                    }
+                }
+            }
+
             Ok(function)
         }
         _ => Err(CodegenError::new(String::from(
@@ -468,38 +530,29 @@ fn build_function_type<'context>(
 #[doc = "Emit a default return for current function based on return shape."]
 fn emit_default_return(
     codegen_context: &CodegenContext<'_>,
+    env: &mut CodegenEnv<'_>,
     returns: &[CoreType],
 ) -> Result<(), CodegenError> {
     if returns.is_empty() || (returns.len() == 1 && matches!(returns[0], CoreType::Unit)) {
         let _ret = codegen_context.builder.build_return(None)?;
         return Ok(());
     }
-    if returns.len() == 1 {
-        let default_value = core_type_to_llvm(codegen_context.context, &returns[0]).const_zero();
-        let _ret = codegen_context.builder.build_return(Some(&default_value))?;
-        return Ok(());
-    }
-    let fields = returns
-        .iter()
-        .map(|core_type| core_type_to_llvm(codegen_context.context, core_type))
-        .collect::<Vec<_>>();
-    let aggregate_type = codegen_context
-        .context
-        .struct_type(fields.as_slice(), false);
-    let mut aggregate = aggregate_type.get_undef();
-    for (index, field_type) in fields.iter().enumerate() {
-        aggregate = codegen_context
-            .builder
-            .build_insert_value(
-                aggregate,
-                field_type.const_zero(),
-                u32::try_from(index)
-                    .map_err(|conversion_error| CodegenError::new(format!("{conversion_error}")))?,
-                "ret.agg.insert",
-            )?
-            .into_struct_value();
-    }
-    let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+
+    let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
+        codegen_context,
+        "opal_runtime_error",
+    )
+    .ok_or_else(|| CodegenError::new(String::from("opal_runtime_error declaration missing")))?;
+    let msg = codegen_context
+        .builder
+        .build_global_string_ptr("missing return statement", &env.next_name("ret.msg"))?
+        .as_pointer_value();
+    let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+        runtime_fn,
+        &[msg.into()],
+        &env.next_name("ret.call"),
+    )?;
+    let _: inkwell::values::InstructionValue = codegen_context.builder.build_unreachable()?;
     Ok(())
 }
 

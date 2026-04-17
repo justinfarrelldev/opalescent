@@ -51,35 +51,8 @@ pub fn codegen_numeric_binop<'context>(
         rhs.into_int_value(),
         signed,
     )?;
-    if env.debug_mode {
-        return codegen_checked_overflow_intrinsic(
-            codegen_context,
-            env,
-            lhs_int,
-            rhs_int,
-            expected_type,
-            op,
-        );
-    }
-
-    let value = match op {
-        "add" => codegen_context
-            .builder
-            .build_int_add(lhs_int, rhs_int, "iadd")?
-            .as_basic_value_enum(),
-        "sub" => codegen_context
-            .builder
-            .build_int_sub(lhs_int, rhs_int, "isub")?
-            .as_basic_value_enum(),
-        "mul" => codegen_context
-            .builder
-            .build_int_mul(lhs_int, rhs_int, "imul")?
-            .as_basic_value_enum(),
-        _ => {
-            return Err(CodegenError::new(format!("unsupported integer op '{op}'")));
-        }
-    };
-    Ok(value)
+    // Always use checked overflow intrinsics in all build modes
+    codegen_checked_overflow_intrinsic(codegen_context, env, lhs_int, rhs_int, expected_type, op)
 }
 
 pub fn codegen_checked_overflow_intrinsic<'context>(
@@ -147,7 +120,20 @@ pub fn codegen_checked_overflow_intrinsic<'context>(
         .build_conditional_branch(flag, trap_block, cont_block)?;
 
     codegen_context.builder.position_at_end(trap_block);
-    super::expressions::emit_trap_call(codegen_context)?;
+    let msg = codegen_context
+        .builder
+        .build_global_string_ptr("integer overflow", &env.next_name("ovr.msg"))?
+        .as_pointer_value();
+    let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
+        codegen_context,
+        "opal_runtime_error",
+    )
+    .ok_or_else(|| CodegenError::new(String::from("opal_runtime_error declaration missing")))?;
+    let trap_args: [BasicMetadataValueEnum<'context>; 1] = [msg.into()];
+    let _call =
+        codegen_context
+            .builder
+            .build_call(runtime_fn, &trap_args, &env.next_name("ovr.trap"))?;
     let _unreachable = codegen_context.builder.build_unreachable()?;
 
     codegen_context.builder.position_at_end(cont_block);

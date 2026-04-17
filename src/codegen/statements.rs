@@ -139,6 +139,7 @@ fn codegen_let_statement<'context>(
         VariableBinding {
             alloca,
             core_type: declared_type,
+            length: None,
         },
     );
     if let Some(&Expr::Constructor { .. }) = initializer {
@@ -184,6 +185,7 @@ fn codegen_let_destructure_statement<'context>(
             VariableBinding {
                 alloca,
                 core_type: binding_type,
+                length: None,
             },
         );
     }
@@ -306,6 +308,7 @@ fn codegen_guard_statement<'context>(
                     VariableBinding {
                         alloca: error_alloca,
                         core_type: CoreType::String,
+                        length: None,
                     },
                 );
 
@@ -334,6 +337,7 @@ fn codegen_guard_statement<'context>(
                     VariableBinding {
                         alloca: success_alloca,
                         core_type: success_core_type,
+                        length: None,
                     },
                 );
 
@@ -353,6 +357,7 @@ fn codegen_guard_statement<'context>(
         VariableBinding {
             alloca,
             core_type: inferred_type,
+            length: None,
         },
     );
 
