@@ -29,7 +29,6 @@ pub fn codegen_call_expression<'context>(
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let function = resolve_callee_function(codegen_context, env, callee, generic_args)?;
     let mut lowered_args = Vec::new();
-    let mut extra_array_lengths: Vec<BasicMetadataValueEnum<'context>> = Vec::new();
     for arg in args {
         let lowered = codegen_expression(codegen_context, env, arg, None)?;
         lowered_args.push(lowered.into());
@@ -74,7 +73,7 @@ pub fn codegen_call_expression<'context>(
         };
 
         if let Some(length) = maybe_length {
-            extra_array_lengths.push(length);
+            lowered_args.push(length);
         }
     }
 
@@ -115,20 +114,6 @@ pub fn codegen_call_expression<'context>(
                 codegen_context.builder.position_at_end(continuation);
                 lowered_args.push(codegen_context.context.i64_type().get_undef().into());
             }
-        }
-    }
-
-    if matches!(*callee, Expr::Identifier { .. }) {
-        let expected_param_count = function.get_type().get_param_types().len();
-        let missing_param_count = expected_param_count.saturating_sub(lowered_args.len());
-        if missing_param_count > 0 {
-            if extra_array_lengths.len() < missing_param_count {
-                return Err(CodegenError::new(format!(
-                    "missing {} array length argument(s) for call",
-                    missing_param_count.saturating_sub(extra_array_lengths.len())
-                )));
-            }
-            lowered_args.extend(extra_array_lengths.into_iter().take(missing_param_count));
         }
     }
 

@@ -681,7 +681,6 @@ fn codegen_array_literal<'context>(
             &env.next_name("array.base.ptr"),
         )?
     };
-
     Ok(base_ptr.as_basic_value_enum())
 }
 
@@ -717,7 +716,10 @@ fn codegen_array_access<'context>(
                 .transpose()?
                 .map(|loaded| loaded.into_int_value())
         };
-        (binding.alloca, resolved_length)
+        let loaded_ptr = codegen_context
+            .builder
+            .build_load(binding.alloca, &env.next_name("array.ptr.load"))?;
+        (loaded_ptr.into_pointer_value(), resolved_length)
     } else {
         (
             codegen_expression(codegen_context, env, object, None)?.into_pointer_value(),
@@ -769,8 +771,7 @@ fn codegen_array_access<'context>(
 
         codegen_context.builder.position_at_end(cont_block);
     }
-
-    // SAFETY: base_ptr is a valid pointer to contiguous elements and index_value is an LLVM integer index.
+    // SAFETY: base_ptr is valid contiguous-element pointer, and index_value is an LLVM integer index.
     let element_ptr = unsafe {
         codegen_context.builder.build_in_bounds_gep(
             base_ptr,
