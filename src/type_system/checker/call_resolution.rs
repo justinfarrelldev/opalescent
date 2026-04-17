@@ -123,9 +123,9 @@ impl TypeChecker {
                 error_types,
             } => {
                 if !error_types.is_empty()
-                    && self.guard_else_depth == 0
-                    && !self.in_propagate_context
-                    && !self.in_guard_subject_context
+                    && self.context.guard_else_depth == 0
+                    && !self.context.in_propagate_context
+                    && !self.context.in_guard_subject_context
                 {
                     let callee_name = if let Expr::Identifier { ref name, .. } = *callee {
                         name.clone()

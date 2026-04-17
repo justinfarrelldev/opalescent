@@ -163,9 +163,9 @@ impl TypeChecker {
                 expected_return,
             ),
             Stmt::Loop { ref body, .. } => self.within_new_scope(|checker| {
-                checker.loop_break_type_stack.push(None);
+                checker.context.loop_break_type_stack.push(None);
                 let result = checker.type_check_stmt_with_return(body.as_ref(), expected_return);
-                checker.loop_break_type_stack.pop();
+                checker.context.loop_break_type_stack.pop();
                 result
             }),
             Stmt::Break {
@@ -176,7 +176,7 @@ impl TypeChecker {
                     current_types.push(self.type_check_expr(&value.value)?);
                 }
 
-                let existing_break_types = self.loop_break_type_stack.last().cloned().flatten();
+                let existing_break_types = self.context.loop_break_type_stack.last().cloned().flatten();
 
                 if let Some(expected_types) = existing_break_types {
                     if expected_types.len() != current_types.len() {
@@ -194,7 +194,7 @@ impl TypeChecker {
                             return Err(type_mismatch_error(expected_type, None, found_type, span));
                         }
                     }
-                } else if let Some(loop_break_types) = self.loop_break_type_stack.last_mut() {
+                } else if let Some(loop_break_types) = self.context.loop_break_type_stack.last_mut() {
                     *loop_break_types = Some(current_types);
                 }
 
@@ -376,10 +376,10 @@ impl TypeChecker {
             });
         };
 
-        self.loop_break_type_stack.push(None);
+        self.context.loop_break_type_stack.push(None);
         self.type_check_stmt_with_return(body.as_ref(), None)?;
         let return_types = self.infer_loop_break_types(body.as_ref(), span)?;
-        self.loop_break_type_stack.pop();
+        self.context.loop_break_type_stack.pop();
 
         if return_types.len() != bindings.len() {
             return Err(TypeError::ArityMismatch {
@@ -429,7 +429,7 @@ impl TypeChecker {
         stmt: &Stmt,
         span: Span,
     ) -> Result<alloc::vec::Vec<CoreType>, TypeError> {
-        if let Some(active_loop_break_types) = self.loop_break_type_stack.last() {
+        if let Some(active_loop_break_types) = self.context.loop_break_type_stack.last() {
             return active_loop_break_types
                 .clone()
                 .ok_or_else(|| TypeError::InvalidOperation {
@@ -602,10 +602,10 @@ impl TypeChecker {
         span: Span,
         expected_return: Option<&[CoreType]>,
     ) -> Result<(), TypeError> {
-        let previous_guard_subject_context = self.in_guard_subject_context;
-        self.in_guard_subject_context = true;
+        let previous_guard_subject_context = self.context.in_guard_subject_context;
+        self.context.in_guard_subject_context = true;
         let success_result = self.type_check_expr(expression);
-        self.in_guard_subject_context = previous_guard_subject_context;
+        self.context.in_guard_subject_context = previous_guard_subject_context;
         let success_type = success_result?;
 
         self.symbol_table.register(SymbolInfo {
@@ -684,7 +684,7 @@ impl TypeChecker {
 
         if values.is_empty() {
             if expected.len() == 1
-                && (matches!(expected[0], CoreType::Unit) || self.guard_else_depth > 0)
+                && (matches!(expected[0], CoreType::Unit) || self.context.guard_else_depth > 0)
             {
                 return Ok(());
             }
@@ -707,7 +707,7 @@ impl TypeChecker {
         for (index, value) in values.iter().enumerate() {
             let expected_type = &expected[index];
 
-            if self.guard_else_depth > 0
+            if self.context.guard_else_depth > 0
                 && matches!(
                     value.value,
                     Expr::Literal {

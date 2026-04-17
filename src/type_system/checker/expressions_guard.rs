@@ -57,11 +57,11 @@ impl TypeChecker {
         let (success_type, callee_error_types) =
             self.resolve_guard_callee_signature(expr, callee_expr)?;
 
-        let previous_guard_subject_context = self.in_guard_subject_context;
-        self.in_guard_subject_context = true;
+        let previous_guard_subject_context = self.context.in_guard_subject_context;
+        self.context.in_guard_subject_context = true;
         let call_result =
             self.type_check_call_expr(callee_expr, None, args, call_span, expr.node_id().0);
-        self.in_guard_subject_context = previous_guard_subject_context;
+        self.context.in_guard_subject_context = previous_guard_subject_context;
         call_result?;
 
         if let Some(annotated_type_ast) = binding.annotation {
@@ -76,7 +76,7 @@ impl TypeChecker {
             }
         }
 
-        if let Some(active_errors) = self.guard_error_stack.last() {
+        if let Some(active_errors) = self.context.guard_error_stack.last() {
             if !Self::guard_error_type_sets_match(active_errors.as_slice(), &callee_error_types) {
                 return Err(TypeError::GuardChainedErrorMismatch {
                     expected: Self::format_error_type_list(active_errors.as_slice()),
@@ -164,8 +164,8 @@ impl TypeChecker {
         expected_return: Option<&[CoreType]>,
     ) -> Result<GuardElseOutcome, TypeError> {
         self.symbol_table.enter_scope();
-        self.guard_else_depth = self.guard_else_depth.saturating_add(1);
-        self.guard_error_stack.push(callee_error_types.to_vec());
+        self.context.guard_else_depth = self.context.guard_else_depth.saturating_add(1);
+        self.context.guard_error_stack.push(callee_error_types.to_vec());
 
         let else_result = self.type_check_guard_else_branch(
             else_branch,
@@ -175,16 +175,16 @@ impl TypeChecker {
             expected_return,
         );
 
-        let popped = self.guard_error_stack.pop();
+        let popped = self.context.guard_error_stack.pop();
         debug_assert!(
             popped.is_some(),
             "guard error stack underflow when exiting guard else handling"
         );
         debug_assert!(
-            self.guard_else_depth > 0,
+            self.context.guard_else_depth > 0,
             "guard_else_depth should be positive when exiting guard else scope"
         );
-        self.guard_else_depth = self.guard_else_depth.saturating_sub(1);
+        self.context.guard_else_depth = self.context.guard_else_depth.saturating_sub(1);
         self.symbol_table.exit_scope();
 
         else_result

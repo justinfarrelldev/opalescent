@@ -54,6 +54,27 @@ enum ReturnLabelMode {
     Labeled(Vec<String>),
 }
 
+/// Ad-hoc context stacks that are pushed/popped as the type checker descends
+/// into nested language constructs (guards, propagate expressions, loops, function bodies).
+///
+/// Grouping these together makes it clear which fields represent transient checking
+/// state versus persistent symbol-table / metadata state on [`TypeChecker`].
+#[derive(Default)]
+struct TypeCheckContext {
+    /// Nesting depth of guard `else` handlers currently being type checked.
+    guard_else_depth: usize,
+    /// Stack tracking the error types handled by active guard else branches.
+    guard_error_stack: Vec<Vec<CoreType>>,
+    /// Tracks whether calls are being checked from within a propagate expression.
+    in_propagate_context: bool,
+    /// Tracks whether calls are being checked as the subject expression of a guard.
+    in_guard_subject_context: bool,
+    /// Stack tracking return label mode for active function/lambda bodies.
+    return_label_modes: Vec<ReturnLabelMode>,
+    /// Stack of inferred break payload types for nested loop analysis.
+    loop_break_type_stack: Vec<Option<Vec<CoreType>>>,
+}
+
 /// Core type checker responsible for validating and inferring types
 /// throughout the Opalescent type system
 pub struct TypeChecker {
@@ -65,16 +86,8 @@ pub struct TypeChecker {
     symbol_table: SymbolTable,
     /// Collected type constraints for inference (Phase 2)
     constraints: Vec<TypeConstraint>,
-    /// Nesting depth of guard `else` handlers currently being type checked
-    guard_else_depth: usize,
-    /// Stack tracking the error types handled by active guard else branches
-    guard_error_stack: Vec<Vec<CoreType>>,
-    /// Tracks whether calls are being checked from within a propagate expression.
-    in_propagate_context: bool,
-    /// Tracks whether calls are being checked as the subject expression of a guard.
-    in_guard_subject_context: bool,
-    /// Stack tracking return label mode for active function/lambda bodies.
-    return_label_modes: Vec<ReturnLabelMode>,
+    /// Ad-hoc context stacks for transient checking state.
+    context: TypeCheckContext,
     /// Collected non-fatal warnings produced while type checking.
     warnings: Vec<Warning>,
     /// Cached function signatures for hot-reload compatibility checks.
@@ -85,8 +98,6 @@ pub struct TypeChecker {
     constant_integer_values: BTreeMap<usize, i128>,
     /// Sum-type variant registry used for match exhaustiveness checks.
     adt_variants: BTreeMap<String, Vec<String>>,
-    /// Stack of inferred break payload types for nested loop analysis.
-    loop_break_type_stack: Vec<Option<Vec<CoreType>>>,
     /// Field registry keyed by nominal owner type names.
     adt_fields: BTreeMap<String, BTreeMap<String, CoreType>>,
     /// Generic parameter declarations keyed by nominal owner type names.
@@ -109,17 +120,12 @@ impl TypeChecker {
             next_var_id: 0,
             symbol_table: SymbolTable::new(),
             constraints: Vec::new(),
-            guard_else_depth: 0,
-            guard_error_stack: Vec::new(),
-            in_propagate_context: false,
-            in_guard_subject_context: false,
-            return_label_modes: Vec::new(),
+            context: TypeCheckContext::default(),
             warnings: Vec::new(),
             function_hot_reload_metadata: BTreeMap::new(),
             arithmetic_modes: BTreeMap::new(),
             constant_integer_values: BTreeMap::new(),
             adt_variants: BTreeMap::new(),
-            loop_break_type_stack: Vec::new(),
             adt_fields: BTreeMap::new(),
             adt_generic_params: BTreeMap::new(),
             generic_instantiations: BTreeMap::new(),
@@ -138,17 +144,12 @@ impl TypeChecker {
             next_var_id: 0,
             symbol_table: SymbolTable::new(),
             constraints: Vec::new(),
-            guard_else_depth: 0,
-            guard_error_stack: Vec::new(),
-            in_propagate_context: false,
-            in_guard_subject_context: false,
-            return_label_modes: Vec::new(),
+            context: TypeCheckContext::default(),
             warnings: Vec::new(),
             function_hot_reload_metadata: BTreeMap::new(),
             arithmetic_modes: BTreeMap::new(),
             constant_integer_values: BTreeMap::new(),
             adt_variants: BTreeMap::new(),
-            loop_break_type_stack: Vec::new(),
             adt_fields: BTreeMap::new(),
             adt_generic_params: BTreeMap::new(),
             generic_instantiations: BTreeMap::new(),

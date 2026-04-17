@@ -10,12 +10,12 @@ use alloc::{collections::BTreeSet, format, string::String};
 impl TypeChecker {
     /// Start return-shape tracking for a function or lambda body.
     pub(super) fn begin_return_context(&mut self) {
-        self.return_label_modes.push(ReturnLabelMode::Unknown);
+        self.context.return_label_modes.push(ReturnLabelMode::Unknown);
     }
 
     /// Finish return-shape tracking for a function or lambda body.
     pub(super) fn end_return_context(&mut self) {
-        let popped = self.return_label_modes.pop();
+        let popped = self.context.return_label_modes.pop();
         debug_assert!(
             popped.is_some(),
             "return label mode stack underflow when exiting return context"
@@ -28,7 +28,7 @@ impl TypeChecker {
         labels: &[String],
         span: Span,
     ) -> Result<(), TypeError> {
-        let Some(mode) = self.return_label_modes.last_mut() else {
+        let Some(mode) = self.context.return_label_modes.last_mut() else {
             return Ok(());
         };
 
