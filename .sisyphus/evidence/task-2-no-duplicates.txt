@@ -1,0 +1,3 @@
+src/codegen/types.rs:49:pub fn integer_literal_bits(number: i64) -> Result<u64, CodegenError> {
+---
+src/codegen/types.rs:38:pub const fn is_signed_core_type(core_type: &CoreType) -> bool {

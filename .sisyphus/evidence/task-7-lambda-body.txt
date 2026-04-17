@@ -1,0 +1,31 @@
+Task 7 Evidence: Lambda body codegen now emits real body logic
+
+Modified file:
+- src/codegen/functions.rs
+
+Implemented behavior in resolve_callee_function (Expr::Lambda arm):
+- Creates LLVM function + entry block for lambda.
+- Binds lambda parameters to allocas and stores incoming LLVM args (same pattern as codegen_function_declaration).
+- Binds captured variables from trailing lambda parameters to allocas.
+- Recursively lowers lambda body:
+  - LambdaBody::Block => iterates statements and calls codegen_statement.
+  - LambdaBody::Expression => lowers expression and emits return value.
+- Emits default return only if current block has no terminator after body lowering.
+- Restores caller insertion point and environment variable bindings after lambda emission.
+
+Added tests in src/codegen/functions.rs:
+- lambda_body_codegen_emits_body_and_returns_incremented_value
+  - Verifies emitted IR for lambda contains overflow-checked i32 add and ret i32.
+- lambda_runtime_call_returns_incremented_result
+  - Compiles and runs program:
+    let inc = f(x: int32): int32 => x + 1
+    entry main calls print_int32(inc(5))
+  - Asserts stdout is exactly: 6
+
+Focused RED->GREEN checkpoints executed:
+- cargo test lambda_body_codegen_emits_body_and_returns_incremented_value
+- cargo test lambda_runtime_call_returns_incremented_result -- --nocapture
+
+Final status:
+- Lambda body is code-generated instead of unconditional emit_default_return.
+- Lambda parameter bindings and termination handling now follow regular function codegen pattern.

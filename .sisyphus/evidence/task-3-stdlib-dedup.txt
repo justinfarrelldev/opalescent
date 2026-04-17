@@ -1,0 +1,72 @@
+# Task 3: Stdlib Function Name Registry Deduplication
+
+## Scenario 1: Stdlib names exist in one authoritative location
+
+### Step 1: Run cargo build
+```
+cd /home/justi/Projects/opalescent && cargo build 2>&1
+```
+
+Result: SUCCESS
+- Compiling opalescent v0.1.0
+- Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+
+### Step 2: Run cargo test
+```
+cd /home/justi/Projects/opalescent && cargo test 2>&1
+```
+
+Result: SUCCESS
+- test result: ok. 969 passed; 0 failed; 5 ignored; 0 measured
+
+### Step 3: Verify STDLIB_NAMES registry exists
+```
+grep -n "STDLIB_NAMES" /home/justi/Projects/opalescent/src/codegen/functions_stdlib.rs
+```
+
+Result: FOUND
+- Line 234: pub const STDLIB_NAMES: &[&str] = &[
+- Registry contains 44 stdlib function names
+- Includes: print, printf, take_input, print_string, print_int8, ..., opal_runtime_error
+
+### Step 4: Verify all three functions use STDLIB_NAMES
+
+#### declare_stdlib_function() in functions_stdlib.rs
+- Line 23: Checks `if !STDLIB_NAMES.contains(&name) { return None; }`
+- Uses STDLIB_NAMES for early validation
+
+#### resolve_imported_runtime_name() in functions_stdlib.rs
+- Line 186: Uses pattern match with `if STDLIB_NAMES.contains(&name)`
+- Simplified from 44 individual match arms to 1 guard clause
+
+#### is_stdlib_name() in functions.rs
+- Line 357: Uses `crate::codegen::functions_stdlib::STDLIB_NAMES.contains(&name.as_str())`
+- Replaced 44-line match block with single registry lookup
+
+## Summary
+
+✓ Single authoritative list of stdlib names exists (STDLIB_NAMES constant)
+✓ declare_stdlib_function() derives from STDLIB_NAMES
+✓ resolve_imported_runtime_name() derives from STDLIB_NAMES
+✓ is_stdlib_name() in functions.rs derives from STDLIB_NAMES
+✓ cargo build succeeds with no new warnings
+✓ cargo test passes with 969/969 tests (0 failures)
+✓ opal_runtime_error included in registry (added in Task 1)
+
+## Code Changes
+
+### functions_stdlib.rs
+- Added STDLIB_NAMES constant with 44 function names
+- Refactored declare_stdlib_function() to check STDLIB_NAMES first
+- Refactored resolve_imported_runtime_name() to use STDLIB_NAMES guard clause
+- Added test: stdlib_names_registry_exists_and_has_correct_count()
+
+### functions.rs
+- Replaced 44-line matches! block with STDLIB_NAMES.contains() lookup
+- Maintains identical behavior with cleaner code
+
+## Deduplication Impact
+
+Before: 3 separate lists of 44 names each (132 total name occurrences)
+After: 1 authoritative list of 44 names (44 total name occurrences)
+Reduction: 66% fewer name declarations (88 fewer lines of code)

@@ -1,0 +1,18 @@
+Task 7 Evidence: Regression suite and targeted tests
+
+Command:
+- cargo test 2>&1
+
+Captured tool output file:
+- /home/justi/.local/share/opencode/tool-output/tool_d9a469a7c001R4Jj2z2MoG63oY
+
+Relevant passing lines from run:
+- test codegen::functions::tests::lambda_body_codegen_emits_body_and_returns_incremented_value ... ok
+- test codegen::functions::tests::lambda_runtime_call_returns_incremented_result ... ok
+- test result: ok. 973 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+Additional suites in same cargo test invocation:
+- src/main.rs tests: ok (0 run)
+- tests/fmt_integration.rs: ok (0 run)
+- tests/integration_e2e.rs: ok (0 run)
+- doc-tests: ok (0 passed, 0 failed, 9 ignored)

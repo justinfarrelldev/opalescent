@@ -1,0 +1,20 @@
+Task 6 Evidence: NaN Guard Emission
+Date: 2026-04-17
+
+Verification command:
+grep -n "uno\|nan\|NaN\|float_compare" src/codegen/expressions.rs
+
+Output:
+421:            let is_nan = codegen_context.builder.build_float_compare(
+425:                &env.next_name("cast.isnan"),
+427:            let in_min = codegen_context.builder.build_float_compare(
+433:            let in_max = codegen_context.builder.build_float_compare(
+448:                is_nan,
+857:    fn test_float_to_int_casts_emit_nan_and_range_checks_before_conversion() {
+901:            if line.contains("fcmp uno") {
+915:                    "each float-to-int conversion must be preceded by NaN and range checks: {line}\nIR:\n{ir}"
+
+Interpretation:
+- NaN detection is emitted via fcmp uno(value, value)
+- NaN condition is OR'ed with out-of-range condition to branch to trap block
+- Trap block calls opal_runtime_error("float-to-integer cast out of range")

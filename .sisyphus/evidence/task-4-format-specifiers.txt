@@ -1,0 +1,42 @@
+TASK 4: Replace non-portable %ld/%lu format specifiers with PRId64/PRIu64
+========================================================================
+
+SCENARIO 1: Format specifiers updated
+-----------------------------------
+
+Test 1.1: Verify no %ld or %lu remain
+Command: grep -n "%ld\|%lu" runtime/opal_runtime.c
+Result: (no output)
+Status: ✓ PASS - All non-portable format specifiers replaced
+
+Test 1.2: Verify PRId64 and PRIu64 macros are present
+Command: grep -n "PRId64\|PRIu64" runtime/opal_runtime.c
+Result:
+573:    int len = snprintf(NULL, 0, "%" PRId64, value);
+575:    snprintf(buf, len + 1, "%" PRId64, value);
+601:    int len = snprintf(NULL, 0, "%" PRIu64, value);
+603:    snprintf(buf, len + 1, "%" PRIu64, value);
+Status: ✓ PASS - All portable macros present (4 occurrences)
+
+Test 1.3: Verify inttypes.h include is present
+Command: grep -n "inttypes.h" runtime/opal_runtime.c
+Result:
+6:#include <inttypes.h>
+Status: ✓ PASS - Include added at line 6
+
+Test 1.4: Verify C runtime compiles without errors
+Command: gcc -c -I. runtime/opal_runtime.c -o /tmp/opal_runtime.o
+Result: (no output - successful compilation)
+Status: ✓ PASS - C runtime compiles cleanly
+
+SUMMARY
+=======
+All format specifiers successfully replaced:
+- int64_to_string: %ld → %" PRId64 (2 occurrences)
+- uint64_to_string: %lu → %" PRIu64 (2 occurrences)
+- #include <inttypes.h> added
+- C runtime compiles without errors or warnings
+- No logic changes made
+- Portable across Linux/macOS/Windows
+
+VERIFICATION COMPLETE: ✓ ALL TESTS PASS
