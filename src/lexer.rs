@@ -55,6 +55,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
     "or",
     "propagate",
     "public",
+    "pure",
     "return",
     "string",
     "true",
@@ -64,6 +65,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
     "uint16",
     "uint32",
     "uint64",
+    "untested",
     "void",
     "while",
     "xor",
@@ -150,6 +152,8 @@ impl<'input> Lexer<'input> {
         keywords.insert("false", TokenType::BooleanLiteral(false));
         keywords.insert("public", TokenType::Public);
         keywords.insert("entry", TokenType::Entry);
+        keywords.insert("pure", TokenType::Pure);
+        keywords.insert("untested", TokenType::Untested);
         keywords.insert("import", TokenType::Import);
         keywords.insert("from", TokenType::From);
         keywords.insert("as", TokenType::Cast);

@@ -10,6 +10,7 @@
 mod documentation;
 mod helpers;
 mod metadata;
+mod modifiers;
 mod node_impls;
 mod operators;
 mod patterns;
@@ -32,6 +33,9 @@ pub use self::documentation::Documentation;
 
 // Re-export hot-reload metadata structures for public use
 pub use self::metadata::{HotReloadMetadata, ModulePath, SymbolInfo};
+
+// Re-export function modifiers for public use
+pub use self::modifiers::FunctionModifier;
 
 /// A unique identifier for AST nodes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -738,6 +742,7 @@ impl Program {
         self.id
     }
 }
+
 /// Top-level declaration AST nodes
 #[derive(Debug, Clone, PartialEq)]
 pub enum Decl {
@@ -768,6 +773,8 @@ pub enum Decl {
         visibility: Visibility,
         /// Whether this is an entry point function
         is_entry: bool,
+        /// Function modifiers (pure, untested)
+        modifiers: Vec<FunctionModifier>,
         /// Optional structured documentation derived from doc comments
         doc_comment: Option<Documentation>,
         /// Source code location of this function declaration

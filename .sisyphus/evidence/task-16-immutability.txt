@@ -1,0 +1,5 @@
+src/codegen/statements.rs:143:             is_mutable: binding.is_mutable,
+src/codegen/statements.rs:190:                 is_mutable: binding.is_mutable,
+src/codegen/statements.rs:217:         if !binding_snapshot.is_mutable {
+src/codegen/statements.rs:219:                 "cannot assign to immutable variable: {name}"
+src/codegen/tests.rs:760: fn test_codegen_assignment_to_immutable_variable_returns_error() {

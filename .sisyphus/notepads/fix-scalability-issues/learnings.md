@@ -146,3 +146,13 @@
   - LSP diagnostics clean for changed files (`expressions.rs`, `types.rs`, `tests.rs`)
   - Full `cargo test` passed: `974 passed; 0 failed; 5 ignored`
   - Evidence written to `.sisyphus/evidence/task-8-bounds-check.txt`
+
+## [2026-04-17] Tasks 12/13/14/16 completion recovery
+- Parser now accepts declaration modifiers in any order before function declarations (`public`, `entry`, `pure`, `untested`).
+- `entry` functions are normalized at parse-time to include `FunctionModifier::Untested` implicitly.
+- Type checker now tracks active function modifiers with a stack and enforces pure-function restrictions at call sites.
+- Pure-function enforcement is direct-call only to known impure stdlib names (`print`, `take_input`, `random_int32`) per task constraints.
+- Added parser tests for `pure`, `untested`, and implicit `entry -> untested` behavior.
+- Added type-system tests for rejecting impure stdlib calls inside pure functions while allowing same calls in non-pure functions.
+- Added codegen test ensuring unsigned int→float casts emit `uitofp` and immutability assignment failures return `CodegenError` (no panic).
+- Full verification after fixes: `cargo build` succeeded and `cargo test` passed (`976 passed; 0 failed; 5 ignored`).

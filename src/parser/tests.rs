@@ -13,8 +13,8 @@
 
 use super::*;
 use crate::ast::{
-    BinaryOp, Decl, Expr, ImportItem, LabeledValue, LambdaBody, LiteralValue, Parameter, Stmt,
-    StringPart, Type, TypeDef, UnaryOp, Visibility,
+    BinaryOp, Decl, Expr, FunctionModifier, ImportItem, LabeledValue, LambdaBody, LiteralValue,
+    Parameter, Stmt, StringPart, Type, TypeDef, UnaryOp, Visibility,
 };
 use crate::lexer::{Lexer, RESERVED_KEYWORDS};
 use crate::parser::errors::ParseError;
@@ -2836,6 +2836,78 @@ fn test_simple_function_parsing() {
         assert_eq!(parameters[0].name, "args");
         assert!(return_types.is_some());
         assert!(is_entry);
+    } else {
+        unreachable!("Expected function declaration");
+    }
+}
+
+#[test]
+fn test_function_declaration_with_pure_modifier() {
+    let input = "pure main = f(): void => return void";
+    let lexer = Lexer::new(input);
+    let (tokens, _) = lexer.tokenize();
+    let parser = Parser::new(tokens);
+    let (program, errors) = parser.parse();
+
+    assert!(errors.is_empty(), "Parse errors: {errors:?}");
+    let program = program.expect("expected program");
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Function { modifiers, .. } = &program.declarations[0] {
+        assert!(
+            modifiers.contains(&FunctionModifier::Pure),
+            "expected pure modifier"
+        );
+    } else {
+        unreachable!("Expected function declaration");
+    }
+}
+
+#[test]
+fn test_function_declaration_with_untested_modifier() {
+    let input = "untested main = f(): void => return void";
+    let lexer = Lexer::new(input);
+    let (tokens, _) = lexer.tokenize();
+    let parser = Parser::new(tokens);
+    let (program, errors) = parser.parse();
+
+    assert!(errors.is_empty(), "Parse errors: {errors:?}");
+    let program = program.expect("expected program");
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Function { modifiers, .. } = &program.declarations[0] {
+        assert!(
+            modifiers.contains(&FunctionModifier::Untested),
+            "expected untested modifier"
+        );
+    } else {
+        unreachable!("Expected function declaration");
+    }
+}
+
+#[test]
+fn test_entry_function_implicitly_gets_untested_modifier() {
+    let input = "entry main = f(): void => return void";
+    let lexer = Lexer::new(input);
+    let (tokens, _) = lexer.tokenize();
+    let parser = Parser::new(tokens);
+    let (program, errors) = parser.parse();
+
+    assert!(errors.is_empty(), "Parse errors: {errors:?}");
+    let program = program.expect("expected program");
+    assert_eq!(program.declarations.len(), 1);
+
+    if let Decl::Function {
+        is_entry,
+        modifiers,
+        ..
+    } = &program.declarations[0]
+    {
+        assert!(*is_entry, "expected entry function");
+        assert!(
+            modifiers.contains(&FunctionModifier::Untested),
+            "entry functions should be implicitly untested"
+        );
     } else {
         unreachable!("Expected function declaration");
     }

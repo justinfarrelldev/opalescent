@@ -14,6 +14,7 @@ use super::substitution::Substitution;
 use super::symbol_table::{SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::type_mapping::AstTypeMappingError;
 use super::types::{CoreType, GenericTypeParameter, TypeVar};
+use crate::ast::FunctionModifier;
 use crate::token::Span;
 use crate::type_system::arithmetic::ArithmeticMode;
 use alloc::{collections::BTreeMap, format, string::String, vec::Vec};
@@ -96,6 +97,8 @@ pub struct TypeChecker {
     module_resolver: ModuleResolver,
     /// Module identifier currently associated with this checker instance.
     current_module_path: String,
+    /// Stack tracking active function modifiers for the currently checked function/lambda.
+    function_modifier_stack: Vec<Vec<FunctionModifier>>,
 }
 
 impl TypeChecker {
@@ -122,6 +125,7 @@ impl TypeChecker {
             generic_instantiations: BTreeMap::new(),
             module_resolver: ModuleResolver::new(),
             current_module_path: String::from("__main__"),
+            function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
         checker
@@ -150,6 +154,7 @@ impl TypeChecker {
             generic_instantiations: BTreeMap::new(),
             module_resolver: ModuleResolver::new(),
             current_module_path: String::from("__main__"),
+            function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
         checker
@@ -912,6 +917,27 @@ impl TypeChecker {
         let result = action(self);
         self.symbol_table.exit_scope();
         result
+    }
+
+    /// Return whether current function context is marked `pure`.
+    pub(super) fn current_function_is_pure(&self) -> bool {
+        self.function_modifier_stack
+            .last()
+            .is_some_and(|modifiers| {
+                modifiers
+                    .iter()
+                    .any(|modifier| *modifier == FunctionModifier::Pure)
+            })
+    }
+
+    /// Enter a function/lambda modifier context.
+    pub(super) fn enter_function_modifier_context(&mut self, modifiers: Vec<FunctionModifier>) {
+        self.function_modifier_stack.push(modifiers);
+    }
+
+    /// Exit current function/lambda modifier context.
+    pub(super) fn exit_function_modifier_context(&mut self) {
+        self.function_modifier_stack.pop();
     }
 }
 

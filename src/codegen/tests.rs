@@ -161,6 +161,7 @@ fn simple_void_function_decl(id: usize, name: &str, body: Stmt, is_entry: bool) 
         body,
         visibility: Visibility::Public,
         is_entry,
+        modifiers: vec![],
         doc_comment: None,
         span: test_span(),
         id: test_node_id(id),
@@ -189,6 +190,7 @@ fn simple_i64_function_decl(id: usize, name: &str, param: &str, body: Stmt) -> D
         body,
         visibility: Visibility::Public,
         is_entry: false,
+        modifiers: vec![],
         doc_comment: None,
         span: test_span(),
         id: test_node_id(id),
@@ -680,6 +682,101 @@ fn test_codegen_unary_and_cast_operations() {
     assert!(
         ir.contains("sitofp") || ir.contains("uitofp"),
         "cast should emit numeric conversion instruction: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_unsigned_int_to_float_cast_uses_uitofp() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "uint_to_float_cast");
+    let _function = create_codegen_function(&codegen_context, "uint_to_float_cast_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let source_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("u"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("uint64"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(7_300),
+        },
+        initializer: Some(int_lit(7_301, 7)),
+        span: test_span(),
+        id: test_node_id(7_302),
+    };
+    let source_result = codegen_statement(&codegen_context, &mut env, &source_stmt);
+    assert!(source_result.is_ok(), "unsigned integer let should codegen");
+
+    let cast_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("casted"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("float64"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(7_303),
+        },
+        initializer: Some(cast(7_304, ident(7_305, "u"), "float64")),
+        span: test_span(),
+        id: test_node_id(7_306),
+    };
+    let cast_result = codegen_statement(&codegen_context, &mut env, &cast_stmt);
+    assert!(cast_result.is_ok(), "uint64-to-float64 cast should codegen");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("uitofp"),
+        "unsigned int-to-float cast should emit uitofp: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_assignment_to_immutable_variable_returns_error() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "immutable_assignment");
+    let _function = create_codegen_function(&codegen_context, "immutable_assignment_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let let_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("x"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("int32"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(7_310),
+        },
+        initializer: Some(int_lit(7_311, 1)),
+        span: test_span(),
+        id: test_node_id(7_312),
+    };
+    let let_result = codegen_statement(&codegen_context, &mut env, &let_stmt);
+    assert!(let_result.is_ok(), "immutable let binding should codegen");
+
+    let assign_stmt = Stmt::Assignment {
+        target: ident(7_313, "x"),
+        value: int_lit(7_314, 2),
+        span: test_span(),
+        id: test_node_id(7_315),
+    };
+    let assign_result = codegen_statement(&codegen_context, &mut env, &assign_stmt);
+    assert!(
+        assign_result.is_err(),
+        "assignment to immutable variable should return CodegenError"
+    );
+    let error_text = assign_result
+        .err()
+        .map_or_else(String::new, |error| error.to_string());
+    assert!(
+        error_text.contains("cannot assign to immutable variable: x"),
+        "error should clearly describe immutable assignment failure: {error_text}"
     );
 }
 
@@ -1890,6 +1987,7 @@ fn test_codegen_function_pointer_is_comparison_emits_icmp() {
                 error_types: Vec::new(),
             },
             length: None,
+            is_mutable: false,
         },
     );
 
@@ -1908,6 +2006,7 @@ fn test_codegen_function_pointer_is_comparison_emits_icmp() {
                 error_types: Vec::new(),
             },
             length: None,
+            is_mutable: false,
         },
     );
 
@@ -1964,6 +2063,7 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
                 error_types: Vec::new(),
             },
             length: None,
+            is_mutable: false,
         },
     );
 
@@ -1982,6 +2082,7 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
                 error_types: Vec::new(),
             },
             length: None,
+            is_mutable: false,
         },
     );
 

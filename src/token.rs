@@ -162,6 +162,10 @@ pub enum TokenType {
     Public,
     /// The 'entry' keyword marking program entry points
     Entry,
+    /// The 'pure' keyword for pure functions (no side effects)
+    Pure,
+    /// The 'untested' keyword for untested functions
+    Untested,
 
     // Import/Export
     /// The 'import' keyword for importing modules
@@ -414,6 +418,8 @@ impl fmt::Display for TokenType {
             Self::Indent => write!(f, "indent"),
             Self::Dedent => write!(f, "dedent"),
             Self::EndOfFile => write!(f, "end of file"),
+            Self::Pure => write!(f, "pure"),
+            Self::Untested => write!(f, "untested"),
         }
     }
 }

@@ -6,11 +6,13 @@
 extern crate alloc;
 use super::{next_node_id, ParseError, ParseResult, Parser};
 use crate::ast::{
-    AstNode, Decl, Documentation, Field, HotReloadMetadata, ImportItem, ImportStatement,
-    LetBinding, Parameter, Stmt, Type, TypeDef, TypeParameter, Variant, Visibility,
+    AstNode, Decl, Documentation, Field, FunctionModifier, HotReloadMetadata, ImportItem,
+    ImportStatement, LetBinding, Parameter, Stmt, Type, TypeDef, TypeParameter, Variant,
+    Visibility,
 };
 use crate::token::{Span, TokenType};
 use alloc::string::String;
+use alloc::vec::Vec;
 
 impl Parser {
     /// Parse a top-level declaration
@@ -19,34 +21,56 @@ impl Parser {
         let doc_comment = self.collect_documentation();
         self.skip_trivia_preserving_doc_comments();
 
-        // Check for visibility modifiers
-        let visibility = if self.check(&TokenType::Public) {
-            self.advance();
-            Visibility::Public
-        } else {
-            Visibility::Private
-        };
-
-        // Check for entry keyword
-        let is_entry = if self.check(&TokenType::Entry) {
-            self.advance();
-            true
-        } else {
-            false
-        };
+        // Check declaration modifiers (public/entry/pure/untested) in any order.
+        let (visibility, is_entry, modifiers) = self.parse_modifiers()?;
 
         // For entry and public functions, expect identifier next
         // For regular functions, expect 'f' keyword
         match self.current_token().token_type {
             TokenType::Function => {
-                self.parse_function_declaration(visibility, is_entry, doc_comment)
+                self.parse_function_declaration(visibility, is_entry, modifiers, doc_comment)
             }
-            TokenType::Type => self.parse_type_declaration(visibility, doc_comment),
-            TokenType::Import => self.parse_import_declaration(),
-            TokenType::Let => self.parse_let_declaration(visibility, doc_comment),
-            TokenType::Identifier(_) if is_entry || visibility == Visibility::Public => {
+            TokenType::Type => {
+                if modifiers.is_empty() {
+                    self.parse_type_declaration(visibility, doc_comment)
+                } else {
+                    let token = self.current_token();
+                    Err(ParseError::UnexpectedToken {
+                        expected: "function declaration after modifiers".to_owned(),
+                        found: format!("{}", token.token_type),
+                        span: ParseError::span_from_token(token),
+                    })
+                }
+            }
+            TokenType::Import => {
+                if modifiers.is_empty() {
+                    self.parse_import_declaration()
+                } else {
+                    let token = self.current_token();
+                    Err(ParseError::UnexpectedToken {
+                        expected: "function declaration after modifiers".to_owned(),
+                        found: format!("{}", token.token_type),
+                        span: ParseError::span_from_token(token),
+                    })
+                }
+            }
+            TokenType::Let => {
+                if modifiers.is_empty() {
+                    self.parse_let_declaration(visibility, doc_comment)
+                } else {
+                    let token = self.current_token();
+                    Err(ParseError::UnexpectedToken {
+                        expected: "function declaration after modifiers".to_owned(),
+                        found: format!("{}", token.token_type),
+                        span: ParseError::span_from_token(token),
+                    })
+                }
+            }
+            TokenType::Identifier(_)
+                if is_entry || visibility == Visibility::Public || !modifiers.is_empty() =>
+            {
                 // This is a function declaration starting with identifier (entry main = f() or public foo = f())
-                self.parse_function_declaration(visibility, is_entry, doc_comment)
+                self.parse_function_declaration(visibility, is_entry, modifiers, doc_comment)
             }
             _ => {
                 let token = self.current_token();
@@ -131,6 +155,7 @@ impl Parser {
         &mut self,
         visibility: Visibility,
         is_entry: bool,
+        modifiers: Vec<FunctionModifier>,
         mut doc_comment: Option<Documentation>,
     ) -> ParseResult<Decl> {
         let start_span = self.current_token().span;
@@ -248,6 +273,15 @@ impl Parser {
             metadata.is_hot_reloadable = false;
         }
 
+        let mut effective_modifiers = modifiers;
+        if is_entry
+            && !effective_modifiers
+                .iter()
+                .any(|modifier| *modifier == FunctionModifier::Untested)
+        {
+            effective_modifiers.push(FunctionModifier::Untested);
+        }
+
         Ok(Decl::Function {
             name,
             generic_params,
@@ -258,6 +292,7 @@ impl Parser {
             body,
             visibility,
             is_entry,
+            modifiers: effective_modifiers,
             doc_comment,
             span,
             id: next_node_id(),
@@ -478,7 +513,6 @@ impl Parser {
                         };
                     is_product_type = Some(product_type_detected);
                 }
-
                 if is_product_type == Some(true) {
                     let field_type = self.parse_type()?;
                     let field_end_span = self.previous_token().span;
@@ -510,7 +544,6 @@ impl Parser {
                         } else {
                             break;
                         };
-
                         self.consume(&TokenType::Colon, "Expected ':' after field name")?;
                         let field_type = self.parse_type()?;
                         let field_end = self.previous_token().span;
@@ -521,9 +554,7 @@ impl Parser {
                         });
                         self.skip_newlines_and_comments();
                     }
-
                     self.consume(&TokenType::Dedent, "Expected dedent after variant fields")?;
-
                     let variant_end_span = self.previous_token().span;
                     sum_variants.push(Variant {
                         name,
@@ -548,17 +579,14 @@ impl Parser {
                 });
             }
         }
-
         if product_fields.is_empty() && sum_variants.is_empty() {
             return Err(ParseError::InvalidSyntax {
                 message: "Type definition cannot be empty".to_owned(),
                 span: ParseError::span_from_token(self.current_token()),
             });
         }
-
         let end_span = self.previous_token().span;
         let def_span = Span::new(start_span.start, end_span.end);
-
         if is_product_type == Some(true) {
             Ok(TypeDef::Product {
                 fields: product_fields,
@@ -571,7 +599,6 @@ impl Parser {
             })
         }
     }
-
     /// Check if current token is a type keyword
     fn is_type_keyword(&self) -> bool {
         matches!(
@@ -591,7 +618,6 @@ impl Parser {
                 | TokenType::Void
         )
     }
-
     /// Parse an import declaration
     /// Supports multiple syntax forms:
     /// - `import item from source`
@@ -601,28 +627,22 @@ impl Parser {
     /// - `import type Item1, Item2 from source`
     fn parse_import_declaration(&mut self) -> ParseResult<Decl> {
         let start_span = self.current_token().span;
-
         // Consume 'import' keyword
         self.advance();
-
         let mut items = Vec::new();
         let mut is_type_import = false;
-
         // Check for 'type' keyword
         if self.check(&TokenType::Type) {
             is_type_import = true;
             self.advance();
         }
-
         // Parse first import item
         if self.check_identifier() {
             let item = self.parse_import_item(is_type_import)?;
             items.push(item);
-
             // Parse additional items if there's a comma
             while self.check(&TokenType::Comma) {
                 self.advance(); // consume ','
-
                 // Check for trailing comma (not allowed)
                 if self.check(&TokenType::From) {
                     return Err(ParseError::InvalidSyntax {
@@ -630,7 +650,6 @@ impl Parser {
                         span: ParseError::span_from_token(self.previous_token()),
                     });
                 }
-
                 let additional_item = self.parse_import_item(is_type_import)?;
                 items.push(additional_item);
             }
@@ -641,7 +660,6 @@ impl Parser {
                 span: ParseError::span_from_token(self.current_token()),
             });
         }
-
         // Expect 'from' keyword
         if !self.check(&TokenType::From) {
             return Err(ParseError::UnexpectedToken {
@@ -651,13 +669,10 @@ impl Parser {
             });
         }
         self.advance(); // consume 'from'
-
         // Parse source path (handles various import path formats)
         let source = self.parse_import_path()?;
-
         let end_span = self.previous_token().span;
         let import_span = Span::new(start_span.start, end_span.end);
-
         Ok(Decl::Import {
             statement: ImportStatement {
                 names: items
@@ -677,11 +692,9 @@ impl Parser {
             metadata: HotReloadMetadata::for_import(),
         })
     }
-
     /// Parse a single import item (either Named or Type)
     fn parse_import_item(&mut self, is_type: bool) -> ParseResult<ImportItem> {
         let start_span = self.current_token().span;
-
         // Parse item name
         let name = match self.current_token().token_type {
             TokenType::Identifier(ref name) => {
@@ -697,7 +710,6 @@ impl Parser {
                 });
             }
         };
-
         // Check for 'as' alias
         let alias = if self.check(&TokenType::Cast) {
             self.advance(); // consume 'as'
@@ -787,12 +799,10 @@ impl Parser {
             }),
         }
     }
-
     /// Parse path components separated by '/' (foo/bar/baz)
     /// Also handles file extensions like .types, .op
     fn parse_path_components(&mut self) -> ParseResult<String> {
         let mut components = Vec::new();
-
         // Parse first component
         match self.current_token().token_type {
             TokenType::Identifier(ref component) => {
@@ -807,11 +817,9 @@ impl Parser {
                 });
             }
         }
-
         // Parse additional components
         while self.check(&TokenType::Divide) {
             self.advance(); // consume '/'
-
             match self.current_token().token_type {
                 TokenType::Identifier(ref component) => {
                     components.push(component.clone());
@@ -826,11 +834,9 @@ impl Parser {
                 }
             }
         }
-
         // Handle file extensions (e.g., .types, .op)
         if self.check(&TokenType::Dot) {
             self.advance(); // consume '.'
-
             match self.current_token().token_type {
                 TokenType::Identifier(ref extension) => {
                     let last_component = components.pop().unwrap_or_default();
@@ -846,7 +852,6 @@ impl Parser {
                 }
             }
         }
-
         Ok(components.join("/"))
     }
 

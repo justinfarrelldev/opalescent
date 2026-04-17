@@ -173,6 +173,7 @@ pub fn compile_to_module<'context>(
                     body: lowered_body,
                     visibility: visibility.clone(),
                     is_entry: false,
+                    modifiers: vec![],
                     doc_comment: doc_comment.clone(),
                     span,
                     id: NodeId(0),

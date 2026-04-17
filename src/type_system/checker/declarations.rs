@@ -3,8 +3,8 @@
 extern crate alloc;
 
 use crate::ast::{
-    AstNode, Decl, Expr, LetBinding, Parameter, Program, Stmt, Type, TypeDef, TypeParameter,
-    Visibility as AstVisibility,
+    AstNode, Decl, Expr, FunctionModifier, LetBinding, Parameter, Program, Stmt, Type, TypeDef,
+    TypeParameter, Visibility as AstVisibility,
 };
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
@@ -12,6 +12,26 @@ use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{collections::BTreeMap, format, vec::Vec};
+
+/// Parameters for type checking a function declaration
+struct FunctionCheckParams<'params> {
+    /// Generic type parameter constraints
+    generic_constraints: Option<&'params [TypeParameter]>,
+    /// Function parameters
+    parameters: &'params [Parameter],
+    /// Return types
+    return_types: Option<&'params [Type]>,
+    /// Error types
+    error_types: &'params [String],
+    /// Function modifiers (pure, untested)
+    modifiers: &'params [FunctionModifier],
+    /// Whether this is an entry function
+    is_entry: bool,
+    /// Function body
+    body: &'params Stmt,
+    /// Source location
+    span: crate::token::Span,
+}
 
 impl TypeChecker {
     /// Validate that the program contains exactly one `entry` function.
@@ -465,17 +485,21 @@ impl TypeChecker {
                 ref parameters,
                 ref return_types,
                 ref error_types,
+                ref modifiers,
+                is_entry,
                 ref body,
                 span,
                 ..
-            } => self.type_check_function_declaration(
-                generic_constraints.as_deref(),
-                parameters.as_slice(),
-                return_types.as_deref(),
+            } => self.type_check_function_declaration(&FunctionCheckParams {
+                generic_constraints: generic_constraints.as_deref(),
+                parameters: parameters.as_slice(),
+                return_types: return_types.as_deref(),
                 error_types,
+                modifiers: modifiers.as_slice(),
+                is_entry,
                 body,
                 span,
-            ),
+            }),
             Decl::Let {
                 ref binding,
                 ref initializer,
@@ -489,15 +513,10 @@ impl TypeChecker {
     /// Type check a function body within a dedicated parameter scope, enforcing return compatibility.
     fn type_check_function_declaration(
         &mut self,
-        generic_constraints: Option<&[TypeParameter]>,
-        parameters: &[Parameter],
-        return_types: Option<&[Type]>,
-        error_types: &[String],
-        body: &Stmt,
-        span: crate::token::Span,
+        params: &FunctionCheckParams,
     ) -> Result<(), TypeError> {
         let mut generic_bindings: Vec<(alloc::string::String, CoreType)> = Vec::new();
-        if let Some(declarations) = generic_constraints {
+        if let Some(declarations) = params.generic_constraints {
             for declaration in declarations {
                 let variable_core =
                     self.fresh_type_var(declaration.name.clone(), declaration.span)?;
@@ -505,15 +524,16 @@ impl TypeChecker {
             }
         }
 
-        let mut parameter_types = Vec::with_capacity(parameters.len());
-        for param in parameters {
+        let mut parameter_types = Vec::with_capacity(params.parameters.len());
+        for param in params.parameters {
             parameter_types.push(Self::ast_type_to_core_type_with_generics(
                 &param.param_type,
                 generic_bindings.as_slice(),
             )?);
         }
 
-        let return_core_types = return_types
+        let return_core_types = params
+            .return_types
             .map(|ast_return_types| {
                 ast_return_types
                     .iter()
@@ -528,13 +548,23 @@ impl TypeChecker {
             .transpose()?
             .unwrap_or_else(|| vec![CoreType::Unit]);
 
-        let core_errors = self.resolve_error_types(error_types, span)?;
+        let core_errors = self.resolve_error_types(params.error_types, params.span)?;
 
-        self.symbol_table.enter_function(core_errors, span);
+        let mut effective_modifiers = params.modifiers.to_vec();
+        if params.is_entry
+            && !effective_modifiers
+                .iter()
+                .any(|modifier| *modifier == FunctionModifier::Untested)
+        {
+            effective_modifiers.push(FunctionModifier::Untested);
+        }
+
+        self.symbol_table.enter_function(core_errors, params.span);
+        self.enter_function_modifier_context(effective_modifiers);
         self.begin_return_context();
 
         let result = self.within_new_scope(|checker| -> Result<(), TypeError> {
-            for (param, core_type) in parameters.iter().zip(parameter_types.iter()) {
+            for (param, core_type) in params.parameters.iter().zip(parameter_types.iter()) {
                 checker.symbol_table.register(SymbolInfo {
                     name: param.name.clone(),
                     symbol_type: SymbolType::Variable,
@@ -547,10 +577,11 @@ impl TypeChecker {
                 });
             }
 
-            checker.type_check_stmt_with_return(body, Some(return_core_types.as_slice()))
+            checker.type_check_stmt_with_return(params.body, Some(return_core_types.as_slice()))
         });
 
         self.end_return_context();
+        self.exit_function_modifier_context();
         self.symbol_table.exit_function();
 
         result

@@ -1,0 +1,5 @@
+src/token.rs:165:     /// The 'pure' keyword for pure functions (no side effects)
+src/token.rs:421:             Self::Pure => write!(f, "pure"),
+src/parser/declarations.rs:37:             if self.check(&TokenType::Pure) {
+src/type_system/checker/call_resolution.rs:24: const IMPURE_STDLIB_FUNCTIONS: &[&str] = &["print", "take_input", "random_int32"];
+src/type_system/tests.rs:501: fn test_type_check_pure_function_rejects_print_call() {

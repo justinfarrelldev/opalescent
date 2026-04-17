@@ -1138,7 +1138,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ### Wave 3 — P1 Correctness + Spec
 
-- [ ] 12. Fix unsigned int→float — use `uitofp` instead of `sitofp` (issue 1c)
+- [x] 12. Fix unsigned int→float — use `uitofp` instead of `sitofp` (issue 1c)
 
   **What to do**:
   - RED: Write a test casting `uint64 max_value` (18446744073709551615) to float64 and verifying the result is correct (not a negative number, which sitofp would produce for large unsigned values).
@@ -1202,7 +1202,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 13. Add `pure` keyword — lexer, parser, type checker enforcement (issue 4a)
+- [x] 13. Add `pure` keyword — lexer, parser, type checker enforcement (issue 4a)
 
   **What to do**:
   - RED: Write tests that:
@@ -1299,7 +1299,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 14. Add `untested` keyword — lexer, parser, type checker enforcement (issue 4b)
+- [x] 14. Add `untested` keyword — lexer, parser, type checker enforcement (issue 4b)
 
   **What to do**:
   - RED: Write tests that:
@@ -1437,7 +1437,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 16. Immutability enforcement in codegen (issue 4d)
+- [x] 16. Immutability enforcement in codegen (issue 4d)
 
   **What to do**:
   - RED: Write a test that attempts to assign to an immutable variable in codegen and verifies it produces an error (currently it silently succeeds at codegen level even though type checker catches it).

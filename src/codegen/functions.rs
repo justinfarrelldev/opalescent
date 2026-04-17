@@ -88,6 +88,7 @@ pub fn codegen_function_declaration<'context>(
                 alloca,
                 core_type: parameter_core_types[index].clone(),
                 length: None,
+                is_mutable: false,
             },
         );
     }
@@ -330,6 +331,7 @@ pub fn codegen_guard_expression<'context>(
                     alloca,
                     core_type: llvm_basic_type_to_core_type(success_value.get_type()),
                     length: None,
+                    is_mutable: false,
                 },
             );
             return Ok(success_value);
@@ -450,6 +452,7 @@ fn resolve_callee_function<'context>(
                         alloca,
                         core_type: parameter_types[i].clone(),
                         length: None,
+                        is_mutable: false,
                     },
                 );
             }
@@ -467,6 +470,7 @@ fn resolve_callee_function<'context>(
                         alloca,
                         core_type: parameter_types[params.len() + i].clone(),
                         length: None,
+                        is_mutable: false,
                     },
                 );
             }

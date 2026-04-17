@@ -12,9 +12,9 @@ use super::symbol_table::{ScopeId, SymbolInfo, SymbolTable, SymbolType, Visibili
 use super::type_mapping::ast_type_to_core_type;
 use super::types::{CoreType, TypeVar};
 use crate::ast::{
-    Decl, Expr, Field, HotReloadMetadata, LabeledValue, LambdaBody, LetBinding, LiteralValue,
-    NodeId, Parameter, Program, Stmt, StringPart, Type, TypeDef, TypeParameter, Variant,
-    Visibility as AstVisibility,
+    Decl, Expr, Field, FunctionModifier, HotReloadMetadata, LabeledValue, LambdaBody, LetBinding,
+    LiteralValue, NodeId, Parameter, Program, Stmt, StringPart, Type, TypeDef, TypeParameter,
+    Variant, Visibility as AstVisibility,
 };
 use crate::lexer::Lexer;
 use crate::parser::Parser;
@@ -177,6 +177,7 @@ fn make_function_decl(
         body,
         visibility: AstVisibility::Private,
         is_entry: false,
+        modifiers: vec![],
         doc_comment: None,
         span: test_span(),
         id: node_id(id),
@@ -241,6 +242,7 @@ fn make_function_decl_with_errors(
         body,
         visibility: AstVisibility::Private,
         is_entry: false,
+        modifiers: vec![],
         doc_comment: None,
         span: test_span(),
         id: node_id(id),
@@ -493,6 +495,107 @@ fn test_propagate_fails_when_error_types_mismatch() {
             .any(|e| matches!(e, &TypeError::PropagateErrorMismatch { .. })),
         "expected PropagateErrorMismatch error, got: {errors:?}"
     );
+}
+
+#[test]
+fn test_type_check_pure_function_rejects_print_call() {
+    let pure_body = Stmt::Block {
+        statements: vec![Stmt::Expression {
+            expr: Expr::Call {
+                callee: Box::new(identifier_expr("print", 7_100_000)),
+                generic_args: None,
+                args: vec![literal_expr(
+                    LiteralValue::String(String::from("hello")),
+                    7_100_001,
+                )],
+                span: test_span(),
+                id: node_id(7_100_002),
+            },
+            span: test_span(),
+            id: node_id(7_100_003),
+        }],
+        span: test_span(),
+        id: node_id(7_100_004),
+    };
+
+    let pure_fn = Decl::Function {
+        name: String::from("pure_worker"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("void")]),
+        error_types: Vec::new(),
+        body: pure_body,
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_100_005),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![pure_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(result.is_err(), "pure function calling print should fail");
+    let errors = result.unwrap_err();
+    assert!(
+        errors.iter().any(|error| {
+            matches!(
+                error,
+                &TypeError::InvalidOperation { ref operation, .. }
+                if operation.contains("impure function 'print'")
+            )
+        }),
+        "expected InvalidOperation about impure print call, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_type_check_non_pure_function_allows_print_call() {
+    let body = Stmt::Block {
+        statements: vec![Stmt::Expression {
+            expr: Expr::Call {
+                callee: Box::new(identifier_expr("print", 7_200_000)),
+                generic_args: None,
+                args: vec![literal_expr(
+                    LiteralValue::String(String::from("ok")),
+                    7_200_001,
+                )],
+                span: test_span(),
+                id: node_id(7_200_002),
+            },
+            span: test_span(),
+            id: node_id(7_200_003),
+        }],
+        span: test_span(),
+        id: node_id(7_200_004),
+    };
+
+    let normal_fn = Decl::Function {
+        name: String::from("worker"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("void")]),
+        error_types: Vec::new(),
+        body,
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_200_005),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![normal_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(result.is_ok(), "non-pure function should allow print call");
 }
 
 /// Ensure propagate succeeds when the callee exposes a subset of the caller's error list
@@ -3522,6 +3625,7 @@ fn test_type_check_let_destructure_loop_break_values() {
         },
         visibility: AstVisibility::Private,
         is_entry: false,
+        modifiers: vec![],
         doc_comment: None,
         span: test_span(),
         id: node_id(20_146),
@@ -3592,6 +3696,7 @@ fn test_type_check_labeled_returns_require_consistent_ordered_labels() {
         },
         visibility: AstVisibility::Private,
         is_entry: false,
+        modifiers: vec![],
         doc_comment: None,
         span: test_span(),
         id: node_id(20_151),
@@ -3668,6 +3773,7 @@ fn test_type_check_labeled_and_unlabeled_returns_cannot_mix() {
         },
         visibility: AstVisibility::Private,
         is_entry: false,
+        modifiers: vec![],
         doc_comment: None,
         span: test_span(),
         id: node_id(20_171),
@@ -3792,6 +3898,7 @@ fn test_type_check_program_collects_errors() {
         },
         visibility: AstVisibility::Private,
         is_entry: false,
+        modifiers: vec![],
         doc_comment: None,
         span: test_span(),
         id: node_id(10_202),

@@ -140,6 +140,7 @@ fn codegen_let_statement<'context>(
             alloca,
             core_type: declared_type,
             length: None,
+            is_mutable: binding.is_mutable,
         },
     );
     if let Some(&Expr::Constructor { .. }) = initializer {
@@ -186,6 +187,7 @@ fn codegen_let_destructure_statement<'context>(
                 alloca,
                 core_type: binding_type,
                 length: None,
+                is_mutable: binding.is_mutable,
             },
         );
     }
@@ -212,6 +214,11 @@ fn codegen_assignment<'context>(
                 "assignment target '{name}' not found"
             )));
         };
+        if !binding_snapshot.is_mutable {
+            return Err(CodegenError::new(format!(
+                "cannot assign to immutable variable: {name}"
+            )));
+        }
         let binding_alloca = binding_snapshot.alloca;
         let binding_type = binding_snapshot.core_type.clone();
 
@@ -309,6 +316,7 @@ fn codegen_guard_statement<'context>(
                         alloca: error_alloca,
                         core_type: CoreType::String,
                         length: None,
+                        is_mutable: false,
                     },
                 );
 
@@ -338,6 +346,7 @@ fn codegen_guard_statement<'context>(
                         alloca: success_alloca,
                         core_type: success_core_type,
                         length: None,
+                        is_mutable: false,
                     },
                 );
 
@@ -358,6 +367,7 @@ fn codegen_guard_statement<'context>(
             alloca,
             core_type: inferred_type,
             length: None,
+            is_mutable: false,
         },
     );
 

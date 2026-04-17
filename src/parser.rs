@@ -25,6 +25,8 @@ mod expressions;
 mod generics;
 /// Parser submodule for helper methods (token navigation, state management)
 mod helpers;
+/// Parser submodule for modifier parsing (public, entry, pure, untested)
+mod modifiers;
 /// Parser submodule for match expression and pattern parsing
 mod patterns;
 /// Operator precedence definitions

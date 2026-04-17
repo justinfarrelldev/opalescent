@@ -16,7 +16,10 @@ use crate::type_system::errors::TypeError;
 use crate::type_system::substitution::Substitution;
 use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::{CoreType, GenericTypeParameter};
-use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeMap, string::String, vec::Vec};
+
+/// Standard library functions that are impure (have side effects)
+const IMPURE_STDLIB_FUNCTIONS: &[&str] = &["print", "take_input", "random_int32"];
 
 impl TypeChecker {
     /// Instantiate polymorphic call-site types so each function call receives fresh type variables.
@@ -94,6 +97,23 @@ impl TypeChecker {
         args: &[Expr],
         span: Span,
     ) -> Result<CoreType, TypeError> {
+        if self.current_function_is_pure() {
+            if let Expr::Identifier {
+                ref name,
+                span: callee_span,
+                ..
+            } = *callee
+            {
+                if IMPURE_STDLIB_FUNCTIONS.contains(&name.as_str()) {
+                    return Err(TypeError::InvalidOperation {
+                        operation: format!("call impure function '{name}' from pure function"),
+                        type_name: String::from("function"),
+                        span: TypeError::span_from_span(callee_span),
+                    });
+                }
+            }
+        }
+
         let callee_type = self.type_check_expr(callee)?;
         match callee_type {
             CoreType::Function {
