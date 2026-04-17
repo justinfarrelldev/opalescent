@@ -7,10 +7,11 @@ extern crate alloc;
 
 use crate::ast::{Decl, Expr, LabeledValue, LambdaBody, NodeId, Stmt};
 use crate::codegen::context::CodegenContext;
-use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::error::CodegenError;
+use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::functions::{codegen_function_declaration, codegen_import_declaration};
 use crate::error::LexError;
+use crate::errors::reporter::{CompilationErrorReport, CompilerError};
 use crate::lexer::Lexer;
 use crate::parser::errors::ParseError;
 use crate::parser::Parser;
@@ -82,6 +83,14 @@ impl Drop for RuntimeTempFile {
 /// Error type spanning every stage of compiler orchestration.
 #[derive(Debug, thiserror::Error)]
 pub enum CompileError {
+    /// Front-end compilation returned one or more diagnostics.
+    #[error("front-end compilation failed")]
+    Report {
+        /// Collected diagnostics across compiler phases.
+        report: CompilationErrorReport,
+        /// Tab-normalized source used for diagnostics.
+        normalized_source: String,
+    },
     /// Lexing stage returned a lexical analysis error.
     #[error("lexing failed")]
     Lex(LexError),
@@ -108,40 +117,45 @@ pub enum CompileError {
 /// Compile source text into an LLVM module using shared context lifetime.
 ///
 /// # Errors
-/// Returns `CompileError` when lexing, parsing, type-checking, or codegen fails.
+/// Returns a multi-error report plus normalized source when any stage fails.
 pub fn compile_to_module<'context>(
     context: &'context Context,
     source: &str,
-) -> Result<Module<'context>, CompileError> {
+) -> Result<Module<'context>, (CompilationErrorReport, String)> {
     let normalized_source = source.replace('\t', "    ");
     let lexer = Lexer::new(&normalized_source);
     let (tokens, lex_errors) = lexer.tokenize();
-    if let Some(error) = lex_errors.errors.into_iter().next() {
-        return Err(CompileError::Lex(error));
+    let mut report = CompilationErrorReport::new();
+    report.extend_lex_errors(lex_errors.errors);
+    if !report.is_empty() {
+        return Err((report, normalized_source));
     }
 
     let parser = Parser::new(tokens);
     let (program_option, parse_errors) = parser.parse();
-    if let Some(error) = parse_errors.errors.into_iter().next() {
-        return Err(CompileError::Parse(error));
+    report.extend_parse_errors(parse_errors.errors);
+    if !report.is_empty() {
+        return Err((report, normalized_source));
     }
 
     let Some(program) = program_option else {
-        return Err(CompileError::Parse(ParseError::InvalidSyntax {
+        report.push_parse_error(ParseError::InvalidSyntax {
             message: String::from("parser returned no program after successful parse"),
             span: LexError::span_from_position(Position::start(), 1),
-        }));
+        });
+        return Err((report, normalized_source));
     };
 
     let mut checker = TypeChecker::new();
     if let Err(type_errors) = checker.type_check_program(&program) {
-        if let Some(first_error) = type_errors.into_iter().next() {
-            return Err(CompileError::Type(first_error));
+        report.extend_type_errors(type_errors);
+        if report.is_empty() {
+            report.push_type_error(TypeError::ConstraintSolvingFailed {
+                reason: String::from("type checker returned empty error set"),
+                span: TypeError::unknown_span(),
+            });
         }
-        return Err(CompileError::Type(TypeError::ConstraintSolvingFailed {
-            reason: String::from("type checker returned empty error set"),
-            span: TypeError::unknown_span(),
-        }));
+        return Err((report, normalized_source));
     }
 
     let codegen_context = CodegenContext::new(context, "opalescent_module");
@@ -150,12 +164,22 @@ pub fn compile_to_module<'context>(
     for declaration in &program.declarations {
         match *declaration {
             Decl::Import { .. } => {
-                codegen_import_declaration(&codegen_context, &mut env, declaration)
-                    .map_err(CompileError::Codegen)?;
+                codegen_import_declaration(&codegen_context, &mut env, declaration).map_err(
+                    |error| {
+                        let mut codegen_report = CompilationErrorReport::new();
+                        codegen_report.push_codegen_error(error.message);
+                        (codegen_report, normalized_source.clone())
+                    },
+                )?;
             }
             Decl::Function { .. } => {
-                codegen_function_declaration(&codegen_context, &mut env, declaration)
-                    .map_err(CompileError::Codegen)?;
+                codegen_function_declaration(&codegen_context, &mut env, declaration).map_err(
+                    |error| {
+                        let mut codegen_report = CompilationErrorReport::new();
+                        codegen_report.push_codegen_error(error.message);
+                        (codegen_report, normalized_source.clone())
+                    },
+                )?;
             }
             Decl::Let {
                 ref binding,
@@ -193,7 +217,11 @@ pub fn compile_to_module<'context>(
                 };
 
                 codegen_function_declaration(&codegen_context, &mut env, &lowered_declaration)
-                    .map_err(CompileError::Codegen)?;
+                    .map_err(|error| {
+                        let mut codegen_report = CompilationErrorReport::new();
+                        codegen_report.push_codegen_error(error.message);
+                        (codegen_report, normalized_source.clone())
+                    })?;
             }
             Decl::Let { .. } | Decl::Type { .. } | Decl::Comment { .. } => {}
         }
@@ -358,7 +386,23 @@ pub fn compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, Compi
     std::fs::create_dir_all(output_dir).map_err(CompileError::Io)?;
 
     let context = Context::create();
-    let module = compile_to_module(&context, source)?;
+    let module = match compile_to_module(&context, source) {
+        Ok(module) => module,
+        Err((report, normalized_source)) => {
+            if report.len() == 1 {
+                if let Some(&(_, CompilerError::Codegen(ref codegen_error))) =
+                    report.entries().first()
+                {
+                    return Err(CompileError::Codegen(codegen_error.clone()));
+                }
+            }
+
+            return Err(CompileError::Report {
+                report,
+                normalized_source,
+            });
+        }
+    };
 
     let object_path = output_dir.join("program.o");
     let binary_path = output_dir.join("program");
@@ -369,7 +413,8 @@ pub fn compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, Compi
 
 #[cfg(test)]
 mod tests {
-    use super::{build_linker_command, compile_to_module, CompileError};
+    use super::{build_linker_command, compile_to_module};
+    use crate::errors::reporter::CompilerError;
     use inkwell::context::Context;
 
     /// Valid source should compile and produce a verifiable module.
@@ -398,12 +443,31 @@ mod tests {
     #[test]
     fn compile_to_module_lex_error() {
         let context = Context::create();
-        let source = "entry main = f(): void => { let x = @@@invalid }";
+        let source = "entry main = f(): void => {\n\tlet x = @@@invalid\n}";
         let result = compile_to_module(&context, source);
-
         assert!(
-            matches!(result, Err(CompileError::Lex(_))),
-            "invalid tokens should surface as CompileError::Lex"
+            result.is_err(),
+            "invalid tokens should surface as lexer diagnostics"
+        );
+
+        let Err((report, normalized_source)) = result else {
+            return;
+        };
+        assert!(
+            !report.is_empty(),
+            "lexer diagnostics report should not be empty"
+        );
+        assert!(
+            report
+                .entries()
+                .iter()
+                .any(|entry| matches!(entry, &(_, CompilerError::Lexer(_)))),
+            "invalid tokens should surface as lexer entries in CompilationErrorReport"
+        );
+        assert_eq!(
+            normalized_source,
+            source.replace('\t', "    "),
+            "error payload should return the tab-normalized source"
         );
     }
 
@@ -413,10 +477,73 @@ mod tests {
         let context = Context::create();
         let source = "entry main = f(): void => { return 1 }";
         let result = compile_to_module(&context, source);
+        assert!(
+            result.is_err(),
+            "semantic mismatches should fail compilation"
+        );
+
+        let Err((report, _source)) = result else {
+            return;
+        };
+        assert!(
+            report
+                .entries()
+                .iter()
+                .any(|entry| matches!(entry, &(_, CompilerError::TypeChecker(_)))),
+            "semantic mismatches should surface as type-checker entries in CompilationErrorReport"
+        );
+    }
+
+    #[test]
+    fn compile_to_module_collects_multiple_type_errors() {
+        let context = Context::create();
+        let source = "let bad_type = f(): int32 => { return true }\nlet bad_symbol = f(): int32 => { return missing_symbol }\nentry main = f(): void => { return void }";
+        let result = compile_to_module(&context, source);
+        assert!(
+            result.is_err(),
+            "source with multiple semantic issues should fail compilation"
+        );
+
+        let Err((report, _source)) = result else {
+            return;
+        };
 
         assert!(
-            matches!(result, Err(CompileError::Type(_))),
-            "semantic mismatches should surface as CompileError::Type"
+            report.len() >= 2,
+            "expected multiple diagnostics, got {}",
+            report.len()
+        );
+
+        let type_mismatch_present = report.entries().iter().any(|entry| {
+            matches!(
+                entry,
+                &(
+                    _,
+                    CompilerError::TypeChecker(
+                        crate::type_system::errors::TypeError::TypeMismatch { .. }
+                    )
+                )
+            )
+        });
+        assert!(
+            type_mismatch_present,
+            "report should include a type mismatch diagnostic"
+        );
+
+        let symbol_not_found_present = report.entries().iter().any(|entry| {
+            matches!(
+                entry,
+                &(
+                    _,
+                    CompilerError::TypeChecker(
+                        crate::type_system::errors::TypeError::SymbolNotFound { .. }
+                    )
+                )
+            )
+        });
+        assert!(
+            symbol_not_found_present,
+            "report should include a symbol-not-found diagnostic"
         );
     }
 

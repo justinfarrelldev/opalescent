@@ -1,0 +1,39 @@
+Task 5 Evidence — Multi-error collection in compile_to_module
+Date: 2026-04-17
+
+Summary of implemented behavior:
+- compile_to_module now returns Result<Module, (CompilationErrorReport, String)>.
+- Error path returns tab-normalized source in the Err tuple.
+- Lex errors are collected with report.extend_lex_errors(lex_errors.errors).
+- Parse errors are collected with report.extend_parse_errors(parse_errors.errors).
+- Type errors are collected with report.extend_type_errors(type_errors).
+- Parse/type phases are skipped when earlier phase collected errors, matching staged pipeline behavior.
+- Codegen errors remain fatal single diagnostics, wrapped as a report with one codegen entry.
+- compile_program now adapts the new compile_to_module return type and maps:
+  - single codegen report entry -> CompileError::Codegen (unchanged external behavior)
+  - all other frontend failures -> CompileError::Report { report, normalized_source }
+
+Verification artifacts:
+1) LSP diagnostics clean on changed files
+   - src/compiler.rs: No diagnostics found
+   - src/app.rs: No diagnostics found
+
+2) Tests
+   - Command: cargo test
+   - Result: PASS
+   - Totals: 989 passed; 0 failed; 5 ignored
+
+3) New/updated tests in src/compiler.rs
+   - compile_to_module_lex_error now asserts report-based lexer entry and normalized source return.
+   - compile_to_module_type_error now asserts report-based type-checker entry.
+   - Added compile_to_module_collects_multiple_type_errors asserting >=2 diagnostics and presence of:
+     - TypeError::TypeMismatch
+     - TypeError::SymbolNotFound
+
+Expected outcome check:
+- [x] compile_to_module collects all lex/parse/type errors via CompilationErrorReport
+- [x] compile_to_module returns Err((CompilationErrorReport, String))
+- [x] compile_program updated for the new return type
+- [x] codegen/io/linker error behavior preserved (codegen still surfaced as single fatal error)
+- [x] cargo test passes
+- [x] Multi-error test validates more than one error collected

@@ -38,3 +38,11 @@
 - A wrapper diagnostic must implement `Debug` because `miette::Diagnostic` inherits from `std::error::Error` (`Error: Debug + Display`).
 - Attaching `NamedSource<String>` at render time works cleanly by delegating all `Diagnostic` methods to the inner diagnostic and overriding only `source_code()`.
 - Zero-width spans from `TypeError::unknown_span()` render safely with miette graphical output without special-casing.
+
+## [2026-04-17] Task 5 — Multi-error collection in compiler pipeline
+
+### Implementation Learnings
+- `compile_to_module` can mirror the proven LSP diagnostics collection pattern by initializing one `CompilationErrorReport` and using `extend_lex_errors`, `extend_parse_errors`, and `extend_type_errors` at each phase boundary.
+- Returning `Err((report, normalized_source))` preserves the exact tab-normalized source used for lexing/parsing/type-checking, which is required for accurate source-span rendering in downstream `render_report` usage.
+- For compatibility with existing external error shape, `compile_program` can down-map a single codegen entry in the report back into `CompileError::Codegen`, while surfacing frontend multi-errors through a dedicated `CompileError::Report` variant that carries both report and normalized source.
+- Multi-error tests are more reliable when using independent declaration-level type failures (e.g., one function return type mismatch plus one undefined symbol in another function), avoiding short-circuit behavior that can arise inside a single declaration body.
