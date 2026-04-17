@@ -156,12 +156,7 @@ impl LexError {
     /// A `SourceSpan` that can be used for error reporting with miette
     pub fn span_from_span(span: Span) -> SourceSpan {
         let start = span.start.offset;
-        let end = span.end.offset;
-        let len = if end >= start {
-            end.saturating_sub(start).saturating_add(1)
-        } else {
-            1
-        };
+        let len = span.end.offset.saturating_sub(span.start.offset);
         SourceSpan::new(start.into(), len)
     }
 }
@@ -244,6 +239,6 @@ mod tests {
 
         let source_span = LexError::span_from_span(span);
         assert_eq!(source_span.offset(), 5);
-        assert_eq!(source_span.len(), 8); // 12 - 5 + 1
+        assert_eq!(source_span.len(), 7); // 12 - 5 (exclusive end)
     }
 }
