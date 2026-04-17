@@ -277,6 +277,23 @@ fn infer_operand_type(expr: &Expr, env: &CodegenEnv<'_>) -> Option<CoreType> {
     }
 }
 
+fn infer_cast_source_core_type(expr: &Expr, env: &CodegenEnv<'_>) -> Option<CoreType> {
+    match *expr {
+        Expr::Identifier { ref name, .. } => env
+            .variables
+            .get(name)
+            .map(|binding| binding.core_type.clone()),
+        Expr::Literal {
+            value: LiteralValue::Integer(_),
+            ..
+        } => Some(CoreType::Int64),
+        Expr::Cast {
+            ref target_type, ..
+        } => ast_type_to_core_type_for_cast(target_type).ok(),
+        _ => None,
+    }
+}
+
 fn codegen_binary<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -374,6 +391,28 @@ fn codegen_cast<'context>(
             let out_type = integer_type_for(codegen_context, &target_type)?;
             let in_bits = int_value.get_type().get_bit_width();
             let out_bits = out_type.get_bit_width();
+            let source_core_type = infer_cast_source_core_type(expr, env);
+            let source_signed = source_core_type.as_ref().is_none_or(is_signed_core_type);
+            let target_signed = is_signed_core_type(&target_type);
+
+            let needs_guard = matches!(in_bits.cmp(&out_bits), core::cmp::Ordering::Greater)
+                || (in_bits == out_bits && source_signed != target_signed);
+
+            if needs_guard {
+                crate::codegen::expressions_cast::emit_integer_cast_range_guard(
+                    codegen_context,
+                    env,
+                    expr,
+                    int_value,
+                    in_bits,
+                    out_bits,
+                    source_signed,
+                    target_signed,
+                    source_core_type.as_ref(),
+                    &target_type,
+                )?;
+            }
+
             let casted = match in_bits.cmp(&out_bits) {
                 core::cmp::Ordering::Greater => codegen_context
                     .builder
@@ -397,8 +436,8 @@ fn codegen_cast<'context>(
         if is_float_core_type(&target_type) {
             let float_type = float_type_for(codegen_context, &target_type)?;
             // Task 12: Use uitofp for unsigned sources, sitofp for signed
-            let casted = match expr {
-                Expr::Identifier { name, .. } => {
+            let casted = match *expr {
+                Expr::Identifier { ref name, .. } => {
                     if let Some(binding) = env.variables.get(name) {
                         if is_signed_core_type(&binding.core_type) {
                             codegen_context

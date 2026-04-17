@@ -736,6 +736,218 @@ fn test_codegen_unsigned_int_to_float_cast_uses_uitofp() {
 }
 
 #[test]
+fn test_codegen_narrowing_signed_int_cast_emits_runtime_range_trap() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "narrowing_i64_to_i8_cast");
+    let _function = create_codegen_function(&codegen_context, "narrowing_i64_to_i8_cast_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let source_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("x"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("int64"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(7_320),
+        },
+        initializer: Some(int_lit(7_321, 300)),
+        span: test_span(),
+        id: test_node_id(7_322),
+    };
+    let source_result = codegen_statement(&codegen_context, &mut env, &source_stmt);
+    assert!(source_result.is_ok(), "source int64 let should codegen");
+
+    let cast_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("narrowed"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("int8"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(7_323),
+        },
+        initializer: Some(cast(7_324, ident(7_325, "x"), "int8")),
+        span: test_span(),
+        id: test_node_id(7_326),
+    };
+    let cast_result = codegen_statement(&codegen_context, &mut env, &cast_stmt);
+    assert!(cast_result.is_ok(), "int64-to-int8 cast should codegen");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("call void @opal_runtime_error"),
+        "narrowing int cast should emit runtime trap call: {ir}"
+    );
+    assert!(
+        ir.contains("cast out of range: int64 to int8"),
+        "narrowing int cast trap should contain source/target message: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_widening_signed_int_cast_emits_no_range_trap() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "widening_i8_to_i64_cast");
+    let _function = create_codegen_function(&codegen_context, "widening_i8_to_i64_cast_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let source_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("small"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("int8"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(7_330),
+        },
+        initializer: Some(int_lit(7_331, 7)),
+        span: test_span(),
+        id: test_node_id(7_332),
+    };
+    let source_result = codegen_statement(&codegen_context, &mut env, &source_stmt);
+    assert!(source_result.is_ok(), "source int8 let should codegen");
+
+    let cast_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("widened"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("int64"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(7_333),
+        },
+        initializer: Some(cast(7_334, ident(7_335, "small"), "int64")),
+        span: test_span(),
+        id: test_node_id(7_336),
+    };
+    let cast_result = codegen_statement(&codegen_context, &mut env, &cast_stmt);
+    assert!(cast_result.is_ok(), "int8-to-int64 cast should codegen");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        !ir.contains("cast out of range:"),
+        "widening int cast should not emit cast range trap message: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_same_width_signed_to_unsigned_cast_emits_runtime_range_trap() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "reinterpret_i64_to_u64_cast");
+    let _function = create_codegen_function(&codegen_context, "reinterpret_i64_to_u64_cast_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let source_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("x"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("int64"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(7_340),
+        },
+        initializer: Some(int_lit(7_341, -1)),
+        span: test_span(),
+        id: test_node_id(7_342),
+    };
+    let source_result = codegen_statement(&codegen_context, &mut env, &source_stmt);
+    assert!(source_result.is_ok(), "source int64 let should codegen");
+
+    let cast_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("as_unsigned"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("uint64"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(7_343),
+        },
+        initializer: Some(cast(7_344, ident(7_345, "x"), "uint64")),
+        span: test_span(),
+        id: test_node_id(7_346),
+    };
+    let cast_result = codegen_statement(&codegen_context, &mut env, &cast_stmt);
+    assert!(cast_result.is_ok(), "int64-to-uint64 cast should codegen");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("call void @opal_runtime_error"),
+        "same-width signed-to-unsigned cast should emit runtime trap call: {ir}"
+    );
+    assert!(
+        ir.contains("cast out of range: int64 to uint64"),
+        "same-width signed-to-unsigned cast trap should contain source/target message: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_same_width_unsigned_to_signed_cast_emits_runtime_range_trap() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "reinterpret_u64_to_i64_cast");
+    let _function = create_codegen_function(&codegen_context, "reinterpret_u64_to_i64_cast_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let source_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("x"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("uint64"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(7_350),
+        },
+        initializer: Some(int_lit(7_351, 1)),
+        span: test_span(),
+        id: test_node_id(7_352),
+    };
+    let source_result = codegen_statement(&codegen_context, &mut env, &source_stmt);
+    assert!(source_result.is_ok(), "source uint64 let should codegen");
+
+    let cast_stmt = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("as_signed"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("int64"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(7_353),
+        },
+        initializer: Some(cast(7_354, ident(7_355, "x"), "int64")),
+        span: test_span(),
+        id: test_node_id(7_356),
+    };
+    let cast_result = codegen_statement(&codegen_context, &mut env, &cast_stmt);
+    assert!(cast_result.is_ok(), "uint64-to-int64 cast should codegen");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("call void @opal_runtime_error"),
+        "same-width unsigned-to-signed cast should emit runtime trap call: {ir}"
+    );
+    assert!(
+        ir.contains("cast out of range: uint64 to int64"),
+        "same-width unsigned-to-signed cast trap should contain source/target message: {ir}"
+    );
+}
+
+#[test]
 fn test_codegen_assignment_to_immutable_variable_returns_error() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "immutable_assignment");

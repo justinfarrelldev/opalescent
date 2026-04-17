@@ -156,3 +156,24 @@
 - Added type-system tests for rejecting impure stdlib calls inside pure functions while allowing same calls in non-pure functions.
 - Added codegen test ensuring unsigned int→float casts emit `uitofp` and immutability assignment failures return `CodegenError` (no panic).
 - Full verification after fixes: `cargo build` succeeded and `cargo test` passed (`976 passed; 0 failed; 5 ignored`).
+
+## [2026-04-17] Task 15: Cast safety matching spec (4c)
+- Implemented integer-cast range guards in `codegen_cast` for:
+  - narrowing integer casts (`in_bits > out_bits`), and
+  - same-width signedness-changing casts (`intN <-> uintN`).
+- Guard behavior uses the same trap pattern as float→int checks:
+  - conditional branch to trap block,
+  - `opal_runtime_error("cast out of range: {source} to {target}")`,
+  - `unreachable`, then continue via `ok` block.
+- Added compile-time constant detection for integer literal casts:
+  - if cast range fit can be decided at compile-time, the generated condition is a constant i1
+  - still keeps unified branch/trap structure for consistency and easy IR auditing.
+- Widening integer casts remain unchanged (no range checks).
+- Added codegen tests:
+  - `test_codegen_narrowing_signed_int_cast_emits_runtime_range_trap`
+  - `test_codegen_widening_signed_int_cast_emits_no_range_trap`
+  - `test_codegen_same_width_signed_to_unsigned_cast_emits_runtime_range_trap`
+  - `test_codegen_same_width_unsigned_to_signed_cast_emits_runtime_range_trap`
+- Verification for this task:
+  - LSP diagnostics clean for changed files
+  - full `cargo test` passed: `980 passed; 0 failed; 5 ignored`
