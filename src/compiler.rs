@@ -167,7 +167,7 @@ pub fn compile_to_module<'context>(
                 codegen_import_declaration(&codegen_context, &mut env, declaration).map_err(
                     |error| {
                         let mut codegen_report = CompilationErrorReport::new();
-                        codegen_report.push_codegen_error(error.message);
+                        codegen_report.push_codegen_error_full(error);
                         (codegen_report, normalized_source.clone())
                     },
                 )?;
@@ -176,7 +176,7 @@ pub fn compile_to_module<'context>(
                 codegen_function_declaration(&codegen_context, &mut env, declaration).map_err(
                     |error| {
                         let mut codegen_report = CompilationErrorReport::new();
-                        codegen_report.push_codegen_error(error.message);
+                        codegen_report.push_codegen_error_full(error);
                         (codegen_report, normalized_source.clone())
                     },
                 )?;
@@ -219,7 +219,7 @@ pub fn compile_to_module<'context>(
                 codegen_function_declaration(&codegen_context, &mut env, &lowered_declaration)
                     .map_err(|error| {
                         let mut codegen_report = CompilationErrorReport::new();
-                        codegen_report.push_codegen_error(error.message);
+                        codegen_report.push_codegen_error_full(error);
                         (codegen_report, normalized_source.clone())
                     })?;
             }

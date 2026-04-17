@@ -2,7 +2,7 @@ extern crate alloc;
 
 use alloc::string::String;
 use inkwell::builder::BuilderError;
-use miette::SourceSpan;
+use miette::{Diagnostic, LabeledSpan, SourceSpan};
 
 /// A code generation error with an optional source span.
 #[derive(Debug, Clone)]
@@ -36,6 +36,16 @@ impl core::fmt::Display for CodegenError {
 }
 
 impl core::error::Error for CodegenError {}
+
+impl Diagnostic for CodegenError {
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
+        self.span.map(|span| {
+            let iter: Box<dyn Iterator<Item = LabeledSpan>> =
+                Box::new(core::iter::once(LabeledSpan::at(span, "here")));
+            iter
+        })
+    }
+}
 
 impl From<BuilderError> for CodegenError {
     fn from(value: BuilderError) -> Self {

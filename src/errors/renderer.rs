@@ -97,7 +97,11 @@ pub fn render_report(filename: &str, source: &str, report: &CompilationErrorRepo
                 rendered_entries.push(render_diagnostic(filename, source, type_error));
             }
             CompilerError::Codegen(ref codegen_error) => {
-                rendered_entries.push(format!("error: {}", codegen_error.message));
+                if codegen_error.span.is_some() {
+                    rendered_entries.push(render_diagnostic(filename, source, codegen_error));
+                } else {
+                    rendered_entries.push(format!("error: {}", codegen_error.message));
+                }
             }
         }
     }
