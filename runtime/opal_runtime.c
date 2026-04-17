@@ -669,6 +669,10 @@ char* uint32_to_string(uint32_t value) {
 char* uint64_to_string(uint64_t value) {
     int len = snprintf(NULL, 0, "%" PRIu64, value);
     char* buf = (char*)malloc(len + 1);
+    if (!buf) {
+        fprintf(stderr, "Runtime error: out of memory\n");
+        exit(1);
+    }
     snprintf(buf, len + 1, "%" PRIu64, value);
     return buf;
 }
@@ -677,6 +681,10 @@ char* uint64_to_string(uint64_t value) {
 char* float32_to_string(float value) {
     int len = snprintf(NULL, 0, "%g", (double)value);
     char* buf = (char*)malloc(len + 1);
+    if (!buf) {
+        fprintf(stderr, "Runtime error: out of memory\n");
+        exit(1);
+    }
     snprintf(buf, len + 1, "%g", (double)value);
     return buf;
 }
@@ -685,11 +693,20 @@ char* float32_to_string(float value) {
 char* float64_to_string(double value) {
     int len = snprintf(NULL, 0, "%g", value);
     char* buf = (char*)malloc(len + 1);
+    if (!buf) {
+        fprintf(stderr, "Runtime error: out of memory\n");
+        exit(1);
+    }
     snprintf(buf, len + 1, "%g", value);
     return buf;
 }
 
 /* caller owns returned string, must free() */
 char* bool_to_string(int8_t value) {
-    return strdup(value ? "true" : "false");
+    char* result = strdup(value ? "true" : "false");
+    if (!result) {
+        fprintf(stderr, "Runtime error: out of memory\n");
+        exit(1);
+    }
+    return result;
 }
