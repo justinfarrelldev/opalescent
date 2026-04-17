@@ -1,0 +1,11 @@
+##
+  Description: starting point of the application — tests safe cast operations
+##
+entry main = f(args: string[]): void =>
+    let x: int32 = 42
+    let y: float64 = x as float64
+    let z: int32 = 100
+    let w: float32 = z as float32
+    print('float64: {y}')
+    print('float32: {w}')
+    return void

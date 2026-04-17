@@ -1,0 +1,8 @@
+##
+  Description: starting point of the application — tests integer overflow trap
+##
+entry main = f(args: string[]): void =>
+    let x: int32 = 2147483647
+    let y: int32 = x + 1
+    print('result: {y}')
+    return void

@@ -1,0 +1,13 @@
+##
+  Description: Adds two integers together and returns the sum
+##
+let add = f(a: int32, b: int32): int32 =>
+    return a + b
+
+##
+  Description: starting point of the application — tests lambda body codegen
+##
+entry main = f(args: string[]): void =>
+    let result = add(3, 4)
+    print('3 + 4 = {result}')
+    return void

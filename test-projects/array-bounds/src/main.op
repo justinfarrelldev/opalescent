@@ -1,0 +1,8 @@
+##
+  Description: starting point of the application — tests array bounds checking
+##
+entry main = f(args: string[]): void =>
+    let arr: int32[] = [1, 2, 3]
+    let x = arr[10]
+    print('value: {x}')
+    return void

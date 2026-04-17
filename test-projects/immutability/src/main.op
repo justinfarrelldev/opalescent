@@ -1,0 +1,8 @@
+##
+  Description: starting point of the application — tests immutability enforcement
+##
+entry main = f(args: string[]): void =>
+    let x: int32 = 5
+    x = 10
+    print('x = {x}')
+    return void
