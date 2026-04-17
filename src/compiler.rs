@@ -257,6 +257,62 @@ pub fn emit_object_file(module: &Module<'_>, path: &Path) -> Result<(), CodegenE
         .map_err(|error| CodegenError::new(format!("failed to emit object file: {error}")))
 }
 
+/// Build a platform-appropriate linker [`Command`] for the given object and output paths.
+///
+/// Platform behaviour:
+/// - **Linux**: `cc -no-pie <obj> <runtime> -o <out>` — PIE relocation workaround required
+/// - **macOS**: `cc <obj> <runtime> -o <out>` — `-no-pie` not needed and may be unsupported
+/// - **Windows (MSVC)**: `link.exe /OUT:<out> <obj> <runtime>` — MSVC linker syntax
+/// - **Windows (other)**: `gcc <obj> <runtime> -o <out>` — MinGW / Cygwin fallback
+///
+/// The `target_os` parameter accepts the same values as [`std::env::consts::OS`].
+#[must_use]
+pub fn build_linker_command(
+    target_os: &str,
+    object_path: &Path,
+    runtime_path: &Path,
+    output_path: &Path,
+) -> Command {
+    match target_os {
+        "windows" => {
+            // Try MSVC link.exe first; fall back to MinGW gcc if unavailable.
+            if std::process::Command::new("link.exe")
+                .arg("/?")
+                .output()
+                .is_ok()
+            {
+                let mut cmd = Command::new("link.exe");
+                cmd.arg(format!("/OUT:{}", output_path.display()));
+                cmd.arg(object_path);
+                cmd.arg(runtime_path);
+                cmd
+            } else {
+                let mut cmd = Command::new("gcc");
+                cmd.arg(object_path);
+                cmd.arg(runtime_path);
+                cmd.arg("-o").arg(output_path);
+                cmd
+            }
+        }
+        "linux" => {
+            let mut cmd = Command::new("cc");
+            cmd.arg(object_path);
+            cmd.arg(runtime_path);
+            cmd.arg("-no-pie");
+            cmd.arg("-o").arg(output_path);
+            cmd
+        }
+        _ => {
+            // macOS and other Unix-like platforms.
+            let mut cmd = Command::new("cc");
+            cmd.arg(object_path);
+            cmd.arg(runtime_path);
+            cmd.arg("-o").arg(output_path);
+            cmd
+        }
+    }
+}
+
 /// Link an object file into an executable binary.
 ///
 /// # Errors
@@ -264,13 +320,12 @@ pub fn emit_object_file(module: &Module<'_>, path: &Path) -> Result<(), CodegenE
 pub fn link_object_file(object_path: &Path, output_path: &Path) -> Result<PathBuf, CompileError> {
     let runtime_temp_file = RuntimeTempFile::create()?;
 
-    let mut command = Command::new("cc");
-    command.arg(object_path);
-    command.arg(runtime_temp_file.path());
-    if cfg!(target_os = "linux") {
-        command.arg("-no-pie");
-    }
-    command.arg("-o").arg(output_path);
+    let mut command = build_linker_command(
+        std::env::consts::OS,
+        object_path,
+        runtime_temp_file.path(),
+        output_path,
+    );
 
     let output = command.output().map_err(CompileError::Io)?;
     if output.status.success() {
@@ -302,7 +357,7 @@ pub fn compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, Compi
 
 #[cfg(test)]
 mod tests {
-    use super::{compile_to_module, CompileError};
+    use super::{build_linker_command, compile_to_module, CompileError};
     use inkwell::context::Context;
 
     /// Valid source should compile and produce a verifiable module.
@@ -350,6 +405,41 @@ mod tests {
         assert!(
             matches!(result, Err(CompileError::Type(_))),
             "semantic mismatches should surface as CompileError::Type"
+        );
+    }
+
+    #[test]
+    fn build_linker_command_linux_includes_no_pie() {
+        let obj = std::path::Path::new("/tmp/prog.o");
+        let rt = std::path::Path::new("/tmp/runtime.o");
+        let out = std::path::Path::new("/tmp/prog");
+        let cmd = build_linker_command("linux", obj, rt, out);
+        let has_no_pie = cmd.get_args().any(|a| a.to_string_lossy() == "-no-pie");
+        assert!(has_no_pie, "linux linker command must include -no-pie");
+        assert_eq!(cmd.get_program(), "cc");
+    }
+
+    #[test]
+    fn build_linker_command_macos_omits_no_pie() {
+        let obj = std::path::Path::new("/tmp/prog.o");
+        let rt = std::path::Path::new("/tmp/runtime.o");
+        let out = std::path::Path::new("/tmp/prog");
+        let cmd = build_linker_command("macos", obj, rt, out);
+        let has_no_pie = cmd.get_args().any(|a| a.to_string_lossy() == "-no-pie");
+        assert!(!has_no_pie, "macos linker command must NOT include -no-pie");
+        assert_eq!(cmd.get_program(), "cc");
+    }
+
+    #[test]
+    fn build_linker_command_windows_uses_appropriate_linker() {
+        let obj = std::path::Path::new("C:\\tmp\\prog.obj");
+        let rt = std::path::Path::new("C:\\tmp\\runtime.obj");
+        let out = std::path::Path::new("C:\\tmp\\prog.exe");
+        let cmd = build_linker_command("windows", obj, rt, out);
+        let program = cmd.get_program().to_string_lossy();
+        assert!(
+            program == "link.exe" || program == "gcc",
+            "windows linker must be link.exe or gcc, got: {program}"
         );
     }
 }
