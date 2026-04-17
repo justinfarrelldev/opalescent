@@ -1,0 +1,72 @@
+# ── Swift-Style ARC: Value Semantics with Copy-on-Write ──
+
+##
+  Description: demonstrates how COW gives value semantics
+  without the cost of deep copying
+##
+entry main = f(args: string[]): void =>
+    # ─── Sharing without copying ───
+    let original = ["Alice", "Bob", "Charlie"]
+    let shared = original              # no copy — both point to same storage
+
+    # Both are usable — this is NOT a move, it's shared COW storage
+    print('Original: {original}')
+    print('Shared: {shared}')
+
+    # ─── Mutation triggers copy (COW) ───
+    let mutable editable = original    # still shared
+    editable.push("Diana")            # NOW the array is copied
+    print('Original (unchanged): {original}')
+    print('Editable (own copy): {editable}')
+
+    # ─── Efficient pass-by-value ───
+    let report = build_report(original)    # shares storage, no copy
+    print(report)
+    print('Original still valid: {original}')
+
+    # ─── COW with nested structures ───
+    let config = default_config()
+    let mutable my_config = config     # shared
+    my_config.timeout_ms = 10000       # COW copy of config struct
+    print('Default timeout: {config.timeout_ms}')
+    print('My timeout: {my_config.timeout_ms}')
+
+    return void
+
+
+##
+  Description: configuration type for COW demonstration
+##
+type AppConfig:
+    host: string
+    port: int32
+    mutable timeout_ms: int32
+
+##
+  Description: returns a default config (owned)
+##
+let default_config = f(): AppConfig =>
+    return AppConfig{ host: "localhost", port: 8080, timeout_ms: 5000 }
+
+
+##
+  Description: builds a report — receives a COW shared copy
+  No mutation means no actual copy ever happens
+##
+let build_report = f(names: string[]): string =>
+    let mutable report = "Team:\n"
+    for name in names:
+        report = report + '  - {name}\n'
+    return report
+
+
+##
+  Description: demonstrates that pure functions benefit most from COW
+  since they never mutate, the shared storage is never copied
+##
+pure let count_long_names = f(names: string[], min_len: int32): int32 =>
+    let mutable count = 0
+    for name in names:
+        if name.len() >= min_len:
+            count = count + 1
+    return count

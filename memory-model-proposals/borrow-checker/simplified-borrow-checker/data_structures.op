@@ -1,0 +1,62 @@
+# ── Simplified Borrow Checker: Data Structures ──
+
+##
+  Description: a view into a slice of text — holds a borrow
+  The lifetime is inferred: DocumentView borrows from whatever
+  created it, no annotation needed for single-source borrows
+##
+type DocumentView:
+    lines: ref string[]
+    start: int32
+    end: int32
+
+##
+  Description: creates a view into a document's lines
+##
+let view_range = f(doc: ref string[], start: int32, end: int32): DocumentView =>
+    return DocumentView{ lines: doc, start: start, end: end }
+
+
+##
+  Description: a builder pattern — owns its data, hands off on build()
+##
+type ConfigBuilder:
+    host: string
+    port: int32
+    mutable timeout_ms: int32
+
+##
+  Description: creates a new config builder with defaults
+##
+let new_config = f(host: string, port: int32): ConfigBuilder =>
+    # 'host' is moved into the struct
+    return ConfigBuilder{ host: host, port: port, timeout_ms: 5000 }
+
+##
+  Description: sets the timeout, returns the builder (move chain)
+##
+let with_timeout = f(mutable builder: own ConfigBuilder, ms: int32): ConfigBuilder =>
+    builder.timeout_ms = ms
+    return builder
+
+
+##
+  Description: an arena-allocated graph avoids self-referential borrow issues
+##
+type NodeArena<T>:
+    mutable nodes: T[]
+    mutable edges: Pair<int32>[]
+
+##
+  Description: adds a node, returns its index
+##
+let add_node = f<T>(arena: mutable ref NodeArena<T>, value: T): int32 =>
+    arena.nodes.push(value)
+    return arena.nodes.len() - 1
+
+##
+  Description: connects two nodes by index
+##
+let add_edge = f<T>(arena: mutable ref NodeArena<T>, from: int32, to: int32): void =>
+    arena.edges.push(Pair<int32>{ first: from, second: to })
+    return void

@@ -1,0 +1,71 @@
+# ── Escape Analysis + Optional Borrows: Automatic Mode ──
+
+##
+  Description: normal code with zero memory annotations —
+  compiler decides stack vs heap automatically
+##
+entry main = f(args: string[]): void =>
+    # ─── Primitives: always stack-allocated ───
+    let x = 42
+    let y = 3.14
+    let flag = true
+
+    # ─── String that doesn't escape: stack-allocated ───
+    let label = "local-only"
+    print(label)
+    # 'label' freed at scope exit (stack unwind)
+
+    # ─── Array built and consumed locally: stack candidate ───
+    let mutable temps: int32[] = []
+    temps.push(1)
+    temps.push(2)
+    temps.push(3)
+    let sum = reduce<int32, int32>(temps, 0, f(acc: int32, n: int32): int32 => acc + n)
+    print('Sum: {sum}')
+    # 'temps' freed at scope exit
+
+    # ─── String that escapes (returned): heap-allocated ───
+    let greeting = make_greeting("Alice")
+    print(greeting)
+
+    # ─── Nested calls — compiler traces escape through call graph ───
+    let report = build_weekly_report()
+    print(report)
+
+    return void
+
+
+##
+  Description: creates a greeting — the string escapes (is returned)
+  Compiler auto-heap-allocates the result
+##
+let make_greeting = f(name: string): string =>
+    return 'Hello, {name}!'
+
+
+##
+  Description: internal helper — result escapes through caller
+  Compiler traces the escape chain automatically
+##
+let format_line_item = f(name: string, value: int32): string =>
+    return '  {name}: {value}'
+
+
+##
+  Description: builds a report — many temporaries, compiler optimizes
+  Short-lived strings that don't escape stay on stack
+##
+let build_weekly_report = f(): string =>
+    let mutable report = "Weekly Report\n"
+    report = report + "=============\n"
+
+    # These intermediate strings don't escape — stack candidates
+    let line1 = format_line_item("Tasks completed", 42)
+    let line2 = format_line_item("Bugs fixed", 7)
+    let line3 = format_line_item("Reviews done", 15)
+
+    report = report + line1 + "\n"
+    report = report + line2 + "\n"
+    report = report + line3 + "\n"
+
+    return report    # only 'report' escapes — the rest are freed

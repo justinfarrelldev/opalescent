@@ -1,0 +1,52 @@
+# ── Ownership Without Lifetimes: Auto-Clone Basics ──
+
+##
+  Description: demonstrates how implicit cloning makes ownership invisible
+##
+entry main = f(args: string[]): void =>
+    # ─── Auto-clone: just works like a GC language ───
+    let name = "Alice"
+    let greeting = 'Hello, {name}'    # 'name' auto-cloned; both valid
+    print(name)                        # Fine
+    print(greeting)                    # Fine
+
+    # ─── Passing to functions auto-clones if needed ───
+    let data = "important payload"
+    process(data)                      # auto-clones 'data' into the function
+    print(data)                        # still valid
+
+    # ─── Borrow to avoid the copy ───
+    let big_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    let length = measure(big_list)     # zero-copy read via borrow
+    print('Length: {length}')
+    print(big_list)                    # still valid, was only borrowed
+
+    # ─── Explicit move when you know you're done ───
+    let payload = "send me away"
+    send_to_server(move payload)       # no clone, direct transfer
+    # print(payload)                   # Compile error: 'payload' was moved
+
+    return void
+
+
+##
+  Description: processes data — receives an owned copy
+##
+let process = f(data: string): void =>
+    print('Processing: {data}')
+    return void
+
+
+##
+  Description: measures length — borrows, no copy
+##
+let measure = f(borrow items: int32[]): int32 =>
+    return items.len()
+
+
+##
+  Description: consumes the payload — caller gives up ownership
+##
+let send_to_server = f(move payload: string): void =>
+    print('Sending: {payload}')
+    return void

@@ -1,0 +1,136 @@
+# ── Ownership + Implicit Cloning + Perceus: Auto-Clone with Reuse ──
+
+##
+  Description: demonstrates how auto-cloning keeps code simple
+  while Perceus eliminates unnecessary clones behind the scenes
+##
+
+entry main = f(args: string[]): void =>
+    # ─── Case 1: Single use — Perceus reuses memory ───
+    let numbers = [10, 20, 30, 40, 50]
+    let doubled = map<int32, int32>(numbers, f(n: int32): int32 => n * 2)
+    # 'numbers' moved into map → Perceus reuses its memory
+    # Result: zero extra allocations
+    print(doubled)
+
+
+    # ─── Case 2: Multi-use — auto-clone inserts one copy ───
+    let scores = [85, 92, 78, 96, 64]
+
+    # First use: 'scores' moved into sum
+    let total = sum(scores)
+
+    # Second use: auto-clone kicks in (scores was moved)
+    # Perceus CAN'T optimize this — both values coexist
+    let count = scores.len()
+
+    let avg = total / count
+    print('Average: {avg}')
+
+
+    # ─── Case 3: Pipeline — full Perceus reuse chain ───
+    let raw = generate_data(100)
+    let result = process_pipeline(raw)
+    print('Pipeline result: {result.len()} items')
+
+
+    # ─── Case 4: Branching — auto-clone for divergent use ───
+    let items = [3, 1, 4, 1, 5, 9, 2, 6]
+    let report = analyze_both_ways(items)
+    print(report)
+
+
+    # ─── Case 5: Explicit move — opt-in strictness ───
+    let critical_data = [100, 200, 300]
+    let processed = consume_strictly(critical_data)
+    # Using 'critical_data' here would fail at compile time
+    # because consume_strictly takes a 'move' parameter
+    print(processed)
+
+    return void
+
+
+##
+  Description: sums all elements
+##
+let sum = f(items: int32[]): int32 =>
+    let mutable total = 0
+    for item in items:
+        total = total + item
+    return total
+
+
+##
+  Description: generates test data
+##
+let generate_data = f(count: int32): int32[] =>
+    let mutable data: int32[] = []
+    let mutable i = 0
+    while i < count:
+        data.push(i * 3 + 1)
+        i = i + 1
+    return data
+
+
+##
+  Description: pipeline where Perceus reuses memory at each step
+  Each function takes ownership, Perceus reuses the memory
+##
+let process_pipeline = f(data: int32[]): int32[] =>
+    # Step 1: filter — Perceus reuses 'data' for 'filtered'
+    let filtered = filter<int32>(data, f(n: int32): boolean => n > 10)
+
+    # Step 2: transform — Perceus reuses 'filtered' for 'transformed'
+    let transformed = map<int32, int32>(filtered, f(n: int32): int32 => n * 2)
+
+    # Step 3: sort — Perceus reuses 'transformed' for 'sorted'
+    let sorted = sort<int32>(transformed)
+
+    return sorted
+
+
+##
+  Description: uses the same data two ways — auto-clone is required
+  Perceus can't optimize because both results coexist
+##
+let analyze_both_ways = f(items: int32[]): string =>
+    # First use: items moved into ascending sort
+    let ascending = sort<int32>(items)
+
+    # Second use: auto-clone triggered, then moved into reverse
+    let descending = reverse<int32>(items)
+
+    let first = ascending[0]
+    let last = descending[0]
+    return 'Range: {first} to {last}'
+
+
+##
+  Description: explicit 'move' parameter — compile-time single-use
+  guarantee. No auto-clone allowed
+##
+let consume_strictly = f(data: move int32[]): int32[] =>
+    # 'data' is guaranteed to be the sole owner
+    # Perceus can always reuse its memory
+    let result = map<int32, int32>(data, f(n: int32): int32 => n + 1)
+    return result
+    # Using 'data' here would be a compile error
+
+
+##
+  Description: shows the compiler's view — what gets cloned, what gets reused
+  In practice, a compiler diagnostic flag would show this breakdown
+##
+
+#   function: process_pipeline
+#     data → filtered:   REUSE (same type, uniquely owned after move)
+#     filtered → transformed: REUSE (same type, uniquely owned)
+#     transformed → sorted:   REUSE (same type, uniquely owned)
+#     Total allocations: 1 (initial 'data')
+#     Total clones: 0
+#
+#   function: analyze_both_ways
+#     items → ascending: MOVE (first use)
+#     items → descending: AUTO-CLONE (second use, original was moved)
+#     Total allocations: 1 (initial 'items')
+#     Total clones: 1

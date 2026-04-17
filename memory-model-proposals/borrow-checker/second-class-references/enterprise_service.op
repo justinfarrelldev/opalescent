@@ -1,0 +1,102 @@
+# ── Second-Class References: Enterprise Service Layer ──
+
+##
+  Description: demonstrates how second-class refs work in a realistic
+  enterprise service scenario with request handling, validation,
+  and data transformation
+##
+
+##
+  Description: represents an incoming API request payload
+##
+type UserUpdateRequest:
+    user_id: string
+    new_name: string
+    new_email: string
+
+##
+  Description: represents a user record in the database
+##
+type UserRecord:
+    id: string
+    name: string
+    email: string
+    version: int32
+
+##
+  Description: result of a validation check
+##
+type ValidationResult:
+    is_valid: boolean
+    error_message: string
+
+
+##
+  Description: validates a request by borrowing it (zero-copy read)
+##
+let validate_request = f(req: ref UserUpdateRequest): ValidationResult =>
+    if req.new_name.len() < 1:
+        return ValidationResult{
+            is_valid: false,
+            error_message: "Name cannot be empty"
+        }
+    if req.new_email.index_of('@') < 0:
+        return ValidationResult{
+            is_valid: false,
+            error_message: "Invalid email format"
+        }
+    return ValidationResult{ is_valid: true, error_message: "" }
+
+
+##
+  Description: applies an update to a user record
+  Borrows the request (read), borrows the record mutably (write)
+##
+let apply_update = f(record: mutable ref UserRecord, req: ref UserUpdateRequest): void =>
+    record.name = req.new_name        # copies string out of borrowed req
+    record.email = req.new_email      # copies string out of borrowed req
+    record.version = record.version + 1
+    return void
+
+
+##
+  Description: logs the update — borrows both, copies nothing
+##
+let log_update = f(before: ref UserRecord, after: ref UserRecord): void =>
+    print('Updated user {before.id}:')
+    print('  name: {before.name} -> {after.name}')
+    print('  email: {before.email} -> {after.email}')
+    print('  version: {before.version} -> {after.version}')
+    return void
+
+
+##
+  Description: checks if two records conflict — borrows both
+##
+let has_version_conflict = f(local: ref UserRecord, remote: ref UserRecord): boolean =>
+    return local.version != remote.version
+
+
+##
+  Description: handles a user update request end-to-end
+##
+let handle_update = f(
+    mutable record: UserRecord,
+    req: UserUpdateRequest
+): UserRecord =>
+    # Borrow the request for validation (zero-copy)
+    let validation = validate_request(req)
+    if validation.is_valid is false:
+        print('Validation failed: {validation.error_message}')
+        return record
+
+    # Snapshot before (copies for the log)
+    let before_name = record.name
+    let before_email = record.email
+    let before_version = record.version
+
+    # Apply the update (mutable ref to record, ref to request)
+    apply_update(record, req)
+
+    print('Update applied successfully')
+    return record

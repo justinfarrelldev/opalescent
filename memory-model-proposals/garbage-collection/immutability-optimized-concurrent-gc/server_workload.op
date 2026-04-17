@@ -1,0 +1,97 @@
+# ── Immutability-Optimized GC: Server Workload ──
+
+##
+  Description: a realistic HTTP-like server workload showing how the
+  GC handles many short-lived allocations efficiently
+##
+
+type HttpRequest:
+    method: string
+    path: string
+    headers: Pair<string>[]
+    body: string
+
+type HttpResponse:
+    status: int32
+    headers: Pair<string>[]
+    body: string
+
+
+##
+  Description: routes a request to the appropriate handler
+  Many temporary objects created per request — ideal for generational GC
+  since most die young
+##
+let handle_request = f(req: HttpRequest): HttpResponse =>
+    # Temporary string allocations — collected in young gen
+    let normalized_path = req.path.to_lower()
+
+    if normalized_path is "/health":
+        return HttpResponse{
+            status: 200,
+            headers: [Pair<string>{ first: "Content-Type", second: "text/plain" }],
+            body: "ok"
+        }
+
+    if normalized_path is "/users":
+        return handle_users(req)
+
+    return HttpResponse{
+        status: 404,
+        headers: [],
+        body: "Not Found"
+    }
+
+
+##
+  Description: handles user-related requests
+  Immutable request is shared without copying — GC knows it's safe
+##
+let handle_users = f(req: HttpRequest): HttpResponse =>
+    let users = fetch_users()
+    let body = serialize_users(users)
+    return HttpResponse{
+        status: 200,
+        headers: [Pair<string>{ first: "Content-Type", second: "application/json" }],
+        body: body
+    }
+
+
+##
+  Description: simulates fetching users — returns immutable data
+  Immutable objects are promoted to old gen quickly, reducing GC work
+##
+let fetch_users = f(): string[] =>
+    return ["Alice", "Bob", "Charlie", "Diana"]
+
+
+##
+  Description: serializes users to a JSON-like string
+##
+let serialize_users = f(users: string[]): string =>
+    let mutable json = "["
+    let mutable i = 0
+    for user in users:
+        if i > 0:
+            json = json + ", "
+        json = json + '"{user}"'
+        i = i + 1
+    json = json + "]"
+    return json
+
+
+##
+  Description: simulates processing many requests
+##
+entry main = f(args: string[]): void =>
+    let requests = [
+        HttpRequest{ method: "GET", path: "/health", headers: [], body: "" },
+        HttpRequest{ method: "GET", path: "/users", headers: [], body: "" },
+        HttpRequest{ method: "GET", path: "/missing", headers: [], body: "" }
+    ]
+
+    for req in requests:
+        let resp = handle_request(req)
+        print('{req.method} {req.path} -> {resp.status}: {resp.body}')
+
+    return void

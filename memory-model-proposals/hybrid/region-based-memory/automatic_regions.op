@@ -1,0 +1,76 @@
+# ── Region-Based Memory: Automatic Regions ──
+
+##
+  Description: demonstrates automatic region assignment by the compiler
+  No memory annotations needed — the compiler handles everything
+##
+entry main = f(args: string[]): void =>
+    # ─── Function-scoped region (automatic) ───
+    # All allocations in main() go into main's region
+    let greeting = build_greeting("Opalescent")
+    print(greeting)
+
+    # ─── Pure function: single region, freed on return ───
+    let numbers = [5, 3, 8, 1, 9, 2, 7]
+    let stats = compute_stats(numbers)
+    print('Mean: {stats.mean}, Max: {stats.max}')
+
+    # ─── Each loop iteration can get its own sub-region ───
+    let items = ["apple", "banana", "cherry", "date"]
+    let formatted = format_all(items)
+    print(formatted)
+
+    return void
+    # main's region freed — everything deallocated at once
+
+
+##
+  Description: builds a greeting string
+  All temporaries allocated in a single region, freed on return
+  Only the return value escapes (copied to caller's region)
+##
+let build_greeting = f(name: string): string =>
+    let upper = name.to_upper()
+    let decorated = '*** {upper} ***'
+    let padded = '   {decorated}   '
+    return padded
+    # 'upper', 'decorated' freed here (region reset)
+    # 'padded' is copied to caller's region since it's the return value
+
+
+type Stats:
+    mean: float64
+    max: float64
+
+##
+  Description: computes statistics — pure function, single region
+  All intermediate arrays freed in bulk when function returns
+##
+pure let compute_stats = f(numbers: int32[]): Stats =>
+    let mutable sum = 0
+    let mutable max_val = numbers[0]
+
+    for n in numbers:
+        sum = sum + n
+        if n > max_val:
+            max_val = n
+
+    return Stats{
+        mean: (sum as float64) / (numbers.len() as float64),
+        max: (max_val as float64)
+    }
+
+
+##
+  Description: formats each item with decoration
+  Compiler assigns a sub-region per loop iteration for temporaries
+##
+let format_all = f(items: string[]): string =>
+    let mutable result = ""
+    for item in items:
+        # These temporaries live in a per-iteration sub-region
+        let upper = item.to_upper()
+        let line = '- [{upper}]\n'
+        result = result + line
+        # 'upper', 'line' freed here (sub-region reset)
+    return result

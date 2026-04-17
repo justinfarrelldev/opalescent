@@ -1,0 +1,191 @@
+# ── Ownership + Implicit Cloning + Perceus: Enterprise Pipeline ──
+
+##
+  Description: realistic data processing service showing how the three
+  layers interact in production-style code
+##
+
+type LogEntry:
+    timestamp: int64
+    level: string
+    service: string
+    message: string
+
+type ServiceHealth:
+    service: string
+    error_count: int32
+    warn_count: int32
+    total_count: int32
+    error_rate: float64
+
+type AlertReport:
+    unhealthy_services: ServiceHealth[]
+    total_errors: int32
+    recommendation: string
+
+
+##
+  Description: parses raw log lines into LogEntry records
+  Perceus reuses 'lines' memory for 'entries' (same length, consumed)
+##
+let parse_logs = f(lines: string[]): LogEntry[] =>
+    return map<string, LogEntry>(lines, f(line: string): LogEntry =>
+        let parts = split(line, "|")
+        return LogEntry{
+            timestamp: parse_int64(parts[0]),
+            level: parts[1],
+            service: parts[2],
+            message: parts[3]
+        }
+    )
+    # Perceus: 'lines' memory reused for the LogEntry array
+
+
+##
+  Description: extracts unique service names from log entries
+  Uses auto-clone — 'entries' is read here but also needed later
+##
+let extract_services = f(entries: LogEntry[]): string[] =>
+    let mutable services: string[] = []
+    for entry in entries:
+        let mutable found = false
+        for s in services:
+            if s is entry.service:
+                found = true
+        if found is false:
+            services.push(entry.service)
+    return services
+    # Auto-clone: 'entries' was auto-cloned at the call site if used again
+
+
+##
+  Description: counts entries by level for a given service
+  Takes ownership — Perceus can reuse if caller doesn't need entries after
+##
+let count_by_level = f(entries: LogEntry[], service: string, level: string): int32 =>
+    let mutable count = 0
+    for entry in entries:
+        if entry.service is service and entry.level is level:
+            count = count + 1
+    return count
+
+
+##
+  Description: builds health report for all services
+  This is where auto-clone and Perceus interact most
+##
+let build_health_report = f(entries: LogEntry[]): ServiceHealth[] =>
+    # Auto-clone: extract_services uses entries, but we need entries below too
+    # Compiler inserts clone here — Perceus can't avoid it (both live)
+    let services = extract_services(entries)
+
+    let mutable health: ServiceHealth[] = []
+    for service in services:
+        # Auto-clone: count_by_level uses entries, loop continues to use entries
+        # Compiler clones entries for each call (multiple concurrent uses)
+        let errors = count_by_level(entries, service, "ERROR")
+        let warns = count_by_level(entries, service, "WARN")
+        let total = count_by_level(entries, service, "INFO") + warns + errors
+
+        let rate = if total > 0:
+            to_float64(errors) / to_float64(total)
+        else:
+            0.0
+
+        health.push(ServiceHealth{
+            service: service,
+            error_count: errors,
+            warn_count: warns,
+            total_count: total,
+            error_rate: rate
+        })
+
+    return health
+
+
+##
+  Description: generates alert report from health data
+  Perceus reuses 'health' array for 'unhealthy' filter
+##
+let generate_alerts = f(health: ServiceHealth[]): AlertReport =>
+    let mutable total_errors = 0
+    for h in health:
+        total_errors = total_errors + h.error_count
+
+    # Perceus: 'health' consumed by filter → memory reused for 'unhealthy'
+    let unhealthy = filter<ServiceHealth>(health, f(h: ServiceHealth): boolean =>
+        return h.error_rate > 0.1
+    )
+
+    let recommendation = if unhealthy.len() is 0:
+        "All services healthy"
+    else if unhealthy.len() <= 2:
+        "Investigate flagged services"
+    else:
+        "CRITICAL: Multiple service failures detected"
+
+    return AlertReport{
+        unhealthy_services: unhealthy,
+        total_errors: total_errors,
+        recommendation: recommendation
+    }
+
+
+##
+  Description: the full pipeline — parse → analyze → alert
+  Shows the three layers working together end to end
+##
+let run_analysis = f(raw_lines: string[]): AlertReport =>
+    # Step 1: parse (Perceus reuses raw_lines memory)
+    let entries = parse_logs(raw_lines)
+
+    # Step 2: build health (auto-clone: entries used in multiple sub-calls)
+    let health = build_health_report(entries)
+    # 'entries' no longer used → freed by Perceus
+
+    # Step 3: generate alerts (Perceus reuses health for filtered result)
+    let report = generate_alerts(health)
+
+    return report
+
+
+##
+  Description: optimized version using 'move' for the hot path
+  Senior developer adds 'move' to get compile-time guarantees
+##
+let run_analysis_optimized = f(raw_lines: move string[]): AlertReport =>
+    let entries = parse_logs(raw_lines)
+    # 'raw_lines' can't be used again (move) → guaranteed Perceus reuse
+
+    let health = build_health_report(entries)
+    # 'entries' cloned internally by build_health_report — that's fine
+
+    let report = generate_alerts(health)
+    # 'health' consumed → Perceus reuses
+
+    return report
+
+
+entry main = f(args: string[]): void =>
+    let raw_logs = [
+        "1700000001|INFO|auth-service|User login successful",
+        "1700000002|ERROR|payment-service|Transaction timeout",
+        "1700000003|WARN|auth-service|Rate limit approaching",
+        "1700000004|INFO|payment-service|Payment processed",
+        "1700000005|ERROR|payment-service|Database connection lost",
+        "1700000006|INFO|user-service|Profile updated",
+        "1700000007|ERROR|payment-service|Retry failed",
+        "1700000008|INFO|auth-service|Token refreshed",
+        "1700000009|WARN|user-service|Slow query detected",
+        "1700000010|ERROR|auth-service|Invalid credentials"
+    ]
+
+    let report = run_analysis(raw_logs)
+
+    print('Total errors: {report.total_errors}')
+    print('Recommendation: {report.recommendation}')
+    print('Unhealthy services:')
+    for service in report.unhealthy_services:
+        print('  {service.service}: {service.error_count} errors ({service.error_rate} rate)')
+
+    return void

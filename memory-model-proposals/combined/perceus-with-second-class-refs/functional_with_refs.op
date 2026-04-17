@@ -1,0 +1,87 @@
+# ── Perceus + Second-Class References: Functional with Refs ──
+
+##
+  Description: demonstrates the interplay between Perceus reuse
+  and second-class references for zero-copy reads
+##
+entry main = f(args: string[]): void =>
+    # ─── Build initial data ───
+    let mutable raw_scores: int32[] = []
+    raw_scores.push(85)
+    raw_scores.push(92)
+    raw_scores.push(78)
+    raw_scores.push(96)
+    raw_scores.push(64)
+    raw_scores.push(88)
+
+    # ─── Second-class ref: read without copying ───
+    let avg = average(raw_scores)
+    print('Average: {avg}')
+
+    # ─── Second-class ref: another zero-copy read ───
+    let passing = count_passing(raw_scores, 70)
+    print('Passing: {passing}')
+
+    # ─── Perceus reuse: transform in-place (raw_scores not used after) ───
+    let curved = map<int32, int32>(raw_scores, f(n: int32): int32 => n + 5)
+    # raw_scores memory reused for 'curved' — zero allocation
+
+    # ─── Chain: Perceus reuses through the pipeline ───
+    let grades = assign_grades(curved)
+    print(grades)
+
+    return void
+
+
+##
+  Description: computes the average — borrows via ref, no refcount bump
+##
+let average = f(scores: ref int32[]): int32 =>
+    let mutable sum = 0
+    for s in scores:
+        sum = sum + s
+    return sum / scores.len()
+
+
+##
+  Description: counts scores above a threshold — borrows, zero-copy
+##
+let count_passing = f(scores: ref int32[], threshold: int32): int32 =>
+    let mutable count = 0
+    for s in scores:
+        if s >= threshold:
+            count = count + 1
+    return count
+
+
+##
+  Description: assigns letter grades — Perceus reuses the input array
+  since the caller doesn't use it after this call
+##
+let assign_grades = f(scores: int32[]): string[] =>
+    return map<int32, string>(scores, f(score: int32): string =>
+        if score >= 90: return "A"
+        if score >= 80: return "B"
+        if score >= 70: return "C"
+        if score >= 60: return "D"
+        return "F"
+    )
+
+
+##
+  Description: demonstrates mixing ref reads and Perceus transforms
+  in a single pipeline
+##
+let analyze_and_transform = f(data: int32[]): int32[] =>
+    # Step 1: read stats via ref (zero-copy)
+    let mean = average(data)
+    let count = count_passing(data, mean)
+    print('Mean: {mean}, above mean: {count}')
+
+    # Step 2: Perceus transform (reuses 'data' memory)
+    let centered = map<int32, int32>(data, f(n: int32): int32 => n - mean)
+
+    # Step 3: Perceus filter (reuses 'centered' memory)
+    let positive = filter<int32>(centered, f(n: int32): boolean => n > 0)
+
+    return positive

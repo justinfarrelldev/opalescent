@@ -1,0 +1,45 @@
+# ── Enhanced Arc with Cycle Detection: Transparent Usage ──
+
+##
+  Description: demonstrates that normal code is completely unchanged
+  from the current Opalescent model — cycle collector is invisible
+##
+entry main = f(args: string[]): void =>
+    # ─── Normal usage — exactly like today ───
+    let name = "Alice"
+    let greeting = 'Hello, {name}!'
+    print(greeting)
+
+    # ─── Arrays work the same ───
+    let mutable numbers: int32[] = []
+    numbers.push(1)
+    numbers.push(2)
+    numbers.push(3)
+
+    let squares = map<int32, int32>(numbers, f(n: int32): int32 => n * n)
+    print(squares)
+
+    # ─── Strings are still Arc<str> under the hood ───
+    let first = "Hello"
+    let second = first              # refcount incremented, not copied
+    print(first)
+    print(second)
+    # both dropped when scope ends; refcount -> 0; memory freed immediately
+
+    # ─── Nested structures cleaned up deterministically ───
+    let users = build_user_list()
+    print(users)
+    # 'users' and all inner strings freed immediately (no cycles)
+
+    return void
+
+
+##
+  Description: builds a list of user display strings
+##
+let build_user_list = f(): string[] =>
+    let mutable users: string[] = []
+    users.push("Alice (admin)")
+    users.push("Bob (user)")
+    users.push("Charlie (user)")
+    return users

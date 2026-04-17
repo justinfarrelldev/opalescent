@@ -1,0 +1,60 @@
+# ── Simplified Borrow Checker: Ownership Basics ──
+
+##
+  Description: demonstrates basic move semantics and borrowing
+##
+entry main = f(args: string[]): void =>
+    # ─── Move semantics ───
+    let greeting = "Hello, world"
+    let other = greeting          # 'greeting' is moved
+    # print(greeting)             # Compile error: value moved
+
+    # ─── Explicit clone to keep both ───
+    let name = "Alice"
+    let name_copy = name.clone()
+    print(name)                   # Fine — still valid
+    print(name_copy)
+
+    # ─── Immutable borrow (ref) ───
+    let message = "Good morning"
+    greet(message)                # borrows 'message'; doesn't move it
+    print(message)                # still valid after borrow ends
+
+    # ─── Mutable borrow (mutable ref) ───
+    let mutable buffer = "draft"
+    append_exclaim(buffer)        # mutably borrows 'buffer'
+    print(buffer)                 # prints "draft!"
+
+    return void
+
+
+##
+  Description: greets with a borrowed string (immutable borrow)
+##
+let greet = f(name: ref string): void =>
+    print('Hello, {name}!')
+    return void
+
+
+##
+  Description: appends '!' to a mutably borrowed string
+##
+let append_exclaim = f(text: mutable ref string): void =>
+    text.push('!')
+    return void
+
+
+##
+  Description: returns a ref into the input slice — lifetime auto-elided
+##
+let first = f<T>(items: ref T[]): ref T =>
+    return items[0]
+
+
+##
+  Description: transfers ownership into a collection
+##
+let consume_into_list = f(item: string): string[] =>
+    let mutable list: string[] = []
+    list.push(item)        # 'item' moved into list
+    return list            # list moved to caller

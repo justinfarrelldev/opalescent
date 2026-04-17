@@ -1,0 +1,50 @@
+# ── Ownership Without Lifetimes: Collections ──
+
+##
+  Description: building and sharing collections with auto-clone
+##
+entry main = f(args: string[]): void =>
+    # ─── Building a list ───
+    let mutable names: string[] = []
+    names.push("Alice")
+    names.push("Bob")
+    names.push("Charlie")
+
+    # ─── Auto-clone when passing to multiple consumers ───
+    let sorted = sort_names(names)          # auto-clones 'names'
+    let filtered = filter_short(names, 4)   # auto-clones 'names' again
+    print(names)                             # original still valid
+
+    # ─── Explicit move into a final consumer ───
+    let report = build_report(move names)
+    # names is gone — report owns the data now
+    print(report)
+
+    return void
+
+
+##
+  Description: sorts a list of names (owns its copy)
+##
+let sort_names = f(mutable names: string[]): string[] =>
+    names.sort()
+    return names
+
+
+##
+  Description: filters names shorter than min_len (borrows for read)
+##
+let filter_short = f(borrow names: string[], min_len: int32): string[] =>
+    return filter<string>(names, f(borrow name: string): boolean =>
+        return name.len() >= min_len
+    )
+
+
+##
+  Description: consumes a list of names into a report string
+##
+let build_report = f(move names: string[]): string =>
+    let mutable report = "Team Members:\n"
+    for name in names:
+        report = report + '- {name}\n'
+    return report

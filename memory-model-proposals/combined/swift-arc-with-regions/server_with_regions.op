@@ -1,0 +1,175 @@
+# ── Swift ARC + Regions: HTTP Server with Region-Per-Request ──
+
+##
+  Description: demonstrates the primary use case — ARC for long-lived
+  services, regions for per-request processing
+##
+
+type ServerConfig:
+    host: string
+    port: int32
+    max_body_size: int32
+
+type Request:
+    method: string
+    path: string
+    body: string
+    headers: string[]
+
+type Response:
+    status: int32
+    body: string
+
+type UserRecord:
+    id: string
+    name: string
+    email: string
+    role: string
+
+
+##
+  Description: the main server — ARC-managed (long-lived, shared)
+##
+type Server:
+    config: ServerConfig
+    user_cache: Cache<string, UserRecord>
+
+
+##
+  Description: handles a single request — all temporaries live in a region
+##
+let handle_request = f(server: ref Server, req: Request): Response =>
+    region request_scope:
+        # Everything allocated here is freed when the region exits
+        let path_parts = split(req.path, "/")
+
+        if path_parts.len() < 2:
+            return Response{ status: 404, body: "Not Found" }
+
+        let resource = path_parts[1]
+
+        match resource:
+            "users":
+                return handle_users(server, req, path_parts)
+            "health":
+                return Response{ status: 200, body: "OK" }
+            _:
+                return Response{ status: 404, body: "Unknown resource" }
+        # ← region freed: path_parts, resource, all temporaries gone
+
+
+##
+  Description: handles /users endpoints — mixes ARC cache reads with
+  region-scoped temporaries
+##
+let handle_users = f(server: ref Server, req: Request, parts: ref string[]): Response =>
+    # Still inside the caller's region
+
+    if req.method is "GET" and parts.len() >= 3:
+        let user_id = parts[2]
+
+        # Read ARC cache (long-lived, shared) — no copy
+        let cached = server.user_cache.get(user_id)
+        match cached:
+            some(user):
+                let body = format_user_json(user)
+                return Response{ status: 200, body: body }
+            none:
+                # Region-local work: fetch, parse, build
+                let raw = fetch_from_db(user_id)
+                let user = parse_user(raw)
+
+                # Store into ARC cache — copies from region to ARC heap
+                server.user_cache.set(user_id, user)
+
+                let body = format_user_json(user)
+                return Response{ status: 200, body: body }
+
+    if req.method is "POST":
+        # All parsing happens in the region
+        let user = parse_user(req.body)
+        let saved = save_to_db(user)
+        if saved:
+            return Response{ status: 201, body: "Created" }
+        return Response{ status: 500, body: "Save failed" }
+
+    return Response{ status: 405, body: "Method not allowed" }
+
+
+##
+  Description: formats a user record as JSON — region-local temporaries
+##
+let format_user_json = f(user: ref UserRecord): string =>
+    return '{"id": "{user.id}", "name": "{user.name}", "email": "{user.email}", "role": "{user.role}"}'
+
+
+##
+  Description: simulated DB fetch
+##
+let fetch_from_db = f(user_id: string): string =>
+    return '{"id": "{user_id}", "name": "Test User", "email": "test@example.com", "role": "admin"}'
+
+
+##
+  Description: simulated DB save
+##
+let save_to_db = f(user: ref UserRecord): boolean =>
+    print('Saving user {user.id} to database')
+    return true
+
+
+##
+  Description: parses a raw string into a UserRecord
+##
+let parse_user = f(raw: string): UserRecord =>
+    # Simplified — real parser would handle JSON
+    return UserRecord{
+        id: "U001",
+        name: "Parsed User",
+        email: "parsed@example.com",
+        role: "user"
+    }
+
+
+entry main = f(args: string[]): void =>
+    # ─── ARC-managed: lives for the entire program ───
+    let config = ServerConfig{
+        host: "0.0.0.0",
+        port: 8080,
+        max_body_size: 1048576
+    }
+
+    let server = Server{
+        config: config,
+        user_cache: Cache<string, UserRecord>.new()
+    }
+
+    # ─── Simulate requests — each gets its own region ───
+    let req1 = Request{
+        method: "GET",
+        path: "/users/U001",
+        body: "",
+        headers: []
+    }
+    let resp1 = handle_request(server, req1)
+    print('Response: {resp1.status} {resp1.body}')
+
+    let req2 = Request{
+        method: "GET",
+        path: "/users/U001",
+        body: "",
+        headers: []
+    }
+    let resp2 = handle_request(server, req2)
+    print('Response: {resp2.status} {resp2.body} (cached)')
+
+    let req3 = Request{
+        method: "GET",
+        path: "/health",
+        body: "",
+        headers: []
+    }
+    let resp3 = handle_request(server, req3)
+    print('Response: {resp3.status} {resp3.body}')
+
+    return void

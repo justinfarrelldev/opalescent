@@ -1,0 +1,89 @@
+# ── Enhanced Arc with Cycle Detection: Cyclic Structures ──
+
+##
+  Description: demonstrates cyclic data structures that are
+  automatically reclaimed by the cycle collector
+##
+
+##
+  Description: a DOM-like tree node with parent back-references
+##
+type DomNode:
+    tag: string
+    mutable children: DomNode[]
+    mutable parent: DomNode?          # nullable back-reference — creates cycles
+
+
+##
+  Description: builds a small DOM tree with parent pointers
+##
+let build_dom = f(): DomNode =>
+    let mutable root = DomNode{ tag: "div", children: [], parent: none }
+    let mutable header = DomNode{ tag: "h1", children: [], parent: none }
+    let mutable paragraph = DomNode{ tag: "p", children: [], parent: none }
+
+    # These create cycles: child.parent -> root, root.children -> child
+    header.parent = root
+    paragraph.parent = root
+    root.children.push(header)
+    root.children.push(paragraph)
+
+    return root
+
+
+##
+  Description: an observer pattern — observers reference the subject,
+  subject references observers — classic cycle
+##
+type EventEmitter:
+    name: string
+    mutable listeners: Listener[]
+
+type Listener:
+    id: string
+    mutable source: EventEmitter?     # back-reference to emitter
+
+
+##
+  Description: sets up an event emitter with cyclic listeners
+##
+let setup_events = f(): EventEmitter =>
+    let mutable emitter = EventEmitter{ name: "click", listeners: [] }
+    let mutable listener = Listener{ id: "btn-handler", source: none }
+
+    listener.source = emitter         # cycle
+    emitter.listeners.push(listener)  # cycle
+
+    return emitter
+    # When emitter leaves all scopes, the cycle collector
+    # detects emitter <-> listener cycle and reclaims both
+
+
+##
+  Description: using weak refs for performance-critical cache
+  This avoids relying on the cycle collector for hot paths
+##
+type CachedQuery:
+    query: string
+    mutable result: weak DomNode?     # weak — doesn't prevent collection
+
+##
+  Description: looks up a cached node — may have been collected
+##
+let lookup_cache = f(cache: CachedQuery): DomNode? =>
+    return cache.result.upgrade()     # returns none if node was reclaimed
+
+
+entry main = f(args: string[]): void =>
+    # ─── Cyclic DOM — reclaimed by cycle collector ───
+    let dom = build_dom()
+    print('Root tag: {dom.tag}')
+    print('Children: {dom.children.len()}')
+    # dom dropped here; cycle collector eventually frees the cycle
+
+    # ─── Observer pattern — also cyclic, also reclaimed ───
+    let emitter = setup_events()
+    print('Emitter: {emitter.name}')
+    print('Listeners: {emitter.listeners.len()}')
+
+    return void

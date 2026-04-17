@@ -1,0 +1,90 @@
+# ── Perceus Reuse Analysis: Functional Transforms ──
+
+##
+  Description: demonstrates how Perceus optimizes functional transforms
+  by reusing memory when values are uniquely owned
+##
+entry main = f(args: string[]): void =>
+    # ─── Map with reuse: 'numbers' is not used after map ───
+    let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    let doubled = map<int32, int32>(numbers, f(n: int32): int32 => n * 2)
+    # Perceus: 'numbers' refcount = 1, so 'doubled' reuses its memory
+    # Zero allocations for the output array
+    print('Doubled: {doubled}')
+
+    # ─── Map WITHOUT reuse: 'data' is used after map ───
+    let data = [10, 20, 30, 40, 50]
+    let incremented = map<int32, int32>(data, f(n: int32): int32 => n + 1)
+    print('Original: {data}')         # 'data' still used — copy was made
+    print('Incremented: {incremented}')
+
+    # ─── Chained transforms with reuse ───
+    let raw = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    let result = pipeline(raw)
+    # 'raw' never used again — entire pipeline reuses memory
+    print('Pipeline result: {result}')
+
+    # ─── Tree transform with reuse ───
+    let tree = build_tree(4)
+    let doubled_tree = double_tree(tree)
+    # 'tree' never used again — each Node reused in-place
+    print('Tree doubled')
+
+    return void
+
+
+##
+  Description: a chain of transforms — Perceus reuses through the chain
+  Each intermediate result is uniquely owned and reused by the next step
+##
+let pipeline = f(data: int32[]): int32[] =>
+    # Step 1: filter evens (reuses 'data' if unique)
+    let evens = filter<int32>(data, f(n: int32): boolean => (n % 2) is 0)
+
+    # Step 2: double them (reuses 'evens' — it's unique)
+    let doubled = map<int32, int32>(evens, f(n: int32): int32 => n * 2)
+
+    # Step 3: filter > 10 (reuses 'doubled' — it's unique)
+    let big = filter<int32>(doubled, f(n: int32): boolean => n > 10)
+
+    return big
+
+
+##
+  Description: recursive tree type
+##
+type IntTree:
+    Node:
+        value: int32
+        left: IntTree
+        right: IntTree
+    Leaf
+
+##
+  Description: builds a balanced tree of given depth
+##
+let build_tree = f(depth: int32): IntTree =>
+    if depth <= 0:
+        return IntTree.Leaf
+    return IntTree.Node{
+        value: depth,
+        left: build_tree(depth - 1),
+        right: build_tree(depth - 1)
+    }
+
+##
+  Description: doubles every value in the tree
+  Perceus reuses each Node in-place when the tree is uniquely owned
+##
+let double_tree = f(tree: IntTree): IntTree =>
+    match tree:
+        Node(node):
+            # Perceus sees: deconstruct Node, construct Node of same type
+            # If 'tree' is uniquely owned → reuse the Node allocation
+            return IntTree.Node{
+                value: node.value * 2,
+                left: double_tree(node.left),
+                right: double_tree(node.right)
+            }
+        Leaf:
+            return IntTree.Leaf

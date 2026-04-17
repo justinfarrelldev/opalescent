@@ -1,0 +1,92 @@
+# ── Immutability-Optimized GC: Basic Usage ──
+
+##
+  Description: demonstrates that normal code requires zero memory
+  management thought — the GC handles everything
+##
+entry main = f(args: string[]): void =>
+    # ─── Allocate freely — GC cleans up ───
+    let names = ["Alice", "Bob", "Charlie"]
+    let greeting = build_greeting(names)
+    print(greeting)
+
+    # ─── Short-lived temporaries are cheap ───
+    let mutable i = 0
+    while i < 1000:
+        let temp = 'iteration {i}'    # allocated and collected automatically
+        i = i + 1
+
+    # ─── Mutable state tracked by GC write barriers ───
+    let mutable results: int32[] = []
+    results.push(fib_iter(10))
+    results.push(fib_iter(20))
+    results.push(fib_iter(30))
+    print('Fibonacci results: {results}')
+
+    # ─── Complex object graphs — no cycle worries ───
+    let tree = build_tree(5)
+    let sum = tree_sum(tree)
+    print('Tree sum: {sum}')
+
+    return void
+
+
+##
+  Description: builds a greeting from a list of names
+##
+let build_greeting = f(names: string[]): string =>
+    let mutable greeting = "Hello to: "
+    for name in names:
+        greeting = greeting + name + ", "
+    return greeting
+
+
+##
+  Description: iterative fibonacci
+##
+let fib_iter = f(n: int32): int32 =>
+    if n is 0: return 0
+    if n is 1: return 1
+    let mutable a = 0
+    let mutable b = 1
+    let mutable i = 2
+    let mutable result = 0
+    while i <= n:
+        result = a + b
+        a = b
+        b = result
+        i = i + 1
+    return result
+
+
+##
+  Description: recursive tree type — cycles handled by GC naturally
+##
+type IntTree:
+    Node:
+        value: int32
+        left: IntTree
+        right: IntTree
+    Leaf
+
+##
+  Description: builds a balanced tree of given depth
+##
+let build_tree = f(depth: int32): IntTree =>
+    if depth <= 0:
+        return IntTree.Leaf
+    return IntTree.Node{
+        value: depth,
+        left: build_tree(depth - 1),
+        right: build_tree(depth - 1)
+    }
+
+##
+  Description: sums all values in a tree
+##
+let tree_sum = f(tree: IntTree): int32 =>
+    match tree:
+        Node(node):
+            return node.value + tree_sum(node.left) + tree_sum(node.right)
+        Leaf:
+            return 0

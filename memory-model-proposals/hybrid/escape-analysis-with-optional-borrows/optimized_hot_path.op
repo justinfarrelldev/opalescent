@@ -1,0 +1,103 @@
+# ── Escape Analysis + Optional Borrows: Optimized Hot Path ──
+
+##
+  Description: performance-critical code using optional borrow
+  annotations for zero-copy guarantees
+##
+
+type SensorReading:
+    timestamp: int64
+    value: float64
+    sensor_id: string
+
+type AnalysisResult:
+    mean: float64
+    max_value: float64
+    anomaly_count: int32
+
+
+##
+  Description: analyzes sensor data — borrows the input for zero-copy
+  Without 'borrow', compiler might clone the array into this function
+  With 'borrow', it's guaranteed to be a reference — no allocation
+##
+let analyze_readings = f(readings: borrow SensorReading[]): AnalysisResult =>
+    let mutable sum = 0.0
+    let mutable max_val = readings[0].value
+    let mutable anomalies = 0
+    let threshold = 100.0
+
+    for reading in readings:
+        sum = sum + reading.value
+        if reading.value > max_val:
+            max_val = reading.value
+        if reading.value > threshold:
+            anomalies = anomalies + 1
+
+    return AnalysisResult{
+        mean: sum / (readings.len() as float64),
+        max_value: max_val,
+        anomaly_count: anomalies
+    }
+
+
+##
+  Description: finds readings above a threshold — borrows input,
+  returns owned copies of matching entries
+##
+let find_anomalies = f(
+    readings: borrow SensorReading[],
+    threshold: float64
+): SensorReading[] =>
+    let mutable results: SensorReading[] = []
+    for reading in readings:
+        if reading.value > threshold:
+            results.push(reading)       # copies the struct into results
+    return results                       # owned result, input untouched
+
+
+##
+  Description: hot inner loop — inline hint + borrow for max perf
+##
+inline let compute_moving_average = f(
+    values: borrow float64[],
+    window: int32
+): float64[] =>
+    let mutable averages: float64[] = []
+    let mutable i = window - 1
+    while i < values.len():
+        let mutable sum = 0.0
+        let mutable j = i - window + 1
+        while j <= i:
+            sum = sum + values[j]
+            j = j + 1
+        averages.push(sum / (window as float64))
+        i = i + 1
+    return averages
+
+
+##
+  Description: processes a batch — mix of automatic and annotated modes
+##
+entry main = f(args: string[]): void =>
+    # ─── Automatic mode: compiler handles allocation ───
+    let mutable readings: SensorReading[] = []
+    readings.push(SensorReading{ timestamp: 1000, value: 42.5, sensor_id: "A1" })
+    readings.push(SensorReading{ timestamp: 1001, value: 105.3, sensor_id: "A1" })
+    readings.push(SensorReading{ timestamp: 1002, value: 38.7, sensor_id: "A1" })
+    readings.push(SensorReading{ timestamp: 1003, value: 210.1, sensor_id: "A1" })
+
+    # ─── Annotated mode: borrow for zero-copy analysis ───
+    let result = analyze_readings(readings)
+    print('Mean: {result.mean}')
+    print('Max: {result.max_value}')
+    print('Anomalies: {result.anomaly_count}')
+
+    # ─── Mixed: borrow input, return owned result ───
+    let anomalies = find_anomalies(readings, 100.0)
+    print('Found {anomalies.len()} anomalies')
+
+    # 'readings' still fully valid — was only borrowed
+    print('Total readings: {readings.len()}')
+
+    return void

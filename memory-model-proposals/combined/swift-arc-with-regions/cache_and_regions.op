@@ -1,0 +1,134 @@
+# ── Swift ARC + Regions: Shared Cache with Region-Scoped Processing ──
+
+##
+  Description: demonstrates ARC-managed shared cache interacting
+  with region-scoped request processing pipelines
+##
+
+type Product:
+    sku: string
+    name: string
+    price: float64
+    category: string
+
+type CartItem:
+    product_sku: string
+    quantity: int32
+
+type OrderSummary:
+    items: CartItem[]
+    subtotal: float64
+    tax: float64
+    total: float64
+
+
+##
+  Description: ARC-managed product catalog — shared across all requests
+##
+type ProductCatalog:
+    products: Product[]
+
+
+##
+  Description: looks up a product by SKU — ref read on ARC data
+##
+let find_product = f(catalog: ref ProductCatalog, sku: ref string): Product? =>
+    for p in catalog.products:
+        if p.sku is sku:
+            return some(p)
+    return none
+
+
+##
+  Description: calculates order total — all processing in a region
+  reads from ARC catalog, computes in region, returns owned result
+##
+let calculate_order = f(catalog: ref ProductCatalog, cart: CartItem[]): OrderSummary =>
+    region order_calc:
+        let mutable subtotal: float64 = 0.0
+
+        for item in cart:
+            let product = find_product(catalog, item.product_sku)
+            match product:
+                some(p):
+                    subtotal = subtotal + (p.price * to_float64(item.quantity))
+                none:
+                    print('Warning: unknown SKU {item.product_sku}')
+
+        let tax = subtotal * 0.08
+        let total = subtotal + tax
+
+        # Return copies OrderSummary out of region to ARC heap
+        return OrderSummary{
+            items: cart,
+            subtotal: subtotal,
+            tax: tax,
+            total: total
+        }
+        # ← region freed: all temporaries from calculation gone
+
+
+##
+  Description: processes a batch of orders — nested regions
+##
+let process_batch = f(catalog: ref ProductCatalog, orders: CartItem[][]): OrderSummary[] =>
+    let mutable results: OrderSummary[] = []
+
+    for cart in orders:
+        # Each order gets its own region via calculate_order
+        let summary = calculate_order(catalog, cart)
+        results.push(summary)
+
+    return results
+
+
+##
+  Description: formats an order summary as a printable string
+##
+let format_summary = f(summary: ref OrderSummary): string =>
+    region:
+        let mutable lines: string[] = []
+        lines.push("Order Summary:")
+        lines.push("  Items: {summary.items.len()}")
+        lines.push("  Subtotal: ${summary.subtotal}")
+        lines.push("  Tax: ${summary.tax}")
+        lines.push("  Total: ${summary.total}")
+        return join(lines, "\n")
+
+
+entry main = f(args: string[]): void =>
+    # ─── ARC-managed catalog — lives for the entire program ───
+    let catalog = ProductCatalog{
+        products: [
+            Product{ sku: "LAPTOP-01", name: "Dev Laptop", price: 1299.99, category: "Electronics" },
+            Product{ sku: "MOUSE-01", name: "Ergonomic Mouse", price: 79.99, category: "Peripherals" },
+            Product{ sku: "MONITOR-01", name: "4K Monitor", price: 549.99, category: "Electronics" },
+            Product{ sku: "KEYBOARD-01", name: "Mechanical Keyboard", price: 149.99, category: "Peripherals" },
+            Product{ sku: "HEADSET-01", name: "Noise Cancelling Headset", price: 249.99, category: "Audio" }
+        ]
+    }
+
+    # ─── Cart items — will be consumed by region processing ───
+    let cart1 = [
+        CartItem{ product_sku: "LAPTOP-01", quantity: 1 },
+        CartItem{ product_sku: "MOUSE-01", quantity: 2 }
+    ]
+
+    let cart2 = [
+        CartItem{ product_sku: "MONITOR-01", quantity: 2 },
+        CartItem{ product_sku: "KEYBOARD-01", quantity: 2 },
+        CartItem{ product_sku: "HEADSET-01", quantity: 1 }
+    ]
+
+    # ─── Process individual order (region-scoped) ───
+    let order1 = calculate_order(catalog, cart1)
+    let text1 = format_summary(order1)
+    print(text1)
+
+    # ─── Process batch (each order gets its own region) ───
+    let batch_results = process_batch(catalog, [cart2])
+    for summary in batch_results:
+        let text = format_summary(summary)
+        print(text)
+
+    return void

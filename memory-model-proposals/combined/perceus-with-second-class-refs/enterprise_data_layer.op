@@ -1,0 +1,147 @@
+# ── Perceus + Second-Class References: Enterprise Data Layer ──
+
+##
+  Description: realistic service scenario showing both mechanisms
+  working together — refs for reads, Perceus for transforms
+##
+
+type Employee:
+    id: string
+    name: string
+    department: string
+    salary: int32
+
+type DepartmentSummary:
+    department: string
+    headcount: int32
+    avg_salary: int32
+    top_earner: string
+
+
+##
+  Description: finds an employee by ID — ref read, returns owned copy
+  (second-class ref: can't return a ref, so copies the match out)
+##
+let find_by_id = f(employees: ref Employee[], target_id: ref string): Employee? =>
+    for emp in employees:
+        if emp.id is target_id:
+            return some(emp)       # copies the Employee out (owned return)
+    return none
+
+
+##
+  Description: counts employees in a department — pure ref read
+##
+let count_in_department = f(employees: ref Employee[], dept: ref string): int32 =>
+    let mutable count = 0
+    for emp in employees:
+        if emp.department is dept:
+            count = count + 1
+    return count
+
+
+##
+  Description: computes total salary for a department — ref read
+##
+let department_salary_total = f(employees: ref Employee[], dept: ref string): int32 =>
+    let mutable total = 0
+    for emp in employees:
+        if emp.department is dept:
+            total = total + emp.salary
+    return total
+
+
+##
+  Description: finds the top earner in a department — ref read
+##
+let top_earner_in = f(employees: ref Employee[], dept: ref string): string =>
+    let mutable best_name = ""
+    let mutable best_salary = 0
+    for emp in employees:
+        if emp.department is dept:
+            if emp.salary > best_salary:
+                best_salary = emp.salary
+                best_name = emp.name
+    return best_name
+
+
+##
+  Description: builds department summaries — mixes ref reads and
+  Perceus-optimized functional transforms
+##
+let summarize_departments = f(employees: Employee[]): DepartmentSummary[] =>
+    # Step 1: extract unique departments (Perceus reuses 'employees' for this)
+    let departments = unique_departments(employees)
+
+    # Step 2: build summaries using ref reads on 'employees'
+    # (employees is still alive — Perceus doesn't reuse it yet)
+    let mutable summaries: DepartmentSummary[] = []
+    for dept in departments:
+        let count = count_in_department(employees, dept)         # ref read
+        let total = department_salary_total(employees, dept)     # ref read
+        let top = top_earner_in(employees, dept)                 # ref read
+
+        summaries.push(DepartmentSummary{
+            department: dept,
+            headcount: count,
+            avg_salary: total / count,
+            top_earner: top
+        })
+
+    # 'employees' no longer used — Perceus frees it
+    # 'departments' no longer used — Perceus frees it
+    return summaries
+
+
+##
+  Description: extracts unique department names
+##
+let unique_departments = f(employees: ref Employee[]): string[] =>
+    let mutable seen: string[] = []
+    for emp in employees:
+        let mutable found = false
+        for s in seen:
+            if s is emp.department:
+                found = true
+        if found is false:
+            seen.push(emp.department)
+    return seen
+
+
+##
+  Description: filters employees by salary range — Perceus transform
+  Input array memory reused for output when uniquely owned
+##
+let filter_by_salary = f(employees: Employee[], min: int32, max: int32): Employee[] =>
+    return filter<Employee>(employees, f(emp: Employee): boolean =>
+        return emp.salary >= min and emp.salary <= max
+    )
+
+
+entry main = f(args: string[]): void =>
+    let employees = [
+        Employee{ id: "E001", name: "Alice", department: "Engineering", salary: 120000 },
+        Employee{ id: "E002", name: "Bob", department: "Engineering", salary: 110000 },
+        Employee{ id: "E003", name: "Charlie", department: "Marketing", salary: 95000 },
+        Employee{ id: "E004", name: "Diana", department: "Engineering", salary: 135000 },
+        Employee{ id: "E005", name: "Eve", department: "Marketing", salary: 105000 },
+        Employee{ id: "E006", name: "Frank", department: "Sales", salary: 90000 }
+    ]
+
+    # ─── Ref reads: zero-copy queries on the full dataset ───
+    let eng_count = count_in_department(employees, "Engineering")
+    print('Engineers: {eng_count}')
+
+    let found = find_by_id(employees, "E003")
+    match found:
+        some(emp):
+            print('Found: {emp.name} in {emp.department}')
+        none:
+            print('Not found')
+
+    # ─── Perceus transform: filter → summarize pipeline ───
+    let summaries = summarize_departments(employees)
+    for s in summaries:
+        print('{s.department}: {s.headcount} people, avg ${s.avg_salary}, top: {s.top_earner}')
+
+    return void

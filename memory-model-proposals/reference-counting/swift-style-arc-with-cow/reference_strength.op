@@ -1,0 +1,98 @@
+# ── Swift-Style ARC: Reference Strength Patterns ──
+
+##
+  Description: demonstrates weak and unowned references
+  for breaking retain cycles
+##
+
+##
+  Description: a UI controller that delegates actions
+##
+type ViewController:
+    title: string
+    mutable delegate: weak ActionDelegate?   # weak — avoids retain cycle
+
+##
+  Description: a delegate that references back to its controller
+##
+type ActionDelegate:
+    id: string
+    controller: unowned ViewController       # unowned — guaranteed to outlive delegate
+    callback: f(string): void
+
+##
+  Description: wires up a controller and its delegate
+##
+let create_controller = f(title: string): ViewController =>
+    let mutable ctrl = ViewController{ title: title, delegate: none }
+
+    let handler = ActionDelegate{
+        id: "main-delegate",
+        controller: ctrl,                    # unowned — no retain count increase
+        callback: f(action: string): void =>
+            print('Action: {action}')
+            return void
+    }
+
+    ctrl.delegate = weak handler             # weak assignment
+    return ctrl
+    # When ctrl is dropped, delegate's 'controller' would trap if accessed
+    # But since ctrl owns delegate (indirectly), the lifecycle is correct
+
+
+##
+  Description: safely accesses a weak reference
+##
+let notify_delegate = f(ctrl: ViewController, message: string): void =>
+    # weak references must be upgraded before use
+    match ctrl.delegate.upgrade():
+        some(delegate):
+            delegate.callback(message)
+        none:
+            print('Delegate was already freed')
+    return void
+
+
+##
+  Description: demonstrates the observer pattern with weak refs
+##
+type EventBus:
+    mutable listeners: weak Listener[]       # all listeners are weak
+
+type Listener:
+    name: string
+    on_event: f(string): void
+
+##
+  Description: fires an event, automatically cleaning up dead listeners
+##
+let emit = f(bus: mutable EventBus, event: string): void =>
+    let mutable live: weak Listener[] = []
+    for weak_listener in bus.listeners:
+        match weak_listener.upgrade():
+            some(listener):
+                listener.on_event(event)
+                live.push(weak_listener)     # keep alive listeners
+            none:
+                pass                          # dead listener — skip
+    bus.listeners = live                      # prune dead refs
+    return void
+
+
+entry main = f(args: string[]): void =>
+    # ─── Controller + Delegate (unowned back-reference) ───
+    let ctrl = create_controller("Settings")
+    notify_delegate(ctrl, "save_pressed")
+
+    # ─── Event Bus (weak listeners) ───
+    let mutable bus = EventBus{ listeners: [] }
+    let listener_a = Listener{
+        name: "logger",
+        on_event: f(e: string): void =>
+            print('LOG: {e}')
+            return void
+    }
+    bus.listeners.push(weak listener_a)
+    emit(bus, "startup")
+
+    return void

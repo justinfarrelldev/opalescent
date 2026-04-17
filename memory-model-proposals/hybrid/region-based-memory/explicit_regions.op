@@ -1,0 +1,99 @@
+# ── Region-Based Memory: Explicit Regions for Server Workloads ──
+
+##
+  Description: demonstrates explicit region blocks for a server
+  that handles many requests — each request gets its own arena
+##
+
+type Request:
+    method: string
+    path: string
+    body: string
+
+type Response:
+    status: int32
+    body: string
+
+type ParsedBody:
+    fields: Pair<string>[]
+
+
+##
+  Description: parses a request body into key-value pairs
+##
+let parse_body = f(raw: string): ParsedBody =>
+    # All parsing temporaries live in the caller's region
+    let mutable fields: Pair<string>[] = []
+    let parts = raw.split('&')
+    for part in parts:
+        let kv = part.split('=')
+        if kv.len() is 2:
+            fields.push(Pair<string>{ first: kv[0], second: kv[1] })
+    return ParsedBody{ fields: fields }
+
+
+##
+  Description: validates parsed fields
+##
+let validate = f(parsed: ParsedBody): boolean =>
+    for field in parsed.fields:
+        if field.first.len() < 1:
+            return false
+        if field.second.len() < 1:
+            return false
+    return true
+
+
+##
+  Description: generates a response string
+##
+let build_response = f(parsed: ParsedBody): string =>
+    let mutable body = "Received:\n"
+    for field in parsed.fields:
+        body = body + '  {field.first} = {field.second}\n'
+    return body
+
+
+##
+  Description: handles a single request using an explicit per-request region
+  All allocations during request processing are freed in one bulk operation
+##
+let handle_request = f(req: Request): Response =>
+    # Explicit region: everything allocated here is freed at the end
+    region request_scope:
+        let parsed = parse_body(req.body)         # in request_scope
+        let is_valid = validate(parsed)           # in request_scope
+
+        if is_valid is false:
+            return Response{ status: 400, body: "Invalid request" }
+
+        let body = build_response(parsed)         # in request_scope
+        return Response{ status: 200, body: body }
+    # request_scope freed: parsed, intermediates, everything — one pointer reset
+    # Only the Response is copied out (it escapes the region)
+
+
+##
+  Description: processes a batch of requests
+  Each request gets its own region — no cross-request memory leaks
+##
+let serve_requests = f(requests: Request[]): void =>
+    for req in requests:
+        # Each iteration's handle_request creates its own region
+        let resp = handle_request(req)
+        print('{req.method} {req.path} -> {resp.status}')
+        print(resp.body)
+    return void
+    # After all requests: zero accumulated garbage
+
+
+entry main = f(args: string[]): void =>
+    let requests = [
+        Request{ method: "POST", path: "/users", body: "name=Alice&role=admin" },
+        Request{ method: "POST", path: "/users", body: "name=Bob&role=user" },
+        Request{ method: "POST", path: "/items", body: "title=Widget&price=9.99" }
+    ]
+
+    serve_requests(requests)
+
+    return void

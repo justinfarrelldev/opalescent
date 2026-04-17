@@ -1,0 +1,127 @@
+# ── Perceus Reuse Analysis: Real-World Data Pipeline ──
+
+##
+  Description: a data processing pipeline showing Perceus optimization
+  in a realistic scenario — ETL-style data transformation
+##
+
+type LogEntry:
+    timestamp: int64
+    level: string
+    message: string
+    source: string
+
+type ProcessedEntry:
+    timestamp: int64
+    level: string
+    message: string
+    source: string
+    is_error: boolean
+
+type Summary:
+    total: int32
+    errors: int32
+    warnings: int32
+    sources: string[]
+
+
+##
+  Description: enriches a log entry — Perceus reuses LogEntry memory
+  for ProcessedEntry since fields are similar size
+##
+let enrich = f(entry: LogEntry): ProcessedEntry =>
+    return ProcessedEntry{
+        timestamp: entry.timestamp,
+        level: entry.level,
+        message: entry.message,
+        source: entry.source,
+        is_error: entry.level is "ERROR"
+    }
+
+
+##
+  Description: filters to only error/warning entries
+  Perceus reuses the input array when uniquely owned
+##
+let filter_important = f(entries: ProcessedEntry[]): ProcessedEntry[] =>
+    return filter<ProcessedEntry>(entries, f(e: ProcessedEntry): boolean =>
+        return e.level is "ERROR" or e.level is "WARN"
+    )
+
+
+##
+  Description: extracts unique sources from entries
+##
+let unique_sources = f(entries: ProcessedEntry[]): string[] =>
+    let mutable seen: string[] = []
+    for entry in entries:
+        let mutable found = false
+        for s in seen:
+            if s is entry.source:
+                found = true
+        if found is false:
+            seen.push(entry.source)
+    return seen
+
+
+##
+  Description: builds a summary from processed entries
+##
+let summarize = f(entries: ProcessedEntry[]): Summary =>
+    let mutable errors = 0
+    let mutable warnings = 0
+    for entry in entries:
+        if entry.level is "ERROR": errors = errors + 1
+        if entry.level is "WARN": warnings = warnings + 1
+    let sources = unique_sources(entries)
+    return Summary{
+        total: entries.len(),
+        errors: errors,
+        warnings: warnings,
+        sources: sources
+    }
+
+
+##
+  Description: full ETL pipeline — Perceus reuses memory at each stage
+  1. enrich: LogEntry[] -> ProcessedEntry[] (reuses array + entries)
+  2. filter: ProcessedEntry[] -> ProcessedEntry[] (reuses array)
+  3. summarize: reads the final array
+##
+let process_logs = f(raw_logs: LogEntry[]): Summary =>
+    # Step 1: enrich all entries
+    # 'raw_logs' is uniquely owned → array memory reused
+    let enriched = map<LogEntry, ProcessedEntry>(raw_logs, enrich)
+
+    # Step 2: filter to important
+    # 'enriched' is uniquely owned → array memory reused
+    let important = filter_important(enriched)
+
+    # Step 3: summarize (reads only)
+    let summary = summarize(important)
+
+    # Step 4: explicit drop to free before return
+    drop important
+
+    return summary
+
+
+entry main = f(args: string[]): void =>
+    # ─── Build sample log data ───
+    let mutable logs: LogEntry[] = []
+    logs.push(LogEntry{ timestamp: 1000, level: "INFO", message: "Starting", source: "app" })
+    logs.push(LogEntry{ timestamp: 1001, level: "ERROR", message: "Disk full", source: "storage" })
+    logs.push(LogEntry{ timestamp: 1002, level: "WARN", message: "High CPU", source: "monitor" })
+    logs.push(LogEntry{ timestamp: 1003, level: "INFO", message: "Request OK", source: "app" })
+    logs.push(LogEntry{ timestamp: 1004, level: "ERROR", message: "Timeout", source: "network" })
+
+    # ─── Process pipeline — Perceus reuses memory throughout ───
+    let summary = process_logs(logs)
+    # 'logs' was moved into process_logs — no longer valid here
+
+    print('Total entries: {summary.total}')
+    print('Errors: {summary.errors}')
+    print('Warnings: {summary.warnings}')
+    print('Sources: {summary.sources}')
+
+    return void
