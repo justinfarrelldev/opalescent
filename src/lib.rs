@@ -23,34 +23,22 @@
 
 pub mod app;
 pub mod ast;
-#[path = "benchmarks.rs"]
 pub mod benchmarks;
-#[path = "build_system.rs"]
 pub mod build_system;
-#[path = "codegen.rs"]
 pub mod codegen;
 pub mod compiler;
-#[path = "doc_gen.rs"]
 pub mod doc_gen;
 pub mod error;
 /// Compiler-wide error reporting infrastructure modules.
-#[path = "errors.rs"]
 pub mod errors;
-#[path = "formatter.rs"]
 pub mod formatter;
-#[path = "hot_reload.rs"]
 pub mod hot_reload;
 pub mod lexer;
-#[path = "lsp.rs"]
 pub mod lsp;
-#[path = "package_manager.rs"]
 pub mod package_manager;
 pub mod parser;
-#[path = "runtime.rs"]
 pub mod runtime;
-#[path = "stdlib.rs"]
 pub mod stdlib;
-#[path = "testing.rs"]
 pub mod testing;
 pub mod token;
 pub mod type_system;

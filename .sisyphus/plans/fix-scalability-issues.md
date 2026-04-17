@@ -2058,7 +2058,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 25. Scoped `NEXT_NODE_ID` — make per-parser or add reset (issue 6b)
+- [x] 25. Scoped `NEXT_NODE_ID` — make per-parser or add reset (issue 6b)
 
   **What to do**:
   - RED: Write a test that creates two Parser instances and verifies their node IDs are independent (currently they share global state).

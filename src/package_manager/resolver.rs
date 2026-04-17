@@ -190,7 +190,9 @@ fn select_best(
 pub fn parse_constraint(constraint_str: &str) -> Result<VersionConstraint, ResolveError> {
     let normalized = constraint_str.trim().replace(',', " ");
     if normalized.trim().is_empty() {
-        return Err(ResolveError::InvalidConstraint(constraint_str.trim().to_owned()));
+        return Err(ResolveError::InvalidConstraint(
+            constraint_str.trim().to_owned(),
+        ));
     }
 
     let mut clauses = Vec::new();
@@ -229,7 +231,9 @@ pub fn parse_constraint(constraint_str: &str) -> Result<VersionConstraint, Resol
     }
 
     if clauses.is_empty() {
-        return Err(ResolveError::InvalidConstraint(constraint_str.trim().to_owned()));
+        return Err(ResolveError::InvalidConstraint(
+            constraint_str.trim().to_owned(),
+        ));
     }
 
     Ok(VersionConstraint { clauses })

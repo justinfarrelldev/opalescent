@@ -1,12 +1,8 @@
 //! Documentation generation API surface for Opalescent.
 
-#[path = "doc_gen/attributes.rs"]
 pub mod attributes;
-#[path = "doc_gen/cross_refs.rs"]
 pub mod cross_refs;
-#[path = "doc_gen/extractor.rs"]
 pub mod extractor;
-#[path = "doc_gen/renderer.rs"]
 pub mod renderer;
 
 use crate::ast::Program;
@@ -26,5 +22,4 @@ pub fn touch_doc_gen_api_for_lints() -> bool {
 }
 
 #[cfg(test)]
-#[path = "doc_gen/tests.rs"]
 mod tests;

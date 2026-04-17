@@ -1,15 +1,11 @@
 /// Consistent compiler diagnostic formatting utilities.
-#[path = "errors/formatter.rs"]
 pub mod formatter;
 /// Multi-error collection and rendering utilities.
-#[path = "errors/reporter.rs"]
 pub mod reporter;
 /// Typo and contextual suggestion helpers.
-#[path = "errors/suggestions.rs"]
 pub mod suggestions;
 
 #[cfg(test)]
-#[path = "errors/tests.rs"]
 mod tests;
 
 /// Touch exported error APIs so strict dead-code lints remain satisfied.

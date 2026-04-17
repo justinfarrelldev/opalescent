@@ -863,5 +863,4 @@ impl<'input> Lexer<'input> {
 }
 
 #[cfg(test)]
-#[path = "lexer/tests.rs"]
 mod tests;

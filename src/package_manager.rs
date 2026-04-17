@@ -6,17 +6,11 @@
 //! Package manager surface for project manifests, dependency resolution,
 //! package registry access, installation, and publishing.
 
-#[path = "package_manager/commands.rs"]
 pub mod commands;
-#[path = "package_manager/installer.rs"]
 pub mod installer;
-#[path = "package_manager/manifest.rs"]
 pub mod manifest;
-#[path = "package_manager/publisher.rs"]
 pub mod publisher;
-#[path = "package_manager/registry.rs"]
 pub mod registry;
-#[path = "package_manager/resolver.rs"]
 pub mod resolver;
 
 pub use commands::{dispatch_pkg_command, PkgCommand, PkgCommandResult};
@@ -42,5 +36,4 @@ pub enum PkgError {
 }
 
 #[cfg(test)]
-#[path = "package_manager/tests.rs"]
 mod tests;

@@ -6,15 +6,10 @@
 //! Build-system surface for project configuration, dependency resolution, caching,
 //! incremental compilation planning, and target selection.
 
-#[path = "build_system/cache.rs"]
 pub mod cache;
-#[path = "build_system/config.rs"]
 pub mod config;
-#[path = "build_system/dependency.rs"]
 pub mod dependency;
-#[path = "build_system/incremental.rs"]
 pub mod incremental;
-#[path = "build_system/targets.rs"]
 pub mod targets;
 
 pub use cache::{hash_content, BuildCache};
@@ -45,5 +40,4 @@ pub enum BuildError {
 }
 
 #[cfg(test)]
-#[path = "build_system/tests.rs"]
 mod tests;

@@ -16,21 +16,13 @@
 //! The `types`, `math`, `strings`, `io`, `fs`, and `collections` sub-modules use only
 //! `core` and `alloc`.  The `system` module requires `std` for OS-level bindings.
 
-#[path = "stdlib/collections.rs"]
 pub mod collections;
-#[path = "stdlib/fs.rs"]
 pub mod fs;
-#[path = "stdlib/io.rs"]
 pub mod io;
-#[path = "stdlib/math.rs"]
 pub mod math;
-#[path = "stdlib/strings.rs"]
 pub mod strings;
-#[path = "stdlib/system.rs"]
 pub mod system;
-#[path = "stdlib/types.rs"]
 pub mod types;
 
 #[cfg(test)]
-#[path = "stdlib/tests.rs"]
 mod tests;

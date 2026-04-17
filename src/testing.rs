@@ -5,17 +5,11 @@
 
 //! Testing framework surface for Opalescent-language test execution.
 
-#[path = "testing/assertions.rs"]
 pub mod assertions;
-#[path = "testing/bench.rs"]
 pub mod bench;
-#[path = "testing/coverage.rs"]
 pub mod coverage;
-#[path = "testing/discovery.rs"]
 pub mod discovery;
-#[path = "testing/property.rs"]
 pub mod property;
-#[path = "testing/runner.rs"]
 pub mod runner;
 
 pub use assertions::{
@@ -28,5 +22,4 @@ pub use property::{check_property, PropertyCheckResult, PropertyFailure, Propert
 pub use runner::{TestCase, TestCommand, TestReport, TestResult, TestSuite};
 
 #[cfg(test)]
-#[path = "testing/tests.rs"]
 mod tests;

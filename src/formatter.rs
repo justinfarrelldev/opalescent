@@ -23,24 +23,17 @@
 //! ```
 
 /// CLI command wrapper (`opal fmt`).
-#[path = "formatter/command.rs"]
 pub mod command;
 /// Configuration for the formatter.
-#[path = "formatter/config.rs"]
 pub mod config;
 /// Error and result types.
-#[path = "formatter/errors.rs"]
 pub mod errors;
 /// Naming-convention checker.
-#[path = "formatter/naming.rs"]
 pub mod naming;
 /// AST pretty-printer.
-#[path = "formatter/printer.rs"]
 pub mod printer;
 /// Textual formatting rules applied after pretty-printing.
-#[path = "formatter/rules.rs"]
 pub mod rules;
 
 #[cfg(test)]
-#[path = "formatter/tests.rs"]
 mod tests;

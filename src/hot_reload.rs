@@ -3,25 +3,15 @@
     reason = "Task 28 requires a hot-reload API surface exposed from src/hot_reload.rs"
 )]
 
-#[path = "hot_reload/abi.rs"]
 pub mod abi;
-#[path = "hot_reload/cache.rs"]
 pub mod cache;
-#[path = "hot_reload/change_detection.rs"]
 pub mod change_detection;
-#[path = "hot_reload/classifier.rs"]
 pub mod classifier;
-#[path = "hot_reload/dependency_graph.rs"]
 pub mod dependency_graph;
-#[path = "hot_reload/guard.rs"]
 pub mod guard;
-#[path = "hot_reload/loader.rs"]
 pub mod loader;
-#[path = "hot_reload/recovery.rs"]
 pub mod recovery;
-#[path = "hot_reload/state.rs"]
 pub mod state;
-#[path = "hot_reload/version.rs"]
 pub mod version;
 
 pub use abi::{
@@ -43,5 +33,4 @@ pub use state::{HostState, StateError, StatePreserver};
 pub use version::{versioned_module_name, ModuleVersion};
 
 #[cfg(test)]
-#[path = "hot_reload/tests.rs"]
 mod tests;

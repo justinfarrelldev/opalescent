@@ -15,17 +15,10 @@
 //! | [`thread`] | Thread spawning, mutex, and MPSC channel |
 //! | [`process`] | Child-process spawning, signal delivery, and exit |
 
-#[path = "system/args.rs"]
 pub mod args;
-#[path = "system/env.rs"]
 pub mod env;
-#[path = "system/net.rs"]
 pub mod net;
-#[path = "system/platform.rs"]
 pub mod platform;
-#[path = "system/process.rs"]
 pub mod process;
-#[path = "system/tests.rs"]
 pub mod tests;
-#[path = "system/thread.rs"]
 pub mod thread;
