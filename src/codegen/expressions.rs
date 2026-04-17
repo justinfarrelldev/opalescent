@@ -398,7 +398,7 @@ fn codegen_cast<'context>(
             let float_type = float_type_for(codegen_context, &target_type)?;
             // Task 12: Use uitofp for unsigned sources, sitofp for signed
             let casted = match expr {
-                &Expr::Identifier { ref name, .. } => {
+                Expr::Identifier { name, .. } => {
                     if let Some(binding) = env.variables.get(name) {
                         if is_signed_core_type(&binding.core_type) {
                             codegen_context
