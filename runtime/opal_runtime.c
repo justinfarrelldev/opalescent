@@ -44,16 +44,30 @@ static char* skip_trailing_whitespace(char* s) {
     return s;
 }
 
+/* caller owns returned string, must free() */
+static char* duplicate_without_trailing_newline(const char* source) {
+    /* internal temporary copy: owned by this helper, freed before return */
+    char* raw = strdup(source);
+    size_t len = strlen(raw);
+    if (len > 0 && raw[len - 1] == '\n') {
+        raw[len - 1] = '\0';
+    }
+
+    size_t trimmed_len = strlen(raw);
+    /* caller owns returned string, must free() */
+    char* out = (char*)malloc(trimmed_len + 1);
+    memcpy(out, raw, trimmed_len + 1);
+    free(raw);
+    return out;
+}
+
+/* caller owns returned string, must free() */
 char* take_input(void) {
     static char buf[1024];
     if (fgets(buf, sizeof(buf), stdin) == NULL) {
-        return strdup("");
+        return duplicate_without_trailing_newline("");
     }
-    size_t len = strlen(buf);
-    if (len > 0 && buf[len - 1] == '\n') {
-        buf[len - 1] = '\0';
-    }
-    return strdup(buf);
+    return duplicate_without_trailing_newline(buf);
 }
 
 void print_string(const char* s) {
@@ -548,6 +562,7 @@ ParseResultF64 string_to_float64(const char* s) {
 
 /* ── Numeric-to-string conversion functions (infallible) ── */
 
+/* caller owns returned string, must free() */
 char* int8_to_string(int8_t value) {
     int len = snprintf(NULL, 0, "%d", (int)value);
     char* buf = (char*)malloc(len + 1);
@@ -555,6 +570,7 @@ char* int8_to_string(int8_t value) {
     return buf;
 }
 
+/* caller owns returned string, must free() */
 char* int16_to_string(int16_t value) {
     int len = snprintf(NULL, 0, "%d", (int)value);
     char* buf = (char*)malloc(len + 1);
@@ -562,6 +578,7 @@ char* int16_to_string(int16_t value) {
     return buf;
 }
 
+/* caller owns returned string, must free() */
 char* int32_to_string(int32_t value) {
     int len = snprintf(NULL, 0, "%d", value);
     char* buf = (char*)malloc(len + 1);
@@ -569,6 +586,7 @@ char* int32_to_string(int32_t value) {
     return buf;
 }
 
+/* caller owns returned string, must free() */
 char* int64_to_string(int64_t value) {
     int len = snprintf(NULL, 0, "%" PRId64, value);
     char* buf = (char*)malloc(len + 1);
@@ -576,6 +594,7 @@ char* int64_to_string(int64_t value) {
     return buf;
 }
 
+/* caller owns returned string, must free() */
 char* uint8_to_string(uint8_t value) {
     int len = snprintf(NULL, 0, "%u", (unsigned)value);
     char* buf = (char*)malloc(len + 1);
@@ -583,6 +602,7 @@ char* uint8_to_string(uint8_t value) {
     return buf;
 }
 
+/* caller owns returned string, must free() */
 char* uint16_to_string(uint16_t value) {
     int len = snprintf(NULL, 0, "%u", (unsigned)value);
     char* buf = (char*)malloc(len + 1);
@@ -590,6 +610,7 @@ char* uint16_to_string(uint16_t value) {
     return buf;
 }
 
+/* caller owns returned string, must free() */
 char* uint32_to_string(uint32_t value) {
     int len = snprintf(NULL, 0, "%u", value);
     char* buf = (char*)malloc(len + 1);
@@ -597,6 +618,7 @@ char* uint32_to_string(uint32_t value) {
     return buf;
 }
 
+/* caller owns returned string, must free() */
 char* uint64_to_string(uint64_t value) {
     int len = snprintf(NULL, 0, "%" PRIu64, value);
     char* buf = (char*)malloc(len + 1);
@@ -604,6 +626,7 @@ char* uint64_to_string(uint64_t value) {
     return buf;
 }
 
+/* caller owns returned string, must free() */
 char* float32_to_string(float value) {
     int len = snprintf(NULL, 0, "%g", (double)value);
     char* buf = (char*)malloc(len + 1);
@@ -611,6 +634,7 @@ char* float32_to_string(float value) {
     return buf;
 }
 
+/* caller owns returned string, must free() */
 char* float64_to_string(double value) {
     int len = snprintf(NULL, 0, "%g", value);
     char* buf = (char*)malloc(len + 1);
@@ -618,6 +642,7 @@ char* float64_to_string(double value) {
     return buf;
 }
 
+/* caller owns returned string, must free() */
 char* bool_to_string(int8_t value) {
     return strdup(value ? "true" : "false");
 }

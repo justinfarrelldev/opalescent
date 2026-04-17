@@ -1,0 +1,39 @@
+Task 17 (issue 3a) evidence: runtime free() + ownership model
+
+Changed file:
+- runtime/opal_runtime.c
+
+Allocation-site audit (`malloc|strdup|calloc`):
+- duplicate_without_trailing_newline():
+  - strdup(source) -> internal temporary (`raw`), freed in helper
+  - malloc(trimmed_len + 1) -> returned to caller (`out`)
+- int8_to_string()         -> malloc(len + 1), returned to caller
+- int16_to_string()        -> malloc(len + 1), returned to caller
+- int32_to_string()        -> malloc(len + 1), returned to caller
+- int64_to_string()        -> malloc(len + 1), returned to caller
+- uint8_to_string()        -> malloc(len + 1), returned to caller
+- uint16_to_string()       -> malloc(len + 1), returned to caller
+- uint32_to_string()       -> malloc(len + 1), returned to caller
+- uint64_to_string()       -> malloc(len + 1), returned to caller
+- float32_to_string()      -> malloc(len + 1), returned to caller
+- float64_to_string()      -> malloc(len + 1), returned to caller
+- bool_to_string()         -> strdup("true"/"false"), returned to caller
+
+Ownership comments added:
+- Added `/* caller owns returned string, must free() */` to:
+  - take_input()
+  - duplicate_without_trailing_newline()
+  - all `*_to_string()` runtime string-returning functions
+- Added internal ownership note for helper temporary allocation:
+  - `raw` in duplicate_without_trailing_newline() is freed before return
+
+Internal deallocation evidence:
+- Added `free(raw);` in duplicate_without_trailing_newline()
+
+Verification:
+- cargo build: PASS
+  - `Finished 'dev' profile [unoptimized + debuginfo] target(s) in 2.91s`
+- grep count for free references in runtime file: PASS (> 0)
+  - grep tool count: 14 lines matching `free(`
+- LSP diagnostics on runtime/opal_runtime.c: BLOCKED
+  - clangd not installed in environment (`Command not found: clangd`)

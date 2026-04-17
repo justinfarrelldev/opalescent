@@ -177,3 +177,26 @@
 - Verification for this task:
   - LSP diagnostics clean for changed files
   - full `cargo test` passed: `980 passed; 0 failed; 5 ignored`
+
+## [2026-04-17] Task 17 / Issue 3a: runtime string ownership + internal free
+- Introduced `duplicate_without_trailing_newline(const char*)` in `runtime/opal_runtime.c` to make ownership explicit for `take_input()` and create a real internal temporary allocation lifecycle.
+- Ownership model documented with `/* caller owns returned string, must free() */` on all runtime string-producing APIs (`take_input` + all `*_to_string` functions).
+- Internal intermediate allocation now explicitly deallocated at scope exit:
+  - helper `raw = strdup(source)` is always released via `free(raw)` before returning `out`.
+- Maintained contract boundaries:
+  - strings returned from runtime are still caller-owned and intentionally not freed in runtime,
+  - no static/global strings are freed,
+  - no GC/reference counting introduced.
+
+
+## [2026-04-17] Task 18 (3b): free() emission for temporary interpolation strings
+- Added `ensure_free_function` in `src/codegen/expressions_string.rs`, modeled after `ensure_malloc_function` to declare/reuse `free(i8*)`.
+- `codegen_string_interpolation` now tracks temporary pointer arguments and emits `call void @free(i8* ...)` after `sprintf`.
+- Temporary detection is expression-shape based via `should_free_interpolation_pointer_argument`:
+  - free nested `Expr::StringInterpolation` results (intermediate malloc buffers),
+  - free `Expr::Call` to `*_to_string` helpers,
+  - do not free identifiers/literals/global string constants.
+- TDD coverage added in `src/codegen/tests.rs`:
+  - `codegen_string_interpolation_frees_to_string_temporary_arguments` (fails before fix, passes after),
+  - `codegen_nested_string_interpolation_frees_inner_temporary_buffer` (fails before fix, passes after).
+- Verification: LSP diagnostics clean for changed files; full `cargo test` passed (`982 passed; 0 failed; 5 ignored`).
