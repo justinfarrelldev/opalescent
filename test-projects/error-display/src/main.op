@@ -1,0 +1,12 @@
+##
+  Description: Test project with deliberate errors from multiple compiler phases
+##
+entry main = f(args: string[]): void =>
+    # Lex error: @ is an unexpected character
+    let invalid_lex = @
+    
+    # Type error: assigning string to int32
+    let x: int32 = 'hello'
+    
+    print('This should not compile')
+    return void

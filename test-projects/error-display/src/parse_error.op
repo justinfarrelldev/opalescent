@@ -1,0 +1,6 @@
+##
+  Description: File with a single parse error
+##
+entry main = f(args: string[]): void =>
+    print('missing closing paren'
+    return void

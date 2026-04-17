@@ -1,0 +1,6 @@
+##
+  Description: File with a single type error
+##
+entry main = f(args: string[]): void =>
+    let x: int32 = 'hello'
+    return void
