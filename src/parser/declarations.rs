@@ -4,7 +4,7 @@
 //! including function declarations, type declarations, import declarations, and let declarations.
 //! These methods are part of the Parser implementation but are organized here for modularity.
 extern crate alloc;
-use super::{next_node_id, ParseError, ParseResult, Parser};
+use super::{ParseError, ParseResult, Parser};
 use crate::ast::{
     AstNode, Decl, Documentation, Field, FunctionModifier, HotReloadMetadata, ImportItem,
     ImportStatement, LetBinding, Parameter, Stmt, Type, TypeDef, TypeParameter, Variant,
@@ -118,6 +118,7 @@ impl Parser {
 
     /// Construct a `LetBinding` with consistent span calculation and node id assignment
     pub(super) fn create_let_binding(
+        &mut self,
         name: String,
         name_span: Span,
         type_annotation: Option<Type>,
@@ -132,7 +133,7 @@ impl Parser {
             type_annotation,
             is_mutable,
             span: Span::new(name_span.start, binding_end),
-            id: next_node_id(),
+            id: self.next_node_id(),
         }
     }
 
@@ -260,7 +261,7 @@ impl Parser {
                 Stmt::Block {
                     statements,
                     span: body_span,
-                    id: next_node_id(),
+                    id: self.next_node_id(),
                 }
             }
         };
@@ -295,7 +296,7 @@ impl Parser {
             modifiers: effective_modifiers,
             doc_comment,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
             metadata,
         })
     }
@@ -431,7 +432,7 @@ impl Parser {
             visibility,
             doc_comment,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
             metadata: HotReloadMetadata::for_type_declaration(),
         })
     }
@@ -643,7 +644,7 @@ impl Parser {
             // Parse additional items if there's a comma
             while self.check(&TokenType::Comma) {
                 self.advance(); // consume ','
-                // Check for trailing comma (not allowed)
+                                // Check for trailing comma (not allowed)
                 if self.check(&TokenType::From) {
                     return Err(ParseError::InvalidSyntax {
                         message: "Trailing comma in import list not allowed".to_owned(),
@@ -669,7 +670,7 @@ impl Parser {
             });
         }
         self.advance(); // consume 'from'
-        // Parse source path (handles various import path formats)
+                        // Parse source path (handles various import path formats)
         let source = self.parse_import_path()?;
         let end_span = self.previous_token().span;
         let import_span = Span::new(start_span.start, end_span.end);
@@ -688,7 +689,7 @@ impl Parser {
             items,
             source,
             span: import_span,
-            id: next_node_id(),
+            id: self.next_node_id(),
             metadata: HotReloadMetadata::for_import(),
         })
     }
@@ -915,7 +916,7 @@ impl Parser {
         let end_span = self.previous_token().span;
         let let_span = Span::new(start_span.start, end_span.end);
 
-        let binding = Self::create_let_binding(name, name_span, type_annotation, is_mutable);
+        let binding = self.create_let_binding(name, name_span, type_annotation, is_mutable);
 
         let mut metadata = HotReloadMetadata::for_let_declaration();
         if binding.is_mutable {
@@ -928,7 +929,7 @@ impl Parser {
             visibility,
             doc_comment,
             span: let_span,
-            id: next_node_id(),
+            id: self.next_node_id(),
             metadata,
         })
     }
@@ -994,7 +995,6 @@ impl Parser {
                 });
             }
         }
-
         Ok(types)
     }
 }

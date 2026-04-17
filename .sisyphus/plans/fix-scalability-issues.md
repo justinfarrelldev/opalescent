@@ -1660,7 +1660,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 19. Cross-platform linker support (issue 6d)
+- [x] 19. Cross-platform linker support (issue 6d)
 
   **What to do**:
   - RED: Write a test for the linker command construction that verifies correct flags for different platforms.
@@ -1731,7 +1731,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ### Wave 5 — P2 Runtime Safety
 
-- [ ] 20. Thread-safe `invalid_digit_error` buffer (issue 2a)
+- [x] 20. Thread-safe `invalid_digit_error` buffer (issue 2a)
 
   **What to do**:
   - RED: Verify the current static buffer is shared and unsafe in multithreaded contexts.
@@ -1790,7 +1790,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 21. Add malloc NULL checks (issue 2c)
+- [x] 21. Add malloc NULL checks (issue 2c)
 
   **What to do**:
   - RED: Identify all malloc/calloc/strdup call sites and verify none check for NULL.
@@ -1855,7 +1855,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 22. Dynamic `take_input` buffer (issue 2e)
+- [x] 22. Dynamic `take_input` buffer (issue 2e)
 
   **What to do**:
   - RED: Verify current static buffer in take_input (lines 41-51) is fixed-size and truncates long input.
@@ -1916,7 +1916,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 23. Quality RNG replacement (issue 2d)
+- [x] 23. Quality RNG replacement (issue 2d)
 
   **What to do**:
   - RED: Write a test showing the current `rand()` / `srand(time(NULL))` has poor quality (e.g., known bias patterns, predictable seed).

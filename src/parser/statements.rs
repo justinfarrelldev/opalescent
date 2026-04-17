@@ -12,7 +12,7 @@ extern crate alloc;
 
 use crate::ast::{AstNode, Expr, LabeledValue, Stmt};
 use crate::error::LexError;
-use crate::parser::{next_node_id, ParseError, ParseResult, Parser};
+use crate::parser::{ParseError, ParseResult, Parser};
 use crate::token::{Span, TokenType};
 
 impl Parser {
@@ -48,21 +48,23 @@ impl Parser {
             if let &TokenType::Comment(_) = &self.current_token().token_type {
                 if self.current_token().span.start.column == 1 {
                     let comment_token = self.advance().clone();
+                    let id = self.next_node_id();
                     self.deferred_comment_declarations
                         .push(crate::ast::Decl::Comment {
                             text: comment_token.lexeme,
                             span: comment_token.span,
-                            id: next_node_id(),
+                            id,
                         });
                     self.skip_newlines();
                     continue;
                 }
 
                 let comment_token = self.advance().clone();
+                let id = self.next_node_id();
                 statements.push(Stmt::Comment {
                     text: comment_token.lexeme,
                     span: comment_token.span,
-                    id: next_node_id(),
+                    id,
                 });
                 self.skip_newlines();
                 continue;
@@ -90,7 +92,7 @@ impl Parser {
         Ok(Stmt::Block {
             statements,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -113,7 +115,7 @@ impl Parser {
                 Ok(Stmt::Comment {
                     text: comment_token.lexeme,
                     span: comment_token.span,
-                    id: next_node_id(),
+                    id: self.next_node_id(),
                 })
             }
             TokenType::Let => self.parse_let_statement(),
@@ -207,7 +209,7 @@ impl Parser {
 
         if self.check(&TokenType::Comma) {
             let mut bindings = Vec::new();
-            bindings.push(Self::create_let_binding(name, name_span, None, is_mutable));
+            bindings.push(self.create_let_binding(name, name_span, None, is_mutable));
 
             while self.check(&TokenType::Comma) {
                 self.advance();
@@ -230,9 +232,7 @@ impl Parser {
                     });
                 };
 
-                bindings.push(Self::create_let_binding(
-                    next_name, next_span, None, is_mutable,
-                ));
+                bindings.push(self.create_let_binding(next_name, next_span, None, is_mutable));
             }
 
             self.consume(
@@ -247,7 +247,7 @@ impl Parser {
                 bindings,
                 initializer,
                 span,
-                id: next_node_id(),
+                id: self.next_node_id(),
             });
         }
 
@@ -273,13 +273,13 @@ impl Parser {
         let end_span = self.previous_token().span;
         let span = Span::new(start_span.start, end_span.end);
 
-        let binding = Self::create_let_binding(name, name_span, type_annotation, is_mutable);
+        let binding = self.create_let_binding(name, name_span, type_annotation, is_mutable);
 
         Ok(Stmt::Let {
             binding,
             initializer,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -335,7 +335,7 @@ impl Parser {
                             label,
                             value: expr_value,
                             span: value_span,
-                            id: next_node_id(),
+                            id: self.next_node_id(),
                         });
 
                         if self.check(&TokenType::Comma) {
@@ -351,7 +351,7 @@ impl Parser {
                         label: String::new(),
                         span: expr_value.span(),
                         value: expr_value,
-                        id: next_node_id(),
+                        id: self.next_node_id(),
                     });
                 }
             } else {
@@ -360,7 +360,7 @@ impl Parser {
                     label: String::new(),
                     span: expr_value.span(),
                     value: expr_value,
-                    id: next_node_id(),
+                    id: self.next_node_id(),
                 });
             }
         }
@@ -371,7 +371,7 @@ impl Parser {
         Ok(Stmt::Return {
             values,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -402,7 +402,7 @@ impl Parser {
                 statements.push(Stmt::Comment {
                     text: comment_token.lexeme,
                     span: comment_token.span,
-                    id: next_node_id(),
+                    id: self.next_node_id(),
                 });
                 self.skip_newlines();
                 continue;
@@ -431,7 +431,7 @@ impl Parser {
         Ok(Stmt::Block {
             statements,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -454,7 +454,7 @@ impl Parser {
             leading_comments.push(Stmt::Comment {
                 text: comment_token.lexeme,
                 span: comment_token.span,
-                id: next_node_id(),
+                id: self.next_node_id(),
             });
             self.skip_newlines();
         }
@@ -553,7 +553,7 @@ impl Parser {
             then_branch,
             else_branch,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -620,7 +620,7 @@ impl Parser {
             iterable,
             body,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -662,7 +662,7 @@ impl Parser {
             condition,
             body,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -729,7 +729,7 @@ impl Parser {
             error_binding,
             else_body,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -773,7 +773,7 @@ impl Parser {
         Ok(Stmt::Loop {
             body,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -817,7 +817,7 @@ impl Parser {
                 label,
                 value: value_expr,
                 span: payload_span,
-                id: next_node_id(),
+                id: self.next_node_id(),
             });
 
             if self.check(&TokenType::Comma) {
@@ -843,7 +843,7 @@ impl Parser {
         Ok(Stmt::Break {
             values,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -863,7 +863,7 @@ impl Parser {
         Ok(Stmt::Continue {
             values,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -914,7 +914,7 @@ impl Parser {
                 target: expr,
                 value,
                 span,
-                id: next_node_id(),
+                id: self.next_node_id(),
             })
         } else {
             // Regular expression statement
@@ -922,7 +922,7 @@ impl Parser {
             Ok(Stmt::Expression {
                 expr,
                 span,
-                id: next_node_id(),
+                id: self.next_node_id(),
             })
         }
     }

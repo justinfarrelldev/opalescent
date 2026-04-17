@@ -240,3 +240,37 @@
   - `cargo test` passed: 982 passed; 0 failed; 5 ignored
   - Evidence saved to `.sisyphus/evidence/task-22-dynamic-input.txt`
 - **Scalability Impact**: Removes 1024-byte input limit, supports arbitrary-length user input
+
+## [2026-04-17] Task 21 (2c): NULL checks after malloc/calloc/strdup
+
+### Problem
+Runtime memory allocation failures were not handled. malloc/calloc/strdup can return NULL on out-of-memory conditions, but the code was dereferencing these pointers without checking.
+
+### Solution
+Added NULL checks after all 13 malloc/calloc/strdup calls in `runtime/opal_runtime.c`:
+- 2 allocations in `duplicate_without_trailing_newline()` (1 strdup, 1 malloc)
+- 10 allocations in `*_to_string()` functions (all malloc)
+- 1 allocation in `bool_to_string()` (strdup)
+
+### Implementation Pattern
+Each allocation now follows:
+```c
+char* ptr = malloc/calloc/strdup(...);
+if (!ptr) {
+    fprintf(stderr, "Runtime error: out of memory\n");
+    exit(1);
+}
+```
+
+### Key Learnings
+1. **Consistent error handling**: All NULL checks use identical error message and exit(1)
+2. **Pattern matches existing trap mechanism**: Aligns with opal_runtime_error() pattern
+3. **No resource leaks**: In duplicate_without_trailing_newline(), strdup failure exits before malloc attempt
+4. **Scalability impact**: Prevents undefined behavior and crashes on memory exhaustion
+5. **Build verification**: cargo build succeeds, all 982 tests pass
+
+### Verification
+- All 13 allocation sites verified with grep
+- Build: ✓ cargo build succeeded (2.49s)
+- Tests: ✓ 982 passed, 0 failed
+- Evidence: `.sisyphus/evidence/task-21-null-checks.txt`

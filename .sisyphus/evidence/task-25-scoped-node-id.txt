@@ -1,0 +1,49 @@
+TASK: Make NEXT_NODE_ID per-parser instead of global static (issue 6b)
+
+VERIFICATION:
+=============
+
+1. Global static removed:
+   grep -n "static.*NEXT_NODE_ID\|AtomicUsize" src/parser.rs
+   (no output - confirmed removed)
+
+2. Node ID field added to Parser struct:
+   - Field: next_node_id: usize
+   - Initialized in new() with value 1
+   - Method: fn next_node_id(&mut self) -> NodeId
+
+3. All call sites updated:
+   - 56 total replacements made
+   - All next_node_id() calls changed to self.next_node_id()
+   - Imports removed from submodules:
+     * src/parser/patterns.rs
+     * src/parser/declarations.rs
+     * src/parser/expressions.rs
+     * src/parser/statements.rs
+
+4. Static functions converted to methods:
+   - create_let_binding: now takes &mut self
+   - parse_string_interpolation: now takes &mut self
+
+5. Borrow checker issues resolved:
+   - Extracted node IDs before struct construction
+   - Updated all call sites to use self.create_let_binding()
+
+TEST RESULTS:
+=============
+cargo test 2>&1 | tail -5
+
+test result: ok. 985 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out
+
+All 985 tests pass with 0 failures.
+
+CHANGES SUMMARY:
+================
+- Removed: static NEXT_NODE_ID: AtomicUsize
+- Removed: fn next_node_id() -> NodeId (free function)
+- Removed: use of core::sync::atomic::{AtomicUsize, Ordering}
+- Added: next_node_id: usize field to Parser struct
+- Added: fn next_node_id(&mut self) -> NodeId method to Parser
+- Updated: 56 call sites from next_node_id() to self.next_node_id()
+- Updated: 4 submodule imports to remove next_node_id
+- Updated: 2 static functions to methods requiring &mut self

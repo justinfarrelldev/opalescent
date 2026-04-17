@@ -1,0 +1,45 @@
+# Task 2c: NULL Checks After malloc/calloc/strdup
+
+## Summary
+Added NULL checks after all 13 malloc/calloc/strdup calls in runtime/opal_runtime.c.
+Each allocation now triggers `fprintf(stderr, "Runtime error: out of memory\n"); exit(1);` on failure.
+
+## Allocation Sites Fixed
+
+### 1. duplicate_without_trailing_newline() - 2 allocations
+- Line 51: strdup(source) → NULL check added
+- Line 63: malloc(trimmed_len + 1) → NULL check added
+
+### 2. *_to_string() functions - 10 allocations
+- Line 587: int8_to_string malloc → NULL check added
+- Line 599: int16_to_string malloc → NULL check added
+- Line 611: int32_to_string malloc → NULL check added
+- Line 623: int64_to_string malloc → NULL check added
+- Line 635: uint8_to_string malloc → NULL check added
+- Line 647: uint16_to_string malloc → NULL check added
+- Line 659: uint32_to_string malloc → NULL check added
+- Line 671: uint64_to_string malloc → NULL check added
+- Line 683: float32_to_string malloc → NULL check added
+- Line 695: float64_to_string malloc → NULL check added
+
+### 3. bool_to_string() - 1 allocation
+- Line 706: strdup(value ? "true" : "false") → NULL check added
+
+## Verification
+
+All 13 allocation sites now follow the pattern:
+```c
+char* ptr = malloc/calloc/strdup(...);
+if (!ptr) {
+    fprintf(stderr, "Runtime error: out of memory\n");
+    exit(1);
+}
+```
+
+Build Status: ✓ cargo build succeeded (2.49s)
+Test Status: ✓ All tests pass (982 passed, 0 failed)
+
+## Pattern Consistency
+- All NULL checks use identical error message: "Runtime error: out of memory\n"
+- All NULL checks call exit(1) to terminate immediately
+- Pattern matches existing opal_runtime_error() trap mechanism

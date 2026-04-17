@@ -12,6 +12,11 @@
     clippy::multiple_inherent_impl,
     reason = "Parser implementation is split across multiple submodules for maintainability - this is the intended design"
 )]
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::missing_const_for_fn,
+    reason = "Node ID counter must be mutable; arithmetic is intentional for ID generation"
+)]
 
 /// Parser submodule for closure capture analysis
 mod captures;
@@ -41,19 +46,9 @@ mod tests;
 
 use crate::ast::{AstNode, Decl, NodeId, Program};
 use crate::token::{Span, Token, TokenType};
-use core::sync::atomic::{AtomicUsize, Ordering};
 
 use errors::{ParseError, ParseErrors, ParseResult};
 use precedence::Precedence;
-
-/// Node ID generator for unique AST node identification
-static NEXT_NODE_ID: AtomicUsize = AtomicUsize::new(1);
-
-/// Generates a unique node ID for AST nodes
-/// Each call returns a monotonically increasing ID
-fn next_node_id() -> NodeId {
-    NodeId(NEXT_NODE_ID.fetch_add(1, Ordering::Relaxed))
-}
 
 /// The main parser struct
 #[derive(Debug)]
@@ -68,6 +63,8 @@ pub struct Parser {
     deferred_comment_declarations: Vec<Decl>,
     /// Documentation comments deferred while finishing indentation blocks.
     deferred_doc_comments: Vec<(String, Span)>,
+    /// Node ID counter for unique AST node identification
+    next_node_id: usize,
 }
 
 impl Parser {
@@ -79,7 +76,16 @@ impl Parser {
             errors: ParseErrors::new(),
             deferred_comment_declarations: Vec::new(),
             deferred_doc_comments: Vec::new(),
+            next_node_id: 1,
         }
+    }
+
+    /// Generates a unique node ID for AST nodes
+    /// Each call returns a monotonically increasing ID
+    fn next_node_id(&mut self) -> NodeId {
+        let id = self.next_node_id;
+        self.next_node_id += 1;
+        NodeId(id)
     }
 
     /// Parse the tokens into a complete program AST
@@ -102,7 +108,7 @@ impl Parser {
                     declarations.push(Decl::Comment {
                         text: comment_token.lexeme,
                         span: comment_token.span,
-                        id: next_node_id(),
+                        id: self.next_node_id(),
                     });
                 } else {
                     break;
@@ -152,7 +158,7 @@ impl Parser {
         let program = self.errors.is_empty().then(|| Program {
             declarations,
             span: program_span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         });
 
         (program, self.errors)

@@ -1,4 +1,4 @@
-use super::{next_node_id, ParseError, ParseResult, Parser};
+use super::{ParseError, ParseResult, Parser};
 use crate::ast::{AstNode, Expr, LiteralValue, MatchArm, Pattern};
 use crate::token::{Span, TokenType};
 
@@ -58,7 +58,7 @@ impl Parser {
             scrutinee: Box::new(scrutinee),
             arms,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 

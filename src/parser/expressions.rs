@@ -10,9 +10,7 @@
 //! - Lambda expressions
 //! - String interpolation
 
-use super::{
-    captures::collect_captured_variables, next_node_id, ParseError, ParseResult, Parser, Precedence,
-};
+use super::{captures::collect_captured_variables, ParseError, ParseResult, Parser, Precedence};
 use crate::ast::{
     AstNode, BinaryOp, ConstructorField, Expr, HotReloadMetadata, LambdaBody, LiteralValue, Stmt,
     StringPart, UnaryOp,
@@ -118,7 +116,7 @@ impl Parser {
             callee: Box::new(left),
             fields,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -191,7 +189,7 @@ impl Parser {
             then_branch,
             else_branch,
             span: Span::new(start_span.start, end_span.end),
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -201,7 +199,7 @@ impl Parser {
         Expr::Literal {
             value: LiteralValue::Integer(value),
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         }
     }
 
@@ -278,7 +276,7 @@ impl Parser {
             Stmt::Expression {
                 expr,
                 span,
-                id: next_node_id(),
+                id: self.next_node_id(),
             }
         };
 
@@ -295,7 +293,7 @@ impl Parser {
             is_mutable,
             else_branch: Box::new(else_stmt),
             span: full_span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -330,7 +328,7 @@ impl Parser {
                 Ok(Expr::Propagate {
                     call: Box::new(inner),
                     span,
-                    id: next_node_id(),
+                    id: self.next_node_id(),
                 })
             }
             _ => Err(ParseError::InvalidSyntax {
@@ -346,7 +344,7 @@ impl Parser {
         Expr::Literal {
             value: LiteralValue::Float(value),
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         }
     }
 
@@ -356,18 +354,18 @@ impl Parser {
 
         // Check if the string contains interpolation syntax
         if value.contains('{') {
-            Self::parse_string_interpolation(&value, span)
+            self.parse_string_interpolation(&value, span)
         } else {
             Ok(Expr::Literal {
                 value: LiteralValue::String(value),
                 span,
-                id: next_node_id(),
+                id: self.next_node_id(),
             })
         }
     }
 
     /// Parse string interpolation expressions ('Hello {world}')
-    fn parse_string_interpolation(value: &str, span: Span) -> ParseResult<Expr> {
+    fn parse_string_interpolation(&mut self, value: &str, span: Span) -> ParseResult<Expr> {
         let mut parts = Vec::new();
         let mut current_str = String::new();
         let mut chars = value.chars();
@@ -462,7 +460,7 @@ impl Parser {
         Ok(Expr::StringInterpolation {
             parts,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -472,7 +470,7 @@ impl Parser {
         Expr::Literal {
             value: LiteralValue::Boolean(value),
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         }
     }
 
@@ -482,7 +480,7 @@ impl Parser {
         Expr::Literal {
             value: LiteralValue::Void,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         }
     }
 
@@ -492,7 +490,7 @@ impl Parser {
         Expr::Identifier {
             name,
             span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         }
     }
 
@@ -508,7 +506,7 @@ impl Parser {
         Ok(Expr::Parenthesized {
             expr: Box::new(expr),
             span: paren_span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -535,7 +533,7 @@ impl Parser {
         Ok(Expr::Array {
             elements,
             span: Span::new(span.start, end_span.end),
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -557,7 +555,7 @@ impl Parser {
             operator,
             operand: Box::new(operand),
             span: unary_span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -583,7 +581,7 @@ impl Parser {
         Ok(Expr::TypeOf {
             expr: Box::new(expr),
             span: type_of_span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -599,7 +597,7 @@ impl Parser {
             Ok(Expr::Loop {
                 body,
                 span: Span::new(span.start, loop_span.end),
-                id: next_node_id(),
+                id: self.next_node_id(),
             })
         } else {
             Err(ParseError::InvalidSyntax {
@@ -675,7 +673,7 @@ impl Parser {
             captured_variables: collect_captured_variables(&body, &params),
             metadata: Box::new(HotReloadMetadata::for_expression()),
             span: lambda_span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         })
     }
 
@@ -685,10 +683,11 @@ impl Parser {
         let mut leading_comments: Vec<Stmt> = Vec::new();
         while matches!(self.current_token().token_type, TokenType::Comment(_)) {
             let comment_token = self.advance().clone();
+            let id = self.next_node_id();
             leading_comments.push(Stmt::Comment {
                 text: comment_token.lexeme,
                 span: comment_token.span,
-                id: crate::parser::next_node_id(),
+                id,
             });
             self.skip_newlines();
         }
@@ -774,7 +773,7 @@ impl Parser {
                     operator,
                     right: Box::new(right),
                     span: binary_span,
-                    id: next_node_id(),
+                    id: self.next_node_id(),
                 })
             }
             TokenType::Plus
@@ -827,7 +826,7 @@ impl Parser {
                     operator,
                     right: Box::new(right),
                     span: binary_span,
-                    id: next_node_id(),
+                    id: self.next_node_id(),
                 })
             }
             TokenType::Cast => {
@@ -839,7 +838,7 @@ impl Parser {
                     expr: Box::new(left),
                     target_type,
                     span: Span::new(token.span.start, end_span.end),
-                    id: next_node_id(),
+                    id: self.next_node_id(),
                 })
             }
             TokenType::LeftParen => {
@@ -871,7 +870,7 @@ impl Parser {
                     generic_args: None,
                     args,
                     span: call_span,
-                    id: next_node_id(),
+                    id: self.next_node_id(),
                 })
             }
             TokenType::LeftBracket => {
@@ -887,7 +886,7 @@ impl Parser {
                     object: Box::new(left),
                     index: Box::new(index),
                     span,
-                    id: next_node_id(),
+                    id: self.next_node_id(),
                 })
             }
             TokenType::Dot => {
@@ -906,7 +905,7 @@ impl Parser {
                     object: Box::new(left),
                     member,
                     span,
-                    id: next_node_id(),
+                    id: self.next_node_id(),
                 })
             }
             _ => Ok(left),
@@ -992,7 +991,7 @@ impl Parser {
             generic_args: Some(generic_args),
             args,
             span: call_span,
-            id: next_node_id(),
+            id: self.next_node_id(),
         }))
     }
 }
