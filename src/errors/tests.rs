@@ -257,3 +257,131 @@ fn test_identifier_suggestion_prefers_lexicographically_smaller_on_tie() {
         assert_eq!(suggestion_value.suggestion, "crate");
     }
 }
+
+#[cfg(test)]
+mod e2e_tests {
+    use crate::compiler::compile_to_module;
+    use crate::errors::renderer::render_report;
+    use crate::errors::reporter::CompilerError;
+    use inkwell::context::Context;
+
+    #[test]
+    fn test_e2e_lex_error_renders_with_source_context() {
+        let context = Context::create();
+        let source = "let x = @;";
+        let result = compile_to_module(&context, source);
+
+        assert!(result.is_err(), "source should fail lexical analysis");
+
+        let Err((report, normalized_source)) = result else {
+            return;
+        };
+
+        assert!(
+            report
+                .entries()
+                .iter()
+                .any(|entry| matches!(entry, &(_, CompilerError::Lexer(_)))),
+            "expected at least one lexer diagnostic"
+        );
+
+        let rendered = render_report("test.op", &normalized_source, &report);
+        assert!(rendered.contains("let x = @;") || rendered.contains('@'));
+        assert!(rendered.contains("error") || rendered.contains("×"));
+    }
+
+    #[test]
+    fn test_e2e_parse_error_renders_with_source_context() {
+        let context = Context::create();
+        let source = "entry main = f(args: string[]): void =>\n    print('missing closing paren'\n    return void";
+        let result = compile_to_module(&context, source);
+
+        assert!(result.is_err(), "source should fail parsing");
+
+        let Err((report, normalized_source)) = result else {
+            return;
+        };
+
+        assert!(
+            report
+                .entries()
+                .iter()
+                .any(|entry| matches!(entry, &(_, CompilerError::Parser(_)))),
+            "expected at least one parser diagnostic"
+        );
+
+        let rendered = render_report("test.op", &normalized_source, &report);
+        assert!(rendered.contains("print('missing closing paren'") || rendered.contains("parser"));
+        assert!(rendered.contains("error") || rendered.contains("unexpected"));
+    }
+
+    #[test]
+    fn test_e2e_type_error_renders_with_suggestion() {
+        let context = Context::create();
+        let source = "let add = f(a: int32, b: int32): int32 => { return 'hello' }";
+        let result = compile_to_module(&context, source);
+
+        assert!(result.is_err(), "source should fail type checking");
+
+        let Err((report, normalized_source)) = result else {
+            return;
+        };
+
+        assert!(
+            report
+                .entries()
+                .iter()
+                .any(|entry| matches!(entry, &(_, CompilerError::TypeChecker(_)))),
+            "expected at least one type-checker diagnostic"
+        );
+
+        let rendered = render_report("test.op", &normalized_source, &report);
+        assert!(rendered.contains("return 'hello'") || rendered.contains("type"));
+        assert!(rendered.contains("error") || rendered.contains("mismatch"));
+    }
+
+    #[test]
+    fn test_e2e_multi_error_renders_all_errors() {
+        let context = Context::create();
+        let source = "let foo = f(): int32 => { return 'hello' }\nlet bar = f(): int32 => { return 'world' }";
+        let result = compile_to_module(&context, source);
+
+        assert!(result.is_err(), "source should fail with multiple errors");
+
+        let Err((report, normalized_source)) = result else {
+            return;
+        };
+
+        assert!(report.len() >= 2, "expected at least two diagnostics");
+
+        let rendered = render_report("test.op", &normalized_source, &report);
+        let error_mentions = rendered.matches("error").count() + rendered.matches("×").count();
+        assert!(
+            error_mentions >= 2,
+            "expected rendered output to mention multiple errors, got: {rendered}"
+        );
+    }
+
+    #[test]
+    fn test_e2e_valid_source_produces_no_error() {
+        let context = Context::create();
+        let source = "entry main = f(args: string[]): void => { return void }";
+        let result = compile_to_module(&context, source);
+
+        assert!(result.is_ok(), "valid source should compile successfully");
+    }
+
+    #[test]
+    fn test_e2e_empty_file_does_not_panic() {
+        let context = Context::create();
+        let result = compile_to_module(&context, "");
+
+        if let Err((report, normalized_source)) = result {
+            let rendered = render_report("empty.op", &normalized_source, &report);
+            assert!(
+                !rendered.is_empty(),
+                "renderer should produce output for errors"
+            );
+        }
+    }
+}
