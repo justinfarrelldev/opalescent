@@ -121,6 +121,7 @@ mod tests {
     use super::{render_diagnostic, render_report};
     use crate::error::LexError;
     use crate::errors::reporter::CompilationErrorReport;
+    use crate::parser::errors::ParseError;
     use crate::token::Position;
     use crate::type_system::errors::TypeError;
     use miette::SourceSpan;
@@ -167,5 +168,61 @@ mod tests {
         let output = render_report("test.op", "let x = @;", &report);
 
         assert!(output.contains("error: aborting due to"));
+    }
+
+    #[test]
+    fn test_renderer_produces_source_context_for_parse_error() {
+        let source = "let x = ;";
+        let error = ParseError::UnexpectedToken {
+            expected: String::from("expression"),
+            found: String::from(";"),
+            span: SourceSpan::new(8.into(), 1),
+        };
+
+        let output = render_diagnostic("test.op", source, &error);
+
+        assert!(output.contains("let x = ;"));
+        assert!(output.contains("opalescent::parser::unexpected_token"));
+    }
+
+    #[test]
+    fn test_renderer_produces_source_context_for_type_error() {
+        let source = "let x: int32 = \"hello\"";
+        let error = TypeError::TypeMismatch {
+            expected: String::from("int32"),
+            found: String::from("string"),
+            found_span: SourceSpan::new(15.into(), 7),
+            expected_span: None,
+        };
+
+        let output = render_diagnostic("test.op", source, &error);
+
+        assert!(output.contains("let x: int32 = \"hello\""));
+        assert!(output.contains("opalescent::type_system::type_mismatch"));
+    }
+
+    #[test]
+    fn test_renderer_handles_codegen_error_without_span() {
+        let mut report = CompilationErrorReport::new();
+        report.push_codegen_error(String::from("invalid alloca placement"));
+
+        let output = render_report("test.op", "let x = 1", &report);
+
+        assert!(output.contains("invalid alloca placement"));
+        assert!(output.contains("error: aborting due to 1 previous error"));
+    }
+
+    #[test]
+    fn test_renderer_includes_suggestions_when_available() {
+        let source = "x = 42";
+        let error = TypeError::ImmutableAssignment {
+            name: String::from("x"),
+            assignment_span: SourceSpan::new(0.into(), 1),
+            declaration_span: None,
+        };
+
+        let output = render_diagnostic("test.op", source, &error);
+
+        assert!(output.contains("let mutable"));
     }
 }
