@@ -1,0 +1,50 @@
+# Task 2e: Replace static take_input buffer with dynamic allocation
+
+## Change Summary
+- File: runtime/opal_runtime.c, lines 65-72
+- Replaced: static char buf[1024] with fgets()
+- New approach: POSIX getline() for dynamic allocation
+
+## Implementation Details
+- getline() automatically allocates and resizes buffer as needed
+- Handles arbitrary-length input (no 1024-byte limit)
+- EOF handling: returns empty string via duplicate_without_trailing_newline("")
+- Error handling: checks for -1 return value, frees line buffer if allocated
+- Memory ownership: caller owns returned string (consistent with Task 17 model)
+- Newline stripping: delegated to existing duplicate_without_trailing_newline() helper
+
+## Code Changes
+```c
+/* caller owns returned string, must free() */
+char* take_input(void) {
+    char* line = NULL;
+    size_t len = 0;
+    ssize_t read = getline(&line, &len, stdin);
+    
+    if (read == -1) {
+        /* EOF or error: getline() does not allocate on error, but may on EOF */
+        if (line != NULL) {
+            free(line);
+        }
+        return duplicate_without_trailing_newline("");
+    }
+    
+    char* result = duplicate_without_trailing_newline(line);
+    free(line);
+    return result;
+}
+```
+
+## Verification
+- cargo build: SUCCESS (0 errors)
+- cargo test: 982 passed; 0 failed; 5 ignored
+- No static buffer remains in take_input
+- Dynamic allocation handles arbitrary-length input
+- EOF and error conditions properly handled
+- Consistent with Task 17 ownership model (caller must free)
+
+## Scalability Impact
+- Removes 1024-byte input limit
+- Supports arbitrary-length user input
+- No buffer overflow risk
+- Proper memory cleanup on error paths

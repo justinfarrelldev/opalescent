@@ -1368,7 +1368,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 15. Cast safety matching spec — compile-time constant detection + runtime traps (issue 4c)
+- [x] 15. Cast safety matching spec — compile-time constant detection + runtime traps (issue 4c)
 
   **What to do**:
   - RED: Write tests:
@@ -1509,7 +1509,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ### Wave 4 — P1 Memory + Portability
 
-- [ ] 17. Add `free()` calls in runtime — scope-based deallocation (issue 3a)
+- [x] 17. Add `free()` calls in runtime — scope-based deallocation (issue 3a)
 
   **What to do**:
   - RED: Write a test (or runtime analysis) identifying allocation sites and verifying corresponding free() calls exist after the fix.
@@ -1591,7 +1591,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 18. Add `free()` calls in codegen — emit LLVM `free` after string temporaries (issue 3b)
+- [x] 18. Add `free()` calls in codegen — emit LLVM `free` after string temporaries (issue 3b)
 
   **What to do**:
   - RED: Write a test verifying that codegen emits `free()` calls for temporary strings returned by runtime functions.

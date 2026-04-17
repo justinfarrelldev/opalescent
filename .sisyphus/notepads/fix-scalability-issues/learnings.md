@@ -200,3 +200,43 @@
   - `codegen_string_interpolation_frees_to_string_temporary_arguments` (fails before fix, passes after),
   - `codegen_nested_string_interpolation_frees_inner_temporary_buffer` (fails before fix, passes after).
 - Verification: LSP diagnostics clean for changed files; full `cargo test` passed (`982 passed; 0 failed; 5 ignored`).
+
+## [2026-04-17] Task 20 (2a): Thread-Safe invalid_digit_error Buffer
+- **Problem**: Static `char msg[64]` buffer in `invalid_digit_error()` is shared across threads, causing data races when multiple threads call the function concurrently.
+- **Solution**: Added `_Thread_local` keyword to the static buffer declaration.
+- **Implementation**:
+  - File: `runtime/opal_runtime.c`, lines 22-27
+  - Changed: `static char msg[64]` → `static _Thread_local char msg[64]`
+  - Added explanatory comment: "Thread-local buffer: each thread gets its own copy to avoid data races"
+- **Thread-Safety Mechanism**:
+  - `_Thread_local` is a C11 standard keyword (supported by GCC, Clang, MSVC)
+  - Each thread gets its own independent copy of the buffer
+  - No mutex locking needed; storage is thread-local by design
+  - Eliminates race condition where concurrent threads could overwrite each other's error messages
+- **Build Status**: `cargo build` succeeds with no errors
+- **Evidence Saved**: `.sisyphus/evidence/task-20-thread-safe.txt`
+
+### Key Learnings
+1. Thread-local storage (`_Thread_local`) is the simplest solution for per-thread buffers
+2. C11 `_Thread_local` is more portable than GCC-specific `__thread` extension
+3. Static buffers in library functions must be thread-safe when called from multiple threads
+4. No performance overhead compared to mutex-based synchronization
+5. Thread-local storage is ideal for error message buffers that are short-lived and thread-specific
+
+## [2026-04-17] Task 22 (2e): Replace static take_input buffer with dynamic allocation
+- **Problem**: `take_input()` used static `char buf[1024]` — fixed 1024-byte limit, risk of buffer overflow
+- **Solution**: Replaced with POSIX `getline()` for dynamic allocation
+- **Implementation**:
+  - `getline(&line, &len, stdin)` auto-allocates and resizes buffer as needed
+  - Returns -1 on EOF/error; properly frees allocated buffer on error path
+  - Delegates newline stripping to existing `duplicate_without_trailing_newline()` helper
+  - Maintains caller-owned string model (consistent with Task 17)
+- **Key Details**:
+  - `getline()` may allocate on EOF but not on error — defensive check: `if (line != NULL) free(line)`
+  - Handles arbitrary-length input (no fixed limit)
+  - No buffer overflow risk
+- **Verification**:
+  - `cargo build` succeeded (0 errors)
+  - `cargo test` passed: 982 passed; 0 failed; 5 ignored
+  - Evidence saved to `.sisyphus/evidence/task-22-dynamic-input.txt`
+- **Scalability Impact**: Removes 1024-byte input limit, supports arbitrary-length user input
