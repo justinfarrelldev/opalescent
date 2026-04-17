@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <inttypes.h>
 
 void print_int8(int8_t n) {
     printf("%d\n", (int)n);
@@ -14,7 +15,7 @@ void print_int32(int32_t n) {
 }
 
 void print_int64(int64_t n) {
-    printf("%lld\n", (long long)n);
+    printf("%" PRId64 "\n", n);
 }
 
 void print_uint8(uint8_t n) {
@@ -30,7 +31,7 @@ void print_uint32(uint32_t n) {
 }
 
 void print_uint64(uint64_t n) {
-    printf("%llu\n", (unsigned long long)n);
+    printf("%" PRIu64 "\n", n);
 }
 
 void print_float32(float n) {

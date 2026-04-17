@@ -513,8 +513,13 @@ fn codegen_int_power<'context>(
         .builder
         .build_phi(int_type, "pow.remaining")?;
     let acc_phi = codegen_context.builder.build_phi(int_type, "pow.acc")?;
+    let compare_predicate = if signed {
+        IntPredicate::SLE
+    } else {
+        IntPredicate::ULE
+    };
     let cond = codegen_context.builder.build_int_compare(
-        IntPredicate::SLE,
+        compare_predicate,
         remaining_phi.as_basic_value().into_int_value(),
         zero,
         "pow.done",

@@ -39,25 +39,29 @@ static void seed_prng_once(void) {
 int8_t random_int8(int8_t min, int8_t max) {
     seed_prng_once();
     if (max <= min) return min;
-    return (int8_t)(min + (int8_t)(xorshift128plus() % (uint64_t)(max - min + 1)));
+    uint64_t range = (uint64_t)max - (uint64_t)min + 1ULL;
+    return (int8_t)(min + (int8_t)(xorshift128plus() % range));
 }
 
 int16_t random_int16(int16_t min, int16_t max) {
     seed_prng_once();
     if (max <= min) return min;
-    return (int16_t)(min + (int16_t)(xorshift128plus() % (uint64_t)(max - min + 1)));
+    uint64_t range = (uint64_t)max - (uint64_t)min + 1ULL;
+    return (int16_t)(min + (int16_t)(xorshift128plus() % range));
 }
 
 int32_t random_int32(int32_t min, int32_t max) {
     seed_prng_once();
     if (max <= min) return min;
-    return min + (int32_t)(xorshift128plus() % (uint64_t)(max - min + 1));
+    uint64_t range = (uint64_t)max - (uint64_t)min + 1ULL;
+    return min + (int32_t)(xorshift128plus() % range);
 }
 
 int64_t random_int64(int64_t min, int64_t max) {
     seed_prng_once();
     if (max <= min) return min;
-    return min + (int64_t)(xorshift128plus() % (uint64_t)(max - min + 1));
+    uint64_t range = (uint64_t)max - (uint64_t)min + 1ULL;
+    return min + (int64_t)(xorshift128plus() % range);
 }
 
 uint8_t random_uint8(uint8_t min, uint8_t max) {

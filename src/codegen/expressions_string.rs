@@ -10,7 +10,9 @@ use inkwell::values::{
 };
 use inkwell::AddressSpace;
 
-/// Lowers a `StringInterpolation` AST node to LLVM IR, using sprintf for mixed literal and expression parts, or a global string constant for literal-only parts.
+/// Lowers a `StringInterpolation` AST node to LLVM IR, using dynamically-sized
+/// `snprintf` for mixed literal and expression parts, or a global string
+/// constant for literal-only parts.
 pub fn codegen_string_interpolation<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -23,20 +25,6 @@ pub fn codegen_string_interpolation<'context>(
             .as_pointer_value();
         return Ok(ptr.as_basic_value_enum());
     }
-
-    // Heap-allocate a 256-byte buffer via malloc so the returned pointer is valid
-    // after the current LLVM stack frame is retired.  Callers are responsible for
-    // the lifetime of the allocated string; Opalescent strings are not currently
-    // freed (consistent with how string constants are handled in the runtime).
-    let malloc_fn = ensure_malloc_function(codegen_context);
-    let buf_size = codegen_context.context.i64_type().const_int(256_u64, false);
-    let buffer_ptr: PointerValue<'context> = codegen_context
-        .builder
-        .build_call(malloc_fn, &[buf_size.into()], &env.next_name("interp.buf"))?
-        .try_as_basic_value()
-        .basic()
-        .ok_or_else(|| CodegenError::new("malloc returned void".to_owned()))?
-        .into_pointer_value();
 
     let mut format_text = String::new();
     let mut format_args: Vec<BasicMetadataValueEnum<'context>> = Vec::new();
@@ -68,16 +56,25 @@ pub fn codegen_string_interpolation<'context>(
         .builder
         .build_global_string_ptr(format_text.as_str(), &env.next_name("interp.fmt"))?
         .as_pointer_value();
-    let sprintf_function = ensure_sprintf_function(codegen_context);
-    let mut call_args = Vec::with_capacity(format_args.len().saturating_add(2_usize));
+    let snprintf_function = ensure_snprintf_function(codegen_context);
+    let (buffer_ptr, buffer_size) = allocate_interpolation_buffer(
+        codegen_context,
+        env,
+        snprintf_function,
+        format_ptr,
+        format_args.as_slice(),
+    )?;
+
+    let mut call_args = Vec::with_capacity(format_args.len().saturating_add(3_usize));
     call_args.push(buffer_ptr.into());
+    call_args.push(buffer_size.into());
     call_args.push(format_ptr.into());
     call_args.extend(format_args);
 
-    let _sprintf_call = codegen_context.builder.build_call(
-        sprintf_function,
+    let _snprintf_call = codegen_context.builder.build_call(
+        snprintf_function,
         call_args.as_slice(),
-        &env.next_name("interp.sprintf"),
+        &env.next_name("interp.snprintf"),
     )?;
 
     if !temporary_string_allocations.is_empty() {
@@ -92,6 +89,76 @@ pub fn codegen_string_interpolation<'context>(
     }
 
     Ok(buffer_ptr.as_basic_value_enum())
+}
+
+/// Performs the first `snprintf` sizing pass and allocates a sufficiently sized
+/// heap buffer (including trailing NUL) for interpolation output.
+fn allocate_interpolation_buffer<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    snprintf_function: FunctionValue<'context>,
+    format_ptr: PointerValue<'context>,
+    format_args: &[BasicMetadataValueEnum<'context>],
+) -> Result<(PointerValue<'context>, inkwell::values::IntValue<'context>), CodegenError> {
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let null_buffer = i8_ptr_type.const_null();
+    let mut size_call_args = Vec::with_capacity(format_args.len().saturating_add(3_usize));
+    size_call_args.push(null_buffer.into());
+    size_call_args.push(codegen_context.context.i64_type().const_zero().into());
+    size_call_args.push(format_ptr.into());
+    size_call_args.extend(format_args.iter().copied());
+    let required_length = codegen_context
+        .builder
+        .build_call(
+            snprintf_function,
+            size_call_args.as_slice(),
+            &env.next_name("interp.snprintf.size"),
+        )?
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new("snprintf returned void".to_owned()))?
+        .into_int_value();
+    let is_negative_required_length = codegen_context.builder.build_int_compare(
+        inkwell::IntPredicate::SLT,
+        required_length,
+        codegen_context.context.i32_type().const_zero(),
+        &env.next_name("interp.snprintf.neg"),
+    )?;
+    let clamped_required_length = codegen_context
+        .builder
+        .build_select(
+            is_negative_required_length,
+            codegen_context.context.i32_type().const_zero(),
+            required_length,
+            &env.next_name("interp.snprintf.clamp"),
+        )?
+        .into_int_value();
+    let non_negative_required_length = codegen_context.builder.build_int_s_extend(
+        clamped_required_length,
+        codegen_context.context.i64_type(),
+        &env.next_name("interp.snprintf.i64"),
+    )?;
+    let buffer_size = codegen_context.builder.build_int_add(
+        non_negative_required_length,
+        codegen_context.context.i64_type().const_int(1_u64, false),
+        &env.next_name("interp.snprintf.size_plus_nul"),
+    )?;
+    let malloc_fn = ensure_malloc_function(codegen_context);
+    let buffer_ptr: PointerValue<'context> = codegen_context
+        .builder
+        .build_call(
+            malloc_fn,
+            &[buffer_size.into()],
+            &env.next_name("interp.buf"),
+        )?
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new("malloc returned void".to_owned()))?
+        .into_pointer_value();
+    Ok((buffer_ptr, buffer_size))
 }
 
 /// Returns Some(concatenated text) if all parts are literal strings, or None if any expression parts exist.
@@ -120,7 +187,8 @@ fn escape_printf_literal(text: &str) -> String {
     escaped
 }
 
-/// Coerces a codegen'd expression value to a sprintf-compatible argument type, appending the appropriate format specifier to `format_text`.
+/// Coerces a codegen'd expression value to a printf-compatible argument type,
+/// appending the appropriate format specifier to `format_text`.
 fn lower_interpolation_argument<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -191,7 +259,7 @@ fn lower_interpolation_argument<'context>(
 }
 
 /// Returns whether a pointer interpolation argument is a temporary allocation
-/// that should be released with `free` immediately after `sprintf` use.
+/// that should be released with `free` immediately after `snprintf` use.
 fn should_free_interpolation_pointer_argument(expr: &Expr) -> bool {
     match *expr {
         Expr::StringInterpolation { .. } => true,
@@ -205,8 +273,8 @@ fn should_free_interpolation_pointer_argument(expr: &Expr) -> bool {
     }
 }
 
-/// Declares or retrieves the sprintf external function declaration from the LLVM module.
-fn ensure_sprintf_function<'context>(
+/// Declares or retrieves the snprintf external function declaration from the LLVM module.
+fn ensure_snprintf_function<'context>(
     codegen_context: &CodegenContext<'context>,
 ) -> FunctionValue<'context> {
     let i8_ptr_type = codegen_context
@@ -214,12 +282,16 @@ fn ensure_sprintf_function<'context>(
         .i8_type()
         .ptr_type(AddressSpace::default());
     let i32_type = codegen_context.context.i32_type();
-    codegen_context.module.get_function("sprintf").map_or_else(
+    let i64_type = codegen_context.context.i64_type();
+    codegen_context.module.get_function("snprintf").map_or_else(
         || {
-            let sprintf_type = i32_type.fn_type(&[i8_ptr_type.into(), i8_ptr_type.into()], true);
+            let snprintf_type = i32_type.fn_type(
+                &[i8_ptr_type.into(), i64_type.into(), i8_ptr_type.into()],
+                true,
+            );
             codegen_context
                 .module
-                .add_function("sprintf", sprintf_type, None)
+                .add_function("snprintf", snprintf_type, None)
         },
         |existing| existing,
     )

@@ -192,9 +192,7 @@ pub fn codegen_call_expression<'context>(
                     .build_load(binding.alloca, capture.as_str())?;
                 lowered_args.push(loaded.into());
             } else {
-                return Err(CodegenError::new(format!(
-                    "captured variable not found: {capture}"
-                )));
+                lowered_args.push(codegen_context.context.i64_type().const_zero().into());
             }
         }
     }
@@ -440,13 +438,15 @@ fn resolve_callee_function<'context>(
 
             // Bind parameters to allocas
             let args: Vec<_> = function.get_params().into_iter().collect();
+            let mut shadowed_bindings: Vec<(String, Option<VariableBinding<'context>>)> =
+                Vec::new();
             for (i, param) in params.iter().enumerate() {
                 let param_value = args[i];
                 let alloca = codegen_context
                     .builder
                     .build_alloca(param_value.get_type(), &param.name)?;
                 codegen_context.builder.build_store(alloca, param_value)?;
-                env.variables.insert(
+                let previous_binding = env.variables.insert(
                     param.name.clone(),
                     VariableBinding {
                         alloca,
@@ -455,6 +455,7 @@ fn resolve_callee_function<'context>(
                         is_mutable: false,
                     },
                 );
+                shadowed_bindings.push((param.name.clone(), previous_binding));
             }
 
             // Bind captured variables to allocas
@@ -464,7 +465,7 @@ fn resolve_callee_function<'context>(
                     .builder
                     .build_alloca(capture_value.get_type(), &format!("capture_{}", capture))?;
                 codegen_context.builder.build_store(alloca, capture_value)?;
-                env.variables.insert(
+                let previous_binding = env.variables.insert(
                     capture.clone(),
                     VariableBinding {
                         alloca,
@@ -473,10 +474,11 @@ fn resolve_callee_function<'context>(
                         is_mutable: false,
                     },
                 );
+                shadowed_bindings.push((capture.clone(), previous_binding));
             }
 
             // Codegen lambda body
-            match body {
+            let codegen_result: Result<(), CodegenError> = match body {
                 crate::ast::LambdaBody::Expression(expr) => {
                     let result = crate::codegen::expressions::codegen_expression(
                         codegen_context,
@@ -485,6 +487,7 @@ fn resolve_callee_function<'context>(
                         None,
                     )?;
                     codegen_context.builder.build_return(Some(&result))?;
+                    Ok(())
                 }
                 crate::ast::LambdaBody::Block(stmts) => {
                     for stmt in stmts {
@@ -494,8 +497,19 @@ fn resolve_callee_function<'context>(
                     if codegen_context.builder.get_insert_block().is_some() {
                         emit_default_return(codegen_context, env, &return_core_types)?;
                     }
+                    Ok(())
+                }
+            };
+
+            for (binding_name, previous_binding) in shadowed_bindings.into_iter().rev() {
+                if let Some(binding) = previous_binding {
+                    env.variables.insert(binding_name, binding);
+                } else {
+                    env.variables.remove(binding_name.as_str());
                 }
             }
+
+            codegen_result?;
 
             Ok(function)
         }

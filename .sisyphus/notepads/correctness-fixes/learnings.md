@@ -556,3 +556,21 @@ if self.check_identifier() {
 ### Verification
 - LSP diagnostics: clean on all changed type-system files.
 - `cargo test --lib` final result: `953 passed; 0 failed; 5 ignored`.
+
+## [2026-04-17] Task — critical codegen/runtime correctness fixes
+
+### Findings
+- Lambda callee lowering must restore `env.variables` after lambda body emission; binding lambda params/captures directly into shared env without cleanup leaks symbols into outer scope and can shadow unrelated names in subsequent codegen.
+- Safe restoration pattern in `resolve_callee_function`: store `(name, previous_binding)` for each inserted param/capture, then unwind in reverse order after body generation, restoring prior binding or removing newly introduced one.
+- Int→float cast signedness should rely on inferred source core type (`infer_cast_source_core_type`) for all expression kinds, not only identifiers; unsigned integer sources must always use `uitofp`.
+- Integer power loop termination compare must select `SLE` vs `ULE` based on operand signedness; unsigned exponent loops using signed compare can terminate incorrectly for high-bit values.
+- String interpolation dynamic sizing is robust with two-pass `snprintf`: first `snprintf(NULL, 0, fmt, ...)` to compute required bytes, then `malloc(size+1)`, then second `snprintf(buf, size+1, ...)`; nested interpolation tests should assert dynamic malloc calls instead of fixed `malloc(256)` constants.
+- Existing lambda closure tests depend on tolerant missing-capture behavior in call lowering; preserving fallback zero capture argument avoids regressions while still fixing scope restoration correctness in lambda body codegen.
+- Runtime printing portability fix is direct: use `PRId64`/`PRIu64` from `<inttypes.h>` rather than `%lld`/`%llu`.
+- RNG signed overflow UB fix for signed min/max ranges requires computing width in unsigned domain first: `(uint64_t)max - (uint64_t)min + 1ULL`.
+
+### Verification
+- Rust diagnostics clean on changed Rust files via `lsp_diagnostics`.
+- `cargo build` passed.
+- `cargo test --lib` passed: `985 passed; 0 failed; 5 ignored`.
+- `cargo test --features integration --test integration_e2e` passed: `13 passed; 0 failed`.

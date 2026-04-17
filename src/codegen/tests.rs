@@ -499,8 +499,8 @@ fn codegen_string_interpolation_with_variable() {
 
     let ir = codegen_context.module.print_to_string().to_string();
     assert!(
-        ir.contains("sprintf"),
-        "interpolation with variable should emit sprintf call in LLVM IR: {ir}"
+        ir.contains("snprintf"),
+        "interpolation with variable should emit snprintf call in LLVM IR: {ir}"
     );
 }
 
@@ -542,7 +542,7 @@ fn codegen_string_interpolation_frees_to_string_temporary_arguments() {
     );
     assert!(
         ir.contains("call void @free(i8*"),
-        "interpolation should free temporary string returned by *_to_string after sprintf: {ir}"
+        "interpolation should free temporary string returned by *_to_string after snprintf: {ir}"
     );
 }
 
@@ -583,7 +583,7 @@ fn codegen_nested_string_interpolation_frees_inner_temporary_buffer() {
 
     let ir = codegen_context.module.print_to_string().to_string();
     assert!(
-        ir.matches("call i8* @malloc(i64 256)").count() >= 2,
+        ir.matches("call i8* @malloc(i64").count() >= 2,
         "nested interpolation should allocate separate outer and inner buffers: {ir}"
     );
     assert!(

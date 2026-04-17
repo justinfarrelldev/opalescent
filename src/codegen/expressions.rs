@@ -435,32 +435,16 @@ fn codegen_cast<'context>(
 
         if is_float_core_type(&target_type) {
             let float_type = float_type_for(codegen_context, &target_type)?;
-            // Task 12: Use uitofp for unsigned sources, sitofp for signed
-            let casted = match *expr {
-                Expr::Identifier { ref name, .. } => {
-                    if let Some(binding) = env.variables.get(name) {
-                        if is_signed_core_type(&binding.core_type) {
-                            codegen_context
-                                .builder
-                                .build_signed_int_to_float(int_value, float_type, "sitofp")?
-                        } else {
-                            codegen_context
-                                .builder
-                                .build_unsigned_int_to_float(int_value, float_type, "uitofp")?
-                        }
-                    } else {
-                        // Default to signed for safety if binding not found
-                        codegen_context
-                            .builder
-                            .build_signed_int_to_float(int_value, float_type, "sitofp")?
-                    }
-                }
-                _ => {
-                    // For non-identifier expressions, default to signed conversion
-                    codegen_context
-                        .builder
-                        .build_signed_int_to_float(int_value, float_type, "sitofp")?
-                }
+            let source_core_type = infer_cast_source_core_type(expr, env);
+            let source_signed = source_core_type.as_ref().is_none_or(is_signed_core_type);
+            let casted = if source_signed {
+                codegen_context
+                    .builder
+                    .build_signed_int_to_float(int_value, float_type, "sitofp")?
+            } else {
+                codegen_context
+                    .builder
+                    .build_unsigned_int_to_float(int_value, float_type, "uitofp")?
             };
             return Ok(casted.as_basic_value_enum());
         }
