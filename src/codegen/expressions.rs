@@ -698,7 +698,26 @@ fn codegen_array_access<'context>(
                 "unknown array variable '{name}'"
             )));
         };
-        (binding.alloca, binding.length)
+        let resolved_length = if let Some(length) = binding.length {
+            Some(
+                codegen_context
+                    .context
+                    .i64_type()
+                    .const_int(u64::from(length), false),
+            )
+        } else {
+            let len_binding_name = format!("{name}_len");
+            env.variables
+                .get(len_binding_name.as_str())
+                .map(|len_binding| {
+                    codegen_context
+                        .builder
+                        .build_load(len_binding.alloca, len_binding_name.as_str())
+                })
+                .transpose()?
+                .map(|loaded| loaded.into_int_value())
+        };
+        (binding.alloca, resolved_length)
     } else {
         (
             codegen_expression(codegen_context, env, object, None)?.into_pointer_value(),
@@ -710,11 +729,7 @@ fn codegen_array_access<'context>(
         codegen_expression(codegen_context, env, index, Some(&CoreType::Int64))?.into_int_value();
 
     // Emit bounds check if the array has a known length
-    if let Some(len) = array_length {
-        let len_value = codegen_context
-            .context
-            .i64_type()
-            .const_int(u64::from(len), false);
+    if let Some(len_value) = array_length {
         let is_out_of_bounds = codegen_context.builder.build_int_compare(
             IntPredicate::UGE,
             index_value,

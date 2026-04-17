@@ -7,9 +7,7 @@ use crate::type_system::checker::TypeChecker;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 
-#[path = "collections_array.rs"]
 mod collections_array;
-#[path = "collections_string.rs"]
 mod collections_string;
 
 impl TypeChecker {

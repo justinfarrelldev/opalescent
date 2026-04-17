@@ -13,7 +13,13 @@ pub mod expressions_cast;
 pub mod expressions_numeric;
 pub mod expressions_string;
 #[doc = "Function-level code generation support."]
+#[expect(
+    clippy::pub_use,
+    reason = "Re-exporting from functions_call for backward compatibility"
+)]
 pub mod functions;
+#[doc = "Function call, propagate, and guard expression lowering."]
+pub mod functions_call;
 #[doc = "Standard library function declarations."]
 pub mod functions_stdlib;
 #[doc = "Generic monomorphization naming and specialization cache wiring."]

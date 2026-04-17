@@ -574,3 +574,6 @@ if self.check_identifier() {
 - `cargo build` passed.
 - `cargo test --lib` passed: `985 passed; 0 failed; 5 ignored`.
 - `cargo test --features integration --test integration_e2e` passed: `13 passed; 0 failed`.
+
+- 2026-04-17: For non-root Rust module files (e.g. `collections.rs`), sibling submodules require either `#[path]` or moving submodule files under a matching directory (`collections/`). Moving files to `checker/collections/` allows plain `mod collections_array;`/`mod collections_string;` and satisfies `clippy::mod_module_files`.
+- 2026-04-17: Array bounds checks in codegen can be made total for identifier arrays by carrying array lengths as companion `{param}_len: i64` parameters in lowered LLVM function signatures and resolving `{name}_len` bindings during index lowering.
