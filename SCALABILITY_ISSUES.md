@@ -671,12 +671,14 @@ command.arg("-o").arg(output_path);
 inkwell = { version = "0.8.0", features = ["llvm14-0", "llvm14-0-prefer-dynamic"] }
 ```
 
-LLVM 14 was released in March 2022. As of this writing (April 2026), LLVM 18+
+LLVM 14 was released in March 2022. As of this writing (April 2026), LLVM 22.1.3+
 is current. The hard pin means:
 
 - No access to newer LLVM optimizations and bug fixes
 - Increasing difficulty finding LLVM 14 packages on newer OS releases
 - `inkwell 0.8.0` may not receive updates for newer Rust editions
+
+Please update this to the most recent reasonable update.
 
 ---
 
