@@ -2,8 +2,10 @@
   Description: starting point of the application — tests string interpolation with multiple values
 ##
 entry main = f(args: string[]): void =>
-    let name = 'world'
-    let count: int32 = 42
-    let result = 'Hello {name}, count is {count}'
+    let a = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    let b = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+    let c = 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+    let d = 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+    let result = 'Part1={a} Part2={b} Part3={c} Part4={d}'
     print(result)
     return void

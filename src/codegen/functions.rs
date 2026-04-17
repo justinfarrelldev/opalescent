@@ -192,7 +192,30 @@ pub fn codegen_call_expression<'context>(
                     .build_load(binding.alloca, capture.as_str())?;
                 lowered_args.push(loaded.into());
             } else {
-                lowered_args.push(codegen_context.context.i64_type().const_zero().into());
+                let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
+                    codegen_context,
+                    "opal_runtime_error",
+                )
+                .ok_or_else(|| {
+                    CodegenError::new(String::from("opal_runtime_error declaration missing"))
+                })?;
+                let error_message = format!("captured variable '{capture}' not found in scope");
+                let msg = codegen_context
+                    .builder
+                    .build_global_string_ptr(error_message.as_str(), &env.next_name("cap.msg"))?
+                    .as_pointer_value();
+                let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+                    runtime_fn,
+                    &[msg.into()],
+                    &env.next_name("cap.call"),
+                )?;
+                let _: inkwell::values::InstructionValue =
+                    codegen_context.builder.build_unreachable()?;
+                let continuation = codegen_context
+                    .context
+                    .append_basic_block(current_function(codegen_context)?, "capture.cont");
+                codegen_context.builder.position_at_end(continuation);
+                lowered_args.push(codegen_context.context.i64_type().get_undef().into());
             }
         }
     }
@@ -584,13 +607,38 @@ fn emit_function_default_return<'context>(
         let _ret = codegen_context.builder.build_return(None)?;
         return Ok(());
     }
-    let Some(return_basic_type) = return_type else {
+    let Some(_return_basic_type) = return_type else {
         return Err(CodegenError::new(String::from(
             "invalid function return type",
         )));
     };
-    let zero = return_basic_type.const_zero();
-    let _ret = codegen_context.builder.build_return(Some(&zero))?;
+    let block_name = codegen_context
+        .builder
+        .get_insert_block()
+        .and_then(|block| {
+            block
+                .get_name()
+                .to_str()
+                .ok()
+                .map(alloc::borrow::ToOwned::to_owned)
+        })
+        .unwrap_or_else(|| String::from("ret"));
+    let msg_name = format!("ret.msg.{block_name}");
+    let call_name = format!("ret.call.{block_name}");
+    let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
+        codegen_context,
+        "opal_runtime_error",
+    )
+    .ok_or_else(|| CodegenError::new(String::from("opal_runtime_error declaration missing")))?;
+    let msg = codegen_context
+        .builder
+        .build_global_string_ptr("missing return statement", msg_name.as_str())?
+        .as_pointer_value();
+    let _: inkwell::values::CallSiteValue =
+        codegen_context
+            .builder
+            .build_call(runtime_fn, &[msg.into()], call_name.as_str())?;
+    let _: inkwell::values::InstructionValue = codegen_context.builder.build_unreachable()?;
     Ok(())
 }
 
