@@ -505,6 +505,94 @@ fn codegen_string_interpolation_with_variable() {
 }
 
 #[test]
+fn codegen_string_interpolation_frees_to_string_temporary_arguments() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "interp_with_to_string_temp");
+    let _function = create_codegen_function(&codegen_context, "interp_with_to_string_temp_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let interpolation_expr = Expr::StringInterpolation {
+        parts: vec![
+            StringPart::Literal(String::from("value: ")),
+            StringPart::Expression(call_expr(
+                8_060,
+                ident(8_061, "int64_to_string"),
+                vec![int_lit(8_062, 42)],
+            )),
+        ],
+        span: test_span(),
+        id: test_node_id(8_063),
+    };
+
+    let interpolation_result = codegen_expression(
+        &codegen_context,
+        &mut env,
+        &interpolation_expr,
+        Some(&CoreType::String),
+    );
+    assert!(
+        interpolation_result.is_ok(),
+        "interpolation with int64_to_string temporary should lower successfully"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("@int64_to_string"),
+        "interpolation should call int64_to_string for temporary string expression: {ir}"
+    );
+    assert!(
+        ir.contains("call void @free(i8*"),
+        "interpolation should free temporary string returned by *_to_string after sprintf: {ir}"
+    );
+}
+
+#[test]
+fn codegen_nested_string_interpolation_frees_inner_temporary_buffer() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "interp_nested_temp");
+    let _function = create_codegen_function(&codegen_context, "interp_nested_temp_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let nested_expr = Expr::StringInterpolation {
+        parts: vec![
+            StringPart::Literal(String::from("inner ")),
+            StringPart::Expression(int_lit(8_070, 7)),
+        ],
+        span: test_span(),
+        id: test_node_id(8_071),
+    };
+    let interpolation_expr = Expr::StringInterpolation {
+        parts: vec![
+            StringPart::Literal(String::from("outer ")),
+            StringPart::Expression(nested_expr),
+        ],
+        span: test_span(),
+        id: test_node_id(8_072),
+    };
+
+    let interpolation_result = codegen_expression(
+        &codegen_context,
+        &mut env,
+        &interpolation_expr,
+        Some(&CoreType::String),
+    );
+    assert!(
+        interpolation_result.is_ok(),
+        "nested interpolation should lower successfully"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.matches("call i8* @malloc(i64 256)").count() >= 2,
+        "nested interpolation should allocate separate outer and inner buffers: {ir}"
+    );
+    assert!(
+        ir.contains("call void @free(i8*"),
+        "outer interpolation should free inner temporary interpolation buffer: {ir}"
+    );
+}
+
+#[test]
 fn test_codegen_arithmetic_overflow_and_division_traps() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "trap_ops");

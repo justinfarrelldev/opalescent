@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use crate::ast::StringPart;
+use crate::ast::{Expr, StringPart};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError};
 use alloc::string::String;
@@ -40,6 +40,7 @@ pub fn codegen_string_interpolation<'context>(
 
     let mut format_text = String::new();
     let mut format_args: Vec<BasicMetadataValueEnum<'context>> = Vec::new();
+    let mut temporary_string_allocations: Vec<PointerValue<'context>> = Vec::new();
 
     for part in parts {
         match *part {
@@ -48,9 +49,17 @@ pub fn codegen_string_interpolation<'context>(
             }
             StringPart::Expression(ref expr) => {
                 let value = codegen_expression(codegen_context, env, expr, None)?;
-                let lowered =
-                    lower_interpolation_argument(codegen_context, env, value, &mut format_text)?;
+                let (lowered, temporary_allocation) = lower_interpolation_argument(
+                    codegen_context,
+                    env,
+                    expr,
+                    value,
+                    &mut format_text,
+                )?;
                 format_args.push(lowered.into());
+                if let Some(temporary_string_ptr) = temporary_allocation {
+                    temporary_string_allocations.push(temporary_string_ptr);
+                }
             }
         }
     }
@@ -70,6 +79,18 @@ pub fn codegen_string_interpolation<'context>(
         call_args.as_slice(),
         &env.next_name("interp.sprintf"),
     )?;
+
+    if !temporary_string_allocations.is_empty() {
+        let free_function = ensure_free_function(codegen_context);
+        for temporary_string_ptr in temporary_string_allocations {
+            let _free_call = codegen_context.builder.build_call(
+                free_function,
+                &[temporary_string_ptr.into()],
+                &env.next_name("interp.free"),
+            )?;
+        }
+    }
+
     Ok(buffer_ptr.as_basic_value_enum())
 }
 
@@ -103,12 +124,15 @@ fn escape_printf_literal(text: &str) -> String {
 fn lower_interpolation_argument<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
+    expr: &Expr,
     value: BasicValueEnum<'context>,
     format_text: &mut String,
-) -> Result<BasicValueEnum<'context>, CodegenError> {
+) -> Result<(BasicValueEnum<'context>, Option<PointerValue<'context>>), CodegenError> {
     if value.is_pointer_value() {
         format_text.push_str("%s");
-        return Ok(value);
+        let temporary_allocation =
+            should_free_interpolation_pointer_argument(expr).then(|| value.into_pointer_value());
+        return Ok((value, temporary_allocation));
     }
 
     if value.is_int_value() {
@@ -121,7 +145,7 @@ fn lower_interpolation_argument<'context>(
                 codegen_context.context.i32_type(),
                 &env.next_name("interp.bool.i32"),
             )?;
-            return Ok(widened.as_basic_value_enum());
+            return Ok((widened.as_basic_value_enum(), None));
         }
 
         format_text.push_str("%lld");
@@ -138,7 +162,7 @@ fn lower_interpolation_argument<'context>(
             )?,
             core::cmp::Ordering::Equal => int_value,
         };
-        return Ok(lowered.as_basic_value_enum());
+        return Ok((lowered.as_basic_value_enum(), None));
     }
 
     if value.is_float_value() {
@@ -158,12 +182,27 @@ fn lower_interpolation_argument<'context>(
             )?,
             core::cmp::Ordering::Equal => float_value,
         };
-        return Ok(lowered.as_basic_value_enum());
+        return Ok((lowered.as_basic_value_enum(), None));
     }
 
     Err(CodegenError::new(String::from(
         "unsupported interpolation expression value type",
     )))
+}
+
+/// Returns whether a pointer interpolation argument is a temporary allocation
+/// that should be released with `free` immediately after `sprintf` use.
+fn should_free_interpolation_pointer_argument(expr: &Expr) -> bool {
+    match *expr {
+        Expr::StringInterpolation { .. } => true,
+        Expr::Call { ref callee, .. } => {
+            if let Expr::Identifier { ref name, .. } = *callee.as_ref() {
+                return name.ends_with("_to_string");
+            }
+            false
+        }
+        _ => false,
+    }
 }
 
 /// Declares or retrieves the sprintf external function declaration from the LLVM module.
@@ -201,6 +240,24 @@ fn ensure_malloc_function<'context>(
             codegen_context
                 .module
                 .add_function("malloc", malloc_type, None)
+        },
+        |existing| existing,
+    )
+}
+
+/// Declares or retrieves the `free` external function declaration from the LLVM module.
+fn ensure_free_function<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let void_type = codegen_context.context.void_type();
+    codegen_context.module.get_function("free").map_or_else(
+        || {
+            let free_type = void_type.fn_type(&[i8_ptr_type.into()], false);
+            codegen_context.module.add_function("free", free_type, None)
         },
         |existing| existing,
     )
