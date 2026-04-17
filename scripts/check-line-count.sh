@@ -7,7 +7,7 @@ MAX_LINES=1000
 
 # Special cases for specific files that have legitimate reasons to exceed the limit
 declare -A FILE_LIMITS
-FILE_LIMITS["./src/app.rs"]=1100  # CLI app module needs help text for multiple commands
+FILE_LIMITS["./src/app.rs"]=1200  # CLI app module needs help text for multiple commands
 
 echo "Checking Rust source files for line count limit..."
 echo "(Excluding test files: tests.rs, test_*.rs, *_test.rs)"

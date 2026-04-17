@@ -15,8 +15,10 @@
 use crate::build_system::config::{parse_config, ProjectConfig, Version};
 use crate::build_system::targets::{parse_target_triple, BuildTarget};
 use crate::build_system::BuildError;
-use crate::compiler::compile_program;
+use crate::compiler::{compile_program, CompileError};
 use crate::doc_gen::generate_markdown_for_program;
+use crate::errors::renderer::render_report;
+use crate::errors::reporter::CompilationErrorReport;
 use crate::formatter::command::FormatCommand;
 use crate::formatter::config::FormatterConfig;
 use crate::lexer::Lexer;
@@ -183,6 +185,13 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
 
     let binary_path = match compile_program(&source, Path::new("target")) {
         Ok(path) => path,
+        Err(CompileError::Report {
+            ref report,
+            ref normalized_source,
+        }) => {
+            eprintln!("{}", render_report(source_path, normalized_source, report));
+            return Err(1);
+        }
         Err(error) => {
             eprintln!("error: compilation failed: {error}");
             return Err(1);
@@ -206,6 +215,13 @@ fn compile_and_run(source_path: &str, program_args: &[&str]) -> Result<(), i32> 
 
     let binary_path = match compile_program(&source, Path::new("target")) {
         Ok(path) => path,
+        Err(CompileError::Report {
+            ref report,
+            ref normalized_source,
+        }) => {
+            eprintln!("{}", render_report(source_path, normalized_source, report));
+            return Err(1);
+        }
         Err(error) => {
             eprintln!("error: compilation failed: {error}");
             return Err(1);
@@ -254,10 +270,18 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
 fn run_fmt_command(args: &[String]) -> Result<(), i32> {
     let fmt_args: Vec<&str> = args.iter().skip(2).map(String::as_str).collect();
     let check_mode = fmt_args.contains(&"--check");
-    let find_flag = |flag: &str| fmt_args.iter().position(|&a| a == flag).and_then(|i| fmt_args.get(i.saturating_add(1)).copied());
+    let find_flag = |flag: &str| {
+        fmt_args
+            .iter()
+            .position(|&a| a == flag)
+            .and_then(|i| fmt_args.get(i.saturating_add(1)).copied())
+    };
     let config_path = find_flag("--config");
     let output_path = find_flag("--output");
-    let source_path = fmt_args.iter().find(|&&a| !a.starts_with("--") && Some(a) != config_path && Some(a) != output_path).copied();
+    let source_path = fmt_args
+        .iter()
+        .find(|&&a| !a.starts_with("--") && Some(a) != config_path && Some(a) != output_path)
+        .copied();
     let Some(source_path) = source_path else {
         eprintln!("error: opal fmt requires a source file — run 'opal help fmt' for usage");
         return Err(1);
@@ -415,15 +439,19 @@ fn run_doc_command(args: &[String]) -> Result<(), i32> {
             return Err(1);
         }
     };
+    let source = source.replace('\t', "    ");
+    let mut report = CompilationErrorReport::new();
     let lexer = Lexer::new(&source);
     let (tokens, lex_errors) = lexer.tokenize();
-    if !lex_errors.is_empty() {
-        eprintln!("error: lex errors in source");
+    report.extend_lex_errors(lex_errors.errors);
+    if !report.is_empty() {
+        eprintln!("{}", render_report(source_path, &source, &report));
         return Err(1);
     }
     let (program, parse_errors) = Parser::new(tokens).parse();
-    if !parse_errors.is_empty() {
-        eprintln!("error: parse errors in source");
+    report.extend_parse_errors(parse_errors.errors);
+    if !report.is_empty() {
+        eprintln!("{}", render_report(source_path, &source, &report));
         return Err(1);
     }
     let Some(program) = program else {
@@ -464,14 +492,18 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
             return Err(1);
         }
     };
+    let source = source.replace('\t', "    ");
+    let mut report = CompilationErrorReport::new();
     let (tokens, lex_errors) = Lexer::new(&source).tokenize();
-    if !lex_errors.is_empty() {
-        eprintln!("error: lex errors in source");
+    report.extend_lex_errors(lex_errors.errors);
+    if !report.is_empty() {
+        eprintln!("{}", render_report(source_path, &source, &report));
         return Err(1);
     }
     let (program_opt, parse_errors) = Parser::new(tokens).parse();
-    if !parse_errors.is_empty() {
-        eprintln!("error: parse errors in source");
+    report.extend_parse_errors(parse_errors.errors);
+    if !report.is_empty() {
+        eprintln!("{}", render_report(source_path, &source, &report));
         return Err(1);
     }
     let Some(program) = program_opt else {
@@ -480,7 +512,8 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
     };
     let mut checker = TypeChecker::new();
     if let Err(errors) = checker.type_check_program(&program) {
-        eprintln!("error: type check failed with {} error(s)", errors.len());
+        report.extend_type_errors(errors);
+        eprintln!("{}", render_report(source_path, &source, &report));
         return Err(1);
     }
     println!("check passed");
@@ -516,6 +549,16 @@ fn run_build_command(_args: &[String]) -> Result<(), i32> {
     };
     let binary_path = match compile_program(&source, Path::new("target")) {
         Ok(path) => path,
+        Err(CompileError::Report {
+            ref report,
+            ref normalized_source,
+        }) => {
+            eprintln!(
+                "{}",
+                render_report("src/main.op", normalized_source, report)
+            );
+            return Err(1);
+        }
         Err(error) => {
             eprintln!("error: compilation failed: {error}");
             return Err(1);
