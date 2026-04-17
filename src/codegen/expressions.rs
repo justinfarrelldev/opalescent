@@ -708,19 +708,69 @@ fn codegen_array_access<'context>(
     index: &Expr,
     _expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let base_ptr = if let Expr::Identifier { ref name, .. } = *object {
+    let (base_ptr, array_length) = if let Expr::Identifier { ref name, .. } = *object {
         let Some(binding) = env.variables.get(name) else {
             return Err(CodegenError::new(format!(
                 "unknown array variable '{name}'"
             )));
         };
-        binding.alloca
+        (binding.alloca, binding.length)
     } else {
-        codegen_expression(codegen_context, env, object, None)?.into_pointer_value()
+        (
+            codegen_expression(codegen_context, env, object, None)?.into_pointer_value(),
+            None,
+        )
     };
 
     let index_value =
         codegen_expression(codegen_context, env, index, Some(&CoreType::Int64))?.into_int_value();
+
+    // Emit bounds check if the array has a known length
+    if let Some(len) = array_length {
+        let len_value = codegen_context
+            .context
+            .i64_type()
+            .const_int(u64::from(len), false);
+        let is_out_of_bounds = codegen_context.builder.build_int_compare(
+            IntPredicate::UGE,
+            index_value,
+            len_value,
+            &env.next_name("array.bounds.check"),
+        )?;
+        let current_fn = current_function(codegen_context)?;
+        let trap_block = codegen_context
+            .context
+            .append_basic_block(current_fn, &env.next_name("array.trap"));
+        let cont_block = codegen_context
+            .context
+            .append_basic_block(current_fn, &env.next_name("array.cont"));
+        let _branch = codegen_context.builder.build_conditional_branch(
+            is_out_of_bounds,
+            trap_block,
+            cont_block,
+        )?;
+
+        codegen_context.builder.position_at_end(trap_block);
+        let msg = codegen_context
+            .builder
+            .build_global_string_ptr("array index out of bounds\n", &env.next_name("array.msg"))?
+            .as_pointer_value();
+        let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
+            codegen_context,
+            "opal_runtime_error",
+        )
+        .ok_or_else(|| CodegenError::new(String::from("opal_runtime_error declaration missing")))?;
+        let trap_args: [BasicMetadataValueEnum<'context>; 1] = [msg.into()];
+        let _call = codegen_context.builder.build_call(
+            runtime_fn,
+            &trap_args,
+            &env.next_name("array.trap.call"),
+        )?;
+        let _unreachable = codegen_context.builder.build_unreachable()?;
+
+        codegen_context.builder.position_at_end(cont_block);
+    }
+
     // SAFETY: base_ptr is a valid pointer to contiguous elements and index_value is an LLVM integer index.
     let element_ptr = unsafe {
         codegen_context.builder.build_in_bounds_gep(

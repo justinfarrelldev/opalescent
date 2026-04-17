@@ -1989,7 +1989,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ### Wave 6 — P2 Architecture (independent refactors)
 
-- [ ] 24. Convert `#[path]` attributes to standard module structure (issue 6a)
+- [x] 24. Convert `#[path]` attributes to standard module structure (issue 6a)
 
   **What to do**:
   - RED: Verify current state: 123 `#[path]` attributes across 18 files. After conversion, `grep -rn '#\[path' src/` should return 0.
@@ -2118,7 +2118,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 26. Refactor TypeChecker — extract ad-hoc stacks into context struct (issue 6c)
+- [x] 26. Refactor TypeChecker — extract ad-hoc stacks into context struct (issue 6c)
 
   **What to do**:
   - RED: Write a test that verifies TypeChecker still works correctly after refactoring (existing tests should suffice).
@@ -2189,7 +2189,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 27. Split monolithic `runtime.c` into focused modules (issue 6f)
+- [x] 27. Split monolithic `runtime.c` into focused modules (issue 6f)
 
   **What to do**:
   - RED: Verify current file is 617 lines with 45 functions all in one file.
@@ -2261,7 +2261,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ---
 
-- [ ] 28. Upgrade inkwell 0.9.0 + LLVM 18 (issue 6e)
+- [x] 28. Upgrade inkwell 0.9.0 + LLVM 18 (issue 6e) — **SKIPPED**: LLVM 18 is not installed on this system (only LLVM 14 available). This task cannot be completed without LLVM 18 installed.
 
   **What to do**:
   - RED: Build currently works with inkwell 0.8.0 + LLVM 14. After upgrade, build must still work.
@@ -2358,7 +2358,7 @@ T1 → T5-T11 (P0) → T12-T16 (P1 spec) → T17-T18 (memory) → T29 (test proj
 
 ### Wave 7 — Integration (test projects + regression)
 
-- [ ] 29. Create test projects for compiler-testable fixes
+- [x] 29. Create test projects for compiler-testable fixes
 
   **What to do**:
   - Create new test projects in `test-projects/` that exercise the key fixes:

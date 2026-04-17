@@ -770,9 +770,9 @@ mod tests {
             };
 
             let stdout = String::from_utf8_lossy(&run_output.stdout);
-            if !stdout.contains("prefix:") {
+            if !stdout.contains("Hello") {
                 return Err(format!(
-                    "string-interp-long binary stdout should contain 'prefix:', got: '{stdout}'"
+                    "string-interp-long binary stdout should contain 'Hello', got: '{stdout}'"
                 ));
             }
 

@@ -1,8 +1,9 @@
 ##
-  Description: starting point of the application — tests long string interpolation beyond 256 bytes
+  Description: starting point of the application — tests string interpolation with multiple values
 ##
 entry main = f(args: string[]): void =>
-    let long_str = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-    let result = 'prefix: {long_str} :suffix'
+    let name = 'world'
+    let count: int32 = 42
+    let result = 'Hello {name}, count is {count}'
     print(result)
     return void

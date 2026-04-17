@@ -134,12 +134,20 @@ fn codegen_let_statement<'context>(
             .build_alloca(alloca_type, binding.name.as_str())?
     };
 
+    let array_length = initializer.and_then(|initializer_expr| {
+        if let Expr::Array { ref elements, .. } = *initializer_expr {
+            u32::try_from(elements.len()).ok()
+        } else {
+            None
+        }
+    });
+
     env.variables.insert(
         binding.name.clone(),
         VariableBinding {
             alloca,
             core_type: declared_type,
-            length: None,
+            length: array_length,
             is_mutable: binding.is_mutable,
         },
     );
