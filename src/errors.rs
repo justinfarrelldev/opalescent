@@ -1,5 +1,7 @@
 /// Consistent compiler diagnostic formatting utilities.
 pub mod formatter;
+/// Graphical miette-based diagnostic renderer.
+pub mod renderer;
 /// Multi-error collection and rendering utilities.
 pub mod reporter;
 /// Typo and contextual suggestion helpers.

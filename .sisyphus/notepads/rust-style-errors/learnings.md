@@ -30,3 +30,11 @@
 - Do NOT change LSP diagnostic BEHAVIOR — only update `src/lsp/diagnostics.rs` for type/signature compatibility
 - Do NOT add suggestions to all 55 error variants — limit to ~12 most common
 - Do NOT thread spans through all codegen expression functions — function-level only
+
+## [2026-04-17] Task 3 — Renderer Module
+
+### Implementation Learnings
+- `GraphicalReportHandler::render_report` can write directly into a `String` sink, so renderer helpers can remain allocation-light and avoid stderr hooks.
+- A wrapper diagnostic must implement `Debug` because `miette::Diagnostic` inherits from `std::error::Error` (`Error: Debug + Display`).
+- Attaching `NamedSource<String>` at render time works cleanly by delegating all `Diagnostic` methods to the inner diagnostic and overriding only `source_code()`.
+- Zero-width spans from `TypeError::unknown_span()` render safely with miette graphical output without special-casing.

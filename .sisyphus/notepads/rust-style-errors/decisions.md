@@ -23,3 +23,13 @@
 ### formatter.rs fate
 - Keep during transition, do NOT delete
 - Old tests continue to pass
+
+## [2026-04-17] Task 3 — Renderer Module Decisions
+
+### Rendering boundaries
+- `render_diagnostic(filename, source, error)` owns miette graphical rendering and always attaches source via `DiagnosticWithSource` + `NamedSource`.
+- `render_report(filename, source, report)` iterates `CompilationErrorReport::entries()` and renders lexer/parser/type-checker diagnostics with source context.
+- `CompilerError::Codegen(String)` currently renders as plain `error: ...` text in report output because no diagnostic span/source metadata is available in current state.
+
+### Summary footer contract
+- Use rust/cargo-style footer text: `error: aborting due to {N} previous error(s)` with explicit singular form for `N=1`.

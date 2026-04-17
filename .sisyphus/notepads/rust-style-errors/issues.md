@@ -15,3 +15,7 @@
 3. **Bare eprintln! everywhere** (fix in Task 7):
    - `src/app.rs` uses `eprintln!("error: compilation failed: {error}")` throughout
    - Must replace with `render_report()` calls
+
+## [2026-04-17] Task 3 — Renderer Module Notes
+
+- Initial compile failed because `DiagnosticWithSource` did not implement `Debug`; fixed by adding `#[derive(Debug)]`.
