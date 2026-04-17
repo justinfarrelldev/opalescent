@@ -20,7 +20,8 @@ typedef struct { float value;    const char* error; } ParseResultF32;
 typedef struct { double value;   const char* error; } ParseResultF64;
 
 static const char* invalid_digit_error(char ch) {
-    static char msg[64];
+    // Thread-local buffer: each thread gets its own copy to avoid data races
+    static _Thread_local char msg[64];
     snprintf(msg, sizeof(msg), "invalid digit '%c' in input", ch);
     return msg;
 }
@@ -48,6 +49,10 @@ static char* skip_trailing_whitespace(char* s) {
 static char* duplicate_without_trailing_newline(const char* source) {
     /* internal temporary copy: owned by this helper, freed before return */
     char* raw = strdup(source);
+    if (!raw) {
+        fprintf(stderr, "Runtime error: out of memory\n");
+        exit(1);
+    }
     size_t len = strlen(raw);
     if (len > 0 && raw[len - 1] == '\n') {
         raw[len - 1] = '\0';
@@ -56,6 +61,10 @@ static char* duplicate_without_trailing_newline(const char* source) {
     size_t trimmed_len = strlen(raw);
     /* caller owns returned string, must free() */
     char* out = (char*)malloc(trimmed_len + 1);
+    if (!out) {
+        fprintf(stderr, "Runtime error: out of memory\n");
+        exit(1);
+    }
     memcpy(out, raw, trimmed_len + 1);
     free(raw);
     return out;
@@ -63,11 +72,21 @@ static char* duplicate_without_trailing_newline(const char* source) {
 
 /* caller owns returned string, must free() */
 char* take_input(void) {
-    static char buf[1024];
-    if (fgets(buf, sizeof(buf), stdin) == NULL) {
+    char* line = NULL;
+    size_t len = 0;
+    ssize_t read = getline(&line, &len, stdin);
+    
+    if (read == -1) {
+        /* EOF or error: getline() does not allocate on error, but may on EOF */
+        if (line != NULL) {
+            free(line);
+        }
         return duplicate_without_trailing_newline("");
     }
-    return duplicate_without_trailing_newline(buf);
+    
+    char* result = duplicate_without_trailing_newline(line);
+    free(line);
+    return result;
 }
 
 void print_string(const char* s) {
