@@ -567,15 +567,15 @@ fn codegen_cast<'context>(
                 min_fp_const.into_float_value(),
                 &env.next_name("cast.ge_min"),
             )?;
-            let le_max = codegen_context.builder.build_float_compare(
-                FloatPredicate::OLE,
+            let lt_max = codegen_context.builder.build_float_compare(
+                FloatPredicate::OLT,
                 float_value,
                 max_fp_const.into_float_value(),
-                &env.next_name("cast.le_max"),
+                &env.next_name("cast.lt_max"),
             )?;
             let in_range = codegen_context.builder.build_and(
                 ge_min,
-                le_max,
+                lt_max,
                 &env.next_name("cast.in_range"),
             )?;
 
