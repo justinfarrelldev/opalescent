@@ -107,9 +107,9 @@ pub fn format_diagnostic(phase: CompilerPhase, error: &CompilerError) -> String 
                 help_suffix
             )
         }
-        CompilerError::Codegen(ref message) => format_miette_phase_error(
+        CompilerError::Codegen(ref codegen_error) => format_miette_phase_error(
             phase,
-            message,
+            codegen_error.message.as_str(),
             "opalescent::codegen::backend_failure",
             "Inspect generated IR and source spans near this expression.",
         ),

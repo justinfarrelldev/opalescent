@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use crate::codegen::context::CodegenContext;
-use crate::codegen::expressions::CodegenError;
+use crate::codegen::error::CodegenError;
 use alloc::format;
 use alloc::string::String;
 use inkwell::values::FunctionValue;

@@ -172,7 +172,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ## TODOs
 
-- [ ] 1. Fix span conversion inconsistency
+- [x] 1. Fix span conversion inconsistency
 
   **What to do**:
   - In `src/error.rs`, fix `LexError::span_from_span()` (lines 157-166) to use **exclusive end** (matching `Span::len()` and `TypeError::span_from_span()`):
@@ -251,7 +251,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 2. Create error display test project
+- [x] 2. Create error display test project
 
   **What to do**:
   - Create `test-projects/error-display/` with the standard Opalescent test project structure:
@@ -332,7 +332,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 3. Create miette-based diagnostic renderer module
+- [x] 3. Create miette-based diagnostic renderer module
 
   **What to do**:
   - Create `src/errors/renderer.rs` — the core rendering module that replaces the plain-text formatter with miette's `GraphicalReportHandler`:

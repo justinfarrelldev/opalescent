@@ -21,38 +21,13 @@ use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::String;
-use inkwell::builder::BuilderError;
 use inkwell::types::BasicType;
 use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
 };
 use inkwell::{FloatPredicate, IntPredicate};
 
-#[derive(Debug, Clone)]
-pub struct CodegenError {
-    pub message: String,
-}
-
-impl CodegenError {
-    #[must_use]
-    pub const fn new(message: String) -> Self {
-        Self { message }
-    }
-}
-
-impl core::fmt::Display for CodegenError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl core::error::Error for CodegenError {}
-
-impl From<BuilderError> for CodegenError {
-    fn from(value: BuilderError) -> Self {
-        Self::new(format!("LLVM builder error: {value}"))
-    }
-}
+use crate::codegen::error::CodegenError;
 
 #[derive(Debug, Clone)]
 pub struct VariableBinding<'context> {

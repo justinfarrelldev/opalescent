@@ -1,6 +1,6 @@
 //! Core type to LLVM type mapping.
 
-use crate::codegen::expressions::CodegenError;
+use crate::codegen::error::CodegenError;
 use crate::type_system::types::CoreType;
 use inkwell::context::Context;
 use inkwell::types::{BasicType, BasicTypeEnum};

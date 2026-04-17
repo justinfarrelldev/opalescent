@@ -2,7 +2,8 @@ extern crate alloc;
 
 use crate::ast::{Expr, Type};
 use crate::codegen::context::CodegenContext;
-use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError, VariableBinding};
+use crate::codegen::error::CodegenError;
+use crate::codegen::expressions::{codegen_expression, CodegenEnv, VariableBinding};
 use crate::codegen::monomorphization::ensure_monomorphized_function_declaration;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::type_mapping::{ast_type_to_core_type, AstTypeMappingError};

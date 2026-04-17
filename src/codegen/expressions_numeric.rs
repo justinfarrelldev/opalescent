@@ -2,7 +2,8 @@ extern crate alloc;
 
 use crate::ast::BinaryOp;
 use crate::codegen::context::CodegenContext;
-use crate::codegen::expressions::{CodegenEnv, CodegenError};
+use crate::codegen::error::CodegenError;
+use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::types::is_signed_core_type;
 use crate::type_system::types::CoreType;
 use alloc::format;

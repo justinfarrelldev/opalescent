@@ -2,7 +2,8 @@ extern crate alloc;
 
 use crate::ast::{Expr, Pattern};
 use crate::codegen::context::CodegenContext;
-use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError};
+use crate::codegen::error::CodegenError;
+use crate::codegen::expressions::{codegen_expression, CodegenEnv};
 use crate::codegen::types::integer_literal_bits;
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;

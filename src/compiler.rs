@@ -8,7 +8,7 @@ extern crate alloc;
 use crate::ast::{Decl, Expr, LabeledValue, LambdaBody, NodeId, Stmt};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::expressions::CodegenEnv;
-use crate::codegen::expressions::CodegenError;
+use crate::codegen::error::CodegenError;
 use crate::codegen::functions::{codegen_function_declaration, codegen_import_declaration};
 use crate::error::LexError;
 use crate::lexer::Lexer;

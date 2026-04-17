@@ -58,7 +58,7 @@ fn map_compiler_error_to_diagnostic(
             severity: DiagnosticSeverity::Error,
             message: format!("{type_error}"),
         },
-        crate::errors::reporter::CompilerError::Codegen(ref message) => Diagnostic {
+        crate::errors::reporter::CompilerError::Codegen(ref codegen_error) => Diagnostic {
             range: Range {
                 start: Position {
                     line: 0,
@@ -70,7 +70,7 @@ fn map_compiler_error_to_diagnostic(
                 },
             },
             severity: DiagnosticSeverity::Warning,
-            message: message.clone(),
+            message: codegen_error.message.clone(),
         },
     }
 }

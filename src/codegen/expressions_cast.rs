@@ -3,7 +3,8 @@
 extern crate alloc;
 use crate::ast::{Expr, LiteralValue};
 use crate::codegen::context::CodegenContext;
-use crate::codegen::expressions::{current_function, CodegenEnv, CodegenError};
+use crate::codegen::error::CodegenError;
+use crate::codegen::expressions::{current_function, CodegenEnv};
 use crate::codegen::types::integer_literal_bits;
 use crate::type_system::types::CoreType;
 use alloc::format;

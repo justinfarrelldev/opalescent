@@ -5,9 +5,8 @@
 #[doc = "ADT constructor, field-access, and match lowering support."]
 pub mod adts;
 pub mod context;
-#[doc = "Control-flow code generation support."]
 pub mod control_flow;
-/// Expression lowering for LLVM backend.
+pub mod error;
 pub mod expressions;
 pub mod expressions_cast;
 pub mod expressions_numeric;

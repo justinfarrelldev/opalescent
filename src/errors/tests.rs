@@ -1,4 +1,4 @@
-use crate::codegen::expressions::CodegenError;
+use crate::codegen::error::CodegenError;
 use crate::error::{LexError, LexErrors};
 use crate::errors::formatter::{
     error_doc_link, format_codegen_error, format_diagnostic, format_error_bundle, CompilerPhase,
@@ -97,7 +97,7 @@ fn test_error_bundle_joins_multiple_entries() {
         ),
         (
             CompilerPhase::Codegen,
-            CompilerError::Codegen(String::from("broken ir")),
+            CompilerError::Codegen(CodegenError::new("broken ir")),
         ),
     ];
     let rendered = format_error_bundle(entries.as_slice());
@@ -175,7 +175,7 @@ fn test_format_diagnostic_uses_codegen_variant_with_codegen_error_message() {
     let codegen_error = CodegenError::new(String::from("invalid gep index"));
     let rendered = format_diagnostic(
         CompilerPhase::Codegen,
-        &CompilerError::Codegen(codegen_error.message),
+        &CompilerError::Codegen(CodegenError::new(codegen_error.message)),
     );
     assert!(rendered.contains("opalescent::codegen::backend_failure"));
     assert!(rendered.contains("invalid gep index"));

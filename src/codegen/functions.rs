@@ -2,7 +2,8 @@ extern crate alloc;
 
 use crate::ast::{Decl, ImportItem};
 use crate::codegen::context::CodegenContext;
-use crate::codegen::expressions::{CodegenEnv, CodegenError, VariableBinding};
+use crate::codegen::error::CodegenError;
+use crate::codegen::expressions::{CodegenEnv, VariableBinding};
 use crate::codegen::statements::codegen_statement;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;

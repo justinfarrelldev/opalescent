@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use crate::codegen::error::CodegenError;
 use crate::error::LexError;
 use crate::errors::formatter::format_error_bundle;
 use crate::errors::formatter::CompilerPhase;
@@ -18,7 +19,7 @@ pub enum CompilerError {
     /// Type checker diagnostic.
     TypeChecker(TypeError),
     /// Code generation diagnostic represented as text.
-    Codegen(String),
+    Codegen(CodegenError),
 }
 
 /// Ordered multi-phase compilation error report.
@@ -57,8 +58,10 @@ impl CompilationErrorReport {
 
     /// Push one code generation diagnostic string.
     pub fn push_codegen_error(&mut self, message: String) {
-        self.errors
-            .push((CompilerPhase::Codegen, CompilerError::Codegen(message)));
+        self.errors.push((
+            CompilerPhase::Codegen,
+            CompilerError::Codegen(CodegenError::new(message)),
+        ));
     }
 
     /// Push multiple lexer diagnostics.

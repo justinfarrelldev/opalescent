@@ -2,7 +2,8 @@ extern crate alloc;
 
 use crate::ast::{Expr, StringPart};
 use crate::codegen::context::CodegenContext;
-use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError};
+use crate::codegen::error::CodegenError;
+use crate::codegen::expressions::{codegen_expression, CodegenEnv};
 use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::values::{

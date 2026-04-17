@@ -26,7 +26,7 @@ pub fn touch_error_api_for_lints() -> bool {
     );
     let _formatted_codegen = formatter::format_diagnostic(
         formatter::CompilerPhase::Codegen,
-        &reporter::CompilerError::Codegen(String::from("lint warmup")),
+        &reporter::CompilerError::Codegen(crate::codegen::error::CodegenError::new("lint warmup")),
     );
 
     let mut report = reporter::CompilationErrorReport::new();

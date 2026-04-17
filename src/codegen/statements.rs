@@ -7,7 +7,8 @@ use crate::codegen::control_flow::{
     codegen_if_statement, codegen_loop_expression_into_slots, codegen_loop_statement,
     codegen_return_statement,
 };
-use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError, VariableBinding};
+use crate::codegen::error::CodegenError;
+use crate::codegen::expressions::{codegen_expression, CodegenEnv, VariableBinding};
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::type_mapping::{ast_type_to_core_type, AstTypeMappingError};
 use crate::type_system::types::CoreType;

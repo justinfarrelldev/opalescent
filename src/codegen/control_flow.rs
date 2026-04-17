@@ -2,7 +2,8 @@ extern crate alloc;
 
 use crate::ast::{Expr, LabeledValue, Stmt};
 use crate::codegen::context::CodegenContext;
-use crate::codegen::expressions::{codegen_expression, CodegenEnv, CodegenError};
+use crate::codegen::error::CodegenError;
+use crate::codegen::expressions::{codegen_expression, CodegenEnv};
 use crate::codegen::statements::codegen_statement;
 use alloc::format;
 use alloc::string::String;
