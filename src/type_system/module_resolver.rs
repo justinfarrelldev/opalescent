@@ -317,8 +317,11 @@ impl ModuleResolver {
                 CoreType::Function {
                     generic_params: Vec::new(),
                     parameters: vec![CoreType::String],
-                    return_types: vec![CoreType::Int64],
-                    error_types: Vec::new(),
+                    return_types: vec![CoreType::Int32],
+                    error_types: vec![CoreType::Generic {
+                        name: "ParseError".to_owned(),
+                        type_args: Vec::new(),
+                    }],
                 },
                 SymbolType::Function,
             ),
@@ -328,7 +331,10 @@ impl ModuleResolver {
                     generic_params: Vec::new(),
                     parameters: vec![CoreType::String],
                     return_types: vec![CoreType::Int64],
-                    error_types: Vec::new(),
+                    error_types: vec![CoreType::Generic {
+                        name: "ParseError".to_owned(),
+                        type_args: Vec::new(),
+                    }],
                 },
                 SymbolType::Function,
             ),

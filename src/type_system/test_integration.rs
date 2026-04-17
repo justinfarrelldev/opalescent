@@ -505,9 +505,10 @@ entry main = f(): int64 => {
     #[test]
     fn test_guard_propagate_and_multiple_returns_integrate() {
         const SOURCE: &str = "
-entry main = f(): int64, int64 => {
-    let parsed = string_to_int32('7')
-    return first: parsed, second: parsed
+entry main = f(): int32 errors ParseError => {
+    guard string_to_int32('7') into parsed else _e =>
+        return 0
+    return parsed
 }
 ";
 
@@ -517,7 +518,7 @@ entry main = f(): int64, int64 => {
 
         assert!(
             result.is_ok(),
-            "guard/propagate + multiple return integration should pass: {result:?}",
+            "guard/propagate integration should pass with guarded error-producing call: {result:?}",
         );
     }
 

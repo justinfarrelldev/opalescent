@@ -68,6 +68,10 @@ pub struct TypeChecker {
     guard_else_depth: usize,
     /// Stack tracking the error types handled by active guard else branches
     guard_error_stack: Vec<Vec<CoreType>>,
+    /// Tracks whether calls are being checked from within a propagate expression.
+    in_propagate_context: bool,
+    /// Tracks whether calls are being checked as the subject expression of a guard.
+    in_guard_subject_context: bool,
     /// Stack tracking return label mode for active function/lambda bodies.
     return_label_modes: Vec<ReturnLabelMode>,
     /// Collected non-fatal warnings produced while type checking.
@@ -104,6 +108,8 @@ impl TypeChecker {
             constraints: Vec::new(),
             guard_else_depth: 0,
             guard_error_stack: Vec::new(),
+            in_propagate_context: false,
+            in_guard_subject_context: false,
             return_label_modes: Vec::new(),
             warnings: Vec::new(),
             function_hot_reload_metadata: BTreeMap::new(),
@@ -130,6 +136,8 @@ impl TypeChecker {
             constraints: Vec::new(),
             guard_else_depth: 0,
             guard_error_stack: Vec::new(),
+            in_propagate_context: false,
+            in_guard_subject_context: false,
             return_label_modes: Vec::new(),
             warnings: Vec::new(),
             function_hot_reload_metadata: BTreeMap::new(),
@@ -219,7 +227,10 @@ impl TypeChecker {
             generic_params: Vec::new(),
             parameters: vec![CoreType::String],
             return_types: vec![CoreType::Int32],
-            error_types: Vec::new(),
+            error_types: vec![CoreType::Generic {
+                name: "ParseError".to_owned(),
+                type_args: Vec::new(),
+            }],
         };
         self.environment.register_builtin(
             "string_to_int32".to_owned(),

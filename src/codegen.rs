@@ -20,6 +20,9 @@ pub mod expressions_string;
 #[doc = "Function-level code generation support."]
 #[path = "codegen/functions.rs"]
 pub mod functions;
+#[doc = "Standard library function declarations."]
+#[path = "codegen/functions_stdlib.rs"]
+pub mod functions_stdlib;
 #[doc = "Generic monomorphization naming and specialization cache wiring."]
 #[path = "codegen/monomorphization.rs"]
 pub mod monomorphization;

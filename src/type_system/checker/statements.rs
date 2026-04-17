@@ -602,7 +602,11 @@ impl TypeChecker {
         span: Span,
         expected_return: Option<&[CoreType]>,
     ) -> Result<(), TypeError> {
-        let success_type = self.type_check_expr(expression)?;
+        let previous_guard_subject_context = self.in_guard_subject_context;
+        self.in_guard_subject_context = true;
+        let success_result = self.type_check_expr(expression);
+        self.in_guard_subject_context = previous_guard_subject_context;
+        let success_type = success_result?;
 
         self.symbol_table.register(SymbolInfo {
             name: success_binding.to_owned(),

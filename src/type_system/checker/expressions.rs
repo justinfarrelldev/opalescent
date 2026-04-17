@@ -362,13 +362,17 @@ impl TypeChecker {
 
                 // Validate the call arguments against the parameters (reuse call typing logic)
                 // We intentionally call the existing checker to enforce argument checks
-                self.type_check_call_expr(
+                let previous_propagate_context = self.in_propagate_context;
+                self.in_propagate_context = true;
+                let call_result = self.type_check_call_expr(
                     callee,
                     None,
                     args.as_slice(),
                     call.span(),
                     call.node_id().0,
-                )?;
+                );
+                self.in_propagate_context = previous_propagate_context;
+                call_result?;
 
                 if let Some(active_errors) = self.guard_error_stack.last() {
                     if !Self::guard_error_type_sets_match(

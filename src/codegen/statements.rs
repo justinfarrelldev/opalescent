@@ -14,6 +14,7 @@ use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::types::BasicTypeEnum;
+use inkwell::values::FunctionValue;
 
 /// Lower one typed statement into LLVM IR side effects.
 pub fn codegen_statement<'context>(
@@ -57,12 +58,16 @@ pub fn codegen_statement<'context>(
         Stmt::Guard {
             ref expression,
             ref success_binding,
+            ref error_binding,
+            ref else_body,
             ..
         } => codegen_guard_statement(
             codegen_context,
             env,
             expression.as_ref(),
             success_binding.as_str(),
+            error_binding.as_str(),
+            else_body.as_ref(),
         ),
         Stmt::For { .. } | Stmt::While { .. } | Stmt::Loop { .. } => {
             codegen_loop_statement(codegen_context, env, stmt)
@@ -221,13 +226,122 @@ fn codegen_assignment<'context>(
 }
 
 /// Lower a guard statement by evaluating and binding the success value.
+#[expect(
+    clippy::too_many_lines,
+    reason = "guard statement codegen requires handling multiple cases"
+)]
 fn codegen_guard_statement<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     expression: &Expr,
     success_binding: &str,
+    error_binding: &str,
+    else_body: &Stmt,
 ) -> Result<(), CodegenError> {
     let value = codegen_expression(codegen_context, env, expression, None)?;
+    if value.is_struct_value() {
+        let struct_value = value.into_struct_value();
+        if struct_value.get_type().count_fields() >= 2 {
+            let error_value = codegen_context.builder.build_extract_value(
+                struct_value,
+                1,
+                env.next_name("guard.err").as_str(),
+            )?;
+
+            if error_value.is_pointer_value() {
+                let success_value = codegen_context.builder.build_extract_value(
+                    struct_value,
+                    0,
+                    env.next_name("guard.ok").as_str(),
+                )?;
+                let success_alloca = codegen_context
+                    .builder
+                    .build_alloca(success_value.get_type(), success_binding)?;
+                let _success_init = codegen_context
+                    .builder
+                    .build_store(success_alloca, success_value.get_type().const_zero())?;
+
+                let current_fn = current_function(codegen_context)?;
+                let success_block = codegen_context
+                    .context
+                    .append_basic_block(current_fn, env.next_name("guard.success").as_str());
+                let else_block = codegen_context
+                    .context
+                    .append_basic_block(current_fn, env.next_name("guard.else").as_str());
+                let merge_block = codegen_context
+                    .context
+                    .append_basic_block(current_fn, env.next_name("guard.merge").as_str());
+
+                let error_ptr = error_value.into_pointer_value();
+                let is_success = codegen_context
+                    .builder
+                    .build_is_null(error_ptr, env.next_name("guard.is_success").as_str())?;
+                let _branch = codegen_context.builder.build_conditional_branch(
+                    is_success,
+                    success_block,
+                    else_block,
+                )?;
+
+                codegen_context.builder.position_at_end(success_block);
+                let _store_ok = codegen_context
+                    .builder
+                    .build_store(success_alloca, success_value)?;
+                if let Some(block) = codegen_context.builder.get_insert_block() {
+                    if block.get_terminator().is_none() {
+                        let _jump_merge = codegen_context
+                            .builder
+                            .build_unconditional_branch(merge_block)?;
+                    }
+                }
+
+                codegen_context.builder.position_at_end(else_block);
+                let error_alloca = codegen_context
+                    .builder
+                    .build_alloca(error_value.get_type(), error_binding)?;
+                let _store_err = codegen_context
+                    .builder
+                    .build_store(error_alloca, error_value)?;
+                let previous_error_binding = env.variables.insert(
+                    error_binding.to_owned(),
+                    VariableBinding {
+                        alloca: error_alloca,
+                        core_type: CoreType::String,
+                    },
+                );
+
+                codegen_statement(codegen_context, env, else_body)?;
+
+                if let Some(previous) = previous_error_binding {
+                    env.variables.insert(error_binding.to_owned(), previous);
+                } else {
+                    let _: Option<_> = env.variables.remove(error_binding);
+                }
+
+                if let Some(block) = codegen_context.builder.get_insert_block() {
+                    if block.get_terminator().is_none() {
+                        let _jump_merge = codegen_context
+                            .builder
+                            .build_unconditional_branch(merge_block)?;
+                    }
+                }
+
+                codegen_context.builder.position_at_end(merge_block);
+                let success_core_type =
+                    llvm_return_type_to_core_type(Some(success_value.get_type()))
+                        .unwrap_or(CoreType::Int64);
+                env.variables.insert(
+                    success_binding.to_owned(),
+                    VariableBinding {
+                        alloca: success_alloca,
+                        core_type: success_core_type,
+                    },
+                );
+
+                return Ok(());
+            }
+        }
+    }
+
     let inferred_type = infer_core_type_from_expr(codegen_context, env, expression);
     let alloca = codegen_context
         .builder
@@ -330,14 +444,54 @@ fn infer_call_return_type<'context>(
 fn known_runtime_return_type(name: &str) -> Option<CoreType> {
     match name {
         "take_input" => Some(CoreType::String),
-        "random_int8" | "string_to_int8" => Some(CoreType::Int8),
-        "random_int16" | "string_to_int16" => Some(CoreType::Int16),
-        "random_int32" | "string_to_int32" => Some(CoreType::Int32),
-        "random_int64" | "string_to_int64" => Some(CoreType::Int64),
-        "random_uint8" | "string_to_uint8" => Some(CoreType::UInt8),
-        "random_uint16" | "string_to_uint16" => Some(CoreType::UInt16),
-        "random_uint32" | "string_to_uint32" => Some(CoreType::UInt32),
-        "random_uint64" | "string_to_uint64" => Some(CoreType::UInt64),
+        "random_int8" => Some(CoreType::Int8),
+        "random_int16" => Some(CoreType::Int16),
+        "random_int32" => Some(CoreType::Int32),
+        "random_int64" => Some(CoreType::Int64),
+        "random_uint8" => Some(CoreType::UInt8),
+        "random_uint16" => Some(CoreType::UInt16),
+        "random_uint32" => Some(CoreType::UInt32),
+        "random_uint64" => Some(CoreType::UInt64),
+        "string_to_int8" => Some(CoreType::Generic {
+            name: String::from("ParseResultI8"),
+            type_args: Vec::new(),
+        }),
+        "string_to_int16" => Some(CoreType::Generic {
+            name: String::from("ParseResultI16"),
+            type_args: Vec::new(),
+        }),
+        "string_to_int32" => Some(CoreType::Generic {
+            name: String::from("ParseResultI32"),
+            type_args: Vec::new(),
+        }),
+        "string_to_int64" => Some(CoreType::Generic {
+            name: String::from("ParseResultI64"),
+            type_args: Vec::new(),
+        }),
+        "string_to_uint8" => Some(CoreType::Generic {
+            name: String::from("ParseResultU8"),
+            type_args: Vec::new(),
+        }),
+        "string_to_uint16" => Some(CoreType::Generic {
+            name: String::from("ParseResultU16"),
+            type_args: Vec::new(),
+        }),
+        "string_to_uint32" => Some(CoreType::Generic {
+            name: String::from("ParseResultU32"),
+            type_args: Vec::new(),
+        }),
+        "string_to_uint64" => Some(CoreType::Generic {
+            name: String::from("ParseResultU64"),
+            type_args: Vec::new(),
+        }),
+        "string_to_float32" => Some(CoreType::Generic {
+            name: String::from("ParseResultF32"),
+            type_args: Vec::new(),
+        }),
+        "string_to_float64" => Some(CoreType::Generic {
+            name: String::from("ParseResultF64"),
+            type_args: Vec::new(),
+        }),
         _ => None,
     }
 }
@@ -365,4 +519,18 @@ fn llvm_return_type_to_core_type(return_type: Option<BasicTypeEnum<'_>>) -> Opti
         | BasicTypeEnum::VectorType(_)
         | BasicTypeEnum::ScalableVectorType(_) => CoreType::Unit,
     })
+}
+
+/// Fetch current LLVM function from builder insertion block.
+fn current_function<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> Result<FunctionValue<'context>, CodegenError> {
+    let Some(block) = codegen_context.builder.get_insert_block() else {
+        return Err(CodegenError::new(String::from(
+            "builder is not positioned in a block",
+        )));
+    };
+    block
+        .get_parent()
+        .ok_or_else(|| CodegenError::new(String::from("insert block does not have parent")))
 }

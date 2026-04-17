@@ -4967,9 +4967,13 @@ return n
     let program = parse_program_from_source(SOURCE);
     let mut checker = TypeChecker::new();
     let result = checker.type_check_program(&program);
+    let errors =
+        result.expect_err("bare call to string_to_int32 without guard/propagate must fail");
     assert!(
-        result.is_ok(),
-        "string_to_int32(input) should type check and return int32: {result:?}"
+        errors.iter().any(
+            |e| matches!(*e, TypeError::UnhandledCallError { ref name, .. } if name == "string_to_int32")
+        ),
+        "expected UnhandledCallError for string_to_int32, got: {errors:?}"
     );
 }
 
@@ -5771,5 +5775,152 @@ fn test_integer_intrinsic_member_calls_type_check() {
     assert!(
         result.is_ok(),
         "checked/wrapping/saturating integer intrinsics should type check: {result:?}"
+    );
+}
+
+#[test]
+fn test_guard_with_string_to_int32_type_checks() {
+    const SOURCE: &str = "
+entry parse_user_number = f(input: string): int32 errors ParseError => {
+guard string_to_int32(input) into n else _e =>
+    return 0
+return n
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "guard string_to_int32(input) into n else _e => ... should type check: {result:?}"
+    );
+}
+
+#[test]
+fn test_propagate_string_to_int32_in_error_function_type_checks() {
+    const SOURCE: &str = "
+entry parse_user_number = f(input: string): int32 errors ParseError => {
+let n: int32 = propagate string_to_int32(input)
+return n
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "propagate string_to_int32(input) in errors ParseError function should type check: {result:?}"
+    );
+}
+
+#[test]
+fn test_bare_call_to_string_to_uint32_produces_unhandled_call_error() {
+    const SOURCE: &str = "
+entry parse_user_number = f(input: string): uint32 => {
+let n: uint32 = string_to_uint32(input)
+return n
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    let errors =
+        result.expect_err("bare call to string_to_uint32 without guard/propagate must fail");
+    assert!(
+        errors.iter().any(
+            |e| matches!(*e, TypeError::UnhandledCallError { ref name, .. } if name == "string_to_uint32")
+        ),
+        "expected UnhandledCallError for string_to_uint32, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_int32_to_string_type_checks() {
+    const SOURCE: &str = "
+entry show_number = f(n: int32): string => {
+let s: string = int32_to_string(n)
+return s
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "int32_to_string(n) should type check as string: {result:?}"
+    );
+}
+
+#[test]
+fn test_int32_to_string_does_not_require_error_handling() {
+    const SOURCE: &str = "
+entry show_number = f(n: int32): string => {
+let s: string = int32_to_string(n)
+return s
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "int32_to_string should be callable without guard/propagate (infallible): {result:?}"
+    );
+}
+
+#[test]
+fn test_bare_call_error_message_mentions_function_name() {
+    const SOURCE: &str = "
+entry parse_user_number = f(input: string): int32 => {
+let n: int32 = string_to_int32(input)
+return n
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    let errors = result.expect_err("bare call to string_to_int32 must fail");
+    let error_text = format!("{errors:?}");
+    assert!(
+        error_text.contains("string_to_int32"),
+        "error message should mention the function name 'string_to_int32': {error_text}"
+    );
+}
+
+#[test]
+fn test_float64_to_string_type_checks() {
+    const SOURCE: &str = "
+entry show_float = f(x: float64): string => {
+let s: string = float64_to_string(x)
+return s
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "float64_to_string(x) should type check as string: {result:?}"
+    );
+}
+
+#[test]
+fn test_int32_to_string_then_string_to_int32_roundtrip_type_checks() {
+    const SOURCE: &str = "
+entry roundtrip = f(n: int32): int32 errors ParseError => {
+let s: string = int32_to_string(n)
+let result: int32 = propagate string_to_int32(s)
+return result
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "int32_to_string then string_to_int32 roundtrip should type check: {result:?}"
     );
 }

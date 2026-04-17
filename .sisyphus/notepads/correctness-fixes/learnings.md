@@ -541,3 +541,18 @@ if self.check_identifier() {
 - GREEN after fix: `cargo test --quiet` passed (913 passed, 5 ignored; total 918).
 - `cargo clippy -- -D warnings` passed clean.
 - `./target/release/opalescent fmt /tmp/old-main.op` now preserves 4/8/12-space indentation in nested blocks.
+
+## [2026-04-16] Task — bare-call enforcement for error-producing functions
+
+### Findings
+- Bare-call enforcement belongs in `type_check_call_expr_impl` because both direct calls and call validation paths (guard/propgate internals) centralize there.
+- Enforcement condition that worked: `error_types` non-empty AND `guard_else_depth == 0` AND not in special contexts (`in_propagate_context`, `in_guard_subject_context`).
+- Guard handling requires suppression in two places:
+  1. `expressions_guard.rs` guard expression call-check path
+  2. `statements.rs` legacy guard-statement path (`type_check_guard_statement`), which also type-checks guarded expression directly
+- Without legacy guard-statement suppression, several existing guard/codegen tests fail with `UnhandledCallError` even though usage is semantically guarded.
+- Error messaging is most actionable when using callee identifier names (`Expr::Identifier`) and a stable fallback (`"<expression>"`) for non-identifier callees.
+
+### Verification
+- LSP diagnostics: clean on all changed type-system files.
+- `cargo test --lib` final result: `953 passed; 0 failed; 5 ignored`.

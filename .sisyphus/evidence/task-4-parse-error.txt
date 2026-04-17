@@ -1,0 +1,54 @@
+TASK 4: ParseError Type Registration Verification
+===================================================
+
+VERIFICATION RESULTS:
+
+1. ParseError Registration in environment.rs (lines 53-59):
+   ✓ CONFIRMED: ParseError is registered as CoreType::Generic
+   
+   Code:
+   ```
+   self.types.insert(
+       "ParseError".to_owned(),
+       CoreType::Generic {
+           name: "ParseError".to_owned(),
+           type_args: Vec::new(),
+       },
+   );
+   ```
+
+2. error_types Usage Pattern in size_specific_builtins.rs:
+   ✓ CONFIRMED: All builtin functions use error_types: Vec::new()
+   
+   Grep output:
+   - Line 50: error_types: Vec::new() in register_string_to_int()
+   - Line 72: error_types: Vec::new() in register_random_int()
+   - Line 94: error_types: Vec::new() in register_print_variant()
+
+3. string_to_int32 Registration in checker.rs (lines 218-237):
+   ✓ CONFIRMED: Uses error_types: Vec::new() pattern
+   
+   Code:
+   ```
+   let string_to_int32_signature = CoreType::Function {
+       generic_params: Vec::new(),
+       parameters: vec![CoreType::String],
+       return_types: vec![CoreType::Int32],
+       error_types: Vec::new(),
+   };
+   ```
+
+COMPATIBILITY ANALYSIS:
+======================
+
+Pattern Match: ✓ COMPATIBLE
+
+The registration pattern is fully compatible:
+- ParseError is registered as: CoreType::Generic { name: "ParseError", type_args: Vec::new() }
+- error_types vectors in builtins can hold: vec![CoreType::Generic { name: "ParseError", .. }]
+- The Generic variant with empty type_args is the correct representation for a simple error type
+
+CONCLUSION:
+===========
+ParseError type registration is SUFFICIENT for the fail-fast conversion error model.
+T7 can safely populate error_types vectors with CoreType::Generic { name: "ParseError", type_args: Vec::new() }

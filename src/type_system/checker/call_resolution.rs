@@ -100,8 +100,24 @@ impl TypeChecker {
                 generic_params,
                 parameters,
                 return_types,
-                error_types: _error_types,
+                error_types,
             } => {
+                if !error_types.is_empty()
+                    && self.guard_else_depth == 0
+                    && !self.in_propagate_context
+                    && !self.in_guard_subject_context
+                {
+                    let callee_name = if let Expr::Identifier { ref name, .. } = *callee {
+                        name.clone()
+                    } else {
+                        "<expression>".to_owned()
+                    };
+                    return Err(TypeError::UnhandledCallError {
+                        name: callee_name,
+                        span: TypeError::span_from_span(span),
+                    });
+                }
+
                 let mut type_var_instantiations: BTreeMap<usize, CoreType> = BTreeMap::new();
                 let mut local_inference = Substitution::empty();
                 let instantiated_parameters = parameters

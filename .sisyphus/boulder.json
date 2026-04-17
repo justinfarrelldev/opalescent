@@ -1,32 +1,114 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/fix-pointer-comparison-codegen.md",
-  "started_at": "2026-04-16T06:15:59.804Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/fail-fast-conversions.md",
+  "started_at": "2026-04-16T19:50:37.743Z",
   "session_ids": [
-    "ses_26b36e431ffe6YFsWyh4sTO2y2"
+    "ses_2689b55cbffeR6AwkbLBm3jCp4",
+    "ses_26736eb36ffeHjrHxmvo1mHo4t",
+    "ses_26736cebfffebN1u1kfp1EQHZ5",
+    "ses_26736ab4effeT26BFQf59bVerl",
+    "ses_267367576ffe5kt9NdgZ4oFGbh",
+    "ses_266e5293effeZC0EPb9CTf287D",
+    "ses_266e512baffegktz7uID9JoTXR",
+    "ses_266e4f069ffeeILqi5KrMnQU4Z",
+    "ses_266e4c532ffeF3pvHNygu3oY6A",
+    "ses_266e49be6ffetfrhW7EUyubJlg",
+    "ses_266e477cfffeVwNP9xpd0eLPS2"
   ],
   "session_origins": {
-    "ses_26b36e431ffe6YFsWyh4sTO2y2": "direct"
+    "ses_2689b55cbffeR6AwkbLBm3jCp4": "direct",
+    "ses_26736eb36ffeHjrHxmvo1mHo4t": "appended",
+    "ses_26736cebfffebN1u1kfp1EQHZ5": "appended",
+    "ses_26736ab4effeT26BFQf59bVerl": "appended",
+    "ses_267367576ffe5kt9NdgZ4oFGbh": "appended",
+    "ses_266e5293effeZC0EPb9CTf287D": "appended",
+    "ses_266e512baffegktz7uID9JoTXR": "appended",
+    "ses_266e4f069ffeeILqi5KrMnQU4Z": "appended",
+    "ses_266e4c532ffeF3pvHNygu3oY6A": "appended",
+    "ses_266e49be6ffetfrhW7EUyubJlg": "appended",
+    "ses_266e477cfffeVwNP9xpd0eLPS2": "appended"
   },
-  "plan_name": "fix-pointer-comparison-codegen",
+  "plan_name": "fail-fast-conversions",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "RED: Add Failing Tests for String and Function Pointer Comparison",
-      "session_id": "ses_26b0cf499ffeOc90Hhus5BEWlC",
+      "task_title": "Fix guard syntax in error_handling_samples.op",
+      "session_id": "ses_268263446ffeATz8NCL0te6c53",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-04-16T06:24:11.510Z"
+      "updated_at": "2026-04-16T19:55:18.477Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "GREEN: Implement Pointer Comparison in codegen_cmp",
-      "session_id": "ses_26b05e25effe3glM93Pqe5vGKs",
+      "task_title": "C Runtime - Refactor string_to_* to return structs",
+      "session_id": "ses_2681e4fe0ffesSRik1wkyNgxXh",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-16T20:23:36.312Z"
+    },
+    "todo:3": {
+      "task_key": "todo:3",
+      "task_label": "3",
+      "task_title": "C Runtime - Add *_to_string functions",
+      "session_id": "ses_267c66bb4ffecozCh4srdvhEWj",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-16T22:06:44.582Z"
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Verify ParseError type registration is sufficient",
+      "session_id": "ses_267a86f7dffeL4kLt6kofr8MRO",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-16T22:10:07.170Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Codegen - Update LLVM declarations for struct returns",
+      "session_id": "ses_267a76c0dffeC2c1eowCccYiR8",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-04-16T06:34:41.572Z"
+      "updated_at": "2026-04-16T22:13:05.201Z"
+    },
+    "todo:6": {
+      "task_key": "todo:6",
+      "task_label": "6",
+      "task_title": "Codegen - Emit guard-branch logic for struct returns",
+      "session_id": "ses_2676de402ffeGHiEhOU95aIGZl",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-16T23:14:43.157Z"
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "Update breaking codegen tests",
+      "session_id": "ses_2673c3f9cffe5laQsj4IV3F58i",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-17T00:11:25.899Z"
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "Add new integration tests for fail-fast behavior",
+      "session_id": "ses_26737f835ffekJWq5L9TLdBMy7",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-17T00:12:59.706Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** - `oracle`",
+      "session_id": "ses_266de9e8effeyP2F9oN6RBH2bd",
+      "agent": "oracle",
+      "updated_at": "2026-04-17T01:56:18.710Z"
     }
   }
 }

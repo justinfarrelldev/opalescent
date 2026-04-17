@@ -57,7 +57,12 @@ impl TypeChecker {
         let (success_type, callee_error_types) =
             self.resolve_guard_callee_signature(expr, callee_expr)?;
 
-        self.type_check_call_expr(callee_expr, None, args, call_span, expr.node_id().0)?;
+        let previous_guard_subject_context = self.in_guard_subject_context;
+        self.in_guard_subject_context = true;
+        let call_result =
+            self.type_check_call_expr(callee_expr, None, args, call_span, expr.node_id().0);
+        self.in_guard_subject_context = previous_guard_subject_context;
+        call_result?;
 
         if let Some(annotated_type_ast) = binding.annotation {
             let annotated_type =

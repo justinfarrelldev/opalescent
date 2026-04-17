@@ -19,6 +19,22 @@ impl TypeChecker {
         self.register_string_to_int("string_to_uint32", CoreType::UInt32);
         self.register_string_to_int("string_to_uint64", CoreType::UInt64);
 
+        self.register_string_to_int("string_to_float32", CoreType::Float32);
+        self.register_string_to_int("string_to_float64", CoreType::Float64);
+
+        // *_to_string infallible conversions
+        self.register_to_string("int8_to_string", CoreType::Int8);
+        self.register_to_string("int16_to_string", CoreType::Int16);
+        self.register_to_string("int32_to_string", CoreType::Int32);
+        self.register_to_string("int64_to_string", CoreType::Int64);
+        self.register_to_string("uint8_to_string", CoreType::UInt8);
+        self.register_to_string("uint16_to_string", CoreType::UInt16);
+        self.register_to_string("uint32_to_string", CoreType::UInt32);
+        self.register_to_string("uint64_to_string", CoreType::UInt64);
+        self.register_to_string("float32_to_string", CoreType::Float32);
+        self.register_to_string("float64_to_string", CoreType::Float64);
+        self.register_to_string("bool_to_string", CoreType::Boolean);
+
         // random_int* variants (int64 is import-only via `math` module)
         self.register_random_int("random_int8", CoreType::Int8);
         self.register_random_int("random_int16", CoreType::Int16);
@@ -47,7 +63,10 @@ impl TypeChecker {
             generic_params: Vec::new(),
             parameters: vec![CoreType::String],
             return_types: vec![return_type],
-            error_types: Vec::new(),
+            error_types: vec![CoreType::Generic {
+                name: "ParseError".to_owned(),
+                type_args: Vec::new(),
+            }],
         };
         self.environment
             .register_builtin(name.to_owned(), sig.clone());
@@ -63,7 +82,28 @@ impl TypeChecker {
         });
     }
 
-    /// Register a `(T, T) -> T` random integer builtin with the given name and element type.
+    /// Register an infallible `T -> string` conversion builtin.
+    fn register_to_string(&mut self, name: &str, param_type: CoreType) {
+        let sig = CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: vec![param_type],
+            return_types: vec![CoreType::String],
+            error_types: Vec::new(),
+        };
+        self.environment
+            .register_builtin(name.to_owned(), sig.clone());
+        self.symbol_table.register(SymbolInfo {
+            name: name.to_owned(),
+            symbol_type: SymbolType::Function,
+            core_type: sig,
+            visibility: Visibility::Public,
+            source_location: Span::single(crate::token::Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+        });
+    }
+    /// Registers a random integer builtin function for the given numeric type.
     fn register_random_int(&mut self, name: &str, element_type: CoreType) {
         let sig = CoreType::Function {
             generic_params: Vec::new(),

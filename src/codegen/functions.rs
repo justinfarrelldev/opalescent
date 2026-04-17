@@ -129,15 +129,19 @@ pub fn codegen_import_declaration<'context>(
                 ref alias,
                 ..
             } => {
-                let runtime_name = resolve_imported_runtime_name(source.as_str(), name.as_str())?;
-                let stdlib_function =
-                    declare_stdlib_function(codegen_context, runtime_name.as_str()).ok_or_else(
-                        || {
-                            CodegenError::new(format!(
-                                "unsupported stdlib import '{name}' from module '{source}'"
-                            ))
-                        },
-                    )?;
+                let runtime_name = crate::codegen::functions_stdlib::resolve_imported_runtime_name(
+                    source.as_str(),
+                    name.as_str(),
+                )?;
+                let stdlib_function = crate::codegen::functions_stdlib::declare_stdlib_function(
+                    codegen_context,
+                    runtime_name.as_str(),
+                )
+                .ok_or_else(|| {
+                    CodegenError::new(format!(
+                        "unsupported stdlib import '{name}' from module '{source}'"
+                    ))
+                })?;
                 let local_name = alias.as_ref().unwrap_or(name).clone();
                 env.imported_functions.insert(
                     local_name,
@@ -245,14 +249,11 @@ pub fn codegen_propagate_expression<'context>(
     if value.is_struct_value() {
         let struct_value = value.into_struct_value();
         if struct_value.get_type().count_fields() >= 2 {
-            let flag = codegen_context
-                .builder
-                .build_extract_value(
-                    struct_value,
-                    1,
-                    env.next_name("propagate.err.flag").as_str(),
-                )?
-                .into_int_value();
+            let error_field = codegen_context.builder.build_extract_value(
+                struct_value,
+                1,
+                env.next_name("propagate.err").as_str(),
+            )?;
             let current_fn = current_function(codegen_context)?;
             let early_return = codegen_context
                 .context
@@ -260,11 +261,24 @@ pub fn codegen_propagate_expression<'context>(
             let continue_block = codegen_context
                 .context
                 .append_basic_block(current_fn, env.next_name("propagate.cont").as_str());
-            let _branch = codegen_context.builder.build_conditional_branch(
-                flag,
-                early_return,
-                continue_block,
-            )?;
+            if error_field.is_pointer_value() {
+                let is_error = codegen_context.builder.build_is_not_null(
+                    error_field.into_pointer_value(),
+                    env.next_name("propagate.is_err").as_str(),
+                )?;
+                let _branch = codegen_context.builder.build_conditional_branch(
+                    is_error,
+                    early_return,
+                    continue_block,
+                )?;
+            } else {
+                let flag = error_field.into_int_value();
+                let _branch = codegen_context.builder.build_conditional_branch(
+                    flag,
+                    early_return,
+                    continue_block,
+                )?;
+            }
             codegen_context.builder.position_at_end(early_return);
             emit_function_default_return(codegen_context, current_fn)?;
             codegen_context.builder.position_at_end(continue_block);
@@ -372,28 +386,34 @@ fn resolve_callee_function<'context>(
                     | "string_to_uint16"
                     | "string_to_uint32"
                     | "string_to_uint64"
+                    | "string_to_float32"
+                    | "string_to_float64"
             );
-            let base_function = if let Some(imported_runtime_name) =
-                env.imported_functions.get(name)
-            {
-                codegen_context
-                    .module
-                    .get_function(imported_runtime_name.as_str())
-                    .or_else(|| {
-                        declare_stdlib_function(codegen_context, imported_runtime_name.as_str())
-                    })
-                    .ok_or_else(|| {
-                        CodegenError::new(format!(
-                            "missing runtime function for imported symbol '{name}'"
-                        ))
-                    })?
-            } else if let Some(existing) = codegen_context.module.get_function(name.as_str()) {
-                existing
-            } else if let Some(stdlib_function) = declare_stdlib_function(codegen_context, name) {
-                stdlib_function
-            } else {
-                return Err(CodegenError::new(format!("unknown function: {name}")));
-            };
+            let base_function =
+                if let Some(imported_runtime_name) = env.imported_functions.get(name) {
+                    codegen_context
+                        .module
+                        .get_function(imported_runtime_name.as_str())
+                        .or_else(|| {
+                            crate::codegen::functions_stdlib::declare_stdlib_function(
+                                codegen_context,
+                                imported_runtime_name.as_str(),
+                            )
+                        })
+                        .ok_or_else(|| {
+                            CodegenError::new(format!(
+                                "missing runtime function for imported symbol '{name}'"
+                            ))
+                        })?
+                } else if let Some(existing) = codegen_context.module.get_function(name.as_str()) {
+                    existing
+                } else if let Some(stdlib_function) =
+                    crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, name)
+                {
+                    stdlib_function
+                } else {
+                    return Err(CodegenError::new(format!("unknown function: {name}")));
+                };
             if let Some(explicit_generic_args) = generic_args {
                 let concrete_types = explicit_generic_args
                     .iter()
@@ -452,135 +472,6 @@ fn resolve_callee_function<'context>(
         }
         _ => Err(CodegenError::new(String::from(
             "unsupported call callee expression",
-        ))),
-    }
-}
-
-#[doc = "Declare known stdlib functions with precise LLVM prototypes."]
-fn declare_stdlib_function<'context>(
-    codegen_context: &CodegenContext<'context>,
-    name: &str,
-) -> Option<FunctionValue<'context>> {
-    let ctx = codegen_context.context;
-    let module = &codegen_context.module;
-    let i8_ptr = ctx.i8_type().ptr_type(AddressSpace::default());
-    let void_type = ctx.void_type();
-    let i8_type = ctx.i8_type();
-    let i16_type = ctx.i16_type();
-    let i32_type = ctx.i32_type();
-    let i64_type = ctx.i64_type();
-    let f32_type = ctx.f32_type();
-    let f64_type = ctx.f64_type();
-
-    // Helper: get existing or add a new void(T) function.
-    macro_rules! void_fn {
-        ($nm:expr, $param:expr) => {
-            module.get_function($nm).or_else(|| {
-                let ft = void_type.fn_type(&[$param.into()], false);
-                Some(module.add_function($nm, ft, None))
-            })
-        };
-    }
-    // Helper: get existing or add T(T, T) function.
-    macro_rules! binary_int_fn {
-        ($nm:expr, $t:expr) => {
-            module.get_function($nm).or_else(|| {
-                let ft = $t.fn_type(&[$t.into(), $t.into()], false);
-                Some(module.add_function($nm, ft, None))
-            })
-        };
-    }
-    // Helper: get existing or add T(i8*) function.
-    macro_rules! ptr_to_int_fn {
-        ($nm:expr, $t:expr) => {
-            module.get_function($nm).or_else(|| {
-                let ft = $t.fn_type(&[i8_ptr.into()], false);
-                Some(module.add_function($nm, ft, None))
-            })
-        };
-    }
-
-    match name {
-        "print" => module.get_function("puts").or_else(|| {
-            let ft = i32_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("puts", ft, None))
-        }),
-        "printf" => module.get_function("printf").or_else(|| {
-            let ft = i32_type.fn_type(&[i8_ptr.into()], true);
-            Some(module.add_function("printf", ft, None))
-        }),
-        "take_input" => module.get_function("take_input").or_else(|| {
-            let ft = i8_ptr.fn_type(&[], false);
-            Some(module.add_function("take_input", ft, None))
-        }),
-        "print_string" => void_fn!("print_string", i8_ptr),
-        "print_int8" => void_fn!("print_int8", i8_type),
-        "print_int16" => void_fn!("print_int16", i16_type),
-        "print_int32" => void_fn!("print_int32", i32_type),
-        "print_int64" => void_fn!("print_int64", i64_type),
-        "print_uint8" => void_fn!("print_uint8", i8_type),
-        "print_uint16" => void_fn!("print_uint16", i16_type),
-        "print_uint32" => void_fn!("print_uint32", i32_type),
-        "print_uint64" => void_fn!("print_uint64", i64_type),
-        "print_float32" => void_fn!("print_float32", f32_type),
-        "print_float64" => void_fn!("print_float64", f64_type),
-        "random_int8" => binary_int_fn!("random_int8", i8_type),
-        "random_int16" => binary_int_fn!("random_int16", i16_type),
-        "random_int32" => binary_int_fn!("random_int32", i32_type),
-        "random_int64" => binary_int_fn!("random_int64", i64_type),
-        "random_uint8" => binary_int_fn!("random_uint8", i8_type),
-        "random_uint16" => binary_int_fn!("random_uint16", i16_type),
-        "random_uint32" => binary_int_fn!("random_uint32", i32_type),
-        "random_uint64" => binary_int_fn!("random_uint64", i64_type),
-        "string_to_int8" => ptr_to_int_fn!("string_to_int8", i8_type),
-        "string_to_int16" => ptr_to_int_fn!("string_to_int16", i16_type),
-        "string_to_int32" => ptr_to_int_fn!("string_to_int32", i32_type),
-        "string_to_int64" => ptr_to_int_fn!("string_to_int64", i64_type),
-        "string_to_uint8" => ptr_to_int_fn!("string_to_uint8", i8_type),
-        "string_to_uint16" => ptr_to_int_fn!("string_to_uint16", i16_type),
-        "string_to_uint32" => ptr_to_int_fn!("string_to_uint32", i32_type),
-        "string_to_uint64" => ptr_to_int_fn!("string_to_uint64", i64_type),
-        _ => None,
-    }
-}
-
-#[doc = "Resolve imported stdlib symbol to concrete runtime function name."]
-fn resolve_imported_runtime_name(
-    module_name: &str,
-    symbol_name: &str,
-) -> Result<String, CodegenError> {
-    match (module_name, symbol_name) {
-        ("standard", "take_input") => Ok("take_input".to_owned()),
-        ("standard", "print") => Ok("print".to_owned()),
-        ("standard", "print_string") => Ok("print_string".to_owned()),
-        ("standard", "print_int8") => Ok("print_int8".to_owned()),
-        ("standard", "print_int16") => Ok("print_int16".to_owned()),
-        ("standard", "print_int32") => Ok("print_int32".to_owned()),
-        ("standard", "print_int64") => Ok("print_int64".to_owned()),
-        ("standard", "print_uint8") => Ok("print_uint8".to_owned()),
-        ("standard", "print_uint16") => Ok("print_uint16".to_owned()),
-        ("standard", "print_uint32") => Ok("print_uint32".to_owned()),
-        ("standard", "print_uint64") => Ok("print_uint64".to_owned()),
-        ("standard", "print_float32") => Ok("print_float32".to_owned()),
-        ("standard", "print_float64") => Ok("print_float64".to_owned()),
-        ("standard", "string_to_int8") => Ok("string_to_int8".to_owned()),
-        ("standard", "string_to_int16") => Ok("string_to_int16".to_owned()),
-        ("standard", "string_to_int32") => Ok("string_to_int32".to_owned()),
-        ("standard", "string_to_int64") => Ok("string_to_int64".to_owned()),
-        ("standard", "string_to_uint8") => Ok("string_to_uint8".to_owned()),
-        ("standard", "string_to_uint16") => Ok("string_to_uint16".to_owned()),
-        ("standard", "string_to_uint32") => Ok("string_to_uint32".to_owned()),
-        ("standard", "string_to_uint64") => Ok("string_to_uint64".to_owned()),
-        ("math", "random_int8") => Ok("random_int8".to_owned()),
-        ("math", "random_int16") => Ok("random_int16".to_owned()),
-        ("math", "random_int32") => Ok("random_int32".to_owned()),
-        ("math", "random_int64") => Ok("random_int64".to_owned()),
-        ("math", "random_uint8") => Ok("random_uint8".to_owned()),
-        ("math", "random_uint16") => Ok("random_uint16".to_owned()),
-        ("math", "random_uint32") => Ok("random_uint32".to_owned()),
-        ("math", "random_uint64") => Ok("random_uint64".to_owned()),
-        _ => Err(CodegenError::new(format!(
-            "unknown import symbol '{symbol_name}' in module '{module_name}'"
         ))),
     }
 }

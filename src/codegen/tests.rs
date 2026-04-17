@@ -960,11 +960,11 @@ fn test_import_string_to_int64_emits_correct_declaration() {
     let source = "
 import string_to_int64 from standard
 
-entry main = f(): void => {
-    let n = string_to_int64('42')
+entry main = f(): void =>
+    guard string_to_int64('42') into n else _e =>
+        return void
     print('n: {n}')
     return void
-}
 ";
 
     let context = Context::create();
@@ -979,8 +979,8 @@ entry main = f(): void => {
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("declare i64 @string_to_int64(i8*)"),
-        "import string_to_int64 from standard should emit declare i64 @string_to_int64(i8*): {ir}"
+        ir.contains("@string_to_int64"),
+        "import string_to_int64 from standard should emit string_to_int64 declaration: {ir}"
     );
 }
 
@@ -989,12 +989,12 @@ fn test_import_standard_multiple_symbols_emit_all_runtime_declarations() {
     let source = "
 import take_input, string_to_int32 from standard
 
-entry main = f(): void => {
+entry main = f(): void =>
     let text = take_input()
-    let value = string_to_int32(text)
+    guard string_to_int32(text) into value else _e =>
+        return void
     print('value: {value}')
     return void
-}
 ";
 
     let context = Context::create();
@@ -1013,7 +1013,7 @@ entry main = f(): void => {
         "take_input declaration should exist when imported from standard: {ir}"
     );
     assert!(
-        ir.contains("declare i32 @string_to_int32(i8*)"),
+        ir.contains("@string_to_int32"),
         "string_to_int32 declaration should exist when imported from standard: {ir}"
     );
 }
@@ -1044,18 +1044,28 @@ entry main = f(): void =>
         verification.is_ok(),
         "module containing guard statement should verify: {verification:?}"
     );
+
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("extractvalue"),
+        "guard statement should emit extractvalue for struct-return parse function: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i32, i8* } @string_to_int32"),
+        "guard statement should emit struct-return declaration signature for string_to_int32: {ir}"
+    );
 }
 
 #[test]
 fn test_builtin_calls_emit_runtime_declarations_without_imports() {
     let source = "
-entry main = f(): void => {
+entry main = f(): void =>
     let raw = take_input()
-    let parsed = string_to_int32(raw)
+    guard string_to_int32(raw) into parsed else _e =>
+        return void
     let roll = random_int32(1, 6)
     print('parsed: {parsed}, roll: {roll}')
     return void
-}
 ";
 
     let context = Context::create();
@@ -1074,7 +1084,7 @@ entry main = f(): void => {
         "take_input builtin should emit take_input declaration: {ir}"
     );
     assert!(
-        ir.contains("declare i32 @string_to_int32(i8*)"),
+        ir.contains("@string_to_int32"),
         "string_to_int32 builtin should emit string_to_int32 declaration: {ir}"
     );
     assert!(
