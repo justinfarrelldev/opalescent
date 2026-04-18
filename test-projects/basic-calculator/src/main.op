@@ -1,29 +1,65 @@
 
-let handleAdd = f(num1: float64, num2: float64): float64 =>
+import take_input, string_to_float64 from standard
+
+##
+  Description: adds two float64 numbers and returns the sum
+##
+let handle_add = f(num1: float64, num2: float64): float64 =>
     return num1 + num2
 
-let handleSubtract = f(num1: float64, num2: float64): float64 =>
+##
+  Description: subtracts num2 from num1 and returns the difference
+##
+let handle_subtract = f(num1: float64, num2: float64): float64 =>
     return num1 - num2
 
-let handleMultiply = f(num1: float64, num2: float64): float64 =>
+##
+  Description: multiplies two float64 numbers and returns the product
+##
+let handle_multiply = f(num1: float64, num2: float64): float64 =>
     return num1 * num2
 
-let handleDivide = f(num1: float64, num2: float64): float64 =>
+##
+  Description: divides num1 by num2 and returns the quotient
+##
+let handle_divide = f(num1: float64, num2: float64): float64 =>
     return num1 / num2
 
 ##
-    Entry point of the calculator app
+  Description: starting point of the basic calculator application
 ##
-entry main = f(): void => 
-    print('Enter +, -, *, /')
-    let operation = take_input()
-    if operation is '+':
-        print('Operation is +')
-    if operation is '-':
-        print('Operation is -')
-    if operation is '*':
-        print('Operation is *')
-    if operation is '/':
-        print('Operation is /')
+entry main = f(args: string[]): void =>
+    print('Enter the first number:')
+    let input1 = take_input()
+    guard string_to_float64(input1) into num1 else e =>
+        print('Error: {e}')
+        return void
 
+    print('Enter an operation (+, -, *, /):')
+    let operation = take_input()
+
+    print('Enter the second number:')
+    let input2 = take_input()
+    guard string_to_float64(input2) into num2 else e =>
+        print('Error: {e}')
+        return void
+
+    if operation is '+':
+        let result = handle_add(num1, num2)
+        print('{num1} + {num2} = {result}')
+        return void
+    if operation is '-':
+        let result = handle_subtract(num1, num2)
+        print('{num1} - {num2} = {result}')
+        return void
+    if operation is '*':
+        let result = handle_multiply(num1, num2)
+        print('{num1} * {num2} = {result}')
+        return void
+    if operation is '/':
+        let result = handle_divide(num1, num2)
+        print('{num1} / {num2} = {result}')
+        return void
+
+    print('Unknown operation: {operation}')
     return void    
