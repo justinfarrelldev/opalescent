@@ -742,6 +742,11 @@ impl TypeChecker {
         generic_params: Option<&[alloc::string::String]>,
         generic_constraints: Option<&[TypeParameter]>,
     ) -> Result<CoreType, TypeError> {
+        // NOTE: Lambdas do NOT push their own modifier context. They inherit
+        // the enclosing function's modifiers from function_modifier_stack.
+        // This means lambdas inside `pure` functions are implicitly pure.
+        // This is intentional — a lambda created in a pure context should
+        // not be able to perform impure operations.
         let mut lambda_generic_params: Vec<GenericTypeParameter> = Vec::new();
         let mut generic_bindings: Vec<(alloc::string::String, CoreType)> = Vec::new();
         if let Some(constraints) = generic_constraints {
@@ -816,16 +821,13 @@ impl TypeChecker {
         self.begin_return_context();
         let body_result = self.within_new_scope(|checker| -> Result<(), TypeError> {
             for (param, core_type) in parameters.iter().zip(parameter_types.iter()) {
-                checker.symbol_table.register(SymbolInfo {
-                    name: param.name.clone(),
-                    symbol_type: SymbolType::Variable,
-                    core_type: core_type.clone(),
-                    visibility: Visibility::Private,
-                    source_location: param.span(),
-                    is_let_binding: false,
-                    is_mutable: false,
-                    read_count: 0,
-                });
+                checker.symbol_table.register(SymbolInfo { name: param.name.clone(),
+                symbol_type: SymbolType::Variable,
+                core_type: core_type.clone(),
+                visibility: Visibility::Private,
+                source_location: param.span(),
+                is_let_binding: false,
+                is_mutable: false, read_count: 0, is_pure: false, });
             }
             match *body {
                 LambdaBody::Expression(ref expr) => {

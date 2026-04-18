@@ -543,13 +543,665 @@ fn test_type_check_pure_function_rejects_print_call() {
     let errors = result.unwrap_err();
     assert!(
         errors.iter().any(|error| {
-            matches!(
-                error,
-                &TypeError::InvalidOperation { ref operation, .. }
-                if operation.contains("impure function 'print'")
+            matches!(*error,
+                TypeError::PurityViolation { ref callee_name, .. }
+                if callee_name == "print"
             )
         }),
-        "expected InvalidOperation about impure print call, got: {errors:?}"
+        "expected PurityViolation about impure print call, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_lambda_inside_pure_function_inherits_purity() {
+    let lambda_call_print = Expr::Lambda {
+        generic_params: None,
+        generic_constraints: None,
+        params: Vec::new(),
+        return_types: vec![int_type("void")],
+        error_types: Vec::new(),
+        body: LambdaBody::Block(vec![Stmt::Expression {
+            expr: Expr::Call {
+                callee: Box::new(identifier_expr("print", 7_130_000)),
+                generic_args: None,
+                args: vec![literal_expr(
+                    LiteralValue::String(String::from("hello")),
+                    7_130_001,
+                )],
+                span: test_span(),
+                id: node_id(7_130_002),
+            },
+            span: test_span(),
+            id: node_id(7_130_003),
+        }]),
+        captured_variables: vec![],
+        metadata: Box::new(HotReloadMetadata::for_expression()),
+        span: test_span(),
+        id: node_id(7_130_004),
+    };
+
+    let pure_body = Stmt::Block {
+        statements: vec![Stmt::Expression {
+            expr: lambda_call_print,
+            span: test_span(),
+            id: node_id(7_130_005),
+        }],
+        span: test_span(),
+        id: node_id(7_130_006),
+    };
+
+    let pure_fn = Decl::Function {
+        name: String::from("pure_worker_lambda"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("void")]),
+        error_types: Vec::new(),
+        body: pure_body,
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_130_007),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let mut main_fn = make_function_decl(
+        "main",
+        Vec::new(),
+        Some(int_type("int32")),
+        return_stmt(literal_expr(LiteralValue::Integer(0), 7_130_008), 7_130_009),
+        7_130_010,
+    );
+    if let Decl::Function {
+        ref mut is_entry, ..
+    } = main_fn
+    {
+        *is_entry = true;
+    }
+
+    let program = create_program(vec![pure_fn, main_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_err(),
+        "lambda inside pure function calling print should fail"
+    );
+    let errors = result.unwrap_err();
+    assert!(
+        errors.iter().any(|error| {
+            matches!(*error,
+                TypeError::PurityViolation { ref callee_name, .. }
+                if callee_name == "print"
+            )
+        }),
+        "expected PurityViolation about impure print call in lambda, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_lambda_inside_non_pure_function_allows_print() {
+    let lambda_call_print = Expr::Lambda {
+        generic_params: None,
+        generic_constraints: None,
+        params: Vec::new(),
+        return_types: vec![int_type("void")],
+        error_types: Vec::new(),
+        body: LambdaBody::Block(vec![Stmt::Expression {
+            expr: Expr::Call {
+                callee: Box::new(identifier_expr("print", 7_140_000)),
+                generic_args: None,
+                args: vec![literal_expr(
+                    LiteralValue::String(String::from("hello")),
+                    7_140_001,
+                )],
+                span: test_span(),
+                id: node_id(7_140_002),
+            },
+            span: test_span(),
+            id: node_id(7_140_003),
+        }]),
+        captured_variables: vec![],
+        metadata: Box::new(HotReloadMetadata::for_expression()),
+        span: test_span(),
+        id: node_id(7_140_004),
+    };
+
+    let impure_body = Stmt::Block {
+        statements: vec![Stmt::Expression {
+            expr: lambda_call_print,
+            span: test_span(),
+            id: node_id(7_140_005),
+        }],
+        span: test_span(),
+        id: node_id(7_140_006),
+    };
+
+    let impure_fn = Decl::Function {
+        name: String::from("impure_worker_lambda"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("void")]),
+        error_types: Vec::new(),
+        body: impure_body,
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_140_007),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let mut main_fn = make_function_decl(
+        "main",
+        Vec::new(),
+        Some(int_type("int32")),
+        return_stmt(literal_expr(LiteralValue::Integer(0), 7_140_008), 7_140_009),
+        7_140_010,
+    );
+    if let Decl::Function {
+        ref mut is_entry, ..
+    } = main_fn
+    {
+        *is_entry = true;
+    }
+
+    let program = create_program(vec![impure_fn, main_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_ok(),
+        "lambda inside non-pure function should allow print"
+    );
+}
+
+#[test]
+fn test_type_check_pure_function_rejects_print_int32() {
+    let pure_body = Stmt::Block {
+        statements: vec![Stmt::Expression {
+            expr: Expr::Call {
+                callee: Box::new(identifier_expr("print_int32", 7_110_000)),
+                generic_args: None,
+                args: vec![literal_expr(LiteralValue::Integer(123), 7_110_001)],
+                span: test_span(),
+                id: node_id(7_110_002),
+            },
+            span: test_span(),
+            id: node_id(7_110_003),
+        }],
+        span: test_span(),
+        id: node_id(7_110_004),
+    };
+
+    let pure_fn = Decl::Function {
+        name: String::from("pure_worker_print_int32"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("void")]),
+        error_types: Vec::new(),
+        body: pure_body,
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_110_005),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![pure_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_err(),
+        "pure function calling print_int32 should fail"
+    );
+    let errors = result.unwrap_err();
+    assert!(
+        errors.iter().any(|error| {
+            matches!(*error,
+                TypeError::PurityViolation { ref callee_name, .. }
+                if callee_name == "print_int32"
+            )
+        }),
+        "expected PurityViolation about impure print_int32 call, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_type_check_pure_function_rejects_random_uint64() {
+    let pure_body = Stmt::Block {
+        statements: vec![Stmt::Expression {
+            expr: Expr::Call {
+                callee: Box::new(identifier_expr("random_uint64", 7_120_000)),
+                generic_args: None,
+                args: vec![
+                    literal_expr(LiteralValue::Integer(1), 7_120_001),
+                    literal_expr(LiteralValue::Integer(10), 7_120_002),
+                ],
+                span: test_span(),
+                id: node_id(7_120_003),
+            },
+            span: test_span(),
+            id: node_id(7_120_004),
+        }],
+        span: test_span(),
+        id: node_id(7_120_005),
+    };
+
+    let pure_fn = Decl::Function {
+        name: String::from("pure_worker_random_uint64"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("void")]),
+        error_types: Vec::new(),
+        body: pure_body,
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_120_006),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![pure_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_err(),
+        "pure function calling random_uint64 should fail"
+    );
+    let errors = result.unwrap_err();
+    assert!(
+        errors.iter().any(|error| {
+            matches!(*error,
+                TypeError::PurityViolation { ref callee_name, .. }
+                if callee_name == "random_uint64"
+            )
+        }),
+        "expected PurityViolation about impure random_uint64 call, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_type_check_pure_function_rejects_print_string() {
+    let pure_body = Stmt::Block {
+        statements: vec![Stmt::Expression {
+            expr: Expr::Call {
+                callee: Box::new(identifier_expr("print_string", 7_130_000)),
+                generic_args: None,
+                args: vec![literal_expr(
+                    LiteralValue::String(String::from("hello")),
+                    7_130_001,
+                )],
+                span: test_span(),
+                id: node_id(7_130_002),
+            },
+            span: test_span(),
+            id: node_id(7_130_003),
+        }],
+        span: test_span(),
+        id: node_id(7_130_004),
+    };
+
+    let pure_fn = Decl::Function {
+        name: String::from("pure_worker_print_string"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("void")]),
+        error_types: Vec::new(),
+        body: pure_body,
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_130_005),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![pure_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_err(),
+        "pure function calling print_string should fail"
+    );
+    let errors = result.unwrap_err();
+    assert!(
+        errors.iter().any(|error| {
+            matches!(*error,
+                TypeError::PurityViolation { ref callee_name, .. }
+                if callee_name == "print_string"
+            )
+        }),
+        "expected PurityViolation about impure print_string call, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_pure_function_cannot_call_non_pure_user_function() {
+    let impure_helper = Decl::Function {
+        name: String::from("impure_helper"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("int32")]),
+        error_types: Vec::new(),
+        body: return_stmt(literal_expr(LiteralValue::Integer(1), 7_135_000), 7_135_001),
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_135_002),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let pure_caller = Decl::Function {
+        name: String::from("pure_caller"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("int32")]),
+        error_types: Vec::new(),
+        body: return_stmt(call_expr("impure_helper", &[], 7_135_003), 7_135_004),
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_135_005),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![impure_helper, pure_caller]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_err(),
+        "pure function calling non-pure user function should fail"
+    );
+    let errors = result.unwrap_err();
+    assert!(
+        errors.iter().any(|error| {
+            matches!(*error,
+                TypeError::PurityViolation { ref callee_name, .. }
+                if callee_name == "impure_helper"
+            )
+        }),
+        "expected PurityViolation about non-pure impure_helper call, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_pure_function_can_call_pure_user_function() {
+    let pure_helper = Decl::Function {
+        name: String::from("pure_helper"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("int32")]),
+        error_types: Vec::new(),
+        body: return_stmt(literal_expr(LiteralValue::Integer(42), 7_136_000), 7_136_001),
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_136_002),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let pure_caller = Decl::Function {
+        name: String::from("pure_caller"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("int32")]),
+        error_types: Vec::new(),
+        body: return_stmt(call_expr("pure_helper", &[], 7_136_003), 7_136_004),
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_136_005),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![pure_helper, pure_caller]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_ok(),
+        "pure function calling pure user function should pass: {result:?}"
+    );
+}
+
+#[test]
+fn test_pure_function_allows_local_mutation() {
+    let pure_body = Stmt::Block {
+        statements: vec![
+            Stmt::Let {
+                binding: LetBinding {
+                    name: "x".to_owned(),
+                    type_annotation: Some(int_type("int32")),
+                    is_mutable: true,
+                    span: test_span(),
+                    id: node_id(7_137_000),
+                },
+                initializer: Some(literal_expr(LiteralValue::Integer(0), 7_137_001)),
+                span: test_span(),
+                id: node_id(7_137_002),
+            },
+            Stmt::Assignment {
+                target: identifier_expr("x", 7_137_003),
+                value: literal_expr(LiteralValue::Integer(1), 7_137_004),
+                span: test_span(),
+                id: node_id(7_137_005),
+            },
+            return_stmt(identifier_expr("x", 7_137_006), 7_137_007),
+        ],
+        span: test_span(),
+        id: node_id(7_137_008),
+    };
+
+    let pure_fn = Decl::Function {
+        name: String::from("pure_local_mutation"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("int32")]),
+        error_types: Vec::new(),
+        body: pure_body,
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_137_009),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![pure_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_ok(),
+        "pure function local mutation should be allowed: {result:?}"
+    );
+}
+
+#[test]
+fn test_pure_function_allows_collection_member_calls() {
+    let pure_body = Stmt::Block {
+        statements: vec![
+            Stmt::Let {
+                binding: LetBinding {
+                    name: "arr".to_owned(),
+                    type_annotation: Some(Type::Array {
+                        element_type: Box::new(int_type("int32")),
+                        span: test_span(),
+                    }),
+                    is_mutable: true,
+                    span: test_span(),
+                    id: node_id(7_138_000),
+                },
+                initializer: Some(Expr::Array {
+                    elements: vec![Expr::Cast {
+                        expr: Box::new(literal_expr(LiteralValue::Integer(1), 7_138_001)),
+                        target_type: int_type("int32"),
+                        span: test_span(),
+                        id: node_id(7_138_015),
+                    }],
+                    span: test_span(),
+                    id: node_id(7_138_002),
+                }),
+                span: test_span(),
+                id: node_id(7_138_003),
+            },
+            Stmt::Expression {
+                expr: Expr::Call {
+                    callee: Box::new(Expr::Member {
+                        object: Box::new(identifier_expr("arr", 7_138_004)),
+                        member: "push".to_owned(),
+                        span: test_span(),
+                        id: node_id(7_138_005),
+                    }),
+                    generic_args: None,
+                    args: vec![Expr::Cast {
+                        expr: Box::new(literal_expr(LiteralValue::Integer(1), 7_138_006)),
+                        target_type: int_type("int32"),
+                        span: test_span(),
+                        id: node_id(7_138_016),
+                    }],
+                    span: test_span(),
+                    id: node_id(7_138_007),
+                },
+                span: test_span(),
+                id: node_id(7_138_008),
+            },
+            return_stmt(
+                Expr::Call {
+                    callee: Box::new(Expr::Member {
+                        object: Box::new(identifier_expr("arr", 7_138_009)),
+                        member: "length".to_owned(),
+                        span: test_span(),
+                        id: node_id(7_138_010),
+                    }),
+                    generic_args: None,
+                    args: vec![],
+                    span: test_span(),
+                    id: node_id(7_138_011),
+                },
+                7_138_012,
+            ),
+        ],
+        span: test_span(),
+        id: node_id(7_138_013),
+    };
+
+    let pure_fn = Decl::Function {
+        name: String::from("pure_collection_member_calls"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("int32")]),
+        error_types: Vec::new(),
+        body: pure_body,
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_138_014),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![pure_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_ok(),
+        "pure function collection member calls should be allowed: {result:?}"
+    );
+}
+
+#[test]
+fn test_type_check_pure_function_allows_string_to_int32() {
+    let pure_body = Stmt::Block {
+        statements: vec![
+            Stmt::Let {
+                binding: LetBinding {
+                    name: "n".to_owned(),
+                    type_annotation: Some(int_type("int32")),
+                    is_mutable: false,
+                    span: test_span(),
+                    id: node_id(7_140_000),
+                },
+                initializer: Some(propagate_call(
+                    Expr::Call {
+                        callee: Box::new(identifier_expr("string_to_int32", 7_140_001)),
+                        generic_args: None,
+                        args: vec![literal_expr(
+                            LiteralValue::String(String::from("12")),
+                            7_140_002,
+                        )],
+                        span: test_span(),
+                        id: node_id(7_140_003),
+                    },
+                    7_140_006,
+                )),
+                span: test_span(),
+                id: node_id(7_140_007),
+            },
+            return_stmt(identifier_expr("n", 7_140_010), 7_140_011),
+        ],
+        span: test_span(),
+        id: node_id(7_140_008),
+    };
+
+    let pure_fn = Decl::Function {
+        name: String::from("pure_worker_string_to_int32"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("int32")]),
+        error_types: vec![String::from("ParseError")],
+        body: pure_body,
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_140_009),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![pure_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_ok(),
+        "pure function calling string_to_int32 should be allowed: {result:?}"
     );
 }
 
@@ -596,6 +1248,111 @@ fn test_type_check_non_pure_function_allows_print_call() {
     let result = checker.type_check_program(&program);
 
     assert!(result.is_ok(), "non-pure function should allow print call");
+}
+
+#[test]
+fn test_pure_entry_combination_rejected() {
+    let pure_entry_fn = Decl::Function {
+        name: String::from("main"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("void")]),
+        error_types: Vec::new(),
+        body: return_stmt(literal_expr(LiteralValue::Void, 7_205_000), 7_205_001),
+        visibility: AstVisibility::Private,
+        is_entry: true,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_205_002),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = Program {
+        declarations: vec![pure_entry_fn],
+        span: test_span(),
+        id: node_id(7_205_003),
+    };
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(result.is_err(), "pure entry function should be rejected");
+    let errors = result.unwrap_err();
+    assert!(
+        errors.iter().any(|error| {
+            matches!(*error,
+                TypeError::PurityViolation { ref callee_name, .. }
+                if callee_name == "entry"
+            )
+        }),
+        "expected PurityViolation about pure entry declaration, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_symbol_info_tracks_purity() {
+    let pure_fn = Decl::Function {
+        name: String::from("pure_symbol_worker"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("void")]),
+        error_types: Vec::new(),
+        body: return_stmt(literal_expr(LiteralValue::Void, 7_210_000), 7_210_001),
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![FunctionModifier::Pure],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_210_002),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let non_pure_fn = Decl::Function {
+        name: String::from("non_pure_symbol_worker"),
+        generic_params: None,
+        generic_constraints: None,
+        parameters: Vec::new(),
+        return_types: Some(vec![int_type("void")]),
+        error_types: Vec::new(),
+        body: return_stmt(literal_expr(LiteralValue::Void, 7_210_003), 7_210_004),
+        visibility: AstVisibility::Private,
+        is_entry: false,
+        modifiers: vec![],
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(7_210_005),
+        metadata: HotReloadMetadata::for_function(),
+    };
+
+    let program = create_entry_program(vec![pure_fn, non_pure_fn]);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+
+    assert!(
+        result.is_ok(),
+        "program with pure and non-pure functions should type check: {result:?}"
+    );
+
+    let pure_symbol = checker
+        .symbol_table()
+        .lookup("pure_symbol_worker")
+        .expect("pure function should be registered");
+    assert!(
+        pure_symbol.is_pure,
+        "pure function symbol should be marked as pure"
+    );
+
+    let non_pure_symbol = checker
+        .symbol_table()
+        .lookup("non_pure_symbol_worker")
+        .expect("non-pure function should be registered");
+    assert!(
+        !non_pure_symbol.is_pure,
+        "non-pure function symbol should not be marked as pure"
+    );
 }
 
 /// Ensure propagate succeeds when the callee exposes a subset of the caller's error list
@@ -3032,6 +3789,7 @@ fn test_symbol_table_scope_management() {
         is_let_binding: false,
         is_mutable: false,
         read_count: 0,
+        is_pure: false,
     });
 
     // Should find global variable
@@ -3043,16 +3801,13 @@ fn test_symbol_table_scope_management() {
     assert_ne!(func_scope, ScopeId(0));
 
     // Register parameter in function scope
-    table.register(SymbolInfo {
-        name: "param".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::String,
-        visibility: Visibility::Private,
-        source_location: Span::single(Position::start()),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    table.register(SymbolInfo { name: "param".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::String,
+    visibility: Visibility::Private,
+    source_location: Span::single(Position::start()),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     // Should find both global and local
     assert!(
@@ -3074,16 +3829,13 @@ fn test_symbol_table_scope_management() {
     assert_ne!(block_scope, func_scope);
 
     // Register local variable in block
-    table.register(SymbolInfo {
-        name: "local_var".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Boolean,
-        visibility: Visibility::Private,
-        source_location: Span::single(Position::start()),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    table.register(SymbolInfo { name: "local_var".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Boolean,
+    visibility: Visibility::Private,
+    source_location: Span::single(Position::start()),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     // Should find all three variables
     assert!(table.contains("global_var"));
@@ -3118,32 +3870,26 @@ fn test_symbol_table_shadowing() {
     let mut table = SymbolTable::new();
 
     // Register in global scope
-    table.register(SymbolInfo {
-        name: "x".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Int32,
-        visibility: Visibility::Private,
-        source_location: Span::single(Position::start()),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    table.register(SymbolInfo { name: "x".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Int32,
+    visibility: Visibility::Private,
+    source_location: Span::single(Position::start()),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     let global_x = table.lookup("x").unwrap();
     assert_eq!(global_x.core_type, CoreType::Int32);
 
     // Enter scope and shadow x
     table.enter_scope();
-    table.register(SymbolInfo {
-        name: "x".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::String,
-        visibility: Visibility::Private,
-        source_location: Span::single(Position::start()),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    table.register(SymbolInfo { name: "x".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::String,
+    visibility: Visibility::Private,
+    source_location: Span::single(Position::start()),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     // Should find shadowed version
     let shadowed_x = table.lookup("x").unwrap();
@@ -3170,55 +3916,46 @@ fn test_symbol_table_exported_symbols() {
     let mut table = SymbolTable::new();
 
     // Register public symbol in global scope
-    table.register(SymbolInfo {
-        name: "public_func".to_owned(),
-        symbol_type: SymbolType::Function,
-        core_type: CoreType::Function {
-            generic_params: Vec::new(),
-            parameters: vec![],
-            return_types: vec![CoreType::Unit],
-            error_types: vec![],
-        },
-        visibility: Visibility::Public,
-        source_location: Span::single(Position::start()),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    table.register(SymbolInfo { name: "public_func".to_owned(),
+    symbol_type: SymbolType::Function,
+    core_type: CoreType::Function {
+        generic_params: Vec::new(),
+        parameters: vec![],
+        return_types: vec![CoreType::Unit],
+        error_types: vec![],
+    },
+    visibility: Visibility::Public,
+    source_location: Span::single(Position::start()),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     // Register entry point in global scope
-    table.register(SymbolInfo {
-        name: "main".to_owned(),
-        symbol_type: SymbolType::Function,
-        core_type: CoreType::Function {
-            generic_params: Vec::new(),
-            parameters: vec![],
-            return_types: vec![CoreType::Unit],
-            error_types: vec![],
-        },
-        visibility: Visibility::Entry,
-        source_location: Span::single(Position::start()),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    table.register(SymbolInfo { name: "main".to_owned(),
+    symbol_type: SymbolType::Function,
+    core_type: CoreType::Function {
+        generic_params: Vec::new(),
+        parameters: vec![],
+        return_types: vec![CoreType::Unit],
+        error_types: vec![],
+    },
+    visibility: Visibility::Entry,
+    source_location: Span::single(Position::start()),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     // Register private symbol in global scope
-    table.register(SymbolInfo {
-        name: "private_func".to_owned(),
-        symbol_type: SymbolType::Function,
-        core_type: CoreType::Function {
-            generic_params: Vec::new(),
-            parameters: vec![],
-            return_types: vec![CoreType::Unit],
-            error_types: vec![],
-        },
-        visibility: Visibility::Private,
-        source_location: Span::single(Position::start()),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    table.register(SymbolInfo { name: "private_func".to_owned(),
+    symbol_type: SymbolType::Function,
+    core_type: CoreType::Function {
+        generic_params: Vec::new(),
+        parameters: vec![],
+        return_types: vec![CoreType::Unit],
+        error_types: vec![],
+    },
+    visibility: Visibility::Private,
+    source_location: Span::single(Position::start()),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     let exported = table.exported_symbols();
     assert_eq!(exported.len(), 2, "Should have 2 exported symbols");
@@ -4554,16 +5291,13 @@ fn test_solve_constraints_applies_substitution_to_registered_symbols() {
         .fresh_type_var("resolved_symbol_type".to_owned(), span)
         .expect("should allocate symbol type variable");
 
-    checker.symbol_table_mut().register(SymbolInfo {
-        name: "pending_value".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: variable_type.clone(),
-        visibility: Visibility::Private,
-        source_location: span,
-        is_let_binding: true,
-        is_mutable: false,
-        read_count: 0,
-    });
+    checker.symbol_table_mut().register(SymbolInfo { name: "pending_value".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: variable_type.clone(),
+    visibility: Visibility::Private,
+    source_location: span,
+    is_let_binding: true,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     checker.add_constraint(TypeConstraint::equality(
         variable_type,
@@ -5224,34 +5958,28 @@ fn test_hello_world_spec_file_type_checks_with_builtins() {
 #[test]
 fn test_member_access_module_member_resolves_type() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
+    checker.register_symbol(SymbolInfo { name: "math".to_owned(),
+    symbol_type: SymbolType::Constant,
+    core_type: CoreType::Generic {
         name: "math".to_owned(),
-        symbol_type: SymbolType::Constant,
-        core_type: CoreType::Generic {
-            name: "math".to_owned(),
-            type_args: Vec::new(),
-        },
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
-    checker.register_symbol(SymbolInfo {
-        name: "math.sqrt".to_owned(),
-        symbol_type: SymbolType::Function,
-        core_type: CoreType::Function {
-            generic_params: Vec::new(),
-            parameters: vec![CoreType::Int32],
-            return_types: vec![CoreType::Int32],
-            error_types: Vec::new(),
-        },
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+        type_args: Vec::new(),
+    },
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
+    checker.register_symbol(SymbolInfo { name: "math.sqrt".to_owned(),
+    symbol_type: SymbolType::Function,
+    core_type: CoreType::Function {
+        generic_params: Vec::new(),
+        parameters: vec![CoreType::Int32],
+        return_types: vec![CoreType::Int32],
+        error_types: Vec::new(),
+    },
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     let expr = Expr::Member {
         object: Box::new(identifier_expr("math", 81_000)),
@@ -5271,29 +5999,23 @@ fn test_member_access_module_member_resolves_type() {
 #[test]
 fn test_member_access_struct_like_field_resolves_type() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
-        name: "person".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Generic {
-            name: "Person".to_owned(),
-            type_args: Vec::new(),
-        },
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
-    checker.register_symbol(SymbolInfo {
-        name: "Person.name".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::String,
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    checker.register_symbol(SymbolInfo { name: "person".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Generic {
+        name: "Person".to_owned(),
+        type_args: Vec::new(),
+    },
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
+    checker.register_symbol(SymbolInfo { name: "Person.name".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::String,
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     let expr = Expr::Member {
         object: Box::new(identifier_expr("person", 82_000)),
@@ -5313,19 +6035,16 @@ fn test_member_access_struct_like_field_resolves_type() {
 #[test]
 fn test_member_access_missing_member_reports_symbol_error_with_span() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
+    checker.register_symbol(SymbolInfo { name: "math".to_owned(),
+    symbol_type: SymbolType::Constant,
+    core_type: CoreType::Generic {
         name: "math".to_owned(),
-        symbol_type: SymbolType::Constant,
-        core_type: CoreType::Generic {
-            name: "math".to_owned(),
-            type_args: Vec::new(),
-        },
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+        type_args: Vec::new(),
+    },
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     let member_span = span_with_offset(210, 9);
     let expr = Expr::Member {
@@ -5364,47 +6083,38 @@ fn test_member_access_missing_member_reports_symbol_error_with_span() {
 #[test]
 fn test_member_access_chained_member_resolves_type() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
+    checker.register_symbol(SymbolInfo { name: "pkg".to_owned(),
+    symbol_type: SymbolType::Constant,
+    core_type: CoreType::Generic {
         name: "pkg".to_owned(),
-        symbol_type: SymbolType::Constant,
-        core_type: CoreType::Generic {
-            name: "pkg".to_owned(),
-            type_args: Vec::new(),
-        },
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
-    checker.register_symbol(SymbolInfo {
-        name: "pkg.math".to_owned(),
-        symbol_type: SymbolType::Constant,
-        core_type: CoreType::Generic {
-            name: "MathModule".to_owned(),
-            type_args: Vec::new(),
-        },
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
-    checker.register_symbol(SymbolInfo {
-        name: "MathModule.sqrt".to_owned(),
-        symbol_type: SymbolType::Function,
-        core_type: CoreType::Function {
-            generic_params: Vec::new(),
-            parameters: vec![CoreType::Int32],
-            return_types: vec![CoreType::Int32],
-            error_types: Vec::new(),
-        },
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+        type_args: Vec::new(),
+    },
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
+    checker.register_symbol(SymbolInfo { name: "pkg.math".to_owned(),
+    symbol_type: SymbolType::Constant,
+    core_type: CoreType::Generic {
+        name: "MathModule".to_owned(),
+        type_args: Vec::new(),
+    },
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
+    checker.register_symbol(SymbolInfo { name: "MathModule.sqrt".to_owned(),
+    symbol_type: SymbolType::Function,
+    core_type: CoreType::Function {
+        generic_params: Vec::new(),
+        parameters: vec![CoreType::Int32],
+        return_types: vec![CoreType::Int32],
+        error_types: Vec::new(),
+    },
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     let expr = Expr::Member {
         object: Box::new(Expr::Member {
@@ -5533,16 +6243,13 @@ fn test_constant_i32_multiplication_overflow_emits_warning() {
 #[test]
 fn test_constant_shift_count_at_i32_upper_bound_is_valid() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
-        name: "value".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Int32,
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    checker.register_symbol(SymbolInfo { name: "value".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Int32,
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("value", 90_300)),
         operator: crate::ast::BinaryOp::BitShiftLeft,
@@ -5560,16 +6267,13 @@ fn test_constant_shift_count_at_i32_upper_bound_is_valid() {
 #[test]
 fn test_constant_shift_count_at_i32_bit_width_is_rejected() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
-        name: "value".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Int32,
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    checker.register_symbol(SymbolInfo { name: "value".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Int32,
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("value", 90_400)),
         operator: crate::ast::BinaryOp::BitShiftLeft,
@@ -5597,16 +6301,13 @@ fn test_constant_shift_count_at_i32_bit_width_is_rejected() {
 #[test]
 fn test_constant_negative_shift_count_is_rejected() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
-        name: "value".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Int32,
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    checker.register_symbol(SymbolInfo { name: "value".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Int32,
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("value", 90_500)),
         operator: crate::ast::BinaryOp::BitShiftLeft,
@@ -5634,16 +6335,13 @@ fn test_constant_negative_shift_count_is_rejected() {
 #[test]
 fn test_constant_division_by_zero_is_rejected_with_rhs_span() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
-        name: "numerator".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Int64,
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    checker.register_symbol(SymbolInfo { name: "numerator".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Int64,
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
     let rhs_span = span_with_offset(2_100, 1);
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("numerator", 90_600)),
@@ -5685,16 +6383,13 @@ fn test_constant_division_by_zero_is_rejected_with_rhs_span() {
 #[test]
 fn test_constant_modulo_by_zero_is_rejected_with_rhs_span() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
-        name: "numerator".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Int64,
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    checker.register_symbol(SymbolInfo { name: "numerator".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Int64,
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
     let rhs_span = span_with_offset(2_200, 1);
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("numerator", 90_610)),
@@ -5733,16 +6428,13 @@ fn test_constant_modulo_by_zero_is_rejected_with_rhs_span() {
 #[test]
 fn test_non_constant_lhs_with_literal_zero_divisor_is_still_rejected() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
-        name: "a".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Int64,
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    checker.register_symbol(SymbolInfo { name: "a".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Int64,
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("a", 90_620)),
         operator: crate::ast::BinaryOp::Divide,
@@ -5763,26 +6455,20 @@ fn test_non_constant_lhs_with_literal_zero_divisor_is_still_rejected() {
 #[test]
 fn test_non_constant_divisor_does_not_emit_compile_time_division_by_zero() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
-        name: "numerator".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Int64,
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
-    checker.register_symbol(SymbolInfo {
-        name: "denominator".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Int64,
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    checker.register_symbol(SymbolInfo { name: "numerator".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Int64,
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
+    checker.register_symbol(SymbolInfo { name: "denominator".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Int64,
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
     let expr = Expr::Binary {
         left: Box::new(identifier_expr("numerator", 90_630)),
         operator: crate::ast::BinaryOp::Divide,
@@ -5824,16 +6510,13 @@ entry sum_values = f(a: int32, b: int32): int32 =>
 #[test]
 fn test_integer_intrinsic_member_calls_type_check() {
     let mut checker = TypeChecker::new();
-    checker.register_symbol(SymbolInfo {
-        name: "value".to_owned(),
-        symbol_type: SymbolType::Variable,
-        core_type: CoreType::Int32,
-        visibility: Visibility::Private,
-        source_location: test_span(),
-        is_let_binding: false,
-        is_mutable: false,
-        read_count: 0,
-    });
+    checker.register_symbol(SymbolInfo { name: "value".to_owned(),
+    symbol_type: SymbolType::Variable,
+    core_type: CoreType::Int32,
+    visibility: Visibility::Private,
+    source_location: test_span(),
+    is_let_binding: false,
+    is_mutable: false, read_count: 0, is_pure: false, });
 
     let checked_add_expr = Expr::Call {
         callee: Box::new(Expr::Member {
@@ -6029,5 +6712,19 @@ return result
     assert!(
         result.is_ok(),
         "int32_to_string then string_to_int32 roundtrip should type check: {result:?}"
+    );
+}
+
+#[test]
+fn test_purity_violation_variant_exists() {
+    let err = TypeError::PurityViolation {
+        callee_name: String::from("print"),
+        reason: String::from("this function performs I/O or has side effects"),
+        span: TypeError::unknown_span(),
+    };
+    let msg = alloc::format!("{err}");
+    assert!(
+        msg.contains("print"),
+        "PurityViolation Display should include callee name, got: {msg}"
     );
 }

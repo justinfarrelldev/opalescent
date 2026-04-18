@@ -50,15 +50,12 @@ impl TypeChecker {
         let symbol_name = name.to_owned();
         self.environment
             .register_builtin(symbol_name.clone(), signature.clone());
-        self.symbol_table.register(SymbolInfo {
-            name: symbol_name,
-            symbol_type: SymbolType::Function,
-            core_type: signature,
-            visibility: Visibility::Public,
-            source_location: Span::single(crate::token::Position::start()),
-            is_let_binding: false,
-            is_mutable: false,
-            read_count: 0,
-        });
+        self.symbol_table.register(SymbolInfo { name: symbol_name,
+        symbol_type: SymbolType::Function,
+        core_type: signature,
+        visibility: Visibility::Public,
+        source_location: Span::single(crate::token::Position::start()),
+        is_let_binding: false,
+        is_mutable: false, read_count: 0, is_pure: false, });
     }
 }

@@ -101,16 +101,13 @@ impl TypeChecker {
         } else {
             SymbolType::Constant
         };
-        self.symbol_table.register(SymbolInfo {
-            name: binding.name.to_owned(),
-            symbol_type,
-            core_type: success_type.clone(),
-            visibility: Visibility::Private,
-            source_location: binding.span,
-            is_let_binding: false,
-            is_mutable: false,
-            read_count: 0,
-        });
+        self.symbol_table.register(SymbolInfo { name: binding.name.to_owned(),
+        symbol_type,
+        core_type: success_type.clone(),
+        visibility: Visibility::Private,
+        source_location: binding.span,
+        is_let_binding: false,
+        is_mutable: false, read_count: 0, is_pure: false, });
 
         Ok(success_type)
     }

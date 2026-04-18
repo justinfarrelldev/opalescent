@@ -666,6 +666,7 @@ impl ModuleResolver {
             is_let_binding: false,
             is_mutable: false,
             read_count: 0,
+            is_pure: false,
         }
     }
 }

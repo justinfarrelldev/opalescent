@@ -145,19 +145,16 @@ impl TypeChecker {
         source: &str,
         span: Span,
     ) -> Result<(), TypeError> {
-        self.symbol_table.register(SymbolInfo {
-            name: alias_name.to_owned(),
-            symbol_type: SymbolType::Constant,
-            core_type: CoreType::Generic {
-                name: source.to_owned(),
-                type_args: Vec::new(),
-            },
-            visibility: Visibility::Private,
-            source_location: span,
-            is_let_binding: false,
-            is_mutable: false,
-            read_count: 0,
-        });
+        self.symbol_table.register(SymbolInfo { name: alias_name.to_owned(),
+        symbol_type: SymbolType::Constant,
+        core_type: CoreType::Generic {
+            name: source.to_owned(),
+            type_args: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: span,
+        is_let_binding: false,
+        is_mutable: false, read_count: 0, is_pure: false, });
 
         for mut symbol in self.module_resolver.resolve_all_exports(source, span)? {
             symbol.name = alloc::format!("{alias_name}.{}", symbol.name);

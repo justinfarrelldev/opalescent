@@ -116,16 +116,13 @@ impl TypeChecker {
                 if let Some(element_core) = self.iterable_element_type_for(&iterable_type) {
                     let variable_name = variable.clone();
                     self.within_new_scope(move |checker| {
-                        checker.symbol_table.register(SymbolInfo {
-                            name: variable_name.clone(),
-                            symbol_type: SymbolType::Variable,
-                            core_type: element_core,
-                            visibility: Visibility::Private,
-                            source_location: span,
-                            is_let_binding: false,
-                            is_mutable: false,
-                            read_count: 0,
-                        });
+                        checker.symbol_table.register(SymbolInfo { name: variable_name.clone(),
+                        symbol_type: SymbolType::Variable,
+                        core_type: element_core,
+                        visibility: Visibility::Private,
+                        source_location: span,
+                        is_let_binding: false,
+                        is_mutable: false, read_count: 0, is_pure: false, });
                         checker.type_check_stmt_with_return(body.as_ref(), expected_return)
                     })
                 } else {
@@ -340,16 +337,13 @@ impl TypeChecker {
             SymbolType::Constant
         };
 
-        self.symbol_table.register(SymbolInfo {
-            name: binding.name.clone(),
-            symbol_type,
-            core_type: final_type,
-            visibility: Visibility::Private,
-            source_location: binding.span,
-            is_let_binding: true,
-            is_mutable: binding.is_mutable,
-            read_count: 0,
-        });
+        self.symbol_table.register(SymbolInfo { name: binding.name.clone(),
+        symbol_type,
+        core_type: final_type,
+        visibility: Visibility::Private,
+        source_location: binding.span,
+        is_let_binding: true,
+        is_mutable: binding.is_mutable, read_count: 0, is_pure: false, });
 
         Ok(())
     }
@@ -408,16 +402,13 @@ impl TypeChecker {
                 SymbolType::Constant
             };
 
-            self.symbol_table.register(SymbolInfo {
-                name: binding.name.clone(),
-                symbol_type,
-                core_type: value_type,
-                visibility: Visibility::Private,
-                source_location: binding.span,
-                is_let_binding: true,
-                is_mutable: binding.is_mutable,
-                read_count: 0,
-            });
+            self.symbol_table.register(SymbolInfo { name: binding.name.clone(),
+            symbol_type,
+            core_type: value_type,
+            visibility: Visibility::Private,
+            source_location: binding.span,
+            is_let_binding: true,
+            is_mutable: binding.is_mutable, read_count: 0, is_pure: false, });
         }
 
         Ok(())
@@ -608,41 +599,32 @@ impl TypeChecker {
         self.context.in_guard_subject_context = previous_guard_subject_context;
         let success_type = success_result?;
 
-        self.symbol_table.register(SymbolInfo {
-            name: success_binding.to_owned(),
-            symbol_type: SymbolType::Constant,
-            core_type: success_type,
-            visibility: Visibility::Private,
-            source_location: span,
-            is_let_binding: true,
-            is_mutable: false,
-            read_count: 0,
-        });
+        self.symbol_table.register(SymbolInfo { name: success_binding.to_owned(),
+        symbol_type: SymbolType::Constant,
+        core_type: success_type,
+        visibility: Visibility::Private,
+        source_location: span,
+        is_let_binding: true,
+        is_mutable: false, read_count: 0, is_pure: false, });
 
         self.within_new_scope(|checker| {
             if let Some(existing_success) = checker.symbol_table.lookup(success_binding).cloned() {
-                checker.symbol_table.register(SymbolInfo {
-                    name: success_binding.to_owned(),
-                    symbol_type: SymbolType::Constant,
-                    core_type: existing_success.core_type,
-                    visibility: Visibility::Private,
-                    source_location: span,
-                    is_let_binding: true,
-                    is_mutable: false,
-                    read_count: 0,
-                });
-            }
-
-            checker.symbol_table.register(SymbolInfo {
-                name: error_binding.to_owned(),
+                checker.symbol_table.register(SymbolInfo { name: success_binding.to_owned(),
                 symbol_type: SymbolType::Constant,
-                core_type: CoreType::String,
+                core_type: existing_success.core_type,
                 visibility: Visibility::Private,
                 source_location: span,
                 is_let_binding: true,
-                is_mutable: false,
-                read_count: 0,
-            });
+                is_mutable: false, read_count: 0, is_pure: false, });
+            }
+
+            checker.symbol_table.register(SymbolInfo { name: error_binding.to_owned(),
+            symbol_type: SymbolType::Constant,
+            core_type: CoreType::String,
+            visibility: Visibility::Private,
+            source_location: span,
+            is_let_binding: true,
+            is_mutable: false, read_count: 0, is_pure: false, });
 
             checker.type_check_stmt_with_return(else_body, expected_return)
         })

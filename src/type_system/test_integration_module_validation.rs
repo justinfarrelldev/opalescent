@@ -52,6 +52,7 @@ fn function_symbol(name: &str, parameters: Vec<CoreType>, return_type: CoreType)
         is_let_binding: false,
         is_mutable: false,
         read_count: 0,
+        is_pure: false,
     }
 }
 
@@ -110,21 +111,18 @@ entry main = f(): void =>
         let mut checker = TypeChecker::new();
 
         let mut local_lib = ModuleInterface::new(String::from("./local_lib"));
-        let register_result = local_lib.register_symbol(SymbolInfo {
-            name: String::from("hidden_fn"),
-            symbol_type: SymbolType::Function,
-            core_type: CoreType::Function {
-                generic_params: Vec::new(),
-                parameters: Vec::new(),
-                return_types: vec![CoreType::Unit],
-                error_types: Vec::new(),
-            },
-            visibility: Visibility::Private,
-            source_location: Span::single(Position::start()),
-            is_let_binding: false,
-            is_mutable: false,
-            read_count: 0,
-        });
+        let register_result = local_lib.register_symbol(SymbolInfo { name: String::from("hidden_fn"),
+        symbol_type: SymbolType::Function,
+        core_type: CoreType::Function {
+            generic_params: Vec::new(),
+            parameters: Vec::new(),
+            return_types: vec![CoreType::Unit],
+            error_types: Vec::new(),
+        },
+        visibility: Visibility::Private,
+        source_location: Span::single(Position::start()),
+        is_let_binding: false,
+        is_mutable: false, read_count: 0, is_pure: false, });
         assert!(
             register_result.is_ok(),
             "module symbol setup should succeed"

@@ -208,6 +208,7 @@ impl TypeChecker {
             is_let_binding: false,
             is_mutable: false,
             read_count: 0,
+            is_pure: false,
         });
 
         let take_input_signature = CoreType::Function {
@@ -218,16 +219,13 @@ impl TypeChecker {
         };
         self.environment
             .register_builtin("take_input".to_owned(), take_input_signature.clone());
-        self.symbol_table.register(SymbolInfo {
-            name: "take_input".to_owned(),
-            symbol_type: SymbolType::Function,
-            core_type: take_input_signature,
-            visibility: Visibility::Public,
-            source_location: Span::single(crate::token::Position::start()),
-            is_let_binding: false,
-            is_mutable: false,
-            read_count: 0,
-        });
+        self.symbol_table.register(SymbolInfo { name: "take_input".to_owned(),
+        symbol_type: SymbolType::Function,
+        core_type: take_input_signature,
+        visibility: Visibility::Public,
+        source_location: Span::single(crate::token::Position::start()),
+        is_let_binding: false,
+        is_mutable: false, read_count: 0, is_pure: false, });
 
         let string_to_int32_signature = CoreType::Function {
             generic_params: Vec::new(),
@@ -242,16 +240,13 @@ impl TypeChecker {
             "string_to_int32".to_owned(),
             string_to_int32_signature.clone(),
         );
-        self.symbol_table.register(SymbolInfo {
-            name: "string_to_int32".to_owned(),
-            symbol_type: SymbolType::Function,
-            core_type: string_to_int32_signature,
-            visibility: Visibility::Public,
-            source_location: Span::single(crate::token::Position::start()),
-            is_let_binding: false,
-            is_mutable: false,
-            read_count: 0,
-        });
+        self.symbol_table.register(SymbolInfo { name: "string_to_int32".to_owned(),
+        symbol_type: SymbolType::Function,
+        core_type: string_to_int32_signature,
+        visibility: Visibility::Public,
+        source_location: Span::single(crate::token::Position::start()),
+        is_let_binding: false,
+        is_mutable: false, read_count: 0, is_pure: false, });
 
         self.environment.register_type(
             "Option".to_owned(),
@@ -269,16 +264,13 @@ impl TypeChecker {
         };
         self.environment
             .register_builtin("random_int32".to_owned(), random_int32_signature.clone());
-        self.symbol_table.register(SymbolInfo {
-            name: "random_int32".to_owned(),
-            symbol_type: SymbolType::Function,
-            core_type: random_int32_signature,
-            visibility: Visibility::Public,
-            source_location: Span::single(crate::token::Position::start()),
-            is_let_binding: false,
-            is_mutable: false,
-            read_count: 0,
-        });
+        self.symbol_table.register(SymbolInfo { name: "random_int32".to_owned(),
+        symbol_type: SymbolType::Function,
+        core_type: random_int32_signature,
+        visibility: Visibility::Public,
+        source_location: Span::single(crate::token::Position::start()),
+        is_let_binding: false,
+        is_mutable: false, read_count: 0, is_pure: false, });
 
         self.register_size_specific_builtins();
 
@@ -331,16 +323,13 @@ impl TypeChecker {
 
         self.environment
             .register_builtin(qualified_name.clone(), signature.clone());
-        self.symbol_table.register(SymbolInfo {
-            name: qualified_name,
-            symbol_type: SymbolType::Function,
-            core_type: signature,
-            visibility: Visibility::Public,
-            source_location: Span::single(crate::token::Position::start()),
-            is_let_binding: false,
-            is_mutable: false,
-            read_count: 0,
-        });
+        self.symbol_table.register(SymbolInfo { name: qualified_name,
+        symbol_type: SymbolType::Function,
+        core_type: signature,
+        visibility: Visibility::Public,
+        source_location: Span::single(crate::token::Position::start()),
+        is_let_binding: false,
+        is_mutable: false, read_count: 0, is_pure: false, });
     }
 
     /// Register a same-type arithmetic intrinsic that returns `T`.
@@ -360,16 +349,13 @@ impl TypeChecker {
 
         self.environment
             .register_builtin(qualified_name.clone(), signature.clone());
-        self.symbol_table.register(SymbolInfo {
-            name: qualified_name,
-            symbol_type: SymbolType::Function,
-            core_type: signature,
-            visibility: Visibility::Public,
-            source_location: Span::single(crate::token::Position::start()),
-            is_let_binding: false,
-            is_mutable: false,
-            read_count: 0,
-        });
+        self.symbol_table.register(SymbolInfo { name: qualified_name,
+        symbol_type: SymbolType::Function,
+        core_type: signature,
+        visibility: Visibility::Public,
+        source_location: Span::single(crate::token::Position::start()),
+        is_let_binding: false,
+        is_mutable: false, read_count: 0, is_pure: false, });
     }
 
     /// Get a reference to the current environment
