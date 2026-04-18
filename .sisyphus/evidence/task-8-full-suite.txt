@@ -1,0 +1,5 @@
+test type_system::tests::test_warning_collection_for_unsafe_cast ... ok
+test type_system::tests::test_validate_type_name ... ok
+
+test result: ok. 1028 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.15s
+

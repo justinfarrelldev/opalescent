@@ -1,0 +1,10 @@
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.02s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-2bc6f09e335443f4)
+
+running 2 tests
+test type_system::tests::test_pure_function_allows_local_mutation ... ok
+test type_system::tests::test_pure_function_allows_collection_member_calls ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1022 filtered out; finished in 0.00s
+

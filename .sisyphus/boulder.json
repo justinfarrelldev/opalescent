@@ -1,64 +1,106 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/compiler-type-checker-fixes.md",
-  "started_at": "2026-04-18T00:12:23.695Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/pure-keyword.md",
+  "started_at": "2026-04-18T05:54:18.558Z",
   "session_ids": [
-    "ses_2665c0930ffexGSPKDSdVxcWUg",
-    "ses_261c85d84ffek2dvx0jEGZOTHR",
-    "ses_261c84319ffeVH5pNOuOBCv8La",
-    "ses_261c81308ffeRjX8OyV3uAuSkI",
-    "ses_261c7e8c8ffeJyZSIxRCcJJiQH",
-    "ses_261aa2d9cffeHZz8bzCwKpcVJG",
-    "ses_261aa11ceffeH0IK3S2jOcMDcG",
-    "ses_261a9e0ebffex8Cs3ukLIERCqO",
-    "ses_261a9b959ffe7cQhotnHsNZTNH"
+    "ses_260fd3b04ffecmESbccQV6hvfs",
+    "ses_2605c5d4affeqlYDToJ6FPf62T",
+    "ses_2605c330cffe9y74RckeHTKj8P",
+    "ses_2605c02b1ffe20wymrSCZGYhpO",
+    "ses_2605bbf22ffeh41O6TeH22W7R2",
+    "ses_2605b75c9ffe715VrPnI2kp763",
+    "ses_2605b425cffegaO37oSfzlaz0y"
   ],
-  "plan_name": "compiler-type-checker-fixes",
+  "plan_name": "pure-keyword",
   "session_origins": {
-    "ses_2665c0930ffexGSPKDSdVxcWUg": "direct",
-    "ses_261c85d84ffek2dvx0jEGZOTHR": "appended",
-    "ses_261c84319ffeVH5pNOuOBCv8La": "appended",
-    "ses_261c81308ffeRjX8OyV3uAuSkI": "appended",
-    "ses_261c7e8c8ffeJyZSIxRCcJJiQH": "appended",
-    "ses_261aa2d9cffeHZz8bzCwKpcVJG": "appended",
-    "ses_261aa11ceffeH0IK3S2jOcMDcG": "appended",
-    "ses_261a9e0ebffex8Cs3ukLIERCqO": "appended",
-    "ses_261a9b959ffe7cQhotnHsNZTNH": "appended"
+    "ses_260fd3b04ffecmESbccQV6hvfs": "direct",
+    "ses_2605c5d4affeqlYDToJ6FPf62T": "appended",
+    "ses_2605c330cffe9y74RckeHTKj8P": "appended",
+    "ses_2605c02b1ffe20wymrSCZGYhpO": "appended",
+    "ses_2605bbf22ffeh41O6TeH22W7R2": "appended",
+    "ses_2605b75c9ffe715VrPnI2kp763": "appended",
+    "ses_2605b425cffegaO37oSfzlaz0y": "appended"
   },
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Add 19 Missing Conversion Functions to Standard Module Exports",
-      "session_id": "ses_262107d84ffeAODH399iIwChiJ",
+      "task_title": "Add `PurityViolation` Error Variant to `TypeError`",
+      "session_id": "ses_2607f9c5cffea1PjS3PVy9qheB",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-18T00:15:58.623Z"
+      "category": "deep",
+      "updated_at": "2026-04-18T07:32:38.334Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "Fix Expr::Loop Type-Checking to Track Break-Value Types",
-      "session_id": "ses_2620d0c03ffemAtzL4u6PqgiYB",
+      "task_title": "Expand `IMPURE_STDLIB_FUNCTIONS` to Complete 20-Entry List",
+      "session_id": "ses_2607c4c50ffexQDSjo7FK71A2Y",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-04-18T00:19:21.203Z"
+      "updated_at": "2026-04-18T07:40:48.578Z"
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "Fix Codegen to Handle Expr::Loop Initializer in Let Statements",
-      "session_id": "ses_261e6adeeffeWnGTtRipe1d7A0",
+      "task_title": "Add `is_pure` Field to `SymbolInfo` and Set During Function Registration",
+      "session_id": "ses_26075dc82ffe1clsFC0oqyr2U5",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-18T01:29:13.482Z"
+      "category": "deep",
+      "updated_at": "2026-04-18T07:47:58.537Z"
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Add `pure` to VSCode Syntax Highlighting",
+      "session_id": "ses_2606fc74efferYYTMJM9I4DVzY",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-18T07:49:43.830Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Implement Transitive Purity Enforcement + Migrate to PurityViolation Error",
+      "session_id": "ses_2606da29cffejwelgfiSK3yCcI",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-18T07:56:52.425Z"
+    },
+    "todo:6": {
+      "task_key": "todo:6",
+      "task_label": "6",
+      "task_title": "Reject `pure entry` Combination",
+      "session_id": "ses_26067505dffecSZa0Z667Q0ONQ",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-18T08:00:13.867Z"
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "Lambda Purity Inheritance Test + Code Comment",
+      "session_id": "ses_260631261ffesuVm5qFJ5f4CBY",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-18T08:04:52.822Z"
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "Integration Tests Through Full Parse Pipeline",
+      "session_id": "ses_2605f609affel3y3Azp16t8CwJ",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-18T08:08:45.928Z"
     },
     "final-wave:f1": {
       "task_key": "final-wave:f1",
       "task_label": "F1",
       "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "ses_261aa2d9cffeHZz8bzCwKpcVJG",
-      "agent": "oracle",
-      "updated_at": "2026-04-18T02:21:26.927Z"
+      "session_id": "ses_2605bbf22ffeh41O6TeH22W7R2",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-18T08:13:24.371Z"
     }
   }
 }

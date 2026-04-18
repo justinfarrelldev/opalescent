@@ -1,1 +1,0 @@
-- Operand type inference currently handles identifiers and literals only; complex expressions still resolve to `None` and default pointer path behavior.

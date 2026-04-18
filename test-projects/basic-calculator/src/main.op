@@ -4,25 +4,25 @@ import take_input, string_to_float64 from standard
 ##
   Description: adds two float64 numbers and returns the sum
 ##
-let handle_add = f(num1: float64, num2: float64): float64 =>
+pure handle_add = f(num1: float64, num2: float64): float64 =>
     return num1 + num2
 
 ##
   Description: subtracts num2 from num1 and returns the difference
 ##
-let handle_subtract = f(num1: float64, num2: float64): float64 =>
+pure handle_subtract = f(num1: float64, num2: float64): float64 =>
     return num1 - num2
 
 ##
   Description: multiplies two float64 numbers and returns the product
 ##
-let handle_multiply = f(num1: float64, num2: float64): float64 =>
+pure handle_multiply = f(num1: float64, num2: float64): float64 =>
     return num1 * num2
 
 ##
   Description: divides num1 by num2 and returns the quotient
 ##
-let handle_divide = f(num1: float64, num2: float64): float64 =>
+pure handle_divide = f(num1: float64, num2: float64): float64 =>
     return num1 / num2
 
 ##

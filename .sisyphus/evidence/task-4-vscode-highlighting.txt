@@ -1,0 +1,2 @@
+          "match": "\\b(f|type|module|import|export|entry|public|pure)\\b"
+JSON valid

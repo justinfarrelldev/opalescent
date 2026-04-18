@@ -1,0 +1,22 @@
+
+running 2 tests
+test type_system::tests::test_lambda_inside_pure_function_inherits_purity ... ok
+test type_system::tests::test_lambda_inside_non_pure_function_allows_print ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1025 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
