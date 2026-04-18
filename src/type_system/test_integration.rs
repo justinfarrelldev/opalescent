@@ -1018,4 +1018,152 @@ entry main = f(args: string[]): int64 =>
             "binding pattern should introduce arm-local variable: {result:?}",
         );
     }
+
+    #[test]
+    fn test_integration_pure_function_with_local_mutation() {
+        const SOURCE: &str = "
+pure compute = f(n: int64): int64 =>
+    let mutable sum: int64 = 0
+    sum = n + 1
+    return sum
+
+entry main = f(args: string[]): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "pure function with local mutation should type check: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_integration_pure_function_calls_pure_function() {
+        const SOURCE: &str = "
+pure helper = f(x: int64): int64 =>
+    return x + 1
+
+pure caller = f(n: int64): int64 =>
+    return helper(n)
+
+entry main = f(args: string[]): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "pure function calling pure function should type check: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_integration_pure_function_rejects_print() {
+        const SOURCE: &str = "
+pure worker = f(): void =>
+    print('hello')
+    return void
+
+entry main = f(args: string[]): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(result.is_err(), "pure call to print must fail: {result:?}");
+
+        let errors = result.expect_err("pure call to print must fail");
+        assert!(
+            errors.iter().any(|e| matches!(*e,
+                TypeError::PurityViolation { ref callee_name, .. } if callee_name == "print"
+            )),
+            "expected PurityViolation for print, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_integration_pure_function_rejects_non_pure_call() {
+        const SOURCE: &str = "
+let impure_fn = f(): void =>
+    print('hi')
+    return void
+
+pure caller = f(): void =>
+    impure_fn()
+    return void
+
+entry main = f(args: string[]): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_err(),
+            "pure function calling impure function must fail: {result:?}",
+        );
+
+        let errors = result.expect_err("pure function calling impure function must fail");
+        assert!(
+            errors.iter().any(|e| matches!(*e,
+                TypeError::PurityViolation { ref callee_name, .. } if callee_name == "impure_fn"
+            )),
+            "expected PurityViolation for impure_fn, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_integration_pure_entry_rejected() {
+        const SOURCE: &str = "
+pure entry main = f(args: string[]): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(result.is_err(), "pure entry must fail type checking: {result:?}");
+
+        let errors = result.expect_err("pure entry must fail type checking");
+        assert!(
+            errors
+                .iter()
+                .any(|e| matches!(*e, TypeError::PurityViolation { .. })),
+            "expected PurityViolation for pure entry, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_integration_pure_function_rejects_random() {
+        const SOURCE: &str = "
+pure worker = f(): int32 =>
+    return random_int32()
+
+entry main = f(args: string[]): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_err(),
+            "pure call to random_int32 must fail: {result:?}",
+        );
+
+        let errors = result.expect_err("pure call to random_int32 must fail");
+        assert!(
+            errors.iter().any(|e| matches!(*e,
+                TypeError::PurityViolation { ref callee_name, .. } if callee_name == "random_int32"
+            )),
+            "expected PurityViolation for random_int32, got: {errors:?}",
+        );
+    }
 }
