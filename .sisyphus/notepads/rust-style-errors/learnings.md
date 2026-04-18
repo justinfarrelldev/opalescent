@@ -46,3 +46,10 @@
 - Returning `Err((report, normalized_source))` preserves the exact tab-normalized source used for lexing/parsing/type-checking, which is required for accurate source-span rendering in downstream `render_report` usage.
 - For compatibility with existing external error shape, `compile_program` can down-map a single codegen entry in the report back into `CompileError::Codegen`, while surfacing frontend multi-errors through a dedicated `CompileError::Report` variant that carries both report and normalized source.
 - Multi-error tests are more reliable when using independent declaration-level type failures (e.g., one function return type mismatch plus one undefined symbol in another function), avoiding short-circuit behavior that can arise inside a single declaration body.
+
+## [2026-04-17] Task 9 — E2E error rendering integration tests
+
+### Implementation Learnings
+- E2E tests for the renderer can stay in `src/errors/tests.rs` by running the full in-process flow: `compile_to_module(&Context::create(), source)` then `render_report(filename, &normalized_source, &report)` on `Err`.
+- Parse-error fixtures are more stable when using real entry-style multiline source (`entry main = f(args: string[]): void => ...`) matching existing `test-projects/error-display/src/parse_error.op` shape.
+- `clippy::pedantic` rejects single-character string patterns in `contains` checks; use char patterns (`contains('@')`) to keep test-only code lint-clean under pre-commit hooks.

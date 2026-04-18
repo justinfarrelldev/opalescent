@@ -19,3 +19,8 @@
 ## [2026-04-17] Task 3 — Renderer Module Notes
 
 - Initial compile failed because `DiagnosticWithSource` did not implement `Debug`; fixed by adding `#[derive(Debug)]`.
+
+## [2026-04-17] Task 9 — E2E tests notes
+
+- Initial parse-error E2E source unexpectedly produced non-parser diagnostics; resolved by switching to fixture-aligned multiline `entry main` source with missing closing paren.
+- Pre-commit clippy failed on `contains("@")` (`single_char_pattern`); fixed by changing to `contains('@')`.

@@ -64,6 +64,11 @@ impl CompilationErrorReport {
         ));
     }
 
+    pub fn push_codegen_error_full(&mut self, error: CodegenError) {
+        self.errors
+            .push((CompilerPhase::Codegen, CompilerError::Codegen(error)));
+    }
+
     /// Push multiple lexer diagnostics.
     pub fn extend_lex_errors(&mut self, errors: Vec<LexError>) {
         for error in errors {

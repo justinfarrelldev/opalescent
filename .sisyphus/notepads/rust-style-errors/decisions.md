@@ -33,3 +33,12 @@
 
 ### Summary footer contract
 - Use rust/cargo-style footer text: `error: aborting due to {N} previous error(s)` with explicit singular form for `N=1`.
+
+## [2026-04-17] Task 9 — E2E tests decisions
+
+### Test placement and scope
+- Place the six new end-to-end renderer tests in `src/errors/tests.rs` under a dedicated `mod e2e_tests` block to keep error-system tests co-located.
+- Use `compile_to_module` (not `compile_program`) so lex/parse/type failures return early as `Err((CompilationErrorReport, normalized_source))` without requiring full external execution.
+
+### Assertion strategy
+- Keep rendered-output assertions resilient across miette formatting by checking for source context snippets and broad error indicators (`error` or `×`) rather than brittle full-string snapshots.

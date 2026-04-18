@@ -1,0 +1,25 @@
+SCENARIO 2: Parse error
+Command: cargo run -- check test-projects/error-display/src/parse_error.op
+
+Output:
+[31mopalescent::parser::missing_token[0m
+
+  [31m×[0m Missing token: expected ')'
+   ╭─[[36;1;4mtest-projects/error-display/src/parse_error.op:5:34[0m]
+ [2m4[0m │ entry main = f(args: string[]): void =>
+ [2m5[0m │     print('missing closing paren'
+   · [35;1m                                 ┬[0m
+   ·                                  [35;1m╰── [35;1mexpected ')' here[0m[0m
+ [2m6[0m │     return void
+   ╰────
+[36m  help: [0mAdd the missing ')'
+
+error: aborting due to 1 previous error
+EXIT:1
+
+ASSERTIONS:
+✓ Source context visible (lines 4-6 shown)
+✓ Error code present (opalescent::parser::missing_token)
+✓ Exit code 1
+
+RESULT: PASS

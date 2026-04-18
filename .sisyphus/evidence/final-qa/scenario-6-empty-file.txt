@@ -1,0 +1,23 @@
+SCENARIO 6: Empty file
+Command: echo "" > /tmp/empty_test.op && cargo run -- check /tmp/empty_test.op
+
+Output:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4m/tmp/empty_test.op:1:1[0m]
+ [2m1[0m │ 
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+error: aborting due to 1 previous error
+EXIT:1
+
+ASSERTIONS:
+✓ Exit code 1 (NOT 101 - no panic)
+✓ No "panicked" in output
+✓ Proper error handling (missing_entry_point error)
+
+RESULT: PASS

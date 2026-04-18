@@ -453,7 +453,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 4. Enhance CodegenError with optional span
+- [x] 4. Enhance CodegenError with optional span
 
   **What to do**:
   - In `src/codegen/expressions.rs`, add an optional `span` field to `CodegenError`:
@@ -552,7 +552,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 5. Refactor compile_to_module for multi-error collection
+- [x] 5. Refactor compile_to_module for multi-error collection
 
   **What to do**:
   - In `src/compiler.rs`, change `compile_to_module()` to collect ALL errors instead of returning on the first one:
@@ -663,7 +663,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 6. Enhance suggestions for common error types
+- [x] 6. Enhance suggestions for common error types
 
   **What to do**:
   - In `src/errors/suggestions.rs`, add new suggestion functions for the ~12 most common error types. Each function takes a `&TypeError` (or `&ParseError`/`&LexError`) and returns `Option<String>` with a context-aware suggestion including example code.
@@ -777,7 +777,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 7. Update CLI (app.rs) to use new renderer for all error output
+- [x] 7. Update CLI (app.rs) to use new renderer for all error output
 
   **What to do**:
   - In `src/app.rs`, replace ALL `eprintln!("error: compilation failed: {error}")` patterns with calls to the new `render_report()` from `src/errors/renderer.rs`.
@@ -893,7 +893,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 8. Update existing tests for new rendering output
+- [x] 8. Update existing tests for new rendering output
 
   **What to do**:
   - In `src/errors/tests.rs`, update all test assertions that check plain-text formatter output to work with the new system:
@@ -980,7 +980,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ---
 
-- [ ] 9. End-to-end integration verification
+- [x] 9. End-to-end integration verification
 
   **What to do**:
   - Write integration tests (or add to existing test infrastructure) that verify the full pipeline from source file to rendered error output:
@@ -1098,19 +1098,19 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 >
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. For each "Must Have": verify implementation exists (read file, run `cargo run -- check test-projects/error-display/src/main.op 2>&1`). For each "Must NOT Have": search codebase for forbidden patterns (e.g., `#[source_code]` on `LexError`/`ParseError`/`TypeError`, behavioral changes to LSP diagnostics beyond type compatibility) — reject with file:line if found. Check evidence files exist in `.sisyphus/evidence/`. Compare deliverables against plan.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `cargo build 2>&1`, `cargo clippy 2>&1`, `cargo test 2>&1`. Review all changed files for: `as any` equivalents (`unsafe` blocks, `unwrap()` in non-test code), dead code, commented-out code, unused imports. Check for AI slop: excessive comments, over-abstraction, generic variable names (data/result/item/temp). Verify no `#[allow(unused)]` was added to suppress legitimate warnings.
   Output: `Build [PASS/FAIL] | Clippy [PASS/FAIL] | Tests [N pass/N fail] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high`
+- [x] F3. **Real Manual QA** — `unspecified-high`
   Start from clean state. Create multiple `.op` test files with known errors across all phases (lex, parse, type, codegen). Run `cargo run -- check <file> 2>&1` for each. Verify: source code lines visible, underline annotations correct, error codes present, help text actionable, multiple errors shown, summary footer present, colored output works. Test edge cases: empty file, error at EOF, very long lines, multiple errors same line. Save all output to `.sisyphus/evidence/final-qa/`.
   Output: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff (`git diff`). Verify 1:1 — everything in spec was built (no missing), nothing beyond spec was built (no creep). Check "Must NOT do" compliance: no `#[source_code]` on error enums, no behavioral changes to LSP diagnostics (type-compatibility updates OK), no changes to `#[diagnostic]`/`#[label]` attributes, suggestions limited to ~12 types. Detect cross-task contamination. Flag unaccounted changes.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 

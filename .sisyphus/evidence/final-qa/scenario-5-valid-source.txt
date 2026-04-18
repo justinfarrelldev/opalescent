@@ -1,0 +1,12 @@
+SCENARIO 5: Valid source
+Command: cargo run -- check test-projects/hello-world/src/main.op
+
+Output:
+check passed
+EXIT:0
+
+ASSERTIONS:
+✓ No "error" in output
+✓ Exit code 0
+
+RESULT: PASS
