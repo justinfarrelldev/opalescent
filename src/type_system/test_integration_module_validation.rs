@@ -318,4 +318,69 @@ entry main = f(args: string[]): void =>
             "let x = loop => break x: 42 must type-check without errors: {result:?}",
         );
     }
+
+    #[test]
+    fn test_expression_loop_with_bare_break_returns_unit() {
+        // A loop with a bare `break` (no value) should type-check as Unit
+        const SOURCE: &str = "
+entry main = f(args: string[]): void =>
+    let x = loop =>
+        break
+    return void
+";
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "expression loop with bare break should type-check as Unit: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_expression_loop_with_mismatched_break_types_reports_error() {
+        // A loop with breaks of different types should produce a type error
+        const SOURCE: &str = "
+import int64_to_string from standard
+import bool_to_string from standard
+
+entry main = f(args: string[]): void =>
+    let x = loop =>
+        if true:
+            break x: 42
+        break x: true
+    return void
+";
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_err(),
+            "expression loop with mismatched break types should produce a type error",
+        );
+    }
+
+    #[test]
+    fn test_nested_expression_loops_have_independent_break_types() {
+        // Nested loops should each track their own break type independently
+        const SOURCE: &str = "
+import int64_to_string from standard
+import println from standard
+
+entry main = f(args: string[]): void =>
+    let outer = loop =>
+        let inner = loop =>
+            break inner: 10
+        break outer: inner
+    println(int64_to_string(outer))
+    return void
+";
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "nested expression loops should each track break types independently: {result:?}",
+        );
+    }
 }
