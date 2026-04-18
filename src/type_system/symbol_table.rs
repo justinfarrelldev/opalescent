@@ -62,6 +62,8 @@ pub struct SymbolInfo {
     pub is_mutable: bool,
     /// Number of read usages observed during type checking.
     pub read_count: usize,
+    /// Whether this symbol represents a pure function.
+    pub is_pure: bool,
 }
 
 /// Unique identifier for a scope

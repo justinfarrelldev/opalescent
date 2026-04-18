@@ -181,6 +181,7 @@ impl TypeChecker {
                 ref parameters,
                 ref return_types,
                 ref error_types,
+                ref modifiers,
                 visibility: ref decl_visibility,
                 is_entry,
                 span,
@@ -281,6 +282,9 @@ impl TypeChecker {
                     is_let_binding: false,
                     is_mutable: false,
                     read_count: 0,
+                    is_pure: modifiers.iter().any(|modifier| {
+                        matches!(modifier, FunctionModifier::Pure)
+                    }),
                 });
                 if let Some(registered_symbol) = self.symbol_table.lookup(function_name).cloned() {
                     self.register_current_module_symbol(registered_symbol, decl_visibility)?;
@@ -306,16 +310,13 @@ impl TypeChecker {
                         SymbolType::Constant
                     };
                     let resolved_visibility = Self::convert_visibility(visibility, false);
-                    self.symbol_table.register(SymbolInfo {
-                        name: binding.name.clone(),
-                        symbol_type,
-                        core_type,
-                        visibility: resolved_visibility,
-                        source_location: binding.span,
-                        is_let_binding: true,
-                        is_mutable: binding.is_mutable,
-                        read_count: 0,
-                    });
+                    self.symbol_table.register(SymbolInfo { name: binding.name.clone(),
+                    symbol_type,
+                    core_type,
+                    visibility: resolved_visibility,
+                    source_location: binding.span,
+                    is_let_binding: true,
+                    is_mutable: binding.is_mutable, read_count: 0, is_pure: false, });
                 }
                 Ok(())
             }
@@ -384,16 +385,13 @@ impl TypeChecker {
                 self.environment_mut()
                     .register_type(name.clone(), nominal_type.clone());
                 self.register_adt_generic_params(name.clone(), generic_core_params);
-                self.symbol_table.register(SymbolInfo {
-                    name: name.clone(),
-                    symbol_type: SymbolType::Type,
-                    core_type: nominal_type,
-                    visibility: Self::convert_visibility(visibility, false),
-                    source_location: decl.span(),
-                    is_let_binding: false,
-                    is_mutable: false,
-                    read_count: 0,
-                });
+                self.symbol_table.register(SymbolInfo { name: name.clone(),
+                symbol_type: SymbolType::Type,
+                core_type: nominal_type,
+                visibility: Self::convert_visibility(visibility, false),
+                source_location: decl.span(),
+                is_let_binding: false,
+                is_mutable: false, read_count: 0, is_pure: false, });
                 if let Some(registered_symbol) = self.symbol_table.lookup(name).cloned() {
                     self.register_current_module_symbol(registered_symbol, visibility)?;
                 }
@@ -410,34 +408,28 @@ impl TypeChecker {
                                 generic_bindings.as_slice(),
                             )?;
                             variant_fields.insert(field.name.clone(), core_field_type.clone());
-                            self.symbol_table.register(SymbolInfo {
-                                name: format!("{qualified_name}.{}", field.name),
-                                symbol_type: SymbolType::Variable,
-                                core_type: core_field_type,
-                                visibility: Visibility::Public,
-                                source_location: field.span,
-                                is_let_binding: false,
-                                is_mutable: false,
-                                read_count: 0,
-                            });
+                            self.symbol_table.register(SymbolInfo { name: format!("{qualified_name}.{}", field.name),
+                            symbol_type: SymbolType::Variable,
+                            core_type: core_field_type,
+                            visibility: Visibility::Public,
+                            source_location: field.span,
+                            is_let_binding: false,
+                            is_mutable: false, read_count: 0, is_pure: false, });
                         }
                         self.register_adt_fields(qualified_name.clone(), variant_fields);
-                        self.symbol_table.register(SymbolInfo {
-                            name: qualified_name,
-                            symbol_type: SymbolType::Constant,
-                            core_type: CoreType::Generic {
-                                name: name.clone(),
-                                type_args: generic_bindings
-                                    .iter()
-                                    .map(|binding| binding.1.clone())
-                                    .collect::<Vec<CoreType>>(),
-                            },
-                            visibility: Visibility::Public,
-                            source_location: variant.span,
-                            is_let_binding: false,
-                            is_mutable: false,
-                            read_count: 0,
-                        });
+                        self.symbol_table.register(SymbolInfo { name: qualified_name,
+                        symbol_type: SymbolType::Constant,
+                        core_type: CoreType::Generic {
+                            name: name.clone(),
+                            type_args: generic_bindings
+                                .iter()
+                                .map(|binding| binding.1.clone())
+                                .collect::<Vec<CoreType>>(),
+                        },
+                        visibility: Visibility::Public,
+                        source_location: variant.span,
+                        is_let_binding: false,
+                        is_mutable: false, read_count: 0, is_pure: false, });
                     }
                     self.adt_variants.insert(name.clone(), qualified_variants);
                 } else if let TypeDef::Product { fields, .. } = type_def {
@@ -448,16 +440,13 @@ impl TypeChecker {
                             generic_bindings.as_slice(),
                         )?;
                         product_fields.insert(field.name.clone(), core_field_type.clone());
-                        self.symbol_table.register(SymbolInfo {
-                            name: format!("{name}.{}", field.name),
-                            symbol_type: SymbolType::Variable,
-                            core_type: core_field_type,
-                            visibility: Visibility::Public,
-                            source_location: field.span,
-                            is_let_binding: false,
-                            is_mutable: false,
-                            read_count: 0,
-                        });
+                        self.symbol_table.register(SymbolInfo { name: format!("{name}.{}", field.name),
+                        symbol_type: SymbolType::Variable,
+                        core_type: core_field_type,
+                        visibility: Visibility::Public,
+                        source_location: field.span,
+                        is_let_binding: false,
+                        is_mutable: false, read_count: 0, is_pure: false, });
                     }
                     self.register_adt_fields(name.clone(), product_fields);
                 }
@@ -524,6 +513,22 @@ impl TypeChecker {
             }
         }
 
+        // Reject `pure entry` combination — entry functions are implicitly impure
+        if params.is_entry
+            && params
+                .modifiers
+                .iter()
+                .any(|m| matches!(m, &FunctionModifier::Pure))
+        {
+            return Err(TypeError::PurityViolation {
+                callee_name: String::from("entry"),
+                reason: String::from(
+                    "entry functions are implicitly impure and cannot be marked 'pure'",
+                ),
+                span: TypeError::span_from_span(params.span),
+            });
+        }
+
         let mut parameter_types = Vec::with_capacity(params.parameters.len());
         for param in params.parameters {
             parameter_types.push(Self::ast_type_to_core_type_with_generics(
@@ -565,16 +570,13 @@ impl TypeChecker {
 
         let result = self.within_new_scope(|checker| -> Result<(), TypeError> {
             for (param, core_type) in params.parameters.iter().zip(parameter_types.iter()) {
-                checker.symbol_table.register(SymbolInfo {
-                    name: param.name.clone(),
-                    symbol_type: SymbolType::Variable,
-                    core_type: core_type.clone(),
-                    visibility: Visibility::Private,
-                    source_location: param.span(),
-                    is_let_binding: false,
-                    is_mutable: false,
-                    read_count: 0,
-                });
+                checker.symbol_table.register(SymbolInfo { name: param.name.clone(),
+                symbol_type: SymbolType::Variable,
+                core_type: core_type.clone(),
+                visibility: Visibility::Private,
+                source_location: param.span(),
+                is_let_binding: false,
+                is_mutable: false, read_count: 0, is_pure: false, });
             }
 
             checker.type_check_stmt_with_return(params.body, Some(return_core_types.as_slice()))
@@ -654,16 +656,13 @@ impl TypeChecker {
             SymbolType::Constant
         };
         let symbol_visibility = Self::convert_visibility(visibility, false);
-        self.symbol_table.register(SymbolInfo {
-            name: binding.name.clone(),
-            symbol_type,
-            core_type: inferred_type,
-            visibility: symbol_visibility,
-            source_location: binding.span,
-            is_let_binding: true,
-            is_mutable: binding.is_mutable,
-            read_count: 0,
-        });
+        self.symbol_table.register(SymbolInfo { name: binding.name.clone(),
+        symbol_type,
+        core_type: inferred_type,
+        visibility: symbol_visibility,
+        source_location: binding.span,
+        is_let_binding: true,
+        is_mutable: binding.is_mutable, read_count: 0, is_pure: false, });
         if let Some(registered_symbol) = self.symbol_table.lookup(&binding.name).cloned() {
             self.register_current_module_symbol(registered_symbol, visibility)?;
         }

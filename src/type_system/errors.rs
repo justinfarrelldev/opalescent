@@ -669,6 +669,24 @@ pub enum TypeError {
         /// Span of the import item requesting private access.
         span: SourceSpan,
     },
+
+    /// Call to an impure function from a pure function context.
+    #[error("cannot call impure function '{callee_name}' from pure function context")]
+    #[diagnostic(
+        code(opalescent::type_system::purity_violation),
+        help(
+            "pure functions cannot perform I/O or call impure functions — remove the 'pure' modifier or move the impure call outside"
+        )
+    )]
+    PurityViolation {
+        /// Name of the function being called that violates purity.
+        callee_name: String,
+        /// Human-readable reason for the purity violation.
+        reason: String,
+        #[label("{reason}")]
+        /// Source span of the impure call expression.
+        span: SourceSpan,
+    },
 }
 
 /// Warning diagnostics produced during type checking.

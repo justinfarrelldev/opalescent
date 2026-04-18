@@ -19,7 +19,14 @@ use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{boxed::Box, collections::BTreeMap, string::String, vec::Vec};
 
 /// Standard library functions that are impure (have side effects)
-const IMPURE_STDLIB_FUNCTIONS: &[&str] = &["print", "take_input", "random_int32"];
+const IMPURE_STDLIB_FUNCTIONS: &[&str] = &[
+    "print", "take_input",
+    "print_int8", "print_int16", "print_int32", "print_int64",
+    "print_uint8", "print_uint16", "print_uint32", "print_uint64",
+    "print_float32", "print_float64", "print_string",
+    "random_int8", "random_int16", "random_int32",
+    "random_uint8", "random_uint16", "random_uint32", "random_uint64",
+];
 
 impl TypeChecker {
     /// Instantiate polymorphic call-site types so each function call receives fresh type variables.
@@ -105,12 +112,28 @@ impl TypeChecker {
             } = *callee
             {
                 if IMPURE_STDLIB_FUNCTIONS.contains(&name.as_str()) {
-                    return Err(TypeError::InvalidOperation {
-                        operation: format!("call impure function '{name}' from pure function"),
-                        type_name: String::from("function"),
+                    return Err(TypeError::PurityViolation {
+                        callee_name: name.clone(),
+                        reason: String::from("this function performs I/O or has side effects"),
                         span: TypeError::span_from_span(callee_span),
                     });
                 }
+                // Standard library builtins that are not in the impure denylist are treated as pure.
+                if self.environment.lookup_builtin(name).is_some() {
+                    // Skip transitive user-function purity enforcement for stdlib builtins.
+                    // (e.g. conversion/math functions)
+                }
+                // Transitive check: if callee is a user-defined function that is NOT pure, reject
+                else if let Some(symbol_info) = self.symbol_table.lookup(name) {
+                    if !symbol_info.is_pure {
+                        return Err(TypeError::PurityViolation {
+                            callee_name: name.clone(),
+                            reason: alloc::format!("function '{name}' is not marked 'pure'"),
+                            span: TypeError::span_from_span(callee_span),
+                        });
+                    }
+                }
+                // If symbol is NOT in stdlib impure list and NOT in symbol table (e.g. pure stdlib math/conversion builtins), allow the call
             }
         }
 
