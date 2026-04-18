@@ -258,9 +258,19 @@ impl TypeChecker {
                 span,
                 ..
             } => self.type_check_match_expr(scrutinee, arms.as_slice(), span),
-            Expr::Loop { ref body, .. } => {
+            Expr::Loop { ref body, span, .. } => {
+                self.context.loop_break_type_stack.push(None);
                 self.type_check_stmt_with_return(body.as_ref(), None)?;
-                Ok(CoreType::Unit)
+                let break_types = self.context.loop_break_type_stack.pop();
+                match break_types {
+                    Some(Some(mut types)) if types.len() == 1 => Ok(types.remove(0)),
+                    Some(Some(types)) if types.len() > 1 => Err(TypeError::ArityMismatch {
+                        expected: 1,
+                        found: types.len(),
+                        span: TypeError::span_from_span(span),
+                    }),
+                    _ => Ok(CoreType::Unit),
+                }
             }
             Expr::Lambda {
                 ref generic_params,

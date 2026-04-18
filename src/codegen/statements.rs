@@ -97,6 +97,18 @@ fn codegen_let_statement<'context>(
     binding: &LetBinding,
     initializer: Option<&Expr>,
 ) -> Result<(), CodegenError> {
+    if let Some(initializer_expr) = initializer {
+        if let &Expr::Loop { .. } = initializer_expr {
+            let loop_binding = [binding.clone()];
+            return codegen_let_destructure_statement(
+                codegen_context,
+                env,
+                loop_binding.as_slice(),
+                initializer_expr,
+            );
+        }
+    }
+
     let (declared_type, lowered_initializer) = if let Some(ref annotation) = binding.type_annotation
     {
         let declared_type = ast_type_to_core_type_for_let(annotation)?;
