@@ -1,0 +1,19 @@
+Task 2 Build/Test Evidence
+
+Command: cargo build
+Exit code: 0
+Output:
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.18s
+
+Command: cargo test
+Exit code: 0
+Output highlights:
+- test result: ok. 1004 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.19s
+- test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s (main)
+- test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s (fmt_integration)
+- test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s (integration_e2e)
+- Doc-tests opalescent: test result: ok. 0 passed; 0 failed; 9 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+Full cargo test tool output file:
+/home/justi/.local/share/opencode/tool-output/tool_d9df3f91900100P6PuNAeq21qR

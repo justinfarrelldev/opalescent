@@ -1,0 +1,21 @@
+Task 2 Stack Balance Inspection
+
+File: src/type_system/checker/expressions.rs
+Expr::Loop arm lines inspected: 261-275
+
+Observed push/pop sequence:
+1) self.context.loop_break_type_stack.push(None);
+2) self.type_check_stmt_with_return(body.as_ref(), None)?;
+3) let break_types = self.context.loop_break_type_stack.pop();
+
+Balance verification:
+- Exactly one push in this arm.
+- Exactly one pop in this arm.
+- Pop occurs after body type-checking.
+- Returned type is derived from popped break types:
+  - Some(Some(types)) len == 1 => returns that single break type.
+  - Some(Some(types)) len > 1 => TypeError::ArityMismatch(expected=1, found=len).
+  - Some(Some(_)) empty vec (defensive) => Unit.
+  - Some(None) or None => Unit.
+
+Conclusion: loop_break_type_stack push/pop is balanced within Expr::Loop arm and return type now reflects typed break value when exactly one break value is present.

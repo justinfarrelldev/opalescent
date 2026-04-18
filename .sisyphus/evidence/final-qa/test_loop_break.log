@@ -1,0 +1,6 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running `target/debug/opalescent /tmp/test_loop_break.op --run`
+target/program
+=== Testing Loop Expression Break-Value ===
+42
+42

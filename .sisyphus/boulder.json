@@ -1,107 +1,64 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/rust-style-errors.md",
-  "started_at": "2026-04-17T19:04:49.400Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/compiler-type-checker-fixes.md",
+  "started_at": "2026-04-18T00:12:23.695Z",
   "session_ids": [
-    "ses_26343eccfffe9zYT9G7Hr6r0vr",
-    "ses_2627dddc8ffets7tsIHWDRa1d4",
-    "ses_2627db4e1ffeEbhwIFW6Ver2Xo",
-    "ses_2627d889cffeu703NM1e1f2Ofl",
-    "ses_262707e53ffeG4xUaTugTWcWKX",
-    "ses_2627048c3ffe5afhsjx8TtJkcB",
-    "ses_2627036e0ffeo6ASTRvD61P993",
-    "ses_26270066cffeQHE0z5Z749hHfs",
-    "ses_2626fcfd6ffeMOxJegiYqgSCKo",
-    "ses_2626fa797ffeKVkSW4CAKyOGZv",
-    "ses_2626f8939ffeunJwNmhIHkIrpJ",
-    "ses_2626f77a1ffeJ9JDs8YWK5l3Yg"
+    "ses_2665c0930ffexGSPKDSdVxcWUg",
+    "ses_261c85d84ffek2dvx0jEGZOTHR",
+    "ses_261c84319ffeVH5pNOuOBCv8La",
+    "ses_261c81308ffeRjX8OyV3uAuSkI",
+    "ses_261c7e8c8ffeJyZSIxRCcJJiQH",
+    "ses_261aa2d9cffeHZz8bzCwKpcVJG",
+    "ses_261aa11ceffeH0IK3S2jOcMDcG",
+    "ses_261a9e0ebffex8Cs3ukLIERCqO",
+    "ses_261a9b959ffe7cQhotnHsNZTNH"
   ],
-  "plan_name": "rust-style-errors",
-  "agent": "atlas",
+  "plan_name": "compiler-type-checker-fixes",
   "session_origins": {
-    "ses_26343eccfffe9zYT9G7Hr6r0vr": "direct",
-    "ses_2627dddc8ffets7tsIHWDRa1d4": "appended",
-    "ses_2627db4e1ffeEbhwIFW6Ver2Xo": "appended",
-    "ses_2627d889cffeu703NM1e1f2Ofl": "appended",
-    "ses_262707e53ffeG4xUaTugTWcWKX": "appended",
-    "ses_2627048c3ffe5afhsjx8TtJkcB": "appended",
-    "ses_2627036e0ffeo6ASTRvD61P993": "appended",
-    "ses_26270066cffeQHE0z5Z749hHfs": "appended",
-    "ses_2626fcfd6ffeMOxJegiYqgSCKo": "appended",
-    "ses_2626fa797ffeKVkSW4CAKyOGZv": "appended",
-    "ses_2626f8939ffeunJwNmhIHkIrpJ": "appended",
-    "ses_2626f77a1ffeJ9JDs8YWK5l3Yg": "appended"
+    "ses_2665c0930ffexGSPKDSdVxcWUg": "direct",
+    "ses_261c85d84ffek2dvx0jEGZOTHR": "appended",
+    "ses_261c84319ffeVH5pNOuOBCv8La": "appended",
+    "ses_261c81308ffeRjX8OyV3uAuSkI": "appended",
+    "ses_261c7e8c8ffeJyZSIxRCcJJiQH": "appended",
+    "ses_261aa2d9cffeHZz8bzCwKpcVJG": "appended",
+    "ses_261aa11ceffeH0IK3S2jOcMDcG": "appended",
+    "ses_261a9e0ebffex8Cs3ukLIERCqO": "appended",
+    "ses_261a9b959ffe7cQhotnHsNZTNH": "appended"
   },
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Fix span conversion inconsistency",
-      "session_id": "ses_26329671affeduHj6sdwkXCgI0",
+      "task_title": "Add 19 Missing Conversion Functions to Standard Module Exports",
+      "session_id": "ses_262107d84ffeAODH399iIwChiJ",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-04-17T19:07:49.348Z"
+      "updated_at": "2026-04-18T00:15:58.623Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "Create error display test project",
-      "session_id": "ses_263278719ffe9KUvy2uL2TjZKx",
+      "task_title": "Fix Expr::Loop Type-Checking to Track Break-Value Types",
+      "session_id": "ses_2620d0c03ffemAtzL4u6PqgiYB",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-17T19:09:51.251Z"
+      "category": "deep",
+      "updated_at": "2026-04-18T00:19:21.203Z"
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "Create miette-based diagnostic renderer module",
-      "session_id": "ses_26325cde3ffe8no0o227mzI2Xv",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-17T19:16:46.602Z"
-    },
-    "todo:4": {
-      "task_key": "todo:4",
-      "task_label": "4",
-      "task_title": "Enhance CodegenError with optional span",
-      "session_id": "ses_262dd87a4ffeI2LmQPaJmaxjaF",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-17T20:41:26.447Z"
-    },
-    "todo:7": {
-      "task_key": "todo:7",
-      "task_label": "7",
-      "task_title": "Update CLI (app.rs) to use new renderer for all error output",
-      "session_id": "ses_262a14cfaffeIhXvlKf11Jxhcl",
+      "task_title": "Fix Codegen to Handle Expr::Loop Initializer in Let Statements",
+      "session_id": "ses_261e6adeeffeWnGTtRipe1d7A0",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-04-17T22:05:22.820Z"
-    },
-    "todo:8": {
-      "task_key": "todo:8",
-      "task_label": "8",
-      "task_title": "Update existing tests for new rendering output",
-      "session_id": "ses_2627d889cffeu703NM1e1f2Ofl",
-      "agent": "oracle",
-      "updated_at": "2026-04-17T22:17:52.384Z"
-    },
-    "todo:9": {
-      "task_key": "todo:9",
-      "task_label": "9",
-      "task_title": "End-to-end integration verification",
-      "session_id": "ses_262769e86ffeknShsobi9tz6P4",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-17T22:27:51.451Z"
+      "updated_at": "2026-04-18T01:29:13.482Z"
     },
     "final-wave:f1": {
       "task_key": "final-wave:f1",
       "task_label": "F1",
       "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "ses_26270066cffeQHE0z5Z749hHfs",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-17T22:34:50.249Z"
+      "session_id": "ses_261aa2d9cffeHZz8bzCwKpcVJG",
+      "agent": "oracle",
+      "updated_at": "2026-04-18T02:21:26.927Z"
     }
   }
 }

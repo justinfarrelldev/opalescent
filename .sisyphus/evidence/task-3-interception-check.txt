@@ -1,0 +1,22 @@
+Task 3 interception verification
+Date: 2026-04-17
+
+File checked: src/codegen/statements.rs
+Function: codegen_let_statement
+
+Observed code (lines 100-108):
+- if let Some(initializer_expr @ Expr::Loop { .. }) = initializer {
+-     let loop_binding = [binding.clone()];
+-     return codegen_let_destructure_statement(
+-         codegen_context,
+-         env,
+-         loop_binding.as_slice(),
+-         initializer_expr,
+-     );
+- }
+
+Result: Expr::Loop is intercepted at the start of codegen_let_statement and routed to loop-lowering logic before any codegen_expression call in this function.
+
+Non-change confirmation:
+- src/codegen/expressions.rs still rejects Expr::Loop in codegen_expression with:
+  "loop expressions are lowered in statement context"
