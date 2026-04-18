@@ -922,4 +922,75 @@ mod tests {
             "cast-safety should compile, run, print float output, and exit cleanly: {failure_message}"
         );
     }
+
+    #[test]
+    fn loop_expression_break_value_compiles_and_runs() {
+        let temp_dir = Path::new("test-projects/_loop_expr/target");
+        let prepare = prepare_dir(temp_dir);
+        assert!(
+            prepare.is_ok(),
+            "loop-expr temp directory should be created"
+        );
+
+        let source = "
+import int64_to_string from standard
+
+entry main = f(args: string[]): void =>
+    let result = loop =>
+        break result: 42
+    println(int64_to_string(result))
+    return void
+";
+
+        let execution_result: Result<(), String> = (|| {
+            let binary_result = compile_program(source, temp_dir);
+            if binary_result.is_err() {
+                return Err(format!(
+                    "loop expression source should compile: {:?}",
+                    binary_result.err()
+                ));
+            }
+            let binary_path = binary_result.expect("compile succeeded");
+
+            let output_result = Command::new(&binary_path).output();
+            if output_result.is_err() {
+                return Err(format!(
+                    "loop expression binary should execute: {:?}",
+                    output_result.err()
+                ));
+            }
+            let run_output = output_result.expect("execution succeeded");
+
+            let stdout = String::from_utf8_lossy(&run_output.stdout);
+            if !stdout.contains("42") {
+                return Err(format!(
+                    "loop expression binary stdout should contain '42', got: '{stdout}'"
+                ));
+            }
+
+            if !run_output.status.success() {
+                return Err(format!(
+                    "loop expression binary should exit with status code 0, got: {:?}",
+                    run_output.status.code()
+                ));
+            }
+
+            Ok(())
+        })();
+
+        let cleanup = cleanup_dir(temp_dir);
+        assert!(
+            cleanup.is_ok(),
+            "loop-expr target directory should be removed"
+        );
+
+        let failure_message = match execution_result {
+            Ok(()) => String::new(),
+            Err(message) => message,
+        };
+        assert!(
+            failure_message.is_empty(),
+            "loop expression should compile, run, print '42', and exit cleanly: {failure_message}"
+        );
+    }
 }

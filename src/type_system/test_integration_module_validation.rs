@@ -260,4 +260,62 @@ entry main = f(): void =>
             "private symbol should be tracked as private",
         );
     }
+
+    #[test]
+    fn test_all_19_new_standard_conversion_functions_are_importable() {
+        const SOURCE: &str = "
+import string_to_int8 from standard
+import string_to_int16 from standard
+import string_to_uint8 from standard
+import string_to_uint16 from standard
+import string_to_uint32 from standard
+import string_to_uint64 from standard
+import string_to_float32 from standard
+import string_to_float64 from standard
+import int8_to_string from standard
+import int16_to_string from standard
+import int32_to_string from standard
+import int64_to_string from standard
+import uint8_to_string from standard
+import uint16_to_string from standard
+import uint32_to_string from standard
+import uint64_to_string from standard
+import float32_to_string from standard
+import float64_to_string from standard
+import bool_to_string from standard
+
+entry main = f(args: string[]): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "all 19 new standard conversion functions must be importable: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_expression_loop_with_break_value_type_checks_correctly() {
+        const SOURCE: &str = "
+import int64_to_string from standard
+import println from standard
+
+entry main = f(args: string[]): void =>
+    let x = loop =>
+        break x: 42
+    println(int64_to_string(x))
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "let x = loop => break x: 42 must type-check without errors: {result:?}",
+        );
+    }
 }
