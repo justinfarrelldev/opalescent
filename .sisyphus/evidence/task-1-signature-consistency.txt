@@ -1,0 +1,35 @@
+=== SIGNATURE CONSISTENCY CHECK ===
+
+Comparing module_resolver.rs entries against size_specific_builtins.rs
+
+STRING_TO_* FUNCTIONS (Fallible - with ParseError):
+✓ string_to_int8 → CoreType::Int8 (matches size_specific_builtins.rs line 15)
+✓ string_to_int16 → CoreType::Int16 (matches size_specific_builtins.rs line 16)
+✓ string_to_uint8 → CoreType::UInt8 (matches size_specific_builtins.rs line 17)
+✓ string_to_uint16 → CoreType::UInt16 (matches size_specific_builtins.rs line 18)
+✓ string_to_uint32 → CoreType::UInt32 (matches size_specific_builtins.rs line 19)
+✓ string_to_uint64 → CoreType::UInt64 (matches size_specific_builtins.rs line 20)
+✓ string_to_float32 → CoreType::Float32 (matches size_specific_builtins.rs line 22)
+✓ string_to_float64 → CoreType::Float64 (matches size_specific_builtins.rs line 23)
+
+*_TO_STRING FUNCTIONS (Infallible - no error_types):
+✓ int8_to_string ← CoreType::Int8 (matches size_specific_builtins.rs line 26)
+✓ int16_to_string ← CoreType::Int16 (matches size_specific_builtins.rs line 27)
+✓ int32_to_string ← CoreType::Int32 (matches size_specific_builtins.rs line 28)
+✓ int64_to_string ← CoreType::Int64 (matches size_specific_builtins.rs line 29)
+✓ uint8_to_string ← CoreType::UInt8 (matches size_specific_builtins.rs line 30)
+✓ uint16_to_string ← CoreType::UInt16 (matches size_specific_builtins.rs line 31)
+✓ uint32_to_string ← CoreType::UInt32 (matches size_specific_builtins.rs line 32)
+✓ uint64_to_string ← CoreType::UInt64 (matches size_specific_builtins.rs line 33)
+✓ float32_to_string ← CoreType::Float32 (matches size_specific_builtins.rs line 34)
+✓ float64_to_string ← CoreType::Float64 (matches size_specific_builtins.rs line 35)
+✓ bool_to_string ← CoreType::Boolean (matches size_specific_builtins.rs line 36)
+
+SIGNATURE VERIFICATION:
+✓ All string_to_* functions have error_types: vec![CoreType::Generic { name: "ParseError", ... }]
+✓ All *_to_string functions have error_types: Vec::new()
+✓ All parameter and return types match exactly
+✓ All generic_params are Vec::new() (no generics)
+✓ All function signatures are consistent with size_specific_builtins.rs
+
+RESULT: ALL SIGNATURES VERIFIED ✓

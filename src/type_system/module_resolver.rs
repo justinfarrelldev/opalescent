@@ -276,6 +276,10 @@ impl ModuleResolver {
     }
 
     /// Register `standard` built-in module symbols.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Standard module has 24 builtin symbols requiring explicit registration"
+    )]
     fn register_standard_module(&mut self) {
         let mut interface = ModuleInterface::new(String::from("standard"));
         let standard_symbols = [
@@ -335,6 +339,220 @@ impl ModuleResolver {
                         name: "ParseError".to_owned(),
                         type_args: Vec::new(),
                     }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("string_to_int8"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::Int8],
+                    error_types: vec![CoreType::Generic {
+                        name: "ParseError".to_owned(),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("string_to_int16"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::Int16],
+                    error_types: vec![CoreType::Generic {
+                        name: "ParseError".to_owned(),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("string_to_uint8"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::UInt8],
+                    error_types: vec![CoreType::Generic {
+                        name: "ParseError".to_owned(),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("string_to_uint16"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::UInt16],
+                    error_types: vec![CoreType::Generic {
+                        name: "ParseError".to_owned(),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("string_to_uint32"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::UInt32],
+                    error_types: vec![CoreType::Generic {
+                        name: "ParseError".to_owned(),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("string_to_uint64"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::UInt64],
+                    error_types: vec![CoreType::Generic {
+                        name: "ParseError".to_owned(),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("string_to_float32"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::Float32],
+                    error_types: vec![CoreType::Generic {
+                        name: "ParseError".to_owned(),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("string_to_float64"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::Float64],
+                    error_types: vec![CoreType::Generic {
+                        name: "ParseError".to_owned(),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("int8_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Int8],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("int16_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Int16],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("int32_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Int32],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("int64_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Int64],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("uint8_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::UInt8],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("uint16_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::UInt16],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("uint32_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::UInt32],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("uint64_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::UInt64],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("float32_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Float32],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("float64_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Float64],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("bool_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Boolean],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
                 },
                 SymbolType::Function,
             ),

@@ -1,0 +1,37 @@
+=== DUPLICATE CHECK ===
+
+All symbols in standard_symbols array (sorted):
+1. bool_to_string
+2. float32_to_string
+3. float64_to_string
+4. int16_to_string
+5. int32_to_string
+6. int64_to_string
+7. int8_to_string
+8. print
+9. println
+10. string_to_float32
+11. string_to_float64
+12. string_to_int16
+13. string_to_int32
+14. string_to_int64
+15. string_to_int8
+16. string_to_uint16
+17. string_to_uint32
+18. string_to_uint64
+19. string_to_uint8
+20. take_input
+21. uint16_to_string
+22. uint32_to_string
+23. uint64_to_string
+24. uint8_to_string
+
+TOTAL COUNT: 24 entries
+DUPLICATES: NONE (all entries appear exactly once)
+
+Verification:
+✓ string_to_int32 appears exactly 1 time (not duplicated)
+✓ string_to_int64 appears exactly 1 time (not duplicated)
+✓ All 19 new entries added successfully
+✓ All 5 original entries preserved
+✓ Total: 5 + 19 = 24 entries
