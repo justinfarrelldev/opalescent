@@ -993,4 +993,5 @@ entry main = f(args: string[]): void =>
             "loop expression should compile, run, print '42', and exit cleanly: {failure_message}"
         );
     }
+
 }
