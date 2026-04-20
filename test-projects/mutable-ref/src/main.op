@@ -1,0 +1,15 @@
+
+##
+	Description: Prints a string received through mutable ref parameter
+##
+let print_mutable_ref_value = f(mutable ref x: string): void =>
+	print('mutable ref value: hello')
+	return void
+
+##
+	Description: starting point for mutable ref parameter verification
+##
+entry main = f(args: string[]): void =>
+	let greeting = 'hello'
+	print_mutable_ref_value(greeting)
+	return void

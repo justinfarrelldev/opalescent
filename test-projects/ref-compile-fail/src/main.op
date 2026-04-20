@@ -1,0 +1,15 @@
+
+##
+	Description: Intentionally returns a ref parameter to trigger escape check
+##
+let escape_ref = f(ref x: int32): int32 =>
+	return x
+
+##
+	Description: starting point kept minimal for compile-fail fixture
+##
+entry main = f(args: string[]): void =>
+	let value: int32 = 7
+	let leaked = escape_ref(value)
+	print('should never run: {leaked}')
+	return void

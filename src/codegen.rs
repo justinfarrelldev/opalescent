@@ -25,6 +25,8 @@ pub mod functions_stdlib;
 pub mod monomorphization;
 #[doc = "LLVM optimization pass pipeline configuration."]
 pub mod optimization;
+#[doc = "RC runtime call emission for reference counting operations."]
+pub mod rc_emitter;
 /// Statement lowering for LLVM backend.
 pub mod statements;
 pub mod types;

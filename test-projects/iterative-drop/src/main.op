@@ -1,0 +1,11 @@
+
+##
+	Description: Nests string arrays to exercise iterative drop traversal paths
+##
+entry main = f(args: string[]): void =>
+	let alpha = 'alpha'
+	let beta = 'beta'
+	let pair = [alpha, beta]
+	let nested = [pair[0], pair[1], 'done']
+	print('iterative-drop: done')
+	return void

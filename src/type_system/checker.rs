@@ -38,6 +38,8 @@ mod hot_reload;
 mod module_checking;
 /// Pattern-matching typing and exhaustiveness checks.
 mod patterns;
+/// Reference parameter and second-class reference validation rules.
+mod ref_rules;
 mod returns;
 mod size_specific_builtins;
 mod statements;

@@ -1,0 +1,15 @@
+
+##
+	Description: Prints an int32 received through a ref parameter safely
+##
+let print_ref_value = f(ref x: int32): void =>
+	return void
+
+##
+	Description: starting point for ref parameter behavior verification
+##
+entry main = f(args: string[]): void =>
+	let number: int32 = 42
+	print_ref_value(number)
+	print('ref value: {number}')
+	return void

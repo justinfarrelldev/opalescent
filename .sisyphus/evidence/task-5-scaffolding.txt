@@ -1,0 +1,9 @@
+test-projects/iterative-drop/opal.toml
+test-projects/mutable-ref/opal.toml
+test-projects/rc-basic/opal.toml
+test-projects/rc-reuse/opal.toml
+test-projects/ref-basic/opal.toml
+test-projects/ref-basic/src/main.op
+test-projects/ref-compile-fail/opal.toml
+test-projects/weak-ref/opal.toml
+test-projects/weak-ref/src/main.op

@@ -1,0 +1,10 @@
+
+##
+	Description: Builds RC string and array values and prints stable output
+##
+entry main = f(args: string[]): void =>
+	let first = 'hello'
+	let second = 'world'
+	let words = [first, second]
+	print('rc-basic: hello world')
+	return void

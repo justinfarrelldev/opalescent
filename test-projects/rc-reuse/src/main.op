@@ -1,0 +1,9 @@
+
+##
+	Description: Creates sequential RC strings to exercise reuse pattern paths
+##
+entry main = f(args: string[]): void =>
+	let first = 'first'
+	let second = 'second'
+	print('rc-reuse: {first} {second}')
+	return void
