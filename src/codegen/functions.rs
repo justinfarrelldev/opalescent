@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use crate::ast::{Decl, ImportItem};
+use crate::ast::{Decl, ImportItem, Visibility};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding};
@@ -36,6 +36,7 @@ pub fn codegen_function_declaration<'context>(
         ref return_types,
         ref body,
         is_entry,
+        ref visibility,
         ..
     } = declaration
     else {
@@ -75,9 +76,14 @@ pub fn codegen_function_declaration<'context>(
         .map(|core_type| core_type_to_llvm(codegen_context.context, core_type).into())
         .collect::<Vec<BasicMetadataTypeEnum<'context>>>();
     let function_type = build_function_type(codegen_context, &parameter_types, &returns);
+    let function_linkage = if is_entry || matches!(*visibility, Visibility::Public) {
+        None
+    } else {
+        Some(Linkage::Internal)
+    };
     let function = codegen_context
         .module
-        .add_function(function_name.as_str(), function_type, None);
+        .add_function(function_name.as_str(), function_type, function_linkage);
     let entry = codegen_context
         .context
         .append_basic_block(function, "entry");

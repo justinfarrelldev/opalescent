@@ -1,8 +1,13 @@
-# This should fail to compile due to multiple entries
-
-entry main = f(args: string[]): void => 
+##
+    Description: starting point of the application
+##
+entry main = f(args: string[]): void =>
     print('Hello world!')
+    return void
 
-
-entry main_fn = f(): void => 
-    print('This should make an error')
+##
+    Description: second entry point, which should not be allowed in a single file
+##
+entry second = f(): void =>
+    print('This should cause a DuplicateEntryPoint error')
+    return void

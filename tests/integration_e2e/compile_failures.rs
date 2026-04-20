@@ -119,3 +119,71 @@ fn no_doc_comments_fails_to_compile() {
         "no-doc-comments source should be rejected for missing/short docs: {failure_message}"
     );
 }
+
+#[test]
+fn multiple_entry_fails_to_compile() {
+    let temp_dir = Path::new("test-projects/multiple-entry/target");
+    let prepare = prepare_dir(temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "multiple-entry target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let source_path = Path::new("test-projects/multiple-entry/src/main.op");
+        let source_result = fs::read_to_string(source_path);
+        let source_str = match source_result {
+            Ok(contents) => contents,
+            Err(error) => {
+                return Err(format!(
+                    "multiple-entry source file should be readable: {error}"
+                ));
+            }
+        };
+
+        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let compile_error = match binary_result {
+            Ok(_path) => {
+                return Err(
+                    "multiple-entry source should fail to compile, but compilation succeeded"
+                        .to_owned(),
+                );
+            }
+            Err(error) => error,
+        };
+
+        let CompileError::Report { report, .. } = compile_error else {
+            return Err(format!(
+                "multiple-entry should fail in type-check report, got different error: {compile_error}"
+            ));
+        };
+
+        let has_expected_error = report.entries().iter().any(|entry| {
+            matches!(
+                entry,
+                &(_, CompilerError::TypeChecker(TypeError::DuplicateEntryPoint { .. }))
+            )
+        });
+
+        if !has_expected_error {
+            return Err("multiple-entry should emit DuplicateEntryPoint error".to_owned());
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "multiple-entry target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "multiple-entry source should be rejected for duplicate entry points: {failure_message}"
+    );
+}

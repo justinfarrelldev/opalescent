@@ -73,7 +73,7 @@ impl TypeChecker {
                 name: function_name.clone(),
                 found_length: trimmed_length,
                 min_length: MIN_FUNCTION_DOC_COMMENT_LENGTH,
-                span: TypeError::span_from_span(documentation.span),
+                span: TypeError::span_from_span(span),
             });
         }
 
