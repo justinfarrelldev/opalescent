@@ -119,3 +119,20 @@
   - other errors print `error: compilation failed: ...`
 - Explicit-file path (`opal run <file.op> [-- args...]`) remains unchanged and still uses `compile_and_run()`.
 - Verification completed: `cargo build`, `cargo make lint`, and `cargo test` all passed.
+
+## [2026-04-20] Multi-file integration test coverage added
+
+- Added a new fixture project at `test-projects/multi-file` with:
+  - `src/math.op` exporting `public let add = f(a: int32, b: int32): int32 => ...`
+  - `src/main.op` importing `add` from `./math`, invoking `add(3, 4)`, and printing `7`
+  - `opal.toml` matching standard test project format.
+- Important parser constraint discovered: current import grammar accepts `import add from './math'` (no braces). Curly-brace form (`import { add } ...`) does not parse in the existing compiler implementation.
+- Added 3 new `compile_project(...)` integration tests in `tests/integration_e2e/project_execution.rs`:
+  - success path for multi-file compile+run
+  - failure for entry in non-`src/main.op` module
+  - failure for `@scope/package` import with unsupported package import messaging
+- For temporary project tests that call `compile_project`, absolute project paths (built from `std::env::current_dir()`) avoid incorrect project-root double-joining in module discovery.
+- Verification status:
+  - `cargo build` ✅
+  - `cargo make lint` ✅
+  - `cargo test --features integration --test integration_e2e 2>&1 | grep -E "FAILED|test result"` shows only 2 expected pre-existing failures: `loop_expression_break_value_compiles_and_runs` and `string_interp_long_does_not_crash`.

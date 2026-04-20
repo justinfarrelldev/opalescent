@@ -457,3 +457,260 @@ fn cast_safety_compiles_and_runs() {
         "cast-safety should compile, run, print float output, and exit cleanly: {failure_message}"
     );
 }
+
+#[test]
+fn multi_file_project_compiles_and_runs() {
+    let cwd = std::env::current_dir();
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+
+    let project_dir = cwd_path.join("test-projects/multi-file");
+    let temp_dir = project_dir.join("target");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(prepare.is_ok(), "multi-file target directory should be created");
+
+    let execution_result: Result<(), String> = (|| {
+        let binary_result = opalescent::compiler::compile_project(&project_dir, &temp_dir);
+        let binary_path = match binary_result {
+            Ok(path) => path,
+            Err(error) => {
+                return Err(format!(
+                    "multi-file project should compile into a binary: {error}"
+                ));
+            }
+        };
+
+        let output_result = std::process::Command::new(&binary_path).output();
+        let run_output = match output_result {
+            Ok(output) => output,
+            Err(error) => {
+                return Err(format!(
+                    "multi-file compiled binary should execute: {error}"
+                ));
+            }
+        };
+
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        if !stdout.contains('7') {
+            return Err(format!(
+                "multi-file binary stdout should contain '7', got: '{stdout}'"
+            ));
+        }
+
+        if !run_output.status.success() {
+            return Err(format!(
+                "multi-file binary should exit with status code 0, got: {:?}",
+                run_output.status.code()
+            ));
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "multi-file target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "multi-file project should compile, run, and print computed sum: {failure_message}"
+    );
+}
+
+#[test]
+fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
+    let cwd = std::env::current_dir();
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+
+    let project_dir = cwd_path.join("test-projects/_entry-wrong-file");
+    let src_dir = project_dir.join("src");
+    let output_dir = project_dir.join("target");
+
+    let prepare = prepare_dir(&project_dir);
+    assert!(
+        prepare.is_ok(),
+        "entry-wrong-file project directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let src_create_result = fs::create_dir_all(&src_dir);
+        if let Err(error) = src_create_result {
+            return Err(format!(
+                "entry-wrong-file src directory should be created: {error}"
+            ));
+        }
+
+        let toml_write = fs::write(project_dir.join("opal.toml"), "name = \"entry-wrong-file\"\nversion = \"1.0.0\"\n");
+        if let Err(error) = toml_write {
+            return Err(format!(
+                "entry-wrong-file opal.toml should be written: {error}"
+            ));
+        }
+
+        let main_write = fs::write(
+            src_dir.join("main.op"),
+            "import { helper } from './worker'\n\nlet call_helper = f(): int32 =>\n    return helper()\n",
+        );
+        if let Err(error) = main_write {
+            return Err(format!(
+                "entry-wrong-file main.op should be written: {error}"
+            ));
+        }
+
+        let worker_write = fs::write(
+            src_dir.join("worker.op"),
+            "##\n  Description: wrong module entry used for validation error path\n##\nentry worker = f(args: string[]): void =>\n    return void\n\n##\n  Description: helper function exported from worker module\n##\npublic let helper = f(): int32 =>\n    return 1\n",
+        );
+        if let Err(error) = worker_write {
+            return Err(format!(
+                "entry-wrong-file worker.op should be written: {error}"
+            ));
+        }
+
+        let binary_result = opalescent::compiler::compile_project(&project_dir, &output_dir);
+        let compile_error = match binary_result {
+            Ok(_path) => {
+                return Err(
+                    "entry-wrong-file project should fail to compile, but compilation succeeded"
+                        .to_owned(),
+                );
+            }
+            Err(error) => error,
+        };
+
+        let error_message = compile_error.to_string();
+        let contains_expected = error_message
+            .to_ascii_lowercase()
+            .contains("entry")
+            && error_message.to_ascii_lowercase().contains("main");
+        if !contains_expected {
+            return Err(format!(
+                "entry-wrong-file compile error should mention entry not in main module, got: {error_message}"
+            ));
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&project_dir);
+    assert!(
+        cleanup.is_ok(),
+        "entry-wrong-file project directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "entry-wrong-file project should fail with entry-not-in-main-module style error: {failure_message}"
+    );
+}
+
+#[test]
+fn package_import_fails_with_not_supported() {
+    let cwd = std::env::current_dir();
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+
+    let project_dir = cwd_path.join("test-projects/_package-import-not-supported");
+    let src_dir = project_dir.join("src");
+    let output_dir = project_dir.join("target");
+
+    let prepare = prepare_dir(&project_dir);
+    assert!(
+        prepare.is_ok(),
+        "package-import-not-supported project directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let src_create_result = fs::create_dir_all(&src_dir);
+        if let Err(error) = src_create_result {
+            return Err(format!(
+                "package-import-not-supported src directory should be created: {error}"
+            ));
+        }
+
+        let toml_write = fs::write(
+            project_dir.join("opal.toml"),
+            "name = \"package-import-not-supported\"\nversion = \"1.0.0\"\n",
+        );
+        if let Err(error) = toml_write {
+            return Err(format!(
+                "package-import-not-supported opal.toml should be written: {error}"
+            ));
+        }
+
+        let main_write = fs::write(
+            src_dir.join("main.op"),
+            "import { foo } from '@scope/package'\n\n##\n  Description: entrypoint used for package import error validation\n##\nentry main = f(args: string[]): void =>\n    print('{foo}')\n    return void\n",
+        );
+        if let Err(error) = main_write {
+            return Err(format!(
+                "package-import-not-supported main.op should be written: {error}"
+            ));
+        }
+
+        let binary_result = opalescent::compiler::compile_project(&project_dir, &output_dir);
+        let compile_error = match binary_result {
+            Ok(_path) => {
+                return Err(
+                    "package-import-not-supported project should fail to compile, but compilation succeeded"
+                        .to_owned(),
+                );
+            }
+            Err(error) => error,
+        };
+
+        let error_message = compile_error.to_string();
+        let lowercase_message = error_message.to_ascii_lowercase();
+        let contains_expected = lowercase_message.contains("package")
+            && lowercase_message.contains("import")
+            && lowercase_message.contains("support");
+        if !contains_expected {
+            return Err(format!(
+                "package-import-not-supported compile error should mention package imports are not supported, got: {error_message}"
+            ));
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&project_dir);
+    assert!(
+        cleanup.is_ok(),
+        "package-import-not-supported project directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "package-import-not-supported project should fail with not-supported import error: {failure_message}"
+    );
+}
