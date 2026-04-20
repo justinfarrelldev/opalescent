@@ -7,6 +7,7 @@ public let add = f(num1: int32, num2: int32): int32 =>
     return num1 + num2
 
 entry main = f(): void => 
+    print(int32_to_string(5))
     print('Enter num 1:')
     let num1 = take_input()
     print('Enter num 2:')

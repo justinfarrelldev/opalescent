@@ -1,0 +1,9 @@
+##
+  Description: Tests print() with all primitive types to verify type-based dispatch
+##
+entry main = f(args: string[]): void =>
+    print(42)
+    print(true)
+    print(false)
+    print('hello')
+    return void
