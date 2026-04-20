@@ -35,6 +35,7 @@ pub mod formatter;
 pub mod hot_reload;
 pub mod lexer;
 pub mod lsp;
+pub mod module_loader;
 pub mod package_manager;
 pub mod parser;
 pub mod runtime;

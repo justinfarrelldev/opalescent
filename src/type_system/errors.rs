@@ -687,6 +687,80 @@ pub enum TypeError {
         /// Source span of the impure call expression.
         span: SourceSpan,
     },
+
+    /// Public function is missing a documentation comment.
+    #[error("Public function '{name}' is missing a documentation comment")]
+    #[diagnostic(
+        code(opalescent::type_system::missing_doc_comment),
+        help("Add a ## documentation block with at least 30 characters before this function")
+    )]
+    MissingDocComment {
+        /// Name of the public function missing documentation.
+        name: String,
+        #[label("missing doc comment")]
+        /// Source span of the function declaration.
+        span: SourceSpan,
+    },
+
+    /// Documentation comment is too short.
+    #[error("Documentation comment for '{name}' is too short ({found_length} characters, minimum {min_length})")]
+    #[diagnostic(
+        code(opalescent::type_system::doc_comment_too_short),
+        help("Expand the documentation to at least {min_length} characters")
+    )]
+    DocCommentTooShort {
+        /// Name of the function with insufficient documentation.
+        name: String,
+        /// Actual length of the documentation comment.
+        found_length: usize,
+        /// Minimum required length.
+        min_length: usize,
+        #[label("doc comment too short")]
+        /// Source span of the documentation comment.
+        span: SourceSpan,
+    },
+
+    /// Entry keyword used outside the main module.
+    #[error("The 'entry' keyword is only allowed in src/main.op, found in '{file_path}'")]
+    #[diagnostic(
+        code(opalescent::type_system::entry_not_in_main_module),
+        help("Move the entry function to src/main.op — only one entry point is allowed per project")
+    )]
+    EntryNotInMainModule {
+        /// File path where the entry keyword was incorrectly used.
+        file_path: String,
+        #[label("entry not allowed here")]
+        /// Source span of the entry declaration.
+        span: SourceSpan,
+    },
+
+    /// Module import path could not be resolved.
+    #[error("Module '{path}' not found")]
+    #[diagnostic(
+        code(opalescent::type_system::module_not_found),
+        help("Check the import path — expected file at '{path}.op' or '{path}.types.op'")
+    )]
+    ModuleNotFound {
+        /// Module path that could not be resolved.
+        path: String,
+        #[label("module not found")]
+        /// Source span of the import statement.
+        span: SourceSpan,
+    },
+
+    /// Package imports are not yet supported.
+    #[error("Package imports are not yet supported: '{path}'")]
+    #[diagnostic(
+        code(opalescent::type_system::package_import_not_supported),
+        help("Package imports (@scope/name) will be available once the package manager is implemented. Use local imports (./path) instead.")
+    )]
+    PackageImportNotSupported {
+        /// Package import path that was attempted.
+        path: String,
+        #[label("package import not supported")]
+        /// Source span of the package import statement.
+        span: SourceSpan,
+    },
 }
 
 /// Warning diagnostics produced during type checking.

@@ -15,7 +15,7 @@
 use crate::build_system::config::{parse_config, ProjectConfig, Version};
 use crate::build_system::targets::{parse_target_triple, BuildTarget};
 use crate::build_system::BuildError;
-use crate::compiler::{compile_program, CompileError};
+use crate::compiler::{compile_program, compile_project, CompileError};
 use crate::doc_gen::generate_markdown_for_program;
 use crate::errors::renderer::render_report;
 use crate::errors::reporter::CompilationErrorReport;
@@ -250,9 +250,23 @@ fn compile_and_run(source_path: &str, program_args: &[&str]) -> Result<(), i32> 
 
 /// Dispatch `opal run` subcommand — compile and execute with optional arg passthrough.
 fn run_run_command(args: &[String]) -> Result<(), i32> {
-    let Some(source_path) = args.get(2).map(String::as_str) else {
-        eprintln!("error: opal run requires a source file — run 'opal help run' for usage");
-        return Err(1);
+    let source_path = if let Some(path) = args.get(2).map(String::as_str) {
+        path.to_owned()
+    } else {
+        let cwd = match std::env::current_dir() {
+            Ok(dir) => dir,
+            Err(error) => {
+                eprintln!("error: failed to get current directory: {error}");
+                return Err(1);
+            }
+        };
+        let default_path = cwd.join("src").join("main.op");
+        if !default_path.exists() {
+            eprintln!("Error: No source file specified and no src/main.op found in the current directory.");
+            eprintln!("Usage: opal run <file.op>  or  run from a project directory with src/main.op");
+            return Err(1);
+        }
+        default_path.to_string_lossy().to_string()
     };
     let double_dash_pos = args.iter().position(|a| a == "--");
     let program_args: Vec<&str> = double_dash_pos
@@ -263,7 +277,7 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
                 .collect()
         })
         .unwrap_or_default();
-    compile_and_run(source_path, &program_args)
+    compile_and_run(&source_path, &program_args)
 }
 
 /// Dispatch `opal fmt` subcommand arguments to [`FormatCommand`].
@@ -540,14 +554,7 @@ fn run_build_command(_args: &[String]) -> Result<(), i32> {
         eprintln!("error: invalid opal.toml: {msg}");
         return Err(1);
     }
-    let source = match fs::read_to_string("src/main.op") {
-        Ok(content) => content,
-        Err(error) => {
-            eprintln!("error: failed to read 'src/main.op': {error}");
-            return Err(1);
-        }
-    };
-    let binary_path = match compile_program(&source, Path::new("target")) {
+    let binary_path = match compile_project(Path::new("."), Path::new("target")) {
         Ok(path) => path,
         Err(CompileError::Report {
             ref report,

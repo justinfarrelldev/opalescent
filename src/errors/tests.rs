@@ -365,7 +365,7 @@ mod e2e_tests {
     #[test]
     fn test_e2e_valid_source_produces_no_error() {
         let context = Context::create();
-        let source = "entry main = f(args: string[]): void => { return void }";
+        let source = "##\n  Description: Valid entry source for e2e diagnostics test\n##\nentry main = f(args: string[]): void => { return void }";
         let result = compile_to_module(&context, source);
 
         assert!(result.is_ok(), "valid source should compile successfully");

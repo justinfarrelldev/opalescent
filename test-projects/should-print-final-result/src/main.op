@@ -5,6 +5,9 @@
 public let add = f(num1: int32, num2: int32): int32 => 
     return num1 + num2
 
+##
+    Description: Reads two integers and prints their final sum result
+##
 entry main = f(): void => 
     print('Enter num 1:')
     let num1 = take_input()

@@ -40,6 +40,8 @@ pub struct VariableBinding<'context> {
 pub struct CodegenEnv<'context> {
     pub variables: BTreeMap<String, VariableBinding<'context>>,
     pub imported_functions: BTreeMap<String, String>,
+    /// Type signatures for imported symbols keyed by import-visible symbol name.
+    pub imported_signatures: BTreeMap<String, CoreType>,
     pub variable_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
     pub emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue<'context>>,
     pub debug_mode: bool,
@@ -52,6 +54,7 @@ impl CodegenEnv<'_> {
         Self {
             variables: BTreeMap::new(),
             imported_functions: BTreeMap::new(),
+            imported_signatures: BTreeMap::new(),
             variable_field_indices: BTreeMap::new(),
             emitted_specializations: BTreeMap::new(),
             debug_mode,

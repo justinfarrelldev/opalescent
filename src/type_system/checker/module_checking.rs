@@ -66,6 +66,14 @@ impl TypeChecker {
         source: &str,
         import_span: Span,
     ) -> Result<(), TypeError> {
+        // Package imports (@scope/name) are not yet supported.
+        if source.starts_with('@') {
+            return Err(TypeError::PackageImportNotSupported {
+                path: source.to_owned(),
+                span: TypeError::span_from_span(import_span),
+            });
+        }
+
         self.module_resolver
             .register_dependency(&self.current_module_path, source);
         self.module_resolver

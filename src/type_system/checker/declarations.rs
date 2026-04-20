@@ -13,6 +13,9 @@ use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{collections::BTreeMap, format, vec::Vec};
 
+/// Minimum required trimmed character length for function documentation comments.
+const MIN_FUNCTION_DOC_COMMENT_LENGTH: usize = 30;
+
 /// Parameters for type checking a function declaration
 struct FunctionCheckParams<'params> {
     /// Generic type parameter constraints
@@ -34,6 +37,49 @@ struct FunctionCheckParams<'params> {
 }
 
 impl TypeChecker {
+    /// Validate documentation requirements for public and entry function declarations.
+    #[expect(
+        clippy::pattern_type_mismatch,
+        reason = "Matching a borrowed declaration requires explicit ref-patterns"
+    )]
+    fn validate_function_doc_comment(decl: &Decl) -> Option<TypeError> {
+        let &Decl::Function {
+            name: ref function_name,
+            doc_comment: ref function_doc_comment,
+            visibility: ref function_visibility,
+            is_entry,
+            span,
+            ..
+        } = decl
+        else {
+            return None;
+        };
+
+        let requires_doc_comment = matches!(function_visibility, &AstVisibility::Public) || is_entry;
+        if !requires_doc_comment {
+            return None;
+        }
+
+        let Some(documentation) = function_doc_comment else {
+            return Some(TypeError::MissingDocComment {
+                name: function_name.clone(),
+                span: TypeError::span_from_span(span),
+            });
+        };
+
+        let trimmed_length = documentation.raw.trim().len();
+        if trimmed_length < MIN_FUNCTION_DOC_COMMENT_LENGTH {
+            return Some(TypeError::DocCommentTooShort {
+                name: function_name.clone(),
+                found_length: trimmed_length,
+                min_length: MIN_FUNCTION_DOC_COMMENT_LENGTH,
+                span: TypeError::span_from_span(documentation.span),
+            });
+        }
+
+        None
+    }
+
     /// Validate that the program contains exactly one `entry` function.
     pub fn validate_entry_points(program: &Program) -> Result<(), TypeError> {
         let entry_declarations = program
@@ -680,6 +726,12 @@ impl TypeChecker {
         let mut skipped_decls: Vec<usize> = Vec::new();
 
         for decl in &program.declarations {
+            if let Some(error) = Self::validate_function_doc_comment(decl) {
+                skipped_decls.push(decl.node_id().0);
+                errors.push(error);
+                continue;
+            }
+
             if let Err(error) = self.register_declaration_signature(decl) {
                 skipped_decls.push(decl.node_id().0);
                 errors.push(error);

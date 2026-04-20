@@ -15,6 +15,13 @@ use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
 use inkwell::AddressSpace;
 
+#[path = "functions_call_helpers.rs"]
+#[doc = "Helper utilities for call-expression lowering internals."]
+mod functions_call_helpers;
+use self::functions_call_helpers::{
+    current_function, emit_function_default_return, llvm_basic_type_to_core_type,
+};
+
 #[doc = "Lower a function call expression."]
 #[expect(
     clippy::too_many_lines,
@@ -405,6 +412,13 @@ fn resolve_callee_function<'context>(
                         })?
                 } else if let Some(existing) = codegen_context.module.get_function(name.as_str()) {
                     existing
+                } else if let Some(imported_signature) = env.imported_signatures.get(name).cloned()
+                {
+                    declare_external_imported_function(
+                        codegen_context,
+                        name.as_str(),
+                        &imported_signature,
+                    )?
                 } else if let Some(stdlib_function) =
                     crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, name)
                 {
@@ -550,6 +564,49 @@ fn resolve_callee_function<'context>(
     }
 }
 
+/// Declare (or return existing) extern LLVM function for an imported symbol signature.
+///
+/// # Errors
+/// Returns `CodegenError` when the imported symbol is not a function type.
+fn declare_external_imported_function<'context>(
+    codegen_context: &CodegenContext<'context>,
+    function_name: &str,
+    signature: &CoreType,
+) -> Result<FunctionValue<'context>, CodegenError> {
+    if let Some(existing) = codegen_context.module.get_function(function_name) {
+        return Ok(existing);
+    }
+
+    let &CoreType::Function {
+        ref parameters,
+        ref return_types,
+        ..
+    } = signature
+    else {
+        return Err(CodegenError::new(format!(
+            "imported symbol '{function_name}' is not callable"
+        )));
+    };
+
+    let mut lowered_parameter_core_types = Vec::new();
+    for core_type in parameters {
+        lowered_parameter_core_types.push(core_type.clone());
+        if matches!(*core_type, CoreType::Array(_)) {
+            lowered_parameter_core_types.push(CoreType::Int64);
+        }
+    }
+
+    let parameter_types = lowered_parameter_core_types
+        .iter()
+        .map(|core_type| core_type_to_llvm(codegen_context.context, core_type).into())
+        .collect::<Vec<BasicMetadataTypeEnum<'context>>>();
+    let function_type = build_function_type(codegen_context, &parameter_types, return_types);
+
+    Ok(codegen_context
+        .module
+        .add_function(function_name, function_type, Some(inkwell::module::Linkage::External)))
+}
+
 #[doc = "Build LLVM function type from core parameter and return types."]
 pub fn build_function_type<'context>(
     codegen_context: &CodegenContext<'context>,
@@ -605,51 +662,6 @@ pub fn emit_default_return(
     Ok(())
 }
 
-#[doc = "Emit early-return default for propagate error path."]
-fn emit_function_default_return<'context>(
-    codegen_context: &CodegenContext<'context>,
-    function: FunctionValue<'context>,
-) -> Result<(), CodegenError> {
-    let return_type = function.get_type().get_return_type();
-    if return_type.is_none() {
-        let _ret = codegen_context.builder.build_return(None)?;
-        return Ok(());
-    }
-    let Some(_return_basic_type) = return_type else {
-        return Err(CodegenError::new(String::from(
-            "invalid function return type",
-        )));
-    };
-    let block_name = codegen_context
-        .builder
-        .get_insert_block()
-        .and_then(|block| {
-            block
-                .get_name()
-                .to_str()
-                .ok()
-                .map(alloc::borrow::ToOwned::to_owned)
-        })
-        .unwrap_or_else(|| String::from("ret"));
-    let msg_name = format!("ret.msg.{block_name}");
-    let call_name = format!("ret.call.{block_name}");
-    let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
-        codegen_context,
-        "opal_runtime_error",
-    )
-    .ok_or_else(|| CodegenError::new(String::from("opal_runtime_error declaration missing")))?;
-    let msg = codegen_context
-        .builder
-        .build_global_string_ptr("missing return statement", msg_name.as_str())?
-        .as_pointer_value();
-    let _: inkwell::values::CallSiteValue =
-        codegen_context
-            .builder
-            .build_call(runtime_fn, &[msg.into()], call_name.as_str())?;
-    let _: inkwell::values::InstructionValue = codegen_context.builder.build_unreachable()?;
-    Ok(())
-}
-
 #[doc = "Map AST types to core types needed for codegen signatures."]
 pub fn ast_type_to_core_type_for_signature(ast_type: &Type) -> Result<CoreType, CodegenError> {
     if matches!(*ast_type, Type::Function { .. }) {
@@ -665,43 +677,6 @@ pub fn ast_type_to_core_type_for_signature(ast_type: &Type) -> Result<CoreType, 
     })
 }
 
-#[doc = "Fetch current LLVM function from builder insertion block."]
-fn current_function<'context>(
-    codegen_context: &CodegenContext<'context>,
-) -> Result<FunctionValue<'context>, CodegenError> {
-    let Some(block) = codegen_context.builder.get_insert_block() else {
-        return Err(CodegenError::new(String::from(
-            "builder is not positioned in a block",
-        )));
-    };
-    block
-        .get_parent()
-        .ok_or_else(|| CodegenError::new(String::from("insert block does not have parent")))
-}
-
-#[doc = "Approximate core type mapping from LLVM basic value type."]
-fn llvm_basic_type_to_core_type(llvm_type: inkwell::types::BasicTypeEnum<'_>) -> CoreType {
-    if llvm_type.is_int_type() {
-        let int_type = llvm_type.into_int_type();
-        return match int_type.get_bit_width() {
-            1 => CoreType::Boolean,
-            8 => CoreType::Int8,
-            16 => CoreType::Int16,
-            32 => CoreType::Int32,
-            _ => CoreType::Int64,
-        };
-    }
-    if llvm_type.is_float_type() {
-        return CoreType::Float64;
-    }
-    if llvm_type.is_pointer_type() {
-        return CoreType::String;
-    }
-    if llvm_type.is_array_type() {
-        return CoreType::Array(alloc::boxed::Box::new(CoreType::Int64));
-    }
-    CoreType::Unit
-}
 
 #[doc = "Emit C ABI main wrapper that dispatches to Opalescent entry."]
 #[doc = ""]
@@ -766,7 +741,7 @@ pub fn emit_c_main_wrapper<'context>(
 }
 
 #[cfg(test)]
-mod tests {
+mod functions_call_tests {
     use super::resolve_callee_function;
     use crate::ast::{Expr, NodeId};
     use crate::codegen::context::CodegenContext;

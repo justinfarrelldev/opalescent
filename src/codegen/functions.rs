@@ -10,6 +10,7 @@ use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
+use inkwell::module::Linkage;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::FunctionValue;
 
@@ -174,6 +175,11 @@ pub fn codegen_import_declaration<'context>(
         )));
     };
 
+    // Local imports (./path or ../path): generate extern declarations from imported_signatures.
+    if source.starts_with("./") || source.starts_with("../") {
+        return codegen_local_import_declaration(codegen_context, env, items, source);
+    }
+
     for item in items {
         match *item {
             ImportItem::Named {
@@ -212,5 +218,76 @@ pub fn codegen_import_declaration<'context>(
         }
     }
 
+    Ok(())
+}
+
+/// Declare extern functions for local (file-based) imports using resolved type signatures.
+fn codegen_local_import_declaration<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    items: &[ImportItem],
+    source: &str,
+) -> Result<(), CodegenError> {
+    for item in items {
+        match *item {
+            ImportItem::Named {
+                ref name,
+                ref alias,
+                ..
+            } => {
+                let local_name = alias.as_ref().unwrap_or(name).clone();
+                // Look up the resolved type signature from the imported_signatures map.
+                let Some(core_type) = env.imported_signatures.get(name).cloned() else {
+                    // Symbol not found in signatures — may be a type-only import; skip.
+                    continue;
+                };
+                let CoreType::Function {
+                    ref parameters,
+                    ref return_types,
+                    ..
+                } = core_type
+                else {
+                    // Not a function (e.g. a type alias) — no runtime declaration needed.
+                    continue;
+                };
+                // Build lowered parameter types (arrays get an extra length i64 param).
+                let mut lowered_params: Vec<BasicMetadataTypeEnum<'context>> = Vec::new();
+                for param_type in parameters {
+                    lowered_params
+                        .push(core_type_to_llvm(codegen_context.context, param_type).into());
+                    if matches!(*param_type, CoreType::Array(_)) {
+                        lowered_params.push(
+                            codegen_context
+                                .context
+                                .i64_type()
+                                .into(),
+                        );
+                    }
+                }
+                let fn_type = build_function_type(codegen_context, &lowered_params, return_types);
+                // Declare the function as external (defined in another object file).
+                let extern_fn = codegen_context.module.add_function(
+                    name.as_str(),
+                    fn_type,
+                    Some(Linkage::External),
+                );
+                env.imported_functions.insert(
+                    local_name,
+                    extern_fn
+                        .get_name()
+                        .to_str()
+                        .map_or_else(|_| name.clone(), alloc::borrow::ToOwned::to_owned),
+                );
+            }
+            ImportItem::Type { .. } => {
+                // Type imports have no runtime representation — skip.
+            }
+            ImportItem::Glob { .. } => {
+                return Err(CodegenError::new(format!(
+                    "glob imports are not supported in codegen for local module '{source}'"
+                )));
+            }
+        }
+    }
     Ok(())
 }

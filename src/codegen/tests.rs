@@ -679,11 +679,17 @@ fn test_codegen_is_operator_on_int64_emits_icmp_eq() {
 #[test]
 fn test_fibonacci_if_n_is_zero_compiles_to_valid_llvm_ir() {
     let source = "
+##
+    Description: Public recursive fibonacci helper for test module
+##
 public fib_recursive = f(n: int64): int64 =>
     if n is 0 { return 0 }
     if n is 1 { return 1 }
     return fib_recursive(n - 1) + fib_recursive(n - 2)
 
+##
+    Description: Entry function for fibonacci recursion codegen test
+##
 entry main = f(): void =>
     let n: int64 = 10
     let _result: int64 = fib_recursive(n)
@@ -1204,6 +1210,9 @@ fn test_codegen_function_declaration_lowers_function_definition() {
 #[test]
 fn test_entry_function_with_string_array_parameter_emits_callable_main_wrapper() {
     let source = "
+##
+    Description: Entry function wrapper shape validation for args
+##
 entry main = f(args: string[]): void => {
     return void
 }
@@ -1240,6 +1249,9 @@ entry main = f(args: string[]): void => {
 #[test]
 fn test_entry_main_wrapper_has_argc_argv_params() {
     let source = "
+##
+    Description: Entry wrapper signature validation in codegen tests
+##
 entry main = f(args: string[]): void => {
     return void
 }
@@ -1270,6 +1282,9 @@ fn test_import_take_input_emits_take_input_declaration() {
     let source = "
 import take_input from standard
 
+##
+    Description: Entry function validates imported take_input declaration
+##
 entry main = f(): void => {
     let user_input = take_input()
     print(user_input)
@@ -1299,6 +1314,9 @@ fn test_import_random_int32_emits_random_int32_declaration() {
     let source = "
 import random_int32 from math
 
+##
+    Description: Entry function validates random_int32 declaration
+##
 entry main = f(): void => {
     let roll = random_int32(1, 10)
     print('roll: {roll}')
@@ -1328,6 +1346,9 @@ fn test_import_random_int64_emits_correct_declaration() {
     let source = "
 import random_int64 from math
 
+##
+    Description: Entry function validates random_int64 declaration
+##
 entry main = f(): void => {
     let roll = random_int64(1, 100)
     print('roll: {roll}')
@@ -1357,6 +1378,9 @@ fn test_import_string_to_int64_emits_correct_declaration() {
     let source = "
 import string_to_int64 from standard
 
+##
+    Description: Entry function validates imported string_to_int64 usage
+##
 entry main = f(): void =>
     guard string_to_int64('42') into n else _e =>
         return void
@@ -1386,6 +1410,9 @@ fn test_import_standard_multiple_symbols_emit_all_runtime_declarations() {
     let source = "
 import take_input, string_to_int32 from standard
 
+##
+    Description: Entry validates multiple standard import declarations
+##
 entry main = f(): void =>
     let text = take_input()
     guard string_to_int32(text) into value else _e =>
@@ -1418,6 +1445,9 @@ entry main = f(): void =>
 #[test]
 fn test_guard_statement_compiles_to_valid_llvm_ir() {
     let source = "
+##
+    Description: Entry function validates guard statement codegen path
+##
 entry main = f(): void =>
     guard string_to_int32('5') into n else e =>
         continue
@@ -1456,6 +1486,9 @@ entry main = f(): void =>
 #[test]
 fn test_builtin_calls_emit_runtime_declarations_without_imports() {
     let source = "
+##
+    Description: Entry validates builtin runtime declarations without imports
+##
 entry main = f(): void =>
     let raw = take_input()
     guard string_to_int32(raw) into parsed else _e =>
