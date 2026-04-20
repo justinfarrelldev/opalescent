@@ -105,3 +105,17 @@
   - `cargo build` ✅
   - `cargo make lint` ✅
   - `cargo test --features integration --test integration_e2e 2>&1 | grep -E "FAILED|test result"` => same known failures only (`loop_expression_break_value_compiles_and_runs`, `string_interp_long_does_not_crash`).
+
+## [2026-04-20] `opal run` no-args now uses project compilation
+
+- Updated `run_run_command()` in `src/app.rs` so the no-args path no longer compiles `src/main.op` as a single file.
+- New behavior for `opal run` with no file argument:
+  - resolve current working directory via `std::env::current_dir()`
+  - call `compile_project(&cwd, Path::new("target"))`
+  - print the resulting binary path
+  - execute the compiled binary and forward args after `--`
+- Error reporting follows existing project-build style:
+  - `CompileError::Report` renders diagnostics with `render_report("src/main.op", ...)`
+  - other errors print `error: compilation failed: ...`
+- Explicit-file path (`opal run <file.op> [-- args...]`) remains unchanged and still uses `compile_and_run()`.
+- Verification completed: `cargo build`, `cargo make lint`, and `cargo test` all passed.

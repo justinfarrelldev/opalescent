@@ -250,24 +250,6 @@ fn compile_and_run(source_path: &str, program_args: &[&str]) -> Result<(), i32> 
 
 /// Dispatch `opal run` subcommand — compile and execute with optional arg passthrough.
 fn run_run_command(args: &[String]) -> Result<(), i32> {
-    let source_path = if let Some(path) = args.get(2).map(String::as_str) {
-        path.to_owned()
-    } else {
-        let cwd = match std::env::current_dir() {
-            Ok(dir) => dir,
-            Err(error) => {
-                eprintln!("error: failed to get current directory: {error}");
-                return Err(1);
-            }
-        };
-        let default_path = cwd.join("src").join("main.op");
-        if !default_path.exists() {
-            eprintln!("Error: No source file specified and no src/main.op found in the current directory.");
-            eprintln!("Usage: opal run <file.op>  or  run from a project directory with src/main.op");
-            return Err(1);
-        }
-        default_path.to_string_lossy().to_string()
-    };
     let double_dash_pos = args.iter().position(|a| a == "--");
     let program_args: Vec<&str> = double_dash_pos
         .map(|p| {
@@ -277,7 +259,52 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
                 .collect()
         })
         .unwrap_or_default();
-    compile_and_run(&source_path, &program_args)
+
+    if let Some(source_path) = args.get(2).map(String::as_str) {
+        return compile_and_run(source_path, &program_args);
+    }
+
+    let cwd = match std::env::current_dir() {
+        Ok(dir) => dir,
+        Err(error) => {
+            eprintln!("error: failed to get current directory: {error}");
+            return Err(1);
+        }
+    };
+
+    let binary_path = match compile_project(&cwd, Path::new("target")) {
+        Ok(path) => path,
+        Err(CompileError::Report {
+            ref report,
+            ref normalized_source,
+        }) => {
+            eprintln!("{}", render_report("src/main.op", normalized_source, report));
+            return Err(1);
+        }
+        Err(error) => {
+            eprintln!("error: compilation failed: {error}");
+            return Err(1);
+        }
+    };
+
+    println!("{}", binary_path.display());
+
+    let status = match Command::new(&binary_path).args(&program_args).status() {
+        Ok(state) => state,
+        Err(error) => {
+            eprintln!(
+                "error: failed to execute '{}': {error}",
+                binary_path.display()
+            );
+            return Err(1);
+        }
+    };
+    let code = status.code().unwrap_or(1_i32);
+    if code == 0 {
+        Ok(())
+    } else {
+        Err(code)
+    }
 }
 
 /// Dispatch `opal fmt` subcommand arguments to [`FormatCommand`].
