@@ -822,7 +822,7 @@ Max Concurrent: 4 (Wave 1)
   - Files: `src/compiler.rs`, `src/app.rs`
   - Pre-commit: `cargo build`
 
-- [ ] 7. Local Import Codegen + `@scope/package` Error
+- [x] 7. Local Import Codegen + `@scope/package` Error
 
   **What to do**:
   - **Part A: Local import codegen** — modify `src/codegen/functions.rs` `codegen_import_declaration()`:
@@ -919,7 +919,7 @@ Max Concurrent: 4 (Wave 1)
   - Files: `src/codegen/functions.rs`, `src/type_system/checker/module_checking.rs`
   - Pre-commit: `cargo test --features integration`
 
-- [ ] 8. Wire `opal run` (No Args) to Project-Aware Compilation
+- [x] 8. Wire `opal run` (No Args) to Project-Aware Compilation
 
   **What to do**:
   - Modify the `opal run` (no args) path in `src/app.rs` (implemented in Task 2) to use `compile_project()` instead of single-file `compile_and_run()`:
@@ -994,7 +994,7 @@ Max Concurrent: 4 (Wave 1)
   - Files: `src/app.rs`
   - Pre-commit: `cargo build`
 
-- [ ] 9. Multi-File Test Project + Integration Tests
+- [x] 9. Multi-File Test Project + Integration Tests
 
   **What to do**:
   - **Part A: Create multi-file test project** at `test-projects/multi-file/`:
@@ -1164,19 +1164,19 @@ Max Concurrent: 4 (Wave 1)
 >
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. For each "Must Have": verify implementation exists (read file, run `cargo test`, check error output). For each "Must NOT Have": search codebase for forbidden patterns — reject with file:line if found. Check evidence files exist in `.sisyphus/evidence/`. Compare deliverables against plan.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `cargo build --release 2>&1`, `cargo clippy -- -D warnings 2>&1`, `cargo test --features integration 2>&1`. Review all changed files for: `unsafe` blocks without justification, `unwrap()`/`expect()` in non-test code without error context, `todo!()` or `unimplemented!()` macros, unused imports, dead code warnings. Check for AI slop: excessive comments, over-abstraction, generic variable names.
   Output: `Build [PASS/FAIL] | Clippy [PASS/FAIL] | Tests [N pass/N fail] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high`
+- [x] F3. **Real Manual QA** — `unspecified-high`
   Start from clean state (`cargo build --release`). Execute EVERY QA scenario from EVERY task — follow exact steps, capture evidence. Test cross-task integration: multi-file project with `opal run` (no args). Test edge cases: empty `src/main.op`, file with only comments, circular imports, entry in wrong file. Save to `.sisyphus/evidence/final-qa/`.
   Output: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff (`git log --oneline`, `git diff main...HEAD`). Verify 1:1 — everything in spec was built (no missing), nothing beyond spec was built (no creep). Check "Must NOT do" compliance. Detect cross-task contamination. Flag unaccounted changes.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 

@@ -2,10 +2,14 @@
   "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/opal-improvements.md",
   "started_at": "2026-04-20T18:03:53.888Z",
   "session_ids": [
-    "ses_254282aafffezY93jG0Z6cxnty"
+    "ses_254282aafffezY93jG0Z6cxnty",
+    "ses_25345d38affeioWYoVwcHEygro",
+    "ses_25345ad33ffeRFfdVAvHwc7YY3"
   ],
   "session_origins": {
-    "ses_254282aafffezY93jG0Z6cxnty": "direct"
+    "ses_254282aafffezY93jG0Z6cxnty": "direct",
+    "ses_25345d38affeioWYoVwcHEygro": "appended",
+    "ses_25345ad33ffeRFfdVAvHwc7YY3": "appended"
   },
   "plan_name": "opal-improvements",
   "agent": "atlas",
@@ -41,10 +45,26 @@
       "task_key": "todo:7",
       "task_label": "7",
       "task_title": "Local Import Codegen + `@scope/package` Error",
-      "session_id": "ses_253649b3effeO3FF44tJw1H2BP",
+      "session_id": "ses_25345ad33ffeRFfdVAvHwc7YY3",
+      "agent": "oracle",
+      "updated_at": "2026-04-20T21:12:01.023Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "ses_2533fbafbffecl0UbF40zv7F8h",
+      "agent": "oracle",
+      "updated_at": "2026-04-20T21:46:16.216Z"
+    },
+    "final-wave:f2": {
+      "task_key": "final-wave:f2",
+      "task_label": "F2",
+      "task_title": "**Code Quality Review** — `unspecified-high`",
+      "session_id": "ses_253237dd4ffeNdOZ2s56bamIfJ",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-04-20T21:05:59.021Z"
+      "updated_at": "2026-04-20T22:17:06.718Z"
     }
   }
 }
