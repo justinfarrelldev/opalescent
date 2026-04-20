@@ -29,9 +29,13 @@ pub fn codegen_call_expression<'context>(
     _expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let function = resolve_callee_function(codegen_context, env, callee, generic_args)?;
-    let mut lowered_args = Vec::new();
-    for arg in args {
+    let mut lowered_args: Vec<BasicMetadataValueEnum<'context>> = Vec::new();
+    let mut first_lowered_arg: Option<BasicValueEnum<'context>> = None;
+    for (index, arg) in args.iter().enumerate() {
         let lowered = codegen_expression(codegen_context, env, arg, None)?;
+        if index == 0 {
+            first_lowered_arg = Some(lowered);
+        }
         lowered_args.push(lowered.into());
 
         let maybe_length = match *arg {
@@ -114,6 +118,112 @@ pub fn codegen_call_expression<'context>(
                     .append_basic_block(current_function(codegen_context)?, "capture.cont");
                 codegen_context.builder.position_at_end(continuation);
                 lowered_args.push(codegen_context.context.i64_type().get_undef().into());
+            }
+        }
+    }
+
+    if let Expr::Identifier { ref name, .. } = *callee {
+        if name == "print" {
+            if let Some(print_value) = first_lowered_arg {
+                let void_value = codegen_context
+                    .context
+                    .struct_type(&[], false)
+                    .const_zero()
+                    .as_basic_value_enum();
+                if print_value.is_int_value() {
+                    let int_value = print_value.into_int_value();
+                    let bit_width = int_value.get_type().get_bit_width();
+                    if bit_width == 1_u32 {
+                        let bool_to_string_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
+                            codegen_context,
+                            "bool_to_string",
+                        )
+                        .ok_or_else(|| {
+                            CodegenError::new(String::from("bool_to_string declaration missing"))
+                        })?;
+                        let puts_fn = codegen_context
+                            .module
+                            .get_function("puts")
+                            .ok_or_else(|| CodegenError::new(String::from("puts declaration missing")))?;
+                        let bool_as_i8 = codegen_context.builder.build_int_z_extend(
+                            int_value,
+                            codegen_context.context.i8_type(),
+                            &env.next_name("print.bool.i8"),
+                        )?;
+                        let bool_string_ptr = codegen_context
+                            .builder
+                            .build_call(
+                                bool_to_string_fn,
+                                &[bool_as_i8.as_basic_value_enum().into()],
+                                &env.next_name("print.bool.str"),
+                            )?
+                            .try_as_basic_value()
+                            .basic()
+                            .ok_or_else(|| CodegenError::new(String::from("bool_to_string should return pointer value")))?
+                            .into_pointer_value();
+                        let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+                            puts_fn,
+                            &[bool_string_ptr.into()],
+                            &env.next_name("print.bool.puts"),
+                        )?;
+                        let i8_ptr = codegen_context.context.i8_type().ptr_type(AddressSpace::default());
+                        let free_fn_type = codegen_context
+                            .context
+                            .void_type()
+                            .fn_type(&[i8_ptr.into()], false);
+                        let free_fn = codegen_context.module.get_function("free").unwrap_or_else(
+                            || codegen_context.module.add_function("free", free_fn_type, None),
+                        );
+                        let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+                            free_fn,
+                            &[bool_string_ptr.into()],
+                            &env.next_name("print.bool.free"),
+                        )?;
+                        return Ok(void_value);
+                    }
+
+                    let print_fn_name = match bit_width {
+                        8 => "print_int8",
+                        16 => "print_int16",
+                        32 => "print_int32",
+                        _ => "print_int64",
+                    };
+                    let print_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
+                        codegen_context,
+                        print_fn_name,
+                    )
+                    .ok_or_else(|| {
+                        CodegenError::new(format!("{print_fn_name} declaration missing"))
+                    })?;
+                    let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+                        print_fn,
+                        &[int_value.into()],
+                        &env.next_name("print.int"),
+                    )?;
+                    return Ok(void_value);
+                }
+
+                if print_value.is_float_value() {
+                    let float_value = print_value.into_float_value();
+                    let bit_width = float_value.get_type().get_bit_width();
+                    let print_fn_name = match bit_width {
+                        32 => "print_float32",
+                        _ => "print_float64",
+                    };
+                    let print_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
+                        codegen_context,
+                        print_fn_name,
+                    )
+                    .ok_or_else(|| {
+                        CodegenError::new(format!("{print_fn_name} declaration missing"))
+                    })?;
+                    let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+                        print_fn,
+                        &[float_value.into()],
+                        &env.next_name("print.float"),
+                    )?;
+                    return Ok(void_value);
+                }
             }
         }
     }
