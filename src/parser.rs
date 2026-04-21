@@ -24,18 +24,18 @@ mod captures;
 mod declarations;
 /// Parser error types and error collection
 pub mod errors;
-/// Parser submodule for import declaration parsing
-mod imports;
 /// Parser submodule for expression parsing (literals, operators, lambdas)
 mod expressions;
-/// Parser submodule for the `new <Type>:` indented-block constructor syntax
-mod new_expression;
 /// Parser submodule for generic parameter declarations
 mod generics;
 /// Parser submodule for helper methods (token navigation, state management)
 mod helpers;
+/// Parser submodule for import declaration parsing
+mod imports;
 /// Parser submodule for modifier parsing (public, entry, pure, untested)
 mod modifiers;
+/// Parser submodule for the `new <Type>:` indented-block constructor syntax
+mod new_expression;
 /// Parser submodule for match expression and pattern parsing
 mod patterns;
 /// Operator precedence definitions

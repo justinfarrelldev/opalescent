@@ -5797,8 +5797,8 @@ entry main = f(): void =>
     return void
 ";
 
-    let program = parse_program_from_string(source)
-        .expect("new-expression product constructor should parse");
+    let program =
+        parse_program_from_string(source).expect("new-expression product constructor should parse");
     assert_eq!(program.declarations.len(), 1);
 
     let Decl::Function { body, .. } = &program.declarations[0] else {
@@ -5812,7 +5812,10 @@ entry main = f(): void =>
         ..
     } = &statements[0]
     else {
-        panic!("Expected let with initializer as first statement, got: {:?}", statements[0]);
+        panic!(
+            "Expected let with initializer as first statement, got: {:?}",
+            statements[0]
+        );
     };
 
     let Expr::Constructor { callee, fields, .. } = init else {

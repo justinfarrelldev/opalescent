@@ -1423,7 +1423,9 @@ entry main = f(): void =>
     return void
 ";
         let fmt = Formatter::with_defaults();
-        let result = fmt.format_source(source).expect("constructor should format");
+        let result = fmt
+            .format_source(source)
+            .expect("constructor should format");
         assert!(
             result.contains("let alice = new Person:\n"),
             "formatter should emit `let alice = new Person:` header, got: {result}"
@@ -1489,7 +1491,9 @@ entry main = f(): void =>
     return void
 ";
         let fmt = Formatter::with_defaults();
-        let result = fmt.format_source(source).expect("variant ctor should format");
+        let result = fmt
+            .format_source(source)
+            .expect("variant ctor should format");
         assert!(
             result.contains("new Message.Text:\n"),
             "formatter should preserve `new Message.Text:` callee, got: {result}"

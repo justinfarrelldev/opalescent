@@ -12,8 +12,7 @@
 
 use super::{ParseError, ParseResult, Parser, Precedence, captures::collect_captured_variables};
 use crate::ast::{
-    AstNode, BinaryOp, Expr, HotReloadMetadata, LambdaBody, LiteralValue, Stmt,
-    StringPart, UnaryOp,
+    AstNode, BinaryOp, Expr, HotReloadMetadata, LambdaBody, LiteralValue, Stmt, StringPart, UnaryOp,
 };
 use crate::error::LexError;
 use crate::token::{Span, TokenType};

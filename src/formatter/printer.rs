@@ -14,8 +14,8 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::{
-    BinaryOp, Decl, Expr, LambdaBody, LiteralValue, MatchArm, Pattern, Program,
-    Stmt, StringPart, Type, TypeDef, UnaryOp, Variant, Visibility,
+    BinaryOp, Decl, Expr, LambdaBody, LiteralValue, MatchArm, Pattern, Program, Stmt, StringPart,
+    Type, TypeDef, UnaryOp, Variant, Visibility,
 };
 use crate::formatter::config::FormatterConfig;
 use crate::formatter::errors::{FormatterError, FormatterResult};
@@ -813,10 +813,7 @@ impl Formatter {
                 // statement that owns the expression. Using `depth + 1` keeps
                 // nested constructors visually aligned with the surrounding
                 // block grammar (`let`, `return`, etc.).
-                let field_indent = self
-                    .config
-                    .indent_unit()
-                    .repeat(depth.saturating_add(1));
+                let field_indent = self.config.indent_unit().repeat(depth.saturating_add(1));
                 if fields.is_empty() {
                     // An empty constructor still needs a body; emit a single
                     // `pass`-like sentinel line so re-parsing sees the Indent
