@@ -1,0 +1,55 @@
+# Scenario: testing.types
+##
+Description: Represents an assertion mismatch with expected and actual values for reporting.
+##
+type AssertionMismatch:
+    expected_text: string
+    actual_text: string
+
+##
+Description: Captures invocation details for mock, stub, and spy call history inspection.
+##
+type InvocationRecord:
+    function_name: string
+    arguments_text: string[]
+    return_text: string
+
+##
+Description: Enumerates explicit failure outcomes for the test framework runtime.
+##
+type TestFailure:
+    AssertionFailed:
+        detail: AssertionMismatch
+    ExpectedThrowDidNotOccur
+    MockCallCountMismatch:
+        expected_count: int32
+        actual_count: int32
+    MockArgumentsMismatch:
+        expected_arguments: string[]
+        actual_arguments: string[]
+    HookExecutionFailed:
+        hook_name: string
+
+##
+Description: Represents deterministic clock provider errors used by stubbed time modules.
+##
+type ClockProviderError:
+    InvalidClockState
+
+##
+Description: Represents parser errors raised in throw expectation examples.
+##
+type ParseError:
+    InvalidFormat
+
+##
+Description: Defines a payment gateway interface used by spy and stub testing examples.
+##
+type PaymentGateway:
+    charge_customer: f(customer_id: string, amount_cents: int32): boolean
+
+##
+Description: Defines a clock module interface used for deterministic method stubbing.
+##
+type ClockModule:
+    now_millis: f(): int64 errors ClockProviderError

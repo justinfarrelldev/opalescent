@@ -1,0 +1,10 @@
+# Scenario: type definitions for this proposal alternative
+type ParseError:
+    UnexpectedCharacter:
+        char: string
+        pos: int32
+    InvalidNumericLiteral
+
+type NetworkError:
+    Timeout
+    Disconnected

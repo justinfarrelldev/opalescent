@@ -1,0 +1,27 @@
+# Scenario: Retry worker emits warning or error through injected Logger.
+import Logger, LogLevel, LogField, LoggerCreateError, LogFlushError from ./logging.types
+import new_logger_sync, log_warn, log_error, flush_sync from standard
+
+##
+Description: Logs retry warnings and final failure using explicit Logger ownership.
+##
+let run_retry_worker_sync = f(job_id: string, attempt_count: int32): void errors LoggerCreateError, LogFlushError =>
+    # Build logger per worker so metadata stays local to this path.
+    let mutable logger = propagate new_logger_sync('./var/worker.log', LogLevel.Warn)
+
+    if attempt_count < 3:
+        # Emit warning when retries are expected but still bounded.
+        log_warn(logger, 'job retry scheduled', [new LogField:
+            key: 'job_id'
+            value: job_id
+        ])
+        propagate flush_sync(logger)
+        return void
+
+    # Emit terminal failure when retry budget has been exhausted.
+    log_error(logger, 'job retry budget exhausted', [new LogField:
+        key: 'job_id'
+        value: job_id
+    ])
+    propagate flush_sync(logger)
+    return void

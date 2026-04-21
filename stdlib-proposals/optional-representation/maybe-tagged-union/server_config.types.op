@@ -1,0 +1,5 @@
+# Scenario: type definitions for this proposal alternative
+type ServerConfig:
+    host: string
+    port: Maybe int32
+    timeout: Maybe int32

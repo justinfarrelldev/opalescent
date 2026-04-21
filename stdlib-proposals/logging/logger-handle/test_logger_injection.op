@@ -1,0 +1,26 @@
+# Scenario: Test harness shows explicit Logger dependency injection.
+import Logger, LogLevel, LogField, LoggerCreateError, LogFlushError from ./logging.types
+import new_logger_sync, log_info, flush_sync from standard
+
+##
+Description: Demonstrates Logger injection shape used by deterministic tests.
+##
+let run_checkout_with_logger_sync = f(mutable logger: Logger, checkout_id: string): void errors LogFlushError =>
+    # Emit domain milestone using caller-owned logger handle.
+    log_info(logger, 'checkout completed', [new LogField:
+        key: 'checkout_id'
+        value: checkout_id
+    ])
+
+    # Flush at boundary so tests can assert persisted output.
+    propagate flush_sync(logger)
+    return void
+
+##
+Description: Creates a logger and calls checkout function with dependency injection.
+##
+let demo_test_harness_sync = f(checkout_id: string): void errors LoggerCreateError, LogFlushError =>
+    # Construct logger from harness setup and pass it explicitly.
+    let mutable logger = propagate new_logger_sync('./var/test.log', LogLevel.Info)
+    propagate run_checkout_with_logger_sync(logger, checkout_id)
+    return void

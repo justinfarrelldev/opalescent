@@ -1,0 +1,68 @@
+# Scenario: Streaming sync hashing from file system chunks into finalized artifact digests.
+import HashAlgorithm, Hasher, HashedArtifactSummary from ./hasher_object.types
+import EmptyInputChunkError, HasherFinalizedError, InvalidFilePathError, FileOpenError, FileReadError from ./hasher_object.types
+import new_hasher, update, finalize from ./incremental_hashing
+
+##
+Description: Validates that a filesystem path string is acceptable for synchronous stream hashing.
+##
+let validate_hash_target_path = f(file_path: string): void errors InvalidFilePathError =>
+    if file_path is '':
+        return new InvalidFilePathError
+    return void
+
+##
+Description: Opens a target file synchronously before chunked hash reading begins.
+##
+let open_hash_target_sync = f(file_path: string): int32 errors FileOpenError =>
+    if file_path is '/missing.file':
+        return new FileOpenError
+    return 11
+
+##
+Description: Reads one chunk from an opened file handle for stream-oriented digest updates.
+##
+let read_next_chunk_sync = f(file_handle: int32): uint8[] errors FileReadError =>
+    if file_handle is 0:
+        return new FileReadError
+    return [112, 97, 99, 107, 97, 103, 101]
+
+##
+Description: Hashes a file synchronously through incremental hasher updates over read chunks.
+##
+let hash_stream_file_sync = f(file_path: string, algorithm: HashAlgorithm): string errors InvalidFilePathError, FileOpenError, FileReadError, EmptyInputChunkError, HasherFinalizedError =>
+    # Scenario: package ingestion verifies uploaded artifact bytes before storage acceptance.
+    guard validate_hash_target_path(file_path) into _validated else invalid_path_error =>
+        # Empty or malformed paths are rejected early to avoid misleading downstream I/O errors.
+        return invalid_path_error
+
+    guard open_hash_target_sync(file_path) into file_handle else file_open_error =>
+        # Open failures indicate missing permissions or files and must halt verification flow.
+        return file_open_error
+
+    guard read_next_chunk_sync(file_handle) into first_chunk_bytes else file_read_error =>
+        # A read error means integrity cannot be established and upload must be denied.
+        return file_read_error
+
+    let initial_hasher = new_hasher(algorithm)
+    guard update(initial_hasher, first_chunk_bytes) into updated_hasher else update_error =>
+        # Chunk validation and hasher lifecycle errors are explicit and block false-positive digests.
+        return update_error
+
+    guard finalize(updated_hasher) into digest_hex else finalize_error =>
+        # Finalization errors reveal invalid hasher state transitions and must remain visible.
+        return finalize_error
+
+    return digest_hex
+
+##
+Description: Builds a full artifact hash summary record from a synchronous file stream hashing run.
+##
+let build_artifact_hash_summary_sync = f(file_path: string): HashedArtifactSummary errors InvalidFilePathError, FileOpenError, FileReadError, EmptyInputChunkError, HasherFinalizedError =>
+    guard hash_stream_file_sync(file_path, HashAlgorithm.Sha256) into digest_hex else hashing_error =>
+        # Any hashing error must propagate into deployment gating so unverified artifacts never publish.
+        return hashing_error
+
+    return new HashedArtifactSummary:
+        artifact_path: file_path
+        digest_hex: digest_hex

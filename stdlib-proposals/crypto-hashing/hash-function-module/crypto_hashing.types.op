@@ -1,0 +1,15 @@
+# Scenario: Shared hash module types and error declarations for one-shot and file-backed hashing.
+type EmptyInputError
+type UnsupportedAlgorithmError
+type FileOpenError
+type FileReadError
+
+type HashAlgorithm:
+    Sha256
+    Sha512
+    Blake3
+    Md5
+
+type DigestHexResult:
+    algorithm_name: string
+    digest_hex: string

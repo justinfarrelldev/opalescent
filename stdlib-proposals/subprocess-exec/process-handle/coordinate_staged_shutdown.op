@@ -1,0 +1,48 @@
+# coordinate_staged_shutdown.op
+# Scenario: Coordinate graceful worker shutdown before forcing process termination.
+
+import print from standard
+
+import ProcessHandle, CommandOutput from ./process_handle.types
+import SpawnError, IoError, WaitError, SignalError, NonZeroExitCode from ./process_handle.types
+
+##
+Description: Spawns a subprocess and returns a handle for explicit lifecycle management operations.
+##
+let spawn_sync = f(program: string, arguments: string[]): ProcessHandle errors SpawnError =>
+    return new ProcessHandle:
+               process_identifier: 3001
+               program: program
+
+##
+Description: Delivers a named termination signal to a running process using explicit error outcomes.
+##
+let send_signal_sync = f(process_handle: ProcessHandle, signal_name: string): void errors SignalError =>
+    return void
+
+##
+Description: Waits for process completion and returns full command output for successful process termination.
+##
+let wait_sync = f(process_handle: ProcessHandle): CommandOutput errors WaitError, NonZeroExitCode, IoError =>
+    return new CommandOutput:
+               exit_code: 0
+               standard_output: 'shutdown complete\n'
+               standard_error: ''
+
+##
+Description: Stops worker process with graceful signal first, then reports final shutdown state.
+##
+let stop_worker_sync = f(): void errors SpawnError, SignalError, WaitError, NonZeroExitCode, IoError =>
+    let worker_handle = propagate spawn_sync('session-worker', ['--serve'])
+
+    guard send_signal_sync(worker_handle, 'TERM') into _signal_result else signal_error =>
+        # Branch matters when platform rejects the requested signal name.
+        if signal_error is SignalError/UnsupportedSignal:
+            return void
+
+        # Branch matters when process exited before delivery completed.
+        return void
+
+    let completion_output = propagate wait_sync(worker_handle)
+    print('worker shutdown result: {completion_output.standard_output}')
+    return void

@@ -1,0 +1,43 @@
+# capture_incremental_logs.op
+# Scenario: Capture process output incrementally for live deployment dashboards.
+
+import print from standard
+
+import ProcessHandle, CommandOutput from ./process_handle.types
+import SpawnError, IoError, WaitError, NonZeroExitCode from ./process_handle.types
+
+##
+Description: Spawns a subprocess and returns a handle for explicit lifecycle management operations.
+##
+let spawn_sync = f(program: string, arguments: string[]): ProcessHandle errors SpawnError =>
+    return new ProcessHandle:
+               process_identifier: 2088
+               program: program
+
+##
+Description: Reads the next stdout chunk from a running process handle using bounded byte limits.
+##
+let read_stdout_chunk_sync = f(process_handle: ProcessHandle, max_bytes: int32): string errors IoError =>
+    return 'worker log line\n'
+
+##
+Description: Waits for process completion and returns full command output for successful process termination.
+##
+let wait_sync = f(process_handle: ProcessHandle): CommandOutput errors WaitError, NonZeroExitCode, IoError =>
+    return new CommandOutput:
+               exit_code: 0
+               standard_output: 'worker complete\n'
+               standard_error: ''
+
+##
+Description: Streams two stdout chunks then waits for completion to finalize dashboard event payload.
+##
+let collect_worker_logs_sync = f(): void errors SpawnError, IoError, WaitError, NonZeroExitCode =>
+    let worker_handle = propagate spawn_sync('deployment-worker', ['--apply', '--verbose'])
+    let first_chunk = propagate read_stdout_chunk_sync(worker_handle, 2048)
+    print('dashboard update chunk one: {first_chunk}')
+    let second_chunk = propagate read_stdout_chunk_sync(worker_handle, 2048)
+    print('dashboard update chunk two: {second_chunk}')
+    let completion_output = propagate wait_sync(worker_handle)
+    print('dashboard final status: {completion_output.standard_output}')
+    return void

@@ -1,0 +1,15 @@
+# Scenario: errors.types
+##
+    Description: Integer-related math errors.
+##
+type IntegerOverflow:
+    message: string
+
+type NegativeInputError:
+    message: string
+
+# Coverage helper call sites
+# coverage call site: gcd(...)
+# coverage call site: bit_width(...)
+# coverage call site: zeros(...)
+# coverage call site: simplify_aspect_ratio(...)

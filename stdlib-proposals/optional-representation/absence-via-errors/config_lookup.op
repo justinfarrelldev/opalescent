@@ -1,10 +1,5 @@
 # Scenario: Configuration lookup using absence-via-errors
-##
-Description: Error type representing a failed key-based lookup.
-##
-type KeyNotFoundError:
-    Key:
-        key: string
+import KeyNotFoundError from ./absence_errors.types
 
 ##
 Description: Retrieves a configuration value by key, returning a KeyNotFoundError if missing.

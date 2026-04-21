@@ -13,9 +13,6 @@ This proposal assumes the existence of structs and the `uint8` primitive type. I
 A new `Bytes` type is defined in the `bytes` module. Operations are provided as functions that specifically accept and return `Bytes` instances.
 
 ```opal
-type Bytes:
-    data: uint8[]
-    length: int32
 
 # Usage
 let buffer = new Bytes:

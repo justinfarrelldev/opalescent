@@ -1,0 +1,39 @@
+# Scenario: log detection
+import compile_regex, match, find_all, replace, split from ./compiled_regex_api
+import InvalidPattern, MatchError, ReplaceTemplateError, SplitError from ./regex.types
+
+##
+Description: Demonstrates all compiled-regex-handle methods in realistic flow.
+##
+let process_security_record = f(record_line: string, log_lines: string[]): string[] errors InvalidPattern, MatchError, ReplaceTemplateError, SplitError =>
+    # Compile once so repeated checks do not re-parse pattern syntax.
+    guard compile_regex('failed_login') into failed_login_regex else invalid_pattern =>
+        return propagate invalid_pattern
+
+    for line in log_lines:
+        # Full usage example for .match on each incoming log line.
+        guard failed_login_regex.match(line) into line_matches else match_error =>
+            return propagate match_error
+
+        if line_matches:
+            # Explicitly keep this branch to show positive match handling.
+            let mutable empty_fields: string[] = []
+            return empty_fields
+
+    # Full usage example for .find_all to list repeated tags.
+    guard failed_login_regex.find_all(record_line) into _found_tags else find_error =>
+        return propagate find_error
+
+    # Compile token pattern for redaction and segmentation operations.
+    guard compile_regex('token=[a-z0-9]+') into token_regex else token_pattern_error =>
+        return propagate token_pattern_error
+
+    # Full usage example for .replace to remove sensitive token values.
+    guard token_regex.replace(record_line, 'token=REDACTED') into redacted_line else replace_error =>
+        return propagate replace_error
+
+    # Full usage example for .split to convert compound record into fields.
+    guard token_regex.split(redacted_line) into split_fields else split_error =>
+        return propagate split_error
+
+    return split_fields

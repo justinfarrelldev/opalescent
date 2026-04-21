@@ -1,9 +1,6 @@
 # client.op
 # Scenario: A networking client with its own errors, propagated by a higher-level logic function.
-
-type NetworkError:
-    Timeout
-    Disconnected
+import NetworkError from ./open_errors.types
 
 ##
 Description: Fetches data from a remote server, potentially failing with network errors.

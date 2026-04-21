@@ -1,0 +1,18 @@
+# Scenario: usage intervals
+import current_timestamp_sync, duration_between, sleep_sync from ./time
+import Timestamp, Duration from ./time.types
+
+##
+    Description: Demonstrates interval measurement with a single timestamp type.
+##
+let main = f(): void =>
+    let start = current_timestamp_sync()
+    
+    let d = new Duration:
+        total_nanoseconds: 1000000000
+    sleep_sync(d)
+    
+    let end = current_timestamp_sync()
+    let elapsed = duration_between(start, end)
+    
+    return void

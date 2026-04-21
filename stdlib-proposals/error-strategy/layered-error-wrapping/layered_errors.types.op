@@ -1,0 +1,21 @@
+# Scenario: type definitions for this proposal alternative
+type IoError:
+    NotFound:
+        path: string
+    PermissionDenied
+
+type WrappedError:
+    Context:
+        original: IoError
+        message: string
+
+type DbError:
+    QueryFailed:
+        sql: string
+    ConnectionLost
+
+type AuthError:
+    InvalidCredentials
+    WrappedDb:
+        original: DbError
+        context: string

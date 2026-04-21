@@ -23,10 +23,6 @@ Each error name refers to a type defined in the current scope or imported. The c
 A parser library can define its own error types:
 
 ```opal
-type ParseError:
-    UnexpectedToken:
-        token: string
-    UnexpectedEndOfInput
 
 let parse_config = f(text: string): Config errors ParseError =>
     # ...
@@ -36,9 +32,6 @@ let parse_config = f(text: string): Config errors ParseError =>
 A network client can define its own errors:
 
 ```opal
-type NetworkError:
-    ConnectionRefused
-    Timeout
 
 let fetch_data_sync = f(url: string): string errors NetworkError =>
     # ...

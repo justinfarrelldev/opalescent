@@ -1,0 +1,78 @@
+# Scenario: property tests
+import TestFailure from './testing.types'
+import GeneratorError from './testing.types'
+import IntegerGenerator from './testing.types'
+
+##
+Description: Asserts integer equality for property functions and emits typed failures.
+##
+let assert_equal = f(actual: int32, expected: int32): void errors TestFailure =>
+    if actual is not expected:
+        return new TestFailure:
+            AssertionFailed:
+                message: 'integer equality assertion failed'
+    return void
+
+##
+Description: Builds an integer generator over a closed range for property execution.
+##
+let range_generator = f(minimum: int32, maximum: int32): IntegerGenerator errors GeneratorError =>
+    if minimum > maximum:
+        return GeneratorError/InvalidRange
+    return new IntegerGenerator:
+        minimum: minimum
+        maximum: maximum
+
+##
+Description: Samples a deterministic integer from a generator using a replayable seed.
+##
+let sample_int = f(generator: IntegerGenerator, seed: int32): int32 errors GeneratorError =>
+    if generator.minimum > generator.maximum:
+        return GeneratorError/InvalidRange
+
+    let span = (generator.maximum - generator.minimum) + 1
+    let normalized_seed = seed % span
+    return generator.minimum + normalized_seed
+
+##
+Description: Runs a property over deterministic samples and returns first failing seed.
+##
+let check_property = f(property_name: string, generator: IntegerGenerator, attempts: int32, property: f(value: int32): void errors TestFailure): void errors TestFailure, GeneratorError =>
+    let mutable current_seed = 0
+
+    while current_seed < attempts:
+        let sample = propagate sample_int(generator, current_seed)
+        guard property(sample) into _property_ok else property_error =>
+            if property_error is TestFailure/AssertionFailed:
+                return new TestFailure:
+                    PropertyFailed:
+                        property_name: property_name
+                        failing_seed: current_seed
+            return property_error
+
+        current_seed = current_seed + 1
+
+    return void
+
+##
+Description: Demonstrates property-based checks with realistic comments and replay semantics.
+##
+let run_property_examples = f(): void errors TestFailure, GeneratorError =>
+    # Build a generator with explicit numeric boundaries.
+    let integer_generator = propagate range_generator(-100, 100)
+
+    # Property: adding one on either side should commute for int32 math.
+    guard check_property('addition commutes with one', integer_generator, 128, f(value: int32): void errors TestFailure =>
+        propagate assert_equal(value + 1, 1 + value)
+        return void
+    ) into _property_one_done else property_one_error =>
+        return property_one_error
+
+    # Property: doubling a value should match adding value to itself.
+    guard check_property('doubling identity', integer_generator, 128, f(value: int32): void errors TestFailure =>
+        propagate assert_equal(value * 2, value + value)
+        return void
+    ) into _property_two_done else property_two_error =>
+        return property_two_error
+
+    return void

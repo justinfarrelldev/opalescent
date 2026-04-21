@@ -1,0 +1,51 @@
+# Scenario: usage
+import RandomNumberGenerator, InvalidRangeError from ./random.types
+import generate_uuid_v4_with_rng from @stdlib/uuid
+
+##
+    Description: Create a new random number generator from a seed.
+##
+let new_random_number_generator = f(seed: uint64): RandomNumberGenerator =>
+    return new RandomNumberGenerator:
+        state: seed
+
+##
+    Description: Generate the next random 32-bit unsigned integer.
+##
+let next_random_uint32_from = f(mutable rng: RandomNumberGenerator): uint32 =>
+    # Placeholder implementation
+    return 42
+
+##
+    Description: Generate a random integer in the range [low, high).
+##
+let random_integer_in_range_from = f(mutable rng: RandomNumberGenerator, low: int32, high: int32): int32 errors InvalidRangeError =>
+    if low >= high:
+        return InvalidRangeError
+    return 42
+
+##
+    Description: Shuffle an array using the Fisher-Yates algorithm.
+##
+let shuffle_array_with_rng = f<T>(mutable rng: RandomNumberGenerator, mutable arr: T[]): void =>
+    # Implementation details
+    return void
+
+##
+    Description: Example function demonstrating RNG usage with explicit handles.
+##
+let example_usage = f(): void errors InvalidRangeError =>
+    let mutable rng = new_random_number_generator(12345)
+    
+    let r1 = next_random_uint32_from(rng)
+    
+    guard random_integer_in_range_from(rng, 1, 100) into r2 else err =>
+        propagate err
+    
+    let mutable items = [1, 2, 3, 4, 5]
+    shuffle_array_with_rng(rng, items)
+    
+    # Composing with uuid concern
+    let uuid = generate_uuid_v4_with_rng(rng)
+    
+    return void

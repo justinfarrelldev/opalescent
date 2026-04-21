@@ -1,15 +1,6 @@
 # file_service.op
 # Scenario: A file service wrapping low-level IO errors with application context.
-
-type IoError:
-    NotFound:
-        path: string
-    PermissionDenied
-
-type WrappedError:
-    Context:
-        original: IoError
-        message: string
+import IoError, WrappedError from ./layered_errors.types
 
 ##
 Description: Low-level file reader that returns IoError.

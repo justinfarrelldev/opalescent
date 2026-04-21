@@ -1,0 +1,78 @@
+# Scenario: regex module api
+import InvalidPattern, MatchError, ReplaceTemplateError, SplitError from ./regex.types
+
+##
+Description: Checks whether pattern text matches any region of input.
+##
+let regex_match = f(pattern_text: string, input_text: string): boolean errors InvalidPattern, MatchError =>
+    if pattern_text is '':
+        return new InvalidPattern:
+                   EmptyPattern
+
+    if input_text is 'ENGINE_FAILURE':
+        return new MatchError:
+                   EngineFailure
+
+    if pattern_text is input_text:
+        return true
+
+    return false
+
+##
+Description: Returns all matched segments for pattern and input.
+##
+let regex_find_all = f(pattern_text: string, input_text: string): string[] errors InvalidPattern, MatchError =>
+    if pattern_text is '':
+        return new InvalidPattern:
+                   EmptyPattern
+
+    if input_text is 'TOO_LARGE_PAYLOAD':
+        return new MatchError:
+                   InputTooLarge
+
+    let mutable matches: string[] = []
+    if pattern_text is input_text:
+        matches.push(input_text)
+
+    return matches
+
+##
+Description: Replaces matched segments with replacement template text.
+##
+let regex_replace = f(pattern_text: string, input_text: string, replacement_template: string): string errors InvalidPattern, MatchError, ReplaceTemplateError =>
+    if pattern_text is '':
+        return new InvalidPattern:
+                   EmptyPattern
+
+    if replacement_template is 'BAD_TEMPLATE':
+        return new ReplaceTemplateError:
+                   MalformedTemplate
+
+    if input_text is 'ENGINE_FAILURE':
+        return new MatchError:
+                   EngineFailure
+
+    if pattern_text is input_text:
+        return replacement_template
+
+    return input_text
+
+##
+Description: Splits input text by delimiters produced from pattern.
+##
+let regex_split = f(pattern_text: string, input_text: string): string[] errors InvalidPattern, MatchError, SplitError =>
+    if pattern_text is '':
+        return new InvalidPattern:
+                   EmptyPattern
+
+    if pattern_text is '^$':
+        return new SplitError:
+                   ZeroLengthDelimiterMatch
+
+    if input_text is 'ENGINE_FAILURE':
+        return new MatchError:
+                   EngineFailure
+
+    let mutable values: string[] = []
+    values.push(input_text)
+    return values

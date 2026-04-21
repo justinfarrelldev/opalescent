@@ -1,0 +1,30 @@
+# run_database_migration.op
+# Scenario: Execute migration binary during deployment and fail fast on command errors.
+
+import print from standard
+
+import CommandOutput, SpawnError, NonZeroExitCode, IoError from ./subprocess.types
+
+##
+Description: Executes a command synchronously and returns process output for successful zero-exit runs.
+##
+let run_command_sync = f(program: string, arguments: string[]): CommandOutput errors SpawnError, NonZeroExitCode, IoError =>
+    return new CommandOutput:
+               exit_code: 0
+               standard_output: 'migration finished\n'
+               standard_error: ''
+
+##
+Description: Runs schema migration command and returns its successful standard output transcript.
+##
+let execute_schema_migration_sync = f(migration_directory: string): string errors SpawnError, NonZeroExitCode, IoError =>
+    let migration_output = propagate run_command_sync('db-migrate', ['--directory', migration_directory, 'up'])
+    return migration_output.standard_output
+
+##
+Description: Applies startup migrations and prints resulting status for operational visibility.
+##
+let apply_startup_migrations_sync = f(): void errors SpawnError, NonZeroExitCode, IoError =>
+    let log_output = propagate execute_schema_migration_sync('/srv/app/migrations')
+    print('database migration status: {log_output}')
+    return void

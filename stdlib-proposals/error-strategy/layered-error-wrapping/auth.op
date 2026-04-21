@@ -1,16 +1,6 @@
 # auth.op
 # Scenario: An authentication module that wraps database errors.
-
-type DbError:
-    QueryFailed:
-        sql: string
-    ConnectionLost
-
-type AuthError:
-    InvalidCredentials
-    WrappedDb:
-        original: DbError
-        context: string
+import DbError, AuthError from ./layered_errors.types
 
 ##
 Description: Simulates a database query that might fail.

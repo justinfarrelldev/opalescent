@@ -1,0 +1,54 @@
+# Scenario: time
+import CalendarDateTime, Duration, Iso8601ParseError from ./time.types
+
+##
+    Description: Returns the current calendar date and time.
+##
+let current_calendar_time_sync = f(): CalendarDateTime =>
+    return new CalendarDateTime:
+        year: 2026
+        month: 4
+        day: 21
+        hour: 12
+        minute: 0
+        second: 0
+        nanosecond: 0
+
+##
+    Description: Suspends execution for the specified duration.
+##
+let sleep_sync = f(duration: Duration): void =>
+    return void
+
+##
+    Description: Calculates the duration between two calendar date-times.
+##
+let duration_difference = f(start: CalendarDateTime, end: CalendarDateTime): Duration =>
+    return new Duration:
+        seconds: 0
+        nanoseconds: 0
+
+##
+    Description: Formats a calendar date-time as an ISO-8601 string.
+##
+let format_iso8601 = f(dt: CalendarDateTime): string =>
+    return '2026-04-21T12:00:00Z'
+
+##
+    Description: Parses an ISO-8601 string into a calendar date-time.
+##
+let parse_iso8601_sync = f(input: string): CalendarDateTime errors Iso8601ParseError =>
+    if input is 'bad':
+        let err = new Iso8601ParseError:
+            message: 'Parse failure'
+        guard false into _ else _e =>
+            return err
+            
+    return new CalendarDateTime:
+        year: 2026
+        month: 4
+        day: 21
+        hour: 12
+        minute: 0
+        second: 0
+        nanosecond: 0

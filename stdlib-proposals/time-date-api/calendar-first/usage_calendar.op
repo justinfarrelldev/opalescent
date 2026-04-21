@@ -1,0 +1,19 @@
+# Scenario: usage calendar
+import current_calendar_time_sync, duration_difference, sleep_sync from ./time
+import CalendarDateTime, Duration from ./time.types
+
+##
+    Description: Demonstrates calendar-based interval measurement.
+##
+let main = f(): void =>
+    let start = current_calendar_time_sync()
+    
+    let d = new Duration:
+        seconds: 1
+        nanoseconds: 0
+    sleep_sync(d)
+    
+    let end = current_calendar_time_sync()
+    let elapsed = duration_difference(start, end)
+    
+    return void

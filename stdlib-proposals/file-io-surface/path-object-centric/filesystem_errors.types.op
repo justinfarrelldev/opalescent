@@ -1,0 +1,10 @@
+# Scenario: filesystem errors.types
+type FileNotFoundError
+type PermissionDeniedError
+type FileAlreadyExistsError
+type ReadFailureError
+type WriteFailureError
+type InvalidPathError
+type FilesystemFullError
+type IsADirectoryError
+type IsNotADirectoryError

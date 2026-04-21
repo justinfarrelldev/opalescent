@@ -1,0 +1,46 @@
+# Scenario: Media ingestion validates chunked compression to protect archive integrity.
+import ByteBuffer, CompressionAlgorithm, CompressionOptions, CompressionAlgorithmNotSupportedError, CompressionStreamStateError, CompressionEncodingError, CompressionDecodingError, CompressionDataCorruptionError from ./compression_stream.types
+import new_compressor, compressor_write_chunk, compressor_finish, new_decompressor, decompressor_write_chunk, decompressor_finish from ./stream_compressor_api
+
+##
+Description: Compresses and rehydrates media chunks for a large upload validation workflow.
+##
+let validate_chunked_media_compression = f(media_chunks: ByteBuffer[]): ByteBuffer[] errors CompressionAlgorithmNotSupportedError, CompressionStreamStateError, CompressionEncodingError, CompressionDecodingError, CompressionDataCorruptionError =>
+    # Scenario: a media pipeline validates chunk integrity before persisting archival artifacts.
+    let options = new CompressionOptions:
+        algorithm: CompressionAlgorithm/Zstd
+        compression_level: 8
+
+    guard new_compressor(options) into compressor else compressor_construction_error =>
+        # If compressor construction fails, the worker cannot safely process incoming chunks.
+        return propagate compressor_construction_error
+
+    let mutable compressed_chunks: ByteBuffer[] = []
+    for media_chunk in media_chunks:
+        guard compressor_write_chunk(compressor, media_chunk) into compressed_chunk else compressor_chunk_error =>
+            # If a chunk cannot be compressed, the batch is incomplete and must fail atomically.
+            return propagate compressor_chunk_error
+        compressed_chunks.push(compressed_chunk)
+
+    guard compressor_finish(compressor) into final_compressor_bytes else compressor_finish_error =>
+        # If finalization fails, trailing bytes may be missing and output cannot be trusted.
+        return propagate compressor_finish_error
+    compressed_chunks.push(final_compressor_bytes)
+
+    guard new_decompressor(CompressionAlgorithm/Zstd) into decompressor else decompressor_construction_error =>
+        # If decompressor construction fails, validation cannot prove round-trip correctness.
+        return propagate decompressor_construction_error
+
+    let mutable decoded_chunks: ByteBuffer[] = []
+    for compressed_chunk in compressed_chunks:
+        guard decompressor_write_chunk(decompressor, compressed_chunk) into decoded_chunk else decompressor_chunk_error =>
+            # If decoding fails, the compressed stream is unusable for archival reads.
+            return propagate decompressor_chunk_error
+        decoded_chunks.push(decoded_chunk)
+
+    guard decompressor_finish(decompressor) into final_decoded_bytes else decompressor_finish_error =>
+        # If finish fails, buffered bytes may be corrupted or truncated and validation must stop.
+        return propagate decompressor_finish_error
+    decoded_chunks.push(final_decoded_bytes)
+
+    return decoded_chunks

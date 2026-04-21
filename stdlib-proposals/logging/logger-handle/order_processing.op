@@ -1,0 +1,26 @@
+# Scenario: Order processing path with explicit Logger handle propagation.
+import Logger, LogLevel, LogField, LoggerCreateError, LogFlushError from ./logging.types
+import new_logger_sync, log_debug, log_info, flush_sync from standard
+
+##
+Description: Processes an order while threading an explicit Logger handle.
+##
+let process_order_sync = f(order_id: string): void errors LoggerCreateError, LogFlushError =>
+    # Create logger handle dedicated to order workflow traces.
+    let mutable logger = propagate new_logger_sync('./var/orders.log', LogLevel.Debug)
+
+    # Emit debug breadcrumb before validation and reservation logic.
+    log_debug(logger, 'order validation started', [new LogField:
+        key: 'order_id'
+        value: order_id
+    ])
+
+    # Emit info event after validation and before persistence commit.
+    log_info(logger, 'order accepted for fulfillment', [new LogField:
+        key: 'order_id'
+        value: order_id
+    ])
+
+    # Persist buffered lines at workflow boundary.
+    propagate flush_sync(logger)
+    return void

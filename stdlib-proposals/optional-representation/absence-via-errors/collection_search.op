@@ -1,10 +1,5 @@
 # Scenario: Collection search using absence-via-errors
-##
-Description: Error type for failed array search operations.
-##
-type SearchError:
-    ItemNotFound:
-        target: int32
+import SearchError from ./absence_errors.types
 
 ##
 Description: Finds the first occurrence of a number in an array.

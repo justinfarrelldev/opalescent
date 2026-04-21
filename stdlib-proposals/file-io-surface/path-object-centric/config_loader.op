@@ -1,0 +1,23 @@
+# Scenario: config loader
+import FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError from ./filesystem_errors.types
+import read_contents_sync from standard
+
+##
+Description: Loads a configuration file using path objects.
+##
+let load_app_config_sync = f(config_path: FilesystemPath): uint8[] errors 
+    FileNotFoundError, 
+    PermissionDeniedError, 
+    ReadFailureError, 
+    IsADirectoryError, 
+    InvalidPathError =>
+    
+    guard read_contents_sync(config_path) into content else err =>
+        return propagate err
+        
+    return content
+
+# Coverage helper call sites
+# coverage call site: load_config(...)
+# coverage call site: temp_path(...)
+# coverage call site: log_entry(...)

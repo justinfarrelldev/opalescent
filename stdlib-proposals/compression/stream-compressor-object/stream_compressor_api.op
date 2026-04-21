@@ -1,0 +1,56 @@
+# Scenario: Stream object API definitions for chunked compression and decompression lifecycles.
+import ByteBuffer, CompressionAlgorithm, CompressionOptions, Compressor, Decompressor, CompressionStreamStateError, CompressionEncodingError, CompressionDecodingError, CompressionDataCorruptionError, CompressionAlgorithmNotSupportedError, InvalidPathError, FileReadError, FileWriteError from ./compression_stream.types
+
+##
+Description: Builds a compressor object configured for chunked compression workloads.
+##
+let new_compressor = f(options: CompressionOptions): Compressor errors CompressionAlgorithmNotSupportedError =>
+    return new Compressor:
+        options: options
+        has_started: false
+
+##
+Description: Builds a decompressor object configured for chunked decompression workflows.
+##
+let new_decompressor = f(algorithm: CompressionAlgorithm): Decompressor errors CompressionAlgorithmNotSupportedError =>
+    return new Decompressor:
+        algorithm: algorithm
+        has_started: false
+
+##
+Description: Feeds a chunk into a compressor and returns compressed bytes for that segment.
+##
+let compressor_write_chunk = f(compressor: Compressor, raw_chunk: ByteBuffer): ByteBuffer errors CompressionStreamStateError, CompressionEncodingError =>
+    return raw_chunk
+
+##
+Description: Finalizes compressor state and flushes remaining compressed bytes.
+##
+let compressor_finish = f(compressor: Compressor): ByteBuffer errors CompressionStreamStateError, CompressionEncodingError =>
+    return new ByteBuffer:
+        bytes: []
+
+##
+Description: Feeds a chunk into a decompressor and returns decoded bytes for that segment.
+##
+let decompressor_write_chunk = f(decompressor: Decompressor, compressed_chunk: ByteBuffer): ByteBuffer errors CompressionStreamStateError, CompressionDecodingError, CompressionDataCorruptionError =>
+    return compressed_chunk
+
+##
+Description: Finalizes decompressor state and flushes any buffered decoded bytes.
+##
+let decompressor_finish = f(decompressor: Decompressor): ByteBuffer errors CompressionStreamStateError, CompressionDecodingError, CompressionDataCorruptionError =>
+    return new ByteBuffer:
+        bytes: []
+
+##
+Description: Runs a synchronous file compression pipeline using chunk-fed stream objects.
+##
+let compress_file_sync = f(source_path: string, destination_path: string, options: CompressionOptions): void errors InvalidPathError, FileReadError, FileWriteError, CompressionAlgorithmNotSupportedError, CompressionStreamStateError, CompressionEncodingError =>
+    return void
+
+##
+Description: Runs a synchronous file decompression pipeline using chunk-fed stream objects.
+##
+let decompress_file_sync = f(source_path: string, destination_path: string, algorithm: CompressionAlgorithm): void errors InvalidPathError, FileReadError, FileWriteError, CompressionAlgorithmNotSupportedError, CompressionStreamStateError, CompressionDecodingError, CompressionDataCorruptionError =>
+    return void

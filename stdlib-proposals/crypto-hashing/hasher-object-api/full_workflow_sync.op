@@ -1,0 +1,22 @@
+# Scenario: End-to-end release verification pipeline using stream hashing and digest summaries.
+import HashedArtifactSummary from ./hasher_object.types
+import EmptyInputChunkError, HasherFinalizedError, InvalidFilePathError, FileOpenError, FileReadError from ./hasher_object.types
+import hash_stream_file_sync, build_artifact_hash_summary_sync from ./file_stream_hashing_sync
+import HashAlgorithm from ./hasher_object.types
+
+##
+Description: Runs a release artifact verification workflow using stream hashing and summary generation.
+##
+let run_release_verification_sync = f(release_artifact_path: string): HashedArtifactSummary errors InvalidFilePathError, FileOpenError, FileReadError, EmptyInputChunkError, HasherFinalizedError =>
+    # Scenario: continuous delivery checks artifact digest before final publish stage.
+    guard hash_stream_file_sync(release_artifact_path, HashAlgorithm.Sha512) into primary_digest_hex else hashing_error =>
+        # Any stream hashing failure should block release publication and trigger investigation.
+        return hashing_error
+
+    guard build_artifact_hash_summary_sync(release_artifact_path) into digest_summary else hashing_error =>
+        # Summary creation failure means metadata cannot be trusted and publish must be denied.
+        return hashing_error
+
+    return new HashedArtifactSummary:
+        artifact_path: release_artifact_path
+        digest_hex: 'primary={primary_digest_hex}|fallback={digest_summary.digest_hex}'

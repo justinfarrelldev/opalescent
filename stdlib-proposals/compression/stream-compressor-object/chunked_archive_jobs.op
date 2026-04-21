@@ -1,0 +1,22 @@
+# Scenario: Daily archive job compresses then restores data for disaster-recovery validation.
+import CompressionAlgorithm, CompressionOptions, InvalidPathError, FileReadError, FileWriteError, CompressionAlgorithmNotSupportedError, CompressionStreamStateError, CompressionEncodingError, CompressionDecodingError, CompressionDataCorruptionError from ./compression_stream.types
+import compress_file_sync, decompress_file_sync from ./stream_compressor_api
+
+##
+Description: Runs synchronized archive compression and restore validation for daily jobs.
+##
+let run_daily_archive_job_sync = f(source_archive_path: string, compressed_archive_path: string, restore_validation_path: string): void errors InvalidPathError, FileReadError, FileWriteError, CompressionAlgorithmNotSupportedError, CompressionStreamStateError, CompressionEncodingError, CompressionDecodingError, CompressionDataCorruptionError =>
+    # Scenario: infrastructure compresses event archives and verifies a restore copy every day.
+    let options = new CompressionOptions:
+        algorithm: CompressionAlgorithm/Gzip
+        compression_level: 6
+
+    guard compress_file_sync(source_archive_path, compressed_archive_path, options) into _compression_complete else compression_error =>
+        # Compression errors indicate archive output may be incomplete and cannot be published.
+        return propagate compression_error
+
+    guard decompress_file_sync(compressed_archive_path, restore_validation_path, CompressionAlgorithm/Gzip) into _restore_complete else decompression_error =>
+        # Decompression errors indicate the backup set cannot satisfy disaster-recovery checks.
+        return propagate decompression_error
+
+    return void

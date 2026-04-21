@@ -1,0 +1,28 @@
+# Scenario: Payment branch logging with module-level debug and error calls.
+import LogField, LoggerNotInitializedError from ./logging.types
+import log_debug, log_error from standard
+
+##
+Description: Logs payment pipeline progress and failure diagnostics globally.
+##
+let process_payment_log_flow = f(payment_id: string, approved: boolean): void errors LoggerNotInitializedError =>
+    # Emit debug context before issuing authorization request.
+    propagate log_debug('payment authorization request', [new LogField:
+        key: 'payment_id'
+        value: payment_id
+    ])
+
+    if approved:
+        # Emit debug branch so support can trace successful path.
+        propagate log_debug('payment authorization approved', [new LogField:
+            key: 'payment_id'
+            value: payment_id
+        ])
+        return void
+
+    # Emit error branch for denied authorization outcomes.
+    propagate log_error('payment authorization rejected', [new LogField:
+        key: 'payment_id'
+        value: payment_id
+    ])
+    return void

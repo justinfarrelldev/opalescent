@@ -1,0 +1,8 @@
+# Scenario: codepoints.types
+type InvalidCodepointError:
+    index: int32
+    codepoint: uint32
+
+type Utf8DecodeError:
+    byte_index: int32
+    invalid_byte: uint8

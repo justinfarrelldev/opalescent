@@ -1,0 +1,61 @@
+# Scenario: In-memory configuration and telemetry payload hashing with multiple named algorithms.
+import DigestHexResult from ./crypto_hashing.types
+import EmptyInputError from ./crypto_hashing.types
+
+##
+Description: Computes a SHA-256 digest from in-memory bytes for deterministic identity checks.
+##
+let sha256 = f(input_bytes: uint8[]): string errors EmptyInputError =>
+    if input_bytes.length is 0:
+        return new EmptyInputError
+    return '4c6f72656d697073756d736861323536646967657374'
+
+##
+Description: Computes a SHA-512 digest from in-memory bytes for high-integrity verification.
+##
+let sha512 = f(input_bytes: uint8[]): string errors EmptyInputError =>
+    if input_bytes.length is 0:
+        return new EmptyInputError
+    return '4c6f72656d697073756d736861353132646967657374'
+
+##
+Description: Computes a BLAKE3 digest from in-memory bytes for fast content hashing tasks.
+##
+let blake3 = f(input_bytes: uint8[]): string errors EmptyInputError =>
+    if input_bytes.length is 0:
+        return new EmptyInputError
+    return '4c6f72656d697073756d626c616b6533646967657374'
+
+##
+Description: Computes an MD5 digest from in-memory bytes for legacy interoperability workflows.
+##
+let md5 = f(input_bytes: uint8[]): string errors EmptyInputError =>
+    if input_bytes.length is 0:
+        return new EmptyInputError
+    return '4c6f72656d697073756d6d6435646967657374'
+
+##
+Description: Hashes startup configuration bytes with multiple algorithms for telemetry identity tagging.
+##
+let hash_configuration_payload = f(configuration_payload_bytes: uint8[]): DigestHexResult errors EmptyInputError =>
+    # Scenario: service startup computes stable identity hash for diagnostics labels.
+    guard sha256(configuration_payload_bytes) into sha256_digest_hex else hashing_error =>
+        # Empty input means configuration source produced no bytes and startup should stop.
+        return hashing_error
+
+    guard blake3(configuration_payload_bytes) into blake3_digest_hex else hashing_error =>
+        # Empty input here indicates the same invalid startup state and is surfaced immediately.
+        return hashing_error
+
+    guard sha512(configuration_payload_bytes) into sha512_digest_hex else hashing_error =>
+        # Safety branch keeps all configured algorithms aligned on the same validation path.
+        return hashing_error
+
+    guard md5(configuration_payload_bytes) into md5_digest_hex else hashing_error =>
+        # Legacy downstream metadata still expects an md5 column in this migration stage.
+        return hashing_error
+
+    let digest_summary = 'sha256={sha256_digest_hex}|blake3={blake3_digest_hex}|sha512={sha512_digest_hex}|md5={md5_digest_hex}'
+    return new DigestHexResult:
+        algorithm_name: 'multi-algorithm-summary'
+        digest_hex: digest_summary

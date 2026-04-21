@@ -1,0 +1,17 @@
+# Scenario: validation ops
+##
+    Description: Computes the bit-width of an int64 via associated leading zeros count.
+##
+let get_bit_width = f(n: int64): int64 =>
+    let clz = int64.count_leading_zeros(n)
+    return 64 - clz
+
+##
+    Description: Filters invalid float64 values using type-associated is_nan check.
+##
+let filter_invalid_floats = f(fs: float64[]): float64[] =>
+    let mutable out: float64[] = []
+    for f in fs:
+        if not float64.floating_point_is_nan(f):
+            out.push(f)
+    return out

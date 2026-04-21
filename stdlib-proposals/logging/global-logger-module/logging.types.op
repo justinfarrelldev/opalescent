@@ -1,0 +1,37 @@
+# Scenario: Shared types for module-level global logger alternative.
+##
+Description: Log severity levels used by global logger calls.
+##
+type LogLevel:
+    Debug
+    Info
+    Warn
+    Error
+
+##
+Description: Optional structured key-value field attached to log lines.
+##
+type LogField:
+    key: string
+    value: string
+
+##
+Description: Error emitted when global logger setup cannot complete.
+##
+type LoggerInitError:
+    InvalidLogPath
+    PermissionDenied
+    OpenFailure
+
+##
+Description: Error emitted when logging is attempted before configuration.
+##
+type LoggerNotInitializedError:
+    LoggerNotInitialized
+
+##
+Description: Error emitted when buffered log bytes cannot be persisted.
+##
+type LogFlushError:
+    WriteFailure
+    FilesystemFull

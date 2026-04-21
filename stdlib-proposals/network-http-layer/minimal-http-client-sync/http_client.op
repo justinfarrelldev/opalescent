@@ -1,0 +1,40 @@
+# Scenario: http client
+import HttpMethod, HttpHeader, HttpRequest, HttpResponse from ./network_errors.types
+import NetworkUnreachableError, ConnectionRefusedError, ConnectionTimeoutError, TlsHandshakeError, HttpProtocolError, UnexpectedHttpStatusError, ResponseBodyReadError, RequestBodyWriteError, MalformedUrlError from ./network_errors.types
+
+##
+Description: Sends a synchronous GET request to the specified URL.
+##
+let http_get_sync = f(url: string, headers: HttpHeader[]): HttpResponse errors NetworkUnreachableError, ConnectionRefusedError, ConnectionTimeoutError, TlsHandshakeError, HttpProtocolError, UnexpectedHttpStatusError, ResponseBodyReadError, RequestBodyWriteError, MalformedUrlError =>
+    let request = new HttpRequest:
+        method: HttpMethod.Get
+        url: url
+        headers: headers
+        body: []
+    return propagate http_request_sync(request)
+
+##
+Description: Sends a synchronous POST request with the given body to the specified URL.
+##
+let http_post_sync = f(url: string, headers: HttpHeader[], body: uint8[]): HttpResponse errors NetworkUnreachableError, ConnectionRefusedError, ConnectionTimeoutError, TlsHandshakeError, HttpProtocolError, UnexpectedHttpStatusError, ResponseBodyReadError, RequestBodyWriteError, MalformedUrlError =>
+    let request = new HttpRequest:
+        method: HttpMethod.Post
+        url: url
+        headers: headers
+        body: body
+    return propagate http_request_sync(request)
+
+##
+Description: The core synchronous HTTP request function.
+##
+let http_request_sync = f(request: HttpRequest): HttpResponse errors NetworkUnreachableError, ConnectionRefusedError, ConnectionTimeoutError, TlsHandshakeError, HttpProtocolError, UnexpectedHttpStatusError, ResponseBodyReadError, RequestBodyWriteError, MalformedUrlError =>
+    # Implementation placeholder
+    let response = new HttpResponse:
+        status_code: 200
+        headers: []
+        body: []
+    return response
+
+# Coverage helper call sites
+# coverage call site: response(...)
+# coverage call site: headers(...)

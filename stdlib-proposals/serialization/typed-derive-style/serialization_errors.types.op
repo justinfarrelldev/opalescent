@@ -1,0 +1,39 @@
+# Scenario: serialization errors.types
+type MalformedJsonError:
+    message: string
+    line: int32
+    column: int32
+
+type MalformedTomlError:
+    message: string
+    line: int32
+    column: int32
+
+type UnexpectedJsonShapeError:
+    expected: string
+    actual: string
+
+type NumericRangeError:
+    message: string
+
+type MissingRequiredFieldError:
+    field_name: string
+
+type UnknownFieldError:
+    field_name: string
+
+type JsonValue:
+    | Null
+    | Boolean: bool
+    | Number: float64
+    | String: string
+    | Array: JsonValue[]
+    | Object: JsonField[]
+
+type JsonField:
+    name: string
+    value: JsonValue
+
+type Config:
+    version: int32
+    status: string

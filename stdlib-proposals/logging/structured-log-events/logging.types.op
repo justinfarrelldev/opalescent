@@ -1,0 +1,53 @@
+# Scenario: Shared types for structured LogEvent sink alternative.
+##
+Description: Event severity levels carried by typed LogEvent values.
+##
+type LogLevel:
+    Debug
+    Info
+    Warn
+    Error
+
+##
+Description: Structured log event payload emitted to a sink.
+##
+type LogEvent:
+    HttpRequestCompleted:
+        route: string
+        status_code: int32
+        elapsed_milliseconds: int32
+    AuthenticationFailed:
+        user_identifier: string
+        reason: string
+    InventoryAdjusted:
+        sku: string
+        previous_quantity: int32
+        new_quantity: int32
+
+##
+Description: Writable sink for machine-readable LogEvent values.
+##
+type LogSink:
+    destination_path: string
+
+##
+Description: Error emitted when creating a structured log sink fails.
+##
+type SinkCreateError:
+    InvalidLogPath
+    PermissionDenied
+    OpenFailure
+
+##
+Description: Error emitted when an event cannot be accepted by the sink.
+##
+type EventWriteError:
+    SinkClosed
+    QueueOverflow
+
+##
+Description: Error emitted when structured events cannot be flushed to storage.
+##
+type SinkFlushError:
+    WriteFailure
+    FilesystemFull

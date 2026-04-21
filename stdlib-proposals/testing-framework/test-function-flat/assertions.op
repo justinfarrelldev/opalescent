@@ -1,0 +1,47 @@
+# Scenario: assertions
+import TestFailure from './testing.types'
+
+##
+Description: Asserts a boolean condition is true and emits a typed assertion failure otherwise.
+##
+let assert_true = f(condition: boolean, message: string): void errors TestFailure =>
+    if not condition:
+        return new TestFailure:
+            AssertionFailed:
+                message: message
+    return void
+
+##
+Description: Asserts two strings are exactly equal including whitespace and punctuation.
+##
+let assert_string_equal = f(actual: string, expected: string): void errors TestFailure =>
+    if actual is not expected:
+        return new TestFailure:
+            AssertionFailed:
+                message: 'string values are not equal'
+    return void
+
+##
+Description: Asserts an array length matches an expected integer for deterministic checks.
+##
+let assert_length_equal = f<T>(values: T[], expected_length: int32): void errors TestFailure =>
+    if values.length is not expected_length:
+        return new TestFailure:
+            AssertionFailed:
+                message: 'array length mismatch'
+    return void
+
+##
+Description: Demonstrates reusable flat-style assertions with realistic comments and usage.
+##
+let run_assertion_examples = f(): void errors TestFailure =>
+    # Boolean checks keep branch expectations explicit and readable.
+    propagate assert_true(5 > 2, 'expected five to be greater than two')
+
+    # String equality is useful for formatting and parser outputs.
+    propagate assert_string_equal('hello-opal', 'hello-opal')
+
+    # Length checks support deterministic list-transform validation.
+    let numeric_values = [10, 20, 30]
+    propagate assert_length_equal(numeric_values, 3)
+    return void

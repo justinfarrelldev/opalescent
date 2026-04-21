@@ -1,0 +1,21 @@
+# Scenario: logger
+import WriteFailureError, PermissionDeniedError, FilesystemFullError, InvalidPathError from ./filesystem_errors.types
+import write_contents_sync, join_path_components, path_parent_directory, path_file_name from standard
+
+##
+Description: Records a log entry by writing to a temporary file using path manipulation helpers.
+##
+let record_log_event_sync = f(log_path: FilesystemPath, message: uint8[]): void errors 
+    WriteFailureError, 
+    PermissionDeniedError, 
+    FilesystemFullError, 
+    InvalidPathError =>
+    
+    let parent = path_parent_directory(log_path)
+    let name = path_file_name(log_path)
+    let temp_path = join_path_components(parent, name + '.tmp')
+    
+    guard write_contents_sync(temp_path, message) into _success else err =>
+        return propagate err
+    
+    return void

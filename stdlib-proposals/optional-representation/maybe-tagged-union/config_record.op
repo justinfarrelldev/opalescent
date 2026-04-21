@@ -1,12 +1,6 @@
 # Scenario: Server configuration with optional fields using Maybe
 import Maybe from ./maybe.types
-##
-Description: Represents a server's configuration with optional properties.
-##
-type ServerConfig:
-    host: string
-    port: Maybe int32
-    timeout: Maybe int32
+import ServerConfig from ./server_config.types
 
 ##
 Description: Creates a configuration record for a server.

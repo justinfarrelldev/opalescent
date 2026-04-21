@@ -1,0 +1,55 @@
+# Scenario: examples
+import JsonStreamReader, JsonStreamWriter, JsonToken from ./serialization_errors.types
+import MalformedJsonError, UnexpectedJsonShapeError, NumericRangeError, MissingRequiredFieldError, UnknownFieldError from ./serialization_errors.types
+
+##
+Description: Reads the next token from a JSON stream reader (blocking).
+##
+let read_next_token_sync = f(reader: JsonStreamReader): JsonToken errors MalformedJsonError =>
+    # Dummy implementation for proposal purposes
+    return JsonToken.StartObject
+
+##
+Description: Writes a token or value to a JSON stream writer (blocking).
+##
+let write_value_sync = f(writer: JsonStreamWriter, value: JsonToken): void =>
+    # Dummy implementation for proposal purposes
+    return void
+
+##
+Description: Parses a config and emits a structured log line using a streaming reader.
+##
+let parse_config_and_log = f(reader: JsonStreamReader): void errors MalformedJsonError, UnexpectedJsonShapeError =>
+    guard read_next_token_sync(reader) into token else err =>
+        propagate err
+        
+    if token is not JsonToken.StartObject:
+        return UnexpectedJsonShapeError: expected: 'StartObject', actual: 'something else'
+        
+    # log("Parsed config version: unknown (streaming mode)")
+    return void
+
+##
+Description: Demonstrates round-trip serialization and parsing using a streaming API.
+##
+let demonstrate_round_trip = f(writer: JsonStreamWriter, reader: JsonStreamReader): bool errors MalformedJsonError =>
+    # Serialize token-by-token
+    write_value_sync(writer, JsonToken.StartObject)
+    write_value_sync(writer, JsonToken.Key: 'status')
+    write_value_sync(writer, JsonToken.String: 'ok')
+    write_value_sync(writer, JsonToken.EndObject)
+    
+    # Parse token-by-token
+    guard read_next_token_sync(reader) into t1 else err =>
+        propagate err
+    
+    return true
+
+##
+Description: Demonstrates handling of malformed input with exhaustive errors in streaming.
+##
+let handle_malformed_input = f(reader: JsonStreamReader): void errors MalformedJsonError, UnexpectedJsonShapeError, NumericRangeError, MissingRequiredFieldError, UnknownFieldError =>
+    guard read_next_token_sync(reader) into token else err =>
+        propagate err
+        
+    return void

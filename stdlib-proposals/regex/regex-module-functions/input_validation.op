@@ -1,0 +1,33 @@
+# Scenario: input validation
+import regex_match, regex_find_all, regex_replace, regex_split from ./regex_module_api
+import InvalidPattern, MatchError, ReplaceTemplateError, SplitError from ./regex.types
+
+##
+Description: Demonstrates all regex-module-functions operations in one workflow.
+##
+let normalize_note_line = f(raw_line: string, candidate: string): string[] errors InvalidPattern, MatchError, ReplaceTemplateError, SplitError =>
+    # Full usage example: validate one identifier without precompiling.
+    guard regex_match('user_[a-z0-9]+', candidate) into is_valid else match_error =>
+        return propagate match_error
+
+    if not is_valid:
+        let mutable rejected: string[] = []
+        rejected.push('invalid_user_identifier')
+        return rejected
+
+    # Full usage example: call regex_find_all directly from module API.
+    guard regex_find_all('TODO', raw_line) into todo_tags else find_error =>
+        return propagate find_error
+
+    # Full usage example: replace sensitive chunks in one direct call.
+    guard regex_replace('secret=[a-z0-9]+', raw_line, 'secret=REDACTED') into redacted_line else replace_error =>
+        return propagate replace_error
+
+    # Full usage example: split cleaned line into downstream segments.
+    guard regex_split(',', redacted_line) into segments else split_error =>
+        return propagate split_error
+
+    if todo_tags.length is 0:
+        return segments
+
+    return segments

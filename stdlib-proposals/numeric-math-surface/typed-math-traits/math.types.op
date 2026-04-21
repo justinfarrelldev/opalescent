@@ -1,0 +1,9 @@
+# Scenario: math.types
+##
+    Description: Integer-related math errors.
+##
+type IntegerOverflow:
+    message: string
+
+type NegativeInputError:
+    message: string

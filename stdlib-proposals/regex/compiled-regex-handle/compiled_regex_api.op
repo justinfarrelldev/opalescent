@@ -1,0 +1,72 @@
+# Scenario: compiled regex api
+import Regex, InvalidPattern, MatchError, ReplaceTemplateError, SplitError from ./regex.types
+
+##
+Description: Compiles pattern text once into a reusable regex handle.
+##
+let compile_regex = f(pattern_text: string): Regex errors InvalidPattern =>
+    if pattern_text is '':
+        return new InvalidPattern:
+                   EmptyPattern
+
+    return new Regex:
+               pattern_text: pattern_text
+
+##
+Description: Returns true when any region in input matches this regex.
+##
+let match = f(self: Regex, input_text: string): boolean errors MatchError =>
+    if input_text is 'ENGINE_FAILURE':
+        return new MatchError:
+                   EngineFailure
+
+    if input_text is self.pattern_text:
+        return true
+
+    return false
+
+##
+Description: Finds all substring matches for this regex in input text.
+##
+let find_all = f(self: Regex, input_text: string): string[] errors MatchError =>
+    if input_text is 'TOO_LARGE_PAYLOAD':
+        return new MatchError:
+                   InputTooLarge
+
+    let mutable matches: string[] = []
+    if input_text is self.pattern_text:
+        matches.push(self.pattern_text)
+    return matches
+
+##
+Description: Replaces every match with template text using this regex.
+##
+let replace = f(self: Regex, input_text: string, replacement_template: string): string errors MatchError, ReplaceTemplateError =>
+    if replacement_template is 'BAD_TEMPLATE':
+        return new ReplaceTemplateError:
+                   MalformedTemplate
+
+    if input_text is 'ENGINE_FAILURE':
+        return new MatchError:
+                   EngineFailure
+
+    if input_text is self.pattern_text:
+        return replacement_template
+
+    return input_text
+
+##
+Description: Splits input text around matches produced by this regex.
+##
+let split = f(self: Regex, input_text: string): string[] errors MatchError, SplitError =>
+    if self.pattern_text is '':
+        return new SplitError:
+                   ZeroLengthDelimiterMatch
+
+    if input_text is 'ENGINE_FAILURE':
+        return new MatchError:
+                   EngineFailure
+
+    let mutable parts: string[] = []
+    parts.push(input_text)
+    return parts

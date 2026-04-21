@@ -1,0 +1,8 @@
+# Scenario: type definitions for this proposal alternative
+type SearchError:
+    ItemNotFound:
+        target: int32
+
+type KeyNotFoundError:
+    Key:
+        key: string

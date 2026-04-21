@@ -19,7 +19,7 @@
 - **Opalescent-idiom fit**: Matches the decentralized and explicit nature of the language.
 - **Implementation effort**: Status quo, already part of the specification.
 - **Extensibility**: Very high; new libraries can define new errors with zero coordination.
-- **Async readiness**: Natural fit for any future async syntax.
+- **Async readiness**: Natural fit for any future deferred syntax.
 
 ### Registered Error Hierarchy
 - **Ergonomics**: Slightly more friction due to the need for central registration.
@@ -27,7 +27,7 @@
 - **Opalescent-idiom fit**: Fits the "explicit but concise" mantra by grouping common errors.
 - **Implementation effort**: Low; mostly a structural decision for the standard library.
 - **Extensibility**: Lower; the central module can become a bottleneck.
-- **Async readiness**: No special blockers for async integration.
+- **Async readiness**: No special blockers for deferred integration.
 
 ### Error Code Enum Module
 - **Ergonomics**: Pleasant due to clear, module-scoped error enums.
@@ -35,7 +35,7 @@
 - **Opalescent-idiom fit**: Very high; mirrors the expression-oriented style.
 - **Implementation effort**: Very low; just a pattern for library authors to follow.
 - **Extensibility**: High; each module manages its own errors.
-- **Async readiness**: Works well with future async/await models.
+- **Async readiness**: Works well with future deferred/wait_for models.
 
 ### Layered Error Wrapping
 - **Ergonomics**: Slightly higher overhead due to explicit wrapping and unwrapping.
@@ -43,4 +43,4 @@
 - **Opalescent-idiom fit**: Good; the language's explicit nature makes the wrapping steps clear.
 - **Implementation effort**: Medium; requires standard library helpers and potentially compiler support for "any error" types.
 - **Extensibility**: Highest; any error can be extended with any context.
-- **Async readiness**: Exceptional; tracing errors across async boundaries requires this kind of context.
+- **Async readiness**: Exceptional; tracing errors across deferred boundaries requires this kind of context.

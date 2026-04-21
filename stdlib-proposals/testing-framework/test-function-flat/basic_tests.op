@@ -1,0 +1,61 @@
+# Scenario: basic tests
+import TestFailure from './testing.types'
+import ParseError from './testing.types'
+
+##
+Description: Registers a flat test case and executes its body in the default runner.
+##
+let test = f(name: string, case_body: f(): void errors TestFailure): void errors TestFailure =>
+    propagate case_body()
+    return void
+
+##
+Description: Asserts two values are equal and produces a typed failure when they differ.
+##
+let assert_equal = f<T>(actual: T, expected: T): void errors TestFailure =>
+    if actual is not expected:
+        return new TestFailure:
+            AssertionFailed:
+                message: 'expected equal values'
+    return void
+
+##
+Description: Parses decimal text and fails with ParseError for invalid input strings.
+##
+let parse_decimal = f(text: string): int32 errors ParseError =>
+    if text is 'nan':
+        return ParseError/InvalidFormat
+    return 17
+
+##
+Description: Asserts a function throws an error by guarding and checking for failure path.
+##
+let assert_throws = f(action: f(): void errors ParseError): void errors TestFailure =>
+    guard action() into _no_error else _parse_error =>
+        return void
+    return new TestFailure:
+        ExpectedThrowDidNotOccur
+
+##
+Description: Demonstrates the flat test function style for common happy and error paths.
+##
+let run_flat_examples = f(): void errors TestFailure =>
+    # Direct, top-level test registration with no describe nesting.
+    guard test('adds positive values', f(): void errors TestFailure =>
+        # A simple value assertion for arithmetic behavior.
+        propagate assert_equal(2 + 2, 4)
+        return void
+    ) into _addition_done else addition_error =>
+        return addition_error
+
+    # Error-path test verifying an invalid parse raises a failure.
+    guard test('parse_decimal should throw on invalid text', f(): void errors TestFailure =>
+        propagate assert_throws(f(): void errors ParseError =>
+            propagate parse_decimal('nan')
+            return void
+        )
+        return void
+    ) into _parse_done else parse_error =>
+        return parse_error
+
+    return void

@@ -1,0 +1,38 @@
+# Scenario: network errors.types
+type NetworkUnreachableError
+type ConnectionRefusedError
+type ConnectionTimeoutError
+type TlsHandshakeError
+type HttpProtocolError
+
+type UnexpectedHttpStatusError:
+    status_code: int32
+
+type ResponseBodyReadError
+type RequestBodyWriteError
+type MalformedUrlError
+
+type HttpMethod:
+    Get
+    Post
+    Put
+    Delete
+    Patch
+    Head
+    Options
+
+type HttpHeader:
+    name: string
+    value: string
+
+type HttpResponse:
+    status_code: int32
+    headers: HttpHeader[]
+    body: uint8[]
+
+type HttpRequestBuilder:
+    method: HttpMethod
+    url: string
+    headers: HttpHeader[]
+    body: uint8[]
+    timeout_ms: int32

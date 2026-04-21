@@ -14,11 +14,6 @@ This approach leverages Opalescent's robust error-handling machinery, specifical
 No new syntax is required. This proposal utilizes existing function signatures and error handling constructs.
 
 ```opal
-type NotFound:
-    Key:
-        key: string
-    Index:
-        position: int32
 
 let find_value = f(id: string): string errors NotFound =>
     if id is 'valid':
@@ -39,8 +34,6 @@ guard find_value('test') into result else err =>
 A common use case is looking up an item in a collection.
 
 ```opal
-type LookupError:
-    NotFound
 
 let get_config = f(key: string): string errors LookupError =>
     # Implementation logic

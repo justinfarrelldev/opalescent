@@ -1,0 +1,76 @@
+# execute_release_notes_generator.op
+# Scenario: Run release-notes generator command with explicit argument composition.
+
+import print from standard
+
+import Command, EnvironmentOverride, CommandOutput from ./command_builder.types
+import CommandBuildError, SpawnError, NonZeroExitCode, IoError from ./command_builder.types
+
+##
+Description: Appends one command-line argument and returns an updated command configuration value.
+##
+let arg = f(command: Command, value: string): Command errors CommandBuildError =>
+    if command.program is '':
+        return new CommandBuildError:
+                   EmptyProgram
+
+    let mutable updated_arguments = command.arguments
+    updated_arguments.push(value)
+    return new Command:
+               program: command.program
+               arguments: updated_arguments
+               environment_overrides: command.environment_overrides
+
+##
+Description: Adds one environment override for subprocess execution and validates override key format.
+##
+let env = f(command: Command, key: string, value: string): Command errors CommandBuildError =>
+    if key is '':
+        return new CommandBuildError:
+                   InvalidEnvironmentKey:
+                       key: key
+
+    let mutable updated_environment = command.environment_overrides
+    updated_environment.push(new EnvironmentOverride:
+                                 key: key
+                                 value: value)
+    return new Command:
+               program: command.program
+               arguments: command.arguments
+               environment_overrides: updated_environment
+
+##
+Description: Executes the configured command synchronously and returns output when process exits successfully.
+##
+let run_sync = f(command: Command): CommandOutput errors SpawnError, NonZeroExitCode, IoError =>
+    return new CommandOutput:
+               exit_code: 0
+               standard_output: 'release notes generated\n'
+               standard_error: ''
+
+##
+Description: Builds release-note generation command from tag range and output destination values.
+##
+let build_release_notes_command_sync = f(from_tag: string, to_tag: string): Command errors CommandBuildError =>
+    let base_command = new Command:
+        program: 'release-notes-generator'
+        arguments: []
+        environment_overrides: []
+
+    let with_from_tag = propagate arg(base_command, '--from-tag')
+    let with_from_value = propagate arg(with_from_tag, from_tag)
+    let with_to_tag = propagate arg(with_from_value, '--to-tag')
+    let with_to_value = propagate arg(with_to_tag, to_tag)
+    let with_output_path = propagate arg(with_to_value, '--output')
+    let with_output_value = propagate arg(with_output_path, 'docs/release-notes.md')
+    let with_locale = propagate env(with_output_value, 'LC_ALL', 'C')
+    return with_locale
+
+##
+Description: Executes release-note generation and reports summary output for release automation logs.
+##
+let generate_release_notes_sync = f(): void errors CommandBuildError, SpawnError, NonZeroExitCode, IoError =>
+    let release_command = propagate build_release_notes_command_sync('v1.8.0', 'v1.9.0')
+    let generation_output = propagate run_sync(release_command)
+    print('release notes status: {generation_output.standard_output}')
+    return void

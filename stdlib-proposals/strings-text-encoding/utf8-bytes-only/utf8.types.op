@@ -1,0 +1,4 @@
+# Scenario: utf8.types
+type Utf8DecodeError:
+    byte_index: int32
+    invalid_byte: uint8

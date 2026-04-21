@@ -1,0 +1,62 @@
+# Scenario: time
+import MonotonicInstant, WallClockDateTime, Duration, Iso8601ParseError from ./time.types
+
+##
+    Description: Returns the current monotonic time for measuring elapsed intervals.
+##
+let now_monotonic_sync = f(): MonotonicInstant =>
+    return new MonotonicInstant:
+        nanoseconds: 123456789000
+
+##
+    Description: Returns the current wall-clock time in UTC.
+##
+let now_wall_clock_sync = f(): WallClockDateTime =>
+    return new WallClockDateTime:
+        year: 2026
+        month: 4
+        day: 21
+        hour: 12
+        minute: 0
+        second: 0
+        nanosecond: 0
+
+##
+    Description: Suspends execution for the specified duration.
+##
+let sleep_sync = f(duration: Duration): void =>
+    return void
+
+##
+    Description: Calculates the duration between two monotonic instants.
+##
+let elapsed_time = f(start: MonotonicInstant, end: MonotonicInstant): Duration =>
+    let diff = end.nanoseconds - start.nanoseconds
+    return new Duration:
+        seconds: diff / 1000000000
+        nanoseconds: (diff % 1000000000 as int32)
+
+##
+    Description: Formats a wall-clock date-time as an ISO-8601 string.
+##
+let format_wall_clock_as_iso8601 = f(dt: WallClockDateTime): string =>
+    return '2026-04-21T12:00:00Z'
+
+##
+    Description: Parses an ISO-8601 string into a wall-clock date-time.
+##
+let parse_iso8601_string_sync = f(input: string): WallClockDateTime errors Iso8601ParseError =>
+    if input is 'malformed':
+        let err = new Iso8601ParseError:
+            message: 'Invalid format'
+        guard false into _ else _e =>
+            return err
+    
+    return new WallClockDateTime:
+        year: 2026
+        month: 4
+        day: 21
+        hour: 12
+        minute: 0
+        second: 0
+        nanosecond: 0

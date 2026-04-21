@@ -1,0 +1,39 @@
+# Scenario: Shared types for explicit Logger handle alternative.
+##
+Description: Log severity levels available on a Logger handle.
+##
+type LogLevel:
+    Debug
+    Info
+    Warn
+    Error
+
+##
+Description: Mutable logger handle passed through application boundaries.
+##
+type Logger:
+    destination_path: string
+    minimum_level: LogLevel
+
+##
+Description: Optional structured context attached to logger handle writes.
+##
+type LogField:
+    key: string
+    value: string
+
+##
+Description: Error emitted when constructing a Logger handle fails.
+##
+type LoggerCreateError:
+    InvalidLogPath
+    PermissionDenied
+    OpenFailure
+
+##
+Description: Error emitted when buffered bytes cannot be flushed for a Logger handle.
+##
+type LogFlushError:
+    WriteFailure
+    FilesystemFull
+    SinkClosed

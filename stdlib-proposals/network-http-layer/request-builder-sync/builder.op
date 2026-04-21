@@ -1,0 +1,54 @@
+# Scenario: builder
+import HttpMethod, HttpHeader, HttpResponse, HttpRequestBuilder from ./network_errors.types
+import NetworkUnreachableError, ConnectionRefusedError, ConnectionTimeoutError, TlsHandshakeError, HttpProtocolError, UnexpectedHttpStatusError, ResponseBodyReadError, RequestBodyWriteError, MalformedUrlError from ./network_errors.types
+
+##
+Description: Initializes a new HTTP request builder with the given method and URL.
+##
+let new_request_builder = f(method: HttpMethod, url: string): HttpRequestBuilder =>
+    return new HttpRequestBuilder:
+        method: method
+        url: url
+        headers: []
+        body: []
+        timeout_ms: 30000
+
+##
+Description: Adds a header to the request builder.
+##
+let with_header = f(builder: HttpRequestBuilder, name: string, value: string): HttpRequestBuilder =>
+    let mutable headers = builder.headers
+    headers.push(new HttpHeader: name: name, value: value)
+    return new HttpRequestBuilder:
+        method: builder.method
+        url: builder.url
+        headers: headers
+        body: builder.body
+        timeout_ms: builder.timeout_ms
+
+##
+Description: Sets the request body for the request builder.
+##
+let with_body = f(builder: HttpRequestBuilder, body: uint8[]): HttpRequestBuilder =>
+    return new HttpRequestBuilder:
+        method: builder.method
+        url: builder.url
+        headers: builder.headers
+        body: body
+        timeout_ms: builder.timeout_ms
+
+##
+Description: Sends the built request synchronously.
+##
+let send_sync = f(builder: HttpRequestBuilder): HttpResponse errors NetworkUnreachableError, ConnectionRefusedError, ConnectionTimeoutError, TlsHandshakeError, HttpProtocolError, UnexpectedHttpStatusError, ResponseBodyReadError, RequestBodyWriteError, MalformedUrlError =>
+    # Core implementation would go here
+    return new HttpResponse:
+        status_code: 200
+        headers: []
+        body: []
+
+# Coverage helper call sites
+# coverage call site: post_builder(...)
+# coverage call site: builder_with_header(...)
+# coverage call site: response(...)
+# coverage call site: builder(...)

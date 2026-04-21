@@ -1,0 +1,27 @@
+# subprocess.types.op
+# Scenario: Shared output and error types for direct command execution.
+
+type CommandOutput:
+    exit_code: int32
+    standard_output: string
+    standard_error: string
+
+type SpawnError:
+    ProgramNotFound:
+        program: string
+    PermissionDenied:
+        program: string
+    InvalidWorkingDirectory:
+        directory: string
+
+type NonZeroExitCode:
+    ExitFailure:
+        program: string
+        exit_code: int32
+        standard_error: string
+
+type IoError:
+    PipeCreationFailed:
+        detail: string
+    ReadOutputFailed:
+        detail: string

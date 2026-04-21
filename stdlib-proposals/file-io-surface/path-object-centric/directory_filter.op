@@ -1,0 +1,23 @@
+# Scenario: directory filter
+import PermissionDeniedError, FileNotFoundError, IsNotADirectoryError, InvalidPathError from ./filesystem_errors.types
+import list_directory_entries_sync, path_file_extension from standard
+
+##
+Description: Lists files in a directory and filters them by a specific extension using path helpers.
+##
+let get_opalescent_files = f(directory_path: FilesystemPath): FilesystemPath[] errors 
+    PermissionDeniedError, 
+    FileNotFoundError, 
+    IsNotADirectoryError, 
+    InvalidPathError =>
+    
+    # In this model, list_directory_entries_sync returns FilesystemPath objects
+    guard list_directory_entries_sync(directory_path) into paths else err =>
+        return propagate err
+        
+    let mutable filtered: FilesystemPath[] = []
+    for path in paths:
+        if path_file_extension(path) is 'op':
+            filtered.push(path)
+            
+    return filtered

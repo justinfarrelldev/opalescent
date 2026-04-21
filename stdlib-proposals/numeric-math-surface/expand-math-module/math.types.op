@@ -1,0 +1,9 @@
+# Scenario: math.types
+##
+    Description: Errors used in the math standard library.
+##
+type IntegerOverflow:
+    message: string
+
+type NegativeInputError:
+    message: string

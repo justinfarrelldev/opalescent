@@ -1,0 +1,8 @@
+# Scenario: encodings.types
+type Utf16DecodeError:
+    byte_index: int32
+    invalid_word: uint16
+
+type AsciiEncodeError:
+    char_index: int32
+    invalid_char: uint32

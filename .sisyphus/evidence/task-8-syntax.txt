@@ -1,0 +1,2 @@
+stdlib-proposals/byte-buffer-type/dedicated-bytes-type/proposal.md:65:- This proposal must NOT use `[uint8]` syntax.
+stdlib-proposals/byte-buffer-type/raw-uint8-array/proposal.md:59:- It must NOT use `[uint8]` syntax.

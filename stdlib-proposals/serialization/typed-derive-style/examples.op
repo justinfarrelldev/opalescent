@@ -1,0 +1,81 @@
+# Scenario: examples
+import JsonValue, JsonField, Config from ./serialization_errors.types
+import MalformedJsonError, UnexpectedJsonShapeError, NumericRangeError, MissingRequiredFieldError, UnknownFieldError from ./serialization_errors.types
+
+##
+Description: Manual mapping function from JsonValue to Config type.
+##
+let config_from_json_value = f(root: JsonValue): Config errors MissingRequiredFieldError, UnexpectedJsonShapeError =>
+    # Later version: string[] # derive Deserialize] type Config: ...
+    # Manual implementation logic
+    return new Config:
+               version: 1
+               status: 'ok'
+
+##
+Description: Manual mapping function from Config type to JsonValue.
+##
+let config_to_json_value = f(config: Config): JsonValue =>
+    # Later version: string[] # derive Serialize] type Config: ...
+    # Manual implementation logic
+    let fields: JsonField[] = [new JsonField: name: 'version', value: JsonValue.Number: 1.0]
+    return JsonValue.Object: fields
+
+##
+Description: Parses a JSON string into a JsonValue tree.
+##
+let parse_json_string = f(input: string): JsonValue errors MalformedJsonError =>
+    # Dummy implementation for proposal purposes
+    let fields: JsonField[] = [new JsonField: name: 'version', value: JsonValue.Number: 1.0]
+    return JsonValue.Object: fields
+
+##
+Description: Serializes a JsonValue tree into a JSON string.
+##
+let serialize_json_value_to_string = f(value: JsonValue): string =>
+    # Dummy implementation for proposal purposes
+    return '{}'
+
+##
+Description: Parses a config JSON and emits a structured log line.
+##
+let parse_config_and_log = f(json_text: string): void errors MalformedJsonError, MissingRequiredFieldError, UnexpectedJsonShapeError =>
+    guard parse_json_string(json_text) into root else err =>
+        propagate err
+        
+    guard config_from_json_value(root) into config else err =>
+        propagate err
+    
+    # log("Parsed config version: 1")
+    return void
+
+##
+Description: Demonstrates round-trip serialization and parsing.
+##
+let demonstrate_round_trip = f(): bool errors MalformedJsonError, MissingRequiredFieldError, UnexpectedJsonShapeError =>
+    let config: Config = new Config:
+                                version: 1
+                                status: 'ok'
+                                
+    let json_val: JsonValue = config_to_json_value(config)
+    let json_text: string = serialize_json_value_to_string(json_val)
+    
+    guard parse_json_string(json_text) into root else err =>
+        propagate err
+        
+    guard config_from_json_value(root) into rt_config else err =>
+        propagate err
+        
+    return true
+
+##
+Description: Demonstrates handling of malformed input with exhaustive errors.
+##
+let handle_malformed_input = f(json_text: string): void errors MalformedJsonError, UnexpectedJsonShapeError, NumericRangeError, MissingRequiredFieldError, UnknownFieldError =>
+    guard parse_json_string(json_text) into root else err =>
+        propagate err
+        
+    guard config_from_json_value(root) into config else err =>
+        propagate err
+        
+    return void

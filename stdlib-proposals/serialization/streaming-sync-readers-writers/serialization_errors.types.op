@@ -1,0 +1,42 @@
+# Scenario: serialization errors.types
+type MalformedJsonError:
+    message: string
+    line: int32
+    column: int32
+
+type MalformedTomlError:
+    message: string
+    line: int32
+    column: int32
+
+type UnexpectedJsonShapeError:
+    expected: string
+    actual: string
+
+type NumericRangeError:
+    message: string
+
+type MissingRequiredFieldError:
+    field_name: string
+
+type UnknownFieldError:
+    field_name: string
+
+type JsonToken:
+    | StartObject
+    | EndObject
+    | StartArray
+    | EndArray
+    | Key: string
+    | String: string
+    | Number: float64
+    | Boolean: bool
+    | Null
+
+type JsonStreamReader:
+    # Opaque stream reader handle
+    _id: int32
+
+type JsonStreamWriter:
+    # Opaque stream writer handle
+    _id: int32

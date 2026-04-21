@@ -1,0 +1,20 @@
+# Scenario: validation
+import count_leading_zeros from math
+import floating_point_is_nan from math
+
+##
+    Description: Computes the bit-width of a 64-bit integer using leading zeros count.
+##
+let get_bit_width = f(n: int64): int64 =>
+    let clz = count_leading_zeros(n)
+    return 64 - clz
+
+##
+    Description: Filters an array of floats to remove any NaN values.
+##
+let filter_nan = f(fs: float64[]): float64[] =>
+    let mutable out: float64[] = []
+    for f in fs:
+        if not floating_point_is_nan(f):
+            out.push(f)
+    return out

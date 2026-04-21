@@ -1,0 +1,14 @@
+# Scenario: type definitions for this proposal alternative
+type StorageError:
+    KeyNotFound:
+        key: string
+    ReadError
+    WriteError
+
+type HttpError:
+    BadRequest:
+        status: int32
+    Unauthorized
+    NotFound:
+        url: string
+    InternalError

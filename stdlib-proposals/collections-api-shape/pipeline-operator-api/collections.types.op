@@ -1,0 +1,5 @@
+# Scenario: collections.types
+type CollectionErrors:
+    NotFound
+    OutOfRange
+    EmptyCollection

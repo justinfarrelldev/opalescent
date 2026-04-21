@@ -1,0 +1,75 @@
+# Scenario: examples
+import StructuredValue, StructuredField from ./serialization_errors.types
+import MalformedJsonError, MalformedTomlError, UnexpectedJsonShapeError, NumericRangeError, MissingRequiredFieldError, UnknownFieldError from ./serialization_errors.types
+
+##
+Description: Parses a JSON string into a StructuredValue tree.
+##
+let parse_json_string = f(input: string): StructuredValue errors MalformedJsonError =>
+    # Dummy implementation for proposal purposes
+    let fields: StructuredField[] = [new StructuredField: name: 'version', value: StructuredValue.Number: 1.0]
+    return StructuredValue.Object: fields
+
+##
+Description: Parses a TOML string into a StructuredValue tree.
+##
+let parse_toml_string = f(input: string): StructuredValue errors MalformedTomlError =>
+    # Dummy implementation for proposal purposes
+    let fields: StructuredField[] = [new StructuredField: name: 'version', value: StructuredValue.Number: 1.0]
+    return StructuredValue.Object: fields
+
+##
+Description: Serializes a StructuredValue tree into a JSON string.
+##
+let serialize_to_json_string = f(value: StructuredValue): string =>
+    # Dummy implementation for proposal purposes
+    return '{}'
+
+##
+Description: Serializes a StructuredValue tree into a TOML string.
+##
+let serialize_to_toml_string = f(value: StructuredValue): string =>
+    # Dummy implementation for proposal purposes
+    return 'version = 1.0'
+
+##
+Description: Parses a config and emits a structured log line.
+##
+let parse_config_and_log = f(content: string, is_toml: bool): void errors MalformedJsonError, MalformedTomlError, UnexpectedJsonShapeError =>
+    if is_toml:
+        guard parse_toml_string(content) into root else err =>
+            propagate err
+        return void
+    else:
+        guard parse_json_string(content) into root else err =>
+            propagate err
+        return void
+
+##
+Description: Demonstrates round-trip serialization and parsing.
+##
+let demonstrate_round_trip = f(): bool errors MalformedJsonError, MalformedTomlError =>
+    let fields: StructuredField[] = [new StructuredField: name: 'status', value: StructuredValue.String: 'ok']
+    let original: StructuredValue = StructuredValue.Object: fields
+    let json_text: string = serialize_to_json_string(original)
+    let toml_text: string = serialize_to_toml_string(original)
+    
+    guard parse_json_string(json_text) into rt_json else err =>
+        propagate err
+        
+    guard parse_toml_string(toml_text) into rt_toml else err =>
+        propagate err
+        
+    return true
+
+##
+Description: Demonstrates handling of malformed input with exhaustive errors.
+##
+let handle_malformed_input = f(json_text: string, toml_text: string): void errors MalformedJsonError, MalformedTomlError, UnexpectedJsonShapeError, NumericRangeError, MissingRequiredFieldError, UnknownFieldError =>
+    guard parse_json_string(json_text) into root1 else err =>
+        propagate err
+    
+    guard parse_toml_string(toml_text) into root2 else err =>
+        propagate err
+        
+    return void

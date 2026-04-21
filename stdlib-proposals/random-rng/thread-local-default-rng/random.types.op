@@ -1,0 +1,6 @@
+# Scenario: random.types
+##
+    Description: Error returned when an invalid range is provided.
+##
+type InvalidRangeError:
+    message: string

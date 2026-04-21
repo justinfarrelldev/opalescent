@@ -1,0 +1,60 @@
+# Scenario: example
+import Utf16DecodeError, AsciiEncodeError from ./encodings.types
+import encode_string_to_utf16_bytes, decode_utf16_bytes_to_string from standard
+import encode_string_to_ascii_bytes, decode_ascii_bytes_to_string from standard
+import string_byte_length, string_codepoint_length from standard
+import string_to_uppercase, string_to_lowercase, extract_substring from standard
+
+##
+    Description: Demonstrates encoding and decoding UTF-16 bytes with error handling.
+##
+let demo_utf16_conversion = f(input: string): string errors Utf16DecodeError =>
+    let words: uint16[] = encode_string_to_utf16_bytes(input)
+    
+    # string_byte_length vs string_codepoint_length
+    let b_len: int32 = string_byte_length(input)
+    let c_len: int32 = string_codepoint_length(input)
+    
+    guard decode_utf16_bytes_to_string(words) into decoded else err =>
+        return propagate err
+        
+    return decoded
+
+##
+    Description: Demonstrates encoding to ASCII with error handling for non-ASCII characters.
+##
+let demo_ascii_conversion = f(input: string): uint8[] errors AsciiEncodeError =>
+    guard encode_string_to_ascii_bytes(input) into bytes else err =>
+        return propagate err
+        
+    return bytes
+
+##
+    Description: Demonstrates substring extraction with bounds-error handling and case conversion.
+##
+let demo_string_ops = f(text: string, start: int32, end: int32): string errors OutOfBoundsError =>
+    # locale-insensitive case conversion (noted for locale caveat)
+    let upper: string = string_to_uppercase(text)
+    let lower: string = string_to_lowercase(text)
+    
+    guard extract_substring(text, start, end) into sub else err =>
+        return propagate err
+        
+    return sub
+
+##
+    Description: Main entry point for the multiple encodings example.
+##
+let main = f(): void =>
+    let input: string = 'Hello World'
+    
+    guard demo_utf16_conversion(input) into _s else _e =>
+        return void
+        
+    guard demo_ascii_conversion(input) into _b else _e =>
+        return void
+        
+    guard demo_string_ops(input, 0, 5) into _sub else _e =>
+        return void
+        
+    return void

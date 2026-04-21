@@ -17,10 +17,6 @@ A `Maybe T` type is defined in a standard library module.
 ##
 Description: A generic tagged union for optional values.
 ##
-type Maybe T:
-    Some:
-        value: T
-    None
 ```
 
 Usage involves constructing `Some` or `None`:
@@ -37,9 +33,6 @@ let find_item = f(id: string): Maybe string =>
 Representing optional fields in a record:
 
 ```opal
-type User:
-    username: string
-    bio: Maybe string
 
 let print_bio = f(user: User): void =>
     if user.bio is Some:

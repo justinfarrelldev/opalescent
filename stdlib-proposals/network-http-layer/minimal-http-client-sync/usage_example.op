@@ -1,0 +1,56 @@
+# Scenario: usage example
+import http_get_sync, http_post_sync from ./http_client
+import HttpHeader, HttpResponse from ./network_errors.types
+import NetworkUnreachableError, ConnectionRefusedError, ConnectionTimeoutError, TlsHandshakeError, HttpProtocolError, UnexpectedHttpStatusError, ResponseBodyReadError, RequestBodyWriteError, MalformedUrlError from ./network_errors.types
+
+##
+Description: Example demonstrating GET request, POST form data, and error handling.
+##
+let run_examples_sync = f(): void =>
+    let headers: HttpHeader[] = [new HttpHeader: name: 'User-Agent', value: 'Opalescent-Client']
+    
+    # 1. GET a JSON endpoint
+    guard http_get_sync('https://api.example.com/data', headers) into response else err =>
+        handle_error_sync(err)
+        return void
+
+    # 2. POST form data
+    let form_data: uint8[] = [102, 111, 111, 61, 98, 97, 114] # "foo=bar"
+    let post_headers: HttpHeader[] = [
+        new HttpHeader: name: 'User-Agent', value: 'Opalescent-Client',
+        new HttpHeader: name: 'Content-Type', value: 'application/x-www-form-urlencoded'
+    ]
+    guard http_post_sync('https://api.example.com/submit', post_headers, form_data) into post_response else err =>
+        handle_error_sync(err)
+        return void
+
+    # 3. Handle non-2xx status code
+    if post_response.status_code is not 200:
+        # Custom logic for unexpected status
+        return void
+    
+    return void
+
+##
+Description: Helper to demonstrate handling all 9 error types.
+##
+let handle_error_sync = f(err: any): void =>
+    if err is NetworkUnreachableError:
+        return void
+    if err is ConnectionRefusedError:
+        return void
+    if err is ConnectionTimeoutError:
+        return void
+    if err is TlsHandshakeError:
+        return void
+    if err is HttpProtocolError:
+        return void
+    if err is UnexpectedHttpStatusError:
+        return void
+    if err is ResponseBodyReadError:
+        return void
+    if err is RequestBodyWriteError:
+        return void
+    if err is MalformedUrlError:
+        return void
+    return void

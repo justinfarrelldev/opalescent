@@ -1,0 +1,21 @@
+# Scenario: Startup cache build validates compression round-trip before serving assets.
+import ByteBuffer, CompressionAlgorithm, CompressionAlgorithmNotSupportedError, CompressionEncodingError, CompressionDecodingError, CompressionDataCorruptionError from ./compression.types
+import compress, decompress from ./compression_functions
+
+##
+Description: Builds an in-memory compressed asset cache during application startup.
+##
+let build_startup_asset_cache = f(raw_asset_bytes: uint8[]): ByteBuffer errors CompressionAlgorithmNotSupportedError, CompressionEncodingError, CompressionDecodingError, CompressionDataCorruptionError =>
+    # Scenario: a desktop app compacts embedded assets to reduce launch footprint.
+    let input_buffer = new ByteBuffer:
+        bytes: raw_asset_bytes
+
+    guard compress(input_buffer, CompressionAlgorithm/Zstd) into compressed_buffer else compression_error =>
+        # If compression fails, startup must stop because cache data would be invalid.
+        return propagate compression_error
+
+    guard decompress(compressed_buffer, CompressionAlgorithm/Zstd) into validated_round_trip_buffer else decompression_error =>
+        # If decompression fails, integrity cannot be trusted so startup aborts.
+        return propagate decompression_error
+
+    return validated_round_trip_buffer

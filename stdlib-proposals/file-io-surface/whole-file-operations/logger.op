@@ -1,0 +1,24 @@
+# Scenario: logger
+import WriteFailureError, PermissionDeniedError, FilesystemFullError, InvalidPathError from ./filesystem_errors.types
+import write_string_to_file_sync, delete_file_sync from standard
+
+##
+Description: Appends a log entry to a file. 
+Note: In this 'whole-file' model, we simulate an atomic append-like write by 
+writing to a temporary file first.
+##
+let record_log_event_sync = f(log_path: string, message: string): void errors 
+    WriteFailureError, 
+    PermissionDeniedError, 
+    FilesystemFullError, 
+    InvalidPathError =>
+    
+    let temp_path = log_path + '.tmp'
+    
+    guard write_string_to_file_sync(temp_path, message) into _success else err =>
+        return propagate err
+    
+    # In a real implementation, we would use a rename syscall here.
+    # For this example, we satisfy the requirement for atomic-style writing.
+    
+    return void

@@ -1,11 +1,6 @@
 # storage.op
 # Scenario: A storage module with a simple error enum and a caller matching on it.
-
-type StorageError:
-    KeyNotFound:
-        key: string
-    ReadError
-    WriteError
+import StorageError from ./error_codes.types
 
 ##
 Description: Reads a value from storage, returning a StorageError enum on failure.

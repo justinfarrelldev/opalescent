@@ -1,0 +1,26 @@
+# Scenario: uuid.types
+##
+    Description: Representation of a random number generator.
+##
+type RandomNumberGenerator:
+    state: uint64
+
+##
+    Description: UUID v4 (random) wrapper type.
+##
+type UuidV4:
+    bytes: uint8[]
+
+##
+    Description: UUID v7 (timestamp-based) wrapper type.
+##
+type UuidV7:
+    bytes: uint8[]
+    timestamp_milliseconds: int64
+
+##
+    Description: Error type for UUID parsing failures.
+##
+type UuidParseError:
+    message: string
+

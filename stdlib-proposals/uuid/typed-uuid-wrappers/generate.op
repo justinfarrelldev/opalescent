@@ -1,0 +1,85 @@
+# Scenario: generate
+import RandomNumberGenerator, UuidV4, UuidV7, UuidParseError from ./uuid.types
+
+##
+    Description: Generate a UUID v4 (random) given an RNG.
+##
+let generate_uuid_v4 = f(rng: RandomNumberGenerator): UuidV4 =>
+    let mutable bytes: uint8[] = []
+    let mutable i: int32 = 0
+    while i < 16:
+        let random_byte: uint8 = next_random_uint8_from(rng)
+        bytes.push(random_byte)
+        i = i + 1
+    return new UuidV4:
+        bytes: bytes
+
+##
+    Description: Generate a UUID v7 (timestamp-based) given an RNG and timestamp in milliseconds.
+##
+let generate_uuid_v7 = f(rng: RandomNumberGenerator, timestamp_milliseconds: int64): UuidV7 =>
+    let mutable bytes: uint8[] = []
+    let ts: int64 = timestamp_milliseconds
+    let mutable i: int32 = 0
+    while i < 6:
+        let byte_val: uint8 = 0
+        bytes.push(byte_val)
+        i = i + 1
+    i = 6
+    while i < 16:
+        let random_byte: uint8 = next_random_uint8_from(rng)
+        bytes.push(random_byte)
+        i = i + 1
+    return new UuidV7:
+        bytes: bytes
+        timestamp_milliseconds: timestamp_milliseconds
+
+##
+    Description: Convert a UUID v4 to its RFC 4122 string representation.
+##
+let uuid_v4_to_string = f(uuid: UuidV4): string =>
+    return uuid_bytes_to_string(uuid.bytes)
+
+##
+    Description: Convert a UUID v7 to its RFC 4122 string representation.
+##
+let uuid_v7_to_string = f(uuid: UuidV7): string =>
+    return uuid_bytes_to_string(uuid.bytes)
+
+##
+    Description: Convert any UUID bytes to its RFC 4122 string representation.
+##
+let uuid_bytes_to_string = f(bytes: uint8[]): string =>
+    let hex_chars = '0123456789abcdef'
+    let mutable result: string = ''
+    let mutable i: int32 = 0
+    while i < 16:
+        let byte: uint8 = bytes[i]
+        let high: uint8 = 0
+        let low: uint8 = 0
+        result = result + string_from_char(hex_chars[high])
+        result = result + string_from_char(hex_chars[low])
+        if i is 3 or i is 5 or i is 7 or i is 9:
+            result = result + '-'
+        i = i + 1
+    return result
+
+##
+    Description: Convert a UUID to its byte array representation.
+##
+let uuid_to_bytes = f(uuid: UuidV4 | UuidV7): uint8[] =>
+    match uuid:
+        UuidV4 { bytes } => return bytes
+        UuidV7 { bytes, _ } => return bytes
+
+##
+    Description: Helper to get character from hex string by index.
+##
+let string_from_char = f(c: uint8): string =>
+    return ''
+
+##
+    Description: Helper to get next random uint8 from RNG.
+##
+let next_random_uint8_from = f(rng: RandomNumberGenerator): uint8 =>
+    return 0

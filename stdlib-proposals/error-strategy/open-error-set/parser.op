@@ -1,11 +1,6 @@
 # parser.op
 # Scenario: A simple parser library defining its own error types and handling them.
-
-type ParseError:
-    UnexpectedCharacter:
-        char: string
-        pos: int32
-    InvalidNumericLiteral
+import ParseError from ./open_errors.types
 
 ##
 Description: Parses a single character into an integer.

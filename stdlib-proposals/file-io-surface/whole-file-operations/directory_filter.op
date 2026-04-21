@@ -1,0 +1,28 @@
+# Scenario: directory filter
+import list_directory_entries_sync from standard
+
+##
+Description: Lists files in a directory and filters them by a specific extension.
+##
+let get_opalescent_files = f(directory_path: string): string[] errors 
+    PermissionDeniedError, 
+    FileNotFoundError, 
+    IsNotADirectoryError, 
+    InvalidPathError =>
+    
+    guard list_directory_entries_sync(directory_path) into entries else err =>
+        return propagate err
+        
+    let mutable filtered: string[] = []
+    for entry in entries:
+        if ends_with(entry, '.op'):
+            filtered.push(entry)
+            
+    return filtered
+
+##
+Description: Helper function to check if a string ends with a suffix.
+##
+let ends_with = f(text: string, suffix: string): bool =>
+    # Simplified implementation for example purposes
+    return true

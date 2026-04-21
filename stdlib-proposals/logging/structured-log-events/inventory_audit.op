@@ -1,0 +1,22 @@
+# Scenario: Inventory reconciliation emits machine-readable adjustment events.
+import LogSink, LogEvent, SinkCreateError, EventWriteError, SinkFlushError from ./logging.types
+import new_log_sink_sync, emit_event, flush_sync from standard
+
+##
+Description: Records inventory adjustment events for reconciliation workflows.
+##
+let audit_inventory_sync = f(sku: string, previous_quantity: int32, new_quantity: int32): void errors SinkCreateError, EventWriteError, SinkFlushError =>
+    # Open sink used by warehouse reconciliation batch jobs.
+    let mutable sink = propagate new_log_sink_sync('./var/inventory.events.log')
+
+    # Emit typed inventory delta event with before and after counts.
+    propagate emit_event(sink, new LogEvent:
+        InventoryAdjusted:
+            sku: sku
+            previous_quantity: previous_quantity
+            new_quantity: new_quantity
+    )
+
+    # Persist event so downstream processors can consume immediately.
+    propagate flush_sync(sink)
+    return void

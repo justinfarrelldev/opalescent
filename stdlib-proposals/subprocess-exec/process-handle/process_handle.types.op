@@ -1,0 +1,41 @@
+# process_handle.types.op
+# Scenario: Types for explicit subprocess lifecycle with process handles.
+
+type ProcessHandle:
+    process_identifier: int32
+    program: string
+
+type CommandOutput:
+    exit_code: int32
+    standard_output: string
+    standard_error: string
+
+type SpawnError:
+    ProgramNotFound:
+        program: string
+    PermissionDenied:
+        program: string
+
+type IoError:
+    ReadPipeFailed:
+        process_identifier: int32
+    WritePipeFailed:
+        process_identifier: int32
+
+type WaitError:
+    AlreadyWaited:
+        process_identifier: int32
+    WaitInterrupted:
+        process_identifier: int32
+
+type SignalError:
+    UnsupportedSignal:
+        signal_name: string
+    SignalDeliveryFailed:
+        process_identifier: int32
+
+type NonZeroExitCode:
+    ExitFailure:
+        program: string
+        exit_code: int32
+        standard_error: string

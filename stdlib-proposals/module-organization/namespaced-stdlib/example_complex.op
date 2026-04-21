@@ -1,3 +1,4 @@
+# Scenario: example complex
 import read_file_sync from standard/filesystem
 import sha256_sync from standard/crypto
 import write_log_sync from standard/logging

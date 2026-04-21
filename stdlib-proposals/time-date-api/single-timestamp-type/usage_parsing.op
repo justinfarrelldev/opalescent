@@ -1,0 +1,15 @@
+# Scenario: usage parsing
+import current_timestamp_sync, format_timestamp_as_iso8601, parse_iso8601_string from ./time
+import Timestamp, Iso8601ParseError from ./time.types
+
+##
+    Description: Demonstrates string conversion with a single timestamp type.
+##
+let main = f(): void =>
+    let now = current_timestamp_sync()
+    let s = format_timestamp_as_iso8601(now)
+    
+    guard parse_iso8601_string_sync(s) into parsed else err =>
+        return void
+        
+    return void

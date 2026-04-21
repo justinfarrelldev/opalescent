@@ -1,0 +1,16 @@
+# Scenario: time.types
+type CalendarDateTime:
+    year: int32
+    month: int32
+    day: int32
+    hour: int32
+    minute: int32
+    second: int32
+    nanosecond: int32
+
+type Duration:
+    seconds: int64
+    nanoseconds: int32
+
+type Iso8601ParseError:
+    message: string

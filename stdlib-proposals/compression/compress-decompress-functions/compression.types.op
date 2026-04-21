@@ -1,0 +1,56 @@
+# Scenario: Shared type and error declarations for flat compression module workflows.
+##
+Description: Represents a contiguous binary payload for compression and decompression workflows.
+##
+type ByteBuffer:
+    bytes: uint8[]
+
+##
+Description: Enumerates the compression algorithms this module can use.
+##
+type CompressionAlgorithm:
+    Gzip
+    Deflate
+    Zstd
+
+##
+Description: Raised when the chosen algorithm is unavailable on this build target.
+##
+type CompressionAlgorithmNotSupportedError:
+    algorithm_name: string
+
+##
+Description: Raised when in-memory compression fails for a valid algorithm.
+##
+type CompressionEncodingError:
+    detail: string
+
+##
+Description: Raised when compressed bytes cannot be decoded successfully.
+##
+type CompressionDecodingError:
+    detail: string
+
+##
+Description: Raised when compressed data is truncated or otherwise corrupted.
+##
+type CompressionDataCorruptionError:
+    detail: string
+
+##
+Description: Raised when a file path is malformed or points outside allowed roots.
+##
+type InvalidPathError:
+    path: string
+
+##
+Description: Raised when reading bytes from disk fails for any file-system reason.
+##
+type FileReadError:
+    path: string
+
+##
+Description: Raised when writing bytes to disk fails for any file-system reason.
+##
+type FileWriteError:
+    path: string

@@ -1,0 +1,22 @@
+# Scenario: integer math
+import greatest_common_divisor from math/integer
+import IntegerOverflow from ./errors.types
+import checked_integer_addition from math/integer
+
+##
+    Description: Reduces a fraction using the greatest common divisor from math/integer.
+##
+let reduce_fraction = f(numerator: int64, denominator: int64): (int64, int64) =>
+    let gcd = greatest_common_divisor(numerator, denominator)
+    return (numerator / gcd, denominator / gcd)
+
+##
+    Description: Safe summation using checked addition from math/integer.
+##
+let safe_sum = f(xs: int64[]): int64 errors IntegerOverflow =>
+    let mutable total: int64 = 0
+    for x in xs:
+        guard checked_integer_addition(total, x) into next_total else err =>
+            return err
+        total = next_total
+    return total

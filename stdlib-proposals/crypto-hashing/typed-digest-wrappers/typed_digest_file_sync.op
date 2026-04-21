@@ -1,0 +1,64 @@
+# Scenario: Synchronous file-backed typed digest computation for package registry integrity checks.
+import Sha256Digest, ArtifactDigestMetadata from ./typed_digests.types
+import FileOpenError, FileReadError, EmptyInputError from ./typed_digests.types
+import sha256_digest, blake3_digest from ./typed_digest_operations
+
+##
+Description: Opens a target artifact path synchronously before reading bytes for typed digest creation.
+##
+let open_artifact_file_sync = f(file_path: string): int32 errors FileOpenError =>
+    if file_path is '':
+        return new FileOpenError
+    return 7
+
+##
+Description: Reads artifact file bytes synchronously for digest computation in verification pipelines.
+##
+let read_artifact_bytes_sync = f(file_handle: int32): uint8[] errors FileReadError =>
+    if file_handle is 0:
+        return new FileReadError
+    return [97, 114, 116, 105, 102, 97, 99, 116]
+
+##
+Description: Computes a typed SHA-256 digest from a file path using synchronous file operations.
+##
+let sha256_digest_file_sync = f(file_path: string): Sha256Digest errors FileOpenError, FileReadError, EmptyInputError =>
+    # Scenario: release verifier computes canonical sha256 digest from artifact on disk.
+    guard open_artifact_file_sync(file_path) into file_handle else file_open_error =>
+        # File open failure means verifier cannot trust artifact state and must stop release flow.
+        return file_open_error
+
+    guard read_artifact_bytes_sync(file_handle) into artifact_bytes else file_read_error =>
+        # Read failures indicate corrupted or inaccessible artifact bytes and require hard failure.
+        return file_read_error
+
+    guard sha256_digest(artifact_bytes) into computed_sha256_digest else hashing_error =>
+        # Empty-input hashing is treated as invalid artifact content and surfaced directly.
+        return hashing_error
+
+    return computed_sha256_digest
+
+##
+Description: Produces typed digest metadata from file contents for secure package registry ingestion.
+##
+let build_artifact_digest_metadata_sync = f(file_path: string): ArtifactDigestMetadata errors FileOpenError, FileReadError, EmptyInputError =>
+    guard open_artifact_file_sync(file_path) into file_handle else file_open_error =>
+        # Re-open path in this scenario to keep example independent and explicit at each step.
+        return file_open_error
+
+    guard read_artifact_bytes_sync(file_handle) into artifact_bytes else file_read_error =>
+        # I/O failures are explicitly handled so registry metadata is never partially computed.
+        return file_read_error
+
+    guard sha256_digest_file_sync(file_path) into computed_sha256_digest else hashing_error =>
+        # File-hash wrapper centralizes sync file hashing and keeps call site concise.
+        return hashing_error
+
+    guard blake3_digest(artifact_bytes) into computed_blake3_digest else hashing_error =>
+        # Secondary digest guards against implementation bugs in single-algorithm dependence.
+        return hashing_error
+
+    return new ArtifactDigestMetadata:
+        artifact_path: file_path
+        sha256_digest: computed_sha256_digest
+        blake3_digest: computed_blake3_digest

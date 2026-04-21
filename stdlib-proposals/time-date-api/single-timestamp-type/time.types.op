@@ -1,0 +1,18 @@
+# Scenario: time.types
+type Timestamp:
+    nanoseconds_since_epoch: int64
+
+type CalendarBreakdown:
+    year: int32
+    month: int32
+    day: int32
+    hour: int32
+    minute: int32
+    second: int32
+    nanosecond: int32
+
+type Duration:
+    total_nanoseconds: int64
+
+type Iso8601ParseError:
+    message: string

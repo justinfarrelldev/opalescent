@@ -1,0 +1,23 @@
+# Scenario: Algorithm-specific digest wrapper types used to prevent cross-algorithm confusion.
+type EmptyInputError
+type InvalidHexDigestError
+type DigestLengthMismatchError
+type FileOpenError
+type FileReadError
+
+type Sha256Digest:
+    digest_hex: string
+
+type Sha512Digest:
+    digest_hex: string
+
+type Blake3Digest:
+    digest_hex: string
+
+type Md5Digest:
+    digest_hex: string
+
+type ArtifactDigestMetadata:
+    artifact_path: string
+    sha256_digest: Sha256Digest
+    blake3_digest: Blake3Digest

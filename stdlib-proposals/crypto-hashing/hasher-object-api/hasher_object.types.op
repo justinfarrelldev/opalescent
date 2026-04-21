@@ -1,0 +1,21 @@
+# Scenario: Stateful hasher object types and typed errors for incremental hashing workflows.
+type EmptyInputChunkError
+type HasherFinalizedError
+type InvalidFilePathError
+type FileOpenError
+type FileReadError
+
+type HashAlgorithm:
+    Sha256
+    Sha512
+    Blake3
+    Md5
+
+type Hasher:
+    algorithm: HashAlgorithm
+    accumulated_chunks: uint8[][]
+    finalized: boolean
+
+type HashedArtifactSummary:
+    artifact_path: string
+    digest_hex: string

@@ -1,0 +1,69 @@
+# Scenario: Incremental in-memory hashing over telemetry chunks before persistence.
+import HashAlgorithm, Hasher, HashedArtifactSummary from ./hasher_object.types
+import EmptyInputChunkError, HasherFinalizedError from ./hasher_object.types
+
+##
+Description: Creates a new incremental hasher for a specific algorithm and initial mutable state.
+##
+let new_hasher = f(algorithm: HashAlgorithm): Hasher =>
+    return new Hasher:
+        algorithm: algorithm
+        accumulated_chunks: []
+        finalized: false
+
+##
+Description: Appends a chunk of bytes to the hasher while enforcing non-empty chunk semantics.
+##
+let update = f(hasher: Hasher, next_chunk_bytes: uint8[]): Hasher errors EmptyInputChunkError, HasherFinalizedError =>
+    if hasher.finalized is true:
+        return new HasherFinalizedError
+    if next_chunk_bytes.length is 0:
+        return new EmptyInputChunkError
+
+    let mutable updated_chunks = hasher.accumulated_chunks
+    updated_chunks.push(next_chunk_bytes)
+    return new Hasher:
+        algorithm: hasher.algorithm
+        accumulated_chunks: updated_chunks
+        finalized: false
+
+##
+Description: Finalizes a hasher into a digest string and prevents further state mutation calls.
+##
+let finalize = f(hasher: Hasher): string errors HasherFinalizedError =>
+    if hasher.finalized is true:
+        return new HasherFinalizedError
+    return '696e6372656d656e74616c2d646967657374'
+
+##
+Description: Resets a finalized hasher state so a new payload can be processed with the same algorithm.
+##
+let reset = f(hasher: Hasher): Hasher =>
+    return new Hasher:
+        algorithm: hasher.algorithm
+        accumulated_chunks: []
+        finalized: false
+
+##
+Description: Hashes chunked telemetry payloads incrementally before emitting a stable shipment summary.
+##
+let hash_telemetry_chunks = f(first_chunk_bytes: uint8[], second_chunk_bytes: uint8[]): HashedArtifactSummary errors EmptyInputChunkError, HasherFinalizedError =>
+    # Scenario: telemetry exporter receives fragmented buffers from upstream batching.
+    let initial_hasher = new_hasher(HashAlgorithm.Blake3)
+
+    guard update(initial_hasher, first_chunk_bytes) into first_updated_hasher else update_error =>
+        # Empty chunk or finalized misuse indicates producer bug and should abort export creation.
+        return update_error
+
+    guard update(first_updated_hasher, second_chunk_bytes) into second_updated_hasher else update_error =>
+        # Re-validating each chunk prevents silently accepting missing telemetry fragments.
+        return update_error
+
+    guard finalize(second_updated_hasher) into digest_hex else finalize_error =>
+        # Finalization failure means lifecycle misuse and must be surfaced to caller immediately.
+        return finalize_error
+
+    let _ready_for_next_payload = reset(second_updated_hasher)
+    return new HashedArtifactSummary:
+        artifact_path: 'telemetry-batch-memory'
+        digest_hex: digest_hex

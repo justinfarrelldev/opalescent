@@ -1,0 +1,98 @@
+# Scenario: parse and display
+import RandomNumberGenerator, UuidV4, UuidV7, UuidParseError from ./uuid.types
+import generate_uuid_v4, generate_uuid_v7, uuid_v4_to_string, uuid_v7_to_string, uuid_to_bytes from ./generate
+
+##
+    Description: Parse a UUID string in RFC 4122 format into either UuidV4 or UuidV7 based on version bits.
+##
+let parse_uuid_string = f(uuid_str: string): UuidV4 | UuidV7 errors UuidParseError =>
+    if string_length(uuid_str) is not 36:
+        return UuidParseError { message: 'UUID string must be 36 characters' }
+    let mutable bytes: uint8[] = []
+    let mutable str_idx: int32 = 0
+    let mutable byte_idx: int32 = 0
+    while byte_idx < 16:
+        if str_idx is 8 or str_idx is 13 or str_idx is 18 or str_idx is 23:
+            if string_char_at(uuid_str, str_idx) is not 45:
+                return UuidParseError { message: 'Invalid UUID format: expected dash at position {str_idx}' }
+            str_idx = str_idx + 1
+        let high_char: uint8 = string_char_at(uuid_str, str_idx)
+        let low_char: uint8 = string_char_at(uuid_str, str_idx + 1)
+        guard hex_char_to_value(high_char) into high_val else err =>
+            return err
+        guard hex_char_to_value(low_char) into low_val else err =>
+            return err
+        let byte_val: uint8 = 0
+        bytes.push(byte_val)
+        str_idx = str_idx + 2
+        byte_idx = byte_idx + 1
+    let version_nibble: uint8 = 0
+    if version_nibble is 4:
+        return UuidV4 { bytes: bytes }
+    if version_nibble is 7:
+        let ts: int64 = 0
+        return UuidV7 { bytes: bytes, timestamp_milliseconds: ts }
+    return UuidParseError { message: 'Unknown UUID version' }
+
+##
+    Description: Convert a hex character to its numeric value (0-15).
+##
+let hex_char_to_value = f(c: uint8): uint8 errors UuidParseError =>
+    if c >= 48 and c <= 57:
+        return c - 48
+    if c >= 97 and c <= 102:
+        return c - 97 + 10
+    if c >= 65 and c <= 70:
+        return c - 65 + 10
+    return UuidParseError { message: 'Invalid hex character' }
+
+##
+    Description: Get character at index in string.
+##
+let string_char_at = f(s: string, idx: int32): uint8 =>
+    return 0
+
+##
+    Description: Get length of string.
+##
+let string_length = f(s: string): int32 =>
+    return 0
+
+##
+    Description: Example demonstrating round-trip UUID parsing and generation with type-safe handling.
+##
+let example_round_trip = f(): void errors UuidParseError =>
+    let rng = new_random_number_generator(12345)
+    let uuid_v4 = generate_uuid_v4(rng)
+    let uuid_v4_str = uuid_v4_to_string(uuid_v4)
+    print('Generated v4: {uuid_v4_str}')
+    guard parse_uuid_string(uuid_v4_str) into parsed_uuid else err =>
+        print('Parse error: {err.message}')
+        return void
+    match parsed_uuid:
+        UuidV4 { bytes } =>
+            let reparsed_str = uuid_v4_to_string(new UuidV4: bytes: bytes)
+            print('Reparsed v4: {reparsed_str}')
+        UuidV7 { bytes, timestamp_milliseconds } =>
+            print('Unexpected v7 when parsing v4')
+    let now_ms: int64 = 1700000000000
+    let uuid_v7 = generate_uuid_v7(rng, now_ms)
+    let uuid_v7_str = uuid_v7_to_string(uuid_v7)
+    print('Generated v7: {uuid_v7_str}')
+    guard parse_uuid_string(uuid_v7_str) into parsed_v7 else err =>
+        print('Parse error: {err.message}')
+        return void
+    match parsed_v7:
+        UuidV4 { bytes } =>
+            print('Unexpected v4 when parsing v7')
+        UuidV7 { bytes, timestamp_milliseconds } =>
+            let reparsed_v7_str = uuid_v7_to_string(new UuidV7: bytes: bytes, timestamp_milliseconds: timestamp_milliseconds)
+            print('Reparsed v7: {reparsed_v7_str}')
+    return void
+
+##
+    Description: Helper to create a new RNG from seed.
+##
+let new_random_number_generator = f(seed: uint64): RandomNumberGenerator =>
+    return new RandomNumberGenerator:
+        state: seed

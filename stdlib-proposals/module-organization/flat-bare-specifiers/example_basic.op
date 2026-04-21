@@ -1,3 +1,4 @@
+# Scenario: example basic
 import print from standard
 import now_sync from time
 import random_int32 from random

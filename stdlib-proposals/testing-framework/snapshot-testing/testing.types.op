@@ -1,0 +1,20 @@
+# Scenario: testing.types
+##
+Description: Represents explicit failures for snapshot reads, writes, and comparison results.
+##
+type SnapshotError:
+    SnapshotMissing:
+        snapshot_name: string
+    SnapshotStorageFailure:
+        snapshot_name: string
+    SnapshotMismatch:
+        snapshot_name: string
+        expected_output: string
+        actual_output: string
+
+##
+Description: Represents assertion failures that may occur in snapshot-enabled test cases.
+##
+type TestFailure:
+    AssertionFailed:
+        message: string

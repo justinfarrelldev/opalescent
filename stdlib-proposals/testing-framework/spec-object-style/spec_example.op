@@ -1,0 +1,61 @@
+# Scenario: spec example
+import TestSpec from './testing.types'
+import TestFailure from './testing.types'
+
+##
+Description: Asserts integer equality for spec object test execution bodies.
+##
+let assert_equal = f(actual: int32, expected: int32): void errors TestFailure =>
+    if actual is not expected:
+        return new TestFailure:
+            AssertionFailed:
+                message: 'expected integers to be equal'
+    return void
+
+##
+Description: Executes an ordered list of test specs with setup and teardown semantics.
+##
+let run_specs = f(specs: TestSpec[]): void errors TestFailure =>
+    for spec in specs:
+        spec.setup()
+        guard spec.execute() into _case_done else execution_error =>
+            spec.teardown()
+            return execution_error
+        spec.teardown()
+    return void
+
+##
+Description: Builds a representative spec object array and runs it with comments.
+##
+let run_spec_style_examples = f(): void errors TestFailure =>
+    # Create a spec that includes metadata, setup, execute, and teardown fields.
+    let addition_spec = new TestSpec:
+        name: 'adds two positive integers'
+        tags: ['unit', 'math']
+        setup: f(): void =>
+            return void
+        execute: f(): void errors TestFailure =>
+            # Assertion logic stays explicit and typed.
+            propagate assert_equal(2 + 2, 4)
+            return void
+        teardown: f(): void =>
+            return void
+
+    # A second spec demonstrates list-based execution plans.
+    let truth_spec = new TestSpec:
+        name: 'truthy guard remains valid'
+        tags: ['unit']
+        setup: f(): void =>
+            return void
+        execute: f(): void errors TestFailure =>
+            if not (10 > 1):
+                return new TestFailure:
+                    AssertionFailed:
+                        message: 'expected ten to be greater than one'
+            return void
+        teardown: f(): void =>
+            return void
+
+    let all_specs = [addition_spec, truth_spec]
+    propagate run_specs(all_specs)
+    return void

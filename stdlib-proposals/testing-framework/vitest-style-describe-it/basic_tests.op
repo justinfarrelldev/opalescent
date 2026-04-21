@@ -1,0 +1,155 @@
+# Scenario: basic tests
+import TestFailure from './testing.types'
+import ParseError from './testing.types'
+
+##
+Description: Registers a named test suite and executes contained test declarations.
+##
+let describe = f(name: string, suite_body: f(): void): void =>
+    suite_body()
+    return void
+
+##
+Description: Registers setup logic that runs once before all tests in the current suite.
+##
+let before_all = f(setup_hook: f(): void): void =>
+    setup_hook()
+    return void
+
+##
+Description: Registers setup logic that runs before each test in the current suite.
+##
+let before_each = f(setup_hook: f(): void): void =>
+    setup_hook()
+    return void
+
+##
+Description: Registers teardown logic that runs after each test in the current suite.
+##
+let after_each = f(teardown_hook: f(): void): void =>
+    teardown_hook()
+    return void
+
+##
+Description: Registers teardown logic that runs once after all tests in the current suite.
+##
+let after_all = f(teardown_hook: f(): void): void =>
+    teardown_hook()
+    return void
+
+##
+Description: Registers a named test case and executes it under the current suite context.
+##
+let it = f(name: string, case_body: f(): void errors TestFailure): void errors TestFailure =>
+    propagate case_body()
+    return void
+
+##
+Description: Alias for the it function to support alternate naming preference.
+##
+let test = f(name: string, case_body: f(): void errors TestFailure): void errors TestFailure =>
+    propagate it(name, case_body)
+    return void
+
+##
+Description: Creates an expectation context from a value under test.
+##
+let expect = f<T>(value: T): T =>
+    return value
+
+##
+Description: Throws ParseError when decimal parsing input is not numeric.
+##
+let parse_decimal = f(text: string): int32 errors ParseError =>
+    if text is 'nan':
+        return ParseError/InvalidFormat
+
+    return 42
+
+##
+Description: Verifies two values are equal and returns failure if they differ.
+##
+let to_equal = f<T>(actual: T, expected: T): void errors TestFailure =>
+    if actual is not expected:
+        return TestFailure/AssertionFailed:
+                   detail:
+                       expected_text: 'values to match'
+                       actual_text: 'values differed'
+
+    return void
+
+##
+Description: Verifies a boolean condition is truthy and reports assertion failure when false.
+##
+let to_be_truthy = f(value: boolean): void errors TestFailure =>
+    if not value:
+        return TestFailure/AssertionFailed:
+                   detail:
+                       expected_text: 'truthy condition'
+                       actual_text: 'false condition'
+
+    return void
+
+##
+Description: Executes a function and succeeds only when an error is raised.
+##
+let to_throw = f(action: f(): void errors ParseError): void errors TestFailure =>
+    guard action() into _ignored else _parse_error =>
+        return void
+
+    return TestFailure/ExpectedThrowDidNotOccur
+
+##
+Description: Demonstrates describe, it, test, and core expectation matchers with comments.
+##
+let run_basic_suite = f(): void errors TestFailure =>
+    # A suite groups related tests under one readable name.
+    describe('math and parsing basics', f(): void =>
+        # Shared initialization before all tests in this suite.
+        before_all(f(): void =>
+            return void
+        )
+
+        # Setup before each test case.
+        before_each(f(): void =>
+            return void
+        )
+
+        # The it form for common test declaration.
+        guard it('adds two positive integers', f(): void errors TestFailure =>
+            # Expectation style: expect(value).to_equal(expected)
+            let four_value = expect(2 + 2)
+            propagate to_equal(four_value, 4)
+
+            # Expectation style: expect(value).to_be_truthy()
+            let positivity_check = expect(4 > 0)
+            propagate to_be_truthy(positivity_check)
+            return void
+        ) into _case_one_done else case_one_error =>
+            return case_one_error
+
+        # The test alias is equivalent to it.
+        guard test('throws when parsing invalid number', f(): void errors TestFailure =>
+            # Expectation style: expect(fn).to_throw()
+            let throwing_action = expect(f(): void errors ParseError =>
+                propagate parse_decimal('nan')
+                return void
+            )
+            propagate to_throw(throwing_action)
+            return void
+        ) into _case_two_done else case_two_error =>
+            return case_two_error
+
+        # Teardown after each and after all tests.
+        after_each(f(): void =>
+            return void
+        )
+
+        after_all(f(): void =>
+            return void
+        )
+
+        return void
+    )
+
+    return void

@@ -1,0 +1,23 @@
+# Scenario: testing.types
+##
+Description: Represents typed assertion and property failures for property-based test runs.
+##
+type TestFailure:
+    AssertionFailed:
+        message: string
+    PropertyFailed:
+        property_name: string
+        failing_seed: int32
+
+##
+Description: Represents explicit generator construction and sampling failure outcomes.
+##
+type GeneratorError:
+    InvalidRange
+
+##
+Description: Defines a bounded integer generator used by deterministic property checks.
+##
+type IntegerGenerator:
+    minimum: int32
+    maximum: int32

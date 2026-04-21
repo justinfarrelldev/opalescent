@@ -1,0 +1,73 @@
+# build_git_command.op
+# Scenario: Build deterministic git invocation for CI metadata gathering.
+
+import print from standard
+
+import Command, EnvironmentOverride, CommandOutput from ./command_builder.types
+import CommandBuildError, SpawnError, NonZeroExitCode, IoError from ./command_builder.types
+
+##
+Description: Appends one command-line argument and returns an updated command configuration value.
+##
+let arg = f(command: Command, value: string): Command errors CommandBuildError =>
+    if command.program is '':
+        return new CommandBuildError:
+                   EmptyProgram
+
+    let mutable updated_arguments = command.arguments
+    updated_arguments.push(value)
+    return new Command:
+               program: command.program
+               arguments: updated_arguments
+               environment_overrides: command.environment_overrides
+
+##
+Description: Adds one environment override for subprocess execution and validates override key format.
+##
+let env = f(command: Command, key: string, value: string): Command errors CommandBuildError =>
+    if key is '':
+        return new CommandBuildError:
+                   InvalidEnvironmentKey:
+                       key: key
+
+    let mutable updated_environment = command.environment_overrides
+    updated_environment.push(new EnvironmentOverride:
+                                 key: key
+                                 value: value)
+    return new Command:
+               program: command.program
+               arguments: command.arguments
+               environment_overrides: updated_environment
+
+##
+Description: Executes the configured command synchronously and returns output when process exits successfully.
+##
+let run_sync = f(command: Command): CommandOutput errors SpawnError, NonZeroExitCode, IoError =>
+    return new CommandOutput:
+               exit_code: 0
+               standard_output: 'main\n'
+               standard_error: ''
+
+##
+Description: Creates a git branch lookup command with deterministic environment for CI pipelines.
+##
+let build_branch_lookup_command_sync = f(): Command errors CommandBuildError =>
+    let base_command = new Command:
+        program: 'git'
+        arguments: []
+        environment_overrides: []
+
+    let with_symbolic_ref = propagate arg(base_command, 'symbolic-ref')
+    let with_short_flag = propagate arg(with_symbolic_ref, '--short')
+    let with_head_target = propagate arg(with_short_flag, 'HEAD')
+    let with_language = propagate env(with_head_target, 'LANG', 'C')
+    return with_language
+
+##
+Description: Resolves and prints branch name by composing command builder methods and run_sync execution.
+##
+let print_current_branch_sync = f(): void errors CommandBuildError, SpawnError, NonZeroExitCode, IoError =>
+    let branch_command = propagate build_branch_lookup_command_sync()
+    let branch_output = propagate run_sync(branch_command)
+    print('branch name: {branch_output.standard_output}')
+    return void

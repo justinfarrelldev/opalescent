@@ -1,0 +1,26 @@
+# Scenario: Startup flow using module-level logger configuration and flush.
+import LogLevel, LogField, LoggerInitError, LoggerNotInitializedError, LogFlushError from ./logging.types
+import configure_global_logger_sync, log_info, log_warn, flush_sync from standard
+
+##
+Description: Boots an API service and records startup logs globally.
+##
+let bootstrap_service_sync = f(environment: string): void errors LoggerInitError, LoggerNotInitializedError, LogFlushError =>
+    # Configure global destination before any request handling begins.
+    propagate configure_global_logger_sync('./var/service.log', LogLevel.Info)
+
+    # Emit startup event with environment marker for operations teams.
+    propagate log_info('service startup complete', [new LogField:
+        key: 'environment'
+        value: environment
+    ])
+
+    # Emit warning for known warmup risk during first traffic minute.
+    propagate log_warn('cache warmup still running', [new LogField:
+        key: 'window_seconds'
+        value: '60'
+    ])
+
+    # Force output durability before yielding to caller.
+    propagate flush_sync()
+    return void

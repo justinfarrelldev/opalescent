@@ -1,0 +1,56 @@
+# Scenario: usage example
+import HttpMethod, HttpResponse from ./network_errors.types
+import new_request_builder, with_header, with_body, send_sync from ./builder
+import NetworkUnreachableError, ConnectionRefusedError, ConnectionTimeoutError, TlsHandshakeError, HttpProtocolError, UnexpectedHttpStatusError, ResponseBodyReadError, RequestBodyWriteError, MalformedUrlError from ./network_errors.types
+
+##
+Description: Example demonstrating request builder for GET, POST, and error handling.
+##
+let run_builder_example_sync = f(): void =>
+    # 1. GET a JSON endpoint
+    let get_builder = new_request_builder(HttpMethod.Get, 'https://api.example.com/data')
+    let get_builder_with_header = with_header(get_builder, 'User-Agent', 'Opalescent-Builder')
+    guard send_sync(get_builder_with_header) into response else err =>
+        handle_error_sync(err)
+        return void
+
+    # 2. POST form data
+    let form_data: uint8[] = [102, 111, 111, 61, 98, 97, 114] # "foo=bar"
+    let post_builder = new_request_builder(HttpMethod.Post, 'https://api.example.com/submit')
+    let post_builder_with_headers = with_header(post_builder, 'User-Agent', 'Opalescent-Builder')
+    let post_builder_with_content_type = with_header(post_builder_with_headers, 'Content-Type', 'application/x-www-form-urlencoded')
+    let post_builder_with_body = with_body(post_builder_with_content_type, form_data)
+    
+    guard send_sync(post_builder_with_body) into post_response else err =>
+        handle_error_sync(err)
+        return void
+
+    # 3. Handle non-2xx status code
+    if post_response.status_code is not 200:
+        return void
+    
+    return void
+
+##
+Description: Helper to demonstrate handling all 9 error types.
+##
+let handle_error_sync = f(err: any): void =>
+    if err is NetworkUnreachableError:
+        return void
+    if err is ConnectionRefusedError:
+        return void
+    if err is ConnectionTimeoutError:
+        return void
+    if err is TlsHandshakeError:
+        return void
+    if err is HttpProtocolError:
+        return void
+    if err is UnexpectedHttpStatusError:
+        return void
+    if err is ResponseBodyReadError:
+        return void
+    if err is RequestBodyWriteError:
+        return void
+    if err is MalformedUrlError:
+        return void
+    return void

@@ -1,0 +1,19 @@
+# Scenario: usage
+import map_over_array, filter_array, find_first_matching, concatenate_arrays, slice_array from ./array_ops
+import CollectionErrors from ./collections.types
+
+##
+    Description: demonstration of proposed method-style syntax.
+##
+let process_numbers = f(nums: int32[]): int32[] errors CollectionErrors.NotFound, CollectionErrors.OutOfRange =>
+    # Hypothetical syntax where methods are resolved to our free functions
+    let evens = nums.filter_array(f(n: int32): boolean => (n % 2) is 0)
+    let squares = evens.map_over_array(f(n: int32): int32 => n * n)
+    
+    guard squares.find_first_matching(f(n: int32): boolean => n > 10) into first_big else err =>
+        return propagate err
+        
+    guard nums.slice_array(0, 2) into start_slice else err =>
+        return propagate err
+        
+    return start_slice.concatenate_arrays([first_big])

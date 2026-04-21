@@ -1,0 +1,29 @@
+# Scenario: API observability pipeline with typed structured events.
+import LogSink, LogEvent, SinkCreateError, EventWriteError, SinkFlushError from ./logging.types
+import new_log_sink_sync, emit_event, flush_sync from standard
+
+##
+Description: Emits structured API events for latency and auth failures.
+##
+let record_api_observability_sync = f(route: string, user_identifier: string): void errors SinkCreateError, EventWriteError, SinkFlushError =>
+    # Create machine-readable sink for observability event stream.
+    let mutable sink = propagate new_log_sink_sync('./var/api.events.log')
+
+    # Emit request completion metrics for dashboard pipelines.
+    propagate emit_event(sink, new LogEvent:
+        HttpRequestCompleted:
+            route: route
+            status_code: 200
+            elapsed_milliseconds: 35
+    )
+
+    # Emit security-relevant auth failure event for alerting.
+    propagate emit_event(sink, new LogEvent:
+        AuthenticationFailed:
+            user_identifier: user_identifier
+            reason: 'expired token'
+    )
+
+    # Flush structured event batch to durable storage.
+    propagate flush_sync(sink)
+    return void

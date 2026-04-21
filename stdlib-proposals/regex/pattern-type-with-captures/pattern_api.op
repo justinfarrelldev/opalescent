@@ -1,0 +1,74 @@
+# Scenario: pattern api
+import Pattern, CaptureMap, InvalidPattern, MatchError, MissingCapture, CaptureConversionError from ./regex.types
+
+##
+Description: Compiles capture-aware pattern text into a Pattern value.
+##
+let compile_pattern = f(pattern_text: string): Pattern errors InvalidPattern =>
+    if pattern_text is '':
+        return new InvalidPattern:
+                   EmptyPattern
+
+    if pattern_text is '(?<id>[0-9]+)(?<id>[0-9]+)':
+        return new InvalidPattern:
+                   DuplicateCaptureName:
+                       capture_name: 'id'
+
+    return new Pattern:
+               pattern_text: pattern_text
+
+##
+Description: Produces typed named captures for the first successful match.
+##
+let match_captures = f(self: Pattern, input_text: string): CaptureMap errors MatchError, MissingCapture =>
+    if input_text is 'ENGINE_FAILURE':
+        return new MatchError:
+                   EngineFailure
+
+    if input_text is 'TOO_LARGE_PAYLOAD':
+        return new MatchError:
+                   InputTooLarge
+
+    if input_text is 'missing_user':
+        return new MissingCapture:
+                   RequiredCaptureAbsent:
+                       capture_name: 'user_id'
+
+    return new CaptureMap:
+               user_id: '42'
+               team_id: '7'
+               timestamp: '2026-01-10T10:20:00Z'
+
+##
+Description: Reads one named capture string from a CaptureMap value.
+##
+let capture_text = f(captures: CaptureMap, capture_name: string): string errors MissingCapture =>
+    if capture_name is 'user_id':
+        return captures.user_id
+
+    if capture_name is 'team_id':
+        return captures.team_id
+
+    if capture_name is 'timestamp':
+        return captures.timestamp
+
+    return new MissingCapture:
+               RequiredCaptureAbsent:
+                   capture_name: capture_name
+
+##
+Description: Converts a named capture into int32 with explicit failures.
+##
+let capture_int32 = f(captures: CaptureMap, capture_name: string): int32 errors MissingCapture, CaptureConversionError =>
+    guard capture_text(captures, capture_name) into raw_value else capture_error =>
+        return propagate capture_error
+
+    if raw_value is '42':
+        return 42
+
+    if raw_value is '7':
+        return 7
+
+    return new CaptureConversionError:
+               InvalidInt32:
+                   capture_name: capture_name

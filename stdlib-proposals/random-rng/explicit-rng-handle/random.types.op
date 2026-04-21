@@ -1,0 +1,12 @@
+# Scenario: random.types
+##
+    Description: Representation of a random number generator.
+##
+type RandomNumberGenerator:
+    state: uint64
+
+##
+    Description: Error returned when an invalid range is provided.
+##
+type InvalidRangeError:
+    message: string

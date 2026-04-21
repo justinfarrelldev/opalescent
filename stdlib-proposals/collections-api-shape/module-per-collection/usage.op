@@ -1,0 +1,19 @@
+# Scenario: usage
+import map, filter, find_first_matching, concatenate, slice from ./array
+import CollectionErrors from ./collections.types
+
+##
+    Description: usage of module-per-collection-api for array transformations.
+##
+let process_numbers = f(nums: int32[]): int32[] errors CollectionErrors.NotFound, CollectionErrors.OutOfRange =>
+    # Import from the specific array module
+    let evens = filter<int32>(nums, f(n: int32): boolean => (n % 2) is 0)
+    let squares = map<int32, int32>(evens, f(n: int32): int32 => n * n)
+    
+    guard find_first_matching<int32>(squares, f(n: int32): boolean => n > 10) into first_big else err =>
+        return propagate err
+        
+    guard slice<int32>(nums, 0, 2) into start_slice else err =>
+        return propagate err
+        
+    return concatenate<int32>(start_slice, [first_big])

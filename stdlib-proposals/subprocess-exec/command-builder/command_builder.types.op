@@ -1,0 +1,39 @@
+# command_builder.types.op
+# Scenario: Type definitions for fluent subprocess command construction.
+
+type EnvironmentOverride:
+    key: string
+    value: string
+
+type Command:
+    program: string
+    arguments: string[]
+    environment_overrides: EnvironmentOverride[]
+
+type CommandOutput:
+    exit_code: int32
+    standard_output: string
+    standard_error: string
+
+type CommandBuildError:
+    EmptyProgram
+    InvalidEnvironmentKey:
+        key: string
+
+type SpawnError:
+    ProgramNotFound:
+        program: string
+    PermissionDenied:
+        program: string
+
+type NonZeroExitCode:
+    ExitFailure:
+        program: string
+        exit_code: int32
+        standard_error: string
+
+type IoError:
+    PipeCreationFailed:
+        detail: string
+    ReadOutputFailed:
+        detail: string

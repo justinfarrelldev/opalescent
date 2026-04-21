@@ -1,0 +1,57 @@
+# Scenario: examples
+import JsonValue, JsonField from ./serialization_errors.types
+import MalformedJsonError, UnexpectedJsonShapeError, NumericRangeError, MissingRequiredFieldError, UnknownFieldError from ./serialization_errors.types
+
+##
+Description: Parses a JSON string into a JsonValue tree.
+##
+let parse_json_string = f(input: string): JsonValue errors MalformedJsonError =>
+    # Dummy implementation for proposal purposes
+    let fields: JsonField[] = [new JsonField: name: 'version', value: JsonValue.Number: 1.0]
+    return JsonValue.Object: fields
+
+##
+Description: Serializes a JsonValue tree into a JSON string.
+##
+let serialize_json_value_to_string = f(value: JsonValue): string =>
+    # Dummy implementation for proposal purposes
+    return '{}'
+
+##
+Description: Parses a config JSON and emits a structured log line.
+##
+let parse_config_and_log = f(json_text: string): void errors MalformedJsonError, UnexpectedJsonShapeError =>
+    guard parse_json_string(json_text) into root else err =>
+        propagate err
+    
+    # Check shape
+    if root is not JsonValue.Object:
+        return UnexpectedJsonShapeError: expected: 'Object', actual: 'something else'
+    
+    # Emit a log line (imaginary log function)
+    # log("Parsed config version: 1.0")
+    return void
+
+##
+Description: Demonstrates round-trip serialization and parsing.
+##
+let demonstrate_round_trip = f(): bool errors MalformedJsonError =>
+    let fields: JsonField[] = [new JsonField: name: 'status', value: JsonValue.String: 'ok']
+    let original: JsonValue = JsonValue.Object: fields
+    let json_text: string = serialize_json_value_to_string(original)
+    
+    guard parse_json_string(json_text) into round_tripped else err =>
+        propagate err
+        
+    # Assertion of equality would go here
+    return true
+
+##
+Description: Demonstrates handling of malformed input with exhaustive errors.
+##
+let handle_malformed_input = f(json_text: string): void errors MalformedJsonError, UnexpectedJsonShapeError, NumericRangeError, MissingRequiredFieldError, UnknownFieldError =>
+    guard parse_json_string(json_text) into root else err =>
+        # Error mapping would happen here or propagation
+        propagate err
+        
+    return void

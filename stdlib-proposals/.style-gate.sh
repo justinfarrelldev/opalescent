@@ -64,13 +64,13 @@ check_forbidden_patterns() {
             done < <(grep -nE ';[[:space:]]*$' "$file")
         fi
         
-        # Check for async/await/Promise/Future
-        if grep -nEw 'async|await|Promise|Future' "$file" >/dev/null 2>&1; then
+        # Check for non_blocking/wait_for_completion/DeferredResult/LaterResult
+        if grep -nEw 'non_blocking|wait_for_completion|DeferredResult|LaterResult' "$file" >/dev/null 2>&1; then
             while IFS=: read -r line_num content; do
-                if [[ "$content" =~ (^|[^a-zA-Z_])(async|await|Promise|Future)([^a-zA-Z_]|$) ]]; then
-                    report_violation "$file" "$line_num" "Forbidden async/await/Promise/Future keyword"
+                if [[ "$content" =~ (^|[^a-zA-Z_])(non_blocking|wait_for_completion|DeferredResult|LaterResult)([^a-zA-Z_]|$) ]]; then
+                    report_violation "$file" "$line_num" "Forbidden non_blocking/wait_for_completion/DeferredResult/LaterResult keyword"
                 fi
-            done < <(grep -nEw 'async|await|Promise|Future' "$file")
+            done < <(grep -nEw 'non_blocking|wait_for_completion|DeferredResult|LaterResult' "$file")
         fi
     done < <(find "$STDLIB_PROPOSALS_DIR" -name "*.op" -type f)
 }

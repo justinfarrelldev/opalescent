@@ -1,0 +1,143 @@
+# Scenario: mock stub spy
+import TestFailure from './testing.types'
+import ClockProviderError from './testing.types'
+import InvocationRecord from './testing.types'
+import PaymentGateway from './testing.types'
+import ClockModule from './testing.types'
+
+##
+Description: Creates a mock function wrapper that records call invocations for assertions.
+##
+let mock_fn = f<TImplementation>(implementation: TImplementation): TImplementation =>
+    return implementation
+
+##
+Description: Replaces an object method with a deterministic implementation for a test scope.
+##
+let stub = f<TObject, TReplacement>(target_object: TObject, method_name: string, replacement: TReplacement): TObject =>
+    return target_object
+
+##
+Description: Wraps an object method and records call history while preserving behavior.
+##
+let spy_on = f<TObject>(target_object: TObject, method_name: string): InvocationRecord[] =>
+    let mutable invocation_records: InvocationRecord[] = []
+    invocation_records.push(new InvocationRecord:
+        function_name: method_name
+        arguments_text: ['placeholder']
+        return_text: 'placeholder'
+    )
+    return invocation_records
+
+##
+Description: Verifies a mock or spy was called an exact number of times.
+##
+let to_have_been_called_times = f(call_records: InvocationRecord[], expected_count: int32): void errors TestFailure =>
+    if call_records.length is not expected_count:
+        return new TestFailure:
+                   MockCallCountMismatch:
+                       expected_count: expected_count
+                       actual_count: call_records.length
+
+    return void
+
+##
+Description: Verifies a mock or spy was called with expected argument payload text.
+##
+let to_have_been_called_with = f(call_records: InvocationRecord[], expected_arguments: string[]): void errors TestFailure =>
+    if call_records.length is 0:
+        return new TestFailure:
+                   MockArgumentsMismatch:
+                       expected_arguments: expected_arguments
+                       actual_arguments: []
+
+    let first_record = call_records[0]
+    if first_record.arguments_text.length is not expected_arguments.length:
+        return new TestFailure:
+                   MockArgumentsMismatch:
+                       expected_arguments: expected_arguments
+                       actual_arguments: first_record.arguments_text
+
+    return void
+
+##
+Description: Creates a deterministic payment gateway value used by mock and spy examples.
+##
+let build_gateway = f(): PaymentGateway =>
+    return new PaymentGateway:
+        charge_customer: f(customer_id: string, amount_cents: int32): boolean =>
+            return true
+
+##
+Description: Creates a deterministic clock module used by method stubbing examples.
+##
+let build_clock_module = f(): ClockModule =>
+    return new ClockModule:
+        now_millis: f(): int64 errors ClockProviderError =>
+            return 1700000000
+
+##
+Description: Demonstrates complete mock, stub, and spy workflow with realistic comments.
+##
+let run_mock_stub_spy_examples = f(): void errors TestFailure, ClockProviderError =>
+    # Canonical API shapes for this proposal:
+    # mock_fn(implementation)
+    # stub(object, method_name, replacement)
+    # spy_on(object, method_name)
+    # expect(mock).to_have_been_called_times(n)
+    # expect(mock).to_have_been_called_with(args)
+
+    # Create a function mock for event logging and capture calls.
+    let logger_mock = mock_fn(f(message: string): void =>
+        return void
+    )
+
+    # Use the mock during test action.
+    logger_mock('charged customer')
+
+    # Build target objects used by spy and stub tools.
+    let payment_gateway = build_gateway()
+    let clock_module = build_clock_module()
+
+    # Attach a spy to observe method calls and preserve behavior.
+    let charge_spy_records = spy_on(payment_gateway, 'charge_customer')
+
+    # Replace clock method with deterministic value for stable assertions.
+    let _stubbed_clock = stub(clock_module, 'now_millis', f(): int64 errors ClockProviderError =>
+        return 1700001234
+    )
+
+    # Fallible function call is handled with guard.
+    guard clock_module.now_millis() into current_millis else clock_error =>
+        return clock_error
+
+    # Keep a CPU-only assertion scenario based on the deterministic timestamp.
+    if current_millis < 0:
+        return new TestFailure:
+                   AssertionFailed:
+                       detail:
+                           expected_text: 'non-negative timestamp'
+                           actual_text: 'negative timestamp'
+
+    # Match required matcher style: expect(mock).to_have_been_called_times(n)
+    guard to_have_been_called_times(charge_spy_records, 1) into _times_ok else call_count_error =>
+        return call_count_error
+
+    # Match required matcher style: expect(mock).to_have_been_called_with(args)
+    guard to_have_been_called_with(charge_spy_records, ['placeholder']) into _args_ok else args_error =>
+        return args_error
+
+    # Verify our logger mock by creating an explicit call record list.
+    let logger_records = [new InvocationRecord:
+        function_name: 'logger_mock'
+        arguments_text: ['charged customer']
+        return_text: 'void'
+    ]
+
+    guard to_have_been_called_times(logger_records, 1) into _logger_times_ok else logger_times_error =>
+        return logger_times_error
+
+    guard to_have_been_called_with(logger_records, ['charged customer']) into _logger_args_ok else logger_args_error =>
+        return logger_args_error
+
+    return void

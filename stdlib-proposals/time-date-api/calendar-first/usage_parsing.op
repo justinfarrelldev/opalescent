@@ -1,0 +1,23 @@
+# Scenario: usage parsing
+import format_iso8601, parse_iso8601 from ./time
+import CalendarDateTime, Iso8601ParseError from ./time.types
+
+##
+    Description: Demonstrates ISO-8601 operations with calendar types.
+##
+let main = f(): void =>
+    let dt = new CalendarDateTime:
+        year: 2026
+        month: 4
+        day: 21
+        hour: 12
+        minute: 0
+        second: 0
+        nanosecond: 0
+        
+    let s = format_iso8601(dt)
+    
+    guard parse_iso8601_sync(s) into parsed else err =>
+        return void
+        
+    return void

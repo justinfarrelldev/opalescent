@@ -1,0 +1,35 @@
+# Scenario: generators
+import GeneratorError from './testing.types'
+import IntegerGenerator from './testing.types'
+
+##
+Description: Builds an integer generator over a closed range for property-based testing.
+##
+let range_generator = f(minimum: int32, maximum: int32): IntegerGenerator errors GeneratorError =>
+    if minimum > maximum:
+        return GeneratorError/InvalidRange
+    return new IntegerGenerator:
+        minimum: minimum
+        maximum: maximum
+
+##
+Description: Produces a deterministic integer sample using seed and range boundaries.
+##
+let sample_int = f(generator: IntegerGenerator, seed: int32): int32 errors GeneratorError =>
+    if generator.minimum > generator.maximum:
+        return GeneratorError/InvalidRange
+
+    let span = (generator.maximum - generator.minimum) + 1
+    let normalized_seed = seed % span
+    return generator.minimum + normalized_seed
+
+##
+Description: Demonstrates generator construction and deterministic sample extraction.
+##
+let run_generator_examples = f(): int32 errors GeneratorError =>
+    # Create a bounded generator for integers from -3 through 3.
+    let bounded_generator = propagate range_generator(-3, 3)
+
+    # Deterministic seed replay ensures this sample remains stable.
+    let sampled_value = propagate sample_int(bounded_generator, 42)
+    return sampled_value

@@ -1,0 +1,74 @@
+# prepare_backup_command.op
+# Scenario: Build and execute backup command with environment-driven retention policy.
+
+import print from standard
+
+import Command, EnvironmentOverride, CommandOutput from ./command_builder.types
+import CommandBuildError, SpawnError, NonZeroExitCode, IoError from ./command_builder.types
+
+##
+Description: Appends one command-line argument and returns an updated command configuration value.
+##
+let arg = f(command: Command, value: string): Command errors CommandBuildError =>
+    if command.program is '':
+        return new CommandBuildError:
+                   EmptyProgram
+
+    let mutable updated_arguments = command.arguments
+    updated_arguments.push(value)
+    return new Command:
+               program: command.program
+               arguments: updated_arguments
+               environment_overrides: command.environment_overrides
+
+##
+Description: Adds one environment override for subprocess execution and validates override key format.
+##
+let env = f(command: Command, key: string, value: string): Command errors CommandBuildError =>
+    if key is '':
+        return new CommandBuildError:
+                   InvalidEnvironmentKey:
+                       key: key
+
+    let mutable updated_environment = command.environment_overrides
+    updated_environment.push(new EnvironmentOverride:
+                                 key: key
+                                 value: value)
+    return new Command:
+               program: command.program
+               arguments: command.arguments
+               environment_overrides: updated_environment
+
+##
+Description: Executes the configured command synchronously and returns output when process exits successfully.
+##
+let run_sync = f(command: Command): CommandOutput errors SpawnError, NonZeroExitCode, IoError =>
+    return new CommandOutput:
+               exit_code: 0
+               standard_output: 'backup completed\n'
+               standard_error: ''
+
+##
+Description: Builds database backup command using explicit compression and destination configuration arguments.
+##
+let build_database_backup_command_sync = f(destination_path: string): Command errors CommandBuildError =>
+    let base_command = new Command:
+        program: 'database-backup'
+        arguments: []
+        environment_overrides: []
+
+    let with_destination_flag = propagate arg(base_command, '--destination')
+    let with_destination_value = propagate arg(with_destination_flag, destination_path)
+    let with_compression_flag = propagate arg(with_destination_value, '--compression')
+    let with_compression_value = propagate arg(with_compression_flag, 'zstd')
+    let with_retention = propagate env(with_compression_value, 'BACKUP_RETENTION_DAYS', '14')
+    return with_retention
+
+##
+Description: Executes backup command and prints operation summary for infrastructure observability pipelines.
+##
+let run_backup_job_sync = f(): void errors CommandBuildError, SpawnError, NonZeroExitCode, IoError =>
+    let backup_command = propagate build_database_backup_command_sync('/var/backups/db/latest.tar.zst')
+    let backup_output = propagate run_sync(backup_command)
+    print('backup status: {backup_output.standard_output}')
+    return void

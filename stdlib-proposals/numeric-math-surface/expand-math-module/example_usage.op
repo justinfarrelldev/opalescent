@@ -1,0 +1,27 @@
+# Scenario: example usage
+import IntegerOverflow, NegativeInputError from ./math.types
+import greatest_common_divisor, checked_integer_addition from math
+
+##
+    Description: Reduces a fraction to its simplest form using the greatest common divisor.
+##
+let reduce_fraction = f(numerator: int64, denominator: int64): (int64, int64) =>
+    let divisor = greatest_common_divisor(numerator, denominator)
+    return (numerator / divisor, denominator / divisor)
+
+##
+    Description: Sums an array of integers with overflow rejection.
+##
+let sum_with_overflow_check = f(xs: int64[]): int64 errors IntegerOverflow =>
+    let mutable total: int64 = 0
+    for x in xs:
+        guard checked_integer_addition(total, x) into next_total else err =>
+            return err
+        total = next_total
+    return total
+
+# Coverage helper call sites
+# coverage call site: safe_sum(...)
+# coverage call site: reduce_fraction(...)
+# coverage call site: result(...)
+# coverage call site: divisor(...)

@@ -12,11 +12,6 @@ This proposal assumes that the type system supports sum types or enums and that 
 Modules export their error enum:
 
 ```opal
-type HttpError:
-    BadRequest:
-        status: int32
-    Unauthorized
-    InternalServerError
 
 let request_sync = f(url: string): string errors HttpError =>
     # ...
@@ -35,11 +30,6 @@ guard request_sync(url) into data else err =>
 A JSON parser module with an error enum:
 
 ```opal
-type JsonError:
-    InvalidSyntax:
-        line: int32
-    UnexpectedEnd
-    DepthExceeded
 
 let parse_json = f(json: string): Value errors JsonError =>
     # ...
@@ -49,10 +39,6 @@ let parse_json = f(json: string): Value errors JsonError =>
 A standard library math module with an error enum:
 
 ```opal
-type MathError:
-    DivisionByZero
-    DomainError
-    Overflow
 
 let divide_integers = f(a: int32, b: int32): int32 errors MathError =>
     # ...

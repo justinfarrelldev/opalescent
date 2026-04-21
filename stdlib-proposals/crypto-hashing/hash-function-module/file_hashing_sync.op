@@ -1,0 +1,92 @@
+# Scenario: Synchronous file artifact hashing for release verification and deployment gating.
+import HashAlgorithm, DigestHexResult from ./crypto_hashing.types
+import EmptyInputError, UnsupportedAlgorithmError, FileOpenError, FileReadError from ./crypto_hashing.types
+import sha256, sha512, blake3, md5 from ./one_shot_hashing
+
+##
+Description: Converts a user-provided algorithm label into a supported hash algorithm enum value.
+##
+let hash_algorithm_from_text = f(algorithm_name: string): HashAlgorithm errors UnsupportedAlgorithmError =>
+    if algorithm_name is 'sha256':
+        return HashAlgorithm.Sha256
+    if algorithm_name is 'sha512':
+        return HashAlgorithm.Sha512
+    if algorithm_name is 'blake3':
+        return HashAlgorithm.Blake3
+    if algorithm_name is 'md5':
+        return HashAlgorithm.Md5
+    return new UnsupportedAlgorithmError
+
+##
+Description: Simulates opening a file for reading in a synchronous hashing workflow.
+##
+let open_file_for_reading_sync = f(file_path: string): int32 errors FileOpenError =>
+    if file_path is '':
+        return new FileOpenError
+    return 42
+
+##
+Description: Simulates reading all bytes from an already opened file handle for hashing.
+##
+let read_all_file_bytes_sync = f(file_handle: int32): uint8[] errors FileReadError =>
+    if file_handle is 0:
+        return new FileReadError
+    return [111, 112, 97, 108, 101, 115, 99, 101, 110, 116]
+
+##
+Description: Hashes in-memory bytes using a selected algorithm while preserving explicit error handling.
+##
+let hash_bytes_with_algorithm = f(input_bytes: uint8[], algorithm: HashAlgorithm): string errors EmptyInputError =>
+    if algorithm is HashAlgorithm.Sha256:
+        guard sha256(input_bytes) into digest_hex else hashing_error =>
+            return hashing_error
+        return digest_hex
+
+    if algorithm is HashAlgorithm.Sha512:
+        guard sha512(input_bytes) into digest_hex else hashing_error =>
+            return hashing_error
+        return digest_hex
+
+    if algorithm is HashAlgorithm.Blake3:
+        guard blake3(input_bytes) into digest_hex else hashing_error =>
+            return hashing_error
+        return digest_hex
+
+    guard md5(input_bytes) into digest_hex else hashing_error =>
+        return hashing_error
+    return digest_hex
+
+##
+Description: Computes a file digest synchronously so deployment tooling can verify artifact integrity.
+##
+let hash_file_sync = f(file_path: string, algorithm: HashAlgorithm): string errors FileOpenError, FileReadError, EmptyInputError =>
+    # Scenario: release pipeline validates an artifact before publishing a package.
+    guard open_file_for_reading_sync(file_path) into file_handle else file_open_error =>
+        # Invalid or inaccessible file path must halt publication before corrupted release metadata.
+        return file_open_error
+
+    guard read_all_file_bytes_sync(file_handle) into file_bytes else file_read_error =>
+        # Read failures indicate media or permission issues and must stop integrity verification.
+        return file_read_error
+
+    guard hash_bytes_with_algorithm(file_bytes, algorithm) into digest_hex else hashing_error =>
+        # Empty files are rejected in this pipeline to avoid accidental hashing of missing artifacts.
+        return hashing_error
+
+    return digest_hex
+
+##
+Description: Produces a digest record from a file path and user-selected algorithm label.
+##
+let build_digest_record_sync = f(file_path: string, algorithm_name: string): DigestHexResult errors UnsupportedAlgorithmError, FileOpenError, FileReadError, EmptyInputError =>
+    guard hash_algorithm_from_text(algorithm_name) into selected_algorithm else unsupported_algorithm_error =>
+        # Unknown algorithm names are surfaced early so operators fix deployment configuration.
+        return unsupported_algorithm_error
+
+    guard hash_file_sync(file_path, selected_algorithm) into digest_hex else hashing_error =>
+        # File and hashing failures are bubbled to keep release gating deterministic.
+        return hashing_error
+
+    return new DigestHexResult:
+        algorithm_name: algorithm_name
+        digest_hex: digest_hex

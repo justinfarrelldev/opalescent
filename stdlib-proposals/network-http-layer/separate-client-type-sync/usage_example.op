@@ -1,0 +1,65 @@
+# Scenario: usage example
+import HttpMethod, HttpHeader, HttpClient, HttpRequest, HttpResponse from ./network_errors.types
+import new_http_client, http_client_execute_sync from ./client
+import NetworkUnreachableError, ConnectionRefusedError, ConnectionTimeoutError, TlsHandshakeError, HttpProtocolError, UnexpectedHttpStatusError, ResponseBodyReadError, RequestBodyWriteError, MalformedUrlError from ./network_errors.types
+
+##
+Description: Example demonstrating separate client type for GET, POST, and error handling.
+##
+let run_client_example_sync = f(): void =>
+    let headers: HttpHeader[] = [new HttpHeader: name: 'User-Agent', value: 'Opalescent-Client-Type']
+    let client = new_http_client('https://api.example.com', headers, 30000)
+
+    # 1. GET a JSON endpoint
+    let get_request = new HttpRequest:
+        method: HttpMethod.Get
+        url: '/data'
+        headers: []
+        body: []
+    
+    guard http_client_execute_sync(client, get_request) into response else err =>
+        handle_error_sync(err)
+        return void
+
+    # 2. POST form data
+    let form_data: uint8[] = [102, 111, 111, 61, 98, 97, 114] # "foo=bar"
+    let post_headers: HttpHeader[] = [new HttpHeader: name: 'Content-Type', value: 'application/x-www-form-urlencoded']
+    let post_request = new HttpRequest:
+        method: HttpMethod.Post
+        url: '/submit'
+        headers: post_headers
+        body: form_data
+
+    guard http_client_execute_sync(client, post_request) into post_response else err =>
+        handle_error_sync(err)
+        return void
+
+    # 3. Handle non-200 status code
+    if post_response.status_code is not 200:
+        return void
+    
+    return void
+
+##
+Description: Helper to demonstrate handling all 9 error types.
+##
+let handle_error_sync = f(err: any): void =>
+    if err is NetworkUnreachableError:
+        return void
+    if err is ConnectionRefusedError:
+        return void
+    if err is ConnectionTimeoutError:
+        return void
+    if err is TlsHandshakeError:
+        return void
+    if err is HttpProtocolError:
+        return void
+    if err is UnexpectedHttpStatusError:
+        return void
+    if err is ResponseBodyReadError:
+        return void
+    if err is RequestBodyWriteError:
+        return void
+    if err is MalformedUrlError:
+        return void
+    return void

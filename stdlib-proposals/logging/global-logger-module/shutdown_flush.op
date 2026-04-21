@@ -1,0 +1,17 @@
+# Scenario: Shutdown sequence that records final log and forces flush.
+import LogField, LoggerNotInitializedError, LogFlushError from ./logging.types
+import log_info, flush_sync from standard
+
+##
+Description: Records shutdown stage and synchronously flushes global logs.
+##
+let shutdown_service_sync = f(reason: string): void errors LoggerNotInitializedError, LogFlushError =>
+    # Emit final lifecycle event before process termination.
+    propagate log_info('service shutting down', [new LogField:
+        key: 'reason'
+        value: reason
+    ])
+
+    # Persist buffered logs so no terminal events are lost.
+    propagate flush_sync()
+    return void

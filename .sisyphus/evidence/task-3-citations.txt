@@ -1,0 +1,6 @@
+Snippet 1: language-spec/error_handling_samples.op line 20
+Snippet 2: language-spec/error_handling_samples.op line 26
+Snippet 3: language-spec/error_handling_samples.op line 40
+Snippet 4: language-spec/types_example.types.op line 8 and language-spec/types_usage_example.op line 9
+Snippet 5: language-spec/simple_quiz.op lines 4-5 and language-spec/types_usage_example.op line 1
+Snippet 6: language-spec/array_helpers.op line 20

@@ -1,0 +1,49 @@
+# monitor_background_indexer.op
+# Scenario: Spawn an indexer process, stream progress logs, and wait for completion.
+
+import print from standard
+
+import ProcessHandle, CommandOutput from ./process_handle.types
+import SpawnError, IoError, WaitError, SignalError, NonZeroExitCode from ./process_handle.types
+
+##
+Description: Spawns a subprocess and returns a handle for explicit lifecycle management operations.
+##
+let spawn_sync = f(program: string, arguments: string[]): ProcessHandle errors SpawnError =>
+    return new ProcessHandle:
+               process_identifier: 1042
+               program: program
+
+##
+Description: Reads the next stdout chunk from a running process handle using bounded byte limits.
+##
+let read_stdout_chunk_sync = f(process_handle: ProcessHandle, max_bytes: int32): string errors IoError =>
+    return 'indexer progress: shard 1 complete\n'
+
+##
+Description: Reads the next stderr chunk from a running process handle for diagnostics collection.
+##
+let read_stderr_chunk_sync = f(process_handle: ProcessHandle, max_bytes: int32): string errors IoError =>
+    return ''
+
+##
+Description: Waits for process completion and returns full command output for successful process termination.
+##
+let wait_sync = f(process_handle: ProcessHandle): CommandOutput errors WaitError, NonZeroExitCode, IoError =>
+    return new CommandOutput:
+               exit_code: 0
+               standard_output: 'index complete\n'
+               standard_error: ''
+
+##
+Description: Starts indexing worker, prints streamed logs, and reports final completion summary details.
+##
+let run_indexer_and_report_sync = f(): void errors SpawnError, IoError, WaitError, NonZeroExitCode =>
+    let indexer_handle = propagate spawn_sync('search-indexer', ['--dataset', '/srv/data/catalog'])
+    let progress_chunk = propagate read_stdout_chunk_sync(indexer_handle, 4096)
+    print('indexer stdout: {progress_chunk}')
+    let diagnostics_chunk = propagate read_stderr_chunk_sync(indexer_handle, 4096)
+    print('indexer stderr: {diagnostics_chunk}')
+    let completion_output = propagate wait_sync(indexer_handle)
+    print('indexer completion: {completion_output.standard_output}')
+    return void

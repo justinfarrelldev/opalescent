@@ -12,10 +12,6 @@ This proposal assumes that the type system can represent a wrapped error structu
 A helper function `wrap_error_context` is provided:
 
 ```opal
-type WrappedError:
-    Context:
-        original: AnyError
-        message: string
 
 let perform_operation_sync = f(): void errors MyError, WrappedError =>
     guard lower_level_sync() into val else err =>
@@ -61,7 +57,7 @@ This strategy is compatible with existing syntax but introduces a new `WrappedEr
 
 ## Interactions with Other Concerns
 - **Logging**: Highly beneficial for logging systems that can recursively unwrap and format these errors.
-- **Concurrency**: Context is especially valuable for tracking errors across different threads or asynchronous operations.
+- **Concurrency**: Context is especially valuable for tracking errors across different threads or deferred operations.
 
 ## Implementation Difficulty
 Medium. Requires the compiler to support a generic way to represent "any error" or for the standard library to define a shared base error type.

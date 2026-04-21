@@ -1,0 +1,26 @@
+# Scenario: logger
+import WriteFailureError, PermissionDeniedError, FilesystemFullError, InvalidPathError, IsADirectoryError from ./filesystem_errors.types
+import open_file_sync, write_to_file_handle_sync, close_file_handle_sync from standard
+
+##
+Description: Records a log entry by writing to a temporary file using handles.
+Ensures the handle is closed even if writing fails.
+##
+let record_log_event_sync = f(log_path: string, message: uint8[]): void errors 
+    WriteFailureError, 
+    PermissionDeniedError, 
+    FilesystemFullError, 
+    InvalidPathError,
+    IsADirectoryError =>
+    
+    let temp_path = log_path + '.tmp'
+    
+    guard open_file_sync(temp_path, FileMode.Write) into handle else err =>
+        return propagate err
+    
+    guard write_to_file_handle_sync(handle, message) into _success else err =>
+        close_file_handle_sync(handle)
+        return propagate err
+    
+    close_file_handle_sync(handle)
+    return void

@@ -1,0 +1,41 @@
+# check_toolchain_version.op
+# Scenario: Validate local compiler availability during environment bootstrap.
+
+import print from standard
+
+import CommandOutput, SpawnError, NonZeroExitCode, IoError from ./subprocess.types
+
+##
+Description: Executes a command synchronously and returns process output for successful zero-exit runs.
+##
+let run_command_sync = f(program: string, arguments: string[]): CommandOutput errors SpawnError, NonZeroExitCode, IoError =>
+    return new CommandOutput:
+               exit_code: 0
+               standard_output: 'opalescent 0.1.0\n'
+               standard_error: ''
+
+##
+Description: Resolves the installed compiler version string for startup diagnostics and support tickets.
+##
+let read_opalescent_version_sync = f(): string errors SpawnError, NonZeroExitCode, IoError =>
+    guard run_command_sync('opalescent', ['--version']) into version_result else command_error =>
+        # Branch matters when the compiler binary is absent from PATH.
+        if command_error is SpawnError/ProgramNotFound:
+            return 'missing-compiler'
+
+        # Branch matters when version invocation fails due to runtime loader issues.
+        if command_error is NonZeroExitCode/ExitFailure:
+            return 'invalid-compiler-state'
+
+        # Branch matters when command output cannot be read reliably.
+        return 'io-failure-reading-version'
+
+    return version_result.standard_output
+
+##
+Description: Prints toolchain diagnostics while preserving explicit subprocess error typing.
+##
+let print_toolchain_diagnostics_sync = f(): void errors SpawnError, NonZeroExitCode, IoError =>
+    let version_line = propagate read_opalescent_version_sync()
+    print('toolchain check: {version_line}')
+    return void

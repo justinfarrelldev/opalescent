@@ -26,4 +26,4 @@ This document compares two approaches for representing byte buffers in Opalescen
 - **Opalescent-idiom fit**: Aligns well with the use of records for structured data, though it adds a layer of wrapping that the minimalist approach avoids.
 - **Implementation effort**: Requires defining the type, constructor logic, and a suite of operations, posing a moderate maintenance burden.
 - **Extensibility**: Excellent. The `Bytes` struct can easily be updated to include capacity, encoding hints, or reference-counting metadata without affecting public function signatures.
-- **Async readiness**: Both approaches are equally ready for future async expansion, as they both rely on standard data passing patterns that can be wrapped in async-aware structures later.
+- **Async readiness**: Both approaches are equally ready for future deferred expansion, as they both rely on standard data passing patterns that can be wrapped in deferred-aware structures later.

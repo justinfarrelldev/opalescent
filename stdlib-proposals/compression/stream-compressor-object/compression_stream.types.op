@@ -1,0 +1,83 @@
+# Scenario: Shared state and error types for chunk-fed compressor and decompressor objects.
+##
+Description: Represents a contiguous binary payload for streaming compression boundaries.
+##
+type ByteBuffer:
+    bytes: uint8[]
+
+##
+Description: Enumerates supported compression algorithms for stream objects.
+##
+type CompressionAlgorithm:
+    Gzip
+    Deflate
+    Zstd
+
+##
+Description: Captures stable compressor configuration used for stream construction.
+##
+type CompressionOptions:
+    algorithm: CompressionAlgorithm
+    compression_level: int32
+
+##
+Description: Represents the mutable state of a streaming compressor instance.
+##
+type Compressor:
+    options: CompressionOptions
+    has_started: bool
+
+##
+Description: Represents the mutable state of a streaming decompressor instance.
+##
+type Decompressor:
+    algorithm: CompressionAlgorithm
+    has_started: bool
+
+##
+Description: Raised when a stream object receives calls in an invalid order.
+##
+type CompressionStreamStateError:
+    detail: string
+
+##
+Description: Raised when a compression stream fails to encode provided chunk data.
+##
+type CompressionEncodingError:
+    detail: string
+
+##
+Description: Raised when a decompression stream fails to decode provided chunk data.
+##
+type CompressionDecodingError:
+    detail: string
+
+##
+Description: Raised when stream input bytes are truncated or corrupted.
+##
+type CompressionDataCorruptionError:
+    detail: string
+
+##
+Description: Raised when a selected algorithm is unavailable on this build target.
+##
+type CompressionAlgorithmNotSupportedError:
+    algorithm_name: string
+
+##
+Description: Raised when a file path is malformed or points outside allowed roots.
+##
+type InvalidPathError:
+    path: string
+
+##
+Description: Raised when a file cannot be read during synchronous stream processing.
+##
+type FileReadError:
+    path: string
+
+##
+Description: Raised when a file cannot be written during synchronous stream processing.
+##
+type FileWriteError:
+    path: string

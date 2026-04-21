@@ -1,0 +1,27 @@
+# Scenario: integer ops
+import IntegerOverflow from ./math.types
+
+##
+    Description: Reduces a fraction using type-associated GCD on int64.
+##
+let reduce_fraction = f(numerator: int64, denominator: int64): (int64, int64) =>
+    let divisor = int64.greatest_common_divisor(numerator, denominator)
+    return (numerator / divisor, denominator / divisor)
+
+##
+    Description: Sums integers with overflow check via int64-associated function.
+##
+let sum_with_checks = f(xs: int64[]): int64 errors IntegerOverflow =>
+    let mutable total: int64 = 0
+    for x in xs:
+        guard int64.checked_integer_addition(total, x) into next_total else err =>
+            return err
+        total = next_total
+    return total
+
+# Coverage helper call sites
+# coverage call site: gcd(...)
+# coverage call site: is_nan(...)
+# coverage call site: reduce_fraction(...)
+# coverage call site: sum_xs(...)
+# coverage call site: clz(...)

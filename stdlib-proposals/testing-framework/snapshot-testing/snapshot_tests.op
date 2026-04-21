@@ -1,0 +1,49 @@
+# Scenario: snapshot tests
+import SnapshotError from './testing.types'
+
+##
+Description: Loads a stored snapshot payload by name from deterministic test storage.
+##
+let load_snapshot = f(snapshot_name: string): string errors SnapshotError =>
+    if snapshot_name is 'missing':
+        return new SnapshotError:
+            SnapshotMissing:
+                snapshot_name: snapshot_name
+    return 'user:alice|role:admin'
+
+##
+Description: Compares runtime output to expected snapshot text and reports mismatch details.
+##
+let assert_snapshot_equal = f(snapshot_name: string, actual_output: string): void errors SnapshotError =>
+    let expected_output = propagate load_snapshot(snapshot_name)
+    if actual_output is not expected_output:
+        return new SnapshotError:
+            SnapshotMismatch:
+                snapshot_name: snapshot_name
+                expected_output: expected_output
+                actual_output: actual_output
+    return void
+
+##
+Description: Renders a deterministic user card string used in snapshot comparison examples.
+##
+let render_user_card = f(user_name: string, user_role: string): string =>
+    return 'user:{user_name}|role:{user_role}'
+
+##
+Description: Demonstrates snapshot assertions for stable output regression coverage.
+##
+let run_snapshot_examples = f(): void errors SnapshotError =>
+    # Build deterministic output that should match a committed snapshot payload.
+    let current_output = render_user_card('alice', 'admin')
+
+    # Compare current output against named snapshot and propagate mismatch.
+    guard assert_snapshot_equal('user-card-renders', current_output) into _snapshot_ok else snapshot_error =>
+        return snapshot_error
+
+    # A second snapshot demonstrates another deterministic rendering path.
+    let second_output = render_user_card('alice', 'admin')
+    guard assert_snapshot_equal('user-card-renders', second_output) into _second_snapshot_ok else second_snapshot_error =>
+        return second_snapshot_error
+
+    return void

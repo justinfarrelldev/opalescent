@@ -1,0 +1,18 @@
+# Scenario: Nightly maintenance compresses backups then verifies decompression restore path.
+import CompressionAlgorithm, InvalidPathError, FileReadError, FileWriteError, CompressionAlgorithmNotSupportedError, CompressionEncodingError, CompressionDecodingError, CompressionDataCorruptionError from ./compression.types
+import compress_file_sync, decompress_file_sync from ./compression_functions
+
+##
+Description: Compresses nightly backups and validates restore paths in a maintenance job.
+##
+let rotate_nightly_backup_artifacts_sync = f(raw_backup_path: string, compressed_backup_path: string, restore_validation_path: string): void errors InvalidPathError, FileReadError, FileWriteError, CompressionAlgorithmNotSupportedError, CompressionEncodingError, CompressionDecodingError, CompressionDataCorruptionError =>
+    # Scenario: operations compresses large backup files after database snapshots complete.
+    guard compress_file_sync(raw_backup_path, compressed_backup_path, CompressionAlgorithm/Gzip) into _compressed else compression_error =>
+        # Compression failure means storage pressure remains unresolved and must bubble up.
+        return propagate compression_error
+
+    guard decompress_file_sync(compressed_backup_path, restore_validation_path, CompressionAlgorithm/Gzip) into _restored else decompression_error =>
+        # Restore validation failure means the archive cannot be trusted for disaster recovery.
+        return propagate decompression_error
+
+    return void

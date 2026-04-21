@@ -1,0 +1,68 @@
+# Scenario: array
+import CollectionErrors from ./collections.types
+
+##
+    Description: map over a readonly array (pure). Returns a new array.
+##
+let map = f<T, U>(xs: T[], fn: f(T): U): U[] =>
+    let mutable out: U[] = []
+    for x in xs:
+        out.push(fn(x))
+    return out
+
+
+##
+    Description: filter a readonly array (pure). Returns a new array.
+##
+let filter = f<T>(xs: T[], pred: f(T): boolean): T[] =>
+    let mutable out: T[] = []
+    for x in xs:
+        if pred(x):
+            out.push(x)
+    return out
+
+
+##
+    Description: reduce a readonly array to a value (pure).
+##
+let reduce = f<T, U>(xs: T[], init: U, step: f(U, T): U): U =>
+    let mutable acc = init
+    for x in xs:
+        acc = step(acc, x)
+    return acc
+
+
+##
+    Description: find first matching element (pure). Errors if not found.
+##
+let find_first_matching = f<T>(xs: T[], pred: f(T): boolean): T errors NotFound =>
+    for x in xs:
+        if pred(x):
+            return x
+    return propagate CollectionErrors.NotFound
+
+
+##
+    Description: concatenate two arrays (pure). Returns a new array.
+##
+let concatenate = f<T>(xs: T[], ys: T[]): T[] =>
+    let mutable out: T[] = []
+    for x in xs:
+        out.push(x)
+    for y in ys:
+        out.push(y)
+    return out
+
+
+##
+    Description: non-mutating slice [start, end) (pure).
+##
+let slice = f<T>(xs: T[], start: int32, end_exclusive: int32): T[] errors OutOfRange =>
+    if start < 0 or end_exclusive > (xs.length as int32):
+        return propagate CollectionErrors.OutOfRange
+    let mutable out: T[] = []
+    let mutable i = start
+    while i < end_exclusive:
+        out.push(xs[i])
+        i = i + 1
+    return out

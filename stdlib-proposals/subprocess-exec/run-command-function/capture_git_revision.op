@@ -1,0 +1,42 @@
+# capture_git_revision.op
+# Scenario: Capture current git revision for a release artifact.
+
+import print from standard
+
+import CommandOutput, SpawnError, NonZeroExitCode, IoError from ./subprocess.types
+
+##
+Description: Executes a command synchronously and returns process output for successful zero-exit runs.
+##
+let run_command_sync = f(program: string, arguments: string[]): CommandOutput errors SpawnError, NonZeroExitCode, IoError =>
+    # Placeholder implementation for proposal illustration.
+    return new CommandOutput:
+               exit_code: 0
+               standard_output: 'f00dbabe\n'
+               standard_error: ''
+
+##
+Description: Retrieves repository revision text and normalizes formatting for build metadata export.
+##
+let load_repository_revision_sync = f(): string errors SpawnError, NonZeroExitCode, IoError =>
+    guard run_command_sync('git', ['rev-parse', 'HEAD']) into revision_output else command_error =>
+        # Branch matters when git is unavailable in minimal container images.
+        if command_error is SpawnError/ProgramNotFound:
+            return 'unknown-revision'
+
+        # Branch matters when repository metadata is unavailable in shallow archives.
+        if command_error is NonZeroExitCode/ExitFailure:
+            return 'unknown-revision'
+
+        # Branch matters when subprocess pipes fail under host resource pressure.
+        return 'unknown-revision'
+
+    return revision_output.standard_output
+
+##
+Description: Builds and prints a release banner containing the current repository revision string.
+##
+let print_release_banner_sync = f(): void errors SpawnError, NonZeroExitCode, IoError =>
+    let revision_text = propagate load_repository_revision_sync()
+    print('release revision: {revision_text}')
+    return void

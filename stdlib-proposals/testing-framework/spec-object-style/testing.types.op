@@ -1,0 +1,21 @@
+# Scenario: testing.types
+##
+Description: Represents assertion failures raised while executing spec-based tests.
+##
+type TestFailure:
+    AssertionFailed:
+        message: string
+    SetupFailed:
+        message: string
+    TeardownFailed:
+        message: string
+
+##
+Description: Defines the shape of a declarative test specification object.
+##
+type TestSpec:
+    name: string
+    tags: string[]
+    setup: f(): void
+    execute: f(): void errors TestFailure
+    teardown: f(): void

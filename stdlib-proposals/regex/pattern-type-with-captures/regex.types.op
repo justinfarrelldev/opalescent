@@ -1,0 +1,43 @@
+# Scenario: regex.types
+##
+Description: Error raised when a capture-aware pattern is invalid.
+##
+type InvalidPattern:
+    EmptyPattern
+    DuplicateCaptureName:
+        capture_name: string
+
+##
+Description: Error raised when pattern execution cannot complete.
+##
+type MatchError:
+    EngineFailure
+    InputTooLarge
+
+##
+Description: Error raised when required capture names are absent.
+##
+type MissingCapture:
+    RequiredCaptureAbsent:
+        capture_name: string
+
+##
+Description: Error raised when capture text cannot be converted.
+##
+type CaptureConversionError:
+    InvalidInt32:
+        capture_name: string
+
+##
+Description: Compiled pattern that retains capture group metadata.
+##
+type Pattern:
+    pattern_text: string
+
+##
+Description: String map representing named captures from one match.
+##
+type CaptureMap:
+    user_id: string
+    team_id: string
+    timestamp: string

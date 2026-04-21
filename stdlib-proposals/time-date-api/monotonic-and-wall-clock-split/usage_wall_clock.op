@@ -1,0 +1,19 @@
+# Scenario: usage wall clock
+import now_wall_clock_sync, format_wall_clock_as_iso8601, parse_iso8601_string from ./time
+import WallClockDateTime, Iso8601ParseError from ./time.types
+
+##
+    Description: Demonstrates formatting and parsing wall-clock time.
+##
+let main = f(): void =>
+    let now = now_wall_clock_sync()
+    let s = format_wall_clock_as_iso8601(now)
+    
+    guard parse_iso8601_string_sync(s) into parsed else err =>
+        return void
+        
+    guard parse_iso8601_string_sync('invalid') into _failed else err =>
+        # handle Iso8601ParseError
+        return void
+        
+    return void

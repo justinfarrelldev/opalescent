@@ -1,0 +1,14 @@
+# Scenario: testing.types
+##
+Description: Represents explicit assertion failures used by flat test helper functions.
+##
+type TestFailure:
+    AssertionFailed:
+        message: string
+    ExpectedThrowDidNotOccur
+
+##
+Description: Represents parse failures used by throw-assertion examples in flat tests.
+##
+type ParseError:
+    InvalidFormat

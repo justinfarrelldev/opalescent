@@ -1,0 +1,40 @@
+# Scenario: route captures
+import compile_pattern, match_captures, capture_text, capture_int32 from ./pattern_api
+import InvalidPattern, MatchError, MissingCapture, CaptureConversionError from ./regex.types
+
+##
+Description: Demonstrates capture-aware pattern workflows end to end.
+##
+let parse_route_and_log_metadata = f(route_text: string, log_line: string): string[] errors InvalidPattern, MatchError, MissingCapture, CaptureConversionError =>
+    # Full usage example: compile capture-aware route regex once.
+    guard compile_pattern('/teams/(?<team_id>[0-9]+)/users/(?<user_id>[0-9]+)') into route_pattern else route_pattern_error =>
+        return propagate route_pattern_error
+
+    # Full usage example: get typed capture map from first match.
+    guard route_pattern.match_captures(route_text) into route_captures else route_match_error =>
+        return propagate route_match_error
+
+    # Full usage example: convert named captures to typed numeric identifiers.
+    guard capture_int32(route_captures, 'team_id') into team_identifier else team_error =>
+        return propagate team_error
+
+    guard capture_int32(route_captures, 'user_id') into user_identifier else user_error =>
+        return propagate user_error
+
+    # Compile a second capture-aware pattern for log metadata extraction.
+    guard compile_pattern('(?<timestamp>[^ ]+) team=(?<team_id>[0-9]+) user=(?<user_id>[0-9]+)') into log_pattern else log_pattern_error =>
+        return propagate log_pattern_error
+
+    # Full usage example: read typed capture map for downstream extraction.
+    guard log_pattern.match_captures(log_line) into log_captures else log_match_error =>
+        return propagate log_match_error
+
+    # Full usage example: fetch specific named capture text values.
+    guard capture_text(log_captures, 'timestamp') into timestamp_value else timestamp_error =>
+        return propagate timestamp_error
+
+    let mutable summary: string[] = []
+    summary.push('team={team_identifier}')
+    summary.push('user={user_identifier}')
+    summary.push('time={timestamp_value}')
+    return summary

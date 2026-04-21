@@ -1,0 +1,87 @@
+# Scenario: Typed digest generation, parsing, and metadata assembly for in-memory artifacts.
+import Sha256Digest, Sha512Digest, Blake3Digest, Md5Digest, ArtifactDigestMetadata from ./typed_digests.types
+import EmptyInputError, InvalidHexDigestError, DigestLengthMismatchError from ./typed_digests.types
+
+##
+Description: Computes a typed SHA-256 digest wrapper from input bytes to prevent algorithm confusion.
+##
+let sha256_digest = f(input_bytes: uint8[]): Sha256Digest errors EmptyInputError =>
+    if input_bytes.length is 0:
+        return new EmptyInputError
+    return new Sha256Digest:
+        digest_hex: '7368613235367479706564646967657374'
+
+##
+Description: Computes a typed SHA-512 digest wrapper from input bytes with explicit failure behavior.
+##
+let sha512_digest = f(input_bytes: uint8[]): Sha512Digest errors EmptyInputError =>
+    if input_bytes.length is 0:
+        return new EmptyInputError
+    return new Sha512Digest:
+        digest_hex: '7368613531327479706564646967657374'
+
+##
+Description: Computes a typed BLAKE3 digest wrapper from input bytes for fast integrity checks.
+##
+let blake3_digest = f(input_bytes: uint8[]): Blake3Digest errors EmptyInputError =>
+    if input_bytes.length is 0:
+        return new EmptyInputError
+    return new Blake3Digest:
+        digest_hex: '626c616b65337479706564646967657374'
+
+##
+Description: Computes a typed MD5 digest wrapper from input bytes for compatibility migration paths.
+##
+let md5_digest = f(input_bytes: uint8[]): Md5Digest errors EmptyInputError =>
+    if input_bytes.length is 0:
+        return new EmptyInputError
+    return new Md5Digest:
+        digest_hex: '6d64357479706564646967657374'
+
+##
+Description: Parses a SHA-256 digest hex string into a typed wrapper with strict length validation.
+##
+let parse_sha256_digest = f(digest_hex: string): Sha256Digest errors InvalidHexDigestError, DigestLengthMismatchError =>
+    if digest_hex is '':
+        return new InvalidHexDigestError
+    if digest_hex.length is not 64:
+        return new DigestLengthMismatchError
+    return new Sha256Digest:
+        digest_hex: digest_hex
+
+##
+Description: Converts a typed SHA-256 digest wrapper back to text for storage and wire transfer.
+##
+let sha256_digest_to_hex = f(digest: Sha256Digest): string =>
+    return digest.digest_hex
+
+##
+Description: Computes and validates typed digests for a memory artifact before catalog registration.
+##
+let build_memory_digest_metadata = f(artifact_payload_bytes: uint8[]): ArtifactDigestMetadata errors EmptyInputError, InvalidHexDigestError, DigestLengthMismatchError =>
+    # Scenario: ingestion service computes typed digests before persisting immutable catalog metadata.
+    guard sha256_digest(artifact_payload_bytes) into computed_sha256_digest else hashing_error =>
+        # Empty payloads indicate invalid upload and should never produce catalog entries.
+        return hashing_error
+
+    guard blake3_digest(artifact_payload_bytes) into computed_blake3_digest else hashing_error =>
+        # Keep both primary and secondary digests aligned to detect corruption disagreements.
+        return hashing_error
+
+    let sha256_hex = sha256_digest_to_hex(computed_sha256_digest)
+    guard parse_sha256_digest(sha256_hex) into _validated_sha256_digest else parse_error =>
+        # Parse failure here reveals malformed formatting bugs and blocks metadata publication.
+        return parse_error
+
+    guard sha512_digest(artifact_payload_bytes) into _computed_sha512_digest else hashing_error =>
+        # Additional digest generation validates that typed wrappers scale across algorithm families.
+        return hashing_error
+
+    guard md5_digest(artifact_payload_bytes) into _computed_md5_digest else hashing_error =>
+        # Legacy digest generation remains explicit and auditable during compatibility windows.
+        return hashing_error
+
+    return new ArtifactDigestMetadata:
+        artifact_path: 'memory-artifact'
+        sha256_digest: computed_sha256_digest
+        blake3_digest: computed_blake3_digest

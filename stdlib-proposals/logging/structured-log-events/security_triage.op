@@ -1,0 +1,28 @@
+# Scenario: Security triage emits repeated authentication failure events.
+import LogSink, LogEvent, SinkCreateError, EventWriteError, SinkFlushError from ./logging.types
+import new_log_sink_sync, emit_event, flush_sync from standard
+
+##
+Description: Emits auth failure events repeatedly for security incident triage.
+##
+let run_security_triage_sync = f(user_identifier: string): void errors SinkCreateError, EventWriteError, SinkFlushError =>
+    # Create sink dedicated to security signal ingestion.
+    let mutable sink = propagate new_log_sink_sync('./var/security.events.log')
+
+    # Emit first failure event to establish suspicious pattern.
+    propagate emit_event(sink, new LogEvent:
+        AuthenticationFailed:
+            user_identifier: user_identifier
+            reason: 'invalid password'
+    )
+
+    # Emit second failure event to represent repeated attempt.
+    propagate emit_event(sink, new LogEvent:
+        AuthenticationFailed:
+            user_identifier: user_identifier
+            reason: 'invalid one-time code'
+    )
+
+    # Flush so incident tooling can evaluate the latest evidence.
+    propagate flush_sync(sink)
+    return void

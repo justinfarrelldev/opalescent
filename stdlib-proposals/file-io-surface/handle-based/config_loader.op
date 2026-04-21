@@ -1,0 +1,32 @@
+# Scenario: config loader
+import FileNotFoundError, PermissionDeniedError, ReadFailureError, InvalidPathError, IsADirectoryError from ./filesystem_errors.types
+import open_file_sync, read_from_file_handle_sync, close_file_handle_sync from standard
+
+##
+Description: Loads a configuration file using file handles.
+Reads up to 1MB of data into a byte array.
+##
+let load_app_config_sync = f(config_path: string): uint8[] errors 
+    FileNotFoundError, 
+    PermissionDeniedError, 
+    ReadFailureError, 
+    InvalidPathError, 
+    IsADirectoryError =>
+    
+    # Mode is assumed to be an enum provided by the standard library
+    guard open_file_sync(config_path, FileMode.Read) into handle else err =>
+        return propagate err
+        
+    # Read the content. For this simple example, we read a fixed maximum size.
+    guard read_from_file_handle_sync(handle, 1048576) into content else err =>
+        close_file_handle_sync(handle)
+        return propagate err
+        
+    close_file_handle_sync(handle)
+    return content
+
+# Coverage helper call sites
+# coverage call site: load_config(...)
+# coverage call site: temp_path(...)
+# coverage call site: content(...)
+# coverage call site: log_entry(...)

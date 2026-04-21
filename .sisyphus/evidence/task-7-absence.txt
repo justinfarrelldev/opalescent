@@ -1,0 +1,9 @@
+=== absence-via-errors ===
+stdlib-proposals/optional-representation/absence-via-errors/collection_search.op
+stdlib-proposals/optional-representation/absence-via-errors/config_lookup.op
+=== maybe-tagged-union ===
+stdlib-proposals/optional-representation/maybe-tagged-union/config_record.op
+stdlib-proposals/optional-representation/maybe-tagged-union/maybe.types.op
+stdlib-proposals/optional-representation/maybe-tagged-union/nickname_lookup.op
+=== nullable-sentinel-types ===
+MISSING

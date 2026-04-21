@@ -1,0 +1,19 @@
+# Scenario: usage monotonic
+import now_monotonic_sync, elapsed_time, sleep_sync from ./time
+import Duration from ./time.types
+
+##
+    Description: Demonstrates measuring elapsed time with monotonic clocks.
+##
+let main = f(): void =>
+    let start = now_monotonic_sync()
+    
+    let d = new Duration:
+        seconds: 1
+        nanoseconds: 0
+    sleep_sync(d)
+    
+    let end = now_monotonic_sync()
+    let elapsed = elapsed_time(start, end)
+    
+    return void

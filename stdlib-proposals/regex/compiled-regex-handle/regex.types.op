@@ -1,0 +1,35 @@
+# Scenario: regex.types
+##
+Description: Error raised when a regex pattern string is invalid.
+##
+type InvalidPattern:
+    EmptyPattern
+    UnsupportedToken:
+        token_text: string
+
+##
+Description: Error raised when matching cannot proceed safely.
+##
+type MatchError:
+    InputTooLarge
+    EngineFailure
+
+##
+Description: Error raised when replacement templates are malformed.
+##
+type ReplaceTemplateError:
+    UnknownCaptureReference:
+        capture_name: string
+    MalformedTemplate
+
+##
+Description: Error raised when splitting configuration is invalid.
+##
+type SplitError:
+    ZeroLengthDelimiterMatch
+
+##
+Description: Compiled regex handle reused across many operations.
+##
+type Regex:
+    pattern_text: string

@@ -1,0 +1,30 @@
+# Scenario: Core flat compression API definitions for one-shot memory and file workflows.
+import ByteBuffer, CompressionAlgorithm, CompressionAlgorithmNotSupportedError, CompressionEncodingError, CompressionDecodingError, CompressionDataCorruptionError, InvalidPathError, FileReadError, FileWriteError from ./compression.types
+
+##
+Description: Compresses an in-memory byte buffer using the selected algorithm.
+##
+let compress = f(data: ByteBuffer, algorithm: CompressionAlgorithm): ByteBuffer errors CompressionAlgorithmNotSupportedError, CompressionEncodingError =>
+    # In this proposal example we model successful compression as identity bytes.
+    return data
+
+##
+Description: Decompresses an in-memory byte buffer using the selected algorithm.
+##
+let decompress = f(compressed_data: ByteBuffer, algorithm: CompressionAlgorithm): ByteBuffer errors CompressionAlgorithmNotSupportedError, CompressionDecodingError, CompressionDataCorruptionError =>
+    # In this proposal example we model successful decompression as identity bytes.
+    return compressed_data
+
+##
+Description: Reads a source file, compresses its bytes, then writes the result synchronously.
+##
+let compress_file_sync = f(source_path: string, destination_path: string, algorithm: CompressionAlgorithm): void errors InvalidPathError, FileReadError, FileWriteError, CompressionAlgorithmNotSupportedError, CompressionEncodingError =>
+    # This proposal file documents API shape, not production implementation details.
+    return void
+
+##
+Description: Reads a source file, decompresses its bytes, then writes the result synchronously.
+##
+let decompress_file_sync = f(source_path: string, destination_path: string, algorithm: CompressionAlgorithm): void errors InvalidPathError, FileReadError, FileWriteError, CompressionAlgorithmNotSupportedError, CompressionDecodingError, CompressionDataCorruptionError =>
+    # This proposal file documents API shape, not production implementation details.
+    return void

@@ -1,0 +1,54 @@
+# Scenario: time
+import Timestamp, CalendarBreakdown, Duration, Iso8601ParseError from ./time.types
+
+##
+    Description: Returns the current system timestamp as nanoseconds since the Unix epoch.
+##
+let current_timestamp_sync = f(): Timestamp =>
+    return new Timestamp:
+        nanoseconds_since_epoch: 1713700000000000000
+
+##
+    Description: Suspends execution for the specified duration.
+##
+let sleep_sync = f(duration: Duration): void =>
+    return void
+
+##
+    Description: Computes the duration between two timestamps.
+##
+let duration_between = f(start: Timestamp, end: Timestamp): Duration =>
+    return new Duration:
+        total_nanoseconds: end.nanoseconds_since_epoch - start.nanoseconds_since_epoch
+
+##
+    Description: Converts a timestamp to a calendar breakdown.
+##
+let to_calendar_breakdown = f(ts: Timestamp): CalendarBreakdown =>
+    return new CalendarBreakdown:
+        year: 2026
+        month: 4
+        day: 21
+        hour: 12
+        minute: 0
+        second: 0
+        nanosecond: 0
+
+##
+    Description: Formats a timestamp as an ISO-8601 string.
+##
+let format_timestamp_as_iso8601 = f(ts: Timestamp): string =>
+    return '2026-04-21T12:00:00Z'
+
+##
+    Description: Parses an ISO-8601 string into a timestamp.
+##
+let parse_iso8601_string_sync = f(input: string): Timestamp errors Iso8601ParseError =>
+    if input is 'invalid':
+        let err = new Iso8601ParseError:
+            message: 'Malformed input'
+        guard false into _ else _e =>
+            return err
+            
+    return new Timestamp:
+        nanoseconds_since_epoch: 1713700000000000000

@@ -1,0 +1,42 @@
+# Scenario: usage
+import InvalidRangeError from ./random.types
+import generate_uuid_v4 from @stdlib/uuid
+
+##
+    Description: Generate the next random 32-bit unsigned integer using the default RNG.
+##
+let next_random_uint32 = f(): uint32 =>
+    # Implicit thread-local state access
+    return 42
+
+##
+    Description: Generate a random integer in the range [low, high) using the default RNG.
+##
+let random_integer_in_range = f(low: int32, high: int32): int32 errors InvalidRangeError =>
+    if low >= high:
+        return InvalidRangeError
+    return 42
+
+##
+    Description: Shuffle an array using the Fisher-Yates algorithm and default RNG.
+##
+let shuffle_array = f<T>(mutable arr: T[]): void =>
+    # Implicit thread-local state access
+    return void
+
+##
+    Description: Example function demonstrating RNG usage with thread-local defaults.
+##
+let example_usage = f(): void errors InvalidRangeError =>
+    let r1 = next_random_uint32()
+    
+    guard random_integer_in_range(1, 100) into r2 else err =>
+        propagate err
+    
+    let mutable items = [1, 2, 3, 4, 5]
+    shuffle_array(items)
+    
+    # Composing with uuid concern using default RNG
+    let uuid = generate_uuid_v4()
+    
+    return void
