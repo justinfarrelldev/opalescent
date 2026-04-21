@@ -86,6 +86,37 @@ fn test_keywords() {
     }
 }
 
+/// `new` is a reserved keyword that introduces constructor expressions
+/// (e.g. `new Point: x: 0`) and must lex to [`TokenType::New`] rather than
+/// to an identifier so the parser can dispatch on it deterministically.
+#[test]
+fn test_new_keyword_lexes_as_new_token() {
+    let lexer = Lexer::new("new");
+    let (tokens, errors) = lexer.tokenize();
+
+    assert!(errors.is_empty(), "unexpected lexer errors: {errors:?}");
+    assert!(
+        matches!(tokens[0].token_type, TokenType::New),
+        "`new` should lex to TokenType::New, got: {:?}",
+        tokens[0].token_type
+    );
+}
+
+/// Identifiers that merely start with `new` (such as `newest`) must remain
+/// regular identifiers; only the exact keyword `new` is reserved.
+#[test]
+fn test_new_prefixed_identifier_is_not_keyword() {
+    let lexer = Lexer::new("newest");
+    let (tokens, errors) = lexer.tokenize();
+
+    assert!(errors.is_empty(), "unexpected lexer errors: {errors:?}");
+    assert!(
+        matches!(tokens[0].token_type, TokenType::Identifier(ref name) if name == "newest"),
+        "`newest` should remain an identifier, got: {:?}",
+        tokens[0].token_type
+    );
+}
+
 #[test]
 fn test_identifiers() {
     let input = "hello_world _private snake_case";

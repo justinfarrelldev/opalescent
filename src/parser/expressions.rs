@@ -12,7 +12,7 @@
 
 use super::{ParseError, ParseResult, Parser, Precedence, captures::collect_captured_variables};
 use crate::ast::{
-    AstNode, BinaryOp, ConstructorField, Expr, HotReloadMetadata, LambdaBody, LiteralValue, Stmt,
+    AstNode, BinaryOp, Expr, HotReloadMetadata, LambdaBody, LiteralValue, Stmt,
     StringPart, UnaryOp,
 };
 use crate::error::LexError;
@@ -41,83 +41,7 @@ impl Parser {
             expr = self.parse_infix(expr)?;
         }
 
-        if self.check(&TokenType::LeftBrace)
-            && matches!(expr, Expr::Identifier { .. } | Expr::Member { .. })
-            && self.constructor_field_list_starts_here()
-        {
-            expr = self.parse_constructor_suffix(expr)?;
-        }
-
         Ok(expr)
-    }
-
-    /// Return true when the current `{` token starts a constructor field list.
-    fn constructor_field_list_starts_here(&self) -> bool {
-        if !self.check(&TokenType::LeftBrace) {
-            return false;
-        }
-
-        let Some(next_token) = self.tokens.get(self.current.saturating_add(1)) else {
-            return false;
-        };
-        let Some(next_after_identifier) = self.tokens.get(self.current.saturating_add(2)) else {
-            return false;
-        };
-
-        matches!(
-            (&next_token.token_type, &next_after_identifier.token_type),
-            (&TokenType::Identifier(_), &TokenType::Colon)
-        )
-    }
-
-    /// Parse the `{ field: value, ... }` constructor suffix following a callee expression.
-    ///
-    /// Called when a `{` is encountered in postfix position after a member expression,
-    /// producing an `Expr::Constructor` node with the accumulated named fields.
-    fn parse_constructor_suffix(&mut self, left: Expr) -> ParseResult<Expr> {
-        self.advance();
-        let mut fields = Vec::new();
-
-        if !self.check(&TokenType::RightBrace) {
-            loop {
-                let field_token = self.advance().clone();
-                let TokenType::Identifier(field_name) = field_token.token_type else {
-                    return Err(ParseError::UnexpectedToken {
-                        expected: "field name".to_owned(),
-                        found: format!("{}", field_token.token_type),
-                        span: ParseError::span_from_token(&field_token),
-                    });
-                };
-
-                self.consume(&TokenType::Colon, "Expected ':' after field name")?;
-                let field_value = self.parse_precedence(Precedence::Assignment)?;
-                let field_span = Span::new(field_token.span.start, field_value.span().end);
-                fields.push(ConstructorField {
-                    name: field_name,
-                    value: field_value,
-                    span: field_span,
-                });
-
-                if self.check(&TokenType::Comma) {
-                    self.advance();
-                } else {
-                    break;
-                }
-            }
-        }
-
-        self.consume(
-            &TokenType::RightBrace,
-            "Expected '}' after constructor fields",
-        )?;
-        let span = Span::new(left.span().start, self.previous_token().span.end);
-
-        Ok(Expr::Constructor {
-            callee: Box::new(left),
-            fields,
-            span,
-            id: self.next_node_id(),
-        })
     }
 
     /// Parse primary expressions (literals, identifiers, parenthesized)
@@ -157,6 +81,7 @@ impl Parser {
             &TokenType::Loop => self.parse_loop_expression(span),
             &TokenType::Guard => self.parse_guard_expression(span),
             &TokenType::Propagate => self.parse_propagate_expression(span),
+            &TokenType::New => self.parse_new_expression(span),
             _ => Err(ParseError::UnexpectedToken {
                 expected: "expression (literal, identifier, function call, lambda, or parenthesized expression)".to_owned(),
                 found: format!("{}", token.token_type),

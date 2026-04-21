@@ -4,6 +4,8 @@ import type User as Account from ./models.types
   Description: Entry point for the import-types-aliased fixture
 ##
 entry main = f(args: string[]): void =>
-    let bob: Account = Account { id: 42, display_name: 'Bob' }
+    let bob: Account = new Account:
+        id: 42
+        display_name: 'Bob'
     print('User {bob.id}: {bob.display_name}')
     return void

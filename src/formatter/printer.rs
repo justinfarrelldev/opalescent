@@ -14,7 +14,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::{
-    BinaryOp, ConstructorField, Decl, Expr, LambdaBody, LiteralValue, MatchArm, Pattern, Program,
+    BinaryOp, Decl, Expr, LambdaBody, LiteralValue, MatchArm, Pattern, Program,
     Stmt, StringPart, Type, TypeDef, UnaryOp, Variant, Visibility,
 };
 use crate::formatter::config::FormatterConfig;
@@ -809,8 +809,32 @@ impl Formatter {
                 ..
             } => {
                 let callee_str = self.print_expr(callee, depth);
-                let fields_str = self.print_constructor_fields(fields, depth);
-                format!("{callee_str} {{{fields_str}}}")
+                // Fields always live in an indented block one level past the
+                // statement that owns the expression. Using `depth + 1` keeps
+                // nested constructors visually aligned with the surrounding
+                // block grammar (`let`, `return`, etc.).
+                let field_indent = self
+                    .config
+                    .indent_unit()
+                    .repeat(depth.saturating_add(1));
+                if fields.is_empty() {
+                    // An empty constructor still needs a body; emit a single
+                    // `pass`-like sentinel line so re-parsing sees the Indent
+                    // block. We keep this simple — the field list is always
+                    // non-empty in practice because the type system rejects
+                    // missing fields, but the formatter should be total.
+                    return format!("new {callee_str}:\n{field_indent}");
+                }
+                let mut out = format!("new {callee_str}:");
+                for field in fields {
+                    let value_str = self.print_expr(&field.value, depth.saturating_add(1));
+                    out.push('\n');
+                    out.push_str(&field_indent);
+                    out.push_str(&field.name);
+                    out.push_str(": ");
+                    out.push_str(&value_str);
+                }
+                out
             }
             Expr::Index {
                 ref object,
@@ -954,17 +978,5 @@ impl Formatter {
             })
             .collect();
         format!("match {scrut} {{ {} }}", arm_strs.join(", "))
-    }
-
-    /// Pretty-print constructor fields.
-    fn print_constructor_fields(&self, fields: &[ConstructorField], depth: usize) -> String {
-        if fields.is_empty() {
-            return String::new();
-        }
-        let parts: Vec<String> = fields
-            .iter()
-            .map(|f| format!("{}: {}", f.name, self.print_expr(&f.value, depth)))
-            .collect();
-        format!(" {} ", parts.join(", "))
     }
 }

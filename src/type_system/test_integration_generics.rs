@@ -101,7 +101,8 @@ type Node<T>:
 
 ## Description: Entry validates generic node constructor inference ##
 entry main = f(): Node<int64> =>
-    return Node { value: 42 }
+    return new Node:
+        value: 42
 ";
 
         let program = parse_pipeline(SOURCE);
@@ -122,7 +123,9 @@ type Pair<T, U>:
 
 ## Description: Entry validates multi-parameter generic constructor inference ##
 entry main = f(): Pair<string, boolean> =>
-    return Pair { first: 'hello', second: true }
+    return new Pair:
+        first: 'hello'
+        second: true
 ";
 
         let program = parse_pipeline(SOURCE);
@@ -161,7 +164,8 @@ type NumberBox<T: int64>:
 
 ## Description: Entry validates generic constraint violation diagnostics ##
 entry main = f(): NumberBox<string> =>
-    return NumberBox { value: 'hello' }
+    return new NumberBox:
+        value: 'hello'
 ";
 
         let program = parse_pipeline(SOURCE);
@@ -188,13 +192,16 @@ public identity = f<T>(x: T): T =>
     return x
 
 ## Description: Entry validates generic instantiation metadata recording ##
-entry main = f(): int64 => {
-    let first: Pair<int64, boolean> = Pair { first: 42, second: true }
-    let second: Pair<int64, boolean> = Pair { first: 7, second: false }
+entry main = f(): int64 =>
+    let first: Pair<int64, boolean> = new Pair:
+        first: 42
+        second: true
+    let second: Pair<int64, boolean> = new Pair:
+        first: 7
+        second: false
     let one: int64 = identity(42)
     let two: int64 = identity(7)
     return one
-}
 ";
 
         let program = parse_pipeline(SOURCE);

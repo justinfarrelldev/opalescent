@@ -28,6 +28,8 @@ pub mod errors;
 mod imports;
 /// Parser submodule for expression parsing (literals, operators, lambdas)
 mod expressions;
+/// Parser submodule for the `new <Type>:` indented-block constructor syntax
+mod new_expression;
 /// Parser submodule for generic parameter declarations
 mod generics;
 /// Parser submodule for helper methods (token navigation, state management)

@@ -5770,3 +5770,137 @@ fn test_closure_block_body_captures() {
         unreachable!("Expected let declaration");
     }
 }
+
+// ---------------------------------------------------------------------------
+// `new Type:` indented constructor expression parsing (Phase 2)
+// ---------------------------------------------------------------------------
+//
+// The canonical form is:
+//
+//     new Person:
+//         name: 'Alice'
+//         age: 30
+//
+// Each field goes on its own line inside an Indent/Dedent block. Sum-type
+// variants use member access on the callee: `new Message.Text:`.
+
+/// A bare `new <Ident>:` with an indented block of `field: expr` lines must
+/// produce an [`Expr::Constructor`] node whose callee is the identifier and
+/// whose fields preserve insertion order.
+#[test]
+fn test_new_expression_parses_product_constructor() {
+    let source = "\
+entry main = f(): void =>
+    let alice = new Person:
+        name: 'Alice'
+        age: 30
+    return void
+";
+
+    let program = parse_program_from_string(source)
+        .expect("new-expression product constructor should parse");
+    assert_eq!(program.declarations.len(), 1);
+
+    let Decl::Function { body, .. } = &program.declarations[0] else {
+        panic!("Expected function declaration");
+    };
+    let Stmt::Block { statements, .. } = body else {
+        panic!("Expected function body block, got: {body:?}");
+    };
+    let Stmt::Let {
+        initializer: Some(init),
+        ..
+    } = &statements[0]
+    else {
+        panic!("Expected let with initializer as first statement, got: {:?}", statements[0]);
+    };
+
+    let Expr::Constructor { callee, fields, .. } = init else {
+        panic!("Expected Expr::Constructor, got: {init:?}");
+    };
+    let Expr::Identifier { name, .. } = callee.as_ref() else {
+        panic!("Expected identifier callee, got: {callee:?}");
+    };
+    assert_eq!(name, "Person");
+    assert_eq!(fields.len(), 2, "expected 2 fields, got: {fields:?}");
+    assert_eq!(fields[0].name, "name");
+    assert_eq!(fields[1].name, "age");
+}
+
+/// Sum-type variant constructors use `Type.Variant` as the callee and parse
+/// into a constructor whose callee is an [`Expr::Member`] node.
+#[test]
+fn test_new_expression_parses_sum_variant_constructor() {
+    let source = "\
+entry main = f(): void =>
+    let msg = new Message.Text:
+        sender: 'alice'
+        body: 'hello'
+    return void
+";
+
+    let program = parse_program_from_string(source)
+        .expect("new-expression sum variant constructor should parse");
+    let Decl::Function { body, .. } = &program.declarations[0] else {
+        panic!("Expected function declaration");
+    };
+    let Stmt::Block { statements, .. } = body else {
+        panic!("Expected block body");
+    };
+    let Stmt::Let {
+        initializer: Some(init),
+        ..
+    } = &statements[0]
+    else {
+        panic!("Expected let");
+    };
+    let Expr::Constructor { callee, fields, .. } = init else {
+        panic!("Expected Expr::Constructor, got: {init:?}");
+    };
+    let Expr::Member { object, member, .. } = callee.as_ref() else {
+        panic!("Expected Member callee, got: {callee:?}");
+    };
+    let Expr::Identifier { name, .. } = object.as_ref() else {
+        panic!("Expected identifier inside member, got: {object:?}");
+    };
+    assert_eq!(name, "Message");
+    assert_eq!(member, "Text");
+    assert_eq!(fields.len(), 2);
+    assert_eq!(fields[0].name, "sender");
+    assert_eq!(fields[1].name, "body");
+}
+
+/// A `new Type:` without an indented field block is a parse error — the
+/// constructor syntax requires at least the indent sentinel.
+#[test]
+fn test_new_expression_missing_indent_block_is_parse_error() {
+    let source = "\
+entry main = f(): void =>
+    let alice = new Person:
+    return void
+";
+
+    let result = parse_program_from_string(source);
+    assert!(
+        result.is_err(),
+        "Expected parse error for `new Type:` with no field block, got: {result:?}"
+    );
+}
+
+/// The legacy `Type { field: value }` brace-constructor form is no longer a
+/// valid expression; parsing it must fail so authors are pushed to the
+/// canonical `new Type:` form.
+#[test]
+fn test_legacy_brace_constructor_no_longer_parses_as_expression() {
+    let source = "\
+entry main = f(): void =>
+    let alice = Person { name: 'Alice', age: 30 }
+    return void
+";
+
+    let result = parse_program_from_string(source);
+    assert!(
+        result.is_err(),
+        "Expected parse error for legacy `Type {{ ... }}` constructor, got: {result:?}"
+    );
+}

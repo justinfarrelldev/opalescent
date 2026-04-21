@@ -1409,4 +1409,112 @@ mod formatter_tests {
             );
         }
     }
+
+    /// A `new Type:` constructor must be emitted with the keyword, callee,
+    /// colon, and each field on its own line indented one level past the
+    /// statement that owns the expression.
+    #[test]
+    fn test_formatter_emits_new_constructor_indented_block() {
+        let source = "\
+entry main = f(): void =>
+    let alice = new Person:
+        name: 'Alice'
+        age: 30
+    return void
+";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).expect("constructor should format");
+        assert!(
+            result.contains("let alice = new Person:\n"),
+            "formatter should emit `let alice = new Person:` header, got: {result}"
+        );
+        assert!(
+            result.contains("        name: 'Alice'\n"),
+            "first field should be indented one level past the `let`, got: {result}"
+        );
+        assert!(
+            result.contains("        age: 30\n"),
+            "second field should share the same indent as the first, got: {result}"
+        );
+        assert!(
+            !result.contains('{') || !result.contains("Person {"),
+            "formatter must not emit the legacy brace form, got: {result}"
+        );
+    }
+
+    /// Formatting a `new` constructor source must be idempotent and the
+    /// formatted output must round-trip through the parser without errors.
+    #[test]
+    fn test_formatter_new_constructor_round_trips() {
+        let source = "\
+entry main = f(): void =>
+    let alice = new Person:
+        name: 'Alice'
+        age: 30
+    return void
+";
+        let fmt = Formatter::with_defaults();
+        let first_pass = fmt.format_source(source).expect("first pass should format");
+        let second_pass = fmt
+            .format_source(&first_pass)
+            .expect("second pass should format");
+        assert_eq!(
+            first_pass, second_pass,
+            "new-constructor formatting must be idempotent"
+        );
+
+        let lexer = crate::lexer::Lexer::new(&first_pass);
+        let (tokens, lex_errors) = lexer.tokenize();
+        assert!(
+            lex_errors.errors.is_empty(),
+            "formatted output must lex cleanly, got: {lex_errors:?}"
+        );
+        let parser = crate::parser::Parser::new(tokens);
+        let (_program, parse_errors) = parser.parse();
+        assert!(
+            parse_errors.errors.is_empty(),
+            "formatted output must parse cleanly, got: {parse_errors:?}"
+        );
+    }
+
+    /// Sum-type variant constructors (e.g. `new Message.Text:`) must be
+    /// emitted with the full member callee preserved on the header line.
+    #[test]
+    fn test_formatter_emits_new_variant_constructor() {
+        let source = "\
+entry main = f(): void =>
+    let m = new Message.Text:
+        sender: 'alice'
+        body: 'hi'
+    return void
+";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source).expect("variant ctor should format");
+        assert!(
+            result.contains("new Message.Text:\n"),
+            "formatter should preserve `new Message.Text:` callee, got: {result}"
+        );
+    }
+
+    /// Misaligned field lines inside a `new Type:` block must fail to parse
+    /// entirely (unexpected dedent/indent), guaranteeing that `fmt --check`
+    /// — which runs the formatter and diffs — bubbles the error up fast.
+    #[test]
+    fn test_formatter_rejects_misaligned_new_constructor_fields() {
+        // The first field is indented 8 spaces, the second only 4 — parser
+        // sees this as a premature Dedent and cannot produce a valid program.
+        let source = "\
+entry main = f(): void =>
+    let alice = new Person:
+        name: 'Alice'
+    age: 30
+    return void
+";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source);
+        assert!(
+            result.is_err(),
+            "formatter must reject misaligned `new Type:` field block so `fmt --check` fails fast, got: {result:?}"
+        );
+    }
 }

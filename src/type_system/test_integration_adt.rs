@@ -113,7 +113,9 @@ type Message:
 
 ## Description: Entry validates sum variant constructor typing rules ##
 entry main = f(): Message =>
-    return Message.Text { sender: 'alice', body: 'hello' }
+    return new Message.Text:
+        sender: 'alice'
+        body: 'hello'
 ";
 
         let program = parse_pipeline(SOURCE);
@@ -135,7 +137,9 @@ type Message:
 
 ## Description: Entry validates unknown variant diagnostic behavior ##
 entry main = f(): Message =>
-    return Message.UnknownVariant { sender: 'alice', body: 'hello' }
+    return new Message.UnknownVariant:
+        sender: 'alice'
+        body: 'hello'
 ";
 
         let program = parse_pipeline(SOURCE);
@@ -158,10 +162,11 @@ type Person:
     age: int32
 
 ## Description: Entry validates product field access type checking ##
-entry main = f(): string => {
-    let person: Person = Person { name: 'bob', age: 30 }
+entry main = f(): string =>
+    let person: Person = new Person:
+        name: 'bob'
+        age: 30
     return person.name
-}
 ";
 
         let program = parse_pipeline(SOURCE);
@@ -182,7 +187,9 @@ type Person:
 
 ## Description: Entry validates product field mismatch diagnostics ##
 entry main = f(): Person =>
-    return Person { name: 42, age: 30 }
+    return new Person:
+        name: 42
+        age: 30
 ";
 
         let program = parse_pipeline(SOURCE);
@@ -233,7 +240,8 @@ type Message:
 
 ## Description: Entry validates missing constructor field diagnostics ##
 entry main = f(): Message =>
-    return Message.Text { sender: 'alice' }
+    return new Message.Text:
+        sender: 'alice'
 ";
 
         let program = parse_pipeline(SOURCE);
@@ -258,7 +266,10 @@ type Message:
 
 ## Description: Entry validates duplicate constructor field diagnostics ##
 entry main = f(): Message =>
-    return Message.Text { sender: 'alice', sender: 'bob', body: 'hello' }
+    return new Message.Text:
+        sender: 'alice'
+        sender: 'bob'
+        body: 'hello'
 ";
 
         let program = parse_pipeline(SOURCE);

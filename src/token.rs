@@ -176,6 +176,9 @@ pub enum TokenType {
     As,
     /// The 'type' keyword for type declarations
     Type,
+    /// The 'new' keyword that introduces a constructor expression
+    /// (e.g. `new Point:` followed by an indented field block).
+    New,
 
     // Operators
     /// Addition operator (+)
@@ -374,6 +377,7 @@ impl fmt::Display for TokenType {
             Self::From => write!(f, "keyword 'from'"),
             Self::As => write!(f, "keyword 'as'"),
             Self::Type => write!(f, "keyword 'type'"),
+            Self::New => write!(f, "keyword 'new'"),
             Self::Plus => write!(f, "operator '+'"),
             Self::Minus => write!(f, "operator '-'"),
             Self::Multiply => write!(f, "operator '*'"),
