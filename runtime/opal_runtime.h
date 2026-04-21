@@ -62,4 +62,18 @@ char* float32_to_string(float value);
 char* float64_to_string(double value);
 char* bool_to_string(int8_t value);
 
+/* `Bytes` stdlib surface. `OpalBytes` is an opaque owned heap pointer
+ * passed across the FFI boundary as `i8*`. Fallible helpers mirror the
+ * `ParseResult*` `{value, error}` convention so `guard`/`propagate`
+ * lowering is identical. */
+typedef struct OpalBytes OpalBytes;
+typedef struct { OpalBytes* value; const char* error; } BytesResult;
+
+OpalBytes* bytes_new(void);
+int32_t    bytes_length(OpalBytes* bytes);
+char*      bytes_to_hex(OpalBytes* bytes);
+OpalBytes* bytes_concatenate(OpalBytes* left, OpalBytes* right);
+BytesResult bytes_from_hex(const char* hex);
+BytesResult bytes_slice(OpalBytes* source, int32_t start, int32_t end);
+
 #endif

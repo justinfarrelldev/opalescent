@@ -27,6 +27,10 @@ use crate::type_system::errors::TypeError;
 use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::{collections::BTreeMap, vec::Vec};
+use compiler_helpers::{
+    collect_imported_symbol_signatures, compile_checked_program_to_module, is_main_module_path,
+    lambda_body_to_function_body, parse_source_to_program, validate_entry_declarations_for_module,
+};
 use inkwell::OptimizationLevel;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -34,11 +38,6 @@ use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Tar
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
-use compiler_helpers::{
-    collect_imported_symbol_signatures,
-    compile_checked_program_to_module, is_main_module_path, lambda_body_to_function_body,
-    parse_source_to_program, validate_entry_declarations_for_module,
-};
 
 /// Embedded C runtime source used during native linking.
 const RUNTIME_SOURCE: &str = concat!(
@@ -53,6 +52,8 @@ const RUNTIME_SOURCE: &str = concat!(
     include_str!("../runtime/opal_parse.c"),
     "\n",
     include_str!("../runtime/opal_string.c"),
+    "\n",
+    include_str!("../runtime/opal_bytes.c"),
 );
 
 /// Temporary runtime source file materialized for the system C compiler.
@@ -131,7 +132,10 @@ pub enum CompileError {
 ///
 /// # Errors
 /// Returns a multi-error report plus normalized source when any stage fails.
-#[expect(clippy::too_many_lines, reason = "Complex compilation pipeline with multiple stages")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Complex compilation pipeline with multiple stages"
+)]
 pub fn compile_to_module<'context>(
     context: &'context Context,
     source_path: &Path,

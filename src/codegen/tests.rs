@@ -2447,3 +2447,201 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
         "is not operator on function pointer should NOT use strcmp: {ir}"
     );
 }
+
+// -----------------------------------------------------------------------------
+// Bytes stdlib codegen tests.
+//
+// Pin down the LLVM declarations emitted when importing the `bytes_*`
+// stdlib surface. The runtime representation of `Bytes` is an opaque heap
+// pointer (`i8*`); the two fallible operations return a `{ptr, err_ptr}`
+// struct identical in shape to the existing `string_to_intN` helpers.
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_import_bytes_new_emits_bytes_new_declaration() {
+    let source = "
+import bytes_new from standard
+
+##
+    Description: Entry function validates bytes_new declaration emission
+##
+entry main = f(): void => {
+    let buffer: Bytes = bytes_new()
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "imported bytes_new should compile without errors"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @bytes_new()"),
+        "import bytes_new from standard should emit declare i8* @bytes_new(): {ir}"
+    );
+}
+
+#[test]
+fn test_import_bytes_length_emits_i32_return() {
+    let source = "
+import bytes_new, bytes_length from standard
+
+##
+    Description: Entry function validates bytes_length declaration shape
+##
+entry main = f(): void => {
+    let buffer: Bytes = bytes_new()
+    let len: int32 = bytes_length(buffer)
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "imported bytes_length should compile without errors"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i32 @bytes_length(i8*)"),
+        "bytes_length should declare as 'i32 @bytes_length(i8*)': {ir}"
+    );
+}
+
+#[test]
+fn test_import_bytes_to_hex_emits_string_return() {
+    let source = "
+import bytes_new, bytes_to_hex from standard
+
+##
+    Description: Entry function validates bytes_to_hex declaration shape
+##
+entry main = f(): void => {
+    let buffer: Bytes = bytes_new()
+    let hex: string = bytes_to_hex(buffer)
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "imported bytes_to_hex should compile without errors"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @bytes_to_hex(i8*)"),
+        "bytes_to_hex should declare as 'i8* @bytes_to_hex(i8*)': {ir}"
+    );
+}
+
+#[test]
+fn test_import_bytes_concatenate_emits_two_arg_declaration() {
+    let source = "
+import bytes_new, bytes_concatenate from standard
+
+##
+    Description: Entry function validates bytes_concatenate declaration shape
+##
+entry main = f(): void => {
+    let a: Bytes = bytes_new()
+    let b: Bytes = bytes_new()
+    let c: Bytes = bytes_concatenate(a, b)
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "imported bytes_concatenate should compile without errors"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @bytes_concatenate(i8*, i8*)"),
+        "bytes_concatenate should declare as 'i8* @bytes_concatenate(i8*, i8*)': {ir}"
+    );
+}
+
+#[test]
+fn test_import_bytes_from_hex_emits_struct_result_declaration() {
+    let source = "
+import bytes_from_hex, bytes_length from standard
+
+##
+    Description: Entry function guards bytes_from_hex to pin its struct return
+##
+entry main = f(hex: string): void =>
+    guard bytes_from_hex(hex) into buffer else err =>
+        print(err)
+        return void
+    let len: int32 = bytes_length(buffer)
+    return void
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "imported bytes_from_hex with guard should compile without errors: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare { i8*, i8* } @bytes_from_hex(i8*)"),
+        "bytes_from_hex should declare as 'declare {{ i8*, i8* }} @bytes_from_hex(i8*)': {ir}"
+    );
+}
+
+#[test]
+fn test_import_bytes_slice_emits_struct_result_declaration() {
+    let source = "
+import bytes_new, bytes_slice, bytes_length from standard
+
+##
+    Description: Entry function guards bytes_slice to pin its struct return
+##
+entry main = f(): void =>
+    let buffer: Bytes = bytes_new()
+    guard bytes_slice(buffer, 0, 0) into sub else err =>
+        print(err)
+        return void
+    let len: int32 = bytes_length(sub)
+    return void
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "imported bytes_slice with guard should compile without errors: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare { i8*, i8* } @bytes_slice(i8*, i32, i32)"),
+        "bytes_slice should declare as 'declare {{ i8*, i8* }} @bytes_slice(i8*, i32, i32)': {ir}"
+    );
+}

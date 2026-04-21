@@ -84,12 +84,14 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 #### ✅ Error Handling System (COMPLETE - Phase 2 Blocker #1 Cleared)
 
 **Syntax supported:**
+
 - Function declarations with error types: `let parse = f(s: string): int32 errors ParseError => { ... }`
 - Lambda expressions with errors: `let map_try = f<T, U>(arr: [T], f: f(T): U errors E): [U] errors E => { ... }`
 - Guard expression: `guard read_line() into line else handle_line_error(line_error)`
 - Propagate expression: `let n = propagate string_to_int32(s)`
 
 **Implementation status:**
+
 - [x] Parser support for `errors`, `guard`, `into`, `propagate`, keywords
 - [x] AST nodes: `Expr::Guard`, `Expr::Propagate`, `error_types` in functions/lambdas
 - [x] Type system: `CoreType::Function::error_types`, error type unification
@@ -98,6 +100,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] Full test coverage for guard/propagate/error scenarios
 
 **Dependencies:**
+
 - All language features requiring error handling must use guard/propagate
 - Function System (Phase 2) depends on error handling being complete
 - Warning System (Phase 2 Blocker #9) integrates with error reporting
@@ -115,29 +118,29 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 #### Phase 2 Preparation Infrastructure (✅ Complete)
 
 - [x] **Symbol Table System** (SymbolTable, SymbolInfo, SymbolType, Visibility)
-   - [x] register_symbol() method for adding symbols to scope
-   - [x] get_symbol() method for symbol lookup
-   - [x] enter_scope() / exit_scope() for scope management
-   - [x] Shadowing support and scope hierarchy
+  - [x] register_symbol() method for adding symbols to scope
+  - [x] get_symbol() method for symbol lookup
+  - [x] enter_scope() / exit_scope() for scope management
+  - [x] Shadowing support and scope hierarchy
 - [x] **Constraint Collection Infrastructure** (TypeConstraint enum)
-   - [x] Equality constraints for type unification
-   - [x] HasField constraints for struct field checking (deferred to Phase 3)
-   - [x] Callable constraints for function type checking
-   - [x] add_constraint() method for constraint tracking
-   - [x] solve_constraints() implementation (equality and callable constraints working)
+  - [x] Equality constraints for type unification
+  - [x] HasField constraints for struct field checking (deferred to Phase 3)
+  - [x] Callable constraints for function type checking
+  - [x] add_constraint() method for constraint tracking
+  - [x] solve_constraints() implementation (equality and callable constraints working)
 - [x] **Test maintainability improvements**
-   - [x] Replace magic numbers with semantic constants
-   - [x] TEST_VAR_ID, ANOTHER_TEST_VAR_ID, THIRD_TEST_VAR_ID constants
+  - [x] Replace magic numbers with semantic constants
+  - [x] TEST_VAR_ID, ANOTHER_TEST_VAR_ID, THIRD_TEST_VAR_ID constants
 
 #### Phase 6 Hot Reload Preparation (✅ Complete)
 
 - [x] **ABI Layout Infrastructure** (MemoryLayout struct)
-   - [x] memory_layout() const method on CoreType
-   - [x] Size and alignment calculation for all types
-   - [x] Support for Phase 6 ABI compatibility checking
+  - [x] memory_layout() const method on CoreType
+  - [x] Size and alignment calculation for all types
+  - [x] Support for Phase 6 ABI compatibility checking
 - [x] **Symbol Table for ABI Signature Generation**
-   - [x] SymbolInfo struct with type information
-   - [x] Preparation for cross-module state preservation
+  - [x] SymbolInfo struct with type information
+  - [x] Preparation for cross-module state preservation
 
 #### Comprehensive Documentation (✅ Complete)
 
@@ -151,38 +154,38 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 #### Type Checking Implementation (✅ Partially Complete)
 
 - [x] **Expression Type Checking** (expressions.rs)
-   - [x] Literal expressions
-   - [x] Identifier resolution
-   - [x] Binary operations (arithmetic, comparison, logical, bitwise)
-   - [x] Unary operations (negation, not, bitwise not)
-   - [x] Function calls with arity and parameter checking
-   - [x] Array access and array literals
-   - [x] Cast expressions with validation
-   - [x] String interpolation
-   - [x] Lambda expressions (parameters, return types, body checking)
-   - [x] Type inference for expression trees
-   - [x] Guard expressions (success/error type binding, else branch validation)
-   - [x] Propagate expressions (error type subset checking)
+  - [x] Literal expressions
+  - [x] Identifier resolution
+  - [x] Binary operations (arithmetic, comparison, logical, bitwise)
+  - [x] Unary operations (negation, not, bitwise not)
+  - [x] Function calls with arity and parameter checking
+  - [x] Array access and array literals
+  - [x] Cast expressions with validation
+  - [x] String interpolation
+  - [x] Lambda expressions (parameters, return types, body checking)
+  - [x] Type inference for expression trees
+  - [x] Guard expressions (success/error type binding, else branch validation)
+  - [x] Propagate expressions (error type subset checking)
 - [x] **Statement Type Checking** (statements.rs)
-   - [x] Let bindings with type inference
-   - [x] Assignment statements
-   - [x] Return statements with expected type validation
-   - [x] Return statements with multiple types (in progress - Task 1 just completed)
-   - [x] Expression statements
-   - [x] Block statements with scope management
-   - [x] If statements with boolean condition enforcement
-   - [x] For loops with array iteration
-   - [x] While loops with boolean condition
-   - [x] Loop statements
-   - [x] Break/continue statements
+  - [x] Let bindings with type inference
+  - [x] Assignment statements
+  - [x] Return statements with expected type validation
+  - [x] Return statements with multiple types (in progress - Task 1 just completed)
+  - [x] Expression statements
+  - [x] Block statements with scope management
+  - [x] If statements with boolean condition enforcement
+  - [x] For loops with array iteration
+  - [x] While loops with boolean condition
+  - [x] Loop statements
+  - [x] Break/continue statements
 - [x] **Declaration Type Checking** (declarations.rs)
-   - [x] Function declarations with parameter and return type validation
-   - [x] Function body type checking in new scope
-   - [x] Let declarations (module-level)
-   - [x] Type declarations (ADT validation)
-   - [x] Forward reference handling (two-pass: signature registration, then body checking)
-   - [x] Program-level type checking with error collection
-   - [x] Import declarations (deferred to Phase 4 - currently acknowledged but not validated)
+  - [x] Function declarations with parameter and return type validation
+  - [x] Function body type checking in new scope
+  - [x] Let declarations (module-level)
+  - [x] Type declarations (ADT validation)
+  - [x] Forward reference handling (two-pass: signature registration, then body checking)
+  - [x] Program-level type checking with error collection
+  - [x] Import declarations (deferred to Phase 4 - currently acknowledged but not validated)
 
 #### Cast Validation and Safety (✅ Complete)
 
@@ -208,38 +211,38 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 **Status**: All error handling infrastructure complete and functional. Guard/propagate/errors fully integrated into type system and parser. Phase 2 Blocker #1 CLEARED.
 
 - [x] **Error Type Declarations in Function Signatures**
-   - [x] Parse `errors ErrorType1, ErrorType2` clause in function declarations
-   - [x] Parse `errors` clause in lambda expressions
-   - [x] Store error types in `Decl::Function` AST node
-   - [x] Store error types in `Expr::Lambda` AST node
-   - [x] Validate error type names exist in type system
-   - [x] Add error types to function signature documentation
+  - [x] Parse `errors ErrorType1, ErrorType2` clause in function declarations
+  - [x] Parse `errors` clause in lambda expressions
+  - [x] Store error types in `Decl::Function` AST node
+  - [x] Store error types in `Expr::Lambda` AST node
+  - [x] Validate error type names exist in type system
+  - [x] Add error types to function signature documentation
 - [x] **Guard Expression Implementation**
-   - [x] Add `Expr::Guard` variant to AST with: `expr`, `binding_name`, `else_branch`
-   - [x] Parse `guard expr into name else handler` syntax
-   - [x] Support optional type/mutability modifiers on guard binding
-   - [x] Type check guard expression (guarded expr returns Result/error type)
-   - [x] Type check binding name against success type
-   - [x] Type check else branch handler for error type compatibility
-   - [x] Register guard binding in symbol table for subsequent statements
-   - [x] Ensure else branch handles error type correctly
+  - [x] Add `Expr::Guard` variant to AST with: `expr`, `binding_name`, `else_branch`
+  - [x] Parse `guard expr into name else handler` syntax
+  - [x] Support optional type/mutability modifiers on guard binding
+  - [x] Type check guard expression (guarded expr returns Result/error type)
+  - [x] Type check binding name against success type
+  - [x] Type check else branch handler for error type compatibility
+  - [x] Register guard binding in symbol table for subsequent statements
+  - [x] Ensure else branch handles error type correctly
 - [x] **Propagate Keyword Implementation**
-   - [x] Add `Expr::Propagate` variant to AST (or extend `Expr::Call`)
-   - [x] Parse `propagate function_call()` syntax
-   - [x] Validate propagate only used in functions that declare errors
-   - [x] Type check propagate ensures error types match function signature
+  - [x] Add `Expr::Propagate` variant to AST (or extend `Expr::Call`)
+  - [x] Parse `propagate function_call()` syntax
+  - [x] Validate propagate only used in functions that declare errors
+  - [x] Type check propagate ensures error types match function signature
 - [x] **Type System Error Type Support**
-   - [x] Add `error_types: Vec<String>` to `CoreType::Function`
-   - [x] Implement error type compatibility checking
-   - [x] Validate propagate statements match function error signature
-   - [x] Check guard expressions handle appropriate error types
-   - [x] Update unification algorithm to handle error types
+  - [x] Add `error_types: Vec<String>` to `CoreType::Function`
+  - [x] Implement error type compatibility checking
+  - [x] Validate propagate statements match function error signature
+  - [x] Check guard expressions handle appropriate error types
+  - [x] Update unification algorithm to handle error types
 - [x] **Error Handling Test Coverage**
-   - [x] Create test files with guard/propagate patterns
-   - [x] Test multiple error type scenarios
-   - [x] Test error type mismatch detection
-   - [x] Test propagate in non-error-returning functions (should error)
-   - [x] Test guard with incompatible else branch types
+  - [x] Create test files with guard/propagate patterns
+  - [x] Test multiple error type scenarios
+  - [x] Test error type mismatch detection
+  - [x] Test propagate in non-error-returning functions (should error)
+  - [x] Test guard with incompatible else branch types
 
 **Reference**: See `plan/phase-2-blockers-plan.md` section 1 for complete implementation details and syntax documentation.
 
@@ -248,33 +251,33 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 **Status**: Task 1 just completed. Parser and AST updated for multiple return values support. Type system integration in progress.
 
 - [x] **Multiple Return Type Support in AST**
-   - [x] Modify `Type::Function` to support `return_types: Vec<Type>` (replace single return_type) — COMPLETE
-   - [x] Modify `Decl::Function` to use `return_types: Vec<Type>` — COMPLETE
-   - [x] Modify `Expr::Lambda` to use `return_types: Vec<Type>` — COMPLETE
-   - [x] Maintain backward compatibility with single return (Vec of 1 element) — COMPLETE
+  - [x] Modify `Type::Function` to support `return_types: Vec<Type>` (replace single return_type) — COMPLETE
+  - [x] Modify `Decl::Function` to use `return_types: Vec<Type>` — COMPLETE
+  - [x] Modify `Expr::Lambda` to use `return_types: Vec<Type>` — COMPLETE
+  - [x] Maintain backward compatibility with single return (Vec of 1 element) — COMPLETE
 - [x] **Labeled Return Value Support**
-   - [x] Modify `Stmt::Return` to support `values: Vec<LabeledValue>`
-   - [x] Parse `return label1: expr1, label2: expr2` syntax
-   - [x] Validate label names are unique in return statement
-   - [x] Support mixing labeled and unlabeled returns (unlabeled gets auto-label?)
+  - [x] Modify `Stmt::Return` to support `values: Vec<LabeledValue>`
+  - [x] Parse `return label1: expr1, label2: expr2` syntax
+  - [x] Validate label names are unique in return statement
+  - [x] Support mixing labeled and unlabeled returns (unlabeled gets auto-label?)
 - [x] **Parser Updates for Multiple Returns** (committed: 3169c99)
-   - [x] Parse `f(...): Type1, Type2, Type3` function return signatures
-   - [x] Parse comma-separated return types in function declarations
-   - [x] Parse comma-separated return types in lambda expressions
-   - [x] Error on label duplication in return statements
-   - [x] Support single return as special case of multiple returns
+  - [x] Parse `f(...): Type1, Type2, Type3` function return signatures
+  - [x] Parse comma-separated return types in function declarations
+  - [x] Parse comma-separated return types in lambda expressions
+  - [x] Error on label duplication in return statements
+  - [x] Support single return as special case of multiple returns
 - [x] **Type System Multiple Return Support**
-   - [x] Update `CoreType::Function` to handle `return_types: Vec<CoreType>` (in progress)
-   - [x] Type check multiple return values match signature
-   - [x] Validate labeled return values against function signature labels
-   - [x] Update constraint solving for multi-return functions
-   - [x] Ensure all return statements in function match signature
+  - [x] Update `CoreType::Function` to handle `return_types: Vec<CoreType>` (in progress)
+  - [x] Type check multiple return values match signature
+  - [x] Validate labeled return values against function signature labels
+  - [x] Update constraint solving for multi-return functions
+  - [x] Ensure all return statements in function match signature
 - [x] **Multiple Return Test Coverage**
-   - [x] Test functions with multiple return types
-   - [x] Test labeled return statements
-   - [x] Test return value count mismatch errors
-   - [x] Test return label name mismatches
-   - [x] Test single return backward compatibility
+  - [x] Test functions with multiple return types
+  - [x] Test labeled return statements
+  - [x] Test return value count mismatch errors
+  - [x] Test return label name mismatches
+  - [x] Test single return backward compatibility
 
 **Note**: Labeled return values deferred to later in Phase 2 pending specification clarification.
 
@@ -402,27 +405,27 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 ##### 10. Type System Core Plan Synchronization (✅ COMPLETE - DOCUMENTATION)
 
 - [x] **Update type-system-core-plan.md**
-   - [x] Mark error handling as critical Phase 2 blocker (complete)
-   - [x] Add multiple return value support requirements (in progress)
-   - [x] Add standard library built-ins section
-   - [x] Mark if expression semantics as needing resolution
-   - [x] Update constraint solver status with new constraints
-   - [x] Document HasField constraint deferral to Phase 3
-   - [x] Add Phase 2 blocker status section with cross-references
+  - [x] Mark error handling as critical Phase 2 blocker (complete)
+  - [x] Add multiple return value support requirements (in progress)
+  - [x] Add standard library built-ins section
+  - [x] Mark if expression semantics as needing resolution
+  - [x] Update constraint solver status with new constraints
+  - [x] Document HasField constraint deferral to Phase 3
+  - [x] Add Phase 2 blocker status section with cross-references
 
 **Reference**: `plan/type-system-core-plan.md` now includes full blocker status matrix with cross-references and dependency notes.
 
 ##### 11. PLAN.md Integration (✅ IN PROGRESS - DOCUMENTATION)
 
 - [x] **Update PLAN.md Phase 2 Structure**
-   - [x] Add "Error Handling System" section (this section serves as documentation)
-   - [x] Document guard/propagate/errors syntax requirements and status
-   - [x] Add dependency notes: error handling blocks function system
-   - [x] Update Function System dependencies on error handling
-   - [x] Cross-reference blocker items in relevant phase sections
-   - [x] Mark Blocker #1 as complete with reference to detailed plan
-   - [x] Mark Blocker #2 status update with parser complete, type system in progress
-   - [x] Final verification pass when all blockers updated
+  - [x] Add "Error Handling System" section (this section serves as documentation)
+  - [x] Document guard/propagate/errors syntax requirements and status
+  - [x] Add dependency notes: error handling blocks function system
+  - [x] Update Function System dependencies on error handling
+  - [x] Cross-reference blocker items in relevant phase sections
+  - [x] Mark Blocker #1 as complete with reference to detailed plan
+  - [x] Mark Blocker #2 status update with parser complete, type system in progress
+  - [x] Final verification pass when all blockers updated
 
 #### Remaining Tasks for Phase 1 Type System Core
 
@@ -644,6 +647,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 **Status**: ✅ COMPLETE — All 7 integration tests passing with real compilation and execution
 
 #### Orchestration & Emission
+
 - [x] `compile_to_module(context: &Context, source: &str) -> Result<Module, CompileError>` — chains lex → parse → typecheck → codegen
 - [x] `compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, CompileError>` — full E2E: compile_to_module → emit object file → link → return binary path
 - [x] Object file emission via `TargetMachine::write_to_file(FileType::Object)`
@@ -653,12 +657,14 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] `Cargo.toml` with dual targets (`[lib]` and `[[bin]]`) and `integration` feature gate
 
 #### Test Projects (Real Executable Verification)
+
 - [x] `test-projects/hello-world/` — project structure with `opal.toml`, `.gitignore`, `README.md`, `src/main.op`
 - [x] `test-projects/fib-recursive/` — recursive Fibonacci with `let fib = f(n: int32): int32` and `if n is 0 { return 0 }` equality check
 - [x] `test-projects/fib-iterative/` — iterative Fibonacci with `let mutable` variables and `while` loop
 - [x] `test-projects/simple-quiz/` — interactive quiz using `take_input()`, `random_int32()`, `string_to_int32()`, and stdlib imports
 
 #### Code Generation Features
+
 - [x] String interpolation in `src/codegen/expressions_string.rs` via `sprintf` with format string building
 - [x] Import system codegen via `codegen_import_declaration` mapping module/symbol pairs to runtime function names
 - [x] Stdlib prototype registry in `resolve_callee_function` — maps known names to LLVM externs (`puts`, `printf`, etc.)
@@ -666,6 +672,7 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] `print(int32)` → `opal_print_int()` codegen (for non-string types)
 
 #### C Runtime (embedded in binary)
+
 - [x] C runtime is embedded in the compiler binary via `include_str!` — no external file needed at runtime
 - [x] `opal_take_input()` → `i8*` — reads line from stdin, returns heap-allocated string
 - [x] `opal_random_int32(min: int32, max: int32)` → `int32` — pseudo-random integer in range
@@ -674,10 +681,12 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] `opal_print_int(value: int32)` → `int32` — formats and prints int32 via `printf()`
 
 #### Type System Updates
+
 - [x] Updated builtin signatures: `string_to_int32(string): int32` (no error types), `random_int32(int32, int32): int32`
 - [x] Both signatures match int32 ABI and language default numeric type
 
 #### Integration Tests (Gated by `feature = "integration"`)
+
 - [x] Test 1: `test_smoke_void_program` — void program compiles and runs with exit 0
 - [x] Test 2: `hello_world_compiles_links_and_runs` — reads `test-projects/hello-world/src/main.op`, compiles, runs, asserts stdout contains `"Hello world"`
 - [x] Test 3: `fib_recursive_compiles_links_and_runs` — asserts `"fib(10) = 55"` in output
@@ -818,6 +827,40 @@ This document outlines the comprehensive plan for implementing the Opalescent pr
 - [x] IDE plugins
 - [x] Documentation hosting
 - [x] Compiler "Help" commands work to get command clarifications
+
+---
+
+## Standard Library Extensions
+
+Post-completion additions driven by proposals in `stdlib-proposals/`.
+
+### ✅ Dedicated `Bytes` Type (Name: bytes-type-plan.md)
+
+Source proposal: `stdlib-proposals/byte-buffer-type/dedicated-bytes-type/`.
+
+- [x] `Bytes` struct wrapping `Vec<u8>` with immutable, fail-fast API
+- [x] `BytesError` with `IndexOutOfBounds`, `InvalidRange`, `InvalidHexLength`, `InvalidHexCharacter`
+- [x] Construction: `new`, `from_slice`, `from_vec`
+- [x] Accessors: `length`, `get`, `as_slice`
+- [x] `concatenate` — joins two buffers
+- [x] `slice` — returns half-open `[start, end)` range or `InvalidRange`
+- [x] `to_hex_string` — lowercase hex encoding
+- [x] `from_hex_string` — case-insensitive hex decoding with positional error
+- [x] Registered as `opalescent::stdlib::bytes` submodule
+- [x] 30 TDD tests covering normal, edge, and error paths; lint clean; `no_std` compatible
+
+#### Language-level integration (Name: bytes-stdlib-integration-plan.md)
+
+- [x] C runtime `runtime/opal_bytes.c` mirroring the Rust API with `{value, error}` struct returns
+- [x] `runtime/opal_runtime.h` declarations for every exported bytes symbol
+- [x] `RUNTIME_SOURCE` in `src/compiler.rs` concatenates `opal_bytes.c`
+- [x] `src/type_system/checker/bytes_builtins.rs` registers the `Bytes`, `HexDecodeError`, and `SliceRangeError` nominal types
+- [x] Six builtin signatures (`bytes_new`, `bytes_length`, `bytes_to_hex`, `bytes_concatenate`, `bytes_from_hex`, `bytes_slice`) registered in the type checker
+- [x] LLVM declarations + `STDLIB_NAMES` entries in `src/codegen/functions_stdlib.rs`
+- [x] `known_runtime_return_type` in `src/codegen/statements.rs` covers every bytes builtin so `guard` bindings type-check
+- [x] `stdlib/prelude.op` documents the public surface
+- [x] `test-projects/bytes-hex-roundtrip` end-to-end project (`bytes_from_hex` → `bytes_concatenate` → `bytes_slice` → `bytes_to_hex`)
+- [x] `tests/integration_e2e/bytes_stdlib.rs` compiles, links, runs, and asserts stdout under `--features integration`
 
 ---
 

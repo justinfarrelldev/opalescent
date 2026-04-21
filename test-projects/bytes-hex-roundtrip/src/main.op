@@ -1,0 +1,42 @@
+##
+  Description: Validates the Bytes stdlib surface end to end.
+
+  Expected stdout:
+    length: 4
+    first: deadbeef
+    doubled: 8
+    slice: deadbeef
+##
+import bytes_from_hex, bytes_length, bytes_to_hex, bytes_concatenate, bytes_slice from standard
+
+##
+  Description: Entry point that exercises every imported Bytes stdlib helper.
+
+  1. Decodes a lowercase hex literal into a Bytes buffer.
+  2. Concatenates the buffer with itself.
+  3. Slices the concatenation back to the first half.
+  4. Re-encodes the slice and prints it.
+##
+entry main = f(args: string[]): void =>
+    guard bytes_from_hex('deadbeef') into buffer else decode_error =>
+        print('decode error: {decode_error}')
+        return void
+
+    let original_length: int32 = bytes_length(buffer)
+    print('length: {original_length}')
+
+    let hex_first: string = bytes_to_hex(buffer)
+    print('first: {hex_first}')
+
+    let doubled: Bytes = bytes_concatenate(buffer, buffer)
+    let doubled_length: int32 = bytes_length(doubled)
+    print('doubled: {doubled_length}')
+
+    guard bytes_slice(doubled, 0, 4) into first_half else slice_error =>
+        print('slice error: {slice_error}')
+        return void
+
+    let hex_slice: string = bytes_to_hex(first_half)
+    print('slice: {hex_slice}')
+    return void
+

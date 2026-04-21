@@ -21,6 +21,8 @@ use alloc::{collections::BTreeMap, format, string::String, vec::Vec};
 use hot_reload::FunctionHotReloadMetadata;
 
 // Sub-modules
+/// Bytes stdlib built-in signature registration.
+mod bytes_builtins;
 mod call_resolution;
 mod collections;
 /// ADT constructor expression and schema validation helpers.
@@ -185,7 +187,10 @@ impl TypeChecker {
     }
 
     /// Register all phase-2 standard-library built-in signatures.
-    #[expect(clippy::too_many_lines, reason = "Registers all standard library built-in function signatures")]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Registers all standard library built-in function signatures"
+    )]
     fn register_standard_builtins(&mut self) {
         let print_type_var = TypeVar::new(usize::MAX, "T".to_owned());
         let generic_print_param = CoreType::Variable(print_type_var.clone());
@@ -288,6 +293,7 @@ impl TypeChecker {
         });
 
         self.register_size_specific_builtins();
+        self.register_bytes_builtins();
 
         self.register_integer_intrinsics_for_type("int8", &CoreType::Int8);
         self.register_integer_intrinsics_for_type("int16", &CoreType::Int16);

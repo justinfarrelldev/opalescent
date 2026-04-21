@@ -40,6 +40,9 @@ pub fn declare_stdlib_function<'context>(
     let parse_result_i64_type = ctx.struct_type(&[i64_type.into(), i8_ptr.into()], false);
     let parse_result_f32_type = ctx.struct_type(&[f32_type.into(), i8_ptr.into()], false);
     let parse_result_f64_type = ctx.struct_type(&[f64_type.into(), i8_ptr.into()], false);
+    // Bytes fallible operations mirror the `{value_ptr, error_cstr}` shape
+    // used by `string_to_intN`, letting `guard`/`propagate` lower identically.
+    let bytes_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
 
     // Helper: get existing or add a new void(T) function.
     macro_rules! void_fn {
@@ -176,6 +179,33 @@ pub fn declare_stdlib_function<'context>(
             Some(module.add_function("bool_to_string", ft, None))
         }),
         "opal_runtime_error" => void_fn!("opal_runtime_error", i8_ptr),
+        "bytes_new" => module.get_function("bytes_new").or_else(|| {
+            let ft = i8_ptr.fn_type(&[], false);
+            Some(module.add_function("bytes_new", ft, None))
+        }),
+        "bytes_length" => module.get_function("bytes_length").or_else(|| {
+            let ft = i32_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("bytes_length", ft, None))
+        }),
+        "bytes_to_hex" => module.get_function("bytes_to_hex").or_else(|| {
+            let ft = i8_ptr.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("bytes_to_hex", ft, None))
+        }),
+        "bytes_concatenate" => module.get_function("bytes_concatenate").or_else(|| {
+            let ft = i8_ptr.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            Some(module.add_function("bytes_concatenate", ft, None))
+        }),
+        "bytes_from_hex" => module.get_function("bytes_from_hex").or_else(|| {
+            let ft = bytes_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("bytes_from_hex", ft, None))
+        }),
+        "bytes_slice" => module.get_function("bytes_slice").or_else(|| {
+            let ft = bytes_result_type.fn_type(
+                &[i8_ptr.into(), i32_type.into(), i32_type.into()],
+                false,
+            );
+            Some(module.add_function("bytes_slice", ft, None))
+        }),
         _ => None,
     }
 }
@@ -239,6 +269,12 @@ pub const STDLIB_NAMES: &[&str] = &[
     "float64_to_string",
     "bool_to_string",
     "opal_runtime_error",
+    "bytes_new",
+    "bytes_length",
+    "bytes_to_hex",
+    "bytes_concatenate",
+    "bytes_from_hex",
+    "bytes_slice",
 ];
 
 #[cfg(test)]
@@ -249,8 +285,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            44,
-            "stdlib registry should have 44 names"
+            50,
+            "stdlib registry should have 50 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),

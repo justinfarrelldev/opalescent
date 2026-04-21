@@ -6900,3 +6900,123 @@ fn test_purity_violation_variant_exists() {
         "PurityViolation Display should include callee name, got: {msg}"
     );
 }
+
+// -----------------------------------------------------------------------------
+// Bytes stdlib built-in type-checking tests.
+//
+// These tests pin down the externally visible signatures registered for the
+// `Bytes` standard-library surface. They are the RED phase of the
+// Opalescent-language-level integration of `stdlib::bytes`.
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_builtin_bytes_new_returns_bytes() {
+    const SOURCE: &str = "
+entry demo = f(): int32 => {
+let buffer: Bytes = bytes_new()
+let length: int32 = bytes_length(buffer)
+return length
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "bytes_new() should produce a Bytes value usable by bytes_length(): {result:?}"
+    );
+}
+
+#[test]
+fn test_builtin_bytes_to_hex_returns_string() {
+    const SOURCE: &str = "
+entry demo = f(): string => {
+let buffer: Bytes = bytes_new()
+let hex: string = bytes_to_hex(buffer)
+return hex
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "bytes_to_hex(Bytes) should produce a string: {result:?}"
+    );
+}
+
+#[test]
+fn test_builtin_bytes_concatenate_returns_bytes() {
+    const SOURCE: &str = "
+entry demo = f(): int32 => {
+let a: Bytes = bytes_new()
+let b: Bytes = bytes_new()
+let joined: Bytes = bytes_concatenate(a, b)
+let length: int32 = bytes_length(joined)
+return length
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "bytes_concatenate(Bytes, Bytes) should produce a Bytes: {result:?}"
+    );
+}
+
+#[test]
+fn test_builtin_bytes_from_hex_requires_error_handling() {
+    const SOURCE: &str = "
+entry demo = f(hex: string): int32 => {
+let buffer: Bytes = bytes_from_hex(hex)
+return bytes_length(buffer)
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    let errors = result.expect_err(
+        "bare call to bytes_from_hex without guard/propagate must fail type-check",
+    );
+    assert!(
+        errors.iter().any(
+            |e| matches!(*e, TypeError::UnhandledCallError { ref name, .. } if name == "bytes_from_hex"),
+        ),
+        "expected UnhandledCallError for bytes_from_hex, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_builtin_bytes_from_hex_type_checks_under_propagate() {
+    const SOURCE: &str = "
+entry demo = f(hex: string): int32 errors HexDecodeError => {
+let buffer: Bytes = propagate bytes_from_hex(hex)
+return bytes_length(buffer)
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "bytes_from_hex with propagate + declared errors HexDecodeError should type check: {result:?}"
+    );
+}
+
+#[test]
+fn test_builtin_bytes_slice_type_checks_under_propagate() {
+    const SOURCE: &str = "
+entry demo = f(source: Bytes, start: int32, end: int32): int32 errors SliceRangeError => {
+let sub: Bytes = propagate bytes_slice(source, start, end)
+return bytes_length(sub)
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "bytes_slice with propagate + declared errors SliceRangeError should type check: {result:?}"
+    );
+}

@@ -573,6 +573,111 @@ impl ModuleResolver {
                 },
                 SymbolType::Function,
             ),
+            // `Bytes` stdlib surface. The opaque byte-buffer type is represented
+            // as a nominal `Generic { name: "Bytes", type_args: [] }` which
+            // lowers to `i8*` in codegen. The two fallible helpers surface
+            // language-level error types so `guard`/`propagate` bind string
+            // error messages for the user.
+            (
+                String::from("bytes_new"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: Vec::new(),
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("Bytes"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("bytes_length"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("Bytes"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::Int32],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("bytes_to_hex"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("Bytes"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("bytes_concatenate"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![
+                        CoreType::Generic {
+                            name: String::from("Bytes"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("Bytes"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("Bytes"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("bytes_from_hex"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("Bytes"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: vec![CoreType::Generic {
+                        name: String::from("HexDecodeError"),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("bytes_slice"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![
+                        CoreType::Generic {
+                            name: String::from("Bytes"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Int32,
+                        CoreType::Int32,
+                    ],
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("Bytes"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: vec![CoreType::Generic {
+                        name: String::from("SliceRangeError"),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
         ];
 
         for (name, core_type, symbol_type) in standard_symbols {

@@ -493,10 +493,10 @@ fn infer_call_return_type<'context>(
 /// Map known runtime functions to language-level return `CoreType`.
 fn known_runtime_return_type(name: &str) -> Option<CoreType> {
     match name {
-        "take_input" => Some(CoreType::String),
+        "take_input" | "bytes_to_hex" => Some(CoreType::String),
         "random_int8" => Some(CoreType::Int8),
         "random_int16" => Some(CoreType::Int16),
-        "random_int32" => Some(CoreType::Int32),
+        "random_int32" | "bytes_length" => Some(CoreType::Int32),
         "random_int64" => Some(CoreType::Int64),
         "random_uint8" => Some(CoreType::UInt8),
         "random_uint16" => Some(CoreType::UInt16),
@@ -542,6 +542,12 @@ fn known_runtime_return_type(name: &str) -> Option<CoreType> {
             name: String::from("ParseResultF64"),
             type_args: Vec::new(),
         }),
+        "bytes_new" | "bytes_concatenate" | "bytes_from_hex" | "bytes_slice" => {
+            Some(CoreType::Generic {
+                name: String::from("Bytes"),
+                type_args: Vec::new(),
+            })
+        }
         _ => None,
     }
 }

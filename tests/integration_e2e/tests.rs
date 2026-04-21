@@ -2,6 +2,7 @@
 
 use super::*;
 
+mod bytes_stdlib;
 mod compile_failures;
 mod interactive_io;
 mod project_execution;

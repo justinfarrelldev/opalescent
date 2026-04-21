@@ -6,6 +6,7 @@
 //! - [`types`] — checked and saturating arithmetic for all Opalescent numeric types
 //! - [`math`] — mathematical constants and functions (per `language-spec/requirements/math.md`)
 //! - [`strings`] — string operations operating on `&str` and `alloc::string::String`
+//! - [`bytes`] — dedicated `Bytes` buffer type for binary data (hex, slice, concatenate)
 //! - [`io`] — mockable I/O trait (`print`, `println`, `read_line`)
 //! - [`fs`] — file system trait abstraction with in-memory mock for testing
 //! - [`collections`] — generic collections: `OpalVec`, `OpalMap`, `OpalSet`, `OpalList`, `OpalIter`
@@ -13,9 +14,10 @@
 //!
 //! # `no_std` compatibility
 //!
-//! The `types`, `math`, `strings`, `io`, `fs`, and `collections` sub-modules use only
-//! `core` and `alloc`.  The `system` module requires `std` for OS-level bindings.
+//! The `types`, `math`, `strings`, `bytes`, `io`, `fs`, and `collections` sub-modules use
+//! only `core` and `alloc`.  The `system` module requires `std` for OS-level bindings.
 
+pub mod bytes;
 pub mod collections;
 pub mod fs;
 pub mod io;
