@@ -1,0 +1,21 @@
+# client.op
+# Scenario: A networking client with its own errors, propagated by a higher-level logic function.
+
+type NetworkError:
+    Timeout
+    Disconnected
+
+##
+Description: Fetches data from a remote server, potentially failing with network errors.
+##
+let fetch_raw_data_sync = f(url: string): string errors NetworkError =>
+    # ... mock implementation
+    return '{"id": 1}'
+
+##
+Description: High-level data retriever that propagates network errors.
+##
+let get_user_data_sync = f(user_id: int32): string errors NetworkError =>
+    let url = 'https://api.example.com/users/1'
+    let data = propagate fetch_raw_data_sync(url)
+    return data

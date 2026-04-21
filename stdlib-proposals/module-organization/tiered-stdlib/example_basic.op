@@ -1,0 +1,18 @@
+import print from core
+import now_sync from time
+import random_int32 from random
+
+# Scenario: Logging the current time and a random number to demonstrate tiered specifiers.
+##
+Description: Main entry point for the tiered specifier example.
+##
+let run_example = f(): void =>
+    let current_time = now_sync()
+    let random_val = random_int32(1, 100)
+    
+    print('Current time: ')
+    print(current_time)
+    print('Random number: ')
+    print(random_val)
+    
+    return void

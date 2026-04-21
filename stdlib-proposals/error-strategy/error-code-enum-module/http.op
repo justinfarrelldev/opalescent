@@ -1,0 +1,34 @@
+# http.op
+# Scenario: An HTTP module that exports its own error enum.
+
+type HttpError:
+    BadRequest:
+        status: int32
+    Unauthorized
+    NotFound:
+        url: string
+    InternalError
+
+##
+Description: Performs a synchronous GET request, returning an HttpError enum on failure.
+##
+let get_request_sync = f(url: string): string errors HttpError =>
+    if url is '':
+        return new HttpError:
+                       BadRequest:
+                           status: 400
+    
+    return 'response body'
+
+##
+Description: High-level fetcher that matches on HttpError variants.
+##
+let safe_fetch_sync = f(url: string): string errors HttpError =>
+    guard get_request_sync(url) into body else err =>
+        # Matching on error variants (using if is as match is not yet spec'd)
+        if err is HttpError/NotFound:
+            return 'not found content'
+        
+        return 'error'
+    
+    return body

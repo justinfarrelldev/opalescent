@@ -1,0 +1,30 @@
+# parser.op
+# Scenario: A simple parser library defining its own error types and handling them.
+
+type ParseError:
+    UnexpectedCharacter:
+        char: string
+        pos: int32
+    InvalidNumericLiteral
+
+##
+Description: Parses a single character into an integer.
+##
+let parse_digit = f(c: string): int32 errors ParseError =>
+    if c is '0':
+        return 0
+    if c is '1':
+        return 1
+    # ... more digits
+    return new ParseError:
+                   UnexpectedCharacter:
+                       char: c
+                       pos: 0
+
+##
+Description: Parses a string into a number, handling digit parsing failures.
+##
+let parse_number = f(s: string): int32 errors ParseError =>
+    guard parse_digit(s) into val else err =>
+        return 0
+    return val

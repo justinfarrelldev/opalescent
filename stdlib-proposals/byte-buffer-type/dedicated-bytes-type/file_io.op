@@ -1,0 +1,45 @@
+# Scenario: Reading a file and converting to hex using the dedicated Bytes type.
+
+import Bytes from ./bytes.types
+
+##
+Description: Concatenates two Bytes objects into a new Bytes object.
+##
+let concatenate_bytes = f(first: Bytes, second: Bytes): Bytes =>
+    let mutable combined: uint8[] = []
+    for b in first.data:
+        combined.push(b)
+    for b in second.data:
+        combined.push(b)
+    
+    return new Bytes:
+        data: combined
+        length: first.length + second.length
+
+##
+Description: Converts a Bytes object into its hexadecimal string representation.
+##
+let bytes_to_hex_string = f(buffer: Bytes): string =>
+    let mutable result: string = ''
+    # Logic to iterate over buffer.data and append hex chars
+    return result
+
+# Stub for file I/O returning raw uint8 array
+##
+Description: Reads the raw bytes of a file at the given path synchronously.
+##
+let read_file_sync = f(path: string): uint8[] errors FileReadError, FileNotFoundError =>
+    return []
+
+##
+Description: High-level function to read a file as Bytes and convert to hex.
+##
+let process_file_as_bytes = f(path: string): string errors FileReadError, FileNotFoundError =>
+    guard read_file_sync(path) into raw_data else err =>
+        return propagate err
+    
+    let buffer = new Bytes:
+        data: raw_data
+        length: 5 # Example length
+        
+    return bytes_to_hex_string(buffer)

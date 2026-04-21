@@ -1,0 +1,47 @@
+# Scenario: Reading a file and converting its contents to a hex string using raw uint8 arrays.
+
+##
+Description: Concatenates two byte arrays into a single new byte array.
+##
+let concatenate_byte_arrays = f(first: uint8[], second: uint8[]): uint8[] =>
+    let mutable result: uint8[] = []
+    for byte in first:
+        result.push(byte)
+    for byte in second:
+        result.push(byte)
+    return result
+
+##
+Description: Converts a single uint8 byte into its two-character hex representation.
+##
+let byte_to_hex = f(byte: uint8): string =>
+    # Simplified stub for hex conversion logic
+    return '00'
+
+##
+Description: Converts an array of uint8 bytes into a hexadecimal string representation.
+##
+let convert_bytes_to_hex_string = f(bytes: uint8[]): string =>
+    let mutable hex: string = ''
+    for byte in bytes:
+        hex = hex + byte_to_hex(byte)
+    return hex
+
+# Stub for file I/O
+##
+Description: Reads the raw bytes of a file at the given path synchronously.
+##
+let read_file_sync = f(path: string): uint8[] errors FileReadError, FileNotFoundError =>
+    # Stub implementation
+    return [72, 101, 108, 108, 111]
+
+##
+Description: Orchestrates reading a file and printing its hex representation.
+##
+let main = f(): void errors FileReadError, FileNotFoundError =>
+    let path = 'example.bin'
+    guard read_file_sync(path) into bytes else err =>
+        return propagate err
+    
+    let hex = convert_bytes_to_hex_string(bytes)
+    return void

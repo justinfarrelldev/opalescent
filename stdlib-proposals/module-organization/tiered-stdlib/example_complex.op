@@ -1,0 +1,19 @@
+import read_file_sync from filesystem
+import sha256_sync from crypto_extra
+import write_log_sync from logging
+
+# Scenario: Reading a file, hashing it, and logging the result using various tiered specifiers.
+##
+Description: Reads a file and hashes its content for auditing purposes.
+##
+let audit_file = f(path: string): void errors FileError, HashError, LogError =>
+    guard read_file_sync(path) into content else err =>
+        return propagate err
+    
+    guard sha256_sync(content) into hash_val else err =>
+        return propagate err
+    
+    guard write_log_sync('Audited file: ' + path + ' with hash ' + hash_val) into _success else err =>
+        return propagate err
+    
+    return void

@@ -1,0 +1,31 @@
+# Scenario: Configuration lookup using absence-via-errors
+##
+Description: Error type representing a failed key-based lookup.
+##
+type KeyNotFoundError:
+    Key:
+        key: string
+
+##
+Description: Retrieves a configuration value by key, returning a KeyNotFoundError if missing.
+##
+let get_config_value = f(key: string): string errors KeyNotFoundError =>
+    # Scenario: Checking for a specific 'environment' key
+    if key is 'environment':
+        return 'production'
+    
+    return new KeyNotFoundError:
+        Key:
+            key: key
+
+##
+Description: Main entry point for the application.
+##
+entry main = f(args: string[]): void =>
+    # Scenario: Handling a missing configuration key with a default value
+    guard get_config_value('api_key') into api_key else _err =>
+        print('API key not found, using default')
+        return void
+    
+    print('Found API key: {api_key}')
+    return void

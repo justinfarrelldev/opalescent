@@ -1,0 +1,34 @@
+# Scenario: User role lookup using empty string sentinel
+##
+Description: Looks up a user's role in a simple map-like lookup.
+##
+let get_user_role = f(username: string): string =>
+    # Scenario: Searching for a user role with an empty string as sentinel
+    if username is 'admin':
+        return 'Administrator'
+    
+    # Conventional sentinel for 'missing' string
+    return ''
+
+##
+Description: Displays a user's role if it exists in the system.
+##
+let display_role = f(username: string): void =>
+    let role = get_user_role(username)
+    
+    # Scenario: Checking for an empty string to represent absence
+    if role is not '':
+        print('User {username} has role: {role}')
+    
+    if role is '':
+        print('User {username} not found.')
+    
+    return void
+
+##
+Description: Entry point for user role display example.
+##
+entry main = f(args: string[]): void =>
+    display_role('admin')
+    display_role('guest')
+    return void

@@ -1,0 +1,8 @@
+# Scenario: Definition of Maybe tagged union
+##
+Description: A generic tagged union representing an optional value.
+##
+type Maybe T:
+    Some:
+        value: T
+    None

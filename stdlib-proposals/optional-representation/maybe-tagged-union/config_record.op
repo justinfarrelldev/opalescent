@@ -1,0 +1,39 @@
+# Scenario: Server configuration with optional fields using Maybe
+import Maybe from ./maybe.types
+##
+Description: Represents a server's configuration with optional properties.
+##
+type ServerConfig:
+    host: string
+    port: Maybe int32
+    timeout: Maybe int32
+
+##
+Description: Creates a configuration record for a server.
+##
+let create_config = f(host: string, port: Maybe int32, timeout: Maybe int32): ServerConfig =>
+    # Scenario: Building a record with several optional fields
+    return new ServerConfig:
+        host: host
+        port: port
+        timeout: timeout
+
+##
+Description: Entry point demonstrating optional configuration usage.
+##
+entry main = f(args: string[]): void =>
+    let some_port = new Some:
+        value: 8080
+    
+    let no_timeout = new None
+    
+    let config = create_config('localhost', some_port, no_timeout)
+    
+    # Scenario: Reading optional properties from a config object
+    if config.port is Some:
+        print('Server starting on port {config.port.value}')
+    
+    if config.timeout is None:
+        print('No timeout configured, using default.')
+    
+    return void

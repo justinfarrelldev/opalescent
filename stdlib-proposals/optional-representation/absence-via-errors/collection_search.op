@@ -1,0 +1,34 @@
+# Scenario: Collection search using absence-via-errors
+##
+Description: Error type for failed array search operations.
+##
+type SearchError:
+    ItemNotFound:
+        target: int32
+
+##
+Description: Finds the first occurrence of a number in an array.
+##
+let find_first_occurrence = f(numbers: int32[], target: int32): int32 errors SearchError =>
+    # Scenario: Searching for an integer in a list of numbers
+    for n in numbers:
+        if n is target:
+            return n
+    
+    return new SearchError:
+        ItemNotFound:
+            target: target
+
+##
+Description: Entry point demonstrating collection search logic.
+##
+entry main = f(args: string[]): void =>
+    let values: int32[] = [1, 2, 3, 4, 5]
+    
+    # Scenario: Propagating or guarding based on find results
+    guard find_first_occurrence(values, 10) into result else _e =>
+        print('Number 10 was not found in the list.')
+        return void
+    
+    print('Found number: {result}')
+    return void

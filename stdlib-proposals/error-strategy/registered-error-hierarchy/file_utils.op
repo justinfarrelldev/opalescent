@@ -1,0 +1,24 @@
+# file_utils.op
+# Scenario: A utility module that uses registered error types from a central hierarchy.
+
+import FileSystemError from ./error_types.types
+
+##
+Description: Reads the contents of a file, using registered error types.
+##
+let read_data_sync = f(path: string): string errors FileSystemError =>
+    # ... mock check
+    if path is '' or path is 'not_found':
+        return new FileSystemError:
+                       NotFound:
+                           path: path
+    
+    return 'file content'
+
+##
+Description: Higher-level loader that handles registered errors.
+##
+let load_app_config_sync = f(path: string): string errors FileSystemError =>
+    guard read_data_sync(path) into content else err =>
+        return 'default'
+    return content

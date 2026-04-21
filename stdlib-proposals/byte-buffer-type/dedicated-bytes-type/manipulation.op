@@ -1,0 +1,49 @@
+# Scenario: Slicing and combining Bytes objects.
+
+import Bytes from ./bytes.types
+
+##
+Description: Concatenates two Bytes objects into a new Bytes object.
+##
+let concatenate_bytes = f(first: Bytes, second: Bytes): Bytes =>
+    let mutable combined: uint8[] = []
+    for b in first.data:
+        combined.push(b)
+    for b in second.data:
+        combined.push(b)
+    
+    return new Bytes:
+        data: combined
+        length: first.length + second.length
+
+##
+Description: Returns a new Bytes object containing a subset of the original data.
+##
+let slice_bytes = f(buffer: Bytes, start: int32, end: int32): Bytes errors SliceRangeError =>
+    if start < 0 or end > buffer.length:
+        return errors SliceRangeError
+    
+    let mutable result: uint8[] = []
+    # Implementation of slicing logic
+    return new Bytes:
+        data: result
+        length: end - start
+
+##
+Description: Example of slicing and concatenating dedicated Bytes objects.
+##
+let run_bytes_demo = f(): Bytes errors SliceRangeError =>
+    let b1 = new Bytes:
+        data: [1, 2, 3]
+        length: 3
+    
+    let b2 = new Bytes:
+        data: [4, 5, 6]
+        length: 3
+        
+    let combined = concatenate_bytes(b1, b2)
+    
+    guard slice_bytes(combined, 0, 2) into result else err =>
+        return propagate err
+        
+    return result

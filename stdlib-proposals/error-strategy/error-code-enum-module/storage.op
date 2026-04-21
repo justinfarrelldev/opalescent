@@ -1,0 +1,31 @@
+# storage.op
+# Scenario: A storage module with a simple error enum and a caller matching on it.
+
+type StorageError:
+    KeyNotFound:
+        key: string
+    ReadError
+    WriteError
+
+##
+Description: Reads a value from storage, returning a StorageError enum on failure.
+##
+let read_value_sync = f(key: string): string errors StorageError =>
+    if key is 'bad':
+        return new StorageError:
+                       KeyNotFound:
+                           key: key
+    
+    return 'value'
+
+##
+Description: Higher-level loader that handles the storage enum.
+##
+let get_config_sync = f(key: string): string errors StorageError =>
+    guard read_value_sync(key) into val else err =>
+        if err is StorageError/KeyNotFound:
+            return 'default_value'
+        
+        return propagate err
+    
+    return val

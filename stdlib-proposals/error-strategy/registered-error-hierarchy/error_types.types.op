@@ -1,0 +1,14 @@
+# error_types.types.op
+# Scenario: A central module where common error types are registered.
+
+type FileSystemError:
+    NotFound:
+        path: string
+    PermissionDenied:
+        path: string
+    DiskFull
+
+type NetworkError:
+    ConnectionRefused
+    Timeout:
+        ms: int32

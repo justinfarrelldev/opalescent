@@ -1,0 +1,30 @@
+# Scenario: Array index search using sentinel values
+##
+Description: Searches for a number in an array, returning -1 if not found.
+##
+let find_index_in_array = f(numbers: int32[], target: int32): int32 =>
+    # Scenario: Searching for an integer index
+    let mutable index: int32 = 0
+    for n in numbers:
+        if n is target:
+            return index
+        index = index + 1
+    
+    # Conventional sentinel for 'not found' index
+    return -1
+
+##
+Description: Demonstrates array index search with sentinel check.
+##
+entry main = f(args: string[]): void =>
+    let values: int32[] = [10, 20, 30]
+    let target_index = find_index_in_array(values, 20)
+    
+    # Scenario: Checking the returned index for the sentinel value
+    if target_index is not -1:
+        print('Target found at index: {target_index}')
+    
+    if target_index is -1:
+        print('Target not found in the array.')
+    
+    return void

@@ -1,0 +1,35 @@
+# Scenario: User nickname lookup using Maybe tagged union
+import Maybe from ./maybe.types
+##
+Description: Finds a user's nickname in a list by their username.
+##
+let find_nickname = f(username: string): Maybe string =>
+    # Scenario: Finding a user with an optional nickname
+    if username is 'alice':
+        return new Some:
+            value: 'Allie'
+    
+    return new None
+
+##
+Description: Prints a user's nickname if it exists.
+##
+let display_nickname = f(username: string): void =>
+    let result = find_nickname(username)
+    
+    # Scenario: Pattern matching on the Maybe result
+    if result is Some:
+        print('Nickname for {username} is {result.value}')
+    
+    if result is None:
+        print('No nickname found for {username}')
+    
+    return void
+
+##
+Description: Entry point for nickname display example.
+##
+entry main = f(args: string[]): void =>
+    display_nickname('alice')
+    display_nickname('bob')
+    return void

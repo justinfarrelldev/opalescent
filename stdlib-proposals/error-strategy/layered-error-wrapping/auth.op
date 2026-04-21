@@ -1,0 +1,37 @@
+# auth.op
+# Scenario: An authentication module that wraps database errors.
+
+type DbError:
+    QueryFailed:
+        sql: string
+    ConnectionLost
+
+type AuthError:
+    InvalidCredentials
+    WrappedDb:
+        original: DbError
+        context: string
+
+##
+Description: Simulates a database query that might fail.
+##
+let db_query_sync = f(sql: string): string errors DbError =>
+    if sql is 'fail':
+        return new DbError:
+                       QueryFailed:
+                           sql: sql
+    
+    return 'user_data'
+
+##
+Description: Authenticates a user, wrapping any DB errors with context.
+##
+let authenticate_user_sync = f(name: string): string errors AuthError, DbError =>
+    let sql = 'SELECT * FROM users WHERE name=' + name
+    guard db_query_sync(sql) into data else err =>
+        return new AuthError:
+                       WrappedDb:
+                           original: err
+                           context: 'DB failure during auth for user ' + name
+    
+    return data

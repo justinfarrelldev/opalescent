@@ -1,0 +1,8 @@
+# Type definition for the dedicated Bytes concern.
+
+##
+Description: Represents a fixed-length buffer of binary data.
+##
+type Bytes:
+    data: uint8[]
+    length: int32

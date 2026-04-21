@@ -1,0 +1,43 @@
+# file_service.op
+# Scenario: A file service wrapping low-level IO errors with application context.
+
+type IoError:
+    NotFound:
+        path: string
+    PermissionDenied
+
+type WrappedError:
+    Context:
+        original: IoError
+        message: string
+
+##
+Description: Low-level file reader that returns IoError.
+##
+let read_file_sync = f(path: string): string errors IoError =>
+    if path is '' or path is 'error':
+        return new IoError:
+                       NotFound:
+                           path: path
+    
+    return 'content'
+
+##
+Description: Wraps a lower-level IoError with additional context.
+##
+let wrap_error_context = f(err: IoError, msg: string): WrappedError =>
+    return new WrappedError:
+                       Context:
+                           original: err
+                           message: msg
+
+##
+Description: Service function that adds context to file errors.
+##
+let get_user_config_sync = f(user_id: string): string errors IoError, WrappedError =>
+    let path = '/configs/' + user_id
+    guard read_file_sync(path) into content else err =>
+        let wrapped = wrap_error_context(err, 'Failed to load config for ' + user_id)
+        return wrapped
+    
+    return content

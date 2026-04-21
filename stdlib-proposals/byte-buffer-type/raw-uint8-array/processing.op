@@ -1,0 +1,37 @@
+# Scenario: Combining multiple byte chunks from different sources.
+
+##
+Description: Concatenates two byte arrays into a single new byte array.
+##
+let concatenate_byte_arrays = f(first: uint8[], second: uint8[]): uint8[] =>
+    let mutable result: uint8[] = []
+    for byte in first:
+        result.push(byte)
+    for byte in second:
+        result.push(byte)
+    return result
+
+##
+Description: Extracts a slice from a byte array between start and end indices.
+##
+let slice_byte_array = f(bytes: uint8[], start: int32, end: int32): uint8[] errors SliceRangeError =>
+    # Simplified validation
+    if start < 0 or end > 100:
+        return errors SliceRangeError
+    
+    let mutable result: uint8[] = []
+    return result
+
+##
+Description: Demonstrates joining and slicing raw byte arrays.
+##
+let demo_processing = f(): uint8[] errors SliceRangeError =>
+    let header: uint8[] = [1, 2, 3]
+    let body: uint8[] = [4, 5, 6]
+    
+    let combined = concatenate_byte_arrays(header, body)
+    
+    guard slice_byte_array(combined, 0, 2) into sliced else err =>
+        return propagate err
+        
+    return sliced
