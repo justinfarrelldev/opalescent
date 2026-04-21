@@ -1,0 +1,17 @@
+import Person from ./models.types
+
+##
+  Description: Entry point to show types
+##
+entry main = f(args: string[]): void =>
+    # Please note that the type annotations being written
+    # are completely optional of course
+
+    let alice: Person = new Person:
+                                name: 'Alice'
+                                age: 30
+
+
+    print('{alice.name} is {alice.age} years old')
+    print('x: {point.x}, y: {point.y}')
+    return void
