@@ -31,3 +31,8 @@
 - `[T]` array declaration syntax scan (`:\s*\[[A-Za-z_]`) is clean in `*.op`.
 - One residual non-scope issue remains: `stdlib-proposals/.reference-patterns.md` still contains an illustrative `type` snippet; left unchanged because it is not a concern folder/alternative artifact and was outside required fixes.
 - Environment limitation: `lsp_diagnostics` for `.op`/`.md` cannot run here (no LSP configured for those extensions).
+
+## [2026-04-21] Momus review blockers
+- Completeness mismatch: `stdlib-proposals/README.md` lists `testing-framework` with 1 alternative, but the folder currently has 5 alternatives (`vitest-style-describe-it`, `test-function-flat`, `spec-object-style`, `property-based-testing`, `snapshot-testing`).
+- Syntax mismatch versus language-spec baseline: proposal `.op` files still contain `bool` type usages (e.g., `serialization/json-plus-toml-uniform-api/examples.op`, `compression/stream-compressor-object/compression_stream.types.op`, `testing-framework/vitest-style-describe-it/testing.types.op`) while spec examples use `boolean`.
+- Verification environment limitation persists: `lsp_diagnostics` cannot validate `.op` files in this environment because no `.op` LSP is configured.

@@ -21,3 +21,6 @@
 - Authored exactly five alternatives with required directory names and required file set under `stdlib-proposals/testing-framework/`.
 - Added `testing.types.op` to `test-function-flat` and `property-based-testing` to keep type declarations centralized per style rules.
 - Kept framework sync-only and CPU-bound, with no `_sync` suffix anywhere in testing API examples.
+
+## [2026-04-21] Momus review decision
+- Verdict classified as **NOT OKAY** until completeness metadata is reconciled (`README.md` concern index/counts) and syntax consistency is resolved for `bool` vs `boolean` in proposal `.op` artifacts.

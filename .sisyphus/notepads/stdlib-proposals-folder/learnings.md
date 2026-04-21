@@ -55,3 +55,10 @@ Ergonomics, Error-model fit, Opalescent-idiom fit, Implementation effort, Extens
   - Replaced remaining `==` occurrences with `is` in proposal code.
   - Replaced `import './x.op'` style with explicit `from` imports in regex proposal files.
 - Verified `bash stdlib-proposals/.style-gate.sh` passes after edits.
+
+## [2026-04-21] Momus high-accuracy review findings
+- Structural coverage check confirms 19 concerns exist and each concern has a `COMPARISON.md` with all six required axes.
+- Alternative-level artifact check confirms every alternative has `proposal.md` and at least two `.op` files.
+- README concern index is stale for `testing-framework`: README lists 1 alternative (`vitest-style-describe-it`) while filesystem currently contains 5 alternatives.
+- Syntax drift still present in proposal examples despite style-gate passing: several files use `bool` in `.op` signatures/fields instead of language-spec `boolean`.
+- `testing-framework/vitest-style-describe-it/mock_stub_spy.op` includes the expected full mock/stub/spy primitives and matcher coverage in one scenario.

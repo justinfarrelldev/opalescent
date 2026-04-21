@@ -13,7 +13,11 @@
     "ses_2516cb990ffeExRfkhty93JKXI",
     "ses_2516c8ce7ffeNTD77OuKR4WhP6",
     "ses_2516c6580ffevtZV8EOLHI0qMx",
-    "ses_25161326bffeLsi1koXuSr750Y"
+    "ses_25161326bffeLsi1koXuSr750Y",
+    "ses_25153b88fffew6udgRoRLXeq9Q",
+    "ses_2515392ccffe0n1bQZoLcCRfm3",
+    "ses_251536527ffevYJAw3L1EeTSkq",
+    "ses_25153323fffeh8duZrd6KoAMVS"
   ],
   "plan_name": "stdlib-proposals-folder",
   "session_origins": {
@@ -28,7 +32,11 @@
     "ses_2516cb990ffeExRfkhty93JKXI": "appended",
     "ses_2516c8ce7ffeNTD77OuKR4WhP6": "appended",
     "ses_2516c6580ffevtZV8EOLHI0qMx": "appended",
-    "ses_25161326bffeLsi1koXuSr750Y": "appended"
+    "ses_25161326bffeLsi1koXuSr750Y": "appended",
+    "ses_25153b88fffew6udgRoRLXeq9Q": "appended",
+    "ses_2515392ccffe0n1bQZoLcCRfm3": "appended",
+    "ses_251536527ffevYJAw3L1EeTSkq": "appended",
+    "ses_25153323fffeh8duZrd6KoAMVS": "appended"
   },
   "task_sessions": {
     "todo:0": {
@@ -62,10 +70,10 @@
       "task_key": "todo:3",
       "task_label": "3",
       "task_title": "Extract canonical `.op` reference snippets from language-spec",
-      "session_id": "ses_25161326bffeLsi1koXuSr750Y",
+      "session_id": "ses_25153323fffeh8duZrd6KoAMVS",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-04-21T06:12:43.523Z"
+      "updated_at": "2026-04-21T06:15:41.052Z"
     }
   }
 }
