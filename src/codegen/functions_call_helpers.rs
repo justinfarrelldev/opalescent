@@ -1,10 +1,13 @@
 extern crate alloc;
 
+use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
+use crate::codegen::expressions::CodegenEnv;
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
+use alloc::vec::Vec;
 use inkwell::values::FunctionValue;
 
 #[doc = "Emit early-return default for propagate error path."]
@@ -90,4 +93,35 @@ pub(super) fn llvm_basic_type_to_core_type(
         return CoreType::Array(alloc::boxed::Box::new(CoreType::Int64));
     }
     CoreType::Unit
+}
+
+#[doc = "Infer semantic core type for guard success binding from callee signature when possible."]
+pub(super) fn infer_guard_binding_core_type(
+    env: &CodegenEnv<'_>,
+    guarded_expr: &Expr,
+    success_value_type: inkwell::types::BasicTypeEnum<'_>,
+) -> CoreType {
+    if let Expr::Call { ref callee, .. } = *guarded_expr {
+        if let Expr::Identifier { ref name, .. } = *callee.as_ref() {
+            if let Some(first_return) = env.imported_signatures.get(name.as_str()).and_then(
+                |signature| match signature {
+                    &CoreType::Function {
+                        ref return_types, ..
+                    } => return_types.first(),
+                    _ => None,
+                },
+            ) {
+                return first_return.clone();
+            }
+
+            if name == "bytes_from_hex" || name == "bytes_slice" {
+                return CoreType::Generic {
+                    name: String::from("Bytes"),
+                    type_args: Vec::new(),
+                };
+            }
+        }
+    }
+
+    llvm_basic_type_to_core_type(success_value_type)
 }

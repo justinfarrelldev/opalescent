@@ -3,7 +3,7 @@ extern crate alloc;
 use crate::ast::{Expr, Pattern};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{CodegenEnv, codegen_expression};
+use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::types::integer_literal_bits;
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
@@ -52,24 +52,32 @@ pub fn codegen_field_access_expression<'context>(
     expr: &Expr,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let (receiver_name, member_name) = member_parts(expr)?;
-    let mut aliased_receiver: Option<&str> = None;
-    let mut effective_member_name = member_name.as_str();
+    let mut effective_receiver_name = receiver_name.clone();
+    let effective_member_name = member_name.as_str();
     if let Some((root, field)) = receiver_name.split_once('.') {
         if let Some(alias_map) = env.variable_field_aliases.get(root) {
             if let Some(target_binding) = alias_map.get(field) {
-                aliased_receiver = Some(target_binding.as_str());
-                effective_member_name = member_name.as_str();
+                effective_receiver_name.clone_from(target_binding);
             }
         }
     }
-    let effective_receiver_name = aliased_receiver.unwrap_or(receiver_name.as_str());
 
-    let Some(binding) = env.variables.get(effective_receiver_name) else {
+    let Some(binding) = env.variables.get(effective_receiver_name.as_str()).cloned() else {
         return Err(CodegenError::new(format!(
             "unknown field-access receiver '{receiver_name}'"
         )));
     };
-    let Some(field_indices) = env.variable_field_indices.get(effective_receiver_name) else {
+
+    if let Some(lowered) =
+        codegen_intrinsic_member_access(codegen_context, env, &binding, effective_member_name)?
+    {
+        return Ok(lowered);
+    }
+
+    let Some(field_indices) = env
+        .variable_field_indices
+        .get(effective_receiver_name.as_str())
+    else {
         return Err(CodegenError::new(format!(
             "receiver '{receiver_name}' does not have tracked product fields"
         )));
@@ -98,6 +106,44 @@ pub fn codegen_field_access_expression<'context>(
         .builder
         .build_load(field_ptr, &env.next_name("field.load"))
         .map_err(CodegenError::from)
+}
+
+#[doc = "Lower intrinsic member access forms that are backed by runtime functions."]
+fn codegen_intrinsic_member_access<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    binding: &VariableBinding<'context>,
+    member_name: &str,
+) -> Result<Option<BasicValueEnum<'context>>, CodegenError> {
+    let &CoreType::Generic {
+        ref name,
+        ref type_args,
+    } = &binding.core_type
+    else {
+        return Ok(None);
+    };
+
+    if name != "Bytes" || !type_args.is_empty() || member_name != "length" {
+        return Ok(None);
+    }
+
+    let runtime_function =
+        crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, "bytes_length")
+            .ok_or_else(|| CodegenError::new(String::from("bytes_length declaration missing")))?;
+    let receiver_value = codegen_context
+        .builder
+        .build_load(binding.alloca, &env.next_name("bytes.length.receiver"))?;
+    let call_site = codegen_context.builder.build_call(
+        runtime_function,
+        &[receiver_value.into()],
+        &env.next_name("bytes.length.call"),
+    )?;
+    let Some(length_value) = call_site.try_as_basic_value().basic() else {
+        return Err(CodegenError::new(String::from(
+            "bytes_length should return an int32 value",
+        )));
+    };
+    Ok(Some(length_value))
 }
 
 #[doc = "Lower match expressions to switch-based control flow."]

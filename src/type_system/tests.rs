@@ -6914,7 +6914,7 @@ fn test_builtin_bytes_new_returns_bytes() {
     const SOURCE: &str = "
 entry demo = f(): int32 => {
 let buffer: Bytes = bytes_new()
-let length: int32 = bytes_length(buffer)
+let length: int32 = buffer.length
 return length
 }
 ";
@@ -6923,7 +6923,7 @@ return length
     let result = checker.type_check_program(&program);
     assert!(
         result.is_ok(),
-        "bytes_new() should produce a Bytes value usable by bytes_length(): {result:?}"
+        "bytes_new() should produce a Bytes value exposing .length: {result:?}"
     );
 }
 
@@ -6952,7 +6952,7 @@ entry demo = f(): int32 => {
 let a: Bytes = bytes_new()
 let b: Bytes = bytes_new()
 let joined: Bytes = bytes_concatenate(a, b)
-let length: int32 = bytes_length(joined)
+let length: int32 = joined.length
 return length
 }
 ";
@@ -6976,9 +6976,8 @@ return bytes_length(buffer)
     let program = parse_program_from_source(SOURCE);
     let mut checker = TypeChecker::new();
     let result = checker.type_check_program(&program);
-    let errors = result.expect_err(
-        "bare call to bytes_from_hex without guard/propagate must fail type-check",
-    );
+    let errors = result
+        .expect_err("bare call to bytes_from_hex without guard/propagate must fail type-check");
     assert!(
         errors.iter().any(
             |e| matches!(*e, TypeError::UnhandledCallError { ref name, .. } if name == "bytes_from_hex"),
@@ -6992,7 +6991,7 @@ fn test_builtin_bytes_from_hex_type_checks_under_propagate() {
     const SOURCE: &str = "
 entry demo = f(hex: string): int32 errors HexDecodeError => {
 let buffer: Bytes = propagate bytes_from_hex(hex)
-return bytes_length(buffer)
+return buffer.length
 }
 ";
     let program = parse_program_from_source(SOURCE);
@@ -7009,7 +7008,7 @@ fn test_builtin_bytes_slice_type_checks_under_propagate() {
     const SOURCE: &str = "
 entry demo = f(source: Bytes, start: int32, end: int32): int32 errors SliceRangeError => {
 let sub: Bytes = propagate bytes_slice(source, start, end)
-return bytes_length(sub)
+return sub.length
 }
 ";
     let program = parse_program_from_source(SOURCE);

@@ -7,10 +7,10 @@
     doubled: 8
     slice: deadbeef
 ##
-import bytes_from_hex, bytes_length, bytes_to_hex, bytes_concatenate, bytes_slice from standard
+import bytes_from_hex, bytes_to_hex, bytes_concatenate, bytes_slice from standard
 
 ##
-  Description: Entry point that exercises every imported Bytes stdlib helper.
+  Description: Entry point that exercises imported Bytes helpers and `Bytes.length`.
 
   1. Decodes a lowercase hex literal into a Bytes buffer.
   2. Concatenates the buffer with itself.
@@ -22,14 +22,14 @@ entry main = f(args: string[]): void =>
         print('decode error: {decode_error}')
         return void
 
-    let original_length: int32 = bytes_length(buffer)
+    let original_length: int32 = buffer.length
     print('length: {original_length}')
 
     let hex_first: string = bytes_to_hex(buffer)
     print('first: {hex_first}')
 
     let doubled: Bytes = bytes_concatenate(buffer, buffer)
-    let doubled_length: int32 = bytes_length(doubled)
+    let doubled_length: int32 = doubled.length
     print('doubled: {doubled_length}')
 
     guard bytes_slice(doubled, 0, 4) into first_half else slice_error =>

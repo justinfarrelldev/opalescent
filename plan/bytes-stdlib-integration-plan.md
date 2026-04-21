@@ -12,7 +12,9 @@ C runtime → native binary).
 A user writes:
 
 ```opal
-import bytes_new, bytes_length, bytes_to_hex, bytes_from_hex, bytes_concatenate, bytes_slice from standard
+import bytes_new, bytes_to_hex, bytes_from_hex, bytes_concatenate, bytes_slice from standard
+
+let size: int32 = buffer.length
 ```
 
 and gets the following signatures:
@@ -20,7 +22,7 @@ and gets the following signatures:
 | Opalescent signature                                                           | LLVM symbol            |
 | ------------------------------------------------------------------------------ | ---------------------- |
 | `bytes_new(): Bytes`                                                           | `i8* @bytes_new()`     |
-| `bytes_length(b: Bytes): int32`                                                | `i32 @bytes_length(i8*)` |
+| `b.length: int32` (lowered to runtime helper)                                  | `i32 @bytes_length(i8*)` |
 | `bytes_to_hex(b: Bytes): string`                                               | `i8* @bytes_to_hex(i8*)` |
 | `bytes_from_hex(s: string): Bytes errors HexDecodeError`                       | `{i8*, i8*} @bytes_from_hex(i8*)` |
 | `bytes_concatenate(a: Bytes, b: Bytes): Bytes`                                 | `i8* @bytes_concatenate(i8*, i8*)` |
@@ -68,7 +70,7 @@ Error type names are registered as generic nominal types so `guard ... else err 
   - [x] Match arms for the six `bytes_*` names producing the correct `FunctionType`.
   - [x] Append the six names to `STDLIB_NAMES`.
 - [x] In `src/codegen/statements.rs::known_runtime_return_type`: add arms for `bytes_from_hex` and `bytes_slice` returning `CoreType::Generic { name: "Bytes", type_args: [] }` (success-branch type for guard). Arms for `bytes_new`, `bytes_concatenate` returning `Bytes`; `bytes_length` returning `Int32`; `bytes_to_hex` returning `String`.
-- [x] In `src/type_system/checker.rs::register_standard_builtins`: register the six builtin signatures and the `Bytes` nominal type (and `HexDecodeError`, `SliceRangeError` error type names). Implemented in new `src/type_system/checker/bytes_builtins.rs` to respect the 500-line soft limit.
+- [x] In `src/type_system/checker.rs::register_standard_builtins`: register bytes builtin signatures plus `Bytes.length` member typing and the `Bytes` nominal type (and `HexDecodeError`, `SliceRangeError` error type names). Implemented in new `src/type_system/checker/bytes_builtins.rs` to respect the 500-line soft limit.
 - [x] All new tests now pass (green).
 
 ### Refactor
@@ -81,7 +83,7 @@ Error type names are registered as generic nominal types so `guard ... else err 
 
 ### Integration validation
 
-- [x] Create `test-projects/bytes-hex-roundtrip` — consolidated fixture exercising `bytes_from_hex`, `bytes_length`, `bytes_to_hex`, `bytes_concatenate`, and `bytes_slice` (including a `guard` branch). The single consolidated project subsumes the originally-planned `bytes-concat` and `bytes-slice` projects; it asserts every surface without triplicating `opal.toml` scaffolding.
+- [x] Create `test-projects/bytes-hex-roundtrip` — consolidated fixture exercising `bytes_from_hex`, `Bytes.length`, `bytes_to_hex`, `bytes_concatenate`, and `bytes_slice` (including a `guard` branch). The single consolidated project subsumes the originally-planned `bytes-concat` and `bytes-slice` projects; it asserts every surface without triplicating `opal.toml` scaffolding.
 - [x] Project has an `opal.toml` and an `src/main.op`.
 - [x] Compiled, linked, executed, and stdout-asserted inside `tests/integration_e2e/bytes_stdlib.rs`, gated by `#[cfg(feature = "integration")]` so it runs under `cargo test --features integration`.
 - [x] Update `PLAN.md` checklist entry under "Standard Library Extensions → Dedicated `Bytes` Type".

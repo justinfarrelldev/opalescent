@@ -100,10 +100,12 @@ pub fn validate_entry_declarations_for_module(
     for declaration in &program.declarations {
         if let &Decl::Function { is_entry, span, .. } = declaration {
             if is_entry {
-                return Err(CompileError::Type(crate::type_system::errors::TypeError::EntryNotInMainModule {
-                    file_path: module_path.display().to_string(),
-                    span: crate::type_system::errors::TypeError::span_from_span(span),
-                }));
+                return Err(CompileError::Type(
+                    crate::type_system::errors::TypeError::EntryNotInMainModule {
+                        file_path: module_path.display().to_string(),
+                        span: crate::type_system::errors::TypeError::span_from_span(span),
+                    },
+                ));
             }
         }
     }

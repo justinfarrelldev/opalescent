@@ -16,11 +16,12 @@
 # random_int32(min: int32, max: int32): int32
 
 # Bytes: opaque, immutable byte buffer.
-# Construct one with bytes_new(), inspect its size with bytes_length(), and
+# Construct one with bytes_new(), inspect its size via `buffer.length`, and
 # combine or slice it via bytes_concatenate / bytes_slice. Encode and decode
 # lowercase hexadecimal strings with bytes_to_hex and bytes_from_hex.
+# Internally, the compiler lowers `buffer.length` to the runtime helper
+# `bytes_length(buffer)`.
 # bytes_new(): Bytes
-# bytes_length(buffer: Bytes): int32
 # bytes_to_hex(buffer: Bytes): string
 # bytes_from_hex(text: string): Bytes errors HexDecodeError
 # bytes_concatenate(left: Bytes, right: Bytes): Bytes

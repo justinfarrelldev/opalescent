@@ -2490,14 +2490,14 @@ entry main = f(): void => {
 #[test]
 fn test_import_bytes_length_emits_i32_return() {
     let source = "
-import bytes_new, bytes_length from standard
+import bytes_new from standard
 
 ##
-    Description: Entry function validates bytes_length declaration shape
+    Description: Entry function validates bytes .length member lowering
 ##
 entry main = f(): void => {
     let buffer: Bytes = bytes_new()
-    let len: int32 = bytes_length(buffer)
+    let len: int32 = buffer.length
     return void
 }
 ";
@@ -2506,7 +2506,7 @@ entry main = f(): void => {
     let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
-        "imported bytes_length should compile without errors"
+        "bytes .length member access should compile without errors"
     );
     let Ok(module) = module_result else {
         return;
@@ -2515,6 +2515,10 @@ entry main = f(): void => {
     assert!(
         ir.contains("declare i32 @bytes_length(i8*)"),
         "bytes_length should declare as 'i32 @bytes_length(i8*)': {ir}"
+    );
+    assert!(
+        ir.contains("call i32 @bytes_length(i8*"),
+        "bytes .length member should lower to call i32 @bytes_length(i8*): {ir}"
     );
 }
 
@@ -2584,7 +2588,7 @@ entry main = f(): void => {
 #[test]
 fn test_import_bytes_from_hex_emits_struct_result_declaration() {
     let source = "
-import bytes_from_hex, bytes_length from standard
+import bytes_from_hex from standard
 
 ##
     Description: Entry function guards bytes_from_hex to pin its struct return
@@ -2593,7 +2597,7 @@ entry main = f(hex: string): void =>
     guard bytes_from_hex(hex) into buffer else err =>
         print(err)
         return void
-    let len: int32 = bytes_length(buffer)
+    let len: int32 = buffer.length
     return void
 ";
 
@@ -2616,7 +2620,7 @@ entry main = f(hex: string): void =>
 #[test]
 fn test_import_bytes_slice_emits_struct_result_declaration() {
     let source = "
-import bytes_new, bytes_slice, bytes_length from standard
+import bytes_new, bytes_slice from standard
 
 ##
     Description: Entry function guards bytes_slice to pin its struct return
@@ -2626,7 +2630,7 @@ entry main = f(): void =>
     guard bytes_slice(buffer, 0, 0) into sub else err =>
         print(err)
         return void
-    let len: int32 = bytes_length(sub)
+    let len: int32 = sub.length
     return void
 ";
 

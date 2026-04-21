@@ -9,7 +9,7 @@
 
 use super::*;
 
-/// Covered surface: `bytes_from_hex`, `bytes_length`, `bytes_to_hex`,
+/// Covered surface: `bytes_from_hex`, `Bytes.length`, `bytes_to_hex`,
 /// `bytes_concatenate`, and `bytes_slice` (both via `guard`).
 ///
 /// The script encodes and decodes `deadbeef`, doubles the buffer, slices

@@ -19,7 +19,7 @@ use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, Functi
 #[doc = "Helper utilities for call-expression lowering internals."]
 mod functions_call_helpers;
 use self::functions_call_helpers::{
-    current_function, emit_function_default_return, llvm_basic_type_to_core_type,
+    current_function, emit_function_default_return, infer_guard_binding_core_type,
 };
 
 #[doc = "Lower a function call expression."]
@@ -379,11 +379,16 @@ pub fn codegen_guard_expression<'context>(
                 env.next_name("guard.bind").as_str(),
             )?;
             let _store = codegen_context.builder.build_store(alloca, success_value)?;
+            let binding_core_type = infer_guard_binding_core_type(
+                env,
+                guarded_expr,
+                success_value.get_type(),
+            );
             env.variables.insert(
                 binding_name.to_owned(),
                 VariableBinding {
                     alloca,
-                    core_type: llvm_basic_type_to_core_type(success_value.get_type()),
+                    core_type: binding_core_type,
                     length: None,
                     is_mutable: false,
                 },

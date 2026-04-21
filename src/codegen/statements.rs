@@ -371,8 +371,7 @@ fn codegen_guard_statement<'context>(
 
                 codegen_context.builder.position_at_end(merge_block);
                 let success_core_type =
-                    llvm_return_type_to_core_type(Some(success_value.get_type()))
-                        .unwrap_or(CoreType::Int64);
+                    infer_guard_success_core_type(env, expression, success_value.get_type());
                 env.variables.insert(
                     success_binding.to_owned(),
                     VariableBinding {
@@ -405,6 +404,31 @@ fn codegen_guard_statement<'context>(
     );
 
     Ok(())
+}
+
+/// Infer semantic success type for values bound by `guard ... into`.
+fn infer_guard_success_core_type<'context>(
+    env: &CodegenEnv<'context>,
+    expression: &Expr,
+    success_value_type: inkwell::types::BasicTypeEnum<'context>,
+) -> CoreType {
+    let Expr::Call { ref callee, .. } = *expression else {
+        return llvm_return_type_to_core_type(Some(success_value_type)).unwrap_or(CoreType::Int64);
+    };
+    let Expr::Identifier { ref name, .. } = *callee.as_ref() else {
+        return llvm_return_type_to_core_type(Some(success_value_type)).unwrap_or(CoreType::Int64);
+    };
+
+    if let Some(runtime_name) = env.imported_functions.get(name) {
+        if let Some(core_type) = known_guard_success_type(runtime_name.as_str()) {
+            return core_type;
+        }
+    }
+    if let Some(core_type) = known_guard_success_type(name) {
+        return core_type;
+    }
+
+    llvm_return_type_to_core_type(Some(success_value_type)).unwrap_or(CoreType::Int64)
 }
 
 /// Convert parsed AST type annotations into backend core types.
@@ -548,6 +572,27 @@ fn known_runtime_return_type(name: &str) -> Option<CoreType> {
                 type_args: Vec::new(),
             })
         }
+        _ => None,
+    }
+}
+
+/// Map known runtime result wrappers to the success type produced by `guard`.
+fn known_guard_success_type(name: &str) -> Option<CoreType> {
+    match name {
+        "string_to_int8" => Some(CoreType::Int8),
+        "string_to_int16" => Some(CoreType::Int16),
+        "string_to_int32" => Some(CoreType::Int32),
+        "string_to_int64" => Some(CoreType::Int64),
+        "string_to_uint8" => Some(CoreType::UInt8),
+        "string_to_uint16" => Some(CoreType::UInt16),
+        "string_to_uint32" => Some(CoreType::UInt32),
+        "string_to_uint64" => Some(CoreType::UInt64),
+        "string_to_float32" => Some(CoreType::Float32),
+        "string_to_float64" => Some(CoreType::Float64),
+        "bytes_from_hex" | "bytes_slice" => Some(CoreType::Generic {
+            name: String::from("Bytes"),
+            type_args: Vec::new(),
+        }),
         _ => None,
     }
 }

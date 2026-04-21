@@ -43,6 +43,24 @@ impl TypeChecker {
     ) -> Option<CoreType> {
         self.resolve_array_member_call(receiver_type, member_name)
             .or_else(|| self.resolve_string_member_call(receiver_type, member_name))
+            .or_else(|| Self::resolve_bytes_member_call(receiver_type, member_name))
+    }
+
+    /// Resolve Bytes intrinsic members that are modeled as field-like syntax.
+    fn resolve_bytes_member_call(receiver_type: &CoreType, member_name: &str) -> Option<CoreType> {
+        let CoreType::Generic {
+            ref name,
+            ref type_args,
+        } = *receiver_type
+        else {
+            return None;
+        };
+
+        if name == "Bytes" && type_args.is_empty() && member_name == "length" {
+            return Some(CoreType::Int32);
+        }
+
+        None
     }
 
     /// Register one intrinsic method symbol in environment and symbol table.

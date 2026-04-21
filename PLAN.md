@@ -855,11 +855,11 @@ Source proposal: `stdlib-proposals/byte-buffer-type/dedicated-bytes-type/`.
 - [x] `runtime/opal_runtime.h` declarations for every exported bytes symbol
 - [x] `RUNTIME_SOURCE` in `src/compiler.rs` concatenates `opal_bytes.c`
 - [x] `src/type_system/checker/bytes_builtins.rs` registers the `Bytes`, `HexDecodeError`, and `SliceRangeError` nominal types
-- [x] Six builtin signatures (`bytes_new`, `bytes_length`, `bytes_to_hex`, `bytes_concatenate`, `bytes_from_hex`, `bytes_slice`) registered in the type checker
+- [x] Bytes builtins plus `Bytes.length` member typing registered in the type checker (`bytes_new`, `bytes_to_hex`, `bytes_concatenate`, `bytes_from_hex`, `bytes_slice`; `.length` lowers to runtime `bytes_length`)
 - [x] LLVM declarations + `STDLIB_NAMES` entries in `src/codegen/functions_stdlib.rs`
 - [x] `known_runtime_return_type` in `src/codegen/statements.rs` covers every bytes builtin so `guard` bindings type-check
 - [x] `stdlib/prelude.op` documents the public surface
-- [x] `test-projects/bytes-hex-roundtrip` end-to-end project (`bytes_from_hex` → `bytes_concatenate` → `bytes_slice` → `bytes_to_hex`)
+- [x] `test-projects/bytes-hex-roundtrip` end-to-end project (`bytes_from_hex` → `Bytes.length` / `bytes_concatenate` → `bytes_slice` → `bytes_to_hex`)
 - [x] `tests/integration_e2e/bytes_stdlib.rs` compiles, links, runs, and asserts stdout under `--features integration`
 
 ---

@@ -11,3 +11,7 @@
 
 ## Void Alias Type Resolution
 - Mapped the `void` keyword to the unit core type and registered it in the type environment so entry points using `return void` type check successfully.
+
+## Guard Success Binding Semantic Type Preservation
+- Fixed codegen for `guard ... into value` so the bound success value preserves semantic return types from known/imported call signatures instead of defaulting pointer-typed values to `string`.
+- This unblocks nominal-member lowering on guarded results (for example `Bytes.length` after `guard bytes_from_hex(...) into buffer`).
