@@ -2,10 +2,16 @@
   "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/types-file-imports.md",
   "started_at": "2026-04-21T00:26:13.417Z",
   "session_ids": [
-    "ses_252d7f2b9ffeASYrOJz8Ky2dvJ"
+    "ses_252d7f2b9ffeASYrOJz8Ky2dvJ",
+    "ses_2525ea247ffe8wIgX24SUhdbgv",
+    "ses_2525e7d16ffeYqzcRWmzOBY7pq",
+    "ses_2525e4e1effepzhCQ0pisM0BFK"
   ],
   "session_origins": {
-    "ses_252d7f2b9ffeASYrOJz8Ky2dvJ": "direct"
+    "ses_252d7f2b9ffeASYrOJz8Ky2dvJ": "direct",
+    "ses_2525ea247ffe8wIgX24SUhdbgv": "appended",
+    "ses_2525e7d16ffeYqzcRWmzOBY7pq": "appended",
+    "ses_2525e4e1effepzhCQ0pisM0BFK": "appended"
   },
   "plan_name": "types-file-imports",
   "agent": "atlas",
@@ -41,10 +47,18 @@
       "task_key": "todo:10",
       "task_label": "10",
       "task_title": "Polish: docstrings, clippy-clean, ensure public surface documented",
-      "session_id": "ses_252719fc5ffeBpuFIobrwiuZ0c",
+      "session_id": "ses_2526e6499ffei0S0b1YOEWqZ5Q",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-04-21T01:02:49.171Z"
+      "updated_at": "2026-04-21T01:20:06.956Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "ses_2525ea247ffe8wIgX24SUhdbgv",
+      "agent": "oracle",
+      "updated_at": "2026-04-21T01:22:43.326Z"
     }
   }
 }

@@ -780,7 +780,7 @@ Max Concurrent: 7 (Wave 1)
 
   **Commit**: Groups with T4. Message: `feat(compiler): enforce .types.op separation and skip codegen for type-only modules`.
 
-- [ ] 10. Polish: docstrings, clippy-clean, ensure public surface documented
+- [x] 10. Polish: docstrings, clippy-clean, ensure public surface documented
 
   **What to do**:
   - Ensure rustdoc on `is_types_file` and `validate_module_file_role` includes: one-line summary, `# Arguments`, `# Errors`, `# Examples` with a 3-line doctest.
@@ -1633,19 +1633,19 @@ Max Concurrent: 7 (Wave 1)
 
 ## Final Verification Wave (MANDATORY — after ALL implementation tasks)
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. For each "Must Have": verify implementation exists (grep for new variants, read files, run the binary). For each "Must NOT Have": confirm absence (no parser changes to glob; no touched `types_example.types.op`; stdlib paths untouched). Compare deliverables against plan. Check evidence files exist in `.sisyphus/evidence/`.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `cargo build`, `cargo clippy --all-targets --all-features`, `cargo test`, `cargo test --features integration`. Review diffs for `as any`/`.unwrap()` in prod paths, `TODO:` markers, `println!` in library code, dead code, generic names. Verify docstrings on new public items.
   Output: `Build [PASS/FAIL] | Clippy [clean/N warnings] | Unit tests [N pass] | Integration tests [N pass] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high`
+- [x] F3. **Real Manual QA** — `unspecified-high`
   Start clean. Run the five new test projects through `compile_project` via integration tests; verify stdout for success fixtures and error variant shapes for failure fixtures. Spot-check one end-to-end via `cargo run --release --features integration` + binary exec. Save to `.sisyphus/evidence/final-qa/`.
   Output: `Scenarios [N/N pass] | Integration [N/N] | Binaries exec [N/N] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff (git log/diff). Verify 1:1 — everything in spec was built, nothing beyond spec was built. Check "Must NOT do" compliance (no glob, no ecosystem test changes). Detect cross-task contamination.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 
