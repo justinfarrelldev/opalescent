@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build-windows-spike:
+    runs-on: windows-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install LLVM 14
+        id: llvm
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "14.0"
+
+      - name: Set LLVM env vars
+        shell: bash
+        run: |
+          echo "LLVM_SYS_140_PREFIX=${{ steps.llvm.outputs.llvm-path }}" >> "$GITHUB_ENV"
+          echo "LLVM_SYS_140_USE_DEBUG_MSVCRT=NO" >> "$GITHUB_ENV"
+          echo "LLVM_SYS_140_FFI_WORKAROUND=YES" >> "$GITHUB_ENV"
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Upload opalescent.exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opalescent-windows-spike
+          path: target/release/opalescent.exe
+          if-no-files-found: error
