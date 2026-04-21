@@ -1,0 +1,11 @@
+##
+  Description: A person record (valid)
+##
+type Person:
+    name: string
+    age: int32
+
+##
+  Description: Illegal value declaration inside a .types.op file
+##
+let default_age: int32 = 18

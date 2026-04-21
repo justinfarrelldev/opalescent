@@ -2,12 +2,12 @@ extern crate alloc;
 
 use crate::runtime::arrays::{allocate_array, array_index, array_length};
 use crate::runtime::errors::{RuntimeError, RuntimeResult, RuntimeResultExt};
-use crate::runtime::io::{print, take_input, IoHandler};
+use crate::runtime::io::{IoHandler, print, take_input};
 use crate::runtime::memory::{OpalArray, OpalString, OpalWeakRef, RuntimeAllocator};
 use crate::runtime::reporting::format_runtime_error;
 use crate::runtime::stdlib::{
-    format_interpolated_string, opal_array_slice, random_int32_with_source, string_to_int32,
-    RandomIntSource,
+    RandomIntSource, format_interpolated_string, opal_array_slice, random_int32_with_source,
+    string_to_int32,
 };
 use crate::runtime::strings::{string_compare, string_concat, string_equals, string_length};
 use alloc::collections::VecDeque;

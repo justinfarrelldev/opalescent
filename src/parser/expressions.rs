@@ -10,7 +10,7 @@
 //! - Lambda expressions
 //! - String interpolation
 
-use super::{captures::collect_captured_variables, ParseError, ParseResult, Parser, Precedence};
+use super::{ParseError, ParseResult, Parser, Precedence, captures::collect_captured_variables};
 use crate::ast::{
     AstNode, BinaryOp, ConstructorField, Expr, HotReloadMetadata, LambdaBody, LiteralValue, Stmt,
     StringPart, UnaryOp,

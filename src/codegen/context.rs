@@ -1,12 +1,12 @@
 //! LLVM code generation context management.
 
+use inkwell::OptimizationLevel;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
 };
-use inkwell::OptimizationLevel;
 
 /// Shared LLVM handles used by code generation passes.
 pub struct CodegenContext<'context> {

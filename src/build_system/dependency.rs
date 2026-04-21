@@ -2,8 +2,8 @@
 
 extern crate alloc;
 
-use crate::build_system::config::{version_satisfies_constraint, Dependency, Version};
 use crate::build_system::BuildError;
+use crate::build_system::config::{Dependency, Version, version_satisfies_constraint};
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;

@@ -20,9 +20,9 @@ fn with_required_function_docs(source: &str) -> String {
 
     for line in source.lines() {
         let trimmed_start = line.trim_start();
-        let is_public_or_entry_function =
-            (trimmed_start.starts_with("entry ") || trimmed_start.starts_with("public "))
-                && (trimmed_start.contains("= f(") || trimmed_start.contains("= f<"));
+        let is_public_or_entry_function = (trimmed_start.starts_with("entry ")
+            || trimmed_start.starts_with("public "))
+            && (trimmed_start.contains("= f(") || trimmed_start.contains("= f<"));
         let has_doc_block_before = last_non_empty_line
             .as_deref()
             .is_some_and(|previous_line| previous_line.trim_start().starts_with("##"));

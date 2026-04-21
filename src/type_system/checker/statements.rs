@@ -116,13 +116,17 @@ impl TypeChecker {
                 if let Some(element_core) = self.iterable_element_type_for(&iterable_type) {
                     let variable_name = variable.clone();
                     self.within_new_scope(move |checker| {
-                        checker.symbol_table.register(SymbolInfo { name: variable_name.clone(),
-                        symbol_type: SymbolType::Variable,
-                        core_type: element_core,
-                        visibility: Visibility::Private,
-                        source_location: span,
-                        is_let_binding: false,
-                        is_mutable: false, read_count: 0, is_pure: false, });
+                        checker.symbol_table.register(SymbolInfo {
+                            name: variable_name.clone(),
+                            symbol_type: SymbolType::Variable,
+                            core_type: element_core,
+                            visibility: Visibility::Private,
+                            source_location: span,
+                            is_let_binding: false,
+                            is_mutable: false,
+                            read_count: 0,
+                            is_pure: false,
+                        });
                         checker.type_check_stmt_with_return(body.as_ref(), expected_return)
                     })
                 } else {
@@ -173,7 +177,8 @@ impl TypeChecker {
                     current_types.push(self.type_check_expr(&value.value)?);
                 }
 
-                let existing_break_types = self.context.loop_break_type_stack.last().cloned().flatten();
+                let existing_break_types =
+                    self.context.loop_break_type_stack.last().cloned().flatten();
 
                 if let Some(expected_types) = existing_break_types {
                     if expected_types.len() != current_types.len() {
@@ -191,7 +196,8 @@ impl TypeChecker {
                             return Err(type_mismatch_error(expected_type, None, found_type, span));
                         }
                     }
-                } else if let Some(loop_break_types) = self.context.loop_break_type_stack.last_mut() {
+                } else if let Some(loop_break_types) = self.context.loop_break_type_stack.last_mut()
+                {
                     *loop_break_types = Some(current_types);
                 }
 
@@ -337,13 +343,17 @@ impl TypeChecker {
             SymbolType::Constant
         };
 
-        self.symbol_table.register(SymbolInfo { name: binding.name.clone(),
-        symbol_type,
-        core_type: final_type,
-        visibility: Visibility::Private,
-        source_location: binding.span,
-        is_let_binding: true,
-        is_mutable: binding.is_mutable, read_count: 0, is_pure: false, });
+        self.symbol_table.register(SymbolInfo {
+            name: binding.name.clone(),
+            symbol_type,
+            core_type: final_type,
+            visibility: Visibility::Private,
+            source_location: binding.span,
+            is_let_binding: true,
+            is_mutable: binding.is_mutable,
+            read_count: 0,
+            is_pure: false,
+        });
 
         Ok(())
     }
@@ -402,13 +412,17 @@ impl TypeChecker {
                 SymbolType::Constant
             };
 
-            self.symbol_table.register(SymbolInfo { name: binding.name.clone(),
-            symbol_type,
-            core_type: value_type,
-            visibility: Visibility::Private,
-            source_location: binding.span,
-            is_let_binding: true,
-            is_mutable: binding.is_mutable, read_count: 0, is_pure: false, });
+            self.symbol_table.register(SymbolInfo {
+                name: binding.name.clone(),
+                symbol_type,
+                core_type: value_type,
+                visibility: Visibility::Private,
+                source_location: binding.span,
+                is_let_binding: true,
+                is_mutable: binding.is_mutable,
+                read_count: 0,
+                is_pure: false,
+            });
         }
 
         Ok(())
@@ -599,32 +613,44 @@ impl TypeChecker {
         self.context.in_guard_subject_context = previous_guard_subject_context;
         let success_type = success_result?;
 
-        self.symbol_table.register(SymbolInfo { name: success_binding.to_owned(),
-        symbol_type: SymbolType::Constant,
-        core_type: success_type,
-        visibility: Visibility::Private,
-        source_location: span,
-        is_let_binding: true,
-        is_mutable: false, read_count: 0, is_pure: false, });
-
-        self.within_new_scope(|checker| {
-            if let Some(existing_success) = checker.symbol_table.lookup(success_binding).cloned() {
-                checker.symbol_table.register(SymbolInfo { name: success_binding.to_owned(),
-                symbol_type: SymbolType::Constant,
-                core_type: existing_success.core_type,
-                visibility: Visibility::Private,
-                source_location: span,
-                is_let_binding: true,
-                is_mutable: false, read_count: 0, is_pure: false, });
-            }
-
-            checker.symbol_table.register(SymbolInfo { name: error_binding.to_owned(),
+        self.symbol_table.register(SymbolInfo {
+            name: success_binding.to_owned(),
             symbol_type: SymbolType::Constant,
-            core_type: CoreType::String,
+            core_type: success_type,
             visibility: Visibility::Private,
             source_location: span,
             is_let_binding: true,
-            is_mutable: false, read_count: 0, is_pure: false, });
+            is_mutable: false,
+            read_count: 0,
+            is_pure: false,
+        });
+
+        self.within_new_scope(|checker| {
+            if let Some(existing_success) = checker.symbol_table.lookup(success_binding).cloned() {
+                checker.symbol_table.register(SymbolInfo {
+                    name: success_binding.to_owned(),
+                    symbol_type: SymbolType::Constant,
+                    core_type: existing_success.core_type,
+                    visibility: Visibility::Private,
+                    source_location: span,
+                    is_let_binding: true,
+                    is_mutable: false,
+                    read_count: 0,
+                    is_pure: false,
+                });
+            }
+
+            checker.symbol_table.register(SymbolInfo {
+                name: error_binding.to_owned(),
+                symbol_type: SymbolType::Constant,
+                core_type: CoreType::String,
+                visibility: Visibility::Private,
+                source_location: span,
+                is_let_binding: true,
+                is_mutable: false,
+                read_count: 0,
+                is_pure: false,
+            });
 
             checker.type_check_stmt_with_return(else_body, expected_return)
         })

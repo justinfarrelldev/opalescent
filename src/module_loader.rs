@@ -25,7 +25,11 @@ use std::path::{Path, PathBuf};
 /// # Errors
 /// Returns [`TypeError`] when package imports are used or the resolved file does not exist.
 pub fn resolve_import_path(from_file: &Path, import_source: &str) -> Result<PathBuf, TypeError> {
-    resolve_import_path_with_span(from_file, import_source, Span::single(crate::token::Position::start()))
+    resolve_import_path_with_span(
+        from_file,
+        import_source,
+        Span::single(crate::token::Position::start()),
+    )
 }
 
 /// Internal helper that resolves import paths using a caller-provided source span.
@@ -72,6 +76,97 @@ fn resolve_import_path_with_span(
     }
 
     Ok(resolved)
+}
+
+/// Checks if a file path represents a types file (ends with `.types.op`).
+///
+/// # Arguments
+/// * `path` - The file path to check
+///
+/// # Returns
+/// `true` if the path's filename ends with `.types.op`, `false` otherwise.
+///
+/// # Examples
+/// ```
+/// use std::path::Path;
+/// use opalescent::module_loader::is_types_file;
+///
+/// assert!(is_types_file(Path::new("models.types.op")));
+/// assert!(is_types_file(Path::new("dir/sub/models.types.op")));
+/// assert!(!is_types_file(Path::new("models.op")));
+/// assert!(!is_types_file(Path::new("models.types")));
+/// ```
+pub fn is_types_file(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|s| s.ends_with(".types.op"))
+}
+
+/// Validate that declarations in `program` match the role implied by `path`.
+///
+/// Rules:
+/// - `.types.op` files may only contain `type` declarations and imports.
+/// - non-`.types.op` files may not contain `type` declarations.
+/// - stdlib sentinel module paths (`__stdlib__/...`) are exempt.
+pub fn validate_module_file_role(path: &Path, program: &Program) -> Result<(), TypeError> {
+    if path.to_string_lossy().starts_with("__stdlib__/") {
+        return Ok(());
+    }
+
+    let file_path = path.display().to_string();
+
+    if is_types_file(path) {
+        #[expect(clippy::match_ref_pats, reason = "Pattern matching on borrowed declarations")]
+        for declaration in &program.declarations {
+            match declaration {
+                &(Decl::Type { .. } | Decl::Import { .. }) => {}
+                &Decl::Let { ref binding, span, .. } => {
+                    return Err(TypeError::NonTypeDeclarationInTypesFile {
+                        decl_kind: "let".to_owned(),
+                        decl_name: binding.name.clone(),
+                        file_path,
+                        span: TypeError::span_from_span(span),
+                    });
+                }
+                &Decl::Function {
+                    ref name,
+                    is_entry,
+                    span,
+                    ..
+                } => {
+                    let decl_kind = if is_entry { "entry" } else { "function" };
+                    return Err(TypeError::NonTypeDeclarationInTypesFile {
+                        decl_kind: decl_kind.to_owned(),
+                        decl_name: name.clone(),
+                        file_path,
+                        span: TypeError::span_from_span(span),
+                    });
+                }
+                &Decl::Comment { span, .. } => {
+                    return Err(TypeError::NonTypeDeclarationInTypesFile {
+                        decl_kind: "comment".to_owned(),
+                        decl_name: "<comment>".to_owned(),
+                        file_path,
+                        span: TypeError::span_from_span(span),
+                    });
+                }
+            }
+        }
+
+        return Ok(());
+    }
+
+    for declaration in &program.declarations {
+        if let &Decl::Type { ref name, span, .. } = declaration {
+            return Err(TypeError::TypeDeclarationOutsideTypesFile {
+                type_name: name.clone(),
+                file_path,
+                span: TypeError::span_from_span(span),
+            });
+        }
+    }
+
+    Ok(())
 }
 
 /// Parsed module data used for dependency graph traversal.
@@ -233,12 +328,12 @@ impl ModuleLoader {
     /// Returns [`TypeError`] when the module cannot be loaded, lexed, parsed, or imports fail resolution.
     fn parse_module(&mut self, path: &Path) -> Result<ParsedModule, TypeError> {
         let normalized = self.normalize_path(path);
-        let source = self
-            .get_module_source(&normalized)
-            .map_err(|_io_err| TypeError::ModuleNotFound {
-                path: normalized.display().to_string(),
-                span: TypeError::unknown_span(),
-            })?;
+        let source =
+            self.get_module_source(&normalized)
+                .map_err(|_io_err| TypeError::ModuleNotFound {
+                    path: normalized.display().to_string(),
+                    span: TypeError::unknown_span(),
+                })?;
         let normalized_source = source.replace('\t', "    ");
 
         let lexer = Lexer::new(&normalized_source);
@@ -269,7 +364,10 @@ impl ModuleLoader {
 
         let Some(ast) = program else {
             return Err(TypeError::ConstraintSolvingFailed {
-                reason: format!("parser returned no AST for module '{}'", normalized.display()),
+                reason: format!(
+                    "parser returned no AST for module '{}'",
+                    normalized.display()
+                ),
                 span: TypeError::unknown_span(),
             });
         };
@@ -283,7 +381,8 @@ impl ModuleLoader {
                 ..
             } = declaration
             {
-                let resolved_path = resolve_import_path_with_span(&normalized, import_source, span)?;
+                let resolved_path =
+                    resolve_import_path_with_span(&normalized, import_source, span)?;
                 let is_type_import = items
                     .iter()
                     .all(|item| matches!(item, &ImportItem::Type { .. }));
@@ -326,7 +425,7 @@ impl ModuleLoader {
 
 #[cfg(test)]
 mod tests {
-    use super::{ModuleLoader, resolve_import_path};
+    use super::{ModuleLoader, resolve_import_path, validate_module_file_role};
     use crate::type_system::errors::TypeError;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -354,7 +453,10 @@ mod tests {
             .expect("target module should be writable");
 
         let resolved = resolve_import_path(&from_file, "./utils").expect("path should resolve");
-        assert_eq!(resolved, target.canonicalize().expect("path should canonicalize"));
+        assert_eq!(
+            resolved,
+            target.canonicalize().expect("path should canonicalize")
+        );
 
         std::fs::remove_dir_all(&base).expect("temp dir should be removable");
     }
@@ -370,8 +472,12 @@ mod tests {
         std::fs::write(&target, "type User: name: string\n")
             .expect("types module should be writable");
 
-        let resolved = resolve_import_path(&from_file, "./models.types").expect("path should resolve");
-        assert_eq!(resolved, target.canonicalize().expect("path should canonicalize"));
+        let resolved =
+            resolve_import_path(&from_file, "./models.types").expect("path should resolve");
+        assert_eq!(
+            resolved,
+            target.canonicalize().expect("path should canonicalize")
+        );
 
         std::fs::remove_dir_all(&base).expect("temp dir should be removable");
     }
@@ -438,10 +544,16 @@ mod tests {
         let a = base.join("a.op");
         let b = base.join("b.op");
 
-        std::fs::write(&a, "import b from ./b\nlet a = f(): void => { return void }\n")
-            .expect("a should be writable");
-        std::fs::write(&b, "import a from ./a\nlet b = f(): void => { return void }\n")
-            .expect("b should be writable");
+        std::fs::write(
+            &a,
+            "import b from ./b\nlet a = f(): void => { return void }\n",
+        )
+        .expect("a should be writable");
+        std::fs::write(
+            &b,
+            "import a from ./a\nlet b = f(): void => { return void }\n",
+        )
+        .expect("b should be writable");
 
         let mut loader = ModuleLoader::new(base.clone());
         let result = loader.discover_all_modules(&a);
@@ -449,5 +561,210 @@ mod tests {
         assert!(matches!(error, TypeError::CircularDependency { .. }));
 
         std::fs::remove_dir_all(&base).expect("temp dir should be removable");
+    }
+
+    #[test]
+    fn is_types_file_returns_true_for_types_op_files() {
+        use super::is_types_file;
+        use std::path::Path;
+
+        assert!(is_types_file(Path::new("foo.types.op")));
+        assert!(is_types_file(Path::new("dir/sub/models.types.op")));
+    }
+
+    #[test]
+    fn is_types_file_returns_false_for_regular_op_files() {
+        use super::is_types_file;
+        use std::path::Path;
+
+        assert!(!is_types_file(Path::new("foo.op")));
+    }
+
+    #[test]
+    fn is_types_file_returns_false_for_types_without_op_extension() {
+        use super::is_types_file;
+        use std::path::Path;
+
+        assert!(!is_types_file(Path::new("foo.types")));
+    }
+
+    // RED phase tests for validate_module_file_role
+    // These tests call validate_module_file_role which does NOT yet exist.
+    // They are expected to fail to compile (RED state).
+
+    #[test]
+    fn validate_op_file_allows_entry_and_let() {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        use std::path::Path;
+
+        let source =
+            "entry main = f(): void => { return void }\nlet util = f(): void => { return void }\n";
+        let lexer = Lexer::new(source);
+        let (tokens, _) = lexer.tokenize();
+        let parser = Parser::new(tokens);
+        let (program_opt, _) = parser.parse();
+        let program = program_opt.expect("program should parse");
+
+        let result = validate_module_file_role(Path::new("test.op"), &program);
+        assert!(
+            result.is_ok(),
+            "regular .op file with entry and let should be valid"
+        );
+    }
+
+    #[test]
+    fn validate_op_file_rejects_type_decl() {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        use std::path::Path;
+
+        let source = "type User: name: string\n";
+        let lexer = Lexer::new(source);
+        let (tokens, _) = lexer.tokenize();
+        let parser = Parser::new(tokens);
+        let (program_opt, _) = parser.parse();
+        let program = program_opt.expect("program should parse");
+
+        let result = validate_module_file_role(Path::new("test.op"), &program);
+        assert!(
+            result.is_err(),
+            "regular .op file with type decl should fail"
+        );
+
+        if let Err(TypeError::TypeDeclarationOutsideTypesFile { type_name, .. }) = result {
+            assert_eq!(type_name, "User");
+        } else {
+            unreachable!("Expected TypeDeclarationOutsideTypesFile error");
+        }
+    }
+
+    #[test]
+    fn validate_types_op_file_allows_type_decls() {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        use std::path::Path;
+
+        let source = "type User: name: string\ntype Admin: user: User\n";
+        let lexer = Lexer::new(source);
+        let (tokens, _) = lexer.tokenize();
+        let parser = Parser::new(tokens);
+        let (program_opt, _) = parser.parse();
+        let program = program_opt.expect("program should parse");
+
+        let result = validate_module_file_role(Path::new("test.types.op"), &program);
+        assert!(
+            result.is_ok(),
+            ".types.op file with only type decls should be valid"
+        );
+    }
+
+    #[test]
+    fn validate_types_op_file_rejects_let_decl() {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        use std::path::Path;
+
+        let source = "let x = 42\n";
+        let lexer = Lexer::new(source);
+        let (tokens, _) = lexer.tokenize();
+        let parser = Parser::new(tokens);
+        let (program_opt, _) = parser.parse();
+        let program = program_opt.expect("program should parse");
+
+        let result = validate_module_file_role(Path::new("test.types.op"), &program);
+        assert!(result.is_err(), ".types.op file with let decl should fail");
+
+        if let Err(TypeError::NonTypeDeclarationInTypesFile { decl_kind, .. }) = result {
+            assert_eq!(decl_kind, "let");
+        } else {
+            unreachable!("Expected NonTypeDeclarationInTypesFile error");
+        }
+    }
+
+    #[test]
+    fn validate_types_op_file_rejects_entry_decl() {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        use std::path::Path;
+
+        let source = "entry main = f(): void => { return void }\n";
+        let lexer = Lexer::new(source);
+        let (tokens, _) = lexer.tokenize();
+        let parser = Parser::new(tokens);
+        let (program_opt, _) = parser.parse();
+        let program = program_opt.expect("program should parse");
+
+        let result = validate_module_file_role(Path::new("test.types.op"), &program);
+        assert!(
+            result.is_err(),
+            ".types.op file with entry decl should fail"
+        );
+
+        if let Err(TypeError::NonTypeDeclarationInTypesFile { decl_kind, .. }) = result {
+            assert_eq!(decl_kind, "entry");
+        } else {
+            unreachable!("Expected NonTypeDeclarationInTypesFile error");
+        }
+    }
+
+    #[test]
+    fn validate_types_op_file_rejects_function_let() {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        use std::path::Path;
+
+        let source = "let add = f(a: int32, b: int32): int32 => { return a + b }\n";
+        let lexer = Lexer::new(source);
+        let (tokens, _) = lexer.tokenize();
+        let parser = Parser::new(tokens);
+        let (program_opt, _) = parser.parse();
+        let program = program_opt.expect("program should parse");
+
+        let result = validate_module_file_role(Path::new("test.types.op"), &program);
+        assert!(
+            result.is_err(),
+            ".types.op file with function-typed let should fail"
+        );
+
+        if let Err(TypeError::NonTypeDeclarationInTypesFile { decl_kind, .. }) = result {
+            assert_eq!(decl_kind, "let");
+        } else {
+            unreachable!("Expected NonTypeDeclarationInTypesFile error");
+        }
+    }
+
+    #[test]
+    fn validate_empty_op_file_ok() {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        use std::path::Path;
+
+        let source = "";
+        let lexer = Lexer::new(source);
+        let (tokens, _) = lexer.tokenize();
+        let parser = Parser::new(tokens);
+        let (program_opt, _) = parser.parse();
+        let program = program_opt.expect("program should parse");
+
+        let result = validate_module_file_role(Path::new("test.op"), &program);
+        assert!(result.is_ok(), "empty .op file should be valid");
+    }
+
+    #[test]
+    fn validate_empty_types_op_file_ok() {
+        use crate::lexer::Lexer;
+        use crate::parser::Parser;
+        use std::path::Path;
+
+        let source = "";
+        let lexer = Lexer::new(source);
+        let (tokens, _) = lexer.tokenize();
+        let parser = Parser::new(tokens);
+        let (program_opt, _) = parser.parse();
+        let program = program_opt.expect("program should parse");
+
+        let result = validate_module_file_role(Path::new("test.types.op"), &program);
+        assert!(result.is_ok(), "empty .types.op file should be valid");
     }
 }

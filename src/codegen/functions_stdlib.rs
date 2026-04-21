@@ -4,8 +4,8 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use alloc::format;
 use alloc::string::String;
-use inkwell::values::FunctionValue;
 use inkwell::AddressSpace;
+use inkwell::values::FunctionValue;
 
 #[doc = "Declare a stdlib function in the LLVM module if not already present."]
 #[expect(

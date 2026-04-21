@@ -274,9 +274,11 @@ fn test_type_annotation_colon_does_not_emit_indent_or_dedent() {
     let (tokens, errors) = lexer.tokenize();
 
     assert!(errors.is_empty());
-    assert!(!tokens
-        .iter()
-        .any(|token| matches!(token.token_type, TokenType::Indent | TokenType::Dedent)));
+    assert!(
+        !tokens
+            .iter()
+            .any(|token| matches!(token.token_type, TokenType::Indent | TokenType::Dedent))
+    );
 }
 
 #[test]

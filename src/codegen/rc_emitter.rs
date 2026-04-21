@@ -1,10 +1,10 @@
 extern crate alloc;
 
 use crate::codegen::error::CodegenError;
+use inkwell::AddressSpace;
 use inkwell::builder::Builder;
 use inkwell::module::{Linkage, Module};
 use inkwell::values::{BasicMetadataValueEnum, IntValue, PointerValue};
-use inkwell::AddressSpace;
 
 /// Emits RC runtime calls for strong and weak reference operations.
 ///
@@ -150,7 +150,8 @@ impl<'builder, 'context> RcEmitter<'builder, 'context> {
         let ctx = self.module.get_context();
         let i8_ptr = ctx.i8_type().ptr_type(AddressSpace::default());
         let fn_type = ctx.void_type().fn_type(&[i8_ptr.into()], false);
-        self.module.add_function(name, fn_type, Some(Linkage::External))
+        self.module
+            .add_function(name, fn_type, Some(Linkage::External))
     }
 
     /// Declare or get the `opal_rc_alloc` function.

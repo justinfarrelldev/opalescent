@@ -70,13 +70,17 @@ impl TypeChecker {
         };
         self.environment
             .register_builtin(name.to_owned(), sig.clone());
-        self.symbol_table.register(SymbolInfo { name: name.to_owned(),
-        symbol_type: SymbolType::Function,
-        core_type: sig,
-        visibility: Visibility::Public,
-        source_location: Span::single(crate::token::Position::start()),
-        is_let_binding: false,
-        is_mutable: false, read_count: 0, is_pure: false, });
+        self.symbol_table.register(SymbolInfo {
+            name: name.to_owned(),
+            symbol_type: SymbolType::Function,
+            core_type: sig,
+            visibility: Visibility::Public,
+            source_location: Span::single(crate::token::Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+            is_pure: false,
+        });
     }
 
     /// Register an infallible `T -> string` conversion builtin.
@@ -89,13 +93,17 @@ impl TypeChecker {
         };
         self.environment
             .register_builtin(name.to_owned(), sig.clone());
-        self.symbol_table.register(SymbolInfo { name: name.to_owned(),
-        symbol_type: SymbolType::Function,
-        core_type: sig,
-        visibility: Visibility::Public,
-        source_location: Span::single(crate::token::Position::start()),
-        is_let_binding: false,
-        is_mutable: false, read_count: 0, is_pure: false, });
+        self.symbol_table.register(SymbolInfo {
+            name: name.to_owned(),
+            symbol_type: SymbolType::Function,
+            core_type: sig,
+            visibility: Visibility::Public,
+            source_location: Span::single(crate::token::Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+            is_pure: false,
+        });
     }
     /// Registers a random integer builtin function for the given numeric type.
     fn register_random_int(&mut self, name: &str, element_type: CoreType) {
@@ -107,13 +115,17 @@ impl TypeChecker {
         };
         self.environment
             .register_builtin(name.to_owned(), sig.clone());
-        self.symbol_table.register(SymbolInfo { name: name.to_owned(),
-        symbol_type: SymbolType::Function,
-        core_type: sig,
-        visibility: Visibility::Public,
-        source_location: Span::single(crate::token::Position::start()),
-        is_let_binding: false,
-        is_mutable: false, read_count: 0, is_pure: false, });
+        self.symbol_table.register(SymbolInfo {
+            name: name.to_owned(),
+            symbol_type: SymbolType::Function,
+            core_type: sig,
+            visibility: Visibility::Public,
+            source_location: Span::single(crate::token::Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+            is_pure: false,
+        });
     }
 
     /// Register a single-argument print builtin that accepts `param_type` and returns `Unit`.
@@ -126,12 +138,16 @@ impl TypeChecker {
         };
         self.environment
             .register_builtin(name.to_owned(), sig.clone());
-        self.symbol_table.register(SymbolInfo { name: name.to_owned(),
-        symbol_type: SymbolType::Function,
-        core_type: sig,
-        visibility: Visibility::Public,
-        source_location: Span::single(crate::token::Position::start()),
-        is_let_binding: false,
-        is_mutable: false, read_count: 0, is_pure: false, });
+        self.symbol_table.register(SymbolInfo {
+            name: name.to_owned(),
+            symbol_type: SymbolType::Function,
+            core_type: sig,
+            visibility: Visibility::Public,
+            source_location: Span::single(crate::token::Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+            is_pure: false,
+        });
     }
 }

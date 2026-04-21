@@ -16,7 +16,7 @@ use crate::codegen::functions::{
     codegen_call_expression, codegen_guard_expression, codegen_propagate_expression,
 };
 use crate::codegen::types::{core_type_to_llvm, integer_literal_bits, is_signed_core_type};
-use crate::type_system::type_mapping::{ast_type_to_core_type, AstTypeMappingError};
+use crate::type_system::type_mapping::{AstTypeMappingError, ast_type_to_core_type};
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
 use alloc::format;
@@ -43,6 +43,7 @@ pub struct CodegenEnv<'context> {
     /// Type signatures for imported symbols keyed by import-visible symbol name.
     pub imported_signatures: BTreeMap<String, CoreType>,
     pub variable_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
+    pub variable_field_aliases: BTreeMap<String, BTreeMap<String, String>>,
     pub emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue<'context>>,
     pub debug_mode: bool,
     pub temp_counter: usize,
@@ -56,6 +57,7 @@ impl CodegenEnv<'_> {
             imported_functions: BTreeMap::new(),
             imported_signatures: BTreeMap::new(),
             variable_field_indices: BTreeMap::new(),
+            variable_field_aliases: BTreeMap::new(),
             emitted_specializations: BTreeMap::new(),
             debug_mode,
             temp_counter: 0,

@@ -1,6 +1,6 @@
 //! ABI guard decisions for safe hot-reload transitions.
 
-use crate::hot_reload::abi::{signatures_compatible, AbiSignature};
+use crate::hot_reload::abi::{AbiSignature, signatures_compatible};
 use crate::hot_reload::loader::HotReloadError;
 
 /// ABI guard decision for an incoming module candidate.

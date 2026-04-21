@@ -1,0 +1,6 @@
+##
+  Description: A user with an identifier and display name
+##
+public type User:
+    id: int32
+    display_name: string

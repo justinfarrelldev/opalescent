@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use crate::package_manager::installer::{InstallPlan, Installer, MockDownloader};
-use crate::package_manager::manifest::{parse_manifest, serialize_manifest, Manifest};
+use crate::package_manager::manifest::{Manifest, parse_manifest, serialize_manifest};
 use crate::package_manager::publisher::{MockUploader, Publisher};
 use crate::package_manager::registry::MockRegistry;
 use crate::package_manager::resolver::resolve_manifest_deps;

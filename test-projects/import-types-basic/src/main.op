@@ -1,0 +1,9 @@
+import Person from ./models.types
+
+##
+  Description: Entry point for the import-types-basic fixture
+##
+entry main = f(args: string[]): void =>
+    let alice: Person = Person { name: 'Alice', age: 30 }
+    print('{alice.name} is {alice.age} years old')
+    return void

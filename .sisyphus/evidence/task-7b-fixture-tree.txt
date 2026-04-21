@@ -1,0 +1,11 @@
+/home/justi/Projects/opalescent/test-projects/value-in-types-file-fail/:
+opal.toml
+README.md
+src
+
+/home/justi/Projects/opalescent/test-projects/value-in-types-file-fail/src:
+main.op
+models.types.op
+1
+1
+1

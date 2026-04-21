@@ -1,0 +1,10 @@
+/home/justi/Projects/opalescent/test-projects/import-types-basic/:
+opal.toml
+README.md
+src
+
+/home/justi/Projects/opalescent/test-projects/import-types-basic/src:
+main.op
+models.types.op
+import Person from ./models.types
+type Person:

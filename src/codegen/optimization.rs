@@ -1,6 +1,6 @@
+use inkwell::OptimizationLevel as LlvmOptimizationLevel;
 use inkwell::module::Module;
 use inkwell::passes::{PassManager, PassManagerBuilder};
-use inkwell::OptimizationLevel as LlvmOptimizationLevel;
 
 #[doc = "Optimization level selection for LLVM module pass pipelines."]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

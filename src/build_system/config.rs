@@ -2,9 +2,9 @@
 
 extern crate alloc;
 
-use crate::build_system::targets::parse_target_triple;
-use crate::build_system::targets::BuildTarget;
 use crate::build_system::BuildError;
+use crate::build_system::targets::BuildTarget;
+use crate::build_system::targets::parse_target_triple;
 use alloc::borrow::ToOwned;
 use alloc::string::String;
 use alloc::vec::Vec;

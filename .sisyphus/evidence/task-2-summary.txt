@@ -1,0 +1,61 @@
+# Task 2: RED Phase Tests - Summary
+
+## Objective
+Write 8 unit tests that call `validate_module_file_role(path: &Path, program: &Program) -> Result<(), TypeError>` which does NOT yet exist. Tests must fail to compile (RED state).
+
+## Tests Added to src/module_loader.rs
+
+1. ✅ validate_op_file_allows_entry_and_let
+   - Tests: .op file with entry + let → Ok(())
+   - Source: "entry main = f(): void => { return void }\nlet util = f(): void => { return void }\n"
+
+2. ✅ validate_op_file_rejects_type_decl
+   - Tests: .op file with type decl → Err(TypeDeclarationOutsideTypesFile)
+   - Asserts: type_name field matches "User"
+   - Source: "type User: name: string\n"
+
+3. ✅ validate_types_op_file_allows_type_decls
+   - Tests: .types.op file with only type decls → Ok(())
+   - Source: "type User: name: string\ntype Admin: user: User\n"
+
+4. ✅ validate_types_op_file_rejects_let_decl
+   - Tests: .types.op file with let decl → Err(NonTypeDeclarationInTypesFile)
+   - Asserts: decl_kind field matches "let"
+   - Source: "let x = 42\n"
+
+5. ✅ validate_types_op_file_rejects_entry_decl
+   - Tests: .types.op file with entry decl → Err(NonTypeDeclarationInTypesFile)
+   - Asserts: decl_kind field matches "entry"
+   - Source: "entry main = f(): void => { return void }\n"
+
+6. ✅ validate_types_op_file_rejects_function_let
+   - Tests: .types.op file with function-typed let → Err(NonTypeDeclarationInTypesFile)
+   - Asserts: decl_kind field matches "let"
+   - Source: "let add = f(a: int32, b: int32): int32 => { return a + b }\n"
+
+7. ✅ validate_empty_op_file_ok
+   - Tests: empty .op file → Ok(())
+   - Source: ""
+
+8. ✅ validate_empty_types_op_file_ok
+   - Tests: empty .types.op file → Ok(())
+   - Source: ""
+
+## RED State Confirmation
+✅ All 8 tests fail to compile with: "cannot find function `validate_module_file_role` in this scope"
+✅ Evidence saved to: .sisyphus/evidence/task-2-red-state.txt
+
+## Implementation Details
+- Tests use Lexer → Parser → Program pattern (consistent with existing parser tests)
+- Tests import validate_module_file_role from super:: (same module)
+- Tests import TypeError variants from crate::type_system::errors::TypeError
+- Tests use Path::new("test.op") and Path::new("test.types.op") as path arguments
+- All tests are in #[cfg(test)] mod tests block in src/module_loader.rs
+- No tests are marked #[ignore]
+- No implementation of validate_module_file_role (that's T3)
+
+## Files Modified
+- src/module_loader.rs: Added 8 tests to #[cfg(test)] mod tests block (lines 505-681)
+
+## Next Steps (T3)
+Implement validate_module_file_role function to make tests pass (GREEN phase)

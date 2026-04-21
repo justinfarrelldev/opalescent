@@ -7,10 +7,10 @@ extern crate alloc;
 
 use crate::ast::{AstNode, Expr, Type};
 use crate::token::Span;
+use crate::type_system::checker::TypeChecker;
 use crate::type_system::checker::helpers::{
     coerce_literal_to_expected, is_integer_type, type_mismatch_error,
 };
-use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::substitution::Substitution;
@@ -20,12 +20,26 @@ use alloc::{boxed::Box, collections::BTreeMap, string::String, vec::Vec};
 
 /// Standard library functions that are impure (have side effects)
 const IMPURE_STDLIB_FUNCTIONS: &[&str] = &[
-    "print", "take_input",
-    "print_int8", "print_int16", "print_int32", "print_int64",
-    "print_uint8", "print_uint16", "print_uint32", "print_uint64",
-    "print_float32", "print_float64", "print_string",
-    "random_int8", "random_int16", "random_int32",
-    "random_uint8", "random_uint16", "random_uint32", "random_uint64",
+    "print",
+    "take_input",
+    "print_int8",
+    "print_int16",
+    "print_int32",
+    "print_int64",
+    "print_uint8",
+    "print_uint16",
+    "print_uint32",
+    "print_uint64",
+    "print_float32",
+    "print_float64",
+    "print_string",
+    "random_int8",
+    "random_int16",
+    "random_int32",
+    "random_uint8",
+    "random_uint16",
+    "random_uint32",
+    "random_uint64",
 ];
 
 impl TypeChecker {

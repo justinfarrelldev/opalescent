@@ -12,10 +12,10 @@
     )
 )]
 
-use crate::build_system::config::{parse_config, ProjectConfig, Version};
-use crate::build_system::targets::{parse_target_triple, BuildTarget};
 use crate::build_system::BuildError;
-use crate::compiler::{compile_program, compile_project, CompileError};
+use crate::build_system::config::{ProjectConfig, Version, parse_config};
+use crate::build_system::targets::{BuildTarget, parse_target_triple};
+use crate::compiler::{CompileError, compile_program, compile_project};
 use crate::doc_gen::generate_markdown_for_program;
 use crate::errors::renderer::render_report;
 use crate::errors::reporter::CompilationErrorReport;
@@ -23,6 +23,7 @@ use crate::formatter::command::FormatCommand;
 use crate::formatter::config::FormatterConfig;
 use crate::lexer::Lexer;
 use crate::lsp::server::LspServer;
+use crate::module_loader::validate_module_file_role;
 use crate::parser::Parser;
 use crate::testing::runner::{TestCommand, TestSuite};
 use std::fs;
@@ -183,7 +184,7 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
         }
     };
 
-    let binary_path = match compile_program(&source, Path::new("target")) {
+    let binary_path = match compile_program(Path::new(source_path), &source, Path::new("target")) {
         Ok(path) => path,
         Err(CompileError::Report {
             ref report,
@@ -213,7 +214,7 @@ fn compile_and_run(source_path: &str, program_args: &[&str]) -> Result<(), i32> 
         }
     };
 
-    let binary_path = match compile_program(&source, Path::new("target")) {
+    let binary_path = match compile_program(Path::new(source_path), &source, Path::new("target")) {
         Ok(path) => path,
         Err(CompileError::Report {
             ref report,
@@ -241,11 +242,7 @@ fn compile_and_run(source_path: &str, program_args: &[&str]) -> Result<(), i32> 
         }
     };
     let code = status.code().unwrap_or(1_i32);
-    if code == 0 {
-        Ok(())
-    } else {
-        Err(code)
-    }
+    if code == 0 { Ok(()) } else { Err(code) }
 }
 
 /// Dispatch `opal run` subcommand — compile and execute with optional arg passthrough.
@@ -278,7 +275,10 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
             ref report,
             ref normalized_source,
         }) => {
-            eprintln!("{}", render_report("src/main.op", normalized_source, report));
+            eprintln!(
+                "{}",
+                render_report("src/main.op", normalized_source, report)
+            );
             return Err(1);
         }
         Err(error) => {
@@ -300,11 +300,7 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
         }
     };
     let code = status.code().unwrap_or(1_i32);
-    if code == 0 {
-        Ok(())
-    } else {
-        Err(code)
-    }
+    if code == 0 { Ok(()) } else { Err(code) }
 }
 
 /// Dispatch `opal fmt` subcommand arguments to [`FormatCommand`].
@@ -446,11 +442,7 @@ fn run_test_command(args: &[String]) -> Result<(), i32> {
         report.passed, report.failed, report.skipped
     );
 
-    if report.is_success() {
-        Ok(())
-    } else {
-        Err(1)
-    }
+    if report.is_success() { Ok(()) } else { Err(1) }
 }
 
 /// Dispatch `opal doc` subcommand arguments to the documentation generator.
@@ -526,6 +518,7 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
         eprintln!("Usage: opal check <file.op>");
         return Err(1);
     };
+    let file_path = Path::new(source_path);
     let source = match fs::read_to_string(source_path) {
         Ok(content) => content,
         Err(error) => {
@@ -551,6 +544,11 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
         eprintln!("error: parse errors in source");
         return Err(1);
     };
+    if let Err(role_error) = validate_module_file_role(file_path, &program) {
+        report.extend_type_errors(vec![role_error]);
+        eprintln!("{}", render_report(source_path, &source, &report));
+        return Err(1);
+    }
     let mut checker = TypeChecker::new();
     if let Err(errors) = checker.type_check_program(&program) {
         report.extend_type_errors(errors);
@@ -1138,8 +1136,14 @@ mod tests {
             let args = ["opal".to_owned(), cmd.to_owned()];
             let result = run_with_args(&args);
             match cmd {
-                "test" | "bench" => assert_eq!(result, Ok(()), "{cmd} should be wired and executable"),
-                _ => assert_eq!(result, Err(1), "{cmd} should be wired and return argument/file errors, not unimplemented fallback"),
+                "test" | "bench" => {
+                    assert_eq!(result, Ok(()), "{cmd} should be wired and executable");
+                }
+                _ => assert_eq!(
+                    result,
+                    Err(1),
+                    "{cmd} should be wired and return argument/file errors, not unimplemented fallback"
+                ),
             }
         }
     }

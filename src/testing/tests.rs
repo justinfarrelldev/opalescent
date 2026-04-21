@@ -1,17 +1,17 @@
 extern crate alloc;
 
-use crate::build_system::config::{parse_config, ProjectConfig};
-use crate::build_system::targets::{parse_target_triple, BuildTarget};
+use crate::build_system::config::{ProjectConfig, parse_config};
+use crate::build_system::targets::{BuildTarget, parse_target_triple};
 use crate::testing::assertions::{
     assert_eq as opal_assert_eq, assert_false, assert_ne, assert_throws, assert_true,
 };
-use crate::testing::bench::{run_benchmark, Benchmark};
-use crate::testing::coverage::{generate_coverage_report, CoverageMap};
+use crate::testing::bench::{Benchmark, run_benchmark};
+use crate::testing::coverage::{CoverageMap, generate_coverage_report};
 use crate::testing::discovery::{
-    discover_tests_by_name_pattern, discover_tests_with_selection, TestSelection,
+    TestSelection, discover_tests_by_name_pattern, discover_tests_with_selection,
 };
-use crate::testing::property::{check_property, PropertyCheckResult, PropertyTest};
-use crate::testing::runner::{run_suite, TestCase, TestCommand, TestResult, TestSuite};
+use crate::testing::property::{PropertyCheckResult, PropertyTest, check_property};
+use crate::testing::runner::{TestCase, TestCommand, TestResult, TestSuite, run_suite};
 use alloc::string::String;
 use alloc::vec;
 

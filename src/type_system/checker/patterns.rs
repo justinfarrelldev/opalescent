@@ -69,13 +69,17 @@ impl TypeChecker {
         match *pattern {
             Pattern::Wildcard { .. } => Ok(()),
             Pattern::Binding { ref name, span } => {
-                self.symbol_table.register(SymbolInfo { name: name.clone(),
-                symbol_type: SymbolType::Variable,
-                core_type: scrutinee_type.clone(),
-                visibility: Visibility::Private,
-                source_location: span,
-                is_let_binding: false,
-                is_mutable: false, read_count: 0, is_pure: false, });
+                self.symbol_table.register(SymbolInfo {
+                    name: name.clone(),
+                    symbol_type: SymbolType::Variable,
+                    core_type: scrutinee_type.clone(),
+                    visibility: Visibility::Private,
+                    source_location: span,
+                    is_let_binding: false,
+                    is_mutable: false,
+                    read_count: 0,
+                    is_pure: false,
+                });
                 Ok(())
             }
             Pattern::Literal {

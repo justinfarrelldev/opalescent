@@ -81,9 +81,11 @@ pub fn codegen_function_declaration<'context>(
     } else {
         Some(Linkage::Internal)
     };
-    let function = codegen_context
-        .module
-        .add_function(function_name.as_str(), function_type, function_linkage);
+    let function = codegen_context.module.add_function(
+        function_name.as_str(),
+        function_type,
+        function_linkage,
+    );
     let entry = codegen_context
         .context
         .append_basic_block(function, "entry");
@@ -262,12 +264,7 @@ fn codegen_local_import_declaration<'context>(
                     lowered_params
                         .push(core_type_to_llvm(codegen_context.context, param_type).into());
                     if matches!(*param_type, CoreType::Array(_)) {
-                        lowered_params.push(
-                            codegen_context
-                                .context
-                                .i64_type()
-                                .into(),
-                        );
+                        lowered_params.push(codegen_context.context.i64_type().into());
                     }
                 }
                 let fn_type = build_function_type(codegen_context, &lowered_params, return_types);

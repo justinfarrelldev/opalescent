@@ -114,21 +114,13 @@ pub fn atan2(y: f64, x: f64) -> f64 {
 /// Return the minimum of two `int64` values.
 #[must_use]
 pub const fn min_i64(a: i64, b: i64) -> i64 {
-    if a < b {
-        a
-    } else {
-        b
-    }
+    if a < b { a } else { b }
 }
 
 /// Return the maximum of two `int64` values.
 #[must_use]
 pub const fn max_i64(a: i64, b: i64) -> i64 {
-    if a > b {
-        a
-    } else {
-        b
-    }
+    if a > b { a } else { b }
 }
 
 /// Return the minimum of two `float64` values.

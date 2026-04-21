@@ -61,11 +61,7 @@ fn print_literal(lit: &LiteralValue) -> String {
         LiteralValue::Float(f) => {
             let s = format!("{f}");
             // Ensure float literals always contain a decimal point.
-            if s.contains('.') {
-                s
-            } else {
-                format!("{s}.0")
-            }
+            if s.contains('.') { s } else { format!("{s}.0") }
         }
         LiteralValue::String(ref s) => format!("'{}'", escape_single_quoted_string(s)),
         LiteralValue::Boolean(b) => (if b { "true" } else { "false" }).to_owned(),

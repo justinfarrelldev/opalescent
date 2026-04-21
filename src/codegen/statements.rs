@@ -8,9 +8,9 @@ use crate::codegen::control_flow::{
     codegen_return_statement,
 };
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{codegen_expression, CodegenEnv, VariableBinding};
+use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::types::core_type_to_llvm;
-use crate::type_system::type_mapping::{ast_type_to_core_type, AstTypeMappingError};
+use crate::type_system::type_mapping::{AstTypeMappingError, ast_type_to_core_type};
 use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -168,6 +168,18 @@ fn codegen_let_statement<'context>(
         if let Some(field_indices) = initializer.and_then(product_field_indices_from_constructor) {
             env.variable_field_indices
                 .insert(binding.name.clone(), field_indices);
+            if let Some(&Expr::Constructor { ref fields, .. }) = initializer {
+                let mut field_aliases = alloc::collections::BTreeMap::new();
+                for field in fields {
+                    if let &Expr::Identifier { ref name, .. } = &field.value {
+                        field_aliases.insert(field.name.clone(), name.clone());
+                    }
+                }
+                if !field_aliases.is_empty() {
+                    env.variable_field_aliases
+                        .insert(binding.name.clone(), field_aliases);
+                }
+            }
         }
     }
 
@@ -403,11 +415,13 @@ fn ast_type_to_core_type_for_let(ast_type: &Type) -> Result<CoreType, CodegenErr
         )));
     }
 
-    ast_type_to_core_type(ast_type).map_err(|error| match error {
-        AstTypeMappingError::TypeNotFound { type_name, .. } => {
-            CodegenError::new(format!("unsupported type '{type_name}'"))
-        }
-    })
+    match ast_type_to_core_type(ast_type) {
+        Ok(core_type) => Ok(core_type),
+        Err(AstTypeMappingError::TypeNotFound { type_name, .. }) => Ok(CoreType::Generic {
+            name: type_name,
+            type_args: Vec::new(),
+        }),
+    }
 }
 
 /// Return whether an AST type is currently supported for let annotations.

@@ -3,7 +3,7 @@ extern crate alloc;
 use crate::ast::{Expr, Pattern};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{codegen_expression, CodegenEnv};
+use crate::codegen::expressions::{CodegenEnv, codegen_expression};
 use crate::codegen::types::integer_literal_bits;
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
@@ -52,17 +52,29 @@ pub fn codegen_field_access_expression<'context>(
     expr: &Expr,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let (receiver_name, member_name) = member_parts(expr)?;
-    let Some(binding) = env.variables.get(receiver_name) else {
+    let mut aliased_receiver: Option<&str> = None;
+    let mut effective_member_name = member_name.as_str();
+    if let Some((root, field)) = receiver_name.split_once('.') {
+        if let Some(alias_map) = env.variable_field_aliases.get(root) {
+            if let Some(target_binding) = alias_map.get(field) {
+                aliased_receiver = Some(target_binding.as_str());
+                effective_member_name = member_name.as_str();
+            }
+        }
+    }
+    let effective_receiver_name = aliased_receiver.unwrap_or(receiver_name.as_str());
+
+    let Some(binding) = env.variables.get(effective_receiver_name) else {
         return Err(CodegenError::new(format!(
             "unknown field-access receiver '{receiver_name}'"
         )));
     };
-    let Some(field_indices) = env.variable_field_indices.get(receiver_name) else {
+    let Some(field_indices) = env.variable_field_indices.get(effective_receiver_name) else {
         return Err(CodegenError::new(format!(
             "receiver '{receiver_name}' does not have tracked product fields"
         )));
     };
-    let Some(index) = field_indices.get(member_name) else {
+    let Some(index) = field_indices.get(effective_member_name) else {
         return Err(CodegenError::new(format!(
             "unknown field '{member_name}' on receiver '{receiver_name}'"
         )));
@@ -251,7 +263,7 @@ fn current_function<'context>(
 }
 
 #[doc = "Extract receiver/member string slices from member access expression."]
-fn member_parts(expr: &Expr) -> Result<(&str, &str), CodegenError> {
+fn member_parts(expr: &Expr) -> Result<(String, String), CodegenError> {
     if let Expr::Member {
         ref object,
         ref member,
@@ -259,7 +271,17 @@ fn member_parts(expr: &Expr) -> Result<(&str, &str), CodegenError> {
     } = *expr
     {
         if let Expr::Identifier { ref name, .. } = *object.as_ref() {
-            return Ok((name.as_str(), member.as_str()));
+            return Ok((name.clone(), member.clone()));
+        }
+        if let Expr::Member {
+            ref object,
+            member: ref inner_member,
+            ..
+        } = *object.as_ref()
+        {
+            if let Expr::Identifier { ref name, .. } = **object {
+                return Ok((format!("{name}.{inner_member}"), member.clone()));
+            }
         }
         return Err(CodegenError::new(String::from(
             "field access requires identifier receiver in task 25",

@@ -4,14 +4,14 @@ extern crate alloc;
 use crate::ast::{Expr, LiteralValue};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{current_function, CodegenEnv};
+use crate::codegen::expressions::{CodegenEnv, current_function};
 use crate::codegen::types::integer_literal_bits;
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
 use alloc::string::ToString;
-use inkwell::values::IntValue;
 use inkwell::IntPredicate;
+use inkwell::values::IntValue;
 
 const fn integer_core_type_name(bits: u32, signed: bool) -> &'static str {
     match (bits, signed) {

@@ -13,12 +13,12 @@ pub mod property;
 pub mod runner;
 
 pub use assertions::{
-    assert_eq, assert_false, assert_ne, assert_throws, assert_true, AssertionError,
+    AssertionError, assert_eq, assert_false, assert_ne, assert_throws, assert_true,
 };
-pub use bench::{run_benchmark, Benchmark, BenchmarkResult};
-pub use coverage::{generate_coverage_report, CoverageMap, CoverageReport};
-pub use discovery::{discover_tests_by_name_pattern, TestSelection};
-pub use property::{check_property, PropertyCheckResult, PropertyFailure, PropertyTest};
+pub use bench::{Benchmark, BenchmarkResult, run_benchmark};
+pub use coverage::{CoverageMap, CoverageReport, generate_coverage_report};
+pub use discovery::{TestSelection, discover_tests_by_name_pattern};
+pub use property::{PropertyCheckResult, PropertyFailure, PropertyTest, check_property};
 pub use runner::{TestCase, TestCommand, TestReport, TestResult, TestSuite};
 
 #[cfg(test)]

@@ -13,12 +13,12 @@ pub mod publisher;
 pub mod registry;
 pub mod resolver;
 
-pub use commands::{dispatch_pkg_command, PkgCommand, PkgCommandResult};
+pub use commands::{PkgCommand, PkgCommandResult, dispatch_pkg_command};
 pub use installer::{InstallPlan, Installer, InstallerError};
-pub use manifest::{parse_manifest, Manifest, ManifestDependency, ManifestError};
+pub use manifest::{Manifest, ManifestDependency, ManifestError, parse_manifest};
 pub use publisher::{PublishError, PublishPlan, Publisher};
 pub use registry::{MockRegistry, PackageEntry, Registry, RegistryError};
-pub use resolver::{resolve_manifest_deps, DependencyNode, ResolveError, ResolvedGraph};
+pub use resolver::{DependencyNode, ResolveError, ResolvedGraph, resolve_manifest_deps};
 
 /// Unified package-manager error type.
 #[derive(Debug, Clone, PartialEq, Eq)]

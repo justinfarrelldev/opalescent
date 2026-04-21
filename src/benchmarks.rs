@@ -12,7 +12,7 @@ pub mod suite;
 pub use crate::testing::BenchmarkResult;
 pub use memory::{MeasuredBenchmark, MemoryMetrics};
 pub use regression::{
-    check_regression, RegressionResult, RegressionThreshold, RegressionViolation,
+    RegressionResult, RegressionThreshold, RegressionViolation, check_regression,
 };
 pub use suite::{BenchmarkSuite, SuiteReport};
 

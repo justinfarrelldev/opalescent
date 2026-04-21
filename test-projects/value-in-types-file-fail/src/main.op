@@ -1,0 +1,11 @@
+##
+  Description: Imports from the offending types module
+##
+import type Person from ./models.types
+
+##
+  Description: Entry point (will never compile due to validator error in models.types.op)
+##
+entry main = f(args: string[]): void =>
+    print('unreachable')
+    return void

@@ -1,8 +1,8 @@
 extern crate alloc;
 
 use crate::benchmarks::compile_time::{bench_codegen, bench_parse, bench_typecheck};
-use crate::benchmarks::memory::{estimate_memory_metrics, MeasuredBenchmark};
-use crate::benchmarks::regression::{check_regression, RegressionThreshold};
+use crate::benchmarks::memory::{MeasuredBenchmark, estimate_memory_metrics};
+use crate::benchmarks::regression::{RegressionThreshold, check_regression};
 use crate::benchmarks::runtime_bench::{
     bench_array_sort_runtime, bench_fibonacci_runtime, bench_string_ops_runtime,
 };

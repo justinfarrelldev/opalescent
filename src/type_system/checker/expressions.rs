@@ -10,10 +10,10 @@ use super::helpers::{
     zero_divisor_operation_name,
 };
 use crate::ast::{AstNode, BinaryOp, Expr, LambdaBody, Parameter, Type, TypeParameter, UnaryOp};
-use crate::errors::suggestions::{closest_identifier_suggestion, SUGGESTION_DISTANCE_THRESHOLD};
+use crate::errors::suggestions::{SUGGESTION_DISTANCE_THRESHOLD, closest_identifier_suggestion};
 use crate::token::Span;
 use crate::type_system::arithmetic::{
-    fold_integer_binary_expr, mode_for_binary_operator, mode_for_intrinsic_member, ArithmeticMode,
+    ArithmeticMode, fold_integer_binary_expr, mode_for_binary_operator, mode_for_intrinsic_member,
 };
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
@@ -821,13 +821,17 @@ impl TypeChecker {
         self.begin_return_context();
         let body_result = self.within_new_scope(|checker| -> Result<(), TypeError> {
             for (param, core_type) in parameters.iter().zip(parameter_types.iter()) {
-                checker.symbol_table.register(SymbolInfo { name: param.name.clone(),
-                symbol_type: SymbolType::Variable,
-                core_type: core_type.clone(),
-                visibility: Visibility::Private,
-                source_location: param.span(),
-                is_let_binding: false,
-                is_mutable: false, read_count: 0, is_pure: false, });
+                checker.symbol_table.register(SymbolInfo {
+                    name: param.name.clone(),
+                    symbol_type: SymbolType::Variable,
+                    core_type: core_type.clone(),
+                    visibility: Visibility::Private,
+                    source_location: param.span(),
+                    is_let_binding: false,
+                    is_mutable: false,
+                    read_count: 0,
+                    is_pure: false,
+                });
             }
             match *body {
                 LambdaBody::Expression(ref expr) => {

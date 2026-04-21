@@ -5,7 +5,10 @@
 
 extern crate alloc;
 
-use crate::ast::{Decl, Expr, ImportItem, LabeledValue, LambdaBody, NodeId, Program, Stmt};
+/// Helper functions for compiler pipeline orchestration.
+mod compiler_helpers;
+
+use crate::ast::{Decl, Expr, NodeId, Program};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
@@ -13,22 +16,29 @@ use crate::codegen::functions::{codegen_function_declaration, codegen_import_dec
 use crate::error::LexError;
 use crate::errors::reporter::{CompilationErrorReport, CompilerError};
 use crate::lexer::Lexer;
-use crate::module_loader::{resolve_import_path, ModuleLoader};
-use crate::parser::errors::ParseError;
+use crate::module_loader::{
+    ModuleLoader, is_types_file, resolve_import_path, validate_module_file_role,
+};
 use crate::parser::Parser;
-use crate::token::{Position, Span};
+use crate::parser::errors::ParseError;
+use crate::token::Position;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::{collections::BTreeMap, vec::Vec};
+use inkwell::OptimizationLevel;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target};
-use inkwell::OptimizationLevel;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
+use compiler_helpers::{
+    collect_imported_symbol_signatures,
+    compile_checked_program_to_module, is_main_module_path, lambda_body_to_function_body,
+    parse_source_to_program, validate_entry_declarations_for_module,
+};
 
 /// Embedded C runtime source used during native linking.
 const RUNTIME_SOURCE: &str = concat!(
@@ -121,8 +131,10 @@ pub enum CompileError {
 ///
 /// # Errors
 /// Returns a multi-error report plus normalized source when any stage fails.
+#[expect(clippy::too_many_lines, reason = "Complex compilation pipeline with multiple stages")]
 pub fn compile_to_module<'context>(
     context: &'context Context,
+    source_path: &Path,
     source: &str,
 ) -> Result<Module<'context>, (CompilationErrorReport, String)> {
     let normalized_source = source.replace('\t', "    ");
@@ -148,6 +160,11 @@ pub fn compile_to_module<'context>(
         });
         return Err((report, normalized_source));
     };
+
+    if let Err(role_error) = validate_module_file_role(source_path, &program) {
+        report.extend_type_errors(vec![role_error]);
+        return Err((report, normalized_source));
+    }
 
     let mut checker = TypeChecker::new();
     if let Err(type_errors) = checker.type_check_program(&program) {
@@ -233,229 +250,8 @@ pub fn compile_to_module<'context>(
     Ok(codegen_context.module)
 }
 
-/// Lower a lambda body into a function-compatible statement body.
-fn lambda_body_to_function_body(body: &LambdaBody) -> Stmt {
-    match *body {
-        LambdaBody::Block(ref statements) => Stmt::Block {
-            statements: statements.clone(),
-            span: statements.first().zip(statements.last()).map_or_else(
-                || Span::single(Position::start()),
-                |(first_statement, last_statement)| {
-                    Span::new(
-                        first_statement.span_const().start,
-                        last_statement.span_const().end,
-                    )
-                },
-            ),
-            id: NodeId(0),
-        },
-        LambdaBody::Expression(ref expression) => {
-            let expression_span = expression.span_const();
-            Stmt::Return {
-                values: vec![LabeledValue {
-                    label: String::new(),
-                    value: *expression.clone(),
-                    span: expression_span,
-                    id: NodeId(0),
-                }],
-                span: expression_span,
-                id: NodeId(0),
-            }
-        }
-    }
-}
-
-/// Parse source text into an AST program using the compiler lexer/parser pipeline.
-///
-/// # Errors
-/// Returns `CompileError::Lex` or `CompileError::Parse` when front-end parsing fails.
-fn parse_source_to_program(source: &str) -> Result<Program, CompileError> {
-    let normalized_source = source.replace('\t', "    ");
-    let lexer = Lexer::new(&normalized_source);
-    let (tokens, lex_errors) = lexer.tokenize();
-    if let Some(first_lex_error) = lex_errors.errors.into_iter().next() {
-        return Err(CompileError::Lex(first_lex_error));
-    }
-
-    let parser = Parser::new(tokens);
-    let (program_option, parse_errors) = parser.parse();
-    if let Some(first_parse_error) = parse_errors.errors.into_iter().next() {
-        return Err(CompileError::Parse(first_parse_error));
-    }
-
-    let Some(program) = program_option else {
-        return Err(CompileError::Parse(ParseError::InvalidSyntax {
-            message: String::from("parser returned no program after successful parse"),
-            span: LexError::span_from_position(Position::start(), 1),
-        }));
-    };
-
-    Ok(program)
-}
-
-/// Return true when this module path is `src/main.op` relative to project root.
-fn is_main_module_path(project_dir: &Path, module_path: &Path) -> bool {
-    let expected_main = project_dir.join("src").join("main.op");
-    canonicalize_or_original_path(&expected_main) == canonicalize_or_original_path(module_path)
-}
-
-/// Canonicalize a path, or return the original path when canonicalization fails.
-fn canonicalize_or_original_path(path: &Path) -> PathBuf {
-    path.canonicalize().unwrap_or_else(|_io_err| path.to_path_buf())
-}
-
-/// Validate that `entry` appears only in `src/main.op`.
-///
-/// # Errors
-/// Returns `TypeError::EntryNotInMainModule` when `entry` is used in a non-main module.
-fn validate_entry_declarations_for_module(
-    project_dir: &Path,
-    module_path: &Path,
-    program: &Program,
-) -> Result<(), CompileError> {
-    if is_main_module_path(project_dir, module_path) {
-        return Ok(());
-    }
-
-    for declaration in &program.declarations {
-        if let &Decl::Function {
-            is_entry,
-            span,
-            ..
-        } = declaration
-        {
-            if is_entry {
-                return Err(CompileError::Type(TypeError::EntryNotInMainModule {
-                    file_path: module_path.display().to_string(),
-                    span: TypeError::span_from_span(span),
-                }));
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// Collect imported symbol signatures for codegen from checker-resolved module interfaces.
-fn collect_imported_symbol_signatures(
-    checker: &TypeChecker,
-    program: &Program,
-) -> BTreeMap<String, CoreType> {
-    let mut imported_signatures: BTreeMap<String, CoreType> = BTreeMap::new();
-
-    for declaration in &program.declarations {
-        if let &Decl::Import {
-            ref items,
-            source: ref import_source,
-            ..
-        } = declaration
-        {
-            if let Some(interface) = checker.module_interface(import_source) {
-                for import_item in items {
-                    match import_item {
-                        &ImportItem::Named {
-                            ref name,
-                            ref alias,
-                            ..
-                        }
-                        | &ImportItem::Type {
-                            ref name,
-                            ref alias,
-                            ..
-                        } => {
-                            if let Some(exported_symbol) = interface.exports.get(name) {
-                                let import_name = alias.as_deref().unwrap_or(name).to_owned();
-                                imported_signatures
-                                    .insert(import_name, exported_symbol.core_type.clone());
-                            }
-                        }
-                        &ImportItem::Glob { .. } => {
-                            for (export_name, exported_symbol) in &interface.exports {
-                                imported_signatures
-                                    .insert(export_name.clone(), exported_symbol.core_type.clone());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    imported_signatures
-}
-
-/// Lower a previously type-checked program to an LLVM module.
-///
-/// # Errors
-/// Returns `CodegenError` when LLVM lowering fails.
-fn compile_checked_program_to_module<'context>(
-    context: &'context Context,
-    program: &Program,
-    imported_signatures: BTreeMap<String, CoreType>,
-) -> Result<Module<'context>, CodegenError> {
-    let codegen_context = CodegenContext::new(context, "opalescent_module");
-    let mut env = CodegenEnv::new(true);
-    env.imported_signatures = imported_signatures;
-
-    for declaration in &program.declarations {
-        match *declaration {
-            Decl::Import { ref source, .. } => {
-                if matches!(source.as_str(), "standard" | "math") {
-                    codegen_import_declaration(&codegen_context, &mut env, declaration)?;
-                }
-            }
-            Decl::Function { .. } => {
-                codegen_function_declaration(&codegen_context, &mut env, declaration)?;
-            }
-            Decl::Let {
-                ref binding,
-                initializer:
-                    Expr::Lambda {
-                        ref generic_params,
-                        ref generic_constraints,
-                        ref params,
-                        ref return_types,
-                        ref error_types,
-                        ref body,
-                        ..
-                    },
-                ref visibility,
-                ref doc_comment,
-                span,
-                ..
-            } => {
-                let lowered_body = lambda_body_to_function_body(body);
-                let lowered_declaration = Decl::Function {
-                    name: binding.name.clone(),
-                    generic_params: generic_params.clone(),
-                    generic_constraints: generic_constraints.clone(),
-                    parameters: params.clone(),
-                    return_types: Some(return_types.clone()),
-                    error_types: error_types.clone(),
-                    body: lowered_body,
-                    visibility: visibility.clone(),
-                    is_entry: false,
-                    modifiers: vec![],
-                    doc_comment: doc_comment.clone(),
-                    span,
-                    id: NodeId(0),
-                    metadata: crate::ast::HotReloadMetadata::for_function(),
-                };
-
-                codegen_function_declaration(&codegen_context, &mut env, &lowered_declaration)?;
-            }
-            Decl::Let { .. } | Decl::Type { .. } | Decl::Comment { .. } => {}
-        }
-    }
-
-    Ok(codegen_context.module)
-}
-
-/// Emit LLVM module as an object file at `path`.
-///
-/// # Errors
-/// Returns `CodegenError` if LLVM target initialization or object emission fails.
-pub fn emit_object_file(module: &Module<'_>, path: &Path) -> Result<(), CodegenError> {
+/// Emits an LLVM module to an object file.
+pub fn emit_object_file(module: &Module<'_>, path: &std::path::Path) -> Result<(), CodegenError> {
     Target::initialize_native(&InitializationConfig::default()).map_err(|error| {
         CodegenError::new(format!(
             "failed to initialize native LLVM target support: {error}"
@@ -554,7 +350,10 @@ pub fn build_linker_command(
 ///
 /// # Errors
 /// Returns `CompileError` if the linker process fails or produces errors.
-pub fn link_object_files(object_paths: &[PathBuf], output_path: &Path) -> Result<PathBuf, CompileError> {
+pub fn link_object_files(
+    object_paths: &[PathBuf],
+    output_path: &Path,
+) -> Result<PathBuf, CompileError> {
     let runtime_temp_file = RuntimeTempFile::create()?;
 
     let mut command = build_linker_command(
@@ -587,11 +386,15 @@ pub fn link_object_file(object_path: &Path, output_path: &Path) -> Result<PathBu
 ///
 /// # Errors
 /// Returns `CompileError` at any pipeline stage.
-pub fn compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, CompileError> {
+pub fn compile_program(
+    source_path: &Path,
+    source: &str,
+    output_dir: &Path,
+) -> Result<PathBuf, CompileError> {
     std::fs::create_dir_all(output_dir).map_err(CompileError::Io)?;
 
     let context = Context::create();
-    let module = match compile_to_module(&context, source) {
+    let module = match compile_to_module(&context, source_path, source) {
         Ok(module) => module,
         Err((report, normalized_source)) => {
             if report.len() == 1 {
@@ -646,6 +449,14 @@ pub fn compile_project(project_dir: &Path, output_dir: &Path) -> Result<PathBuf,
             .map_err(CompileError::Io)?;
         let program = parse_source_to_program(&module_source)?;
         validate_entry_declarations_for_module(project_dir, module_path, &program)?;
+        if let Err(role_error) = validate_module_file_role(module_path, &program) {
+            let mut report = CompilationErrorReport::new();
+            report.extend_type_errors(vec![role_error]);
+            return Err(CompileError::Report {
+                report,
+                normalized_source: module_source.replace('\t', "    "),
+            });
+        }
         parsed_programs.insert(module_path.clone(), program);
     }
 
@@ -778,6 +589,10 @@ pub fn compile_project(project_dir: &Path, output_dir: &Path) -> Result<PathBuf,
 
     let mut object_paths: Vec<PathBuf> = Vec::new();
     for (index, module_path) in discovered_module_paths.iter().enumerate() {
+        if is_types_file(module_path) {
+            continue;
+        }
+
         let Some(program) = parsed_programs.get(module_path) else {
             return Err(CompileError::Type(TypeError::ConstraintSolvingFailed {
                 reason: format!(
@@ -810,13 +625,14 @@ mod tests {
     use super::{build_linker_command, compile_to_module};
     use crate::errors::reporter::CompilerError;
     use inkwell::context::Context;
+    use std::path::Path;
 
     /// Valid source should compile and produce a verifiable module.
     #[test]
     fn compile_to_module_valid_void_program() {
         let context = Context::create();
         let source = "##\n  Description: Entry test program with valid docs for compilation\n##\nentry main = f(): void => { return void }";
-        let result = compile_to_module(&context, source);
+        let result = compile_to_module(&context, Path::new("test.op"), source);
 
         assert!(result.is_ok(), "valid source should compile into a module");
 
@@ -838,7 +654,7 @@ mod tests {
     fn compile_to_module_lex_error() {
         let context = Context::create();
         let source = "##\n  Description: Entry lexical error sample with valid docs\n##\nentry main = f(): void => {\n\tlet x = @@@invalid\n}";
-        let result = compile_to_module(&context, source);
+        let result = compile_to_module(&context, Path::new("test.op"), source);
         assert!(
             result.is_err(),
             "invalid tokens should surface as lexer diagnostics"
@@ -870,7 +686,7 @@ mod tests {
     fn compile_to_module_type_error() {
         let context = Context::create();
         let source = "##\n  Description: Entry type mismatch sample with valid docs\n##\nentry main = f(): void => { return 1 }";
-        let result = compile_to_module(&context, source);
+        let result = compile_to_module(&context, Path::new("test.op"), source);
         assert!(
             result.is_err(),
             "semantic mismatches should fail compilation"
@@ -892,7 +708,7 @@ mod tests {
     fn compile_to_module_collects_multiple_type_errors() {
         let context = Context::create();
         let source = "let bad_type = f(): int32 => { return true }\nlet bad_symbol = f(): int32 => { return missing_symbol }\n##\n  Description: Entry multi-error sample with valid docs\n##\nentry main = f(): void => { return void }";
-        let result = compile_to_module(&context, source);
+        let result = compile_to_module(&context, Path::new("test.op"), source);
         assert!(
             result.is_err(),
             "source with multiple semantic issues should fail compilation"

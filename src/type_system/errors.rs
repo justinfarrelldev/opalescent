@@ -72,7 +72,9 @@ pub enum TypeError {
     },
 
     /// Constructor provided a value that does not match the declared field type.
-    #[error("Field '{field_name}' type mismatch in '{type_name}': expected '{expected}', found '{found}'")]
+    #[error(
+        "Field '{field_name}' type mismatch in '{type_name}': expected '{expected}', found '{found}'"
+    )]
     #[diagnostic(
         code(opalescent::type_system::field_type_mismatch),
         help("Update the field value so it matches the declared field type")
@@ -441,7 +443,9 @@ pub enum TypeError {
     #[error("Call to error-producing function `{name}` must be wrapped in `guard` or `propagate`")]
     #[diagnostic(
         code(opalescent::type_system::unhandled_call_error),
-        help("Wrap this call in `guard ... into ... else ...` to handle errors locally, or use `propagate` in an error-declaring function")
+        help(
+            "Wrap this call in `guard ... into ... else ...` to handle errors locally, or use `propagate` in an error-declaring function"
+        )
     )]
     UnhandledCallError {
         /// Name of the called function, or a placeholder for non-identifier callees.
@@ -703,7 +707,9 @@ pub enum TypeError {
     },
 
     /// Documentation comment is too short.
-    #[error("Documentation comment for '{name}' is too short ({found_length} characters, minimum {min_length})")]
+    #[error(
+        "Documentation comment for '{name}' is too short ({found_length} characters, minimum {min_length})"
+    )]
     #[diagnostic(
         code(opalescent::type_system::doc_comment_too_short),
         help("Expand the documentation to at least {min_length} characters")
@@ -724,7 +730,9 @@ pub enum TypeError {
     #[error("The 'entry' keyword is only allowed in src/main.op, found in '{file_path}'")]
     #[diagnostic(
         code(opalescent::type_system::entry_not_in_main_module),
-        help("Move the entry function to src/main.op — only one entry point is allowed per project")
+        help(
+            "Move the entry function to src/main.op — only one entry point is allowed per project"
+        )
     )]
     EntryNotInMainModule {
         /// File path where the entry keyword was incorrectly used.
@@ -752,13 +760,53 @@ pub enum TypeError {
     #[error("Package imports are not yet supported: '{path}'")]
     #[diagnostic(
         code(opalescent::type_system::package_import_not_supported),
-        help("Package imports (@scope/name) will be available once the package manager is implemented. Use local imports (./path) instead.")
+        help(
+            "Package imports (@scope/name) will be available once the package manager is implemented. Use local imports (./path) instead."
+        )
     )]
     PackageImportNotSupported {
         /// Package import path that was attempted.
         path: String,
         #[label("package import not supported")]
         /// Source span of the package import statement.
+        span: SourceSpan,
+    },
+
+    /// `type` declaration found outside a `.types.op` file.
+    #[error("type declaration '{type_name}' is not allowed in '{file_path}'")]
+    #[diagnostic(
+        code(opalescent::type_system::type_declaration_outside_types_file),
+        help(
+            "Move this type to a file ending in .types.op — the language spec requires type declarations to live in .types.op files"
+        )
+    )]
+    TypeDeclarationOutsideTypesFile {
+        /// Name of the type being declared.
+        type_name: String,
+        /// File path where the type was incorrectly declared.
+        file_path: String,
+        #[label("type declaration not allowed here")]
+        /// Source span of the type declaration.
+        span: SourceSpan,
+    },
+
+    /// Non-type declaration found inside a `.types.op` file.
+    #[error("'{decl_kind}' declaration '{decl_name}' is not allowed in types file '{file_path}'")]
+    #[diagnostic(
+        code(opalescent::type_system::non_type_declaration_in_types_file),
+        help(
+            ".types.op files may only contain type declarations — move this declaration to a regular .op file"
+        )
+    )]
+    NonTypeDeclarationInTypesFile {
+        /// Kind of declaration (e.g., "function", "variable").
+        decl_kind: String,
+        /// Name of the declaration.
+        decl_name: String,
+        /// File path where the non-type declaration was found.
+        file_path: String,
+        #[label("not allowed in .types.op file")]
+        /// Source span of the declaration.
         span: SourceSpan,
     },
 }

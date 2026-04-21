@@ -1,13 +1,13 @@
 extern crate alloc;
 
 use crate::hot_reload::abi::{
-    generate_abi_signature, ExportedFunction, FunctionSignature, ModuleVTable,
+    ExportedFunction, FunctionSignature, ModuleVTable, generate_abi_signature,
 };
 use crate::hot_reload::loader::{
-    hot_swap_module, HostProcess, HotReloadError, LoadedModule, ModuleLoader,
+    HostProcess, HotReloadError, LoadedModule, ModuleLoader, hot_swap_module,
 };
-use crate::testing::bench::summarize_samples;
 use crate::testing::BenchmarkResult;
+use crate::testing::bench::summarize_samples;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec;

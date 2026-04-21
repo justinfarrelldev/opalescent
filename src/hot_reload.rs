@@ -15,8 +15,8 @@ pub mod state;
 pub mod version;
 
 pub use abi::{
-    generate_abi_signature, signatures_compatible, AbiSignature, ExportedFunction,
-    FunctionSignature, ModuleVTable, PodLayout,
+    AbiSignature, ExportedFunction, FunctionSignature, ModuleVTable, PodLayout,
+    generate_abi_signature, signatures_compatible,
 };
 pub use cache::AbiSignatureCache;
 pub use change_detection::{
@@ -26,11 +26,11 @@ pub use classifier::{ChangeClassifier, HotReloadCategory, ReloadDecision};
 pub use dependency_graph::ModuleDependencyGraph;
 pub use guard::{AbiGuard, AbiGuardResult, FallbackRestartTrigger};
 pub use loader::{
-    hot_swap_module, FsModuleLoader, HostProcess, HotReloadError, LoadedModule, ModuleLoader,
+    FsModuleLoader, HostProcess, HotReloadError, LoadedModule, ModuleLoader, hot_swap_module,
 };
 pub use recovery::ErrorRecovery;
 pub use state::{HostState, StateError, StatePreserver};
-pub use version::{versioned_module_name, ModuleVersion};
+pub use version::{ModuleVersion, versioned_module_name};
 
 #[cfg(test)]
 mod tests;

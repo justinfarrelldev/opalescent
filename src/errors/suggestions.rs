@@ -138,7 +138,9 @@ pub fn suggest_for_type_error(error: &TypeError) -> Option<String> {
         } => Some(format!(
             "Cannot cast `{from_type}` to `{to_type}`.\n  These types are not directly convertible. Consider using an intermediate type or a conversion function."
         )),
-        TypeError::MissingElseBranch { ref expected_type, .. } => Some(format!(
+        TypeError::MissingElseBranch {
+            ref expected_type, ..
+        } => Some(format!(
             "This `if` expression is missing an `else` branch that returns `{expected_type}`.\n  Add an `else` branch:\n    if <condition>:\n        return <value>\n    else:\n        return <{expected_type}-value>"
         )),
         TypeError::MissingEntryPoint { .. } => Some(String::from(

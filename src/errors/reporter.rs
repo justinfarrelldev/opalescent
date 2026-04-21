@@ -2,8 +2,8 @@ extern crate alloc;
 
 use crate::codegen::error::CodegenError;
 use crate::error::LexError;
-use crate::errors::formatter::format_error_bundle;
 use crate::errors::formatter::CompilerPhase;
+use crate::errors::formatter::format_error_bundle;
 use crate::parser::errors::ParseError;
 use crate::type_system::errors::TypeError;
 use alloc::string::String;

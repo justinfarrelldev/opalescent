@@ -10,7 +10,9 @@ use alloc::{collections::BTreeSet, format, string::String};
 impl TypeChecker {
     /// Start return-shape tracking for a function or lambda body.
     pub(super) fn begin_return_context(&mut self) {
-        self.context.return_label_modes.push(ReturnLabelMode::Unknown);
+        self.context
+            .return_label_modes
+            .push(ReturnLabelMode::Unknown);
     }
 
     /// Finish return-shape tracking for a function or lambda body.

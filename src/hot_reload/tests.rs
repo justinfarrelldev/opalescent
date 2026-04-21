@@ -1,8 +1,8 @@
 extern crate alloc;
 
 use crate::hot_reload::abi::{
-    generate_abi_signature, signatures_compatible, ExportedFunction, FunctionSignature,
-    ModuleVTable, PodLayout,
+    ExportedFunction, FunctionSignature, ModuleVTable, PodLayout, generate_abi_signature,
+    signatures_compatible,
 };
 use crate::hot_reload::cache::AbiSignatureCache;
 use crate::hot_reload::change_detection::{
@@ -12,11 +12,11 @@ use crate::hot_reload::classifier::{ChangeClassifier, HotReloadCategory};
 use crate::hot_reload::dependency_graph::ModuleDependencyGraph;
 use crate::hot_reload::guard::{AbiGuard, AbiGuardResult, FallbackRestartTrigger};
 use crate::hot_reload::loader::{
-    hot_swap_module, FsModuleLoader, HostProcess, HotReloadError, LoadedModule, ModuleLoader,
+    FsModuleLoader, HostProcess, HotReloadError, LoadedModule, ModuleLoader, hot_swap_module,
 };
 use crate::hot_reload::recovery::ErrorRecovery;
 use crate::hot_reload::state::{HostState, StatePreserver};
-use crate::hot_reload::version::{versioned_module_name, ModuleVersion};
+use crate::hot_reload::version::{ModuleVersion, versioned_module_name};
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec;

@@ -2,9 +2,9 @@
 
 use crate::codegen::error::CodegenError;
 use crate::type_system::types::CoreType;
+use inkwell::AddressSpace;
 use inkwell::context::Context;
 use inkwell::types::{BasicType, BasicTypeEnum};
-use inkwell::AddressSpace;
 
 /// Convert a [`CoreType`] into the nearest LLVM [`BasicTypeEnum`].
 #[must_use]

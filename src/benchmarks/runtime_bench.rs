@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use crate::testing::bench::BenchmarkResult;
-use crate::testing::bench::{run_benchmark, Benchmark};
+use crate::testing::bench::{Benchmark, run_benchmark};
 use core::convert::TryFrom;
 
 /// Measures recursive Fibonacci-like runtime workload.

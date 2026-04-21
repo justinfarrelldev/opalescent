@@ -12,12 +12,12 @@ pub mod dependency;
 pub mod incremental;
 pub mod targets;
 
-pub use cache::{hash_content, BuildCache};
-pub use config::{parse_config, Dependency, ProjectConfig, Version, VersionConstraint};
-pub use dependency::{resolve_dependencies, PackageVersion, ResolvedDep};
+pub use cache::{BuildCache, hash_content};
+pub use config::{Dependency, ProjectConfig, Version, VersionConstraint, parse_config};
+pub use dependency::{PackageVersion, ResolvedDep, resolve_dependencies};
 pub use incremental::modules_to_rebuild;
 pub use targets::{
-    dynamic_lib_extension, parse_target_triple, Architecture, Platform, TargetTriple,
+    Architecture, Platform, TargetTriple, dynamic_lib_extension, parse_target_triple,
 };
 
 /// Unified build-system error type.

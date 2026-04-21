@@ -1,12 +1,12 @@
 use crate::codegen::error::CodegenError;
 use crate::error::{LexError, LexErrors};
 use crate::errors::formatter::{
-    error_doc_link, format_codegen_error, format_diagnostic, format_error_bundle, CompilerPhase,
+    CompilerPhase, error_doc_link, format_codegen_error, format_diagnostic, format_error_bundle,
 };
 use crate::errors::reporter::{CompilationErrorReport, CompilerError};
 use crate::errors::suggestions::{
-    closest_identifier_suggestion, did_you_mean_type_annotation, levenshtein_distance,
-    SUGGESTION_DISTANCE_THRESHOLD,
+    SUGGESTION_DISTANCE_THRESHOLD, closest_identifier_suggestion, did_you_mean_type_annotation,
+    levenshtein_distance,
 };
 use crate::parser::errors::ParseError;
 use crate::token::{Position, Span};
@@ -264,12 +264,13 @@ mod e2e_tests {
     use crate::errors::renderer::render_report;
     use crate::errors::reporter::CompilerError;
     use inkwell::context::Context;
+    use std::path::Path;
 
     #[test]
     fn test_e2e_lex_error_renders_with_source_context() {
         let context = Context::create();
         let source = "let x = @;";
-        let result = compile_to_module(&context, source);
+        let result = compile_to_module(&context, Path::new("test.op"), source);
 
         assert!(result.is_err(), "source should fail lexical analysis");
 
@@ -294,7 +295,7 @@ mod e2e_tests {
     fn test_e2e_parse_error_renders_with_source_context() {
         let context = Context::create();
         let source = "entry main = f(args: string[]): void =>\n    print('missing closing paren'\n    return void";
-        let result = compile_to_module(&context, source);
+        let result = compile_to_module(&context, Path::new("test.op"), source);
 
         assert!(result.is_err(), "source should fail parsing");
 
@@ -319,7 +320,7 @@ mod e2e_tests {
     fn test_e2e_type_error_renders_with_suggestion() {
         let context = Context::create();
         let source = "let add = f(a: int32, b: int32): int32 => { return 'hello' }";
-        let result = compile_to_module(&context, source);
+        let result = compile_to_module(&context, Path::new("test.op"), source);
 
         assert!(result.is_err(), "source should fail type checking");
 
@@ -344,7 +345,7 @@ mod e2e_tests {
     fn test_e2e_multi_error_renders_all_errors() {
         let context = Context::create();
         let source = "let foo = f(): int32 => { return 'hello' }\nlet bar = f(): int32 => { return 'world' }";
-        let result = compile_to_module(&context, source);
+        let result = compile_to_module(&context, Path::new("test.op"), source);
 
         assert!(result.is_err(), "source should fail with multiple errors");
 
@@ -366,7 +367,7 @@ mod e2e_tests {
     fn test_e2e_valid_source_produces_no_error() {
         let context = Context::create();
         let source = "##\n  Description: Valid entry source for e2e diagnostics test\n##\nentry main = f(args: string[]): void => { return void }";
-        let result = compile_to_module(&context, source);
+        let result = compile_to_module(&context, Path::new("test.op"), source);
 
         assert!(result.is_ok(), "valid source should compile successfully");
     }
@@ -374,7 +375,7 @@ mod e2e_tests {
     #[test]
     fn test_e2e_empty_file_does_not_panic() {
         let context = Context::create();
-        let result = compile_to_module(&context, "");
+        let result = compile_to_module(&context, Path::new("test.op"), "");
 
         if let Err((report, normalized_source)) = result {
             let rendered = render_report("empty.op", &normalized_source, &report);

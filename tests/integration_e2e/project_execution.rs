@@ -23,7 +23,7 @@ fn overflow_trap_exits_nonzero() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -89,7 +89,7 @@ fn lambda_basic_compiles_and_returns_correct_value() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -163,7 +163,7 @@ fn array_bounds_trap_exits_nonzero() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -229,7 +229,7 @@ fn string_interp_long_does_not_crash() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -303,7 +303,7 @@ fn should_print_final_result_compiles_and_runs() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -405,7 +405,7 @@ fn cast_safety_compiles_and_runs() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -472,7 +472,10 @@ fn multi_file_project_compiles_and_runs() {
     let project_dir = cwd_path.join("test-projects/multi-file");
     let temp_dir = project_dir.join("target");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "multi-file target directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "multi-file target directory should be created"
+    );
 
     let execution_result: Result<(), String> = (|| {
         let binary_result = opalescent::compiler::compile_project(&project_dir, &temp_dir);
@@ -557,7 +560,10 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
             ));
         }
 
-        let toml_write = fs::write(project_dir.join("opal.toml"), "name = \"entry-wrong-file\"\nversion = \"1.0.0\"\n");
+        let toml_write = fs::write(
+            project_dir.join("opal.toml"),
+            "name = \"entry-wrong-file\"\nversion = \"1.0.0\"\n",
+        );
         if let Err(error) = toml_write {
             return Err(format!(
                 "entry-wrong-file opal.toml should be written: {error}"
@@ -596,9 +602,7 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
         };
 
         let error_message = compile_error.to_string();
-        let contains_expected = error_message
-            .to_ascii_lowercase()
-            .contains("entry")
+        let contains_expected = error_message.to_ascii_lowercase().contains("entry")
             && error_message.to_ascii_lowercase().contains("main");
         if !contains_expected {
             return Err(format!(
@@ -712,5 +716,224 @@ fn package_import_fails_with_not_supported() {
     assert!(
         failure_message.is_empty(),
         "package-import-not-supported project should fail with not-supported import error: {failure_message}"
+    );
+}
+
+#[test]
+fn import_types_basic_compiles_and_runs() {
+    let cwd = std::env::current_dir();
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+
+    let project_dir = cwd_path.join("test-projects/import-types-basic");
+    let temp_dir = project_dir.join("target");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "import-types-basic target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let binary_result = opalescent::compiler::compile_project(&project_dir, &temp_dir);
+        let binary_path = match binary_result {
+            Ok(path) => path,
+            Err(error) => {
+                return Err(format!(
+                    "import-types-basic project should compile into a binary: {error}"
+                ));
+            }
+        };
+
+        let output_result = std::process::Command::new(&binary_path).output();
+        let run_output = match output_result {
+            Ok(output) => output,
+            Err(error) => {
+                return Err(format!(
+                    "import-types-basic compiled binary should execute: {error}"
+                ));
+            }
+        };
+
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        if stdout.trim_end() != "Alice is 30 years old" {
+            return Err(format!(
+                "import-types-basic stdout should equal 'Alice is 30 years old', got: '{stdout}'"
+            ));
+        }
+
+        if !run_output.status.success() {
+            return Err(format!(
+                "import-types-basic binary should exit with status code 0, got: {:?}",
+                run_output.status.code()
+            ));
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "import-types-basic target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "import-types-basic should compile, run, print expected output, and exit cleanly: {failure_message}"
+    );
+}
+
+#[test]
+fn import_types_aliased_compiles_and_runs() {
+    let cwd = std::env::current_dir();
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+
+    let project_dir = cwd_path.join("test-projects/import-types-aliased");
+    let temp_dir = project_dir.join("target");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "import-types-aliased target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let binary_result = opalescent::compiler::compile_project(&project_dir, &temp_dir);
+        let binary_path = match binary_result {
+            Ok(path) => path,
+            Err(error) => {
+                return Err(format!(
+                    "import-types-aliased project should compile into a binary: {error}"
+                ));
+            }
+        };
+
+        let output_result = std::process::Command::new(&binary_path).output();
+        let run_output = match output_result {
+            Ok(output) => output,
+            Err(error) => {
+                return Err(format!(
+                    "import-types-aliased compiled binary should execute: {error}"
+                ));
+            }
+        };
+
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        if stdout.trim_end() != "User 42: Bob" {
+            return Err(format!(
+                "import-types-aliased stdout should equal 'User 42: Bob', got: '{stdout}'"
+            ));
+        }
+
+        if !run_output.status.success() {
+            return Err(format!(
+                "import-types-aliased binary should exit with status code 0, got: {:?}",
+                run_output.status.code()
+            ));
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "import-types-aliased target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "import-types-aliased should compile, run, print expected output, and exit cleanly: {failure_message}"
+    );
+}
+
+#[test]
+fn import_types_multiple_compiles_and_runs() {
+    let cwd = std::env::current_dir();
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+
+    let project_dir = cwd_path.join("test-projects/import-types-multiple");
+    let temp_dir = project_dir.join("target");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "import-types-multiple target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let binary_result = opalescent::compiler::compile_project(&project_dir, &temp_dir);
+        let binary_path = match binary_result {
+            Ok(path) => path,
+            Err(error) => {
+                return Err(format!(
+                    "import-types-multiple project should compile into a binary: {error}"
+                ));
+            }
+        };
+
+        let output_result = std::process::Command::new(&binary_path).output();
+        let run_output = match output_result {
+            Ok(output) => output,
+            Err(error) => {
+                return Err(format!(
+                    "import-types-multiple compiled binary should execute: {error}"
+                ));
+            }
+        };
+
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        if stdout.trim_end() != "Rect 10x20 at (0,0)" {
+            return Err(format!(
+                "import-types-multiple stdout should equal 'Rect 10x20 at (0,0)', got: '{stdout}'"
+            ));
+        }
+
+        if !run_output.status.success() {
+            return Err(format!(
+                "import-types-multiple binary should exit with status code 0, got: {:?}",
+                run_output.status.code()
+            ));
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "import-types-multiple target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "import-types-multiple should compile, run, print expected output, and exit cleanly: {failure_message}"
     );
 }

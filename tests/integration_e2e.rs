@@ -1,7 +1,7 @@
 #![cfg(feature = "integration")]
 
 use opalescent::compiler::{
-    compile_program, compile_to_module, emit_object_file, link_object_file, CompileError,
+    CompileError, compile_program, compile_to_module, emit_object_file, link_object_file,
 };
 use opalescent::errors::reporter::CompilerError;
 use opalescent::type_system::errors::TypeError;

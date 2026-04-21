@@ -1,4 +1,4 @@
-use crate::codegen::optimization::{apply_optimization_passes, OptimizationLevel};
+use crate::codegen::optimization::{OptimizationLevel, apply_optimization_passes};
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::context::Context;
 

@@ -4,7 +4,7 @@ extern crate alloc;
 
 use crate::ast::{Decl, Documentation, Program, TypeDef, Visibility};
 use crate::doc_gen::attributes::{
-    parse_doc_attributes, DocExample, DocParam, DocReturn, ParsedDocAttributes,
+    DocExample, DocParam, DocReturn, ParsedDocAttributes, parse_doc_attributes,
 };
 use alloc::string::String;
 use alloc::vec::Vec;

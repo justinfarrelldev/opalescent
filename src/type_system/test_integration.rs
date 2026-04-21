@@ -38,9 +38,9 @@ fn with_required_function_docs(source: &str) -> String {
 
     for line in source.lines() {
         let trimmed_start = line.trim_start();
-        let is_public_or_entry_function =
-            (trimmed_start.starts_with("entry ") || trimmed_start.starts_with("public "))
-                && (trimmed_start.contains("= f(") || trimmed_start.contains("= f<"));
+        let is_public_or_entry_function = (trimmed_start.starts_with("entry ")
+            || trimmed_start.starts_with("public "))
+            && (trimmed_start.contains("= f(") || trimmed_start.contains("= f<"));
         let has_doc_block_before = last_non_empty_line
             .as_deref()
             .is_some_and(|previous_line| previous_line.trim_start().starts_with("##"));
@@ -88,7 +88,8 @@ fn parse_pipeline(source: &str) -> Program {
         parse_errors.errors,
     );
 
-    let mut program = program_opt.unwrap_or_else(|| panic!("parser produced no program for valid source"));
+    let mut program =
+        program_opt.unwrap_or_else(|| panic!("parser produced no program for valid source"));
     for declaration in &mut program.declarations {
         if let &mut Decl::Function {
             visibility: ref function_visibility,
@@ -1184,7 +1185,10 @@ pure entry main = f(args: string[]): void =>
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
         let result = checker.type_check_program(&program);
-        assert!(result.is_err(), "pure entry must fail type checking: {result:?}");
+        assert!(
+            result.is_err(),
+            "pure entry must fail type checking: {result:?}"
+        );
 
         let errors = result.expect_err("pure entry must fail type checking");
         assert!(

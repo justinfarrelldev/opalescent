@@ -4,11 +4,11 @@
 mod package_manager_tests {
     extern crate alloc;
 
-    use crate::build_system::targets::{dynamic_lib_extension, parse_target_triple, Platform};
-    use crate::package_manager::commands::{dispatch_pkg_command, PkgCommand};
+    use crate::build_system::targets::{Platform, dynamic_lib_extension, parse_target_triple};
+    use crate::package_manager::commands::{PkgCommand, dispatch_pkg_command};
     use crate::package_manager::installer::{FailingDownloader, Installer, MockDownloader};
     use crate::package_manager::manifest::{
-        parse_manifest, serialize_manifest, ManifestDependency,
+        ManifestDependency, parse_manifest, serialize_manifest,
     };
     use crate::package_manager::publisher::{FailingUploader, MockUploader, Publisher};
     use crate::package_manager::registry::{MockRegistry, PackageEntry, Registry};

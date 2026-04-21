@@ -20,10 +20,12 @@
 
 /// Parser submodule for closure capture analysis
 mod captures;
-/// Parser submodule for declaration parsing (functions, types, imports, let)
+/// Parser submodule for declaration parsing (functions, types, let)
 mod declarations;
 /// Parser error types and error collection
 pub mod errors;
+/// Parser submodule for import declaration parsing
+mod imports;
 /// Parser submodule for expression parsing (literals, operators, lambdas)
 mod expressions;
 /// Parser submodule for generic parameter declarations

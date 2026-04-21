@@ -6,7 +6,7 @@
 extern crate alloc;
 
 use crate::build_system::config::{
-    version_satisfies_constraint, Version, VersionClause, VersionComparator, VersionConstraint,
+    Version, VersionClause, VersionComparator, VersionConstraint, version_satisfies_constraint,
 };
 use crate::package_manager::manifest::{Manifest, ManifestDependency};
 use crate::package_manager::registry::{PackageEntry, Registry, RegistryError};

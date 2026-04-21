@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use crate::hot_reload::abi::{signatures_compatible, AbiSignature, ModuleVTable};
+use crate::hot_reload::abi::{AbiSignature, ModuleVTable, signatures_compatible};
 use crate::hot_reload::guard::{AbiGuard, AbiGuardResult, FallbackRestartTrigger};
 use alloc::string::String;
 use std::fs;

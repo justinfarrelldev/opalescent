@@ -67,7 +67,9 @@ pub(super) fn current_function<'context>(
 }
 
 #[doc = "Approximate core type mapping from LLVM basic value type."]
-pub(super) fn llvm_basic_type_to_core_type(llvm_type: inkwell::types::BasicTypeEnum<'_>) -> CoreType {
+pub(super) fn llvm_basic_type_to_core_type(
+    llvm_type: inkwell::types::BasicTypeEnum<'_>,
+) -> CoreType {
     if llvm_type.is_int_type() {
         let int_type = llvm_type.into_int_type();
         return match int_type.get_bit_width() {

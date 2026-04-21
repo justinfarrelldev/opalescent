@@ -3,17 +3,17 @@ extern crate alloc;
 use crate::ast::{Expr, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{codegen_expression, CodegenEnv, VariableBinding};
+use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::monomorphization::ensure_monomorphized_function_declaration;
 use crate::codegen::types::core_type_to_llvm;
-use crate::type_system::type_mapping::{ast_type_to_core_type, AstTypeMappingError};
+use crate::type_system::type_mapping::{AstTypeMappingError, ast_type_to_core_type};
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
+use inkwell::AddressSpace;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
-use inkwell::AddressSpace;
 
 #[path = "functions_call_helpers.rs"]
 #[doc = "Helper utilities for call-expression lowering internals."]
@@ -141,17 +141,20 @@ pub fn codegen_call_expression<'context>(
                     let int_value = print_value.into_int_value();
                     let bit_width = int_value.get_type().get_bit_width();
                     if bit_width == 1_u32 {
-                        let bool_to_string_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
-                            codegen_context,
-                            "bool_to_string",
-                        )
-                        .ok_or_else(|| {
-                            CodegenError::new(String::from("bool_to_string declaration missing"))
-                        })?;
-                        let puts_fn = codegen_context
-                            .module
-                            .get_function("puts")
-                            .ok_or_else(|| CodegenError::new(String::from("puts declaration missing")))?;
+                        let bool_to_string_fn =
+                            crate::codegen::functions_stdlib::declare_stdlib_function(
+                                codegen_context,
+                                "bool_to_string",
+                            )
+                            .ok_or_else(|| {
+                                CodegenError::new(String::from(
+                                    "bool_to_string declaration missing",
+                                ))
+                            })?;
+                        let puts_fn =
+                            codegen_context.module.get_function("puts").ok_or_else(|| {
+                                CodegenError::new(String::from("puts declaration missing"))
+                            })?;
                         let bool_as_i8 = codegen_context.builder.build_int_z_extend(
                             int_value,
                             codegen_context.context.i8_type(),
@@ -166,26 +169,41 @@ pub fn codegen_call_expression<'context>(
                             )?
                             .try_as_basic_value()
                             .basic()
-                            .ok_or_else(|| CodegenError::new(String::from("bool_to_string should return pointer value")))?
+                            .ok_or_else(|| {
+                                CodegenError::new(String::from(
+                                    "bool_to_string should return pointer value",
+                                ))
+                            })?
                             .into_pointer_value();
-                        let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
-                            puts_fn,
-                            &[bool_string_ptr.into()],
-                            &env.next_name("print.bool.puts"),
-                        )?;
-                        let i8_ptr = codegen_context.context.i8_type().ptr_type(AddressSpace::default());
+                        let _: inkwell::values::CallSiteValue =
+                            codegen_context.builder.build_call(
+                                puts_fn,
+                                &[bool_string_ptr.into()],
+                                &env.next_name("print.bool.puts"),
+                            )?;
+                        let i8_ptr = codegen_context
+                            .context
+                            .i8_type()
+                            .ptr_type(AddressSpace::default());
                         let free_fn_type = codegen_context
                             .context
                             .void_type()
                             .fn_type(&[i8_ptr.into()], false);
-                        let free_fn = codegen_context.module.get_function("free").unwrap_or_else(
-                            || codegen_context.module.add_function("free", free_fn_type, None),
-                        );
-                        let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
-                            free_fn,
-                            &[bool_string_ptr.into()],
-                            &env.next_name("print.bool.free"),
-                        )?;
+                        let free_fn =
+                            codegen_context
+                                .module
+                                .get_function("free")
+                                .unwrap_or_else(|| {
+                                    codegen_context
+                                        .module
+                                        .add_function("free", free_fn_type, None)
+                                });
+                        let _: inkwell::values::CallSiteValue =
+                            codegen_context.builder.build_call(
+                                free_fn,
+                                &[bool_string_ptr.into()],
+                                &env.next_name("print.bool.free"),
+                            )?;
                         return Ok(void_value);
                     }
 
@@ -394,38 +412,38 @@ fn resolve_callee_function<'context>(
         Expr::Identifier { ref name, .. } => {
             let is_stdlib_name =
                 crate::codegen::functions_stdlib::STDLIB_NAMES.contains(&name.as_str());
-            let base_function =
-                if let Some(imported_runtime_name) = env.imported_functions.get(name) {
-                    codegen_context
-                        .module
-                        .get_function(imported_runtime_name.as_str())
-                        .or_else(|| {
-                            crate::codegen::functions_stdlib::declare_stdlib_function(
-                                codegen_context,
-                                imported_runtime_name.as_str(),
-                            )
-                        })
-                        .ok_or_else(|| {
-                            CodegenError::new(format!(
-                                "missing runtime function for imported symbol '{name}'"
-                            ))
-                        })?
-                } else if let Some(existing) = codegen_context.module.get_function(name.as_str()) {
-                    existing
-                } else if let Some(imported_signature) = env.imported_signatures.get(name).cloned()
-                {
-                    declare_external_imported_function(
-                        codegen_context,
-                        name.as_str(),
-                        &imported_signature,
-                    )?
-                } else if let Some(stdlib_function) =
-                    crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, name)
-                {
-                    stdlib_function
-                } else {
-                    return Err(CodegenError::new(format!("unknown function: {name}")));
-                };
+            let base_function = if let Some(imported_runtime_name) =
+                env.imported_functions.get(name)
+            {
+                codegen_context
+                    .module
+                    .get_function(imported_runtime_name.as_str())
+                    .or_else(|| {
+                        crate::codegen::functions_stdlib::declare_stdlib_function(
+                            codegen_context,
+                            imported_runtime_name.as_str(),
+                        )
+                    })
+                    .ok_or_else(|| {
+                        CodegenError::new(format!(
+                            "missing runtime function for imported symbol '{name}'"
+                        ))
+                    })?
+            } else if let Some(existing) = codegen_context.module.get_function(name.as_str()) {
+                existing
+            } else if let Some(imported_signature) = env.imported_signatures.get(name).cloned() {
+                declare_external_imported_function(
+                    codegen_context,
+                    name.as_str(),
+                    &imported_signature,
+                )?
+            } else if let Some(stdlib_function) =
+                crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, name)
+            {
+                stdlib_function
+            } else {
+                return Err(CodegenError::new(format!("unknown function: {name}")));
+            };
             if let Some(explicit_generic_args) = generic_args {
                 let concrete_types = explicit_generic_args
                     .iter()
@@ -577,11 +595,11 @@ fn declare_external_imported_function<'context>(
         return Ok(existing);
     }
 
-    let &CoreType::Function {
+    let CoreType::Function {
         ref parameters,
         ref return_types,
         ..
-    } = signature
+    } = *signature
     else {
         return Err(CodegenError::new(format!(
             "imported symbol '{function_name}' is not callable"
@@ -602,9 +620,11 @@ fn declare_external_imported_function<'context>(
         .collect::<Vec<BasicMetadataTypeEnum<'context>>>();
     let function_type = build_function_type(codegen_context, &parameter_types, return_types);
 
-    Ok(codegen_context
-        .module
-        .add_function(function_name, function_type, Some(inkwell::module::Linkage::External)))
+    Ok(codegen_context.module.add_function(
+        function_name,
+        function_type,
+        Some(inkwell::module::Linkage::External),
+    ))
 }
 
 #[doc = "Build LLVM function type from core parameter and return types."]
@@ -676,7 +696,6 @@ pub fn ast_type_to_core_type_for_signature(ast_type: &Type) -> Result<CoreType, 
         }
     })
 }
-
 
 #[doc = "Emit C ABI main wrapper that dispatches to Opalescent entry."]
 #[doc = ""]

@@ -2,9 +2,9 @@
 
 use super::*;
 
-mod project_execution;
-mod interactive_io;
 mod compile_failures;
+mod interactive_io;
+mod project_execution;
 
 #[test]
 fn smoke_void_program_compiles_links_and_runs() {
@@ -13,7 +13,11 @@ fn smoke_void_program_compiles_links_and_runs() {
     assert!(prepare.is_ok(), "smoke temp directory should be created");
 
     let source = "##\n    Description: Entry point for the smoke test program run\n##\nentry main = f(): void => { return void }";
-    let binary_result = compile_program(source, temp_dir);
+    let binary_result = compile_program(
+        Path::new("test-projects/_smoke/src/main.op"),
+        source,
+        temp_dir,
+    );
     assert!(
         binary_result.is_ok(),
         "smoke source should compile to a runnable binary"
@@ -52,7 +56,7 @@ fn emit_object_file_creates_valid_object() {
 
     let context = inkwell::context::Context::create();
     let source = "##\n    Description: Entry point used for object emission validation\n##\nentry main = f(): void => { return void }";
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "source should compile into an LLVM module for object emission"
@@ -95,7 +99,7 @@ fn link_produces_executable() {
 
     let context = inkwell::context::Context::create();
     let source = "##\n    Description: Entry point used for linker executable validation\n##\nentry main = f(): void => { return void }";
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "source should compile into an LLVM module for linking"
@@ -169,7 +173,7 @@ fn hello_world_compiles_links_and_runs() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -243,7 +247,7 @@ fn fib_recursive_compiles_links_and_runs() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -317,7 +321,7 @@ fn fib_iterative_compiles_links_and_runs() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -393,7 +397,11 @@ entry main = f(args: string[]): void =>
 ";
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_program(source, temp_dir);
+        let binary_result = compile_program(
+            Path::new("test-projects/_loop_expr/src/main.op"),
+            source,
+            temp_dir,
+        );
         if binary_result.is_err() {
             return Err(format!(
                 "loop expression source should compile: {:?}",

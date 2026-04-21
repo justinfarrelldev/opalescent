@@ -20,9 +20,9 @@ fn with_required_function_docs(source: &str) -> String {
 
     for line in source.lines() {
         let trimmed_start = line.trim_start();
-        let is_public_or_entry_function =
-            (trimmed_start.starts_with("entry ") || trimmed_start.starts_with("public "))
-                && (trimmed_start.contains("= f(") || trimmed_start.contains("= f<"));
+        let is_public_or_entry_function = (trimmed_start.starts_with("entry ")
+            || trimmed_start.starts_with("public "))
+            && (trimmed_start.contains("= f(") || trimmed_start.contains("= f<"));
         let has_doc_block_before = last_non_empty_line
             .as_deref()
             .is_some_and(|previous_line| previous_line.trim_start().starts_with("##"));
@@ -165,18 +165,22 @@ entry main = f(): void =>
         let mut checker = TypeChecker::new();
 
         let mut local_lib = ModuleInterface::new(String::from("./local_lib"));
-        let register_result = local_lib.register_symbol(SymbolInfo { name: String::from("hidden_fn"),
-        symbol_type: SymbolType::Function,
-        core_type: CoreType::Function {
-            generic_params: Vec::new(),
-            parameters: Vec::new(),
-            return_types: vec![CoreType::Unit],
-            error_types: Vec::new(),
-        },
-        visibility: Visibility::Private,
-        source_location: Span::single(Position::start()),
-        is_let_binding: false,
-        is_mutable: false, read_count: 0, is_pure: false, });
+        let register_result = local_lib.register_symbol(SymbolInfo {
+            name: String::from("hidden_fn"),
+            symbol_type: SymbolType::Function,
+            core_type: CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: Vec::new(),
+                return_types: vec![CoreType::Unit],
+                error_types: Vec::new(),
+            },
+            visibility: Visibility::Private,
+            source_location: Span::single(Position::start()),
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+            is_pure: false,
+        });
         assert!(
             register_result.is_ok(),
             "module symbol setup should succeed"

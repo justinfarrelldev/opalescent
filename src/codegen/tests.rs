@@ -5,7 +5,7 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::{
     codegen_if_expression, codegen_if_statement, codegen_loop_statement, codegen_return_statement,
 };
-use crate::codegen::expressions::{codegen_expression, CodegenEnv, VariableBinding};
+use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::functions::{
     codegen_call_expression, codegen_function_declaration, codegen_guard_expression,
     codegen_propagate_expression,
@@ -29,6 +29,7 @@ use alloc::vec::Vec;
 use inkwell::context::Context;
 use inkwell::types::AnyType;
 use inkwell::values::AnyValue;
+use std::path::Path;
 
 const TEST_LINE: usize = 1;
 const TEST_COLUMN: usize = 1;
@@ -697,7 +698,7 @@ entry main = f(): void =>
 ";
 
     let context = Context::create();
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "fib recursion source using 'if n is 0' should compile to LLVM module"
@@ -1219,7 +1220,7 @@ entry main = f(args: string[]): void => {
 ";
 
     let context = Context::create();
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "entry main(args: string[]) should compile successfully"
@@ -1257,7 +1258,7 @@ entry main = f(args: string[]): void => {
 }
 ";
     let context = Context::create();
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "entry main(args: string[]) should compile: {:?}",
@@ -1293,7 +1294,7 @@ entry main = f(): void => {
 ";
 
     let context = Context::create();
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "imported take_input should compile and be callable in subsequent code"
@@ -1325,7 +1326,7 @@ entry main = f(): void => {
 ";
 
     let context = Context::create();
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "imported random_int32 should compile and be callable in subsequent code"
@@ -1357,7 +1358,7 @@ entry main = f(): void => {
 ";
 
     let context = Context::create();
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "imported random_int64 should compile and be callable"
@@ -1389,7 +1390,7 @@ entry main = f(): void =>
 ";
 
     let context = Context::create();
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "imported string_to_int64 should compile and be callable"
@@ -1422,7 +1423,7 @@ entry main = f(): void =>
 ";
 
     let context = Context::create();
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "multiple imports from the same module should compile and be callable"
@@ -1456,7 +1457,7 @@ entry main = f(): void =>
 ";
 
     let context = Context::create();
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "guard statement source should compile successfully"
@@ -1499,7 +1500,7 @@ entry main = f(): void =>
 ";
 
     let context = Context::create();
-    let module_result = compile_to_module(&context, source);
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
         "builtin calls should compile and emit runtime declarations without import statements"

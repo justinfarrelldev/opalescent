@@ -7,7 +7,7 @@ mod formatter_tests {
     use crate::formatter::command::FormatCommand;
     use crate::formatter::config::FormatterConfig;
     use crate::formatter::naming::{
-        check_program, is_pascal_case, is_snake_case, NamingStyle, NamingViolation,
+        NamingStyle, NamingViolation, check_program, is_pascal_case, is_snake_case,
     };
     use crate::formatter::printer::Formatter;
     use crate::formatter::rules;
@@ -923,8 +923,7 @@ mod formatter_tests {
     /// `## ... ##` doc comment before a function must appear in output.
     #[test]
     fn test_formatter_preserves_doc_comments() {
-        let source =
-            "## Description: Adds two integers ##\nlet add = f(a: int32, b: int32): int32 =>\n    return a\n";
+        let source = "## Description: Adds two integers ##\nlet add = f(a: int32, b: int32): int32 =>\n    return a\n";
         let fmt = Formatter::with_defaults();
         let result = fmt.format_source(source).unwrap();
         assert!(

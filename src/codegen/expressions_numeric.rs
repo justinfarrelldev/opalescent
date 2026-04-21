@@ -8,12 +8,12 @@ use crate::codegen::types::is_signed_core_type;
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
+use inkwell::AddressSpace;
 use inkwell::module::Linkage;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue,
 };
-use inkwell::AddressSpace;
 use inkwell::{FloatPredicate, IntPredicate};
 
 pub fn codegen_numeric_binop<'context>(
@@ -273,7 +273,7 @@ pub fn codegen_cmp<'context>(
         _ => {
             return Err(CodegenError::new(String::from(
                 "unsupported integer compare",
-            )))
+            )));
         }
     };
 
@@ -340,7 +340,7 @@ fn codegen_pointer_cmp<'context>(
             _ => {
                 return Err(CodegenError::new(String::from(
                     "unsupported string comparison operator",
-                )))
+                )));
             }
         };
 
@@ -356,7 +356,7 @@ fn codegen_pointer_cmp<'context>(
             _ => {
                 return Err(CodegenError::new(String::from(
                     "unsupported pointer comparison operator",
-                )))
+                )));
             }
         };
 

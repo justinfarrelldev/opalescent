@@ -1,0 +1,13 @@
+##
+  Description: Intentionally-invalid type declaration in a .op file
+##
+type Person:
+    name: string
+    age: int32
+
+##
+  Description: Entry point (will never compile due to validator error)
+##
+entry main = f(args: string[]): void =>
+    print('unreachable')
+    return void

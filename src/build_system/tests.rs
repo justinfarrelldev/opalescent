@@ -1,14 +1,14 @@
 extern crate alloc;
 
+use crate::build_system::BuildError;
 use crate::build_system::cache::BuildCache;
 use crate::build_system::config::Dependency;
 use crate::build_system::config::{parse_config, parse_version, parse_version_constraint};
-use crate::build_system::dependency::{resolve_dependencies, PackageVersion};
+use crate::build_system::dependency::{PackageVersion, resolve_dependencies};
 use crate::build_system::incremental::modules_to_rebuild;
 use crate::build_system::targets::{
-    dynamic_lib_extension, parse_target_triple, Architecture, Platform,
+    Architecture, Platform, dynamic_lib_extension, parse_target_triple,
 };
-use crate::build_system::BuildError;
 use crate::hot_reload::dependency_graph::ModuleDependencyGraph;
 use alloc::string::String;
 use alloc::vec;

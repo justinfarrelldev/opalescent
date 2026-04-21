@@ -1,0 +1,14 @@
+##
+  Description: A point in 2D space
+##
+public type Point:
+    x: int32
+    y: int32
+
+##
+  Description: An axis-aligned rectangle
+##
+public type Rect:
+    top_left: Point
+    width: int32
+    height: int32

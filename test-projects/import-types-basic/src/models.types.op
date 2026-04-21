@@ -1,0 +1,6 @@
+##
+  Description: A person with a name and age
+##
+public type Person:
+    name: string
+    age: int32

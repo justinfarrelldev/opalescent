@@ -101,13 +101,17 @@ impl TypeChecker {
         } else {
             SymbolType::Constant
         };
-        self.symbol_table.register(SymbolInfo { name: binding.name.to_owned(),
-        symbol_type,
-        core_type: success_type.clone(),
-        visibility: Visibility::Private,
-        source_location: binding.span,
-        is_let_binding: false,
-        is_mutable: false, read_count: 0, is_pure: false, });
+        self.symbol_table.register(SymbolInfo {
+            name: binding.name.to_owned(),
+            symbol_type,
+            core_type: success_type.clone(),
+            visibility: Visibility::Private,
+            source_location: binding.span,
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+            is_pure: false,
+        });
 
         Ok(success_type)
     }
@@ -162,7 +166,9 @@ impl TypeChecker {
     ) -> Result<GuardElseOutcome, TypeError> {
         self.symbol_table.enter_scope();
         self.context.guard_else_depth = self.context.guard_else_depth.saturating_add(1);
-        self.context.guard_error_stack.push(callee_error_types.to_vec());
+        self.context
+            .guard_error_stack
+            .push(callee_error_types.to_vec());
 
         let else_result = self.type_check_guard_else_branch(
             else_branch,

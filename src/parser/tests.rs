@@ -3871,9 +3871,11 @@ fn test_documentation_preserves_raw() {
     };
 
     assert!(documentation.raw.contains("Description: Keeps raw text."));
-    assert!(documentation
-        .raw
-        .contains("Detail: Important for downstream tools."));
+    assert!(
+        documentation
+            .raw
+            .contains("Detail: Important for downstream tools.")
+    );
 }
 
 #[test]

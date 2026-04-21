@@ -16,6 +16,8 @@ pub struct ModuleInterface {
     pub private_symbols: BTreeMap<String, SymbolInfo>,
     /// Canonical module identifier.
     pub module_path: String,
+    /// ADT field layouts keyed by nominal owner name.
+    pub adt_fields: BTreeMap<String, BTreeMap<String, CoreType>>,
 }
 
 impl ModuleInterface {
@@ -30,6 +32,7 @@ impl ModuleInterface {
             exports: BTreeMap::new(),
             private_symbols: BTreeMap::new(),
             module_path,
+            adt_fields: BTreeMap::new(),
         }
     }
 
@@ -87,6 +90,20 @@ impl ModuleResolver {
     pub fn register_module_interface(&mut self, interface: ModuleInterface) {
         self.modules
             .insert(interface.module_path.clone(), interface);
+    }
+
+    /// Register ADT field metadata for one owner in a specific module.
+    pub fn register_adt_fields_for_module(
+        &mut self,
+        module_path: &str,
+        owner: String,
+        fields: BTreeMap<String, CoreType>,
+    ) {
+        let interface = self
+            .modules
+            .entry(module_path.to_owned())
+            .or_insert_with(|| ModuleInterface::new(module_path.to_owned()));
+        interface.adt_fields.insert(owner, fields);
     }
 
     /// Get a cloned interface for inspection and tests.

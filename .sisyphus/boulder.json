@@ -1,70 +1,50 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/opal-improvements.md",
-  "started_at": "2026-04-20T18:03:53.888Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/types-file-imports.md",
+  "started_at": "2026-04-21T00:26:13.417Z",
   "session_ids": [
-    "ses_254282aafffezY93jG0Z6cxnty",
-    "ses_25345d38affeioWYoVwcHEygro",
-    "ses_25345ad33ffeRFfdVAvHwc7YY3"
+    "ses_252d7f2b9ffeASYrOJz8Ky2dvJ"
   ],
   "session_origins": {
-    "ses_254282aafffezY93jG0Z6cxnty": "direct",
-    "ses_25345d38affeioWYoVwcHEygro": "appended",
-    "ses_25345ad33ffeRFfdVAvHwc7YY3": "appended"
+    "ses_252d7f2b9ffeASYrOJz8Ky2dvJ": "direct"
   },
-  "plan_name": "opal-improvements",
+  "plan_name": "types-file-imports",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Add New TypeError Variants",
-      "session_id": "ses_253e8d496ffeGSveddj3YQc6TO",
+      "task_title": "Add `is_types_file` helper + two new `TypeError` variants",
+      "session_id": "ses_2528b2ceeffeAPYmx4dbVrjL2Y",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-20T18:13:04.564Z"
+      "category": "deep",
+      "updated_at": "2026-04-21T00:38:59.455Z"
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Wire validator into single-file paths (`compile_to_module` + `compile_program` + CLI `run_check_command`)",
+      "session_id": "ses_2528481abffelO51s9MMokc4q0",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-21T00:43:47.014Z"
     },
     "todo:5": {
       "task_key": "todo:5",
       "task_label": "5",
-      "task_title": "Doc Comment Validation in Type Checker + Fix Affected Test Projects",
-      "session_id": "ses_253e1c517ffe04Yvz2VNiKsRn0",
+      "task_title": "Wire validator into multi-file `compile_project` + skip codegen for type-only modules",
+      "session_id": "ses_25280eaf7ffeB02NdbA81MEIkS",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-04-20T18:24:49.197Z"
+      "updated_at": "2026-04-21T00:46:54.909Z"
     },
-    "todo:6": {
-      "task_key": "todo:6",
-      "task_label": "6",
-      "task_title": "`compile_project()` Orchestrator + Entry-in-Main-Only Validation",
-      "session_id": "ses_253db7e7cffeCqm6qWttXQjYta",
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "Polish: docstrings, clippy-clean, ensure public surface documented",
+      "session_id": "ses_252719fc5ffeBpuFIobrwiuZ0c",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-20T18:45:12.848Z"
-    },
-    "todo:7": {
-      "task_key": "todo:7",
-      "task_label": "7",
-      "task_title": "Local Import Codegen + `@scope/package` Error",
-      "session_id": "ses_25345ad33ffeRFfdVAvHwc7YY3",
-      "agent": "oracle",
-      "updated_at": "2026-04-20T21:12:01.023Z"
-    },
-    "final-wave:f1": {
-      "task_key": "final-wave:f1",
-      "task_label": "F1",
-      "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "ses_2533fbafbffecl0UbF40zv7F8h",
-      "agent": "oracle",
-      "updated_at": "2026-04-20T21:46:16.216Z"
-    },
-    "final-wave:f2": {
-      "task_key": "final-wave:f2",
-      "task_label": "F2",
-      "task_title": "**Code Quality Review** — `unspecified-high`",
-      "session_id": "ses_253237dd4ffeNdOZ2s56bamIfJ",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-20T22:17:06.718Z"
+      "category": "quick",
+      "updated_at": "2026-04-21T01:02:49.171Z"
     }
   }
 }

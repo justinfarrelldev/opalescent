@@ -8,7 +8,7 @@ use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 
-use alloc::string::String;
+use alloc::{format, string::String};
 
 impl TypeChecker {
     /// Set the canonical path for the module currently being type checked.
@@ -18,6 +18,9 @@ impl TypeChecker {
 
     /// Register a complete module interface into the resolver.
     pub fn register_module_interface(&mut self, interface: ModuleInterface) {
+        for (owner, fields) in &interface.adt_fields {
+            self.register_adt_fields(owner.clone(), fields.clone());
+        }
         self.module_resolver.register_module_interface(interface);
     }
 
@@ -50,6 +53,17 @@ impl TypeChecker {
         self.module_resolver
             .register_symbol_for_module(&self.current_module_path, module_symbol)?;
         Ok(())
+    }
+
+    /// Synchronize current checker ADT field registry into current module interface.
+    pub(super) fn sync_current_module_adt_fields(&mut self) {
+        for (owner, fields) in &self.adt_fields {
+            self.module_resolver.register_adt_fields_for_module(
+                &self.current_module_path,
+                owner.clone(),
+                fields.clone(),
+            );
+        }
     }
 
     #[expect(
@@ -107,6 +121,7 @@ impl TypeChecker {
                     let imported_symbol = self
                         .module_resolver
                         .resolve_symbol(source, name, item_span)?;
+                    let resolved_import_name = alias.as_deref().unwrap_or(name.as_str()).to_owned();
                     let mut symbol_to_register = imported_symbol;
                     if let Some(alias_name) = alias.as_ref() {
                         self.module_resolver.validate_import_name_binding(
@@ -124,6 +139,12 @@ impl TypeChecker {
                             item_span,
                         )?;
                     }
+                    self.register_imported_type_adt_fields(
+                        source,
+                        name,
+                        resolved_import_name.as_str(),
+                        &symbol_to_register.symbol_type,
+                    );
                     self.symbol_table.register(symbol_to_register);
                 }
                 ImportItem::Glob { .. } => {
@@ -153,16 +174,20 @@ impl TypeChecker {
         source: &str,
         span: Span,
     ) -> Result<(), TypeError> {
-        self.symbol_table.register(SymbolInfo { name: alias_name.to_owned(),
-        symbol_type: SymbolType::Constant,
-        core_type: CoreType::Generic {
-            name: source.to_owned(),
-            type_args: Vec::new(),
-        },
-        visibility: Visibility::Private,
-        source_location: span,
-        is_let_binding: false,
-        is_mutable: false, read_count: 0, is_pure: false, });
+        self.symbol_table.register(SymbolInfo {
+            name: alias_name.to_owned(),
+            symbol_type: SymbolType::Constant,
+            core_type: CoreType::Generic {
+                name: source.to_owned(),
+                type_args: Vec::new(),
+            },
+            visibility: Visibility::Private,
+            source_location: span,
+            is_let_binding: false,
+            is_mutable: false,
+            read_count: 0,
+            is_pure: false,
+        });
 
         for mut symbol in self.module_resolver.resolve_all_exports(source, span)? {
             symbol.name = alloc::format!("{alias_name}.{}", symbol.name);
@@ -170,5 +195,34 @@ impl TypeChecker {
         }
 
         Ok(())
+    }
+
+    /// Copy ADT field schemas for an imported type into local checker metadata.
+    fn register_imported_type_adt_fields(
+        &mut self,
+        source: &str,
+        imported_name: &str,
+        local_name: &str,
+        symbol_type: &SymbolType,
+    ) {
+        if symbol_type != &SymbolType::Type {
+            return;
+        }
+
+        let Some(interface) = self.module_resolver.module_interface(source) else {
+            return;
+        };
+
+        if let Some(fields) = interface.adt_fields.get(imported_name) {
+            self.register_adt_fields(local_name.to_owned(), fields.clone());
+        }
+
+        let variant_prefix = format!("{imported_name}.");
+        for (owner, fields) in &interface.adt_fields {
+            if let Some(variant_suffix) = owner.strip_prefix(variant_prefix.as_str()) {
+                let local_owner = format!("{local_name}.{variant_suffix}");
+                self.register_adt_fields(local_owner, fields.clone());
+            }
+        }
     }
 }

@@ -21,10 +21,7 @@ impl TypeChecker {
     /// Check if an expression attempts to escape a reference parameter.
     ///
     /// Currently a no-op as `ref_params` tracking is not yet implemented.
-    #[expect(
-        clippy::unused_self,
-        reason = "placeholder for future implementation"
-    )]
+    #[expect(clippy::unused_self, reason = "placeholder for future implementation")]
     #[expect(
         clippy::unnecessary_wraps,
         reason = "placeholder for future implementation"
@@ -45,10 +42,7 @@ impl TypeChecker {
     /// Check if a lambda captures any reference parameters.
     ///
     /// Currently a no-op as `ref_params` tracking is not yet implemented.
-    #[expect(
-        clippy::unused_self,
-        reason = "placeholder for future implementation"
-    )]
+    #[expect(clippy::unused_self, reason = "placeholder for future implementation")]
     #[expect(
         clippy::unnecessary_wraps,
         reason = "placeholder for future implementation"
@@ -66,10 +60,7 @@ impl TypeChecker {
     }
 
     /// Check if an expression captures a reference parameter.
-    #[expect(
-        clippy::unused_self,
-        reason = "placeholder for future implementation"
-    )]
+    #[expect(clippy::unused_self, reason = "placeholder for future implementation")]
     #[expect(
         clippy::unnecessary_wraps,
         reason = "placeholder for future implementation"
@@ -83,10 +74,7 @@ impl TypeChecker {
     }
 
     /// Check if a statement captures a reference parameter.
-    #[expect(
-        clippy::unused_self,
-        reason = "placeholder for future implementation"
-    )]
+    #[expect(clippy::unused_self, reason = "placeholder for future implementation")]
     #[expect(
         clippy::unnecessary_wraps,
         reason = "placeholder for future implementation"
@@ -156,7 +144,10 @@ mod tests {
             id: crate::ast::NodeId(2),
         };
         let result = checker.check_ref_escape_in_expr(&expr, "return", test_span());
-        assert!(result.is_ok(), "check_ref_escape_in_expr placeholder returns Ok");
+        assert!(
+            result.is_ok(),
+            "check_ref_escape_in_expr placeholder returns Ok"
+        );
     }
 
     /// Test 5: `check_lambda_captures_no_ref_params` returns Ok when no ref params exist

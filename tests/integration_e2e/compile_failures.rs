@@ -23,7 +23,7 @@ fn immutability_compile_error() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         if binary_result.is_ok() {
             return Err(
                 "immutability source should fail to compile (assignment to immutable variable), but compilation succeeded".to_owned()
@@ -70,10 +70,13 @@ fn no_doc_comments_fails_to_compile() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         let compile_error = match binary_result {
             Ok(_path) => {
-                return Err("no-doc-comments source should fail to compile, but compilation succeeded".to_owned());
+                return Err(
+                    "no-doc-comments source should fail to compile, but compilation succeeded"
+                        .to_owned(),
+                );
             }
             Err(error) => error,
         };
@@ -89,8 +92,9 @@ fn no_doc_comments_fails_to_compile() {
                 entry,
                 &(
                     _,
-                    CompilerError::TypeChecker(TypeError::MissingDocComment { .. }
-                        | TypeError::DocCommentTooShort { .. })
+                    CompilerError::TypeChecker(
+                        TypeError::MissingDocComment { .. } | TypeError::DocCommentTooShort { .. }
+                    )
                 )
             )
         });
@@ -141,7 +145,7 @@ fn multiple_entry_fails_to_compile() {
             }
         };
 
-        let binary_result = compile_program(source_str.as_str(), temp_dir);
+        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -161,7 +165,10 @@ fn multiple_entry_fails_to_compile() {
         let has_expected_error = report.entries().iter().any(|entry| {
             matches!(
                 entry,
-                &(_, CompilerError::TypeChecker(TypeError::DuplicateEntryPoint { .. }))
+                &(
+                    _,
+                    CompilerError::TypeChecker(TypeError::DuplicateEntryPoint { .. })
+                )
             )
         });
 
@@ -185,5 +192,149 @@ fn multiple_entry_fails_to_compile() {
     assert!(
         failure_message.is_empty(),
         "multiple-entry source should be rejected for duplicate entry points: {failure_message}"
+    );
+}
+
+#[test]
+fn type_declaration_in_regular_file_is_rejected() {
+    let cwd = std::env::current_dir();
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+
+    let project_dir = cwd_path.join("test-projects/type-in-regular-file-fail");
+    let temp_dir = project_dir.join("target");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "type-in-regular-file-fail target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let binary_result = opalescent::compiler::compile_project(&project_dir, &temp_dir);
+        let compile_error = match binary_result {
+            Ok(_path) => {
+                return Err(
+                    "type-in-regular-file-fail project should fail to compile, but compilation succeeded"
+                        .to_owned(),
+                );
+            }
+            Err(error) => error,
+        };
+
+        let CompileError::Report { report, .. } = compile_error else {
+            return Err(format!(
+                "type-in-regular-file-fail should fail with CompileError::Report, got: {compile_error}"
+            ));
+        };
+
+        let has_expected_error = report.entries().iter().any(|entry| {
+            matches!(
+                entry,
+                &(
+                    _,
+                    CompilerError::TypeChecker(TypeError::TypeDeclarationOutsideTypesFile { .. })
+                )
+            )
+        });
+
+        if !has_expected_error {
+            return Err(
+                "type-in-regular-file-fail should emit TypeDeclarationOutsideTypesFile".to_owned(),
+            );
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "type-in-regular-file-fail target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "type-in-regular-file-fail source should be rejected with TypeDeclarationOutsideTypesFile: {failure_message}"
+    );
+}
+
+#[test]
+fn value_declaration_in_types_file_is_rejected() {
+    let cwd = std::env::current_dir();
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+
+    let project_dir = cwd_path.join("test-projects/value-in-types-file-fail");
+    let temp_dir = project_dir.join("target");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "value-in-types-file-fail target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let binary_result = opalescent::compiler::compile_project(&project_dir, &temp_dir);
+        let compile_error = match binary_result {
+            Ok(_path) => {
+                return Err(
+                    "value-in-types-file-fail project should fail to compile, but compilation succeeded"
+                        .to_owned(),
+                );
+            }
+            Err(error) => error,
+        };
+
+        let CompileError::Report { report, .. } = compile_error else {
+            return Err(format!(
+                "value-in-types-file-fail should fail with CompileError::Report, got: {compile_error}"
+            ));
+        };
+
+        let has_expected_error = report.entries().iter().any(|entry| {
+            matches!(
+                entry,
+                &(
+                    _,
+                    CompilerError::TypeChecker(TypeError::NonTypeDeclarationInTypesFile { .. })
+                )
+            )
+        });
+
+        if !has_expected_error {
+            return Err(
+                "value-in-types-file-fail should emit NonTypeDeclarationInTypesFile".to_owned(),
+            );
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "value-in-types-file-fail target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "value-in-types-file-fail source should be rejected with NonTypeDeclarationInTypesFile: {failure_message}"
     );
 }

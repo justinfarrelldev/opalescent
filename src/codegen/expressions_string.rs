@@ -3,13 +3,13 @@ extern crate alloc;
 use crate::ast::{Expr, StringPart};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{codegen_expression, CodegenEnv};
+use crate::codegen::expressions::{CodegenEnv, codegen_expression};
 use alloc::string::String;
 use alloc::vec::Vec;
+use inkwell::AddressSpace;
 use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PointerValue,
 };
-use inkwell::AddressSpace;
 
 /// Lowers a `StringInterpolation` AST node to LLVM IR, using dynamically-sized
 /// `snprintf` for mixed literal and expression parts, or a global string
