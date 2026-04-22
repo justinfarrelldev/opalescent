@@ -196,6 +196,15 @@ impl TargetTriple {
             (Platform::MacOs, _) => format!("{arch}-apple-darwin"),
         }
     }
+
+    /// Convert to LLVM-compatible triple string.
+    ///
+    /// Returns the same format as `to_rust_triple()` since LLVM uses the same
+    /// 4-segment triple format (arch-vendor-os-env).
+    #[must_use]
+    pub fn to_llvm_string(&self) -> String {
+        self.to_rust_triple()
+    }
 }
 
 /// Return platform-specific dynamic library extension.
