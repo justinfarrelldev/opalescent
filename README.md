@@ -8,6 +8,7 @@ A statically-typed, expression-oriented programming language with first-class er
 
 - [Quick Start](#quick-start)
 - [Installation](#installation)
+- [Windows Build](#windows-build)
 - [CLI Reference](#cli-reference)
 - [Language Basics](#language-basics)
   - [Functions](#functions)
@@ -82,6 +83,69 @@ The binary will be at `target/release/opalescent`. You can alias it as `opal`:
 
 ```bash
 alias opal="$(pwd)/target/release/opalescent"
+```
+
+---
+
+## Windows Build
+
+### Native Windows Build (MSVC)
+
+To build Opalescent natively on Windows using the Microsoft Visual C++ (MSVC) toolchain:
+
+#### Prerequisites
+
+- **Rust**: Install via [rustup](https://rustup.rs/). The MSVC toolchain is required.
+- **LLVM 14**: Install LLVM 14.0. You can use the [LLVM project releases](https://github.com/llvm/llvm-project/releases/tag/llvmorg-14.0.0) or a package manager like `choco install llvm --version=14.0.0`.
+- **Environment Variables**: Set `LLVM_SYS_140_PREFIX` to your LLVM installation directory.
+  ```powershell
+  $env:LLVM_SYS_140_PREFIX = "C:\Program Files\LLVM"
+  ```
+
+#### Build
+
+```powershell
+cargo build --release
+```
+
+The binary will be located at `target\release\opalescent.exe`.
+
+### Cross-compilation from Linux (MSVC Target)
+
+You can cross-compile for Windows from a Linux host using `clang-cl` and `lld-link`. This requires the Windows SDK and CRT headers/libraries, which can be managed by `xwin`.
+
+#### Prerequisites
+
+- **Clang/LLVM**: `clang-cl` and `lld-link` (usually part of the `llvm` or `lld` package).
+- **xwin**: A tool to fetch and splat the Windows SDK and CRT.
+  ```bash
+  cargo install xwin --locked
+  xwin --accept-license splat --output ~/.xwin
+  ```
+
+#### Environment Setup
+
+Set the following environment variables to point to the `xwin` sysroot:
+
+```bash
+export XWIN_CACHE=$HOME/.xwin
+export CC_x86_64_pc_windows_msvc=clang-cl
+export CFLAGS_x86_64_pc_windows_msvc="/imsvc $XWIN_CACHE/crt/include /imsvc $XWIN_CACHE/sdk/include/ucrt /imsvc $XWIN_CACHE/sdk/include/um /imsvc $XWIN_CACHE/sdk/include/shared"
+```
+
+#### Build
+
+```bash
+cargo build --release --target x86_64-pc-windows-msvc
+```
+
+#### Testing with Wine
+
+You can run and test the cross-compiled `.exe` using Wine:
+
+```bash
+sudo apt-get install wine64
+wine target/x86_64-pc-windows-msvc/release/opalescent.exe
 ```
 
 ---
@@ -616,7 +680,7 @@ opal-json = ">=1.0.0"
 opal-http = ">=0.5.0, <1.0.0"
 
 [build]
-targets = ["x86_64-linux", "aarch64-darwin", "x86_64-windows"]
+targets = ["x86_64-linux", "x86_64-pc-windows-msvc"]
 ```
 
 **Root fields:**
@@ -653,13 +717,14 @@ opal-http = ">=0.5.0 <1.0.0"
 
 **Supported target triples:**
 
-| Triple | Platform |
-|--------|----------|
-| `x86_64-linux` | 64-bit Linux |
-| `aarch64-linux` | ARM64 Linux |
-| `x86_64-darwin` | 64-bit macOS |
-| `aarch64-darwin` | Apple Silicon macOS |
-| `x86_64-windows` | 64-bit Windows |
+| Triple | Platform | Extension |
+|--------|----------|-----------|
+| `x86_64-linux` | 64-bit Linux | `.so` |
+| `aarch64-linux` | ARM64 Linux | `.so` |
+| `x86_64-darwin` | 64-bit macOS | `.dylib` |
+| `aarch64-darwin` | Apple Silicon macOS | `.dylib` |
+| `x86_64-pc-windows-msvc` | Windows (64-bit, MSVC CRT) | `.dll` |
+| `x86_64-pc-windows-gnu` | Windows (64-bit, MinGW-w64) | `.dll` |
 
 ### Package Manifest (`opal.pkg.toml`)
 
