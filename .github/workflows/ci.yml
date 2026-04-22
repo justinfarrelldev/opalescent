@@ -66,10 +66,20 @@ jobs:
       - name: Build release
         run: cargo build --release
 
-      - name: Run lib tests
-        run: cargo test --lib
+       - name: Run lib tests
+         run: cargo test --lib
 
-      - name: Upload opalescent.exe artifact
+       - name: Run hello-world on Windows
+         shell: pwsh
+         run: |
+           $output = & .\target\release\opalescent.exe run test-projects\hello-world\src\main.op 2>&1
+           Write-Host "Output: $output"
+           if ($output -notmatch "Hello world") {
+             Write-Error "Expected 'Hello world', got: $output"
+             exit 1
+           }
+
+       - name: Upload opalescent.exe artifact
         uses: actions/upload-artifact@v4
         with:
           name: opalescent-windows
@@ -124,13 +134,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y wine64
 
-      - name: Execute cross-compiled .exe with Wine
-        env:
-          WINEDEBUG: -all
-          WINEPREFIX: /tmp/wine-opal
-        run: |
-          EXE_PATH="test-projects/hello-world/target/x86_64-pc-windows-msvc/release/program.exe"
-          OUTPUT=$(wine "$EXE_PATH" 2>/dev/null)
+       - name: Execute cross-compiled .exe with Wine
+         env:
+           WINEDEBUG: -all
+           WINEPREFIX: /tmp/wine-opal
+         run: |
+           EXE_PATH="target/program.exe"
+           OUTPUT=$(wine "$EXE_PATH" 2>/dev/null)
           echo "Wine execution output: $OUTPUT"
           if [ "$OUTPUT" = "Hello world" ]; then
             echo "Wine execution successful: output matches expected 'Hello world'"

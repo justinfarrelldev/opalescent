@@ -33,7 +33,7 @@ static char* skip_trailing_whitespace_parse(char* s) {
 }
 
 static const char* invalid_digit_error_parse(char ch) {
-    static _Thread_local char msg[64];
+    static OPAL_THREAD_LOCAL char msg[64];
     snprintf(msg, sizeof(msg), "invalid digit '%c' in input", ch);
     return msg;
 }
