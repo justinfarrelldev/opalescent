@@ -4,6 +4,10 @@
 #include <time.h>
 #include <stdint.h>
 
+#if OPAL_WINDOWS
+#include <bcrypt.h>
+#endif
+
 static uint64_t xorshift128plus_state[2];
 static int prng_seeded = 0;
 
@@ -22,12 +26,28 @@ static uint64_t xorshift128plus(void) {
 static void seed_prng_once(void) {
     if (prng_seeded) return;
     uint64_t s0 = 0, s1 = 0;
+    
+#if OPAL_WINDOWS
+    /* Windows: use BCryptGenRandom for cryptographically secure random bytes */
+    NTSTATUS status = BCryptGenRandom(NULL, (PUCHAR)&s0, sizeof(s0), BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+    if (BCRYPT_SUCCESS(status)) {
+        status = BCryptGenRandom(NULL, (PUCHAR)&s1, sizeof(s1), BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+    }
+    if (!BCRYPT_SUCCESS(status)) {
+        /* Fallback if BCryptGenRandom fails */
+        s0 = 0;
+        s1 = 0;
+    }
+#else
+    /* Unix: use /dev/urandom */
     FILE* urandom = fopen("/dev/urandom", "rb");
     if (urandom) {
         (void)fread(&s0, sizeof(s0), 1, urandom);
         (void)fread(&s1, sizeof(s1), 1, urandom);
         fclose(urandom);
     }
+#endif
+    
     if (s0 == 0 && s1 == 0) {
         s0 = (uint64_t)time(NULL) ^ ((uint64_t)clock() << 32);
         s1 = s0 ^ 0x9e3779b97f4a7c15ULL;
