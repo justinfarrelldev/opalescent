@@ -499,3 +499,50 @@ fn rng_portability_header_compiles_with_gcc() {
         }
     }
 }
+
+#[test]
+fn runtime_aggregator_compiles_without_c_includes() {
+    let runtime_path = std::path::Path::new("runtime/opal_runtime.c");
+    assert!(runtime_path.exists(), "runtime/opal_runtime.c must exist");
+    
+    // Verify that opal_runtime.c does NOT include .c files (only headers)
+    let content = std::fs::read_to_string(runtime_path)
+        .expect("failed to read runtime/opal_runtime.c");
+    
+    // Check that no .c files are included
+    assert!(!content.contains("#include \"opal_error.c\""), 
+        "opal_runtime.c must not include opal_error.c");
+    assert!(!content.contains("#include \"opal_io.c\""), 
+        "opal_runtime.c must not include opal_io.c");
+    assert!(!content.contains("#include \"opal_print.c\""), 
+        "opal_runtime.c must not include opal_print.c");
+    assert!(!content.contains("#include \"opal_rng.c\""), 
+        "opal_runtime.c must not include opal_rng.c");
+    assert!(!content.contains("#include \"opal_parse.c\""), 
+        "opal_runtime.c must not include opal_parse.c");
+    assert!(!content.contains("#include \"opal_string.c\""), 
+        "opal_runtime.c must not include opal_string.c");
+    assert!(!content.contains("#include \"opal_bytes.c\""), 
+        "opal_runtime.c must not include opal_bytes.c");
+    assert!(!content.contains("#include \"opal_rc.c\""), 
+        "opal_runtime.c must not include opal_rc.c");
+    
+    // Verify it compiles as a standalone unit
+    let output = std::process::Command::new("gcc")
+        .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-c", "runtime/opal_runtime.c", "-o", "/tmp/opal_runtime_test.o"])
+        .output();
+    
+    match output {
+        Ok(out) => {
+            assert!(out.status.success(), 
+                "gcc failed to compile opal_runtime.c as aggregator:\n{}",
+                String::from_utf8_lossy(&out.stderr));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("gcc not found, skipping runtime aggregator compile test");
+        }
+        Err(e) => {
+            eprintln!("Failed to run gcc: {e}");
+        }
+    }
+}
