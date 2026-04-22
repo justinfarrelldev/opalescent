@@ -10,14 +10,17 @@ pub mod cache;
 pub mod config;
 pub mod dependency;
 pub mod incremental;
+pub mod linker;
 pub mod targets;
 
 pub use cache::{BuildCache, hash_content};
 pub use config::{Dependency, ProjectConfig, Version, VersionConstraint, parse_config};
 pub use dependency::{PackageVersion, ResolvedDep, resolve_dependencies};
 pub use incremental::modules_to_rebuild;
+pub use linker::{Linker, detect_preferred_linker};
 pub use targets::{
-    Architecture, Platform, TargetTriple, TripleEnv, dynamic_lib_extension, parse_target_triple,
+    Architecture, Platform, TargetTriple, TripleEnv, dynamic_lib_extension, executable_filename,
+    object_file_extension, parse_target_triple,
 };
 
 /// Unified build-system error type.
