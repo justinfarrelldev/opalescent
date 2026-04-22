@@ -16,7 +16,10 @@ use crate::hot_reload::loader::{
 };
 use crate::hot_reload::recovery::ErrorRecovery;
 use crate::hot_reload::state::{HostState, StatePreserver};
-use crate::hot_reload::version::{ModuleVersion, versioned_module_name};
+use crate::hot_reload::version::{
+    ModuleVersion, shared_library_extension, versioned_module_name,
+};
+use crate::build_system::targets::parse_target_triple;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec;
@@ -213,18 +216,24 @@ fn module_version_formats_zero_padded_identifier() {
         "version format should be vNNNN"
     );
 
-    let versioned_name = versioned_module_name("logic", version);
-    let expected_extension = if cfg!(target_os = "windows") {
-        ".dll"
-    } else if cfg!(target_os = "macos") {
-        ".dylib"
-    } else {
-        ".so"
-    };
+    let linux_target = parse_target_triple("x86_64-linux").unwrap();
+    let versioned_name = versioned_module_name("logic", version, &linux_target);
     assert_eq!(
         versioned_name,
-        format!("logic_v0001{expected_extension}"),
+        String::from("logic_v0001.so"),
         "versioned module file name must include suffix and extension"
+    );
+}
+
+#[test]
+fn shared_library_extension_uses_target_not_host() {
+    assert_eq!(
+        shared_library_extension(&parse_target_triple("x86_64-pc-windows-msvc").unwrap()),
+        ".dll"
+    );
+    assert_eq!(
+        shared_library_extension(&parse_target_triple("x86_64-linux").unwrap()),
+        ".so"
     );
 }
 
