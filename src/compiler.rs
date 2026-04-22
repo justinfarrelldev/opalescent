@@ -302,52 +302,11 @@ pub fn build_linker_command(
     runtime_path: &Path,
     output_path: &Path,
 ) -> Command {
-    match target.platform {
-        Platform::Windows => {
-            // Try MSVC link.exe first; fall back to MinGW gcc if unavailable.
-            if std::process::Command::new("link.exe")
-                .arg("/?")
-                .output()
-                .is_ok()
-            {
-                let mut cmd = Command::new("link.exe");
-                cmd.arg(format!("/OUT:{}", output_path.display()));
-                for obj_path in object_paths {
-                    cmd.arg(obj_path);
-                }
-                cmd.arg(runtime_path);
-                cmd
-            } else {
-                let mut cmd = Command::new("gcc");
-                for obj_path in object_paths {
-                    cmd.arg(obj_path);
-                }
-                cmd.arg(runtime_path);
-                cmd.arg("-o").arg(output_path);
-                cmd
-            }
-        }
-        Platform::Linux => {
-            let mut cmd = Command::new("cc");
-            for obj_path in object_paths {
-                cmd.arg(obj_path);
-            }
-            cmd.arg(runtime_path);
-            cmd.arg("-no-pie");
-            cmd.arg("-o").arg(output_path);
-            cmd
-        }
-        Platform::MacOs => {
-            // macOS and other Unix-like platforms.
-            let mut cmd = Command::new("cc");
-            for obj_path in object_paths {
-                cmd.arg(obj_path);
-            }
-            cmd.arg(runtime_path);
-            cmd.arg("-o").arg(output_path);
-            cmd
-        }
+    let mut linker_cmd = crate::build_system::LinkerCommand::new(target, output_path.to_path_buf());
+    for obj_path in object_paths {
+        linker_cmd = linker_cmd.with_input(obj_path.clone());
     }
+    linker_cmd.with_runtime(runtime_path.to_path_buf()).build()
 }
 
 /// Link multiple object files into an executable binary.
@@ -788,7 +747,7 @@ mod tests {
         let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out);
         let has_no_pie = cmd.get_args().any(|a| a.to_string_lossy() == "-no-pie");
         assert!(!has_no_pie, "macos linker command must NOT include -no-pie");
-        assert_eq!(cmd.get_program(), "cc");
+        assert_eq!(cmd.get_program(), "clang");
     }
 
     #[test]
