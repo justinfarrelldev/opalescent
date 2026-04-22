@@ -257,6 +257,18 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
         })
         .unwrap_or_default();
 
+    let target_str = args
+        .iter()
+        .position(|a| a == "--target")
+        .and_then(|i| args.get(i.saturating_add(1)).map(String::as_str));
+
+    if let Some(triple_str) = target_str {
+        if parse_target_triple(triple_str).is_err() {
+            eprintln!("error: unknown target triple: {triple_str}. Supported: x86_64-linux, x86_64-pc-windows-msvc, x86_64-pc-windows-gnu, aarch64-darwin, x86_64-apple-darwin");
+            return Err(1);
+        }
+    }
+
     if let Some(source_path) = args.get(2).map(String::as_str) {
         return compile_and_run(source_path, &program_args);
     }
@@ -513,6 +525,18 @@ fn run_bench_command(_args: &[String]) -> Result<(), i32> {
 /// Dispatch `opal check` — lex → parse → [`TypeChecker`] pipeline on `args[2]`.
 /// Prints `check passed` on success; prints to stderr and returns `Err(1)` on any error.
 fn run_check_command(args: &[String]) -> Result<(), i32> {
+    let target_str = args
+        .iter()
+        .position(|a| a == "--target")
+        .and_then(|i| args.get(i.saturating_add(1)).map(String::as_str));
+
+    if let Some(triple_str) = target_str {
+        if parse_target_triple(triple_str).is_err() {
+            eprintln!("error: unknown target triple: {triple_str}. Supported: x86_64-linux, x86_64-pc-windows-msvc, x86_64-pc-windows-gnu, aarch64-darwin, x86_64-apple-darwin");
+            return Err(1);
+        }
+    }
+
     let Some(source_path) = args.get(2).map(String::as_str) else {
         eprintln!("error: no source file specified");
         eprintln!("Usage: opal check <file.op>");
@@ -560,7 +584,19 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
 }
 
 /// Run the `opal build` command — reads `opal.toml` from the current directory, compiles `src/main.op`.
-fn run_build_command(_args: &[String]) -> Result<(), i32> {
+fn run_build_command(args: &[String]) -> Result<(), i32> {
+    let target_str = args
+        .iter()
+        .position(|a| a == "--target")
+        .and_then(|i| args.get(i.saturating_add(1)).map(String::as_str));
+
+    if let Some(triple_str) = target_str {
+        if parse_target_triple(triple_str).is_err() {
+            eprintln!("error: unknown target triple: {triple_str}. Supported: x86_64-linux, x86_64-pc-windows-msvc, x86_64-pc-windows-gnu, aarch64-darwin, x86_64-apple-darwin");
+            return Err(1);
+        }
+    }
+
     let Ok(toml_content) = fs::read_to_string("opal.toml") else {
         eprintln!("error: no opal.toml found in current directory");
         eprintln!("hint: run 'opal pkg init <name>' to create a project");
@@ -1175,5 +1211,18 @@ mod tests {
         ] {
             assert!(help.contains(cmd), "help text should list command: {cmd}");
         }
+    }
+
+    #[test]
+    fn cli_rejects_invalid_target() {
+        let args = [
+            "opal".to_string(),
+            "run".to_string(),
+            "test-projects/hello-world/src/main.op".to_string(),
+            "--target".to_string(),
+            "banana-pi-linux".to_string(),
+        ];
+        let result = run_with_args(&args);
+        assert_eq!(result, Err(1));
     }
 }
