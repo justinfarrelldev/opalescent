@@ -82,7 +82,9 @@ fn parse_2_segment(input: &str, arch: &str, platform: &str) -> Result<TargetTrip
         "linux" => Platform::Linux,
         "darwin" => Platform::MacOs,
         "windows" => {
-            eprintln!("warning: target \"{input}\" is deprecated; use \"x86_64-pc-windows-msvc\" or \"x86_64-pc-windows-gnu\" explicitly");
+            eprintln!(
+                "warning: target \"{input}\" is deprecated; use \"x86_64-pc-windows-msvc\" or \"x86_64-pc-windows-gnu\" explicitly"
+            );
             Platform::Windows
         }
         _ => return Err(BuildError::InvalidTarget(input.to_owned())),

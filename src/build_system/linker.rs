@@ -149,7 +149,8 @@ impl LinkerCommand {
                         if let Some(runtime) = &self.runtime {
                             cmd.arg(runtime);
                         }
-                        cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
+                        cmd.arg("-o")
+                            .arg(self.quote_if_needed(self.output.display().to_string()));
                         for lib in mingw_crt_libs() {
                             cmd.arg(lib);
                         }
@@ -163,7 +164,8 @@ impl LinkerCommand {
                         if let Some(runtime) = &self.runtime {
                             cmd.arg(runtime);
                         }
-                        cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
+                        cmd.arg("-o")
+                            .arg(self.quote_if_needed(self.output.display().to_string()));
                     }
                     Linker::Cc => {
                         // GCC/cc: cc <inputs...> <runtime> [-no-pie] -o <output>
@@ -177,7 +179,8 @@ impl LinkerCommand {
                         if needs_no_pie(&self.target) {
                             cmd.arg("-no-pie");
                         }
-                        cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
+                        cmd.arg("-o")
+                            .arg(self.quote_if_needed(self.output.display().to_string()));
                     }
                     Linker::Msvc => unreachable!(),
                 }
@@ -374,11 +377,20 @@ mod tests {
         let cmd = LinkerCommand::new(&target, std::path::PathBuf::from("program.exe"))
             .with_input(std::path::PathBuf::from("main.o"))
             .build();
-        let args: Vec<String> = cmd.get_args().map(|s| s.to_string_lossy().to_string()).collect();
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect();
         assert!(args.contains(&"-lbcrypt".to_string()), "must have -lbcrypt");
-        assert!(args.contains(&"-luserenv".to_string()), "must have -luserenv");
+        assert!(
+            args.contains(&"-luserenv".to_string()),
+            "must have -luserenv"
+        );
         assert!(args.contains(&"-lws2_32".to_string()), "must have -lws2_32");
-        assert!(args.contains(&"-ladvapi32".to_string()), "must have -ladvapi32");
+        assert!(
+            args.contains(&"-ladvapi32".to_string()),
+            "must have -ladvapi32"
+        );
         assert!(args.contains(&"-lntdll".to_string()), "must have -lntdll");
     }
 
@@ -418,9 +430,15 @@ mod tests {
             .map(|s| s.to_string_lossy().to_string())
             .collect();
 
-        assert!(args.iter().any(|a| a == "/OUT:program.exe"), "must have /OUT:program.exe");
+        assert!(
+            args.iter().any(|a| a == "/OUT:program.exe"),
+            "must have /OUT:program.exe"
+        );
         assert!(args.contains(&"main.obj".to_string()), "must have main.obj");
-        assert!(args.contains(&"runtime.obj".to_string()), "must have runtime.obj");
+        assert!(
+            args.contains(&"runtime.obj".to_string()),
+            "must have runtime.obj"
+        );
     }
 
     #[test]
@@ -495,7 +513,10 @@ mod tests {
             .get_args()
             .map(|s| s.to_string_lossy().to_string())
             .collect();
-        assert!(args.contains(&"-no-pie".to_string()), "Linux GNU should have -no-pie");
+        assert!(
+            args.contains(&"-no-pie".to_string()),
+            "Linux GNU should have -no-pie"
+        );
 
         // Test 2: Linux MUSL — should have -no-pie
         let linux_musl = TargetTriple {
@@ -510,7 +531,10 @@ mod tests {
             .get_args()
             .map(|s| s.to_string_lossy().to_string())
             .collect();
-        assert!(args.contains(&"-no-pie".to_string()), "Linux MUSL should have -no-pie");
+        assert!(
+            args.contains(&"-no-pie".to_string()),
+            "Linux MUSL should have -no-pie"
+        );
 
         // Test 3: Windows MSVC — should NOT have -no-pie
         let windows_msvc = TargetTriple {
@@ -525,7 +549,10 @@ mod tests {
             .get_args()
             .map(|s| s.to_string_lossy().to_string())
             .collect();
-        assert!(!args.contains(&"-no-pie".to_string()), "Windows MSVC should NOT have -no-pie");
+        assert!(
+            !args.contains(&"-no-pie".to_string()),
+            "Windows MSVC should NOT have -no-pie"
+        );
 
         // Test 4: macOS Darwin — should NOT have -no-pie
         let darwin = TargetTriple {
@@ -540,7 +567,10 @@ mod tests {
             .get_args()
             .map(|s| s.to_string_lossy().to_string())
             .collect();
-        assert!(!args.contains(&"-no-pie".to_string()), "macOS Darwin should NOT have -no-pie");
+        assert!(
+            !args.contains(&"-no-pie".to_string()),
+            "macOS Darwin should NOT have -no-pie"
+        );
     }
 
     #[test]

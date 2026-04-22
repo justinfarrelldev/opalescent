@@ -23,8 +23,12 @@ fn overflow_trap_exits_nonzero() {
             }
         };
 
-        let binary_result =
-            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
+        let binary_result = compile_program(
+            source_path,
+            source_str.as_str(),
+            temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -90,8 +94,12 @@ fn lambda_basic_compiles_and_returns_correct_value() {
             }
         };
 
-        let binary_result =
-            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
+        let binary_result = compile_program(
+            source_path,
+            source_str.as_str(),
+            temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -165,8 +173,12 @@ fn array_bounds_trap_exits_nonzero() {
             }
         };
 
-        let binary_result =
-            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
+        let binary_result = compile_program(
+            source_path,
+            source_str.as_str(),
+            temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -232,8 +244,12 @@ fn string_interp_long_does_not_crash() {
             }
         };
 
-        let binary_result =
-            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
+        let binary_result = compile_program(
+            source_path,
+            source_str.as_str(),
+            temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -307,8 +323,12 @@ fn should_print_final_result_compiles_and_runs() {
             }
         };
 
-        let binary_result =
-            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
+        let binary_result = compile_program(
+            source_path,
+            source_str.as_str(),
+            temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -410,8 +430,12 @@ fn cast_safety_compiles_and_runs() {
             }
         };
 
-        let binary_result =
-            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
+        let binary_result = compile_program(
+            source_path,
+            source_str.as_str(),
+            temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -597,11 +621,8 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
             ));
         }
 
-        let binary_result = opalescent::compiler::compile_project(
-            &project_dir,
-            &output_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &output_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -689,11 +710,8 @@ fn package_import_fails_with_not_supported() {
             ));
         }
 
-        let binary_result = opalescent::compiler::compile_project(
-            &project_dir,
-            &output_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &output_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(

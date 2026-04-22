@@ -2674,11 +2674,11 @@ entry main = f(): void =>
 
 #[test]
 fn test_windows_target_uses_dllexport_linkage() {
-    use crate::build_system::targets::{parse_target_triple, Platform};
+    use crate::build_system::targets::{Platform, parse_target_triple};
 
     let context = Context::create();
-    let windows_target = parse_target_triple("x86_64-pc-windows-msvc")
-        .expect("valid Windows MSVC triple");
+    let windows_target =
+        parse_target_triple("x86_64-pc-windows-msvc").expect("valid Windows MSVC triple");
     assert_eq!(
         windows_target.platform,
         Platform::Windows,
@@ -2698,10 +2698,10 @@ fn test_windows_target_uses_dllexport_linkage() {
     );
 
     let _func = result.unwrap();
-    
+
     let ir = codegen_ctx.module.print_to_string().to_string();
     eprintln!("DEBUG TEST: LLVM IR:\n{ir}");
-    
+
     assert!(
         ir.contains("define dllexport void @test_func()"),
         "public function on Windows target should have dllexport in LLVM IR: {ir}"

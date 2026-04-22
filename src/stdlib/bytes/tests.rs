@@ -32,7 +32,11 @@ mod tests {
     #[test]
     fn test_bytes_new_is_empty() {
         let b = Bytes::new();
-        assert_eq!(b.length(), 0_usize, "Bytes::new should produce an empty buffer");
+        assert_eq!(
+            b.length(),
+            0_usize,
+            "Bytes::new should produce an empty buffer"
+        );
     }
 
     /// Verify `from_slice` preserves the source bytes verbatim.
@@ -50,21 +54,33 @@ mod tests {
         use alloc::vec;
         let source = vec![10_u8, 20_u8, 30_u8];
         let b = Bytes::from_vec(source.clone());
-        assert_eq!(b.as_slice(), source.as_slice(), "from_vec must preserve bytes");
+        assert_eq!(
+            b.as_slice(),
+            source.as_slice(),
+            "from_vec must preserve bytes"
+        );
     }
 
     /// Verify `length` matches the number of bytes stored.
     #[test]
     fn test_bytes_length_matches_data() {
         let b = Bytes::from_slice(&[0_u8, 0_u8, 0_u8, 0_u8, 0_u8]);
-        assert_eq!(b.length(), 5_usize, "length must match construction data length");
+        assert_eq!(
+            b.length(),
+            5_usize,
+            "length must match construction data length"
+        );
     }
 
     /// Verify `get` returns the byte at a valid index.
     #[test]
     fn test_bytes_get_in_bounds() {
         let b = Bytes::from_slice(&[0xAA_u8, 0xBB_u8, 0xCC_u8]);
-        assert_eq!(b.get(1_usize), Some(0xBB_u8), "get(1) should return the middle byte");
+        assert_eq!(
+            b.get(1_usize),
+            Some(0xBB_u8),
+            "get(1) should return the middle byte"
+        );
     }
 
     /// Verify `get` returns `None` when the index is at or past the length.
@@ -72,7 +88,11 @@ mod tests {
     fn test_bytes_get_out_of_bounds() {
         let b = Bytes::from_slice(&[1_u8, 2_u8]);
         assert_eq!(b.get(2_usize), None, "get at length must return None");
-        assert_eq!(b.get(99_usize), None, "get far past length must return None");
+        assert_eq!(
+            b.get(99_usize),
+            None,
+            "get far past length must return None"
+        );
     }
 
     /// Verify `as_slice` returns a view that matches the construction data.
@@ -80,7 +100,11 @@ mod tests {
     fn test_bytes_as_slice_matches_construction() {
         let source: [u8; 4_usize] = [9_u8, 8_u8, 7_u8, 6_u8];
         let b = Bytes::from_slice(&source);
-        assert_eq!(b.as_slice(), &source, "as_slice must match the source bytes");
+        assert_eq!(
+            b.as_slice(),
+            &source,
+            "as_slice must match the source bytes"
+        );
     }
 
     // =========================================================================
@@ -106,7 +130,11 @@ mod tests {
         let left = Bytes::new();
         let right = Bytes::from_slice(&[1_u8, 2_u8]);
         let combined = left.concatenate(&right);
-        assert_eq!(combined.as_slice(), &[1_u8, 2_u8], "empty left must yield right");
+        assert_eq!(
+            combined.as_slice(),
+            &[1_u8, 2_u8],
+            "empty left must yield right"
+        );
     }
 
     /// Verify concatenating an empty right buffer yields only the left buffer.
@@ -115,7 +143,11 @@ mod tests {
         let left = Bytes::from_slice(&[1_u8, 2_u8]);
         let right = Bytes::new();
         let combined = left.concatenate(&right);
-        assert_eq!(combined.as_slice(), &[1_u8, 2_u8], "empty right must yield left");
+        assert_eq!(
+            combined.as_slice(),
+            &[1_u8, 2_u8],
+            "empty right must yield left"
+        );
     }
 
     /// Verify concatenating two empty buffers yields an empty buffer.
@@ -148,7 +180,9 @@ mod tests {
     #[test]
     fn test_slice_full_range_returns_copy_equal() {
         let b = Bytes::from_slice(&[10_u8, 20_u8, 30_u8]);
-        let full = b.slice(0_usize, 3_usize).expect("full-range slice must succeed");
+        let full = b
+            .slice(0_usize, 3_usize)
+            .expect("full-range slice must succeed");
         assert_eq!(full, b, "slice(0, len) must equal the original");
     }
 
@@ -156,7 +190,9 @@ mod tests {
     #[test]
     fn test_slice_empty_range_returns_empty() {
         let b = Bytes::from_slice(&[10_u8, 20_u8, 30_u8]);
-        let empty = b.slice(2_usize, 2_usize).expect("zero-width slice must succeed");
+        let empty = b
+            .slice(2_usize, 2_usize)
+            .expect("zero-width slice must succeed");
         assert_eq!(empty.length(), 0_usize, "slice(n, n) must be empty");
     }
 
@@ -164,7 +200,9 @@ mod tests {
     #[test]
     fn test_slice_middle_range() {
         let b = Bytes::from_slice(&[0_u8, 1_u8, 2_u8, 3_u8, 4_u8]);
-        let middle = b.slice(1_usize, 4_usize).expect("middle slice must succeed");
+        let middle = b
+            .slice(1_usize, 4_usize)
+            .expect("middle slice must succeed");
         assert_eq!(
             middle.as_slice(),
             &[1_u8, 2_u8, 3_u8],
@@ -176,7 +214,9 @@ mod tests {
     #[test]
     fn test_slice_start_greater_than_end_errors() {
         let b = Bytes::from_slice(&[1_u8, 2_u8, 3_u8]);
-        let err = b.slice(2_usize, 1_usize).expect_err("start > end must error");
+        let err = b
+            .slice(2_usize, 1_usize)
+            .expect_err("start > end must error");
         assert!(
             matches!(err, BytesError::InvalidRange { .. }),
             "expected InvalidRange, got {err:?}"
@@ -187,7 +227,9 @@ mod tests {
     #[test]
     fn test_slice_end_out_of_bounds_errors() {
         let b = Bytes::from_slice(&[1_u8, 2_u8, 3_u8]);
-        let err = b.slice(0_usize, 4_usize).expect_err("end > length must error");
+        let err = b
+            .slice(0_usize, 4_usize)
+            .expect_err("end > length must error");
         assert!(
             matches!(err, BytesError::InvalidRange { .. }),
             "expected InvalidRange, got {err:?}"
@@ -216,7 +258,11 @@ mod tests {
     #[test]
     fn test_to_hex_single_byte_ff() {
         let b = Bytes::from_slice(&[0xFF_u8]);
-        assert_eq!(b.to_hex_string(), "ff", "0xFF must encode as lowercase \"ff\"");
+        assert_eq!(
+            b.to_hex_string(),
+            "ff",
+            "0xFF must encode as lowercase \"ff\""
+        );
     }
 
     /// Verify multi-byte encoding produces the concatenated hex digits.
@@ -258,7 +304,10 @@ mod tests {
         let original = Bytes::from_slice(&[0x01_u8, 0x23_u8, 0x45_u8, 0x67_u8, 0x89_u8, 0xAB_u8]);
         let encoded = original.to_hex_string();
         let decoded = Bytes::from_hex_string(&encoded).expect("roundtrip must decode");
-        assert_eq!(decoded, original, "from_hex_string ∘ to_hex_string must be identity");
+        assert_eq!(
+            decoded, original,
+            "from_hex_string ∘ to_hex_string must be identity"
+        );
     }
 
     /// Verify uppercase hex is accepted and equivalent to lowercase.

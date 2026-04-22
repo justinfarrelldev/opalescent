@@ -103,14 +103,16 @@ pub(super) fn infer_guard_binding_core_type(
 ) -> CoreType {
     if let Expr::Call { ref callee, .. } = *guarded_expr {
         if let Expr::Identifier { ref name, .. } = *callee.as_ref() {
-            if let Some(first_return) = env.imported_signatures.get(name.as_str()).and_then(
-                |signature| match signature {
-                    &CoreType::Function {
-                        ref return_types, ..
-                    } => return_types.first(),
-                    _ => None,
-                },
-            ) {
+            if let Some(first_return) =
+                env.imported_signatures
+                    .get(name.as_str())
+                    .and_then(|signature| match signature {
+                        &CoreType::Function {
+                            ref return_types, ..
+                        } => return_types.first(),
+                        _ => None,
+                    })
+            {
                 return first_return.clone();
             }
 

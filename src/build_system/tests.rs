@@ -342,10 +342,10 @@ fn object_file_extension_legacy_fallbacks() {
     // Legacy 2-segment windows resolves as MSVC per Task 0.5
     let t = parse_target_triple("x86_64-windows").unwrap();
     assert_eq!(object_file_extension(&t), ".obj");
-    
+
     let t = parse_target_triple("x86_64-linux").unwrap();
     assert_eq!(object_file_extension(&t), ".o");
-    
+
     let t = parse_target_triple("aarch64-darwin").unwrap();
     assert_eq!(object_file_extension(&t), ".o");
 }
@@ -421,18 +421,35 @@ fn linker_binary_name_cc() {
 #[test]
 fn portability_header_compiles_with_gcc() {
     let header_path = std::path::Path::new("runtime/opal_portability.h");
-    assert!(header_path.exists(), "runtime/opal_portability.h must exist");
-    
+    assert!(
+        header_path.exists(),
+        "runtime/opal_portability.h must exist"
+    );
+
     let output = std::process::Command::new("gcc")
-        .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-x", "c", "-c", "/dev/null",
-               "-include", "runtime/opal_portability.h", "-o", "/dev/null"])
+        .args([
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-x",
+            "c",
+            "-c",
+            "/dev/null",
+            "-include",
+            "runtime/opal_portability.h",
+            "-o",
+            "/dev/null",
+        ])
         .output();
-    
+
     match output {
         Ok(out) => {
-            assert!(out.status.success(), 
+            assert!(
+                out.status.success(),
                 "gcc failed to compile portability header:\n{}",
-                String::from_utf8_lossy(&out.stderr));
+                String::from_utf8_lossy(&out.stderr)
+            );
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             eprintln!("gcc not found, skipping portability header compile test");
@@ -447,25 +464,31 @@ fn portability_header_compiles_with_gcc() {
 fn rc_header_layout_constants_are_correct() {
     let rc_header_path = std::path::Path::new("runtime/opal_rc.h");
     assert!(rc_header_path.exists(), "runtime/opal_rc.h must exist");
-    
+
     let output = std::process::Command::new("gcc")
         .args([
             "-std=c11",
             "-Wall",
             "-Wextra",
             "-Werror",
-            "-x", "c",
-            "-c", "/dev/null",
-            "-include", "runtime/opal_rc.h",
-            "-o", "/dev/null"
+            "-x",
+            "c",
+            "-c",
+            "/dev/null",
+            "-include",
+            "runtime/opal_rc.h",
+            "-o",
+            "/dev/null",
         ])
         .output();
-    
+
     match output {
         Ok(out) => {
-            assert!(out.status.success(), 
+            assert!(
+                out.status.success(),
                 "gcc failed to compile RC header with offsetof assertions:\n{}",
-                String::from_utf8_lossy(&out.stderr));
+                String::from_utf8_lossy(&out.stderr)
+            );
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             eprintln!("gcc not found, skipping RC header layout test");
@@ -480,16 +503,27 @@ fn rc_header_layout_constants_are_correct() {
 fn rng_portability_header_compiles_with_gcc() {
     let rng_path = std::path::Path::new("runtime/opal_rng.c");
     assert!(rng_path.exists(), "runtime/opal_rng.c must exist");
-    
+
     let output = std::process::Command::new("gcc")
-        .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-c", "runtime/opal_rng.c", "-o", "/tmp/opal_rng_test.o"])
+        .args([
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-c",
+            "runtime/opal_rng.c",
+            "-o",
+            "/tmp/opal_rng_test.o",
+        ])
         .output();
-    
+
     match output {
         Ok(out) => {
-            assert!(out.status.success(), 
+            assert!(
+                out.status.success(),
                 "gcc failed to compile opal_rng.c:\n{}",
-                String::from_utf8_lossy(&out.stderr));
+                String::from_utf8_lossy(&out.stderr)
+            );
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             eprintln!("gcc not found, skipping rng portability compile test");
@@ -504,39 +538,66 @@ fn rng_portability_header_compiles_with_gcc() {
 fn runtime_aggregator_compiles_without_c_includes() {
     let runtime_path = std::path::Path::new("runtime/opal_runtime.c");
     assert!(runtime_path.exists(), "runtime/opal_runtime.c must exist");
-    
+
     // Verify that opal_runtime.c does NOT include .c files (only headers)
-    let content = std::fs::read_to_string(runtime_path)
-        .expect("failed to read runtime/opal_runtime.c");
-    
+    let content =
+        std::fs::read_to_string(runtime_path).expect("failed to read runtime/opal_runtime.c");
+
     // Check that no .c files are included
-    assert!(!content.contains("#include \"opal_error.c\""), 
-        "opal_runtime.c must not include opal_error.c");
-    assert!(!content.contains("#include \"opal_io.c\""), 
-        "opal_runtime.c must not include opal_io.c");
-    assert!(!content.contains("#include \"opal_print.c\""), 
-        "opal_runtime.c must not include opal_print.c");
-    assert!(!content.contains("#include \"opal_rng.c\""), 
-        "opal_runtime.c must not include opal_rng.c");
-    assert!(!content.contains("#include \"opal_parse.c\""), 
-        "opal_runtime.c must not include opal_parse.c");
-    assert!(!content.contains("#include \"opal_string.c\""), 
-        "opal_runtime.c must not include opal_string.c");
-    assert!(!content.contains("#include \"opal_bytes.c\""), 
-        "opal_runtime.c must not include opal_bytes.c");
-    assert!(!content.contains("#include \"opal_rc.c\""), 
-        "opal_runtime.c must not include opal_rc.c");
-    
+    assert!(
+        !content.contains("#include \"opal_error.c\""),
+        "opal_runtime.c must not include opal_error.c"
+    );
+    assert!(
+        !content.contains("#include \"opal_io.c\""),
+        "opal_runtime.c must not include opal_io.c"
+    );
+    assert!(
+        !content.contains("#include \"opal_print.c\""),
+        "opal_runtime.c must not include opal_print.c"
+    );
+    assert!(
+        !content.contains("#include \"opal_rng.c\""),
+        "opal_runtime.c must not include opal_rng.c"
+    );
+    assert!(
+        !content.contains("#include \"opal_parse.c\""),
+        "opal_runtime.c must not include opal_parse.c"
+    );
+    assert!(
+        !content.contains("#include \"opal_string.c\""),
+        "opal_runtime.c must not include opal_string.c"
+    );
+    assert!(
+        !content.contains("#include \"opal_bytes.c\""),
+        "opal_runtime.c must not include opal_bytes.c"
+    );
+    assert!(
+        !content.contains("#include \"opal_rc.c\""),
+        "opal_runtime.c must not include opal_rc.c"
+    );
+
     // Verify it compiles as a standalone unit
     let output = std::process::Command::new("gcc")
-        .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-c", "runtime/opal_runtime.c", "-o", "/tmp/opal_runtime_test.o"])
+        .args([
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-c",
+            "runtime/opal_runtime.c",
+            "-o",
+            "/tmp/opal_runtime_test.o",
+        ])
         .output();
-    
+
     match output {
         Ok(out) => {
-            assert!(out.status.success(), 
+            assert!(
+                out.status.success(),
                 "gcc failed to compile opal_runtime.c as aggregator:\n{}",
-                String::from_utf8_lossy(&out.stderr));
+                String::from_utf8_lossy(&out.stderr)
+            );
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             eprintln!("gcc not found, skipping runtime aggregator compile test");
@@ -551,16 +612,27 @@ fn runtime_aggregator_compiles_without_c_includes() {
 fn runtime_init_compiles_with_gcc() {
     let runtime_path = std::path::Path::new("runtime/opal_runtime.c");
     assert!(runtime_path.exists(), "runtime/opal_runtime.c must exist");
-    
+
     let output = std::process::Command::new("gcc")
-        .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-c", "runtime/opal_runtime.c", "-o", "/tmp/opal_runtime.o"])
+        .args([
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-c",
+            "runtime/opal_runtime.c",
+            "-o",
+            "/tmp/opal_runtime.o",
+        ])
         .output();
-    
+
     match output {
         Ok(out) => {
-            assert!(out.status.success(), 
+            assert!(
+                out.status.success(),
                 "gcc failed to compile opal_runtime.c with opal_runtime_init:\n{}",
-                String::from_utf8_lossy(&out.stderr));
+                String::from_utf8_lossy(&out.stderr)
+            );
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             eprintln!("gcc not found, skipping runtime init compile test");

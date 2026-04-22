@@ -175,8 +175,12 @@ fn hello_world_compiles_links_and_runs() {
             }
         };
 
-        let binary_result =
-            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
+        let binary_result = compile_program(
+            source_path,
+            source_str.as_str(),
+            temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -250,8 +254,12 @@ fn fib_recursive_compiles_links_and_runs() {
             }
         };
 
-        let binary_result =
-            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
+        let binary_result = compile_program(
+            source_path,
+            source_str.as_str(),
+            temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -325,8 +333,12 @@ fn fib_iterative_compiles_links_and_runs() {
             }
         };
 
-        let binary_result =
-            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
+        let binary_result = compile_program(
+            source_path,
+            source_str.as_str(),
+            temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {

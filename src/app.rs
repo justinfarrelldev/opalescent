@@ -193,8 +193,12 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
         }
     };
 
-    let binary_path =
-        match compile_program(Path::new(source_path), &source, Path::new("target"), &target) {
+    let binary_path = match compile_program(
+        Path::new(source_path),
+        &source,
+        Path::new("target"),
+        &target,
+    ) {
         Ok(path) => path,
         Err(CompileError::Report {
             ref report,
@@ -230,19 +234,19 @@ fn compile_and_run(
 
     let binary_path =
         match compile_program(Path::new(source_path), &source, Path::new("target"), target) {
-        Ok(path) => path,
-        Err(CompileError::Report {
-            ref report,
-            ref normalized_source,
-        }) => {
-            eprintln!("{}", render_report(source_path, normalized_source, report));
-            return Err(1);
-        }
-        Err(error) => {
-            eprintln!("error: compilation failed: {error}");
-            return Err(1);
-        }
-    };
+            Ok(path) => path,
+            Err(CompileError::Report {
+                ref report,
+                ref normalized_source,
+            }) => {
+                eprintln!("{}", render_report(source_path, normalized_source, report));
+                return Err(1);
+            }
+            Err(error) => {
+                eprintln!("error: compilation failed: {error}");
+                return Err(1);
+            }
+        };
 
     println!("{}", binary_path.display());
 
@@ -541,7 +545,9 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
 
     if let Some(triple_str) = target_str {
         if parse_target_triple(triple_str).is_err() {
-            eprintln!("error: unknown target triple: {triple_str}. Supported: x86_64-linux, x86_64-pc-windows-msvc, x86_64-pc-windows-gnu, aarch64-darwin, x86_64-apple-darwin");
+            eprintln!(
+                "error: unknown target triple: {triple_str}. Supported: x86_64-linux, x86_64-pc-windows-msvc, x86_64-pc-windows-gnu, aarch64-darwin, x86_64-apple-darwin"
+            );
             return Err(1);
         }
     }
@@ -662,7 +668,11 @@ fn run_watch_command(args: &[String]) -> Result<(), i32> {
     loop {
         std::thread::sleep(std::time::Duration::from_millis(500));
         if !watcher.poll_changes().is_empty() {
-            match compile_and_run(src, &[], &crate::build_system::targets::TargetTriple::host()) {
+            match compile_and_run(
+                src,
+                &[],
+                &crate::build_system::targets::TargetTriple::host(),
+            ) {
                 Ok(()) => println!("Recompile successful."),
                 Err(_) => eprintln!("Recompile failed."),
             }

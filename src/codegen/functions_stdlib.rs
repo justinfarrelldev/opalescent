@@ -200,10 +200,8 @@ pub fn declare_stdlib_function<'context>(
             Some(module.add_function("bytes_from_hex", ft, None))
         }),
         "bytes_slice" => module.get_function("bytes_slice").or_else(|| {
-            let ft = bytes_result_type.fn_type(
-                &[i8_ptr.into(), i32_type.into(), i32_type.into()],
-                false,
-            );
+            let ft = bytes_result_type
+                .fn_type(&[i8_ptr.into(), i32_type.into(), i32_type.into()], false);
             Some(module.add_function("bytes_slice", ft, None))
         }),
         _ => None,

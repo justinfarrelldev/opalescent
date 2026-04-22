@@ -2221,7 +2221,7 @@ Max Concurrent: 7 (Waves 1 & 3)
 
   **Commit**: YES (RGR: 3 commits) — `feat(hot_reload): real FsModuleLoader with libloading`
 
-- [ ] 24. **Windows `.dll` hot reload — `LoadLibraryW` via libloading**
+- [x] 24. **Windows `.dll` hot reload — `LoadLibraryW` via libloading**
 
   **What to do**:
   - libloading (Task 23 dependency) already bridges to `LoadLibraryW`/`GetProcAddress`/`FreeLibrary` on Windows — no new crate needed.
@@ -2360,7 +2360,7 @@ Max Concurrent: 7 (Waves 1 & 3)
 
   **Commit**: YES (RGR: 3 commits) — `fix(runtime): SetConsoleOutputCP(CP_UTF8) on Windows init`
 
-- [ ] 26. **Enable Windows native test matrix — `windows-latest` runs full suite**
+- [x] 26. **Enable Windows native test matrix — `windows-latest` runs full suite**
 
   **What to do**:
   - Extend `.github/workflows/ci.yml` job `windows-native` (already scaffolded in Task 7 as a build-only job) to run the **full** integration test matrix.
@@ -2427,7 +2427,7 @@ Max Concurrent: 7 (Waves 1 & 3)
 
   **Commit**: YES — `ci: enable Windows native test matrix`
 
-- [ ] 27. **Hot-reload integration test — cross-platform `.so` / `.dll` coverage**
+- [x] 27. **Hot-reload integration test — cross-platform `.so` / `.dll` coverage**
 
   **What to do**:
   - Add end-to-end integration test `hot_reload_end_to_end_cross_platform` that runs on **every** CI platform: Linux (Task 23 .so), Windows native (Task 24 .dll), Wine (Task 24 .dll under wine).

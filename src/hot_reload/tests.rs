@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use crate::build_system::targets::parse_target_triple;
 use crate::hot_reload::abi::{
     ExportedFunction, FunctionSignature, ModuleVTable, PodLayout, generate_abi_signature,
     signatures_compatible,
@@ -16,10 +17,7 @@ use crate::hot_reload::loader::{
 };
 use crate::hot_reload::recovery::ErrorRecovery;
 use crate::hot_reload::state::{HostState, StatePreserver};
-use crate::hot_reload::version::{
-    ModuleVersion, shared_library_extension, versioned_module_name,
-};
-use crate::build_system::targets::parse_target_triple;
+use crate::hot_reload::version::{ModuleVersion, shared_library_extension, versioned_module_name};
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec;
@@ -877,16 +875,10 @@ fn fs_module_loader_hot_swap_with_real_library_abi_compat() {
     let v2_name = module_v2.to_string_lossy().to_string();
 
     let load_v1 = hot_swap_module(&mut host, &mut loader, &v1_name);
-    assert!(
-        load_v1.is_ok(),
-        "should load v1 module: {load_v1:?}"
-    );
+    assert!(load_v1.is_ok(), "should load v1 module: {load_v1:?}");
 
     let active_v1 = host.active_module();
-    assert!(
-        active_v1.is_some(),
-        "host should have v1 as active module"
-    );
+    assert!(active_v1.is_some(), "host should have v1 as active module");
 
     let swap_result = hot_swap_module(&mut host, &mut loader, &v2_name);
     assert!(
@@ -969,8 +961,7 @@ fn fs_module_loader_hot_swap_rejects_abi_break_with_mock() {
     );
 
     assert_eq!(
-        host.active_module()
-            .map(|m| m.module_name.clone()),
+        host.active_module().map(|m| m.module_name.clone()),
         Some(String::from("logic_v0001.so")),
         "v1 should remain active after ABI-break rejection"
     );

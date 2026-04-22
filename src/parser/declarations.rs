@@ -6,9 +6,8 @@
 extern crate alloc;
 use super::{ParseError, ParseResult, Parser};
 use crate::ast::{
-    AstNode, Decl, Documentation, Field, FunctionModifier, HotReloadMetadata,
-    LetBinding, Parameter, Stmt, Type, TypeDef, TypeParameter, Variant,
-    Visibility,
+    AstNode, Decl, Documentation, Field, FunctionModifier, HotReloadMetadata, LetBinding,
+    Parameter, Stmt, Type, TypeDef, TypeParameter, Variant, Visibility,
 };
 use crate::token::{Span, TokenType};
 use alloc::string::String;

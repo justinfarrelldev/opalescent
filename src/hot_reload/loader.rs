@@ -7,8 +7,8 @@ use crate::hot_reload::guard::{AbiGuard, AbiGuardResult, FallbackRestartTrigger}
 use alloc::string::String;
 use core::sync::atomic::{AtomicU64, Ordering};
 use libloading::Library;
-use std::ffi::OsStr;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -31,13 +31,11 @@ impl SymbolResolver for LibloadingSymbolResolver {
     ) -> Result<extern "C" fn(), HotReloadError> {
         // SAFETY: The symbol name is null-terminated and expected to resolve to
         // the module's exported entrypoint with C ABI.
-        let module_entry = unsafe {
-            library.get::<unsafe extern "C" fn()>(b"module_entry\0")
-        }
-        .map_err(|error| HotReloadError::ModuleLoadFailed {
-            module_name: module_name.to_owned(),
-            reason: format!("failed to resolve module_entry symbol: {error}"),
-        })?;
+        let module_entry = unsafe { library.get::<unsafe extern "C" fn()>(b"module_entry\0") }
+            .map_err(|error| HotReloadError::ModuleLoadFailed {
+                module_name: module_name.to_owned(),
+                reason: format!("failed to resolve module_entry symbol: {error}"),
+            })?;
         let unsafe_entry = *module_entry;
         // SAFETY: `module_entry` is stored and later invoked through the existing
         // ModuleVTable contract (`extern "C" fn()`).
@@ -162,7 +160,6 @@ impl FsModuleLoader {
 
         Ok((library, copy_path))
     }
-
 }
 
 impl ModuleLoader for FsModuleLoader {
@@ -172,15 +169,14 @@ impl ModuleLoader for FsModuleLoader {
             .symbol_resolver
             .resolve_module_entry(&library, module_name)?;
 
-        self.loaded_libraries.insert(module_name.to_owned(), library);
+        self.loaded_libraries
+            .insert(module_name.to_owned(), library);
         self.loaded_library_paths
             .insert(module_name.to_owned(), copied_path);
 
         Ok(LoadedModule {
             module_name: module_name.to_owned(),
-            vtable: ModuleVTable {
-                module_entry,
-            },
+            vtable: ModuleVTable { module_entry },
             abi_signature: AbiSignature::new(),
         })
     }

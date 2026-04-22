@@ -116,11 +116,16 @@ pub fn validate_module_file_role(path: &Path, program: &Program) -> Result<(), T
     let file_path = path.display().to_string();
 
     if is_types_file(path) {
-        #[expect(clippy::match_ref_pats, reason = "Pattern matching on borrowed declarations")]
+        #[expect(
+            clippy::match_ref_pats,
+            reason = "Pattern matching on borrowed declarations"
+        )]
         for declaration in &program.declarations {
             match declaration {
                 &(Decl::Type { .. } | Decl::Import { .. }) => {}
-                &Decl::Let { ref binding, span, .. } => {
+                &Decl::Let {
+                    ref binding, span, ..
+                } => {
                     return Err(TypeError::NonTypeDeclarationInTypesFile {
                         decl_kind: "let".to_owned(),
                         decl_name: binding.name.clone(),

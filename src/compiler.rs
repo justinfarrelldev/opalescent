@@ -320,7 +320,8 @@ pub fn link_object_files(
 ) -> Result<PathBuf, CompileError> {
     let runtime_temp_file = RuntimeTempFile::create()?;
 
-    let mut command = build_linker_command(target, object_paths, runtime_temp_file.path(), output_path);
+    let mut command =
+        build_linker_command(target, object_paths, runtime_temp_file.path(), output_path);
 
     let output = command.output().map_err(CompileError::Io)?;
     if output.status.success() {
@@ -796,7 +797,8 @@ mod tests {
         let obj = std::path::Path::new("C:\\tmp\\prog.obj");
         let rt = std::path::Path::new("C:\\tmp\\runtime.obj");
         let out = std::path::Path::new("C:\\tmp\\prog.exe");
-        let target = crate::build_system::targets::parse_target_triple("x86_64-pc-windows-msvc").unwrap();
+        let target =
+            crate::build_system::targets::parse_target_triple("x86_64-pc-windows-msvc").unwrap();
         let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out);
         let program = cmd.get_program().to_string_lossy();
         #[cfg(windows)]

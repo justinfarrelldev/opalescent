@@ -379,11 +379,8 @@ pub fn codegen_guard_expression<'context>(
                 env.next_name("guard.bind").as_str(),
             )?;
             let _store = codegen_context.builder.build_store(alloca, success_value)?;
-            let binding_core_type = infer_guard_binding_core_type(
-                env,
-                guarded_expr,
-                success_value.get_type(),
-            );
+            let binding_core_type =
+                infer_guard_binding_core_type(env, guarded_expr, success_value.get_type());
             env.variables.insert(
                 binding_name.to_owned(),
                 VariableBinding {
