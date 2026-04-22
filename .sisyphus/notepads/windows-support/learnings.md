@@ -34,3 +34,46 @@
 - Kept `Cargo.toml` unchanged in this spike (did NOT remove `llvm14-0-prefer-dynamic` yet).
 - Local `cargo test --all-features` currently fails due existing formatter integration golden mismatch in this environment (unrelated pre-existing failures).
 - Current environment lacked `gh` CLI and GitHub credentials, so remote push / workflow run verification had to be deferred outside this shell.
+
+## [2026-04-21] Task 0.5 implementation — 4-segment Rust triple support
+
+### TripleEnv enum design
+- Added `pub enum TripleEnv { Msvc, Gnu, Musl }` with `Copy + Clone` derives
+- `Copy` trait is **critical** for pattern matching in `to_rust_triple()` where both platform and env are compared
+- Initial attempt with reference patterns failed; direct enum matching works better
+
+### TargetTriple struct expansion
+- Added `pub env: Option<TripleEnv>` field to store environment variant
+- Maintains backward compatibility: 2-segment triples parse with `env: None`
+- 4-segment triples parse with `env: Some(TripleEnv::Msvc|Gnu|Musl)`
+
+### Parsing strategy
+- `parse_target_triple()` dispatches on segment count:
+  - 2 segments → `parse_2_segment()` (legacy format, e.g., `x86_64-linux`)
+  - 4 segments → `parse_4_segment()` (Rust format, e.g., `x86_64-pc-windows-msvc`)
+  - Other → `BuildError::InvalidTarget`
+- `parse_2_segment()` includes deprecation warning for legacy format
+- `parse_4_segment()` rejects `aarch64-windows` (out of scope per architecture decisions)
+- `parse_env_segment()` helper extracts environment parsing logic
+
+### TargetTriple impl block methods
+- `is_windows_msvc()` — returns true for Windows + (Msvc or None); legacy 2-segment Windows defaults to MSVC
+- `is_windows_gnu()` — returns true for Windows + Gnu
+- `is_windows()` — returns true for any Windows variant
+- `host()` — compile-time cfg detection, now `const fn`
+- `to_rust_triple()` — produces canonical 4-segment form (e.g., `x86_64-pc-windows-msvc`)
+
+### Clippy compliance
+- Private helper functions require docstrings (missing_docs_in_private_items lint)
+- Pattern matching on enums requires `Copy` trait to avoid moves
+- String formatting must use inline format vars: `"{input}"` not `"{}"`
+
+### Re-exports
+- Updated `src/build_system.rs` to export `TripleEnv` alongside `TargetTriple`
+- Enables downstream code to pattern match on environment variants
+
+### Test coverage
+- 9 new tests added to `src/build_system/tests.rs` (lines 251-303)
+- All 18 build_system tests passing
+- All 1112 project tests passing
+- Formatter integration tests have pre-existing failures (unrelated to Task 0.5)
