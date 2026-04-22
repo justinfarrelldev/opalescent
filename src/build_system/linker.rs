@@ -61,6 +61,7 @@ pub fn detect_preferred_linker(target: &TargetTriple) -> Linker {
 /// handling differences between MSVC, MinGW, Clang, and GCC linkers.
 #[derive(Debug, Clone)]
 pub struct LinkerCommand {
+    target: TargetTriple,
     linker: Linker,
     inputs: Vec<std::path::PathBuf>,
     output: std::path::PathBuf,
@@ -74,6 +75,7 @@ impl LinkerCommand {
     #[must_use]
     pub fn new(target: &TargetTriple, output: std::path::PathBuf) -> Self {
         Self {
+            target: target.clone(),
             linker: detect_preferred_linker(target),
             inputs: Vec::new(),
             output,
@@ -137,7 +139,7 @@ impl LinkerCommand {
                 cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
             }
             Linker::Cc => {
-                // GCC/cc: cc <inputs...> <runtime> -no-pie -o <output>
+                // GCC/cc: cc <inputs...> <runtime> [-no-pie] -o <output>
                 for input in &self.inputs {
                     let arg = self.quote_if_needed(input.display().to_string());
                     cmd.arg(arg);
@@ -145,7 +147,9 @@ impl LinkerCommand {
                 if let Some(runtime) = &self.runtime {
                     cmd.arg(runtime);
                 }
-                cmd.arg("-no-pie");
+                if self.target.platform == Platform::Linux {
+                    cmd.arg("-no-pie");
+                }
                 cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
             }
         }
@@ -331,7 +335,6 @@ mod tests {
         assert_eq!(args[4], "-o");
         assert_eq!(args[5], "program");
     }
-}
 
     #[test]
     fn no_pie_flag_only_on_linux() {
