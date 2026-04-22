@@ -5,7 +5,12 @@ extern crate alloc;
 use crate::hot_reload::abi::{AbiSignature, ModuleVTable, signatures_compatible};
 use crate::hot_reload::guard::{AbiGuard, AbiGuardResult, FallbackRestartTrigger};
 use alloc::string::String;
+use core::sync::atomic::{AtomicU64, Ordering};
+use libloading::Library;
+use std::ffi::OsStr;
+use std::collections::HashMap;
 use std::fs;
+use std::path::{Path, PathBuf};
 
 /// Error variants produced by hot-reload module management.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,19 +64,43 @@ pub trait ModuleLoader {
 }
 
 /// Filesystem-backed module loader used in production code paths.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct FsModuleLoader;
+#[derive(Debug, Default)]
+pub struct FsModuleLoader {
+    loaded_libraries: HashMap<String, Library>,
+    loaded_library_paths: HashMap<String, PathBuf>,
+}
+
+static TEMP_COPY_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 impl FsModuleLoader {
     /// Create a new filesystem-backed module loader.
     #[must_use]
-    pub const fn new() -> Self {
-        Self
+    pub fn new() -> Self {
+        Self {
+            loaded_libraries: HashMap::new(),
+            loaded_library_paths: HashMap::new(),
+        }
     }
-}
 
-impl ModuleLoader for FsModuleLoader {
-    fn load_module(&mut self, module_name: &str) -> Result<LoadedModule, HotReloadError> {
+    fn temp_copy_path_for(module_name: &str) -> PathBuf {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0_u128, |duration| duration.as_nanos());
+        let unique = TEMP_COPY_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let extension = Path::new(module_name)
+            .extension()
+            .and_then(OsStr::to_str)
+            .map_or("so", |value| value);
+        std::env::temp_dir().join(format!(
+            "opalescent_hot_reload_{}_{}_{}.{}",
+            std::process::id(),
+            now,
+            unique,
+            extension
+        ))
+    }
+
+    fn load_library(module_name: &str) -> Result<(Library, PathBuf), HotReloadError> {
         if fs::metadata(module_name).is_err() {
             return Err(HotReloadError::ModuleLoadFailed {
                 module_name: module_name.to_owned(),
@@ -79,28 +108,80 @@ impl ModuleLoader for FsModuleLoader {
             });
         }
 
+        let copy_path = Self::temp_copy_path_for(module_name);
+        fs::copy(module_name, &copy_path).map_err(|error| HotReloadError::ModuleLoadFailed {
+            module_name: module_name.to_owned(),
+            reason: format!("failed to create temp module copy: {error}"),
+        })?;
+
+        // SAFETY: Loading a dynamic library is inherently unsafe. The path is an owned
+        // temporary copy created specifically for hot reload and lives long enough
+        // for the returned Library handle.
+        let library = unsafe { Library::new(&copy_path) }.map_err(|error| {
+            HotReloadError::ModuleLoadFailed {
+                module_name: module_name.to_owned(),
+                reason: format!("failed to open shared library: {error}"),
+            }
+        })?;
+
+        Ok((library, copy_path))
+    }
+
+    fn resolve_module_entry(
+        library: &Library,
+        module_name: &str,
+    ) -> Result<extern "C" fn(), HotReloadError> {
+        // SAFETY: The symbol name is null-terminated and expected to resolve to
+        // the module's exported entrypoint with C ABI.
+        let module_entry = unsafe {
+            library.get::<unsafe extern "C" fn()>(b"module_entry\0")
+        }
+        .map_err(|error| HotReloadError::ModuleLoadFailed {
+            module_name: module_name.to_owned(),
+            reason: format!("failed to resolve module_entry symbol: {error}"),
+        })?;
+        let unsafe_entry = *module_entry;
+        // SAFETY: `module_entry` is stored and later invoked through the existing
+        // ModuleVTable contract (`extern "C" fn()`).
+        let safe_entry: extern "C" fn() = unsafe { core::mem::transmute(unsafe_entry) };
+        Ok(safe_entry)
+    }
+}
+
+impl ModuleLoader for FsModuleLoader {
+    fn load_module(&mut self, module_name: &str) -> Result<LoadedModule, HotReloadError> {
+        let (library, copied_path) = Self::load_library(module_name)?;
+        let module_entry = Self::resolve_module_entry(&library, module_name)?;
+
+        self.loaded_libraries.insert(module_name.to_owned(), library);
+        self.loaded_library_paths
+            .insert(module_name.to_owned(), copied_path);
+
         Ok(LoadedModule {
             module_name: module_name.to_owned(),
             vtable: ModuleVTable {
-                module_entry: default_module_entry,
+                module_entry,
             },
             abi_signature: AbiSignature::new(),
         })
     }
 
     fn unload_module(&mut self, module_name: &str) -> Result<(), HotReloadError> {
-        if fs::metadata(module_name).is_err() {
+        let Some(library) = self.loaded_libraries.remove(module_name) else {
             return Err(HotReloadError::ModuleUnloadFailed {
                 module_name: module_name.to_owned(),
-                reason: String::from("module file not found"),
+                reason: String::from("module is not currently loaded"),
             });
+        };
+        drop(library);
+
+        if let Some(temp_path) = self.loaded_library_paths.remove(module_name) {
+            let _ = fs::remove_file(temp_path);
         }
+
         Ok(())
     }
 }
-
-/// Default no-op module entry used for filesystem-backed loader metadata.
-const extern "C" fn default_module_entry() {}
 
 /// Host process state owner for active hot-reload module.
 #[derive(Debug, Clone, PartialEq, Eq)]
