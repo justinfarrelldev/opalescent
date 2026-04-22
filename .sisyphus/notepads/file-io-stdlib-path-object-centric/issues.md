@@ -13,3 +13,7 @@ No issues yet.
 
 ## [2026-04-22] For-loop codegen verification notes
 - `cargo test --features integration` currently fails in this branch due to pre-existing formatter golden/idempotency failures in `tests/fmt_integration.rs` (colon-block `if ...:` formatting vs expected brace style), unrelated to for-loop codegen changes.
+
+## [2026-04-22] T0 preflight final blockers/nuances
+- Acceptance required exact stdout lines only; because compiler run mode prefixes `target/program`, evidence stdout was captured from direct executable invocation (`./target/program`) after compiling `/tmp/preflight_arrays.op`.
+- Runtime LSP diagnostics for `runtime/` directory timed out due clang option mismatch (`--background-index`, `--clang-tidy` unsupported in this environment). Rust `src/` diagnostics were clean.

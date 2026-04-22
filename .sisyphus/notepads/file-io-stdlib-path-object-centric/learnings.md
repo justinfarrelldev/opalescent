@@ -26,3 +26,9 @@
 - `Stmt::For` must explicitly materialize and bind the iteration variable each iteration (alloca + store + `env.variables.insert`) before lowering loop body, otherwise identifier loads fail with `unknown variable '<iter-var>'`.
 - Array iteration in codegen should use the existing array ABI conventions: array pointer from iterable binding alloca plus length from either `binding.length` (literal-backed arrays) or companion `{name}_len` binding (imported/param arrays).
 - Loop-scoped variable shadowing should preserve previous bindings with insert/restore semantics around body emission to avoid scope leakage outside loop iterations.
+
+## [2026-04-22] T0 preflight validation execution learnings
+- Temporary array-returning stdlib builtins can be lowered by extracting struct return `{ptr, len}` in `codegen_let_statement` for `let arr = stdlib_call()` when inferred/declared as `CoreType::Array(_)`, and then binding companion `{name}_len` for downstream `for`/index lowering.
+- `FilesystemPath.raw` member access works in codegen by handling `CoreType::Generic { name: "FilesystemPath" }` in intrinsic member-access path and loading field 0 directly.
+- `opal_runtime.h` must NOT be included from concatenated runtime fragments that also define shared typedefs (`ParseResult*`, `BytesResult`) unless those fragments are refactored; self-contained temporary runtime C avoided redefinition conflicts.
+- Compiler CLI `opal <file> --run` prints an additional `target/program` line before program output; exact expected stdout lines were captured from running `./target/program` after successful compile step.

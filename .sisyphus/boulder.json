@@ -1,79 +1,40 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/stdlib-proposals-folder.md",
-  "started_at": "2026-04-21T04:29:14.928Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/file-io-stdlib-path-object-centric.md",
+  "started_at": "2026-04-22T17:32:26.602Z",
   "session_ids": [
-    "ses_251dc2dfeffej3OqV1HXfx3obc",
-    "ses_251813ea6ffek3OBD8wX6kjTik",
-    "ses_2518128e4ffeLS1bNcGQMwCJhF",
-    "ses_25180ff5cffeuYISRxWckisqVx",
-    "ses_25180d6b4ffezWj2DCojeRvfXC",
-    "ses_25180a940ffeAYMkGnYRPtoxVo",
-    "ses_25176332affeeKbZ1jBi0f0S5B",
-    "ses_251762fdbffeUGrAnkq7sMCA9h",
-    "ses_2516cb990ffeExRfkhty93JKXI",
-    "ses_2516c8ce7ffeNTD77OuKR4WhP6",
-    "ses_2516c6580ffevtZV8EOLHI0qMx",
-    "ses_25161326bffeLsi1koXuSr750Y",
-    "ses_25153b88fffew6udgRoRLXeq9Q",
-    "ses_2515392ccffe0n1bQZoLcCRfm3",
-    "ses_251536527ffevYJAw3L1EeTSkq",
-    "ses_25153323fffeh8duZrd6KoAMVS"
+    "ses_24a38db15ffeUuU0xJO15W7y6C"
   ],
-  "plan_name": "stdlib-proposals-folder",
+  "plan_name": "file-io-stdlib-path-object-centric",
   "session_origins": {
-    "ses_251dc2dfeffej3OqV1HXfx3obc": "direct",
-    "ses_251813ea6ffek3OBD8wX6kjTik": "appended",
-    "ses_2518128e4ffeLS1bNcGQMwCJhF": "appended",
-    "ses_25180ff5cffeuYISRxWckisqVx": "appended",
-    "ses_25180d6b4ffezWj2DCojeRvfXC": "appended",
-    "ses_25180a940ffeAYMkGnYRPtoxVo": "appended",
-    "ses_25176332affeeKbZ1jBi0f0S5B": "appended",
-    "ses_251762fdbffeUGrAnkq7sMCA9h": "appended",
-    "ses_2516cb990ffeExRfkhty93JKXI": "appended",
-    "ses_2516c8ce7ffeNTD77OuKR4WhP6": "appended",
-    "ses_2516c6580ffevtZV8EOLHI0qMx": "appended",
-    "ses_25161326bffeLsi1koXuSr750Y": "appended",
-    "ses_25153b88fffew6udgRoRLXeq9Q": "appended",
-    "ses_2515392ccffe0n1bQZoLcCRfm3": "appended",
-    "ses_251536527ffevYJAw3L1EeTSkq": "appended",
-    "ses_25153323fffeh8duZrd6KoAMVS": "appended"
+    "ses_24a38db15ffeUuU0xJO15W7y6C": "direct"
   },
   "task_sessions": {
     "todo:0": {
       "task_key": "todo:0",
       "task_label": "0",
-      "task_title": "Delete empty error-strategy stubs",
-      "session_id": "ses_251b20d84ffejjH4abR7017ehD",
+      "task_title": "Pre-Flight Validation — Codegen Capability Check",
+      "session_id": "ses_249666422ffeQccLCdzrYQDyhN",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-21T04:30:57.520Z"
+      "category": "deep",
+      "updated_at": "2026-04-22T19:23:49.039Z"
     },
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Write fixed `proposal.md` template as authoring reference",
-      "session_id": "ses_251b154f1ffePa4wvWMrqR0OFx",
+      "task_title": "Register FilesystemPath, FileMetadata, FilePermissions nominal types",
+      "session_id": "ses_248b770c9ffeDzu5fr0iMrSYP4",
       "agent": "Sisyphus-Junior",
-      "category": "writing",
-      "updated_at": "2026-04-21T04:31:47.663Z"
+      "category": "unspecified-high",
+      "updated_at": "2026-04-22T22:51:19.933Z"
     },
-    "todo:2": {
-      "task_key": "todo:2",
-      "task_label": "2",
-      "task_title": "Write Opalescent style-gate shell script + coverage checker",
-      "session_id": "ses_251b05469ffeCcqMsvS2mauzEs",
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Infra batch: Path Manipulation category (7 fns wired, no behavior yet)",
+      "session_id": "ses_248930a6dffe0ogPNNkMAwsRBg",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-21T04:34:10.836Z"
-    },
-    "todo:3": {
-      "task_key": "todo:3",
-      "task_label": "3",
-      "task_title": "Extract canonical `.op` reference snippets from language-spec",
-      "session_id": "ses_25153323fffeh8duZrd6KoAMVS",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-21T06:15:41.052Z"
+      "category": "unspecified-high",
+      "updated_at": "2026-04-22T23:31:05.162Z"
     }
   }
 }

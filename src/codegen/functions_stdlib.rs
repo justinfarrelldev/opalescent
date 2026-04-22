@@ -204,6 +204,38 @@ pub fn declare_stdlib_function<'context>(
                 .fn_type(&[i8_ptr.into(), i32_type.into(), i32_type.into()], false);
             Some(module.add_function("bytes_slice", ft, None))
         }),
+        // ── T5: Path manipulation ─────────────────────────────────────────────
+        // FsPathResult { char* value; const char* error; }
+        "path_from" => module.get_function("path_from").or_else(|| {
+            let ft = i8_ptr.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("path_from", ft, None))
+        }),
+        "join_path_components" => module.get_function("join_path_components").or_else(|| {
+            // base: i8*, components: i8**, count: i64
+            let ft = i8_ptr.fn_type(&[i8_ptr.into(), i8_ptr.ptr_type(AddressSpace::default()).into(), i64_type.into()], false);
+            Some(module.add_function("join_path_components", ft, None))
+        }),
+        "path_parent_directory" => module.get_function("path_parent_directory").or_else(|| {
+            let ft = i8_ptr.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("path_parent_directory", ft, None))
+        }),
+        "path_file_name" => module.get_function("path_file_name").or_else(|| {
+            let ft = i8_ptr.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("path_file_name", ft, None))
+        }),
+        "path_file_extension" => module.get_function("path_file_extension").or_else(|| {
+            let ft = i8_ptr.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("path_file_extension", ft, None))
+        }),
+        "normalize_path" => module.get_function("normalize_path").or_else(|| {
+            let ft = i8_ptr.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("normalize_path", ft, None))
+        }),
+        "absolute_path_sync" => module.get_function("absolute_path_sync").or_else(|| {
+            let fs_path_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            let ft = fs_path_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("absolute_path_sync", ft, None))
+        }),
         _ => None,
     }
 }
@@ -273,6 +305,13 @@ pub const STDLIB_NAMES: &[&str] = &[
     "bytes_concatenate",
     "bytes_from_hex",
     "bytes_slice",
+    "path_from",
+    "join_path_components",
+    "path_parent_directory",
+    "path_file_name",
+    "path_file_extension",
+    "normalize_path",
+    "absolute_path_sync",
 ];
 
 #[cfg(test)]
@@ -283,8 +322,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            50,
-            "stdlib registry should have 50 names"
+            57,
+            "stdlib registry should have 57 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),

@@ -32,3 +32,7 @@
 - Commit-level fidelity checks must use `git show --name-status --stat <hash>` first to validate file-scope before line-level spec checks.
 - Scope audits should treat `.sisyphus/evidence/*` additions as unaccounted unless explicitly listed in task specs.
 - For must-not-have checks, `git diff --name-only <first>^..<last> -- <paths>` is sufficient to prove no touched files across the implementation window.
+
+## [2026-04-22] String array element type inference fix
+- `infer_core_type_from_expr` is only useful for downstream codegen when its result is threaded back into `codegen_expression` as `expected_type`; inferring without passing the type leaves array literal lowering on the default `Int64` element path.
+- In this codebase, string literals are represented as `LiteralValue::String` and map to `CoreType::String` (LLVM `i8*`), so array literals containing strings must infer `CoreType::Array(Box::new(CoreType::String))` to keep print dispatch on `print_string`.

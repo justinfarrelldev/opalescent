@@ -678,6 +678,121 @@ impl ModuleResolver {
                 },
                 SymbolType::Function,
             ),
+            (
+                String::from("path_from"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("join_path_components"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![
+                        CoreType::Generic {
+                            name: String::from("FilesystemPath"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Array(alloc::boxed::Box::new(CoreType::String)),
+                    ],
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("path_parent_directory"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("path_file_name"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("path_file_extension"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("normalize_path"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("absolute_path_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("InvalidPathError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("PermissionDeniedError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
             // `FilesystemPath`, `FileMetadata`, `FilePermissions` nominal types
             // and the twenty filesystem error nominal types.  These are tag-only
             // or field-bearing product types registered by `fs_builtins.rs`.

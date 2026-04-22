@@ -21,7 +21,78 @@
  */
 
 #include "opal_portability.h"
+#include "opal_runtime.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+char* path_from(const char* raw) {
+    if (!raw) return strdup("");
+    return strdup(raw);
+}
+
+char* join_path_components(const char* base, const char** components, int64_t count) {
+    size_t len = strlen(base);
+    for (int64_t i = 0; i < count; i++) {
+        len += 1 + strlen(components[i]);
+    }
+    char* result = (char*)malloc(len + 1);
+    if (!result) return strdup(base);
+    strcpy(result, base);
+    for (int64_t i = 0; i < count; i++) {
+        strcat(result, "/");
+        strcat(result, components[i]);
+    }
+    return result;
+}
+
+char* path_parent_directory(const char* path) {
+    if (!path || path[0] == '\0') return strdup(".");
+    char* copy = strdup(path);
+    char* last = strrchr(copy, '/');
+    if (!last) { free(copy); return strdup("."); }
+    if (last == copy) { free(copy); return strdup("/"); }
+    *last = '\0';
+    char* result = strdup(copy);
+    free(copy);
+    return result;
+}
+
+char* path_file_name(const char* path) {
+    if (!path || path[0] == '\0') return strdup("");
+    const char* last = strrchr(path, '/');
+    return strdup(last ? last + 1 : path);
+}
+
+char* path_file_extension(const char* path) {
+    if (!path || path[0] == '\0') return strdup("");
+    const char* name = strrchr(path, '/');
+    name = name ? name + 1 : path;
+    const char* dot = strrchr(name, '.');
+    if (!dot || dot == name) return strdup("");
+    return strdup(dot + 1);
+}
+
+char* normalize_path(const char* path) {
+    if (!path) return strdup(".");
+    return strdup(path);
+}
+
+FsPathResult absolute_path_sync(const char* path) {
+    FsPathResult r;
+    if (!path || path[0] == '\0') {
+        r.value = NULL;
+        r.error = "InvalidPathError: empty path";
+        return r;
+    }
+    char* resolved = realpath(path, NULL);
+    if (!resolved) {
+        r.value = NULL;
+        r.error = "InvalidPathError: could not resolve path";
+        return r;
+    }
+    r.value = resolved;
+    r.error = NULL;
+    return r;
+}
