@@ -314,6 +314,58 @@ pub fn emit_object_file(
         .map_err(|error| CodegenError::new(format!("failed to emit object file: {error}")))
 }
 
+/// Compile the runtime C source file to an object file for MSVC targets.
+///
+/// On Windows, uses `cl.exe`; on Linux (cross-compile), uses `clang-cl`.
+/// The compiled `.obj` file is placed in the same directory as the source.
+///
+/// # Errors
+/// Returns `CompileError` if the C compiler fails or is not found.
+fn compile_runtime_c_to_obj(
+    runtime_c_path: &Path,
+    include_dir: &Path,
+) -> Result<PathBuf, CompileError> {
+    let obj_path = runtime_c_path.with_extension("obj");
+
+    let cc_bin = if let Ok(override_bin) = std::env::var("OPAL_MSVC_CC") {
+        override_bin
+    } else {
+        #[cfg(windows)]
+        {
+            "cl.exe".to_string()
+        }
+        #[cfg(not(windows))]
+        {
+            "clang-cl".to_string()
+        }
+    };
+
+    let mut cmd = std::process::Command::new(&cc_bin);
+    cmd.arg("/c");
+    cmd.arg(format!("/I{}", include_dir.display()));
+    cmd.arg(runtime_c_path);
+    cmd.arg(format!("/Fo{}", obj_path.display()));
+
+    #[cfg(not(windows))]
+    {
+        if let Ok(cflags) = std::env::var("CFLAGS_x86_64_pc_windows_msvc") {
+            for flag in cflags.split_whitespace() {
+                cmd.arg(flag);
+            }
+        }
+    }
+
+    let output = cmd.output().map_err(CompileError::Io)?;
+    if output.status.success() {
+        return Ok(obj_path);
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    Err(CompileError::Linker {
+        stderr: format!("failed to compile runtime C to .obj: {stderr}"),
+    })
+}
+
 /// Build a platform-appropriate linker [`Command`] for the given object and output paths.
 ///
 /// Platform behaviour:
@@ -352,10 +404,20 @@ pub fn link_object_files(
 ) -> Result<PathBuf, CompileError> {
     let runtime_temp_file = RuntimeTempFile::create()?;
 
+    // For MSVC targets, compile the runtime .c to .obj first
+    let runtime_path = if target.is_windows_msvc() {
+        compile_runtime_c_to_obj(
+            runtime_temp_file.path(),
+            runtime_temp_file.include_dir(),
+        )?
+    } else {
+        runtime_temp_file.path().to_path_buf()
+    };
+
     let mut command = build_linker_command(
         target,
         object_paths,
-        runtime_temp_file.path(),
+        &runtime_path,
         output_path,
         runtime_temp_file.include_dir(),
     );
