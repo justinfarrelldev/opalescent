@@ -445,8 +445,6 @@ fn portability_header_compiles_with_gcc() {
 
 #[test]
 fn rc_header_layout_constants_are_correct() {
-    // RED test: verify RC header layout constants match expected values
-    // This test will fail until offsetof() is used in opal_rc.h
     let rc_header_path = std::path::Path::new("runtime/opal_rc.h");
     assert!(rc_header_path.exists(), "runtime/opal_rc.h must exist");
     
