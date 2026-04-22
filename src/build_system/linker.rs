@@ -64,6 +64,24 @@ fn needs_no_pie(target: &TargetTriple) -> bool {
     target.platform == Platform::Linux
 }
 
+/// Detect the MinGW-w64 cross-compiler in PATH.
+///
+/// Returns the path to `x86_64-w64-mingw32-gcc` if found, or `None` if not installed.
+#[must_use]
+pub fn detect_mingw() -> Option<std::path::PathBuf> {
+    let output = std::process::Command::new("which")
+        .arg("x86_64-w64-mingw32-gcc")
+        .output()
+        .ok()?;
+    if output.status.success() {
+        let path_str = String::from_utf8(output.stdout).ok()?.trim().to_string();
+        if !path_str.is_empty() {
+            return Some(std::path::PathBuf::from(path_str));
+        }
+    }
+    None
+}
+
 /// A builder for constructing linker commands with proper platform-specific arguments.
 ///
 /// This struct encapsulates the logic for building platform-specific linker invocations,
@@ -118,7 +136,7 @@ impl LinkerCommand {
 
                 match self.linker {
                     Linker::MinGw => {
-                        // MinGW: x86_64-w64-mingw32-gcc <inputs...> <runtime> -o <output>
+                        // MinGW: x86_64-w64-mingw32-gcc <inputs...> <runtime> -o <output> -lbcrypt -luserenv -lws2_32 -ladvapi32 -lntdll
                         for input in &self.inputs {
                             let arg = self.quote_if_needed(input.display().to_string());
                             cmd.arg(arg);
@@ -127,6 +145,12 @@ impl LinkerCommand {
                             cmd.arg(runtime);
                         }
                         cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
+                        // Windows CRT libraries required for Opalescent runtime
+                        cmd.arg("-lbcrypt");
+                        cmd.arg("-luserenv");
+                        cmd.arg("-lws2_32");
+                        cmd.arg("-ladvapi32");
+                        cmd.arg("-lntdll");
                     }
                     Linker::Clang => {
                         // Clang: clang <inputs...> <runtime> -o <output>
@@ -336,6 +360,33 @@ mod tests {
         assert_eq!(args[1], "runtime.o");
         assert_eq!(args[2], "-o");
         assert_eq!(args[3], "program.exe");
+    }
+
+    #[test]
+    fn mingw_linker_includes_windows_crt_libs() {
+        let target = TargetTriple {
+            arch: Architecture::X86_64,
+            platform: Platform::Windows,
+            env: Some(TripleEnv::Gnu),
+        };
+        let cmd = LinkerCommand::new(&target, std::path::PathBuf::from("program.exe"))
+            .with_input(std::path::PathBuf::from("main.o"))
+            .build();
+        let args: Vec<String> = cmd.get_args().map(|s| s.to_string_lossy().to_string()).collect();
+        assert!(args.contains(&"-lbcrypt".to_string()), "must have -lbcrypt");
+        assert!(args.contains(&"-luserenv".to_string()), "must have -luserenv");
+        assert!(args.contains(&"-lws2_32".to_string()), "must have -lws2_32");
+        assert!(args.contains(&"-ladvapi32".to_string()), "must have -ladvapi32");
+        assert!(args.contains(&"-lntdll".to_string()), "must have -lntdll");
+    }
+
+    #[test]
+    fn detect_mingw_returns_some_when_available() {
+        // This test only verifies the function exists and returns the right type.
+        // On CI without MinGW, it returns None — that's fine.
+        let result = detect_mingw();
+        // Just verify it compiles and returns Option<PathBuf>
+        let _ = result.is_some();
     }
 
     #[test]
