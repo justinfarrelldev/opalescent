@@ -113,12 +113,32 @@ jobs:
       - name: Build release
         run: cargo build --release
 
-      - name: Cross-compile to x86_64-pc-windows-msvc
-        run: cargo run --release -- test-projects/hello-world/src/main.op --target x86_64-pc-windows-msvc
+       - name: Cross-compile to x86_64-pc-windows-msvc
+         run: cargo run --release -- test-projects/hello-world/src/main.op --target x86_64-pc-windows-msvc
 
-      - name: Upload cross-compiled exe
-        uses: actions/upload-artifact@v4
-        with:
-          name: opalescent-windows-cross
-          path: test-projects/hello-world/target/x86_64-pc-windows-msvc/release/*.exe
-          if-no-files-found: error
+       - name: Install Wine
+         run: |
+           sudo apt-get update
+           sudo apt-get install -y wine64
+
+       - name: Execute cross-compiled .exe with Wine
+         env:
+           WINEDEBUG: -all
+           WINEPREFIX: /tmp/wine-opal
+         run: |
+           EXE_PATH="test-projects/hello-world/target/x86_64-pc-windows-msvc/release/program.exe"
+           OUTPUT=$(wine "$EXE_PATH" 2>/dev/null)
+           echo "Wine execution output: $OUTPUT"
+           if [ "$OUTPUT" = "Hello world" ]; then
+             echo "✓ Wine execution successful: output matches expected 'Hello world'"
+           else
+             echo "✗ Wine execution failed: expected 'Hello world', got '$OUTPUT'"
+             exit 1
+           fi
+
+       - name: Upload cross-compiled exe
+         uses: actions/upload-artifact@v4
+         with:
+           name: opalescent-windows-cross
+           path: test-projects/hello-world/target/x86_64-pc-windows-msvc/release/*.exe
+           if-no-files-found: error
