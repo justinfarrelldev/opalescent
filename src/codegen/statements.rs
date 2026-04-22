@@ -124,10 +124,9 @@ fn codegen_let_statement<'context>(
         };
         (declared_type, lowered)
     } else if let Some(init_expr) = initializer {
-        (
-            infer_core_type_from_expr(codegen_context, env, init_expr),
-            Some(codegen_expression(codegen_context, env, init_expr, None)?),
-        )
+        let inferred_type = infer_core_type_from_expr(codegen_context, env, init_expr);
+        let lowered = codegen_expression(codegen_context, env, init_expr, Some(&inferred_type))?;
+        (inferred_type, Some(lowered))
     } else {
         (CoreType::Unit, None)
     };
@@ -473,7 +472,14 @@ fn infer_core_type_from_expr<'context>(
             crate::ast::LiteralValue::Boolean(_) => CoreType::Boolean,
             crate::ast::LiteralValue::Void => CoreType::Unit,
         },
-        Expr::Array { .. } => CoreType::Array(alloc::boxed::Box::new(CoreType::Int64)),
+        Expr::Array { ref elements, .. } => {
+            if let Some(first) = elements.first() {
+                let element_core = infer_core_type_from_expr(codegen_context, env, first);
+                CoreType::Array(alloc::boxed::Box::new(element_core))
+            } else {
+                CoreType::Array(alloc::boxed::Box::new(CoreType::Int64))
+            }
+        }
         Expr::Call { ref callee, .. } => {
             infer_call_return_type(codegen_context, env, callee).unwrap_or(CoreType::Int64)
         }

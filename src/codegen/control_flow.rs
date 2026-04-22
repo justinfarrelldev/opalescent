@@ -3,12 +3,15 @@ extern crate alloc;
 use crate::ast::{Expr, LabeledValue, Stmt};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{CodegenEnv, codegen_expression};
+use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::statements::codegen_statement;
+use crate::type_system::types::CoreType;
+use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue};
+use inkwell::IntPredicate;
 
 #[doc = "Lower if statement control-flow blocks."]
 pub fn codegen_if_statement<'context>(
@@ -183,11 +186,129 @@ pub fn codegen_loop_statement<'context>(
             codegen_loop_expression_into_slots(codegen_context, env, body.as_ref(), &[], &[])
         }
         Stmt::For {
+            ref variable,
             ref iterable,
             ref body,
             ..
         } => {
-            let _iterable_value = codegen_expression(codegen_context, env, iterable, None)?;
+            let (iterable_ptr, iterable_length, element_core_type) = match *iterable {
+                Expr::Identifier { ref name, .. } => {
+                    let Some(binding) = env.variables.get(name).cloned() else {
+                        return Err(CodegenError::new(format!(
+                            "unknown array variable '{name}' in for loop"
+                        )));
+                    };
+
+                    let CoreType::Array(element_core_type) = &binding.core_type else {
+                        return Err(CodegenError::new(format!(
+                            "for loop iterable '{name}' is not an array"
+                        )));
+                    };
+
+                    let loaded_iterable = codegen_context.builder.build_load(
+                        binding.alloca,
+                        env.next_name("for.iterable.ptr").as_str(),
+                    )?;
+                    let array_ptr = if loaded_iterable.is_pointer_value() {
+                        loaded_iterable.into_pointer_value()
+                    } else {
+                        // SAFETY: `binding.alloca` points to a stack-allocated array aggregate.
+                        // The [0, 0] GEP computes the pointer to the first element.
+                        unsafe {
+                            codegen_context.builder.build_in_bounds_gep(
+                                binding.alloca,
+                                &[
+                                    codegen_context.context.i32_type().const_zero(),
+                                    codegen_context.context.i32_type().const_zero(),
+                                ],
+                                env.next_name("for.iterable.base").as_str(),
+                            )?
+                        }
+                    };
+
+                    let array_length = if let Some(length) = binding.length {
+                        codegen_context
+                            .context
+                            .i64_type()
+                            .const_int(u64::from(length), false)
+                    } else {
+                        let len_binding_name = format!("{name}_len");
+                        let Some(length_binding) = env.variables.get(len_binding_name.as_str())
+                        else {
+                            return Err(CodegenError::new(format!(
+                                "array length binding '{len_binding_name}' missing for for loop iterable '{name}'"
+                            )));
+                        };
+                        codegen_context
+                            .builder
+                            .build_load(length_binding.alloca, len_binding_name.as_str())?
+                            .into_int_value()
+                    };
+
+                    (
+                        array_ptr,
+                        array_length,
+                        element_core_type.as_ref().clone(),
+                    )
+                }
+                Expr::Array { ref elements, .. } => {
+                    let element_core_type = if elements.is_empty() {
+                        CoreType::Int64
+                    } else {
+                        match elements[0] {
+                            Expr::Literal {
+                                value: crate::ast::LiteralValue::Integer(_),
+                                ..
+                            } => CoreType::Int64,
+                            Expr::Literal {
+                                value: crate::ast::LiteralValue::Float(_),
+                                ..
+                            } => CoreType::Float64,
+                            Expr::Literal {
+                                value: crate::ast::LiteralValue::String(_),
+                                ..
+                            } => CoreType::String,
+                            Expr::Literal {
+                                value: crate::ast::LiteralValue::Boolean(_),
+                                ..
+                            } => CoreType::Boolean,
+                            _ => CoreType::Int64,
+                        }
+                    };
+                    let iterable_expected_type = CoreType::Array(Box::new(element_core_type.clone()));
+                    let iterable_value = codegen_expression(
+                        codegen_context,
+                        env,
+                        iterable,
+                        Some(&iterable_expected_type),
+                    )?;
+                    (
+                        iterable_value.into_pointer_value(),
+                        codegen_context.context.i64_type().const_int(
+                            u64::try_from(elements.len()).map_err(|conversion_error| {
+                                CodegenError::new(format!(
+                                    "for loop iterable length conversion failed: {conversion_error}"
+                                ))
+                            })?,
+                            false,
+                        ),
+                        element_core_type,
+                    )
+                }
+                _ => {
+                    return Err(CodegenError::new(String::from(
+                        "for loop iterable must be an array variable or array literal",
+                    )));
+                }
+            };
+
+            let index_alloca = codegen_context
+                .builder
+                .build_alloca(codegen_context.context.i64_type(), env.next_name("for.index").as_str())?;
+            let _index_init = codegen_context
+                .builder
+                .build_store(index_alloca, codegen_context.context.i64_type().const_zero())?;
+
             let function = current_function(codegen_context)?;
             let header = codegen_context
                 .context
@@ -195,29 +316,102 @@ pub fn codegen_loop_statement<'context>(
             let loop_body = codegen_context
                 .context
                 .append_basic_block(function, env.next_name("for.body").as_str());
+            let increment = codegen_context
+                .context
+                .append_basic_block(function, env.next_name("for.increment").as_str());
             let exit = codegen_context
                 .context
                 .append_basic_block(function, env.next_name("for.exit").as_str());
             let _jump_header = codegen_context.builder.build_unconditional_branch(header)?;
             codegen_context.builder.position_at_end(header);
-            let _jump_body = codegen_context
+
+            let current_index = codegen_context
                 .builder
-                .build_unconditional_branch(loop_body)?;
+                .build_load(index_alloca, env.next_name("for.index.load").as_str())?
+                .into_int_value();
+            let in_bounds = codegen_context.builder.build_int_compare(
+                IntPredicate::ULT,
+                current_index,
+                iterable_length,
+                env.next_name("for.bounds").as_str(),
+            )?;
+            let _branch =
+                codegen_context
+                    .builder
+                    .build_conditional_branch(in_bounds, loop_body, exit)?;
+
             codegen_context.builder.position_at_end(loop_body);
+
+            // SAFETY: iterable_ptr points to contiguous array elements and current_index is
+            // guarded by `current_index < iterable_length` in loop header.
+            let element_ptr = unsafe {
+                codegen_context.builder.build_in_bounds_gep(
+                    iterable_ptr,
+                    &[current_index],
+                    env.next_name("for.element.ptr").as_str(),
+                )?
+            };
+            let element_value =
+                codegen_context
+                    .builder
+                    .build_load(element_ptr, env.next_name("for.element").as_str())?;
+            let iteration_alloca = codegen_context
+                .builder
+                .build_alloca(element_value.get_type(), variable.as_str())?;
+            let _store_iteration_value =
+                codegen_context
+                    .builder
+                    .build_store(iteration_alloca, element_value)?;
+
+            let previous_binding = env.variables.insert(
+                variable.clone(),
+                VariableBinding {
+                    alloca: iteration_alloca,
+                    core_type: element_core_type,
+                    length: None,
+                    is_mutable: false,
+                },
+            );
+
             emit_loop_body_with_targets(
                 codegen_context,
                 env,
                 body.as_ref(),
-                header,
+                increment,
                 exit,
                 &[],
                 &[],
             )?;
+
+            if let Some(previous) = previous_binding {
+                env.variables.insert(variable.clone(), previous);
+            } else {
+                let _removed = env.variables.remove(variable);
+            }
+
             if let Some(current_block) = codegen_context.builder.get_insert_block() {
                 if current_block.get_terminator().is_none() {
-                    let _back = codegen_context.builder.build_unconditional_branch(header)?;
+                    let _to_increment = codegen_context
+                        .builder
+                        .build_unconditional_branch(increment)?;
                 }
             }
+
+            codegen_context.builder.position_at_end(increment);
+            let index_before_increment = codegen_context
+                .builder
+                .build_load(index_alloca, env.next_name("for.index.reload").as_str())?
+                .into_int_value();
+            let index_after_increment = codegen_context.builder.build_int_add(
+                index_before_increment,
+                codegen_context.context.i64_type().const_int(1, false),
+                env.next_name("for.index.next").as_str(),
+            )?;
+            let _store_next_index = codegen_context
+                .builder
+                .build_store(index_alloca, index_after_increment)?;
+            let _back_to_header = codegen_context.builder.build_unconditional_branch(header)?;
+
             codegen_context.builder.position_at_end(exit);
             Ok(())
         }

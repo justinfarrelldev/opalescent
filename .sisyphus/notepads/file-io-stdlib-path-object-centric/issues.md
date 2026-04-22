@@ -1,0 +1,15 @@
+# Issues — file-io-stdlib-path-object-centric
+
+## [2026-04-22] Session start
+No issues yet.
+
+## [2026-04-22] T0 preflight issues encountered/resolved
+- Initial preflight runs hit multiple blockers before pass:
+  - missing required doc comment on `entry main` in temporary `/tmp/preflight_arrays.op`
+  - local array `let` annotation mismatch in this path (worked with inferred `let`)
+  - missing `for`-iteration variable materialization in codegen (`unknown variable 'item'`)
+- Runtime C integration pitfall: including `opal_runtime.h` inside preflight runtime source produced typedef/prototype redefinition conflicts because runtime C sources are concatenated into one translation unit.
+  - Workaround used during preflight: keep preflight C file self-contained with local typedefs/prototype instead of including the header.
+
+## [2026-04-22] For-loop codegen verification notes
+- `cargo test --features integration` currently fails in this branch due to pre-existing formatter golden/idempotency failures in `tests/fmt_integration.rs` (colon-block `if ...:` formatting vs expected brace style), unrelated to for-loop codegen changes.

@@ -1,0 +1,28 @@
+# Learnings — file-io-stdlib-path-object-centric
+
+## [2026-04-22] Session start
+
+### Codebase patterns
+- 8-touchpoint wiring: opal_fs.c → opal_runtime.h → compiler.rs RUNTIME_SOURCE → functions_stdlib.rs (STDLIB_NAMES + declare_stdlib_function) → statements.rs (known_runtime_return_type + known_guard_success_type) → fs_builtins.rs (new) → module_resolver.rs → tests
+- Fallible ABI: `{ void* value; const char* error_cstr }` struct shape
+- Template for nominal types: `src/type_system/checker/bytes_builtins.rs`
+- Template for test harness: `tests/integration_e2e/bytes_stdlib.rs`
+- Template for test project: `test-projects/bytes-hex-roundtrip/`
+- RUNTIME_SOURCE concat in `src/compiler.rs` lines 41-56
+- STDLIB_NAMES in `src/codegen/functions_stdlib.rs` ~224-276
+- known_runtime_return_type in `src/codegen/statements.rs` ~518-575
+- known_guard_success_type in `src/codegen/statements.rs` ~580-596
+- register_standard_builtins in `src/type_system/checker.rs` ~295
+- standard-module exports in `src/type_system/module_resolver.rs` ~576-672
+
+## [2026-04-22] T0 preflight completion notes
+- Array type annotations on local `let` bindings are unreliable in this codegen path; type inference for array-returning stdlib calls avoids that failure mode for preflight.
+- `for` loop codegen currently requires explicit materialization of iteration variable into `env.variables`; missing binding manifests as `unknown variable '<iter-var>'` during codegen.
+- `FilesystemPath` nominal values can be iterated in arrays and field-accessed in preflight (`p.raw`) once loop variable binding is materialized.
+- Preflight runtime validation achieved expected output lines for both `string[]` and `FilesystemPath[]` iteration plus guard success/error branches.
+- Guard boolean success value prints as textual `true/false` when explicitly normalized in source (`if ok is true`), not by raw numeric formatting.
+
+## [2026-04-22] For-loop iterator variable codegen fix
+- `Stmt::For` must explicitly materialize and bind the iteration variable each iteration (alloca + store + `env.variables.insert`) before lowering loop body, otherwise identifier loads fail with `unknown variable '<iter-var>'`.
+- Array iteration in codegen should use the existing array ABI conventions: array pointer from iterable binding alloca plus length from either `binding.length` (literal-backed arrays) or companion `{name}_len` binding (imported/param arrays).
+- Loop-scoped variable shadowing should preserve previous bindings with insert/restore semantics around body emission to avoid scope leakage outside loop iterations.
