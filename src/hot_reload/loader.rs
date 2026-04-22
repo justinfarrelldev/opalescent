@@ -12,6 +12,40 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+trait SymbolResolver {
+    fn resolve_module_entry(
+        &self,
+        library: &Library,
+        module_name: &str,
+    ) -> Result<extern "C" fn(), HotReloadError>;
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+struct LibloadingSymbolResolver;
+
+impl SymbolResolver for LibloadingSymbolResolver {
+    fn resolve_module_entry(
+        &self,
+        library: &Library,
+        module_name: &str,
+    ) -> Result<extern "C" fn(), HotReloadError> {
+        // SAFETY: The symbol name is null-terminated and expected to resolve to
+        // the module's exported entrypoint with C ABI.
+        let module_entry = unsafe {
+            library.get::<unsafe extern "C" fn()>(b"module_entry\0")
+        }
+        .map_err(|error| HotReloadError::ModuleLoadFailed {
+            module_name: module_name.to_owned(),
+            reason: format!("failed to resolve module_entry symbol: {error}"),
+        })?;
+        let unsafe_entry = *module_entry;
+        // SAFETY: `module_entry` is stored and later invoked through the existing
+        // ModuleVTable contract (`extern "C" fn()`).
+        let safe_entry: extern "C" fn() = unsafe { core::mem::transmute(unsafe_entry) };
+        Ok(safe_entry)
+    }
+}
+
 /// Error variants produced by hot-reload module management.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HotReloadError {
@@ -68,6 +102,7 @@ pub trait ModuleLoader {
 pub struct FsModuleLoader {
     loaded_libraries: HashMap<String, Library>,
     loaded_library_paths: HashMap<String, PathBuf>,
+    symbol_resolver: LibloadingSymbolResolver,
 }
 
 static TEMP_COPY_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -79,6 +114,7 @@ impl FsModuleLoader {
         Self {
             loaded_libraries: HashMap::new(),
             loaded_library_paths: HashMap::new(),
+            symbol_resolver: LibloadingSymbolResolver,
         }
     }
 
@@ -127,31 +163,14 @@ impl FsModuleLoader {
         Ok((library, copy_path))
     }
 
-    fn resolve_module_entry(
-        library: &Library,
-        module_name: &str,
-    ) -> Result<extern "C" fn(), HotReloadError> {
-        // SAFETY: The symbol name is null-terminated and expected to resolve to
-        // the module's exported entrypoint with C ABI.
-        let module_entry = unsafe {
-            library.get::<unsafe extern "C" fn()>(b"module_entry\0")
-        }
-        .map_err(|error| HotReloadError::ModuleLoadFailed {
-            module_name: module_name.to_owned(),
-            reason: format!("failed to resolve module_entry symbol: {error}"),
-        })?;
-        let unsafe_entry = *module_entry;
-        // SAFETY: `module_entry` is stored and later invoked through the existing
-        // ModuleVTable contract (`extern "C" fn()`).
-        let safe_entry: extern "C" fn() = unsafe { core::mem::transmute(unsafe_entry) };
-        Ok(safe_entry)
-    }
 }
 
 impl ModuleLoader for FsModuleLoader {
     fn load_module(&mut self, module_name: &str) -> Result<LoadedModule, HotReloadError> {
         let (library, copied_path) = Self::load_library(module_name)?;
-        let module_entry = Self::resolve_module_entry(&library, module_name)?;
+        let module_entry = self
+            .symbol_resolver
+            .resolve_module_entry(&library, module_name)?;
 
         self.loaded_libraries.insert(module_name.to_owned(), library);
         self.loaded_library_paths
