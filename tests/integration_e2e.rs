@@ -3,6 +3,7 @@
 use opalescent::compiler::{
     CompileError, compile_program, compile_to_module, emit_object_file, link_object_file,
 };
+use opalescent::build_system::targets::TargetTriple;
 use opalescent::errors::reporter::CompilerError;
 use opalescent::type_system::errors::TypeError;
 use std::fs;
