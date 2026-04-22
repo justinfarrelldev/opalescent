@@ -111,59 +111,126 @@ impl LinkerCommand {
     /// Dispatches on the linker variant and constructs the appropriate command line.
     /// Paths containing spaces are automatically quoted.
     pub fn build(self) -> std::process::Command {
-        let mut cmd = std::process::Command::new(self.linker.binary_name());
-
         match self.linker {
-            Linker::Msvc => {
-                // MSVC: link.exe /OUT:<output> <inputs...> <runtime>
-                cmd.arg(format!("/OUT:{}", self.output.display()));
-                for input in &self.inputs {
-                    let arg = self.quote_if_needed(input.display().to_string());
-                    cmd.arg(arg);
+            Linker::Msvc => self.build_msvc(),
+            _ => {
+                let mut cmd = std::process::Command::new(self.linker.binary_name());
+
+                match self.linker {
+                    Linker::MinGw => {
+                        // MinGW: x86_64-w64-mingw32-gcc <inputs...> <runtime> -o <output>
+                        for input in &self.inputs {
+                            let arg = self.quote_if_needed(input.display().to_string());
+                            cmd.arg(arg);
+                        }
+                        if let Some(runtime) = &self.runtime {
+                            cmd.arg(runtime);
+                        }
+                        cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
+                    }
+                    Linker::Clang => {
+                        // Clang: clang <inputs...> <runtime> -o <output>
+                        for input in &self.inputs {
+                            let arg = self.quote_if_needed(input.display().to_string());
+                            cmd.arg(arg);
+                        }
+                        if let Some(runtime) = &self.runtime {
+                            cmd.arg(runtime);
+                        }
+                        cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
+                    }
+                    Linker::Cc => {
+                        // GCC/cc: cc <inputs...> <runtime> [-no-pie] -o <output>
+                        for input in &self.inputs {
+                            let arg = self.quote_if_needed(input.display().to_string());
+                            cmd.arg(arg);
+                        }
+                        if let Some(runtime) = &self.runtime {
+                            cmd.arg(runtime);
+                        }
+                        if needs_no_pie(&self.target) {
+                            cmd.arg("-no-pie");
+                        }
+                        cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
+                    }
+                    Linker::Msvc => unreachable!(),
                 }
-                if let Some(runtime) = &self.runtime {
-                    cmd.arg(runtime);
-                }
+
+                cmd
             }
-            Linker::MinGw => {
-                // MinGW: x86_64-w64-mingw32-gcc <inputs...> <runtime> -o <output>
-                for input in &self.inputs {
-                    let arg = self.quote_if_needed(input.display().to_string());
-                    cmd.arg(arg);
-                }
-                if let Some(runtime) = &self.runtime {
-                    cmd.arg(runtime);
-                }
-                cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
+        }
+    }
+
+    /// Build MSVC linker command with platform-specific binary selection.
+    fn build_msvc(self) -> std::process::Command {
+        let linker_bin = if let Ok(override_bin) = std::env::var("OPAL_MSVC_LINKER") {
+            override_bin
+        } else {
+            #[cfg(windows)]
+            {
+                "link.exe".to_string()
             }
-            Linker::Clang => {
-                // Clang: clang <inputs...> <runtime> -o <output>
-                for input in &self.inputs {
-                    let arg = self.quote_if_needed(input.display().to_string());
-                    cmd.arg(arg);
-                }
-                if let Some(runtime) = &self.runtime {
-                    cmd.arg(runtime);
-                }
-                cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
+            #[cfg(not(windows))]
+            {
+                ["lld-link", "lld-link-14", "lld-link-15"]
+                    .iter()
+                    .find(|&&name| Self::which_in_path(name))
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "lld-link".to_string())
             }
-            Linker::Cc => {
-                // GCC/cc: cc <inputs...> <runtime> [-no-pie] -o <output>
-                for input in &self.inputs {
-                    let arg = self.quote_if_needed(input.display().to_string());
-                    cmd.arg(arg);
-                }
-                if let Some(runtime) = &self.runtime {
-                    cmd.arg(runtime);
-                }
-                if needs_no_pie(&self.target) {
-                    cmd.arg("-no-pie");
-                }
-                cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
+        };
+
+        let mut cmd = std::process::Command::new(&linker_bin);
+
+        let shared_args = Self::msvc_shared_args(&self.output, &self.inputs, self.runtime.as_ref());
+        for arg in shared_args {
+            cmd.arg(arg);
+        }
+
+        #[cfg(not(windows))]
+        {
+            let xwin_cache = std::env::var("XWIN_CACHE")
+                .or_else(|_| std::env::var("OPAL_XWIN_SYSROOT"))
+                .expect("XWIN_CACHE env var required for Linux→MSVC cross-compilation (point to xwin splat directory)");
+            let libpath_args = Self::msvc_sysroot_libpath_args(&xwin_cache);
+            for arg in libpath_args {
+                cmd.arg(arg);
             }
         }
 
         cmd
+    }
+
+    /// Build shared MSVC linker arguments: /OUT:, /SUBSYSTEM:, /MACHINE:, /DEFAULTLIB:, inputs.
+    fn msvc_shared_args(
+        output: &std::path::Path,
+        inputs: &[std::path::PathBuf],
+        runtime: Option<&std::path::PathBuf>,
+    ) -> Vec<String> {
+        let mut args = vec![
+            format!("/OUT:{}", output.display()),
+            "/SUBSYSTEM:CONSOLE".to_string(),
+            "/MACHINE:X64".to_string(),
+            "/DEFAULTLIB:libcmt".to_string(),
+        ];
+
+        for input in inputs {
+            args.push(input.display().to_string());
+        }
+        if let Some(rt) = runtime {
+            args.push(rt.display().to_string());
+        }
+
+        args
+    }
+
+    /// Build MSVC sysroot libpath arguments for xwin cross-compilation.
+    fn msvc_sysroot_libpath_args(xwin_cache: &str) -> Vec<String> {
+        vec![
+            format!("/libpath:{}/crt/lib/x86_64", xwin_cache),
+            format!("/libpath:{}/sdk/lib/um/x86_64", xwin_cache),
+            format!("/libpath:{}/sdk/lib/ucrt/x86_64", xwin_cache),
+        ]
     }
 
     /// Quote a path if it contains spaces.
@@ -173,6 +240,15 @@ impl LinkerCommand {
         } else {
             path
         }
+    }
+
+    /// Check if a binary exists in PATH.
+    fn which_in_path(name: &str) -> bool {
+        std::process::Command::new("which")
+            .arg(name)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
     }
 }
 
@@ -264,6 +340,12 @@ mod tests {
 
     #[test]
     fn linker_command_msvc_builds_correct_args() {
+        #[cfg(not(windows))]
+        unsafe {
+            std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
+            std::env::remove_var("OPAL_MSVC_LINKER");
+        }
+
         let target = TargetTriple {
             arch: Architecture::X86_64,
             platform: Platform::Windows,
@@ -283,9 +365,9 @@ mod tests {
             .map(|s| s.to_string_lossy().to_string())
             .collect();
 
-        assert_eq!(args[0], "/OUT:program.exe");
-        assert_eq!(args[1], "main.obj");
-        assert_eq!(args[2], "runtime.obj");
+        assert!(args.iter().any(|a| a == "/OUT:program.exe"), "must have /OUT:program.exe");
+        assert!(args.contains(&"main.obj".to_string()), "must have main.obj");
+        assert!(args.contains(&"runtime.obj".to_string()), "must have runtime.obj");
     }
 
     #[test]
@@ -406,5 +488,100 @@ mod tests {
             .map(|s| s.to_string_lossy().to_string())
             .collect();
         assert!(!args.contains(&"-no-pie".to_string()), "macOS Darwin should NOT have -no-pie");
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn msvc_linker_on_linux_host_uses_lld_link() {
+        // Set XWIN_CACHE to a fake path
+        unsafe {
+            std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
+            std::env::remove_var("OPAL_MSVC_LINKER");
+        }
+        let target = TargetTriple {
+            arch: Architecture::X86_64,
+            platform: Platform::Windows,
+            env: Some(TripleEnv::Msvc),
+        };
+        let cmd = LinkerCommand::new(&target, std::path::PathBuf::from("program.exe"))
+            .with_input(std::path::PathBuf::from("main.obj"))
+            .build();
+        let prog = cmd.get_program().to_string_lossy().to_string();
+        assert!(
+            prog == "lld-link" || prog.starts_with("lld-link-"),
+            "expected lld-link, got {prog}"
+        );
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect();
+        let libpath_count = args.iter().filter(|a| a.starts_with("/libpath:")).count();
+        assert_eq!(
+            libpath_count, 3,
+            "expected 3 /libpath: args, got {libpath_count}: {args:?}"
+        );
+        assert!(
+            args.iter().any(|a| a.contains("/tmp/fake-xwin")),
+            "libpath args must reference XWIN_CACHE"
+        );
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn msvc_linker_env_override_respected() {
+        unsafe {
+            std::env::set_var("OPAL_MSVC_LINKER", "/custom/my-linker");
+            std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
+        }
+        let target = TargetTriple {
+            arch: Architecture::X86_64,
+            platform: Platform::Windows,
+            env: Some(TripleEnv::Msvc),
+        };
+        let cmd = LinkerCommand::new(&target, std::path::PathBuf::from("program.exe"))
+            .with_input(std::path::PathBuf::from("main.obj"))
+            .build();
+        let prog = cmd.get_program().to_string_lossy().to_string();
+        assert_eq!(prog, "/custom/my-linker");
+        unsafe {
+            std::env::remove_var("OPAL_MSVC_LINKER");
+        }
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn msvc_linker_shared_args_present() {
+        unsafe {
+            std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
+            std::env::remove_var("OPAL_MSVC_LINKER");
+        }
+        let target = TargetTriple {
+            arch: Architecture::X86_64,
+            platform: Platform::Windows,
+            env: Some(TripleEnv::Msvc),
+        };
+        let cmd = LinkerCommand::new(&target, std::path::PathBuf::from("program.exe"))
+            .with_input(std::path::PathBuf::from("main.obj"))
+            .build();
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect();
+        assert!(
+            args.iter().any(|a| a.starts_with("/OUT:")),
+            "must have /OUT:"
+        );
+        assert!(
+            args.contains(&"/SUBSYSTEM:CONSOLE".to_string()),
+            "must have /SUBSYSTEM:CONSOLE"
+        );
+        assert!(
+            args.contains(&"/MACHINE:X64".to_string()),
+            "must have /MACHINE:X64"
+        );
+        assert!(
+            args.contains(&"/DEFAULTLIB:libcmt".to_string()),
+            "must have /DEFAULTLIB:libcmt"
+        );
     }
 }
