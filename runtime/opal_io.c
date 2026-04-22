@@ -4,7 +4,7 @@
 #include <string.h>
 
 static char* duplicate_without_trailing_newline(const char* source) {
-    char* raw = strdup(source);
+    char* raw = opal_strdup(source);
     if (!raw) {
         fprintf(stderr, "Runtime error: out of memory\n");
         exit(1);
@@ -28,7 +28,7 @@ static char* duplicate_without_trailing_newline(const char* source) {
 char* take_input(void) {
     char* line = NULL;
     size_t len = 0;
-    ssize_t read = getline(&line, &len, stdin);
+    ssize_t read = opal_getline(&line, &len, stdin);
 
     if (read == -1) {
         if (line != NULL) {

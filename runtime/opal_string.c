@@ -86,7 +86,7 @@ char* float64_to_string(double value) {
 }
 
 char* bool_to_string(int8_t value) {
-    char* result = strdup(value ? "true" : "false");
+    char* result = opal_strdup(value ? "true" : "false");
     if (!result) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
     return result;
 }
