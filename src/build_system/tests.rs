@@ -6,6 +6,7 @@ use crate::build_system::config::Dependency;
 use crate::build_system::config::{parse_config, parse_version, parse_version_constraint};
 use crate::build_system::dependency::{PackageVersion, resolve_dependencies};
 use crate::build_system::incremental::modules_to_rebuild;
+use crate::build_system::linker::{Linker, detect_preferred_linker};
 use crate::build_system::targets::{
     Architecture, Platform, TargetTriple, TripleEnv, dynamic_lib_extension, executable_filename,
     object_file_extension, parse_target_triple,
@@ -371,4 +372,48 @@ fn executable_filename_linux() {
 fn executable_filename_darwin() {
     let t = parse_target_triple("aarch64-darwin").unwrap();
     assert_eq!(executable_filename("prog", &t), "prog");
+}
+
+#[test]
+fn detect_linker_windows_msvc() {
+    let t = parse_target_triple("x86_64-pc-windows-msvc").unwrap();
+    assert_eq!(detect_preferred_linker(&t), Linker::Msvc);
+}
+
+#[test]
+fn detect_linker_windows_gnu() {
+    let t = parse_target_triple("x86_64-pc-windows-gnu").unwrap();
+    assert_eq!(detect_preferred_linker(&t), Linker::MinGw);
+}
+
+#[test]
+fn detect_linker_linux() {
+    let t = parse_target_triple("x86_64-linux").unwrap();
+    assert_eq!(detect_preferred_linker(&t), Linker::Cc);
+}
+
+#[test]
+fn detect_linker_darwin() {
+    let t = parse_target_triple("aarch64-darwin").unwrap();
+    assert_eq!(detect_preferred_linker(&t), Linker::Clang);
+}
+
+#[test]
+fn linker_binary_name_msvc() {
+    assert_eq!(Linker::Msvc.binary_name(), "link.exe");
+}
+
+#[test]
+fn linker_binary_name_mingw() {
+    assert_eq!(Linker::MinGw.binary_name(), "x86_64-w64-mingw32-gcc");
+}
+
+#[test]
+fn linker_binary_name_clang() {
+    assert_eq!(Linker::Clang.binary_name(), "clang");
+}
+
+#[test]
+fn linker_binary_name_cc() {
+    assert_eq!(Linker::Cc.binary_name(), "cc");
 }
