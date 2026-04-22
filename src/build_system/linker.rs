@@ -332,3 +332,67 @@ mod tests {
         assert_eq!(args[5], "program");
     }
 }
+
+    #[test]
+    fn no_pie_flag_only_on_linux() {
+        // Test 1: Linux GNU — should have -no-pie
+        let linux_gnu = TargetTriple {
+            arch: Architecture::X86_64,
+            platform: Platform::Linux,
+            env: Some(TripleEnv::Gnu),
+        };
+        let cmd = LinkerCommand::new(&linux_gnu, std::path::PathBuf::from("program"))
+            .with_input(std::path::PathBuf::from("main.o"))
+            .build();
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect();
+        assert!(args.contains(&"-no-pie".to_string()), "Linux GNU should have -no-pie");
+
+        // Test 2: Linux MUSL — should have -no-pie
+        let linux_musl = TargetTriple {
+            arch: Architecture::X86_64,
+            platform: Platform::Linux,
+            env: Some(TripleEnv::Musl),
+        };
+        let cmd = LinkerCommand::new(&linux_musl, std::path::PathBuf::from("program"))
+            .with_input(std::path::PathBuf::from("main.o"))
+            .build();
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect();
+        assert!(args.contains(&"-no-pie".to_string()), "Linux MUSL should have -no-pie");
+
+        // Test 3: Windows MSVC — should NOT have -no-pie
+        let windows_msvc = TargetTriple {
+            arch: Architecture::X86_64,
+            platform: Platform::Windows,
+            env: Some(TripleEnv::Msvc),
+        };
+        let cmd = LinkerCommand::new(&windows_msvc, std::path::PathBuf::from("program.exe"))
+            .with_input(std::path::PathBuf::from("main.obj"))
+            .build();
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect();
+        assert!(!args.contains(&"-no-pie".to_string()), "Windows MSVC should NOT have -no-pie");
+
+        // Test 4: macOS Darwin — should NOT have -no-pie
+        let darwin = TargetTriple {
+            arch: Architecture::X86_64,
+            platform: Platform::MacOs,
+            env: None,
+        };
+        let cmd = LinkerCommand::new(&darwin, std::path::PathBuf::from("program"))
+            .with_input(std::path::PathBuf::from("main.o"))
+            .build();
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect();
+        assert!(!args.contains(&"-no-pie".to_string()), "macOS Darwin should NOT have -no-pie");
+    }
+}
