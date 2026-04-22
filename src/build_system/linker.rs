@@ -82,6 +82,11 @@ pub fn detect_mingw() -> Option<std::path::PathBuf> {
     None
 }
 
+/// Windows CRT libraries required for Opalescent runtime when linking with MinGW.
+fn mingw_crt_libs() -> &'static [&'static str] {
+    &["-lbcrypt", "-luserenv", "-lws2_32", "-ladvapi32", "-lntdll"]
+}
+
 /// A builder for constructing linker commands with proper platform-specific arguments.
 ///
 /// This struct encapsulates the logic for building platform-specific linker invocations,
@@ -145,12 +150,9 @@ impl LinkerCommand {
                             cmd.arg(runtime);
                         }
                         cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
-                        // Windows CRT libraries required for Opalescent runtime
-                        cmd.arg("-lbcrypt");
-                        cmd.arg("-luserenv");
-                        cmd.arg("-lws2_32");
-                        cmd.arg("-ladvapi32");
-                        cmd.arg("-lntdll");
+                        for lib in mingw_crt_libs() {
+                            cmd.arg(lib);
+                        }
                     }
                     Linker::Clang => {
                         // Clang: clang <inputs...> <runtime> -o <output>

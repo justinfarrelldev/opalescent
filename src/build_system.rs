@@ -17,7 +17,7 @@ pub use cache::{BuildCache, hash_content};
 pub use config::{Dependency, ProjectConfig, Version, VersionConstraint, parse_config};
 pub use dependency::{PackageVersion, ResolvedDep, resolve_dependencies};
 pub use incremental::modules_to_rebuild;
-pub use linker::{Linker, LinkerCommand, detect_preferred_linker};
+pub use linker::{Linker, LinkerCommand, detect_mingw, detect_preferred_linker};
 pub use targets::{
     Architecture, Platform, TargetTriple, TripleEnv, dynamic_lib_extension, executable_filename,
     object_file_extension, parse_target_triple,
