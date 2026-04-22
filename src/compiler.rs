@@ -9,6 +9,7 @@ extern crate alloc;
 mod compiler_helpers;
 
 use crate::ast::{Decl, Expr, NodeId, Program};
+use crate::build_system::targets::{Platform, TargetTriple};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
@@ -294,16 +295,16 @@ pub fn emit_object_file(module: &Module<'_>, path: &std::path::Path) -> Result<(
 /// - **Windows (MSVC)**: `link.exe /OUT:<out> <objs...> <runtime>` — MSVC linker syntax
 /// - **Windows (other)**: `gcc <objs...> <runtime> -o <out>` — MinGW / Cygwin fallback
 ///
-/// The `target_os` parameter accepts the same values as [`std::env::consts::OS`].
+/// The `target` parameter specifies the build target triple.
 #[must_use]
 pub fn build_linker_command(
-    target_os: &str,
+    target: &TargetTriple,
     object_paths: &[PathBuf],
     runtime_path: &Path,
     output_path: &Path,
 ) -> Command {
-    match target_os {
-        "windows" => {
+    match target.platform {
+        Platform::Windows => {
             // Try MSVC link.exe first; fall back to MinGW gcc if unavailable.
             if std::process::Command::new("link.exe")
                 .arg("/?")
@@ -327,7 +328,7 @@ pub fn build_linker_command(
                 cmd
             }
         }
-        "linux" => {
+        Platform::Linux => {
             let mut cmd = Command::new("cc");
             for obj_path in object_paths {
                 cmd.arg(obj_path);
@@ -337,7 +338,7 @@ pub fn build_linker_command(
             cmd.arg("-o").arg(output_path);
             cmd
         }
-        _ => {
+        Platform::MacOs => {
             // macOS and other Unix-like platforms.
             let mut cmd = Command::new("cc");
             for obj_path in object_paths {
@@ -360,8 +361,9 @@ pub fn link_object_files(
 ) -> Result<PathBuf, CompileError> {
     let runtime_temp_file = RuntimeTempFile::create()?;
 
+    let target = TargetTriple::host();
     let mut command = build_linker_command(
-        std::env::consts::OS,
+        &target,
         object_paths,
         runtime_temp_file.path(),
         output_path,
@@ -766,7 +768,8 @@ mod tests {
         let obj = std::path::Path::new("/tmp/prog.o");
         let rt = std::path::Path::new("/tmp/runtime.o");
         let out = std::path::Path::new("/tmp/prog");
-        let cmd = build_linker_command("linux", &[obj.to_path_buf()], rt, out);
+        let target = crate::build_system::targets::parse_target_triple("x86_64-linux").unwrap();
+        let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out);
         let has_no_pie = cmd.get_args().any(|a| a.to_string_lossy() == "-no-pie");
         assert!(has_no_pie, "linux linker command must include -no-pie");
         assert_eq!(cmd.get_program(), "cc");
@@ -777,7 +780,8 @@ mod tests {
         let obj = std::path::Path::new("/tmp/prog.o");
         let rt = std::path::Path::new("/tmp/runtime.o");
         let out = std::path::Path::new("/tmp/prog");
-        let cmd = build_linker_command("macos", &[obj.to_path_buf()], rt, out);
+        let target = crate::build_system::targets::parse_target_triple("aarch64-darwin").unwrap();
+        let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out);
         let has_no_pie = cmd.get_args().any(|a| a.to_string_lossy() == "-no-pie");
         assert!(!has_no_pie, "macos linker command must NOT include -no-pie");
         assert_eq!(cmd.get_program(), "cc");
@@ -788,7 +792,8 @@ mod tests {
         let obj = std::path::Path::new("C:\\tmp\\prog.obj");
         let rt = std::path::Path::new("C:\\tmp\\runtime.obj");
         let out = std::path::Path::new("C:\\tmp\\prog.exe");
-        let cmd = build_linker_command("windows", &[obj.to_path_buf()], rt, out);
+        let target = crate::build_system::targets::parse_target_triple("x86_64-pc-windows-msvc").unwrap();
+        let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out);
         let program = cmd.get_program().to_string_lossy();
         assert!(
             program == "link.exe" || program == "gcc",
