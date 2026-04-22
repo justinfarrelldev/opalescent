@@ -55,6 +55,15 @@ pub fn detect_preferred_linker(target: &TargetTriple) -> Linker {
     }
 }
 
+/// Check if the `-no-pie` flag should be added for the given target.
+///
+/// The `-no-pie` flag is required on Linux to avoid Position-Independent Executable (PIE)
+/// relocation failures (`R_X86_64_32S`) on x86_64.
+#[must_use]
+fn needs_no_pie(target: &TargetTriple) -> bool {
+    target.platform == Platform::Linux
+}
+
 /// A builder for constructing linker commands with proper platform-specific arguments.
 ///
 /// This struct encapsulates the logic for building platform-specific linker invocations,
@@ -147,7 +156,7 @@ impl LinkerCommand {
                 if let Some(runtime) = &self.runtime {
                     cmd.arg(runtime);
                 }
-                if self.target.platform == Platform::Linux {
+                if needs_no_pie(&self.target) {
                     cmd.arg("-no-pie");
                 }
                 cmd.arg("-o").arg(self.quote_if_needed(self.output.display().to_string()));
