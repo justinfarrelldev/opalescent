@@ -29,10 +29,15 @@ typedef struct OpalWeakRef {
 } OpalWeakRef;
 
 /* RC header field offsets (bytes from header start) — for codegen use */
-#define OPAL_RC_REFCOUNT_OFFSET    0
-#define OPAL_RC_WEAK_COUNT_OFFSET  8
-#define OPAL_RC_DROP_FN_OFFSET     16
-#define OPAL_RC_HEADER_SIZE        24
+#define OPAL_RC_REFCOUNT_OFFSET    offsetof(OpalRcHeader, refcount)
+#define OPAL_RC_WEAK_COUNT_OFFSET  offsetof(OpalRcHeader, weak_count)
+#define OPAL_RC_DROP_FN_OFFSET     offsetof(OpalRcHeader, drop_children_fn)
+#define OPAL_RC_HEADER_SIZE        sizeof(OpalRcHeader)
+
+OPAL_STATIC_ASSERT(OPAL_RC_REFCOUNT_OFFSET == 0, "refcount offset must be 0");
+OPAL_STATIC_ASSERT(OPAL_RC_WEAK_COUNT_OFFSET == 8, "weak_count offset must be 8");
+OPAL_STATIC_ASSERT(OPAL_RC_DROP_FN_OFFSET == 16, "drop_children_fn offset must be 16");
+OPAL_STATIC_ASSERT(OPAL_RC_HEADER_SIZE == 24, "OpalRcHeader size must be 24");
 
 /* Forward declarations of all public functions */
 void *opal_rc_alloc(size_t payload_size, void (*drop_children_fn)(void *, void **, size_t *, size_t *));
