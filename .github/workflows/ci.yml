@@ -73,8 +73,52 @@ jobs:
           path: target/release/opalescent.exe
           if-no-files-found: error
 
-  linux-cross-wine:
+  cross-msvc-from-linux:
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+      XWIN_CACHE: $HOME/.xwin
+      CC_x86_64_pc_windows_msvc: clang-cl
+      CFLAGS_x86_64_pc_windows_msvc: /imsvc $HOME/.xwin/crt/include /imsvc $HOME/.xwin/sdk/include/ucrt /imsvc $HOME/.xwin/sdk/include/um /imsvc $HOME/.xwin/sdk/include/shared
     steps:
-      - name: Placeholder
-        run: echo "pending Task 21/22"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install LLVM 14
+        id: llvm
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "14.0"
+
+      - name: Set LLVM env vars
+        shell: bash
+        run: |
+          echo "LLVM_SYS_140_PREFIX=${{ steps.llvm.outputs.llvm-path }}" >> "$GITHUB_ENV"
+
+      - name: Cache xwin sysroot
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.XWIN_CACHE }}
+          key: xwin-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install xwin
+        shell: bash
+        run: |
+          cargo install xwin --locked
+          xwin --accept-license splat --output ${{ env.XWIN_CACHE }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Cross-compile to x86_64-pc-windows-msvc
+        run: cargo run --release -- test-projects/hello-world/src/main.op --target x86_64-pc-windows-msvc
+
+      - name: Upload cross-compiled exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: opalescent-windows-cross
+          path: test-projects/hello-world/target/x86_64-pc-windows-msvc/release/*.exe
+          if-no-files-found: error
