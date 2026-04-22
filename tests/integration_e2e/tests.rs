@@ -18,6 +18,7 @@ fn smoke_void_program_compiles_links_and_runs() {
         Path::new("test-projects/_smoke/src/main.op"),
         source,
         temp_dir,
+        &TargetTriple::host(),
     );
     assert!(
         binary_result.is_ok(),
@@ -118,7 +119,7 @@ fn link_produces_executable() {
         "object emission should succeed before linking"
     );
 
-    let link_result = link_object_file(&object_path, &binary_path);
+    let link_result = link_object_file(&object_path, &binary_path, &TargetTriple::host());
     assert!(
         link_result.is_ok(),
         "link step should produce an executable"
@@ -174,7 +175,8 @@ fn hello_world_compiles_links_and_runs() {
             }
         };
 
-        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
+        let binary_result =
+            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -248,7 +250,8 @@ fn fib_recursive_compiles_links_and_runs() {
             }
         };
 
-        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
+        let binary_result =
+            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -322,7 +325,8 @@ fn fib_iterative_compiles_links_and_runs() {
             }
         };
 
-        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
+        let binary_result =
+            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -402,6 +406,7 @@ entry main = f(args: string[]): void =>
             Path::new("test-projects/_loop_expr/src/main.op"),
             source,
             temp_dir,
+            &TargetTriple::host(),
         );
         if binary_result.is_err() {
             return Err(format!(

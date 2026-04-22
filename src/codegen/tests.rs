@@ -293,7 +293,27 @@ fn test_codegen_context_sets_target_triple() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "triple_module");
     let configured_triple = codegen_context.target_triple();
-    let host_triple = crate::build_system::targets::TargetTriple::host();
+    let host_triple = crate::build_system::targets::TargetTriple {
+        arch: if cfg!(target_arch = "aarch64") {
+            crate::build_system::targets::Architecture::Aarch64
+        } else {
+            crate::build_system::targets::Architecture::X86_64
+        },
+        platform: if cfg!(target_os = "windows") {
+            crate::build_system::targets::Platform::Windows
+        } else if cfg!(target_os = "macos") {
+            crate::build_system::targets::Platform::MacOs
+        } else {
+            crate::build_system::targets::Platform::Linux
+        },
+        env: if cfg!(target_env = "msvc") {
+            Some(crate::build_system::targets::TripleEnv::Msvc)
+        } else if cfg!(target_env = "musl") {
+            Some(crate::build_system::targets::TripleEnv::Musl)
+        } else {
+            Some(crate::build_system::targets::TripleEnv::Gnu)
+        },
+    };
     let expected_triple_str = host_triple.to_llvm_string();
     let expected_triple = inkwell::targets::TargetTriple::create(&expected_triple_str);
 

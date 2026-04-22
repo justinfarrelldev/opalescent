@@ -23,7 +23,8 @@ fn immutability_compile_error() {
             }
         };
 
-        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
+        let binary_result =
+            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
         if binary_result.is_ok() {
             return Err(
                 "immutability source should fail to compile (assignment to immutable variable), but compilation succeeded".to_owned()
@@ -70,7 +71,8 @@ fn no_doc_comments_fails_to_compile() {
             }
         };
 
-        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
+        let binary_result =
+            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -145,7 +147,8 @@ fn multiple_entry_fails_to_compile() {
             }
         };
 
-        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
+        let binary_result =
+            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -215,7 +218,8 @@ fn type_declaration_in_regular_file_is_rejected() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = opalescent::compiler::compile_project(&project_dir, &temp_dir);
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -287,7 +291,8 @@ fn value_declaration_in_types_file_is_rejected() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = opalescent::compiler::compile_project(&project_dir, &temp_dir);
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(

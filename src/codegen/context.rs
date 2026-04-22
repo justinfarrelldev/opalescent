@@ -64,7 +64,27 @@ impl<'context> CodegenContext<'context> {
     /// Create a new codegen context with host target triple.
     #[must_use]
     pub fn new(context: &'context Context, module_name: &str) -> Self {
-        let host_triple = crate::build_system::targets::TargetTriple::host();
+        let host_triple = crate::build_system::targets::TargetTriple {
+            arch: if cfg!(target_arch = "aarch64") {
+                crate::build_system::targets::Architecture::Aarch64
+            } else {
+                crate::build_system::targets::Architecture::X86_64
+            },
+            platform: if cfg!(target_os = "windows") {
+                crate::build_system::targets::Platform::Windows
+            } else if cfg!(target_os = "macos") {
+                crate::build_system::targets::Platform::MacOs
+            } else {
+                crate::build_system::targets::Platform::Linux
+            },
+            env: if cfg!(target_env = "msvc") {
+                Some(crate::build_system::targets::TripleEnv::Msvc)
+            } else if cfg!(target_env = "musl") {
+                Some(crate::build_system::targets::TripleEnv::Musl)
+            } else {
+                Some(crate::build_system::targets::TripleEnv::Gnu)
+            },
+        };
         Self::for_triple(context, module_name, &host_triple)
             .expect("host target should always be supported")
     }
@@ -134,4 +154,3 @@ mod tests {
         }
     }
 }
-

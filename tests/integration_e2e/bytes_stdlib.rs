@@ -37,7 +37,8 @@ fn bytes_hex_roundtrip_compiles_and_runs() {
             }
         };
 
-        let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
+        let binary_result =
+            compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {

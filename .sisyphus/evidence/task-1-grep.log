@@ -1,0 +1,1 @@
+src/lsp/rename.rs:fn token_matches(chars: &[char], offset: usize, target: &str) -> bool {

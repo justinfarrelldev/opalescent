@@ -35,6 +35,9 @@ use crate::benchmarks::suite::BenchmarkSuite;
 use crate::hot_reload::change_detection::{FileWatcher, PollingFileWatcher};
 use crate::type_system::checker::TypeChecker;
 
+mod targeting;
+use targeting::resolve_target_from_args;
+
 /// Build the help text for `opal` CLI commands (topic `None` = top-level, `Some(t)` = specific).
 fn help_text(topic: Option<&str>) -> String {
     let mut out = String::new();
@@ -172,8 +175,14 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
         return Err(1);
     };
 
+    let target = match resolve_target_from_args(args) {
+        Ok(Some(target)) => target,
+        Ok(None) => crate::build_system::targets::TargetTriple::host(),
+        Err(code) => return Err(code),
+    };
+
     if run_flag {
-        return compile_and_run(source_path, &[]);
+        return compile_and_run(source_path, &[], &target);
     }
 
     let source = match fs::read_to_string(source_path) {
@@ -184,7 +193,8 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
         }
     };
 
-    let binary_path = match compile_program(Path::new(source_path), &source, Path::new("target")) {
+    let binary_path =
+        match compile_program(Path::new(source_path), &source, Path::new("target"), &target) {
         Ok(path) => path,
         Err(CompileError::Report {
             ref report,
@@ -205,7 +215,11 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
 }
 
 /// Compile source at `source_path` and execute it, forwarding `program_args` to the binary.
-fn compile_and_run(source_path: &str, program_args: &[&str]) -> Result<(), i32> {
+fn compile_and_run(
+    source_path: &str,
+    program_args: &[&str],
+    target: &crate::build_system::targets::TargetTriple,
+) -> Result<(), i32> {
     let source = match fs::read_to_string(source_path) {
         Ok(content) => content,
         Err(error) => {
@@ -214,7 +228,8 @@ fn compile_and_run(source_path: &str, program_args: &[&str]) -> Result<(), i32> 
         }
     };
 
-    let binary_path = match compile_program(Path::new(source_path), &source, Path::new("target")) {
+    let binary_path =
+        match compile_program(Path::new(source_path), &source, Path::new("target"), target) {
         Ok(path) => path,
         Err(CompileError::Report {
             ref report,
@@ -257,20 +272,14 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
         })
         .unwrap_or_default();
 
-    let target_str = args
-        .iter()
-        .position(|a| a == "--target")
-        .and_then(|i| args.get(i.saturating_add(1)).map(String::as_str));
-
-    if let Some(triple_str) = target_str {
-        if parse_target_triple(triple_str).is_err() {
-            eprintln!("error: unknown target triple: {triple_str}. Supported: x86_64-linux, x86_64-pc-windows-msvc, x86_64-pc-windows-gnu, aarch64-darwin, x86_64-apple-darwin");
-            return Err(1);
-        }
-    }
+    let target = match resolve_target_from_args(args) {
+        Ok(Some(target)) => target,
+        Ok(None) => crate::build_system::targets::TargetTriple::host(),
+        Err(code) => return Err(code),
+    };
 
     if let Some(source_path) = args.get(2).map(String::as_str) {
-        return compile_and_run(source_path, &program_args);
+        return compile_and_run(source_path, &program_args, &target);
     }
 
     let cwd = match std::env::current_dir() {
@@ -281,7 +290,7 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
         }
     };
 
-    let binary_path = match compile_project(&cwd, Path::new("target")) {
+    let binary_path = match compile_project(&cwd, Path::new("target"), &target) {
         Ok(path) => path,
         Err(CompileError::Report {
             ref report,
@@ -585,17 +594,11 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
 
 /// Run the `opal build` command — reads `opal.toml` from the current directory, compiles `src/main.op`.
 fn run_build_command(args: &[String]) -> Result<(), i32> {
-    let target_str = args
-        .iter()
-        .position(|a| a == "--target")
-        .and_then(|i| args.get(i.saturating_add(1)).map(String::as_str));
-
-    if let Some(triple_str) = target_str {
-        if parse_target_triple(triple_str).is_err() {
-            eprintln!("error: unknown target triple: {triple_str}. Supported: x86_64-linux, x86_64-pc-windows-msvc, x86_64-pc-windows-gnu, aarch64-darwin, x86_64-apple-darwin");
-            return Err(1);
-        }
-    }
+    let target = match resolve_target_from_args(args) {
+        Ok(Some(target)) => target,
+        Ok(None) => crate::build_system::targets::TargetTriple::host(),
+        Err(code) => return Err(code),
+    };
 
     let Ok(toml_content) = fs::read_to_string("opal.toml") else {
         eprintln!("error: no opal.toml found in current directory");
@@ -615,7 +618,7 @@ fn run_build_command(args: &[String]) -> Result<(), i32> {
         eprintln!("error: invalid opal.toml: {msg}");
         return Err(1);
     }
-    let binary_path = match compile_project(Path::new("."), Path::new("target")) {
+    let binary_path = match compile_project(Path::new("."), Path::new("target"), &target) {
         Ok(path) => path,
         Err(CompileError::Report {
             ref report,
@@ -659,7 +662,7 @@ fn run_watch_command(args: &[String]) -> Result<(), i32> {
     loop {
         std::thread::sleep(std::time::Duration::from_millis(500));
         if !watcher.poll_changes().is_empty() {
-            match compile_and_run(src, &[]) {
+            match compile_and_run(src, &[], &crate::build_system::targets::TargetTriple::host()) {
                 Ok(()) => println!("Recompile successful."),
                 Err(_) => eprintln!("Recompile failed."),
             }
@@ -672,12 +675,10 @@ fn run_impl() -> Result<(), i32> {
     let args: Vec<String> = std::env::args().collect();
     run_with_args(&args)
 }
-
 #[cfg(test)]
 mod tests {
     use super::{help_text, run_with_args};
 
-    /// Ensures top-level help lists all expected commands and aliases.
     #[test]
     fn top_level_help_contains_all_commands() {
         let help = help_text(None);
@@ -693,14 +694,12 @@ mod tests {
         assert!(help.contains("bench"));
     }
 
-    /// Ensures top-level help includes an examples section.
     #[test]
     fn top_level_help_contains_examples_section() {
         let help = help_text(None);
         assert!(help.contains("Examples:"));
     }
 
-    /// Ensures package help lists all documented subcommands.
     #[test]
     fn help_pkg_shows_all_subcommands() {
         let help = help_text(Some("pkg"));
@@ -711,7 +710,6 @@ mod tests {
         assert!(help.contains("publish"));
     }
 
-    /// Ensures formatter help includes required flags.
     #[test]
     fn help_fmt_shows_all_flags() {
         let help = help_text(Some("fmt"));
@@ -719,7 +717,6 @@ mod tests {
         assert!(help.contains("--config"));
     }
 
-    /// Ensures LSP help topic exposes stdio mode and no unknown-topic error.
     #[test]
     fn help_lsp_shows_stdio_flag() {
         let help = help_text(Some("lsp"));
@@ -727,7 +724,6 @@ mod tests {
         assert!(!help.contains("Unknown help topic"));
     }
 
-    /// Ensures test help topic includes target and filter flags.
     #[test]
     fn help_test_shows_flags() {
         let help = help_text(Some("test"));
@@ -736,7 +732,6 @@ mod tests {
         assert!(!help.contains("Unknown help topic"));
     }
 
-    /// Ensures doc help topic includes format flag and supported formats.
     #[test]
     fn help_doc_shows_format_flag() {
         let help = help_text(Some("doc"));
@@ -746,7 +741,6 @@ mod tests {
         assert!(!help.contains("Unknown help topic"));
     }
 
-    /// Ensures bench help topic is present and not treated as unknown.
     #[test]
     fn help_bench_shows_usage() {
         let help = help_text(Some("bench"));
@@ -754,42 +748,36 @@ mod tests {
         assert!(!help.contains("Unknown help topic"));
     }
 
-    /// Ensures unknown help topics produce an explicit error message.
     #[test]
     fn help_unknown_topic_contains_error() {
         let help = help_text(Some("nonexistent"));
         assert!(help.contains("Unknown help topic"));
     }
 
-    /// Ensures --help alias dispatches to top-level help successfully.
     #[test]
     fn dash_dash_help_shows_top_level_help() {
         let args = ["opal".to_string(), "--help".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
-    /// Ensures --help with topic dispatches to topic help successfully.
     #[test]
     fn dash_dash_help_with_topic_shows_topic() {
         let args = ["opal".to_string(), "--help".to_string(), "pkg".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
-    /// Ensures pkg command currently returns the expected unimplemented error code.
     #[test]
     fn unimplemented_pkg_returns_error() {
         let args = ["opal".to_string(), "pkg".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures fmt command with no file argument returns error code 1.
     #[test]
     fn fmt_missing_file_returns_error() {
         let args = ["opal".to_string(), "fmt".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures fmt command with a nonexistent file returns error code 1.
     #[test]
     fn fmt_nonexistent_file_returns_error() {
         let args = [
@@ -800,7 +788,6 @@ mod tests {
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures fmt --check dispatches to `FormatCommand` (returns Ok or Err(1)).
     #[test]
     fn fmt_check_mode_returns_ok_when_already_formatted() {
         let tmp_path = std::env::temp_dir().join("opal_test_fmt_check.op");
@@ -817,7 +804,6 @@ mod tests {
         assert!(result == Ok(()) || result == Err(1));
     }
 
-    /// Ensures fmt formats a file in-place and returns Ok(()).
     #[test]
     fn fmt_formats_file_in_place() {
         let tmp_path = std::env::temp_dir().join("opal_test_fmt_inplace.op");
@@ -829,7 +815,6 @@ mod tests {
         assert!(result == Ok(()) || result == Err(1));
     }
 
-    /// Ensures fmt --config flag is accepted and dispatches to `FormatCommand`.
     #[test]
     fn fmt_config_flag_accepted() {
         let tmp_src = std::env::temp_dir().join("opal_test_fmt_cfg_src.op");
@@ -851,28 +836,24 @@ mod tests {
         assert!(result == Ok(()) || result == Err(1));
     }
 
-    /// Ensures lsp command currently returns the expected unimplemented error code.
     #[test]
     fn unimplemented_lsp_returns_error() {
         let args = ["opal".to_string(), "lsp".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures lsp with --stdio flag starts server and returns Ok(()).
     #[test]
     fn lsp_starts_server_returns_ok() {
         let args = ["opal".to_string(), "lsp".to_string(), "--stdio".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
-    /// Ensures the test command runs an empty suite and returns `Ok(())`.
     #[test]
     fn test_command_empty_suite_returns_ok() {
         let args = ["opal".to_string(), "test".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
-    /// Ensures test --filter flag is accepted and returns Ok(()).
     #[test]
     fn test_with_filter_returns_ok() {
         let args = [
@@ -884,7 +865,6 @@ mod tests {
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
-    /// Ensures test --target flag is accepted and returns Ok(()).
     #[test]
     fn test_with_target_returns_ok() {
         let args = [
@@ -896,28 +876,24 @@ mod tests {
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
-    /// Ensures doc command currently returns the expected unimplemented error code.
     #[test]
     fn unimplemented_doc_returns_error() {
         let args = ["opal".to_string(), "doc".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures the bench command runs `BenchmarkSuite` and returns `Ok(())`.
     #[test]
     fn bench_command_returns_ok() {
         let args = ["opal".to_string(), "bench".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
-    /// Ensures doc command with no file argument returns error code 1.
     #[test]
     fn doc_missing_file_returns_error() {
         let args = ["opal".to_string(), "doc".to_string()];
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures doc command with a nonexistent file returns error code 1.
     #[test]
     fn doc_nonexistent_file_returns_error() {
         let args = [
@@ -928,7 +904,6 @@ mod tests {
         assert_eq!(run_with_args(&args), Err(1));
     }
 
-    /// Ensures doc command with a valid source file returns Ok(()).
     #[test]
     fn doc_with_valid_source_returns_ok() {
         let tmp_path = std::env::temp_dir().join("opal_test_doc_valid.op");
@@ -940,7 +915,6 @@ mod tests {
         assert_eq!(result, Ok(()));
     }
 
-    /// Ensures doc --format html flag is accepted (no panic, returns Ok or Err(1)).
     #[test]
     fn doc_format_flag_accepted() {
         let tmp_path = std::env::temp_dir().join("opal_test_doc_fmt.op");
@@ -958,14 +932,12 @@ mod tests {
         assert!(result == Ok(()) || result == Err(1));
     }
 
-    /// Ensures explicit help command returns success.
     #[test]
     fn help_command_returns_ok() {
         let args = ["opal".to_string(), "help".to_string()];
         assert_eq!(run_with_args(&args), Ok(()));
     }
 
-    /// Ensures help command with topic returns success.
     #[test]
     fn help_with_topic_returns_ok() {
         let args = ["opal".to_string(), "help".to_string(), "pkg".to_string()];

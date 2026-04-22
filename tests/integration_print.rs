@@ -1,6 +1,7 @@
 #![cfg(feature = "integration")]
 
 use opalescent::compiler::compile_program;
+use opalescent::build_system::targets::TargetTriple;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -46,7 +47,8 @@ mod tests {
                 }
             };
 
-            let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
+            let binary_result =
+                compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
             let binary_path = match binary_result {
                 Ok(path) => path,
                 Err(error) => {
@@ -136,7 +138,8 @@ mod tests {
                 }
             };
 
-            let binary_result = compile_program(source_path, source_str.as_str(), temp_dir);
+            let binary_result =
+                compile_program(source_path, source_str.as_str(), temp_dir, &TargetTriple::host());
             let binary_path = match binary_result {
                 Ok(path) => path,
                 Err(error) => {
