@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+void opal_runtime_init(void);
+
 typedef struct { int8_t value;   const char* error; } ParseResultI8;
 typedef struct { int16_t value;  const char* error; } ParseResultI16;
 typedef struct { int32_t value;  const char* error; } ParseResultI32;

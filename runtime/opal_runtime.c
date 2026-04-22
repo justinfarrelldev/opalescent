@@ -13,3 +13,14 @@
 #include "opal_portability.h"
 #include "opal_runtime.h"
 #include "opal_rc.h"
+
+#if OPAL_WINDOWS
+#  include <windows.h>
+#endif
+
+void opal_runtime_init(void) {
+#if OPAL_WINDOWS
+    SetConsoleOutputCP(65001);  /* CP_UTF8 */
+    SetConsoleCP(65001);
+#endif
+}
