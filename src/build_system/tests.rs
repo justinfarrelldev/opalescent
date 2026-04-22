@@ -442,3 +442,27 @@ fn portability_header_compiles_with_gcc() {
         }
     }
 }
+
+#[test]
+fn rng_portability_header_compiles_with_gcc() {
+    let rng_path = std::path::Path::new("runtime/opal_rng.c");
+    assert!(rng_path.exists(), "runtime/opal_rng.c must exist");
+    
+    let output = std::process::Command::new("gcc")
+        .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-c", "runtime/opal_rng.c", "-o", "/tmp/opal_rng_test.o"])
+        .output();
+    
+    match output {
+        Ok(out) => {
+            assert!(out.status.success(), 
+                "gcc failed to compile opal_rng.c:\n{}",
+                String::from_utf8_lossy(&out.stderr));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("gcc not found, skipping rng portability compile test");
+        }
+        Err(e) => {
+            eprintln!("Failed to run gcc: {e}");
+        }
+    }
+}
