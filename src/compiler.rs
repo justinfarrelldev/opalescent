@@ -758,9 +758,15 @@ mod tests {
         let target = crate::build_system::targets::parse_target_triple("x86_64-pc-windows-msvc").unwrap();
         let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out);
         let program = cmd.get_program().to_string_lossy();
+        #[cfg(windows)]
         assert!(
             program == "link.exe" || program == "gcc",
             "windows linker must be link.exe or gcc, got: {program}"
+        );
+        #[cfg(not(windows))]
+        assert!(
+            program == "lld-link" || program.starts_with("lld-link-"),
+            "linux host msvc linker must be lld-link, got: {program}"
         );
     }
 
