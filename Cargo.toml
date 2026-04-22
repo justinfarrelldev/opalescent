@@ -7,7 +7,7 @@ edition = "2024"
 miette = { version = "7.0", features = ["fancy"] }
 thiserror = "1.0"
 unicode-xid = "0.2"
-inkwell = { version = "0.8.0", features = ["llvm14-0", "llvm14-0-prefer-dynamic"] }
+inkwell = { version = "0.8.0", features = ["llvm14-0"] }
 
 [features]
 integration = []

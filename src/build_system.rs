@@ -17,7 +17,7 @@ pub use config::{Dependency, ProjectConfig, Version, VersionConstraint, parse_co
 pub use dependency::{PackageVersion, ResolvedDep, resolve_dependencies};
 pub use incremental::modules_to_rebuild;
 pub use targets::{
-    Architecture, Platform, TargetTriple, dynamic_lib_extension, parse_target_triple,
+    Architecture, Platform, TargetTriple, TripleEnv, dynamic_lib_extension, parse_target_triple,
 };
 
 /// Unified build-system error type.

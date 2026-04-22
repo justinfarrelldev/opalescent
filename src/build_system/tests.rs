@@ -7,7 +7,7 @@ use crate::build_system::config::{parse_config, parse_version, parse_version_con
 use crate::build_system::dependency::{PackageVersion, resolve_dependencies};
 use crate::build_system::incremental::modules_to_rebuild;
 use crate::build_system::targets::{
-    Architecture, Platform, dynamic_lib_extension, parse_target_triple,
+    Architecture, Platform, TripleEnv, dynamic_lib_extension, parse_target_triple,
 };
 use crate::hot_reload::dependency_graph::ModuleDependencyGraph;
 use alloc::string::String;
@@ -245,4 +245,58 @@ fn invalid_target_triple_reports_build_error() {
         matches!(parsed, Err(BuildError::InvalidTarget(_))),
         "unsupported triples should return InvalidTarget"
     );
+}
+
+#[test]
+fn parse_rust_msvc_triple() {
+    let t = parse_target_triple("x86_64-pc-windows-msvc").unwrap();
+    assert_eq!(t.env, Some(TripleEnv::Msvc));
+    assert_eq!(t.platform, Platform::Windows);
+}
+
+#[test]
+fn parse_rust_mingw_triple() {
+    let t = parse_target_triple("x86_64-pc-windows-gnu").unwrap();
+    assert_eq!(t.env, Some(TripleEnv::Gnu));
+}
+
+#[test]
+fn parse_legacy_2_segment_still_works() {
+    let t = parse_target_triple("x86_64-windows").unwrap();
+    assert_eq!(t.env, None);
+    assert_eq!(t.platform, Platform::Windows);
+}
+
+#[test]
+fn parse_legacy_windows_resolves_as_msvc() {
+    let t = parse_target_triple("x86_64-windows").unwrap();
+    assert!(t.is_windows_msvc());
+}
+
+#[test]
+fn parse_legacy_linux_still_works() {
+    let t = parse_target_triple("x86_64-linux").unwrap();
+    assert_eq!(t.env, None);
+    assert_eq!(t.platform, Platform::Linux);
+}
+
+#[test]
+fn reject_aarch64_windows_msvc() {
+    assert!(parse_target_triple("aarch64-pc-windows-msvc").is_err());
+}
+
+#[test]
+fn reject_3_segment() {
+    assert!(parse_target_triple("x86_64-unknown-linux").is_err());
+}
+
+#[test]
+fn reject_unknown_env() {
+    assert!(parse_target_triple("x86_64-pc-windows-clang").is_err());
+}
+
+#[test]
+fn to_rust_triple_roundtrips() {
+    let t = parse_target_triple("x86_64-pc-windows-msvc").unwrap();
+    assert_eq!(t.to_rust_triple(), "x86_64-pc-windows-msvc");
 }
