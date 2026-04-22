@@ -9,7 +9,7 @@ extern crate alloc;
 mod compiler_helpers;
 
 use crate::ast::{Decl, Expr, NodeId, Program};
-use crate::build_system::targets::{Platform, TargetTriple};
+use crate::build_system::targets::{Platform, TargetTriple, object_file_extension};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
@@ -32,10 +32,8 @@ use compiler_helpers::{
     collect_imported_symbol_signatures, compile_checked_program_to_module, is_main_module_path,
     lambda_body_to_function_body, parse_source_to_program, validate_entry_declarations_for_module,
 };
-use inkwell::OptimizationLevel;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -255,26 +253,27 @@ pub fn compile_to_module<'context>(
     Ok(codegen_context.module)
 }
 
-/// Emits an LLVM module to an object file.
-pub fn emit_object_file(module: &Module<'_>, path: &std::path::Path) -> Result<(), CodegenError> {
-    Target::initialize_native(&InitializationConfig::default()).map_err(|error| {
-        CodegenError::new(format!(
-            "failed to initialize native LLVM target support: {error}"
-        ))
-    })?;
+/// Emits an LLVM module to an object file for the specified target.
+pub fn emit_object_file(
+    module: &Module<'_>,
+    path: &std::path::Path,
+    target: &TargetTriple,
+) -> Result<(), CodegenError> {
+    use inkwell::targets::{InitializationConfig, Target};
 
-    let triple = module.get_triple();
-    let target = Target::from_triple(&triple)
-        .map_err(|error| CodegenError::new(format!("failed to resolve LLVM target: {error}")))?;
+    Target::initialize_all(&InitializationConfig::default());
 
-    let target_machine = target
+    let llvm_triple = target.to_llvm_string();
+    let triple = inkwell::targets::TargetTriple::create(&llvm_triple);
+    let target_machine = Target::from_triple(&triple)
+        .map_err(|error| CodegenError::new(format!("failed to resolve LLVM target: {error}")))?
         .create_target_machine(
             &triple,
             "generic",
             "",
-            OptimizationLevel::Default,
-            RelocMode::Default,
-            CodeModel::Default,
+            inkwell::OptimizationLevel::Default,
+            inkwell::targets::RelocMode::Default,
+            inkwell::targets::CodeModel::Default,
         )
         .ok_or_else(|| {
             CodegenError::new(String::from(
@@ -283,7 +282,7 @@ pub fn emit_object_file(module: &Module<'_>, path: &std::path::Path) -> Result<(
         })?;
 
     target_machine
-        .write_to_file(module, FileType::Object, path)
+        .write_to_file(module, inkwell::targets::FileType::Object, path)
         .map_err(|error| CodegenError::new(format!("failed to emit object file: {error}")))
 }
 
@@ -418,10 +417,12 @@ pub fn compile_program(
         }
     };
 
-    let object_path = output_dir.join("program.o");
+    let target = TargetTriple::host();
+    let object_ext = object_file_extension(&target);
+    let object_path = output_dir.join(format!("program{object_ext}"));
     let binary_path = output_dir.join("program");
 
-    emit_object_file(&module, &object_path).map_err(CompileError::Codegen)?;
+    emit_object_file(&module, &object_path, &target).map_err(CompileError::Codegen)?;
     link_object_file(&object_path, &binary_path)
 }
 
@@ -617,8 +618,10 @@ pub fn compile_project(project_dir: &Path, output_dir: &Path) -> Result<PathBuf,
         let llvm_module = compile_checked_program_to_module(&context, program, imported_signatures)
             .map_err(CompileError::Codegen)?;
 
-        let object_path = output_dir.join(format!("module_{index}.o"));
-        emit_object_file(&llvm_module, &object_path).map_err(CompileError::Codegen)?;
+        let target = TargetTriple::host();
+        let object_ext = object_file_extension(&target);
+        let object_path = output_dir.join(format!("module_{index}{object_ext}"));
+        emit_object_file(&llvm_module, &object_path, &target).map_err(CompileError::Codegen)?;
         object_paths.push(object_path);
     }
 
@@ -628,7 +631,8 @@ pub fn compile_project(project_dir: &Path, output_dir: &Path) -> Result<PathBuf,
 
 #[cfg(test)]
 mod tests {
-    use super::{build_linker_command, compile_to_module};
+    use super::{build_linker_command, compile_to_module, emit_object_file};
+    use crate::build_system::targets::parse_target_triple;
     use crate::errors::reporter::CompilerError;
     use inkwell::context::Context;
     use std::path::Path;
@@ -798,6 +802,53 @@ mod tests {
         assert!(
             program == "link.exe" || program == "gcc",
             "windows linker must be link.exe or gcc, got: {program}"
+        );
+    }
+
+    /// RED test: emit_object_file should accept a target parameter and emit ELF for Linux.
+    #[test]
+    fn emit_object_file_linux_produces_elf() {
+        let context = Context::create();
+        let source = "##\n  Description: Entry test program for ELF emission\n##\nentry main = f(): void => { return void }";
+        let module = compile_to_module(&context, Path::new("test.op"), source)
+            .expect("valid source should compile");
+
+        let temp_dir = tempfile::tempdir().expect("create temp dir");
+        let object_path = temp_dir.path().join("test.o");
+
+        let target = parse_target_triple("x86_64-linux").expect("parse linux target");
+        emit_object_file(&module, &object_path, &target).expect("emit object file");
+
+        let bytes = std::fs::read(&object_path).expect("read object file");
+        assert!(bytes.len() > 4, "object file should have content");
+        assert_eq!(
+            &bytes[0..4],
+            &[0x7F, b'E', b'L', b'F'],
+            "object file should start with ELF magic bytes"
+        );
+    }
+
+    /// RED test: emit_object_file should accept a target parameter and emit COFF for Windows MSVC.
+    #[test]
+    fn emit_object_file_windows_msvc_produces_coff() {
+        let context = Context::create();
+        let source = "##\n  Description: Entry test program for COFF emission\n##\nentry main = f(): void => { return void }";
+        let module = compile_to_module(&context, Path::new("test.op"), source)
+            .expect("valid source should compile");
+
+        let temp_dir = tempfile::tempdir().expect("create temp dir");
+        let object_path = temp_dir.path().join("test.obj");
+
+        let target = parse_target_triple("x86_64-pc-windows-msvc").expect("parse windows target");
+        emit_object_file(&module, &object_path, &target).expect("emit object file");
+
+        let bytes = std::fs::read(&object_path).expect("read object file");
+        assert!(bytes.len() > 2, "object file should have content");
+        // COFF x86_64 machine type is 0x8664 (little-endian: 0x64, 0x86)
+        assert_eq!(
+            &bytes[0..2],
+            &[0x64, 0x86],
+            "object file should start with COFF x86_64 machine type"
         );
     }
 }

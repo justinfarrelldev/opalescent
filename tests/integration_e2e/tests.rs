@@ -67,7 +67,7 @@ fn emit_object_file_creates_valid_object() {
     };
 
     let object_path = temp_dir.join("program.o");
-    let emit_result = emit_object_file(&module, &object_path);
+    let emit_result = emit_object_file(&module, &object_path, &TargetTriple::host());
     assert!(emit_result.is_ok(), "object emission should succeed");
 
     assert!(
@@ -112,7 +112,7 @@ fn link_produces_executable() {
     let object_path = temp_dir.join("program.o");
     let binary_path = temp_dir.join("program");
 
-    let emit_result = emit_object_file(&module, &object_path);
+    let emit_result = emit_object_file(&module, &object_path, &TargetTriple::host());
     assert!(
         emit_result.is_ok(),
         "object emission should succeed before linking"
