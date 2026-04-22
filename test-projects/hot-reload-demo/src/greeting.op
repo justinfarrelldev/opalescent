@@ -1,0 +1,12 @@
+
+# All public functions need doc comments that are more than 30 chars long
+
+##
+  Description: starting point of the hot-reload demo application
+##
+entry main = f(args: string[]): void =>
+	let greeting = 'Hello from hot-reload-demo'
+
+	print('{greeting}')
+
+	return void
