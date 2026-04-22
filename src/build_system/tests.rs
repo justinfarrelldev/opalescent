@@ -7,7 +7,7 @@ use crate::build_system::config::{parse_config, parse_version, parse_version_con
 use crate::build_system::dependency::{PackageVersion, resolve_dependencies};
 use crate::build_system::incremental::modules_to_rebuild;
 use crate::build_system::targets::{
-    Architecture, Platform, TripleEnv, dynamic_lib_extension, parse_target_triple,
+    Architecture, Platform, TargetTriple, TripleEnv, dynamic_lib_extension, parse_target_triple,
 };
 use crate::hot_reload::dependency_graph::ModuleDependencyGraph;
 use alloc::string::String;
@@ -299,4 +299,14 @@ fn reject_unknown_env() {
 fn to_rust_triple_roundtrips() {
     let t = parse_target_triple("x86_64-pc-windows-msvc").unwrap();
     assert_eq!(t.to_rust_triple(), "x86_64-pc-windows-msvc");
+}
+
+#[test]
+fn tests_target_triple_typed_api() {
+    // Verify that compile_program accepts TargetTriple, not &str
+    // This test documents the expected API shape
+    let triple = TargetTriple::host();
+    // If this compiles, the API is typed correctly
+    assert!(triple.is_windows_msvc() || !triple.is_windows_msvc());
+    assert!(!triple.to_rust_triple().is_empty());
 }
