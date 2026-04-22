@@ -444,6 +444,41 @@ fn portability_header_compiles_with_gcc() {
 }
 
 #[test]
+fn rc_header_layout_constants_are_correct() {
+    // RED test: verify RC header layout constants match expected values
+    // This test will fail until offsetof() is used in opal_rc.h
+    let rc_header_path = std::path::Path::new("runtime/opal_rc.h");
+    assert!(rc_header_path.exists(), "runtime/opal_rc.h must exist");
+    
+    let output = std::process::Command::new("gcc")
+        .args([
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-x", "c",
+            "-c", "/dev/null",
+            "-include", "runtime/opal_rc.h",
+            "-o", "/dev/null"
+        ])
+        .output();
+    
+    match output {
+        Ok(out) => {
+            assert!(out.status.success(), 
+                "gcc failed to compile RC header with offsetof assertions:\n{}",
+                String::from_utf8_lossy(&out.stderr));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("gcc not found, skipping RC header layout test");
+        }
+        Err(e) => {
+            eprintln!("Failed to run gcc: {e}");
+        }
+    }
+}
+
+#[test]
 fn rng_portability_header_compiles_with_gcc() {
     let rng_path = std::path::Path::new("runtime/opal_rng.c");
     assert!(rng_path.exists(), "runtime/opal_rng.c must exist");
