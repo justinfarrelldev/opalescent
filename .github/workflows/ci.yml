@@ -60,18 +60,21 @@ jobs:
         run: |
           sed -i 's/, "llvm14-0-prefer-dynamic"//' Cargo.toml
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+       - name: Cache Rust dependencies
+         uses: Swatinem/rust-cache@v2
 
-      - name: Build release
-        run: cargo build --release
+       - name: Build release
+         run: cargo build --release
 
-      - name: Upload opalescent.exe artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: opalescent-windows
-          path: target/release/opalescent.exe
-          if-no-files-found: error
+       - name: Run lib tests
+         run: cargo test --lib
+
+       - name: Upload opalescent.exe artifact
+         uses: actions/upload-artifact@v4
+         with:
+           name: opalescent-windows
+           path: target/release/opalescent.exe
+           if-no-files-found: error
 
   cross-msvc-from-linux:
     runs-on: ubuntu-latest
