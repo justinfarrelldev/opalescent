@@ -1062,7 +1062,8 @@ targets = ["x86_64-linux", "aarch64-darwin"]
 | `aarch64-linux` | Linux (ARM64) | `.so` |
 | `x86_64-darwin` | macOS (Intel) | `.dylib` |
 | `aarch64-darwin` | macOS (Apple Silicon) | `.dylib` |
-| `x86_64-windows` | Windows (64-bit) | `.dll` |
+| `x86_64-pc-windows-msvc` | Windows (64-bit, MSVC CRT) | `.dll` |
+| `x86_64-pc-windows-gnu` | Windows (64-bit, MinGW-w64) | `.dll` |
 
 ---
 
