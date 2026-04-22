@@ -772,3 +772,206 @@ fn windows_dll_copy_before_load_uses_dll_extension() {
         "temp copy path for .dll module should end with .dll, got: {path_str}"
     );
 }
+
+/// Compiles a minimal C module with `module_entry` export to a shared library.
+#[cfg(unix)]
+fn compile_test_module(output_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    use std::process::Command;
+
+    let c_source = r#"
+void module_entry(void) {}
+"#;
+
+    let c_file = output_path.with_extension("c");
+    fs::write(&c_file, c_source)?;
+
+    let output = Command::new("cc")
+        .arg("-shared")
+        .arg("-fPIC")
+        .arg("-o")
+        .arg(output_path)
+        .arg(&c_file)
+        .output()?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "cc compilation failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )
+        .into());
+    }
+
+    let _ = fs::remove_file(&c_file);
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn fs_module_loader_loads_real_shared_library() {
+    use crate::hot_reload::loader::FsModuleLoader;
+
+    let mut temp_dir = std::env::temp_dir();
+    temp_dir.push(format!(
+        "opalescent_hot_reload_test_module_{}.so",
+        std::process::id()
+    ));
+
+    let _ = fs::remove_file(&temp_dir);
+
+    compile_test_module(&temp_dir).expect("compile test module");
+
+    assert!(
+        temp_dir.exists(),
+        "compiled test module should exist at {temp_dir:?}"
+    );
+
+    let mut loader = FsModuleLoader::new();
+    let module_name = temp_dir.to_string_lossy().to_string();
+    let load_result = loader.load_module(&module_name);
+
+    assert!(
+        load_result.is_ok(),
+        "FsModuleLoader should load real shared library: {load_result:?}"
+    );
+
+    let loaded = load_result.unwrap();
+    assert_eq!(
+        loaded.module_name, module_name,
+        "loaded module name should match input"
+    );
+
+    let unload_result = loader.unload_module(&module_name);
+    assert!(
+        unload_result.is_ok(),
+        "FsModuleLoader should unload module: {unload_result:?}"
+    );
+
+    let _ = fs::remove_file(&temp_dir);
+}
+
+#[cfg(unix)]
+#[test]
+fn fs_module_loader_hot_swap_with_real_library_abi_compat() {
+    use crate::hot_reload::loader::FsModuleLoader;
+
+    let mut temp_dir = std::env::temp_dir();
+    let module_v1 = temp_dir.join(format!(
+        "opalescent_hot_reload_test_v1_{}.so",
+        std::process::id()
+    ));
+    let module_v2 = temp_dir.join(format!(
+        "opalescent_hot_reload_test_v2_{}.so",
+        std::process::id()
+    ));
+
+    let _ = fs::remove_file(&module_v1);
+    let _ = fs::remove_file(&module_v2);
+
+    compile_test_module(&module_v1).expect("compile v1 module");
+    compile_test_module(&module_v2).expect("compile v2 module");
+
+    let mut loader = FsModuleLoader::new();
+    let mut host = HostProcess::new();
+
+    let v1_name = module_v1.to_string_lossy().to_string();
+    let v2_name = module_v2.to_string_lossy().to_string();
+
+    let load_v1 = hot_swap_module(&mut host, &mut loader, &v1_name);
+    assert!(
+        load_v1.is_ok(),
+        "should load v1 module: {load_v1:?}"
+    );
+
+    let active_v1 = host.active_module();
+    assert!(
+        active_v1.is_some(),
+        "host should have v1 as active module"
+    );
+
+    let swap_result = hot_swap_module(&mut host, &mut loader, &v2_name);
+    assert!(
+        swap_result.is_ok(),
+        "should hot-swap to v2 with compatible ABI: {swap_result:?}"
+    );
+
+    let active_v2 = host.active_module();
+    assert!(
+        active_v2.is_some(),
+        "host should have v2 as active module after swap"
+    );
+    assert_eq!(
+        active_v2.unwrap().module_name,
+        v2_name,
+        "active module should be v2"
+    );
+
+    let _ = fs::remove_file(&module_v1);
+    let _ = fs::remove_file(&module_v2);
+}
+
+#[test]
+fn fs_module_loader_hot_swap_rejects_abi_break_with_mock() {
+    let old_abi = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int32")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+    let new_abi = generate_abi_signature(
+        &[make_exported_function(
+            "compute",
+            vec![String::from("int64")],
+            vec![String::from("int32")],
+        )],
+        &BTreeMap::new(),
+    );
+
+    let mut modules = BTreeMap::new();
+    modules.insert(
+        String::from("logic_v0001.so"),
+        LoadedModule {
+            module_name: String::from("logic_v0001.so"),
+            vtable: ModuleVTable {
+                module_entry: noop_entry,
+            },
+            abi_signature: old_abi,
+        },
+    );
+    modules.insert(
+        String::from("logic_v0002.so"),
+        LoadedModule {
+            module_name: String::from("logic_v0002.so"),
+            vtable: ModuleVTable {
+                module_entry: noop_entry,
+            },
+            abi_signature: new_abi,
+        },
+    );
+
+    let mut loader = MockModuleLoader::with_modules(modules);
+    let mut host = HostProcess::new();
+
+    let initial = hot_swap_module(&mut host, &mut loader, "logic_v0001.so");
+    assert!(initial.is_ok(), "initial module load should succeed");
+
+    let swap = hot_swap_module(&mut host, &mut loader, "logic_v0002.so");
+    assert!(
+        swap.is_err(),
+        "hot_swap_module should reject incompatible ABI"
+    );
+
+    let error = swap.err();
+    assert!(
+        matches!(error, Some(HotReloadError::RequiresFullRestart)),
+        "ABI-break should return RequiresFullRestart error: {error:?}"
+    );
+
+    assert_eq!(
+        host.active_module()
+            .map(|m| m.module_name.clone()),
+        Some(String::from("logic_v0001.so")),
+        "v1 should remain active after ABI-break rejection"
+    );
+}
