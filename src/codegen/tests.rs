@@ -293,11 +293,13 @@ fn test_codegen_context_sets_target_triple() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "triple_module");
     let configured_triple = codegen_context.target_triple();
-    let default_triple = inkwell::targets::TargetMachine::get_default_triple();
+    let host_triple = crate::build_system::targets::TargetTriple::host();
+    let expected_triple_str = host_triple.to_llvm_string();
+    let expected_triple = inkwell::targets::TargetTriple::create(&expected_triple_str);
 
     assert_eq!(
-        configured_triple, default_triple,
-        "module target triple must match LLVM default triple"
+        configured_triple, expected_triple,
+        "module target triple must match host target triple"
     );
 }
 
