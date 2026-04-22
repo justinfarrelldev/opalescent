@@ -8,6 +8,13 @@ use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
 };
 
+/// Error type for code generation context creation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CodegenError {
+    /// LLVM target not supported on this platform.
+    UnsupportedTarget(String),
+}
+
 /// Shared LLVM handles used by code generation passes.
 pub struct CodegenContext<'context> {
     /// Owning LLVM context for all IR allocations.
@@ -21,22 +28,45 @@ pub struct CodegenContext<'context> {
 }
 
 impl<'context> CodegenContext<'context> {
-    /// Create a new codegen context with host target triple.
-    #[must_use]
-    pub fn new(context: &'context Context, module_name: &str) -> Self {
+    /// Create a new codegen context with an explicit target triple.
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The LLVM context for IR allocations
+    /// * `module_name` - Name of the compilation unit module
+    /// * `target` - The target triple to compile for
+    ///
+    /// # Errors
+    ///
+    /// Returns `CodegenError::UnsupportedTarget` if LLVM does not support the target.
+    pub fn for_triple(
+        context: &'context Context,
+        module_name: &str,
+        target: &crate::build_system::targets::TargetTriple,
+    ) -> Result<Self, CodegenError> {
         let module = context.create_module(module_name);
         let builder = context.create_builder();
-        let triple = TargetMachine::get_default_triple();
-        module.set_triple(&triple);
+        let llvm_triple_str = target.to_llvm_string();
+        let inkwell_triple = TargetTriple::create(&llvm_triple_str);
+        module.set_triple(&inkwell_triple);
 
-        let target_machine = Self::create_target_machine_for_triple(&triple);
+        let target_machine = Self::create_target_machine_for_triple(&inkwell_triple)
+            .ok_or_else(|| CodegenError::UnsupportedTarget(llvm_triple_str))?;
 
-        Self {
+        Ok(Self {
             context,
             module,
             builder,
-            target_machine,
-        }
+            target_machine: Some(target_machine),
+        })
+    }
+
+    /// Create a new codegen context with host target triple.
+    #[must_use]
+    pub fn new(context: &'context Context, module_name: &str) -> Self {
+        let host_triple = crate::build_system::targets::TargetTriple::host();
+        Self::for_triple(context, module_name, &host_triple)
+            .expect("host target should always be supported")
     }
 
     /// Return the active target triple configured on the module.
@@ -60,3 +90,48 @@ impl<'context> CodegenContext<'context> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::build_system::targets::parse_target_triple;
+
+    #[test]
+    fn for_triple_windows_msvc() {
+        let ctx = Context::create();
+        let target = parse_target_triple("x86_64-pc-windows-msvc").expect("valid triple");
+        let result = CodegenContext::for_triple(&ctx, "test_module", &target);
+        assert!(result.is_ok(), "should construct context for Windows MSVC");
+        let codegen_ctx = result.unwrap();
+        let triple_str = codegen_ctx.target_triple().to_string();
+        assert!(
+            triple_str.contains("windows"),
+            "LLVM triple should contain 'windows', got: {triple_str}"
+        );
+    }
+
+    #[test]
+    fn for_triple_linux_gnu() {
+        let ctx = Context::create();
+        let target = parse_target_triple("x86_64-unknown-linux-gnu").expect("valid triple");
+        let result = CodegenContext::for_triple(&ctx, "test_module", &target);
+        assert!(result.is_ok(), "should construct context for Linux GNU");
+        let codegen_ctx = result.unwrap();
+        let triple_str = codegen_ctx.target_triple().to_string();
+        assert!(
+            triple_str.contains("linux"),
+            "LLVM triple should contain 'linux', got: {triple_str}"
+        );
+    }
+
+    #[test]
+    fn for_triple_error_type_exists() {
+        let err = CodegenError::UnsupportedTarget("test-triple".to_string());
+        match err {
+            CodegenError::UnsupportedTarget(triple) => {
+                assert_eq!(triple, "test-triple");
+            }
+        }
+    }
+}
+
