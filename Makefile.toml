@@ -58,6 +58,7 @@ condition = { platforms = ["linux"] }
 [tasks.build-all]
 description = "Build all targets for current platform"
 dependencies = ["build-all-windows", "build-all-linux"]
+condition = { platforms = ["linux"] }
 
 [tasks.build-cross-all]
 description = "Build all targets for all platforms (requires cross-compilation setup)"
@@ -67,6 +68,7 @@ script = [
     "cargo build --target i686-unknown-linux-gnu --release",
     "cargo build --target x86_64-unknown-linux-gnu --release",
 ]
+condition = { platforms = ["linux"] }
 
 [tasks.test]
 description = "Run the test suite"
@@ -88,12 +90,14 @@ description = "Check test coverage and fail if below 80%"
 command = "cargo"
 args = ["tarpaulin", "--out", "Stdout", "--fail-under", "80"]
 install_crate = "cargo-tarpaulin"
+condition = { platforms = ["linux"] }
 
 [tasks.coverage-html]
 description = "Generate HTML coverage report"
 command = "cargo"
 args = ["tarpaulin", "--out", "Html", "--output-dir", "coverage"]
 install_crate = "cargo-tarpaulin"
+condition = { platforms = ["linux"] }
 
 [tasks.bench]
 description = "Run benchmarks"
