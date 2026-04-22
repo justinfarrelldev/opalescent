@@ -98,6 +98,7 @@ pub struct LinkerCommand {
     inputs: Vec<std::path::PathBuf>,
     output: std::path::PathBuf,
     runtime: Option<std::path::PathBuf>,
+    include_dir: Option<std::path::PathBuf>,
 }
 
 impl LinkerCommand {
@@ -112,6 +113,7 @@ impl LinkerCommand {
             inputs: Vec::new(),
             output,
             runtime: None,
+            include_dir: None,
         }
     }
 
@@ -129,6 +131,13 @@ impl LinkerCommand {
         self
     }
 
+    /// Add an include directory for C header files.
+    #[must_use]
+    pub fn with_include_dir(mut self, path: std::path::PathBuf) -> Self {
+        self.include_dir = Some(path);
+        self
+    }
+
     /// Build the final `std::process::Command` with all platform-specific arguments.
     ///
     /// Dispatches on the linker variant and constructs the appropriate command line.
@@ -141,10 +150,13 @@ impl LinkerCommand {
 
                 match self.linker {
                     Linker::MinGw => {
-                        // MinGW: x86_64-w64-mingw32-gcc <inputs...> <runtime> -o <output> -lbcrypt -luserenv -lws2_32 -ladvapi32 -lntdll
                         for input in &self.inputs {
                             let arg = self.quote_if_needed(input.display().to_string());
                             cmd.arg(arg);
+                        }
+                        if let Some(include_dir) = &self.include_dir {
+                            cmd.arg("-I")
+                                .arg(self.quote_if_needed(include_dir.display().to_string()));
                         }
                         if let Some(runtime) = &self.runtime {
                             cmd.arg(runtime);
@@ -156,10 +168,13 @@ impl LinkerCommand {
                         }
                     }
                     Linker::Clang => {
-                        // Clang: clang <inputs...> <runtime> -o <output>
                         for input in &self.inputs {
                             let arg = self.quote_if_needed(input.display().to_string());
                             cmd.arg(arg);
+                        }
+                        if let Some(include_dir) = &self.include_dir {
+                            cmd.arg("-I")
+                                .arg(self.quote_if_needed(include_dir.display().to_string()));
                         }
                         if let Some(runtime) = &self.runtime {
                             cmd.arg(runtime);
@@ -168,10 +183,13 @@ impl LinkerCommand {
                             .arg(self.quote_if_needed(self.output.display().to_string()));
                     }
                     Linker::Cc => {
-                        // GCC/cc: cc <inputs...> <runtime> [-no-pie] -o <output>
                         for input in &self.inputs {
                             let arg = self.quote_if_needed(input.display().to_string());
                             cmd.arg(arg);
+                        }
+                        if let Some(include_dir) = &self.include_dir {
+                            cmd.arg("-I")
+                                .arg(self.quote_if_needed(include_dir.display().to_string()));
                         }
                         if let Some(runtime) = &self.runtime {
                             cmd.arg(runtime);

@@ -55,26 +55,45 @@ const RUNTIME_SOURCE: &str = concat!(
     include_str!("../runtime/opal_bytes.c"),
 );
 
+/// Embedded C runtime headers used during native linking.
+const OPAL_PORTABILITY_H: &[u8] = include_bytes!("../runtime/opal_portability.h");
+const OPAL_RC_H: &[u8] = include_bytes!("../runtime/opal_rc.h");
+const OPAL_RUNTIME_H: &[u8] = include_bytes!("../runtime/opal_runtime.h");
+
 /// Temporary runtime source file materialized for the system C compiler.
 struct RuntimeTempFile {
+    /// Path to the temporary directory containing the runtime source and headers.
+    dir: PathBuf,
     /// Path to the generated temporary C runtime source file.
-    path: PathBuf,
+    source_file: PathBuf,
 }
 
 impl RuntimeTempFile {
-    /// Create a uniquely named temporary runtime source file.
+    /// Create a uniquely named temporary directory with runtime source and headers.
     fn create() -> Result<Self, CompileError> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|error| CompileError::Io(std::io::Error::other(error)))?
             .as_nanos();
-        let path = std::env::temp_dir().join(format!(
-            "opal_runtime_{}_{}.c",
+        let dir = std::env::temp_dir().join(format!(
+            "opal_runtime_{}_{}/",
             std::process::id(),
             timestamp
         ));
-        std::fs::write(&path, RUNTIME_SOURCE).map_err(CompileError::Io)?;
-        Ok(Self { path })
+        std::fs::create_dir_all(&dir).map_err(CompileError::Io)?;
+
+        // Write the C runtime source file
+        let source_file = dir.join("opal_runtime.c");
+        std::fs::write(&source_file, RUNTIME_SOURCE).map_err(CompileError::Io)?;
+
+        // Write the header files
+        std::fs::write(dir.join("opal_portability.h"), OPAL_PORTABILITY_H)
+            .map_err(CompileError::Io)?;
+        std::fs::write(dir.join("opal_rc.h"), OPAL_RC_H).map_err(CompileError::Io)?;
+        std::fs::write(dir.join("opal_runtime.h"), OPAL_RUNTIME_H)
+            .map_err(CompileError::Io)?;
+
+        Ok(Self { dir, source_file })
     }
 
     /// Borrow the filesystem path for this temporary runtime source file.
@@ -83,13 +102,22 @@ impl RuntimeTempFile {
         reason = "PathBuf deref to Path is not const on stable"
     )]
     fn path(&self) -> &Path {
-        &self.path
+        &self.source_file
+    }
+
+    /// Borrow the filesystem path for the temporary directory containing headers.
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "PathBuf deref to Path is not const on stable"
+    )]
+    fn include_dir(&self) -> &Path {
+        &self.dir
     }
 }
 
 impl Drop for RuntimeTempFile {
     fn drop(&mut self) {
-        drop(std::fs::remove_file(&self.path));
+        let _ = std::fs::remove_dir_all(&self.dir);
     }
 }
 
@@ -301,12 +329,16 @@ pub fn build_linker_command(
     object_paths: &[PathBuf],
     runtime_path: &Path,
     output_path: &Path,
+    include_dir: &Path,
 ) -> Command {
     let mut linker_cmd = crate::build_system::LinkerCommand::new(target, output_path.to_path_buf());
     for obj_path in object_paths {
         linker_cmd = linker_cmd.with_input(obj_path.clone());
     }
-    linker_cmd.with_runtime(runtime_path.to_path_buf()).build()
+    linker_cmd
+        .with_runtime(runtime_path.to_path_buf())
+        .with_include_dir(include_dir.to_path_buf())
+        .build()
 }
 
 /// Link multiple object files into an executable binary.
@@ -320,8 +352,13 @@ pub fn link_object_files(
 ) -> Result<PathBuf, CompileError> {
     let runtime_temp_file = RuntimeTempFile::create()?;
 
-    let mut command =
-        build_linker_command(target, object_paths, runtime_temp_file.path(), output_path);
+    let mut command = build_linker_command(
+        target,
+        object_paths,
+        runtime_temp_file.path(),
+        output_path,
+        runtime_temp_file.include_dir(),
+    );
 
     let output = command.output().map_err(CompileError::Io)?;
     if output.status.success() {
@@ -773,8 +810,9 @@ mod tests {
         let obj = std::path::Path::new("/tmp/prog.o");
         let rt = std::path::Path::new("/tmp/runtime.o");
         let out = std::path::Path::new("/tmp/prog");
+        let include_dir = std::path::Path::new("/tmp");
         let target = crate::build_system::targets::parse_target_triple("x86_64-linux").unwrap();
-        let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out);
+        let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out, include_dir);
         let has_no_pie = cmd.get_args().any(|a| a.to_string_lossy() == "-no-pie");
         assert!(has_no_pie, "linux linker command must include -no-pie");
         assert_eq!(cmd.get_program(), "cc");
@@ -785,8 +823,9 @@ mod tests {
         let obj = std::path::Path::new("/tmp/prog.o");
         let rt = std::path::Path::new("/tmp/runtime.o");
         let out = std::path::Path::new("/tmp/prog");
+        let include_dir = std::path::Path::new("/tmp");
         let target = crate::build_system::targets::parse_target_triple("aarch64-darwin").unwrap();
-        let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out);
+        let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out, include_dir);
         let has_no_pie = cmd.get_args().any(|a| a.to_string_lossy() == "-no-pie");
         assert!(!has_no_pie, "macos linker command must NOT include -no-pie");
         assert_eq!(cmd.get_program(), "clang");
@@ -797,9 +836,10 @@ mod tests {
         let obj = std::path::Path::new("C:\\tmp\\prog.obj");
         let rt = std::path::Path::new("C:\\tmp\\runtime.obj");
         let out = std::path::Path::new("C:\\tmp\\prog.exe");
+        let include_dir = std::path::Path::new("C:\\tmp");
         let target =
             crate::build_system::targets::parse_target_triple("x86_64-pc-windows-msvc").unwrap();
-        let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out);
+        let cmd = build_linker_command(&target, &[obj.to_path_buf()], rt, out, include_dir);
         let program = cmd.get_program().to_string_lossy();
         #[cfg(windows)]
         assert!(
