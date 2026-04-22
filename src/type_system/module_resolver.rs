@@ -678,6 +678,193 @@ impl ModuleResolver {
                 },
                 SymbolType::Function,
             ),
+            // `FilesystemPath`, `FileMetadata`, `FilePermissions` nominal types
+            // and the twenty filesystem error nominal types.  These are tag-only
+            // or field-bearing product types registered by `fs_builtins.rs`.
+            (
+                String::from("FilesystemPath"),
+                CoreType::Generic {
+                    name: String::from("FilesystemPath"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("FileMetadata"),
+                CoreType::Generic {
+                    name: String::from("FileMetadata"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("FilePermissions"),
+                CoreType::Generic {
+                    name: String::from("FilePermissions"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("FileNotFoundError"),
+                CoreType::Generic {
+                    name: String::from("FileNotFoundError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("PermissionDeniedError"),
+                CoreType::Generic {
+                    name: String::from("PermissionDeniedError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("FileAlreadyExistsError"),
+                CoreType::Generic {
+                    name: String::from("FileAlreadyExistsError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("ReadFailureError"),
+                CoreType::Generic {
+                    name: String::from("ReadFailureError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("WriteFailureError"),
+                CoreType::Generic {
+                    name: String::from("WriteFailureError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("InvalidPathError"),
+                CoreType::Generic {
+                    name: String::from("InvalidPathError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("FilesystemFullError"),
+                CoreType::Generic {
+                    name: String::from("FilesystemFullError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("IsADirectoryError"),
+                CoreType::Generic {
+                    name: String::from("IsADirectoryError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("IsNotADirectoryError"),
+                CoreType::Generic {
+                    name: String::from("IsNotADirectoryError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("DirectoryNotEmptyError"),
+                CoreType::Generic {
+                    name: String::from("DirectoryNotEmptyError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("DirectoryNotFoundError"),
+                CoreType::Generic {
+                    name: String::from("DirectoryNotFoundError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("MetadataUnavailableError"),
+                CoreType::Generic {
+                    name: String::from("MetadataUnavailableError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("OffsetOutOfRangeError"),
+                CoreType::Generic {
+                    name: String::from("OffsetOutOfRangeError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("LineOutOfRangeError"),
+                CoreType::Generic {
+                    name: String::from("LineOutOfRangeError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("CopyFailureError"),
+                CoreType::Generic {
+                    name: String::from("CopyFailureError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("MoveFailureError"),
+                CoreType::Generic {
+                    name: String::from("MoveFailureError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("DeleteFailureError"),
+                CoreType::Generic {
+                    name: String::from("DeleteFailureError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("CreateFailureError"),
+                CoreType::Generic {
+                    name: String::from("CreateFailureError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("SetPermissionsError"),
+                CoreType::Generic {
+                    name: String::from("SetPermissionsError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("InvalidUtf8Error"),
+                CoreType::Generic {
+                    name: String::from("InvalidUtf8Error"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
         ];
 
         for (name, core_type, symbol_type) in standard_symbols {
@@ -692,9 +879,24 @@ impl ModuleResolver {
             }
         }
         self.register_module_interface(interface);
-    }
 
-    /// Register `math` built-in module symbols.
+        let mut fs_path_fields = BTreeMap::new();
+        fs_path_fields.insert(String::from("raw"), CoreType::String);
+        self.register_adt_fields_for_module("standard", String::from("FilesystemPath"), fs_path_fields);
+
+        let mut fs_meta_fields = BTreeMap::new();
+        fs_meta_fields.insert(String::from("size_bytes"), CoreType::Int64);
+        fs_meta_fields.insert(String::from("is_directory"), CoreType::Boolean);
+        fs_meta_fields.insert(String::from("is_symlink"), CoreType::Boolean);
+        fs_meta_fields.insert(String::from("modified_unix_seconds"), CoreType::Int64);
+        self.register_adt_fields_for_module("standard", String::from("FileMetadata"), fs_meta_fields);
+
+        let mut fs_perms_fields = BTreeMap::new();
+        fs_perms_fields.insert(String::from("readable"), CoreType::Boolean);
+        fs_perms_fields.insert(String::from("writable"), CoreType::Boolean);
+        fs_perms_fields.insert(String::from("executable"), CoreType::Boolean);
+        self.register_adt_fields_for_module("standard", String::from("FilePermissions"), fs_perms_fields);
+    }
     fn register_math_module(&mut self) {
         let mut interface = ModuleInterface::new(String::from("math"));
         let math_symbols = [

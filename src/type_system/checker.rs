@@ -23,6 +23,8 @@ use hot_reload::FunctionHotReloadMetadata;
 // Sub-modules
 /// Bytes stdlib built-in signature registration.
 mod bytes_builtins;
+/// Filesystem stdlib built-in type registration.
+mod fs_builtins;
 mod call_resolution;
 mod collections;
 /// ADT constructor expression and schema validation helpers.
@@ -294,6 +296,7 @@ impl TypeChecker {
 
         self.register_size_specific_builtins();
         self.register_bytes_builtins();
+        self.register_fs_builtins();
 
         self.register_integer_intrinsics_for_type("int8", &CoreType::Int8);
         self.register_integer_intrinsics_for_type("int16", &CoreType::Int16);
