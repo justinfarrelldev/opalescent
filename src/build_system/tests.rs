@@ -7,7 +7,8 @@ use crate::build_system::config::{parse_config, parse_version, parse_version_con
 use crate::build_system::dependency::{PackageVersion, resolve_dependencies};
 use crate::build_system::incremental::modules_to_rebuild;
 use crate::build_system::targets::{
-    Architecture, Platform, TargetTriple, TripleEnv, dynamic_lib_extension, parse_target_triple,
+    Architecture, Platform, TargetTriple, TripleEnv, dynamic_lib_extension, executable_filename,
+    object_file_extension, parse_target_triple,
 };
 use crate::hot_reload::dependency_graph::ModuleDependencyGraph;
 use alloc::string::String;
@@ -309,4 +310,65 @@ fn tests_target_triple_typed_api() {
     // If this compiles, the API is typed correctly
     assert!(triple.is_windows_msvc() || !triple.is_windows_msvc());
     assert!(!triple.to_rust_triple().is_empty());
+}
+
+#[test]
+fn object_file_extension_windows_msvc() {
+    let t = parse_target_triple("x86_64-pc-windows-msvc").unwrap();
+    assert_eq!(object_file_extension(&t), ".obj");
+}
+
+#[test]
+fn object_file_extension_windows_gnu() {
+    let t = parse_target_triple("x86_64-pc-windows-gnu").unwrap();
+    assert_eq!(object_file_extension(&t), ".o");
+}
+
+#[test]
+fn object_file_extension_linux() {
+    let t = parse_target_triple("x86_64-linux").unwrap();
+    assert_eq!(object_file_extension(&t), ".o");
+}
+
+#[test]
+fn object_file_extension_darwin() {
+    let t = parse_target_triple("aarch64-darwin").unwrap();
+    assert_eq!(object_file_extension(&t), ".o");
+}
+
+#[test]
+fn object_file_extension_legacy_fallbacks() {
+    // Legacy 2-segment windows resolves as MSVC per Task 0.5
+    let t = parse_target_triple("x86_64-windows").unwrap();
+    assert_eq!(object_file_extension(&t), ".obj");
+    
+    let t = parse_target_triple("x86_64-linux").unwrap();
+    assert_eq!(object_file_extension(&t), ".o");
+    
+    let t = parse_target_triple("aarch64-darwin").unwrap();
+    assert_eq!(object_file_extension(&t), ".o");
+}
+
+#[test]
+fn executable_filename_windows_msvc() {
+    let t = parse_target_triple("x86_64-pc-windows-msvc").unwrap();
+    assert_eq!(executable_filename("prog", &t), "prog.exe");
+}
+
+#[test]
+fn executable_filename_windows_gnu() {
+    let t = parse_target_triple("x86_64-pc-windows-gnu").unwrap();
+    assert_eq!(executable_filename("prog", &t), "prog.exe");
+}
+
+#[test]
+fn executable_filename_linux() {
+    let t = parse_target_triple("x86_64-linux").unwrap();
+    assert_eq!(executable_filename("prog", &t), "prog");
+}
+
+#[test]
+fn executable_filename_darwin() {
+    let t = parse_target_triple("aarch64-darwin").unwrap();
+    assert_eq!(executable_filename("prog", &t), "prog");
 }
