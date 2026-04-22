@@ -25,6 +25,8 @@ pub struct CodegenContext<'context> {
     pub builder: Builder<'context>,
     /// Optional target machine for target-aware code generation.
     pub target_machine: Option<TargetMachine>,
+    /// Target triple for cross-compilation support.
+    pub target: crate::build_system::targets::TargetTriple,
 }
 
 impl<'context> CodegenContext<'context> {
@@ -58,6 +60,7 @@ impl<'context> CodegenContext<'context> {
             module,
             builder,
             target_machine: Some(target_machine),
+            target: target.clone(),
         })
     }
 

@@ -759,3 +759,16 @@ fn error_recovery_rolls_back_partial_swap_to_previous_module() {
         "rollback must leave previous module active"
     );
 }
+
+#[test]
+fn windows_dll_copy_before_load_uses_dll_extension() {
+    use crate::hot_reload::loader::FsModuleLoader;
+
+    let temp_path = FsModuleLoader::temp_copy_path_for("logic_v0001.dll");
+    let path_str = temp_path.to_string_lossy();
+
+    assert!(
+        path_str.ends_with(".dll"),
+        "temp copy path for .dll module should end with .dll, got: {path_str}"
+    );
+}

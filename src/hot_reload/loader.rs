@@ -118,7 +118,7 @@ impl FsModuleLoader {
         }
     }
 
-    fn temp_copy_path_for(module_name: &str) -> PathBuf {
+    pub fn temp_copy_path_for(module_name: &str) -> PathBuf {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0_u128, |duration| duration.as_nanos());

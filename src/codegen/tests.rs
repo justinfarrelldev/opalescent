@@ -2671,3 +2671,39 @@ entry main = f(): void =>
         "bytes_slice should declare as 'declare {{ i8*, i8* }} @bytes_slice(i8*, i32, i32)': {ir}"
     );
 }
+
+#[test]
+fn test_windows_target_uses_dllexport_linkage() {
+    use crate::build_system::targets::{parse_target_triple, Platform};
+
+    let context = Context::create();
+    let windows_target = parse_target_triple("x86_64-pc-windows-msvc")
+        .expect("valid Windows MSVC triple");
+    assert_eq!(
+        windows_target.platform,
+        Platform::Windows,
+        "parsed target should be Windows"
+    );
+
+    let codegen_ctx = CodegenContext::for_triple(&context, "test_module", &windows_target)
+        .expect("should create context for Windows target");
+
+    let func_decl = simple_void_function_decl(1, "test_func", return_stmt(2, vec![]), false);
+    let mut env = CodegenEnv::new(false);
+
+    let result = codegen_function_declaration(&codegen_ctx, &mut env, &func_decl);
+    assert!(
+        result.is_ok(),
+        "function declaration should codegen successfully: {result:?}"
+    );
+
+    let _func = result.unwrap();
+    
+    let ir = codegen_ctx.module.print_to_string().to_string();
+    eprintln!("DEBUG TEST: LLVM IR:\n{ir}");
+    
+    assert!(
+        ir.contains("define dllexport void @test_func()"),
+        "public function on Windows target should have dllexport in LLVM IR: {ir}"
+    );
+}

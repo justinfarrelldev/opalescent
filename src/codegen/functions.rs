@@ -13,6 +13,7 @@ use alloc::vec::Vec;
 use inkwell::module::Linkage;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::FunctionValue;
+use inkwell::DLLStorageClass;
 
 pub use crate::codegen::functions_call::{
     ast_type_to_core_type_for_signature, build_function_type, codegen_call_expression,
@@ -77,7 +78,7 @@ pub fn codegen_function_declaration<'context>(
         .collect::<Vec<BasicMetadataTypeEnum<'context>>>();
     let function_type = build_function_type(codegen_context, &parameter_types, &returns);
     let function_linkage = if is_entry || matches!(*visibility, Visibility::Public) {
-        None
+        Some(Linkage::External)
     } else {
         Some(Linkage::Internal)
     };
@@ -86,6 +87,13 @@ pub fn codegen_function_declaration<'context>(
         function_type,
         function_linkage,
     );
+
+    if (is_entry || matches!(*visibility, Visibility::Public))
+        && codegen_context.target.platform == crate::build_system::targets::Platform::Windows
+    {
+        function.as_global_value().set_dll_storage_class(DLLStorageClass::Export);
+    }
+
     let entry = codegen_context
         .context
         .append_basic_block(function, "entry");
