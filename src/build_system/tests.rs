@@ -417,3 +417,28 @@ fn linker_binary_name_clang() {
 fn linker_binary_name_cc() {
     assert_eq!(Linker::Cc.binary_name(), "cc");
 }
+
+#[test]
+fn portability_header_compiles_with_gcc() {
+    let header_path = std::path::Path::new("runtime/opal_portability.h");
+    assert!(header_path.exists(), "runtime/opal_portability.h must exist");
+    
+    let output = std::process::Command::new("gcc")
+        .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-x", "c", "-c", "/dev/null",
+               "-include", "runtime/opal_portability.h", "-o", "/dev/null"])
+        .output();
+    
+    match output {
+        Ok(out) => {
+            assert!(out.status.success(), 
+                "gcc failed to compile portability header:\n{}",
+                String::from_utf8_lossy(&out.stderr));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("gcc not found, skipping portability header compile test");
+        }
+        Err(e) => {
+            eprintln!("Failed to run gcc: {e}");
+        }
+    }
+}
