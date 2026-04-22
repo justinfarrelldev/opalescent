@@ -78,4 +78,19 @@ OpalBytes* bytes_concatenate(OpalBytes* left, OpalBytes* right);
 BytesResult bytes_from_hex(const char* hex);
 BytesResult bytes_slice(OpalBytes* source, int32_t start, int32_t end);
 
+/* Filesystem stdlib surface result types.
+ * Each wraps a typed value pointer and a nullable error string.
+ * NULL error means success; non-NULL error means failure (value is undefined). */
+typedef struct { void*      value; const char* error; } FsVoidResult;
+typedef struct { OpalBytes* value; const char* error; } FsBytesResult;
+typedef struct { char*      value; const char* error; } FsStringResult;
+typedef struct { int8_t     value; const char* error; } FsBooleanResult;
+typedef struct { int32_t    value; const char* error; } FsInt32Result;
+typedef struct { int64_t    value; const char* error; } FsInt64Result;
+typedef struct { char*      value; const char* error; } FsPathResult;
+typedef struct { char**     value; int64_t count; const char* error; } FsPathArrayResult;
+typedef struct { char**     value; int64_t count; const char* error; } FsStringArrayResult;
+typedef struct { void*      value; const char* error; } FsMetadataResult;
+typedef struct { void*      value; const char* error; } FsPermissionsResult;
+
 #endif

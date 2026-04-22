@@ -53,6 +53,8 @@ const RUNTIME_SOURCE: &str = concat!(
     include_str!("../runtime/opal_string.c"),
     "\n",
     include_str!("../runtime/opal_bytes.c"),
+    "\n",
+    include_str!("../runtime/opal_fs.c"),
 );
 
 /// Embedded C runtime headers used during native linking.
