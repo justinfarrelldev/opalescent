@@ -546,3 +546,27 @@ fn runtime_aggregator_compiles_without_c_includes() {
         }
     }
 }
+
+#[test]
+fn runtime_init_compiles_with_gcc() {
+    let runtime_path = std::path::Path::new("runtime/opal_runtime.c");
+    assert!(runtime_path.exists(), "runtime/opal_runtime.c must exist");
+    
+    let output = std::process::Command::new("gcc")
+        .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-c", "runtime/opal_runtime.c", "-o", "/tmp/opal_runtime.o"])
+        .output();
+    
+    match output {
+        Ok(out) => {
+            assert!(out.status.success(), 
+                "gcc failed to compile opal_runtime.c with opal_runtime_init:\n{}",
+                String::from_utf8_lossy(&out.stderr));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("gcc not found, skipping runtime init compile test");
+        }
+        Err(e) => {
+            eprintln!("Failed to run gcc: {e}");
+        }
+    }
+}
