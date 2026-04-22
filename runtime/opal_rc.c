@@ -13,6 +13,7 @@
  *   only when both refcount == 0 AND weak_count == 0.
  */
 
+#include "opal_portability.h"
 #include <stddef.h>
 
 /* RC object header — precedes every heap-allocated RC object in memory */

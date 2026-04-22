@@ -1,3 +1,4 @@
+#include "opal_portability.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>

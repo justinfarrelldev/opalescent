@@ -1,3 +1,4 @@
+#include "opal_portability.h"
 #include "opal_error.c"
 #include "opal_io.c"
 #include "opal_print.c"

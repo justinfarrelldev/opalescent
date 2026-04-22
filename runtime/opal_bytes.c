@@ -21,6 +21,7 @@
  * integrates transparently with `guard` / `propagate` in the front-end.
  */
 
+#include "opal_portability.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
