@@ -139,7 +139,8 @@ impl TargetTriple {
     /// Check if this is a Windows MSVC target (includes legacy 2-segment Windows as MSVC).
     #[must_use]
     pub fn is_windows_msvc(&self) -> bool {
-        self.platform == Platform::Windows && (self.env == Some(TripleEnv::Msvc) || self.env.is_none())
+        self.platform == Platform::Windows
+            && (self.env == Some(TripleEnv::Msvc) || self.env.is_none())
     }
 
     /// Check if this is a Windows GNU target.
@@ -204,5 +205,51 @@ pub const fn dynamic_lib_extension(target: &TargetTriple) -> &'static str {
         Platform::Linux => ".so",
         Platform::MacOs => ".dylib",
         Platform::Windows => ".dll",
+    }
+}
+
+/// Return platform-specific object file extension.
+///
+/// Returns `.obj` for Windows MSVC targets, `.o` for all others.
+/// Legacy 2-segment Windows triples (with `env == None`) resolve as MSVC.
+///
+/// # Examples
+///
+/// ```ignore
+/// let msvc = parse_target_triple("x86_64-pc-windows-msvc").unwrap();
+/// assert_eq!(object_file_extension(&msvc), ".obj");
+///
+/// let linux = parse_target_triple("x86_64-linux").unwrap();
+/// assert_eq!(object_file_extension(&linux), ".o");
+/// ```
+#[must_use]
+pub fn object_file_extension(target: &TargetTriple) -> &'static str {
+    if target.is_windows_msvc() {
+        ".obj"
+    } else {
+        ".o"
+    }
+}
+
+/// Return platform-specific executable filename with extension.
+///
+/// Appends `.exe` for Windows targets, nothing for others.
+/// Legacy 2-segment Windows triples (with `env == None`) resolve as MSVC.
+///
+/// # Examples
+///
+/// ```ignore
+/// let msvc = parse_target_triple("x86_64-pc-windows-msvc").unwrap();
+/// assert_eq!(executable_filename("prog", &msvc), "prog.exe");
+///
+/// let linux = parse_target_triple("x86_64-linux").unwrap();
+/// assert_eq!(executable_filename("prog", &linux), "prog");
+/// ```
+#[must_use]
+pub fn executable_filename(stem: &str, target: &TargetTriple) -> String {
+    if target.is_windows() {
+        alloc::format!("{stem}.exe")
+    } else {
+        stem.to_string()
     }
 }
