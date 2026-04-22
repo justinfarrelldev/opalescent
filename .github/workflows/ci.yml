@@ -5,7 +5,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-windows-spike:
+  linux-tests:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install LLVM 14
+        id: llvm
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "14.0"
+
+      - name: Set LLVM env vars
+        shell: bash
+        run: |
+          echo "LLVM_SYS_140_PREFIX=${{ steps.llvm.outputs.llvm-path }}" >> "$GITHUB_ENV"
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --all-features
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  windows-build:
     runs-on: windows-latest
     env:
       CARGO_TERM_COLOR: always
@@ -23,8 +54,14 @@ jobs:
         shell: bash
         run: |
           echo "LLVM_SYS_140_PREFIX=${{ steps.llvm.outputs.llvm-path }}" >> "$GITHUB_ENV"
-          echo "LLVM_SYS_140_USE_DEBUG_MSVCRT=NO" >> "$GITHUB_ENV"
-          echo "LLVM_SYS_140_FFI_WORKAROUND=YES" >> "$GITHUB_ENV"
+
+      - name: Remove llvm14-0-prefer-dynamic from Cargo.toml
+        shell: bash
+        run: |
+          sed -i 's/, "llvm14-0-prefer-dynamic"//' Cargo.toml
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
 
       - name: Build release
         run: cargo build --release
@@ -32,6 +69,12 @@ jobs:
       - name: Upload opalescent.exe artifact
         uses: actions/upload-artifact@v4
         with:
-          name: opalescent-windows-spike
+          name: opalescent-windows
           path: target/release/opalescent.exe
           if-no-files-found: error
+
+  linux-cross-wine:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder
+        run: echo "pending Task 21/22"
