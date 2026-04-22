@@ -276,6 +276,7 @@ dependencies = [
  "inkwell",
  "miette",
  "proptest",
+ "tempfile",
  "thiserror 1.0.69",
  "unicode-xid",
 ]
