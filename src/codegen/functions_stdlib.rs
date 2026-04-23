@@ -268,6 +268,46 @@ pub fn declare_stdlib_function<'context>(
                 );
                 Some(module.add_function("read_bytes_at_offset_sync", ft, None))
             }),
+        "write_contents_sync" => module.get_function("write_contents_sync").or_else(|| {
+            let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            Some(module.add_function("write_contents_sync", ft, None))
+        }),
+        "write_text_sync" => module.get_function("write_text_sync").or_else(|| {
+            let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            Some(module.add_function("write_text_sync", ft, None))
+        }),
+        "write_contents_atomic_sync" => module
+            .get_function("write_contents_atomic_sync")
+            .or_else(|| {
+                let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+                let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
+                Some(module.add_function("write_contents_atomic_sync", ft, None))
+            }),
+        "write_text_atomic_sync" => module.get_function("write_text_atomic_sync").or_else(|| {
+            let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            Some(module.add_function("write_text_atomic_sync", ft, None))
+        }),
+        "append_contents_sync" => module.get_function("append_contents_sync").or_else(|| {
+            let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            Some(module.add_function("append_contents_sync", ft, None))
+        }),
+        "append_text_sync" => module.get_function("append_text_sync").or_else(|| {
+            let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            Some(module.add_function("append_text_sync", ft, None))
+        }),
+        "write_bytes_at_offset_sync" => module
+            .get_function("write_bytes_at_offset_sync")
+            .or_else(|| {
+                let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+                let ft = fs_void_result_type
+                    .fn_type(&[i8_ptr.into(), i64_type.into(), i8_ptr.into()], false);
+                Some(module.add_function("write_bytes_at_offset_sync", ft, None))
+            }),
         _ => None,
     }
 }
@@ -348,6 +388,13 @@ pub const STDLIB_NAMES: &[&str] = &[
     "read_text_sync",
     "read_lines_sync",
     "read_bytes_at_offset_sync",
+    "write_contents_sync",
+    "write_text_sync",
+    "write_contents_atomic_sync",
+    "write_text_atomic_sync",
+    "append_contents_sync",
+    "append_text_sync",
+    "write_bytes_at_offset_sync",
 ];
 
 #[cfg(test)]
@@ -358,8 +405,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            61,
-            "stdlib registry should have 61 names"
+            68,
+            "stdlib registry should have 68 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),

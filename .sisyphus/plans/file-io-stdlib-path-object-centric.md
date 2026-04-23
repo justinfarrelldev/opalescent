@@ -667,7 +667,7 @@ Max Concurrent: 6 (Waves 2 & 3)
 
   **Commit**: YES — `feat(stdlib): wire file-reading infrastructure`
 
-- [ ] 7. Infra batch: File Writing category (7 fns wired, incl. atomic variants)
+- [x] 7. Infra batch: File Writing category (7 fns wired, incl. atomic variants)
 
   **What to do**:
   - Wire 7 writing functions: `write_contents_sync`, `write_text_sync`, `write_contents_atomic_sync`, `write_text_atomic_sync`, `append_contents_sync`, `append_text_sync`, `write_bytes_at_offset_sync`.

@@ -131,3 +131,67 @@ FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_
     r.error = "not implemented";
     return r;
 }
+
+FsVoidResult write_contents_sync(const char* path, OpalBytes* data) {
+    (void)path;
+    (void)data;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult write_text_sync(const char* path, const char* text) {
+    (void)path;
+    (void)text;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult write_contents_atomic_sync(const char* path, OpalBytes* data) {
+    (void)path;
+    (void)data;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult write_text_atomic_sync(const char* path, const char* text) {
+    (void)path;
+    (void)text;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult append_contents_sync(const char* path, OpalBytes* data) {
+    (void)path;
+    (void)data;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult append_text_sync(const char* path, const char* text) {
+    (void)path;
+    (void)text;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult write_bytes_at_offset_sync(const char* path, int64_t offset, OpalBytes* data) {
+    (void)path;
+    (void)offset;
+    (void)data;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}

@@ -42,3 +42,8 @@
 - T6 File Reading infra follows existing fallible ABI pattern: LLVM declarations use {i8* value, i8* error} for bytes/string and {i8** value, i64 count, i8* error} for line arrays.
 - Standard module exports wired with exact FilesystemPath parameters and declared error sets, enabling type-checking/guard flows without runtime behavior changes.
 - Runtime C stubs return placeholder error strings with NULL values (and count=0 for line arrays) to keep linker/typechecker paths green before implementation batches.
+
+## [2026-04-22T22:00:39-04:00] T7 infra wiring completion
+- File-writing stdlib infra mirrors T6 read batch conventions: all seven fallible writers are declared as `{i8* value, i8* error}` (`FsVoidResult`) in `declare_stdlib_function`.
+- ABI mapping for the write batch is consistent across layers: `FilesystemPath`/`Bytes`/`string` lower to `i8*`, and `offset` lowers to `i64` for `write_bytes_at_offset_sync`.
+- Standard module export ordering remains function exports before nominal type exports; this keeps resolver wiring aligned with prior FS batches and avoids checker churn.

@@ -23,3 +23,7 @@ No issues yet.
 
 ## [2026-04-22] T6 infra wiring completion
 - check /tmp/read_all.op initially failed twice due to policy constraints (missing doc comment on entry, then unhandled error-producing calls); resolved by adding a doc block and guarding all four fallible calls.
+
+## [2026-04-22T22:00:39-04:00] T7 infra wiring notes
+- No blocking implementation issues encountered for T7.
+- `cargo test --lib` output is tool-truncated by volume in this environment; full command evidence captured from the saved tool output file (`/home/justi/.local/share/opencode/tool-output/tool_db8112f99001YgEeJ8wq73WC1v`) confirming success.

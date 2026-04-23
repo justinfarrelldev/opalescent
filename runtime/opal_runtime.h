@@ -97,5 +97,12 @@ FsBytesResult read_contents_sync(const char* path);
 FsStringResult read_text_sync(const char* path);
 FsStringArrayResult read_lines_sync(const char* path);
 FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_t length);
+FsVoidResult write_contents_sync(const char* path, OpalBytes* data);
+FsVoidResult write_text_sync(const char* path, const char* text);
+FsVoidResult write_contents_atomic_sync(const char* path, OpalBytes* data);
+FsVoidResult write_text_atomic_sync(const char* path, const char* text);
+FsVoidResult append_contents_sync(const char* path, OpalBytes* data);
+FsVoidResult append_text_sync(const char* path, const char* text);
+FsVoidResult write_bytes_at_offset_sync(const char* path, int64_t offset, OpalBytes* data);
 
 #endif
