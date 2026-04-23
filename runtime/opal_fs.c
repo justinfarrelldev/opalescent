@@ -27,6 +27,31 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if OPAL_HAS_DIRENT
+#  include <dirent.h>
+#endif
+
+/* ── Windows directory listing shim (forward declarations) ──────────────── */
+
+#if !OPAL_HAS_DIRENT
+
+/*
+ * Forward declarations for Windows directory listing shim APIs.
+ * These are used to provide POSIX-like directory iteration on Windows.
+ * Full implementations are provided in Task 16.
+ */
+
+typedef struct opal_dir_s opal_dir_t;
+typedef struct {
+    char d_name[260];  /* MAX_PATH on Windows */
+} opal_dirent_t;
+
+opal_dir_t* opal_opendir(const char* path);
+opal_dirent_t* opal_readdir(opal_dir_t* dir);
+int opal_closedir(opal_dir_t* dir);
+
+#endif /* !OPAL_HAS_DIRENT */
+
 char* path_from(const char* raw) {
     if (!raw) return strdup("");
     return strdup(raw);
