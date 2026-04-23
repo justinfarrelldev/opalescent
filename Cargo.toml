@@ -12,6 +12,8 @@ libloading = "0.8"
 
 [features]
 integration = []
+panic_mid_run = []
+windows-wine = []
 
 [lib]
 name = "opalescent"

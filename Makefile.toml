@@ -85,6 +85,14 @@ description = "Run the test suite in release mode"
 command = "cargo"
 args = ["test", "--release"]
 
+[tasks.wine-tests]
+description = "Run Windows/wine integration tests (requires wine, clang-cl, xwin, LLVM)"
+script = [
+    "bash scripts/verify-wine-prereqs.sh",
+    "cargo test --features windows-wine -- --test-threads=1",
+]
+condition = { platforms = ["linux"] }
+
 [tasks.coverage-check]
 description = "Check test coverage and fail if below 80%"
 command = "cargo"
