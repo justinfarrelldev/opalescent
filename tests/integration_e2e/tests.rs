@@ -4,8 +4,19 @@ use super::*;
 
 mod bytes_stdlib;
 mod compile_failures;
+mod fs_path_manipulation;
+mod fs_markdown_roundtrip;
+mod fs_management;
+mod fs_reading;
+mod fs_writing;
+mod fs_directory;
+mod fs_permissions;
+mod fs_directory_operations;
 mod interactive_io;
 mod project_execution;
+
+#[cfg(feature = "windows-wine")]
+mod windows_wine;
 
 #[test]
 fn smoke_void_program_compiles_links_and_runs() {
