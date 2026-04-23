@@ -784,7 +784,7 @@ Max Concurrent: 6 (Waves 2 & 3)
 
   **Commit**: YES — `feat(stdlib): wire file-management infrastructure`
 
-- [ ] 9. Infra batch: Directory Operations category (9 fns wired, incl. 2 nofollow inspections)
+- [x] 9. Infra batch: Directory Operations category (9 fns wired, incl. 2 nofollow inspections)
 
   **What to do**:
   - Wire 9 fns: `create_directory_sync`, `create_directory_recursive_sync`, `delete_directory_sync`, `delete_directory_recursive_sync`, `list_directory_sync`, `is_file_sync`, `is_file_nofollow_sync`, `is_directory_sync`, `is_directory_nofollow_sync`.

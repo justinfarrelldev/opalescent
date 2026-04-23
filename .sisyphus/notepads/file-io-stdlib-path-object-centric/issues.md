@@ -35,3 +35,7 @@ No issues yet.
 ## [2026-04-22T22:14:04-04:00] T8 verification issue resolved
 - QA failed with `Symbol 'm1.size_bytes' not found` because checker-local ADT field registry lacked preloaded standard-module metadata fields.
 - Resolved by syncing `standard` `ModuleInterface` into `TypeChecker` initialization paths; exact QA now passes via `opalescent check /tmp/fmgmt_all.op`.
+
+## [2026-04-22T22:26:00-04:00] T9 infra wiring notes
+- Initial `/tmp/dir_all.op` check failed because loop variable name `entry` collides with language keyword `entry`; renamed loop binding to `child` and re-ran successfully.
+- No infra wiring blockers remained after that parser-level naming fix.

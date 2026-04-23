@@ -56,3 +56,8 @@
 ## [2026-04-22T22:14:04-04:00] T8 verification fix: FileMetadata member access
 - Root cause: `ModuleResolver::new()` preloaded `standard` ADT field schemas (including `FileMetadata.size_bytes`), but `TypeChecker` did not mirror those schemas into its local `adt_fields` map used by member-access resolution.
 - Minimal fix: in both `TypeChecker::new` and `TypeChecker::with_environment`, register the `standard` module interface from `module_resolver` into the checker (`register_module_interface`), which copies ADT field metadata and makes `m1.size_bytes`/`m2.is_directory` resolve.
+
+## [2026-04-22T22:26:00-04:00] T9 infra wiring completion
+- Directory-operations ABI wiring uses existing FS result structs consistently: create/delete variants return `FsVoidResult`, `list_directory_sync` returns `FsPathArrayResult`, and file/dir inspection variants return `FsBooleanResult`.
+- `declare_stdlib_function` now includes a reusable LLVM `FsPathArrayResult` struct (`{i8** value, i64 count, i8* error}`), matching the preflight-proven array return convention used by guard/propagate lowering.
+- Standard module exports include exact T9 signatures and error sets for all nine directory functions, including distinct nofollow inspection variants.

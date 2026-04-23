@@ -111,5 +111,14 @@ FsVoidResult move_path_sync(const char* source, const char* destination);
 FsBooleanResult path_exists_sync(const char* path);
 FsMetadataResult read_metadata_sync(const char* path);
 FsMetadataResult read_metadata_nofollow_sync(const char* path);
+FsVoidResult create_directory_sync(const char* path);
+FsVoidResult create_directory_recursive_sync(const char* path);
+FsVoidResult delete_directory_sync(const char* path);
+FsVoidResult delete_directory_recursive_sync(const char* path);
+FsPathArrayResult list_directory_sync(const char* path);
+FsBooleanResult is_file_sync(const char* path);
+FsBooleanResult is_file_nofollow_sync(const char* path);
+FsBooleanResult is_directory_sync(const char* path);
+FsBooleanResult is_directory_nofollow_sync(const char* path);
 
 #endif

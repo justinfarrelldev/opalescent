@@ -46,6 +46,14 @@ pub fn declare_stdlib_function<'context>(
     let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
     let fs_boolean_result_type = ctx.struct_type(&[i8_type.into(), i8_ptr.into()], false);
     let fs_metadata_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+    let fs_path_array_result_type = ctx.struct_type(
+        &[
+            i8_ptr.ptr_type(AddressSpace::default()).into(),
+            i64_type.into(),
+            i8_ptr.into(),
+        ],
+        false,
+    );
 
     // Helper: get existing or add a new void(T) function.
     macro_rules! void_fn {
@@ -340,6 +348,48 @@ pub fn declare_stdlib_function<'context>(
                 Some(module.add_function("read_metadata_nofollow_sync", ft, None))
             })
         }
+        "create_directory_sync" => module.get_function("create_directory_sync").or_else(|| {
+            let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("create_directory_sync", ft, None))
+        }),
+        "create_directory_recursive_sync" => module
+            .get_function("create_directory_recursive_sync")
+            .or_else(|| {
+                let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
+                Some(module.add_function("create_directory_recursive_sync", ft, None))
+            }),
+        "delete_directory_sync" => module.get_function("delete_directory_sync").or_else(|| {
+            let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("delete_directory_sync", ft, None))
+        }),
+        "delete_directory_recursive_sync" => module
+            .get_function("delete_directory_recursive_sync")
+            .or_else(|| {
+                let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
+                Some(module.add_function("delete_directory_recursive_sync", ft, None))
+            }),
+        "list_directory_sync" => module.get_function("list_directory_sync").or_else(|| {
+            let ft = fs_path_array_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("list_directory_sync", ft, None))
+        }),
+        "is_file_sync" => module.get_function("is_file_sync").or_else(|| {
+            let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("is_file_sync", ft, None))
+        }),
+        "is_file_nofollow_sync" => module.get_function("is_file_nofollow_sync").or_else(|| {
+            let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("is_file_nofollow_sync", ft, None))
+        }),
+        "is_directory_sync" => module.get_function("is_directory_sync").or_else(|| {
+            let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("is_directory_sync", ft, None))
+        }),
+        "is_directory_nofollow_sync" => module
+            .get_function("is_directory_nofollow_sync")
+            .or_else(|| {
+                let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
+                Some(module.add_function("is_directory_nofollow_sync", ft, None))
+            }),
         _ => None,
     }
 }
@@ -434,6 +484,15 @@ pub const STDLIB_NAMES: &[&str] = &[
     "path_exists_sync",
     "read_metadata_sync",
     "read_metadata_nofollow_sync",
+    "create_directory_sync",
+    "create_directory_recursive_sync",
+    "delete_directory_sync",
+    "delete_directory_recursive_sync",
+    "list_directory_sync",
+    "is_file_sync",
+    "is_file_nofollow_sync",
+    "is_directory_sync",
+    "is_directory_nofollow_sync",
 ];
 
 #[cfg(test)]
@@ -444,8 +503,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            75,
-            "stdlib registry should have 75 names"
+            84,
+            "stdlib registry should have 84 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),

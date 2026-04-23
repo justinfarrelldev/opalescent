@@ -253,3 +253,76 @@ FsMetadataResult read_metadata_nofollow_sync(const char* path) {
     r.error = "not implemented";
     return r;
 }
+
+FsVoidResult create_directory_sync(const char* path) {
+    (void)path;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult create_directory_recursive_sync(const char* path) {
+    (void)path;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult delete_directory_sync(const char* path) {
+    (void)path;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult delete_directory_recursive_sync(const char* path) {
+    (void)path;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsPathArrayResult list_directory_sync(const char* path) {
+    (void)path;
+    FsPathArrayResult r;
+    r.value = NULL;
+    r.count = 0;
+    r.error = "not implemented";
+    return r;
+}
+
+FsBooleanResult is_file_sync(const char* path) {
+    (void)path;
+    FsBooleanResult r;
+    r.value = 0;
+    r.error = "not implemented";
+    return r;
+}
+
+FsBooleanResult is_file_nofollow_sync(const char* path) {
+    (void)path;
+    FsBooleanResult r;
+    r.value = 0;
+    r.error = "not implemented";
+    return r;
+}
+
+FsBooleanResult is_directory_sync(const char* path) {
+    (void)path;
+    FsBooleanResult r;
+    r.value = 0;
+    r.error = "not implemented";
+    return r;
+}
+
+FsBooleanResult is_directory_nofollow_sync(const char* path) {
+    (void)path;
+    FsBooleanResult r;
+    r.value = 0;
+    r.error = "not implemented";
+    return r;
+}
