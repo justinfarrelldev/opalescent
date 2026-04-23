@@ -725,7 +725,7 @@ Max Concurrent: 6 (Waves 2 & 3)
 
   **Commit**: YES — `feat(stdlib): wire file-writing infrastructure with atomic variants`
 
-- [ ] 8. Infra batch: File Management category (7 fns wired, incl. nofollow metadata)
+- [x] 8. Infra batch: File Management category (7 fns wired, incl. nofollow metadata)
 
   **What to do**:
   - Wire 7 fns: `create_file_sync`, `delete_file_sync`, `copy_file_sync`, `move_path_sync`, `path_exists_sync`, `read_metadata_sync`, `read_metadata_nofollow_sync`.

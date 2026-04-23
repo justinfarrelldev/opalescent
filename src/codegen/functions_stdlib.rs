@@ -43,6 +43,9 @@ pub fn declare_stdlib_function<'context>(
     // Bytes fallible operations mirror the `{value_ptr, error_cstr}` shape
     // used by `string_to_intN`, letting `guard`/`propagate` lower identically.
     let bytes_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+    let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+    let fs_boolean_result_type = ctx.struct_type(&[i8_type.into(), i8_ptr.into()], false);
+    let fs_metadata_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
 
     // Helper: get existing or add a new void(T) function.
     macro_rules! void_fn {
@@ -303,11 +306,40 @@ pub fn declare_stdlib_function<'context>(
         "write_bytes_at_offset_sync" => module
             .get_function("write_bytes_at_offset_sync")
             .or_else(|| {
-                let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
                 let ft = fs_void_result_type
                     .fn_type(&[i8_ptr.into(), i64_type.into(), i8_ptr.into()], false);
                 Some(module.add_function("write_bytes_at_offset_sync", ft, None))
             }),
+        "create_file_sync" => module.get_function("create_file_sync").or_else(|| {
+            let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("create_file_sync", ft, None))
+        }),
+        "delete_file_sync" => module.get_function("delete_file_sync").or_else(|| {
+            let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("delete_file_sync", ft, None))
+        }),
+        "copy_file_sync" => module.get_function("copy_file_sync").or_else(|| {
+            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            Some(module.add_function("copy_file_sync", ft, None))
+        }),
+        "move_path_sync" => module.get_function("move_path_sync").or_else(|| {
+            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            Some(module.add_function("move_path_sync", ft, None))
+        }),
+        "path_exists_sync" => module.get_function("path_exists_sync").or_else(|| {
+            let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("path_exists_sync", ft, None))
+        }),
+        "read_metadata_sync" => module.get_function("read_metadata_sync").or_else(|| {
+            let ft = fs_metadata_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("read_metadata_sync", ft, None))
+        }),
+        "read_metadata_nofollow_sync" => {
+            module.get_function("read_metadata_nofollow_sync").or_else(|| {
+                let ft = fs_metadata_result_type.fn_type(&[i8_ptr.into()], false);
+                Some(module.add_function("read_metadata_nofollow_sync", ft, None))
+            })
+        }
         _ => None,
     }
 }
@@ -395,6 +427,13 @@ pub const STDLIB_NAMES: &[&str] = &[
     "append_contents_sync",
     "append_text_sync",
     "write_bytes_at_offset_sync",
+    "create_file_sync",
+    "delete_file_sync",
+    "copy_file_sync",
+    "move_path_sync",
+    "path_exists_sync",
+    "read_metadata_sync",
+    "read_metadata_nofollow_sync",
 ];
 
 #[cfg(test)]
@@ -405,8 +444,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            68,
-            "stdlib registry should have 68 names"
+            75,
+            "stdlib registry should have 75 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),

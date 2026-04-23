@@ -195,3 +195,61 @@ FsVoidResult write_bytes_at_offset_sync(const char* path, int64_t offset, OpalBy
     r.error = "not implemented";
     return r;
 }
+
+FsVoidResult create_file_sync(const char* path) {
+    (void)path;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult delete_file_sync(const char* path) {
+    (void)path;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult copy_file_sync(const char* source, const char* destination) {
+    (void)source;
+    (void)destination;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsVoidResult move_path_sync(const char* source, const char* destination) {
+    (void)source;
+    (void)destination;
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsBooleanResult path_exists_sync(const char* path) {
+    (void)path;
+    FsBooleanResult r;
+    r.value = 0;
+    r.error = "not implemented";
+    return r;
+}
+
+FsMetadataResult read_metadata_sync(const char* path) {
+    (void)path;
+    FsMetadataResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsMetadataResult read_metadata_nofollow_sync(const char* path) {
+    (void)path;
+    FsMetadataResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}

@@ -47,3 +47,12 @@
 - File-writing stdlib infra mirrors T6 read batch conventions: all seven fallible writers are declared as `{i8* value, i8* error}` (`FsVoidResult`) in `declare_stdlib_function`.
 - ABI mapping for the write batch is consistent across layers: `FilesystemPath`/`Bytes`/`string` lower to `i8*`, and `offset` lowers to `i64` for `write_bytes_at_offset_sync`.
 - Standard module export ordering remains function exports before nominal type exports; this keeps resolver wiring aligned with prior FS batches and avoids checker churn.
+
+## [2026-04-22T22:07:07-04:00] T8 infra wiring completion
+- File-management batch ABI wiring follows established FS conventions: create/delete/copy/move use `FsVoidResult`, existence uses `FsBooleanResult`, and both metadata reads use `FsMetadataResult`.
+- `declare_stdlib_function` now reuses shared local result-struct LLVM types for the new batch, keeping value/error layouts aligned with guard/propagate lowering expectations.
+- Standard module exports include exact requested error sets for each of the seven functions, with `FilesystemPath` parameter types and `FileMetadata` return type for metadata readers.
+
+## [2026-04-22T22:14:04-04:00] T8 verification fix: FileMetadata member access
+- Root cause: `ModuleResolver::new()` preloaded `standard` ADT field schemas (including `FileMetadata.size_bytes`), but `TypeChecker` did not mirror those schemas into its local `adt_fields` map used by member-access resolution.
+- Minimal fix: in both `TypeChecker::new` and `TypeChecker::with_environment`, register the `standard` module interface from `module_resolver` into the checker (`register_module_interface`), which copies ADT field metadata and makes `m1.size_bytes`/`m2.is_directory` resolve.

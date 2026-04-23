@@ -140,6 +140,9 @@ impl TypeChecker {
             function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
+        if let Some(standard_interface) = checker.module_resolver.module_interface("standard") {
+            checker.register_module_interface(standard_interface);
+        }
         checker
     }
 
@@ -164,6 +167,9 @@ impl TypeChecker {
             function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
+        if let Some(standard_interface) = checker.module_resolver.module_interface("standard") {
+            checker.register_module_interface(standard_interface);
+        }
         checker
     }
 

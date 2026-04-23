@@ -104,5 +104,12 @@ FsVoidResult write_text_atomic_sync(const char* path, const char* text);
 FsVoidResult append_contents_sync(const char* path, OpalBytes* data);
 FsVoidResult append_text_sync(const char* path, const char* text);
 FsVoidResult write_bytes_at_offset_sync(const char* path, int64_t offset, OpalBytes* data);
+FsVoidResult create_file_sync(const char* path);
+FsVoidResult delete_file_sync(const char* path);
+FsVoidResult copy_file_sync(const char* source, const char* destination);
+FsVoidResult move_path_sync(const char* source, const char* destination);
+FsBooleanResult path_exists_sync(const char* path);
+FsMetadataResult read_metadata_sync(const char* path);
+FsMetadataResult read_metadata_nofollow_sync(const char* path);
 
 #endif
