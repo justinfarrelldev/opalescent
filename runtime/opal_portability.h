@@ -120,4 +120,77 @@ static inline ssize_t opal_getline(char **lineptr, size_t *n, FILE *stream) {
 #  define opal_getline getline
 #endif
 
+/* ── UTF-8 ↔ UTF-16 conversion (Windows only) ──────────────────────────── */
+
+#if OPAL_WINDOWS
+#  include <windows.h>
+
+typedef wchar_t opal_wchar_t;
+
+/*
+ * opal_utf8_to_wide — Convert UTF-8 string to UTF-16 (wide char).
+ *
+ * Allocates a new wide-char buffer via malloc(). Caller owns the result
+ * and must free() it. Returns NULL on conversion error (invalid UTF-8).
+ * Uses CP_UTF8 with MB_ERR_INVALID_CHARS for strict validation.
+ */
+static inline wchar_t* opal_utf8_to_wide(const char* utf8) {
+    if (!utf8) return NULL;
+
+    /* First pass: determine required buffer size (including null terminator) */
+    int wide_len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, NULL, 0);
+    if (wide_len <= 0) return NULL;
+
+    /* Allocate buffer */
+    wchar_t* wide = (wchar_t*)malloc((size_t)wide_len * sizeof(wchar_t));
+    if (!wide) return NULL;
+
+    /* Second pass: perform actual conversion */
+    int result = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, wide, wide_len);
+    if (result <= 0) {
+        free(wide);
+        return NULL;
+    }
+
+    return wide;
+}
+
+/*
+ * opal_wide_to_utf8 — Convert UTF-16 (wide char) string to UTF-8.
+ *
+ * Allocates a new UTF-8 buffer via malloc(). Caller owns the result
+ * and must free() it. Returns NULL on conversion error (invalid UTF-16).
+ * Uses CP_UTF8 with WC_ERR_INVALID_CHARS for strict validation.
+ */
+static inline char* opal_wide_to_utf8(const wchar_t* wide) {
+    if (!wide) return NULL;
+
+    /* First pass: determine required buffer size (including null terminator) */
+    int utf8_len = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide, -1, NULL, 0, NULL, NULL);
+    if (utf8_len <= 0) return NULL;
+
+    /* Allocate buffer */
+    char* utf8 = (char*)malloc((size_t)utf8_len);
+    if (!utf8) return NULL;
+
+    /* Second pass: perform actual conversion */
+    int result = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide, -1, utf8, utf8_len, NULL, NULL);
+    if (result <= 0) {
+        free(utf8);
+        return NULL;
+    }
+
+    return utf8;
+}
+
+#define OPAL_HAS_DIRENT 0
+
+#else /* POSIX branch */
+
+typedef char opal_wchar_t;
+
+#define OPAL_HAS_DIRENT 1
+
+#endif /* OPAL_WINDOWS */
+
 #endif /* OPAL_PORTABILITY_H */
