@@ -610,7 +610,7 @@ Max Concurrent: 6 (Waves 2 & 3)
 
   **Commit**: YES — `feat(stdlib): wire path-manipulation infrastructure`
 
-- [ ] 6. Infra batch: File Reading category (4 fns wired)
+- [x] 6. Infra batch: File Reading category (4 fns wired)
 
   **What to do**:
   - Wire 4 reading functions: `read_contents_sync`, `read_text_sync`, `read_lines_sync`, `read_bytes_at_offset_sync`.

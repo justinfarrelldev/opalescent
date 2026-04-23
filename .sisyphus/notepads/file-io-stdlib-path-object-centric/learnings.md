@@ -32,3 +32,13 @@
 - `FilesystemPath.raw` member access works in codegen by handling `CoreType::Generic { name: "FilesystemPath" }` in intrinsic member-access path and loading field 0 directly.
 - `opal_runtime.h` must NOT be included from concatenated runtime fragments that also define shared typedefs (`ParseResult*`, `BytesResult`) unless those fragments are refactored; self-contained temporary runtime C avoided redefinition conflicts.
 - Compiler CLI `opal <file> --run` prints an additional `target/program` line before program output; exact expected stdout lines were captured from running `./target/program` after successful compile step.
+
+## [2026-04-22] T6 infra wiring completion
+- T6 File Reading infra follows existing fallible ABI pattern: LLVM declarations use  for bytes/string and  for line arrays.
+- Standard module exports wired with exact FilesystemPath parameters and declared error sets, enabling type-checking/guard flows without runtime behavior changes.
+- Runtime C stubs return placeholder  errors with NULL values (and count=0 for line arrays) to keep linker/typechecker paths green before implementation batches.
+
+## [2026-04-22] T6 infra wiring completion
+- T6 File Reading infra follows existing fallible ABI pattern: LLVM declarations use {i8* value, i8* error} for bytes/string and {i8** value, i64 count, i8* error} for line arrays.
+- Standard module exports wired with exact FilesystemPath parameters and declared error sets, enabling type-checking/guard flows without runtime behavior changes.
+- Runtime C stubs return placeholder error strings with NULL values (and count=0 for line arrays) to keep linker/typechecker paths green before implementation batches.

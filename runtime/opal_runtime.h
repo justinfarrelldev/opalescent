@@ -93,4 +93,9 @@ typedef struct { char**     value; int64_t count; const char* error; } FsStringA
 typedef struct { void*      value; const char* error; } FsMetadataResult;
 typedef struct { void*      value; const char* error; } FsPermissionsResult;
 
+FsBytesResult read_contents_sync(const char* path);
+FsStringResult read_text_sync(const char* path);
+FsStringArrayResult read_lines_sync(const char* path);
+FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_t length);
+
 #endif

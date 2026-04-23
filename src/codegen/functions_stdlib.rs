@@ -236,6 +236,38 @@ pub fn declare_stdlib_function<'context>(
             let ft = fs_path_result_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("absolute_path_sync", ft, None))
         }),
+        "read_contents_sync" => module.get_function("read_contents_sync").or_else(|| {
+            let fs_bytes_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            let ft = fs_bytes_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("read_contents_sync", ft, None))
+        }),
+        "read_text_sync" => module.get_function("read_text_sync").or_else(|| {
+            let fs_string_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            let ft = fs_string_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("read_text_sync", ft, None))
+        }),
+        "read_lines_sync" => module.get_function("read_lines_sync").or_else(|| {
+            let fs_string_array_result_type = ctx.struct_type(
+                &[
+                    i8_ptr.ptr_type(AddressSpace::default()).into(),
+                    i64_type.into(),
+                    i8_ptr.into(),
+                ],
+                false,
+            );
+            let ft = fs_string_array_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("read_lines_sync", ft, None))
+        }),
+        "read_bytes_at_offset_sync" => module
+            .get_function("read_bytes_at_offset_sync")
+            .or_else(|| {
+                let fs_bytes_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+                let ft = fs_bytes_result_type.fn_type(
+                    &[i8_ptr.into(), i64_type.into(), i64_type.into()],
+                    false,
+                );
+                Some(module.add_function("read_bytes_at_offset_sync", ft, None))
+            }),
         _ => None,
     }
 }
@@ -312,6 +344,10 @@ pub const STDLIB_NAMES: &[&str] = &[
     "path_file_extension",
     "normalize_path",
     "absolute_path_sync",
+    "read_contents_sync",
+    "read_text_sync",
+    "read_lines_sync",
+    "read_bytes_at_offset_sync",
 ];
 
 #[cfg(test)]
@@ -322,8 +358,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            57,
-            "stdlib registry should have 57 names"
+            61,
+            "stdlib registry should have 61 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),

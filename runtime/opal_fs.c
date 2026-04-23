@@ -96,3 +96,38 @@ FsPathResult absolute_path_sync(const char* path) {
     r.error = NULL;
     return r;
 }
+
+FsBytesResult read_contents_sync(const char* path) {
+    (void)path;
+    FsBytesResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsStringResult read_text_sync(const char* path) {
+    (void)path;
+    FsStringResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}
+
+FsStringArrayResult read_lines_sync(const char* path) {
+    (void)path;
+    FsStringArrayResult r;
+    r.value = NULL;
+    r.count = 0;
+    r.error = "not implemented";
+    return r;
+}
+
+FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_t length) {
+    (void)path;
+    (void)offset;
+    (void)length;
+    FsBytesResult r;
+    r.value = NULL;
+    r.error = "not implemented";
+    return r;
+}

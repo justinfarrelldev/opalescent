@@ -793,6 +793,160 @@ impl ModuleResolver {
                 },
                 SymbolType::Function,
             ),
+            (
+                String::from("read_contents_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("Bytes"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("FileNotFoundError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("PermissionDeniedError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("ReadFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("IsADirectoryError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("InvalidPathError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("read_text_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::String],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("FileNotFoundError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("PermissionDeniedError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("ReadFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("IsADirectoryError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("InvalidPathError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("InvalidUtf8Error"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("read_lines_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::Array(alloc::boxed::Box::new(CoreType::String))],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("FileNotFoundError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("PermissionDeniedError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("ReadFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("IsADirectoryError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("InvalidPathError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("InvalidUtf8Error"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("read_bytes_at_offset_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![
+                        CoreType::Generic {
+                            name: String::from("FilesystemPath"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Int64,
+                        CoreType::Int64,
+                    ],
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("Bytes"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("FileNotFoundError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("PermissionDeniedError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("ReadFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("OffsetOutOfRangeError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("InvalidPathError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
             // `FilesystemPath`, `FileMetadata`, `FilePermissions` nominal types
             // and the twenty filesystem error nominal types.  These are tag-only
             // or field-bearing product types registered by `fs_builtins.rs`.

@@ -17,3 +17,9 @@ No issues yet.
 ## [2026-04-22] T0 preflight final blockers/nuances
 - Acceptance required exact stdout lines only; because compiler run mode prefixes `target/program`, evidence stdout was captured from direct executable invocation (`./target/program`) after compiling `/tmp/preflight_arrays.op`.
 - Runtime LSP diagnostics for `runtime/` directory timed out due clang option mismatch (`--background-index`, `--clang-tidy` unsupported in this environment). Rust `src/` diagnostics were clean.
+
+## [2026-04-22] T6 infra wiring completion
+-  initially failed twice due to policy constraints (missing doc comment on entry, then unhandled error-producing calls); resolved by adding doc block and guarding all four fallible calls.
+
+## [2026-04-22] T6 infra wiring completion
+- check /tmp/read_all.op initially failed twice due to policy constraints (missing doc comment on entry, then unhandled error-producing calls); resolved by adding a doc block and guarding all four fallible calls.
