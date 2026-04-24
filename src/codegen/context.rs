@@ -53,7 +53,7 @@ impl<'context> CodegenContext<'context> {
         module.set_triple(&inkwell_triple);
 
         let target_machine = Self::create_target_machine_for_triple(&inkwell_triple)
-            .ok_or_else(|| CodegenError::UnsupportedTarget(llvm_triple_str))?;
+            .ok_or(CodegenError::UnsupportedTarget(llvm_triple_str))?;
 
         Ok(Self {
             context,
@@ -65,6 +65,10 @@ impl<'context> CodegenContext<'context> {
     }
 
     /// Create a new codegen context with host target triple.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the host target cannot be materialized into an LLVM target machine.
     #[must_use]
     pub fn new(context: &'context Context, module_name: &str) -> Self {
         let host_triple = crate::build_system::targets::TargetTriple {
@@ -149,7 +153,7 @@ mod tests {
 
     #[test]
     fn for_triple_error_type_exists() {
-        let err = CodegenError::UnsupportedTarget("test-triple".to_string());
+        let err = CodegenError::UnsupportedTarget("test-triple".to_owned());
         match err {
             CodegenError::UnsupportedTarget(triple) => {
                 assert_eq!(triple, "test-triple");

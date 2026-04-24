@@ -23,8 +23,6 @@ use hot_reload::FunctionHotReloadMetadata;
 // Sub-modules
 /// Bytes stdlib built-in signature registration.
 mod bytes_builtins;
-/// Filesystem stdlib built-in type registration.
-mod fs_builtins;
 mod call_resolution;
 mod collections;
 /// ADT constructor expression and schema validation helpers.
@@ -34,6 +32,8 @@ mod declarations;
 mod expr_collections;
 mod expressions;
 mod expressions_guard;
+/// Filesystem stdlib built-in type registration.
+mod fs_builtins;
 /// Generic ADT and function instantiation metadata helpers.
 mod generics;
 mod helpers;

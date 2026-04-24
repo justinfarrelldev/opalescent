@@ -43,7 +43,7 @@ pub fn versioned_module_name(
 
 /// Returns the platform shared-library extension for hot-reload artifacts.
 #[must_use]
-pub fn shared_library_extension(target: &TargetTriple) -> &'static str {
+pub const fn shared_library_extension(target: &TargetTriple) -> &'static str {
     match target.platform {
         Platform::Windows => ".dll",
         Platform::MacOs => ".dylib",

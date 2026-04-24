@@ -261,6 +261,6 @@ pub fn executable_filename(stem: &str, target: &TargetTriple) -> String {
     if target.is_windows() {
         alloc::format!("{stem}.exe")
     } else {
-        stem.to_string()
+        stem.to_owned()
     }
 }

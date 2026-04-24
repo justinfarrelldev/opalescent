@@ -4,14 +4,17 @@ use super::*;
 
 mod bytes_stdlib;
 mod compile_failures;
-mod fs_path_manipulation;
-mod fs_markdown_roundtrip;
-mod fs_management;
-mod fs_reading;
-mod fs_writing;
-mod fs_directory;
-mod fs_permissions;
-mod fs_directory_operations;
+// The following integration test modules are planned but their files do not
+// yet exist; they are commented out so `cargo fmt` can resolve the module
+// tree. Re-enable each `mod` line when the corresponding `.rs` file is added.
+// mod fs_path_manipulation;
+// mod fs_markdown_roundtrip;
+// mod fs_management;
+// mod fs_reading;
+// mod fs_writing;
+// mod fs_directory;
+// mod fs_permissions;
+// mod fs_directory_operations;
 mod interactive_io;
 mod project_execution;
 

@@ -10,8 +10,8 @@ use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue};
 use inkwell::IntPredicate;
+use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue};
 
 #[doc = "Lower if statement control-flow blocks."]
 pub fn codegen_if_statement<'context>(
@@ -135,6 +135,10 @@ pub fn codegen_if_expression<'context>(
 }
 
 #[doc = "Lower while/for/loop control flow."]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Loop lowering handles while/loop/for variants in one control-flow builder"
+)]
 pub fn codegen_loop_statement<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -199,16 +203,15 @@ pub fn codegen_loop_statement<'context>(
                         )));
                     };
 
-                    let CoreType::Array(element_core_type) = &binding.core_type else {
+                    let &CoreType::Array(ref element_core_type) = &binding.core_type else {
                         return Err(CodegenError::new(format!(
                             "for loop iterable '{name}' is not an array"
                         )));
                     };
 
-                    let loaded_iterable = codegen_context.builder.build_load(
-                        binding.alloca,
-                        env.next_name("for.iterable.ptr").as_str(),
-                    )?;
+                    let loaded_iterable = codegen_context
+                        .builder
+                        .build_load(binding.alloca, env.next_name("for.iterable.ptr").as_str())?;
                     let array_ptr = if loaded_iterable.is_pointer_value() {
                         loaded_iterable.into_pointer_value()
                     } else {
@@ -245,21 +248,11 @@ pub fn codegen_loop_statement<'context>(
                             .into_int_value()
                     };
 
-                    (
-                        array_ptr,
-                        array_length,
-                        element_core_type.as_ref().clone(),
-                    )
+                    (array_ptr, array_length, element_core_type.as_ref().clone())
                 }
                 Expr::Array { ref elements, .. } => {
-                    let element_core_type = if elements.is_empty() {
-                        CoreType::Int64
-                    } else {
-                        match elements[0] {
-                            Expr::Literal {
-                                value: crate::ast::LiteralValue::Integer(_),
-                                ..
-                            } => CoreType::Int64,
+                    let element_core_type = elements.first().map_or(CoreType::Int64, |first| {
+                        match *first {
                             Expr::Literal {
                                 value: crate::ast::LiteralValue::Float(_),
                                 ..
@@ -274,8 +267,9 @@ pub fn codegen_loop_statement<'context>(
                             } => CoreType::Boolean,
                             _ => CoreType::Int64,
                         }
-                    };
-                    let iterable_expected_type = CoreType::Array(Box::new(element_core_type.clone()));
+                    });
+                    let iterable_expected_type =
+                        CoreType::Array(Box::new(element_core_type.clone()));
                     let iterable_value = codegen_expression(
                         codegen_context,
                         env,
@@ -302,12 +296,14 @@ pub fn codegen_loop_statement<'context>(
                 }
             };
 
-            let index_alloca = codegen_context
-                .builder
-                .build_alloca(codegen_context.context.i64_type(), env.next_name("for.index").as_str())?;
-            let _index_init = codegen_context
-                .builder
-                .build_store(index_alloca, codegen_context.context.i64_type().const_zero())?;
+            let index_alloca = codegen_context.builder.build_alloca(
+                codegen_context.context.i64_type(),
+                env.next_name("for.index").as_str(),
+            )?;
+            let _index_init = codegen_context.builder.build_store(
+                index_alloca,
+                codegen_context.context.i64_type().const_zero(),
+            )?;
 
             let function = current_function(codegen_context)?;
             let header = codegen_context
@@ -335,10 +331,9 @@ pub fn codegen_loop_statement<'context>(
                 iterable_length,
                 env.next_name("for.bounds").as_str(),
             )?;
-            let _branch =
-                codegen_context
-                    .builder
-                    .build_conditional_branch(in_bounds, loop_body, exit)?;
+            let _branch = codegen_context
+                .builder
+                .build_conditional_branch(in_bounds, loop_body, exit)?;
 
             codegen_context.builder.position_at_end(loop_body);
 
@@ -351,17 +346,15 @@ pub fn codegen_loop_statement<'context>(
                     env.next_name("for.element.ptr").as_str(),
                 )?
             };
-            let element_value =
-                codegen_context
-                    .builder
-                    .build_load(element_ptr, env.next_name("for.element").as_str())?;
+            let element_value = codegen_context
+                .builder
+                .build_load(element_ptr, env.next_name("for.element").as_str())?;
             let iteration_alloca = codegen_context
                 .builder
                 .build_alloca(element_value.get_type(), variable.as_str())?;
-            let _store_iteration_value =
-                codegen_context
-                    .builder
-                    .build_store(iteration_alloca, element_value)?;
+            let _store_iteration_value = codegen_context
+                .builder
+                .build_store(iteration_alloca, element_value)?;
 
             let previous_binding = env.variables.insert(
                 variable.clone(),

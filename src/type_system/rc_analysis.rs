@@ -5,8 +5,8 @@
 
 extern crate alloc;
 
-use crate::ast::{PassingMode, Stmt};
 use crate::ast::{Parameter, Type};
+use crate::ast::{PassingMode, Stmt};
 use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
@@ -268,9 +268,9 @@ impl RcAnalysis {
                         .as_ref()
                         .is_some_and(|else_stmt| Self::stmt_uses_var(else_stmt, variable))
             }
-            Stmt::For {
-                iterable, body, ..
-            } => Self::expr_uses_var(iterable, variable) || Self::stmt_uses_var(body, variable),
+            Stmt::For { iterable, body, .. } => {
+                Self::expr_uses_var(iterable, variable) || Self::stmt_uses_var(body, variable)
+            }
             Stmt::While {
                 condition, body, ..
             } => Self::expr_uses_var(condition, variable) || Self::stmt_uses_var(body, variable),
@@ -278,7 +278,10 @@ impl RcAnalysis {
                 expression,
                 else_body,
                 ..
-            } => Self::expr_uses_var(expression, variable) || Self::stmt_uses_var(else_body, variable),
+            } => {
+                Self::expr_uses_var(expression, variable)
+                    || Self::stmt_uses_var(else_body, variable)
+            }
             Stmt::Loop { body, .. } => Self::stmt_uses_var(body, variable),
             Stmt::Break { values, .. } | Stmt::Continue { values, .. } => values
                 .iter()
@@ -311,7 +314,9 @@ impl RcAnalysis {
                 Self::expr_uses_var(object, variable) || Self::expr_uses_var(index, variable)
             }
             Expr::Member { object, .. } => Self::expr_uses_var(object, variable),
-            Expr::Cast { expr, .. } | Expr::TypeOf { expr, .. } => Self::expr_uses_var(expr, variable),
+            Expr::Cast { expr, .. } | Expr::TypeOf { expr, .. } => {
+                Self::expr_uses_var(expr, variable)
+            }
             Expr::StringInterpolation { parts, .. } => parts.iter().any(|part| match part {
                 StringPart::Literal(_) => false,
                 StringPart::Expression(expr) => Self::expr_uses_var(expr, variable),
@@ -332,7 +337,9 @@ impl RcAnalysis {
             Expr::Array { elements, .. } => elements
                 .iter()
                 .any(|element| Self::expr_uses_var(element, variable)),
-            Expr::Match { scrutinee, arms, .. } => {
+            Expr::Match {
+                scrutinee, arms, ..
+            } => {
                 Self::expr_uses_var(scrutinee, variable)
                     || arms.iter().any(|arm| {
                         arm.guard
@@ -347,7 +354,10 @@ impl RcAnalysis {
                 captured_variables,
                 ..
             } => {
-                if captured_variables.iter().any(|captured| captured == variable) {
+                if captured_variables
+                    .iter()
+                    .any(|captured| captured == variable)
+                {
                     return true;
                 }
 
@@ -359,9 +369,7 @@ impl RcAnalysis {
                 }
             }
             Expr::Guard {
-                expr,
-                else_branch,
-                ..
+                expr, else_branch, ..
             } => Self::expr_uses_var(expr, variable) || Self::stmt_uses_var(else_branch, variable),
             Expr::Propagate { call, .. } => Self::expr_uses_var(call, variable),
         }
@@ -517,7 +525,8 @@ impl ReuseAnalysis {
 
         match (source_info.layout, target_info.layout) {
             (Some(source_layout), Some(target_layout)) => {
-                source_layout.size == target_layout.size && source_layout.align == target_layout.align
+                source_layout.size == target_layout.size
+                    && source_layout.align == target_layout.align
             }
             _ => true,
         }

@@ -12,7 +12,9 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Internal abstraction for resolving module entry symbols from dynamic libraries.
 trait SymbolResolver {
+    /// Resolve the exported module entry symbol from a loaded library.
     fn resolve_module_entry(
         &self,
         library: &Library,
@@ -21,6 +23,7 @@ trait SymbolResolver {
 }
 
 #[derive(Debug, Default, Clone, Copy)]
+/// `libloading`-based production implementation of [`SymbolResolver`].
 struct LibloadingSymbolResolver;
 
 impl SymbolResolver for LibloadingSymbolResolver {
@@ -98,11 +101,15 @@ pub trait ModuleLoader {
 /// Filesystem-backed module loader used in production code paths.
 #[derive(Debug, Default)]
 pub struct FsModuleLoader {
+    /// Loaded dynamic libraries keyed by module file name.
     loaded_libraries: HashMap<String, Library>,
+    /// Temporary copied paths keyed by module file name.
     loaded_library_paths: HashMap<String, PathBuf>,
+    /// Symbol resolver strategy used to load entry points.
     symbol_resolver: LibloadingSymbolResolver,
 }
 
+/// Monotonic counter used to build unique temporary copy file names.
 static TEMP_COPY_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 impl FsModuleLoader {
@@ -116,6 +123,8 @@ impl FsModuleLoader {
         }
     }
 
+    /// Build a unique temp path for a copied shared library candidate.
+    #[must_use]
     pub fn temp_copy_path_for(module_name: &str) -> PathBuf {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -134,6 +143,7 @@ impl FsModuleLoader {
         ))
     }
 
+    /// Load a library through a temp-copy indirection to avoid file locking issues.
     fn load_library(module_name: &str) -> Result<(Library, PathBuf), HotReloadError> {
         if fs::metadata(module_name).is_err() {
             return Err(HotReloadError::ModuleLoadFailed {
@@ -191,7 +201,7 @@ impl ModuleLoader for FsModuleLoader {
         drop(library);
 
         if let Some(temp_path) = self.loaded_library_paths.remove(module_name) {
-            let _ = fs::remove_file(temp_path);
+            drop(fs::remove_file(temp_path));
         }
 
         Ok(())
@@ -220,6 +230,7 @@ impl HostProcess {
         self.active_module.as_ref()
     }
 
+    /// Replace the active module snapshot with `module`.
     pub fn set_active_module(&mut self, module: LoadedModule) {
         self.active_module = Some(module);
     }

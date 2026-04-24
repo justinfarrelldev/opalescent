@@ -340,14 +340,14 @@ fn object_file_extension_darwin() {
 #[test]
 fn object_file_extension_legacy_fallbacks() {
     // Legacy 2-segment windows resolves as MSVC per Task 0.5
-    let t = parse_target_triple("x86_64-windows").unwrap();
-    assert_eq!(object_file_extension(&t), ".obj");
+    let windows_target = parse_target_triple("x86_64-windows").unwrap();
+    assert_eq!(object_file_extension(&windows_target), ".obj");
 
-    let t = parse_target_triple("x86_64-linux").unwrap();
-    assert_eq!(object_file_extension(&t), ".o");
+    let linux_target = parse_target_triple("x86_64-linux").unwrap();
+    assert_eq!(object_file_extension(&linux_target), ".o");
 
-    let t = parse_target_triple("aarch64-darwin").unwrap();
-    assert_eq!(object_file_extension(&t), ".o");
+    let darwin_target = parse_target_triple("aarch64-darwin").unwrap();
+    assert_eq!(object_file_extension(&darwin_target), ".o");
 }
 
 #[test]

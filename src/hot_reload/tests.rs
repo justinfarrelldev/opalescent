@@ -776,9 +776,7 @@ fn windows_dll_copy_before_load_uses_dll_extension() {
 fn compile_test_module(output_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     use std::process::Command;
 
-    let c_source = r#"
-void module_entry(void) {}
-"#;
+    let c_source = "\nvoid module_entry(void) {}\n";
 
     let c_file = output_path.with_extension("c");
     fs::write(&c_file, c_source)?;
@@ -799,7 +797,7 @@ void module_entry(void) {}
         .into());
     }
 
-    let _ = fs::remove_file(&c_file);
+    drop(fs::remove_file(&c_file));
     Ok(())
 }
 
@@ -814,7 +812,7 @@ fn fs_module_loader_loads_real_shared_library() {
         std::process::id()
     ));
 
-    let _ = fs::remove_file(&temp_dir);
+    drop(fs::remove_file(&temp_dir));
 
     compile_test_module(&temp_dir).expect("compile test module");
 
@@ -832,9 +830,9 @@ fn fs_module_loader_loads_real_shared_library() {
         "FsModuleLoader should load real shared library: {load_result:?}"
     );
 
-    let loaded = load_result.unwrap();
+    let loaded_module = load_result.unwrap();
     assert_eq!(
-        loaded.module_name, module_name,
+        loaded_module.module_name, module_name,
         "loaded module name should match input"
     );
 
@@ -844,7 +842,7 @@ fn fs_module_loader_loads_real_shared_library() {
         "FsModuleLoader should unload module: {unload_result:?}"
     );
 
-    let _ = fs::remove_file(&temp_dir);
+    drop(fs::remove_file(&temp_dir));
 }
 
 #[cfg(unix)]
@@ -852,7 +850,7 @@ fn fs_module_loader_loads_real_shared_library() {
 fn fs_module_loader_hot_swap_with_real_library_abi_compat() {
     use crate::hot_reload::loader::FsModuleLoader;
 
-    let mut temp_dir = std::env::temp_dir();
+    let temp_dir = std::env::temp_dir();
     let module_v1 = temp_dir.join(format!(
         "opalescent_hot_reload_test_v1_{}.so",
         std::process::id()
@@ -862,8 +860,8 @@ fn fs_module_loader_hot_swap_with_real_library_abi_compat() {
         std::process::id()
     ));
 
-    let _ = fs::remove_file(&module_v1);
-    let _ = fs::remove_file(&module_v2);
+    drop(fs::remove_file(&module_v1));
+    drop(fs::remove_file(&module_v2));
 
     compile_test_module(&module_v1).expect("compile v1 module");
     compile_test_module(&module_v2).expect("compile v2 module");
@@ -897,8 +895,8 @@ fn fs_module_loader_hot_swap_with_real_library_abi_compat() {
         "active module should be v2"
     );
 
-    let _ = fs::remove_file(&module_v1);
-    let _ = fs::remove_file(&module_v2);
+    drop(fs::remove_file(&module_v1));
+    drop(fs::remove_file(&module_v2));
 }
 
 #[test]

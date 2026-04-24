@@ -127,7 +127,7 @@ pub fn collect_imported_symbol_signatures(
             ..
         } = declaration
         {
-            if let Some(interface) = checker.module_interface(import_source) {
+            if let Some(interface) = checker.module_interface(import_source.as_str()) {
                 for import_item in items {
                     match import_item {
                         &ImportItem::Named {

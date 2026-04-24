@@ -223,7 +223,14 @@ pub fn declare_stdlib_function<'context>(
         }),
         "join_path_components" => module.get_function("join_path_components").or_else(|| {
             // base: i8*, components: i8**, count: i64
-            let ft = i8_ptr.fn_type(&[i8_ptr.into(), i8_ptr.ptr_type(AddressSpace::default()).into(), i64_type.into()], false);
+            let ft = i8_ptr.fn_type(
+                &[
+                    i8_ptr.into(),
+                    i8_ptr.ptr_type(AddressSpace::default()).into(),
+                    i64_type.into(),
+                ],
+                false,
+            );
             Some(module.add_function("join_path_components", ft, None))
         }),
         "path_parent_directory" => module.get_function("path_parent_directory").or_else(|| {
@@ -269,55 +276,54 @@ pub fn declare_stdlib_function<'context>(
             let ft = fs_string_array_result_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("read_lines_sync", ft, None))
         }),
-        "read_bytes_at_offset_sync" => module
-            .get_function("read_bytes_at_offset_sync")
-            .or_else(|| {
-                let fs_bytes_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
-                let ft = fs_bytes_result_type.fn_type(
-                    &[i8_ptr.into(), i64_type.into(), i64_type.into()],
-                    false,
-                );
-                Some(module.add_function("read_bytes_at_offset_sync", ft, None))
-            }),
+        "read_bytes_at_offset_sync" => {
+            module
+                .get_function("read_bytes_at_offset_sync")
+                .or_else(|| {
+                    let fs_bytes_result_type =
+                        ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+                    let ft = fs_bytes_result_type
+                        .fn_type(&[i8_ptr.into(), i64_type.into(), i64_type.into()], false);
+                    Some(module.add_function("read_bytes_at_offset_sync", ft, None))
+                })
+        }
         "write_contents_sync" => module.get_function("write_contents_sync").or_else(|| {
-            let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
             let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
             Some(module.add_function("write_contents_sync", ft, None))
         }),
         "write_text_sync" => module.get_function("write_text_sync").or_else(|| {
-            let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
             let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
             Some(module.add_function("write_text_sync", ft, None))
         }),
-        "write_contents_atomic_sync" => module
-            .get_function("write_contents_atomic_sync")
-            .or_else(|| {
-                let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
-                let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
-                Some(module.add_function("write_contents_atomic_sync", ft, None))
-            }),
+        "write_contents_atomic_sync" => {
+            module
+                .get_function("write_contents_atomic_sync")
+                .or_else(|| {
+                    let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
+                    Some(module.add_function("write_contents_atomic_sync", ft, None))
+                })
+        }
         "write_text_atomic_sync" => module.get_function("write_text_atomic_sync").or_else(|| {
-            let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
             let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
             Some(module.add_function("write_text_atomic_sync", ft, None))
         }),
         "append_contents_sync" => module.get_function("append_contents_sync").or_else(|| {
-            let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
             let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
             Some(module.add_function("append_contents_sync", ft, None))
         }),
         "append_text_sync" => module.get_function("append_text_sync").or_else(|| {
-            let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
             let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
             Some(module.add_function("append_text_sync", ft, None))
         }),
-        "write_bytes_at_offset_sync" => module
-            .get_function("write_bytes_at_offset_sync")
-            .or_else(|| {
-                let ft = fs_void_result_type
-                    .fn_type(&[i8_ptr.into(), i64_type.into(), i8_ptr.into()], false);
-                Some(module.add_function("write_bytes_at_offset_sync", ft, None))
-            }),
+        "write_bytes_at_offset_sync" => {
+            module
+                .get_function("write_bytes_at_offset_sync")
+                .or_else(|| {
+                    let ft = fs_void_result_type
+                        .fn_type(&[i8_ptr.into(), i64_type.into(), i8_ptr.into()], false);
+                    Some(module.add_function("write_bytes_at_offset_sync", ft, None))
+                })
+        }
         "create_file_sync" => module.get_function("create_file_sync").or_else(|| {
             let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("create_file_sync", ft, None))
@@ -342,12 +348,12 @@ pub fn declare_stdlib_function<'context>(
             let ft = fs_metadata_result_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("read_metadata_sync", ft, None))
         }),
-        "read_metadata_nofollow_sync" => {
-            module.get_function("read_metadata_nofollow_sync").or_else(|| {
+        "read_metadata_nofollow_sync" => module
+            .get_function("read_metadata_nofollow_sync")
+            .or_else(|| {
                 let ft = fs_metadata_result_type.fn_type(&[i8_ptr.into()], false);
                 Some(module.add_function("read_metadata_nofollow_sync", ft, None))
-            })
-        }
+            }),
         "create_directory_sync" => module.get_function("create_directory_sync").or_else(|| {
             let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("create_directory_sync", ft, None))
@@ -384,12 +390,14 @@ pub fn declare_stdlib_function<'context>(
             let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("is_directory_sync", ft, None))
         }),
-        "is_directory_nofollow_sync" => module
-            .get_function("is_directory_nofollow_sync")
-            .or_else(|| {
-                let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
-                Some(module.add_function("is_directory_nofollow_sync", ft, None))
-            }),
+        "is_directory_nofollow_sync" => {
+            module
+                .get_function("is_directory_nofollow_sync")
+                .or_else(|| {
+                    let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
+                    Some(module.add_function("is_directory_nofollow_sync", ft, None))
+                })
+        }
         _ => None,
     }
 }

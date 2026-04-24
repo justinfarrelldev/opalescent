@@ -1,5 +1,3 @@
-#![cfg(feature = "windows-wine")]
-
 //! Wine-based integration harness for Windows/MSVC filesystem testing.
 //!
 //! This module provides infrastructure for running Opalescent test projects
@@ -40,21 +38,24 @@ pub mod wine_harness {
         let output = Command::new("bash")
             .arg("scripts/verify-wine-prereqs.sh")
             .output()
-            .map_err(|e| format!("Failed to run prereq check script: {}", e))?;
+            .map_err(|e| format!("Failed to run prereq check script: {e}"))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stdout_trimmed = stdout.trim();
 
         if stdout_trimmed.starts_with("SKIP:") {
-            let reason = stdout_trimmed.strip_prefix("SKIP:").unwrap_or("unknown").trim();
-            return Err(reason.to_string());
+            let reason = stdout_trimmed
+                .strip_prefix("SKIP:")
+                .unwrap_or("unknown")
+                .trim();
+            return Err(reason.to_owned());
         }
 
         if stdout_trimmed.starts_with("OK:") {
             return Ok(());
         }
 
-        Err(format!("Unexpected prereq check output: {}", stdout_trimmed))
+        Err(format!("Unexpected prereq check output: {stdout_trimmed}"))
     }
 
     /// Build an Opalescent project for Windows target.
@@ -66,7 +67,10 @@ pub mod wine_harness {
         let project_path = manifest_dir.join("test-projects").join(project);
 
         if !project_path.exists() {
-            return Err(format!("Project directory not found: {}", project_path.display()));
+            return Err(format!(
+                "Project directory not found: {}",
+                project_path.display()
+            ));
         }
 
         let opal_binary = manifest_dir.join("target/release/opalescent");
@@ -83,17 +87,14 @@ pub mod wine_harness {
             .arg(target)
             .current_dir(&project_path)
             .output()
-            .map_err(|e| format!("Failed to run opal build: {}", e))?;
+            .map_err(|e| format!("Failed to run opal build: {e}"))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Build failed: {}", stderr));
+            return Err(format!("Build failed: {stderr}"));
         }
 
-        let exe_path = project_path
-            .join("target")
-            .join(target)
-            .join("program.exe");
+        let exe_path = project_path.join("target").join(target).join("program.exe");
 
         if !exe_path.exists() {
             return Err(format!(
@@ -120,11 +121,11 @@ pub mod wine_harness {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()
-            .map_err(|e| format!("Failed to execute under wine: {}", e))?;
+            .map_err(|e| format!("Failed to execute under wine: {e}"))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-        let exit_code = output.status.code().unwrap_or(-1);
+        let exit_code = output.status.code().unwrap_or(-1_i32);
 
         // Capture filesystem state (placeholder for now)
         let fs_dump = String::new();
@@ -147,25 +148,25 @@ pub mod wine_harness {
 
         // Create evidence directory if it doesn't exist
         std::fs::create_dir_all(&evidence_dir)
-            .map_err(|e| format!("Failed to create evidence directory: {}", e))?;
+            .map_err(|e| format!("Failed to create evidence directory: {e}"))?;
 
-        let base_name = format!("task-{}-{}", task_num, slug);
+        let base_name = format!("task-{task_num}-{slug}");
 
         // Write stdout
-        let stdout_path = evidence_dir.join(format!("{}-stdout.txt", base_name));
+        let stdout_path = evidence_dir.join(format!("{base_name}-stdout.txt"));
         let stdout_content = format!("EXIT={}\n{}", run.exit_code, run.stdout);
         std::fs::write(&stdout_path, stdout_content)
-            .map_err(|e| format!("Failed to write stdout evidence: {}", e))?;
+            .map_err(|e| format!("Failed to write stdout evidence: {e}"))?;
 
         // Write stderr
-        let stderr_path = evidence_dir.join(format!("{}-stderr.txt", base_name));
+        let stderr_path = evidence_dir.join(format!("{base_name}-stderr.txt"));
         std::fs::write(&stderr_path, &run.stderr)
-            .map_err(|e| format!("Failed to write stderr evidence: {}", e))?;
+            .map_err(|e| format!("Failed to write stderr evidence: {e}"))?;
 
         // Write fs dump
-        let fs_path = evidence_dir.join(format!("{}-fs.txt", base_name));
+        let fs_path = evidence_dir.join(format!("{base_name}-fs.txt"));
         std::fs::write(&fs_path, &run.fs_dump)
-            .map_err(|e| format!("Failed to write fs evidence: {}", e))?;
+            .map_err(|e| format!("Failed to write fs evidence: {e}"))?;
 
         Ok(())
     }
@@ -184,7 +185,7 @@ pub mod wine_harness {
             .arg("-R")
             .arg(root)
             .output()
-            .map_err(|e| format!("Failed to snapshot workspace: {}", e))?;
+            .map_err(|e| format!("Failed to snapshot workspace: {e}"))?;
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     }
@@ -192,12 +193,24 @@ pub mod wine_harness {
 
 #[cfg(test)]
 mod tests {
+    use super::WineRun;
     use super::wine_harness::*;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn harness_api_symbols_are_reachable() {
+        fn consume<T>(_value: T) {}
+
+        consume::<fn(&str, &str) -> Result<PathBuf, String>>(build_opal_project);
+        consume::<fn(&Path, &[&str]) -> Result<WineRun, String>>(run_under_wine);
+        consume::<fn(u32, &str, &WineRun) -> Result<(), String>>(capture_evidence);
+        consume::<fn(&Path) -> Result<String, String>>(snapshot_workspace);
+    }
 
     #[test]
     fn check_prereqs_smoke() {
         // This test verifies that check_prereqs can be called without panicking.
         // It may return Ok or Err depending on whether wine is installed.
-        let _ = check_prereqs();
+        drop(check_prereqs());
     }
 }

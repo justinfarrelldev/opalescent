@@ -170,7 +170,7 @@ fn codegen_let_statement<'context>(
             if let Some(&Expr::Constructor { ref fields, .. }) = initializer {
                 let mut field_aliases = alloc::collections::BTreeMap::new();
                 for field in fields {
-                    if let &Expr::Identifier { ref name, .. } = &field.value {
+                    if let Expr::Identifier { ref name, .. } = field.value {
                         field_aliases.insert(field.name.clone(), name.clone());
                     }
                 }
@@ -472,14 +472,13 @@ fn infer_core_type_from_expr<'context>(
             crate::ast::LiteralValue::Boolean(_) => CoreType::Boolean,
             crate::ast::LiteralValue::Void => CoreType::Unit,
         },
-        Expr::Array { ref elements, .. } => {
-            if let Some(first) = elements.first() {
+        Expr::Array { ref elements, .. } => elements.first().map_or_else(
+            || CoreType::Array(alloc::boxed::Box::new(CoreType::Int64)),
+            |first| {
                 let element_core = infer_core_type_from_expr(codegen_context, env, first);
                 CoreType::Array(alloc::boxed::Box::new(element_core))
-            } else {
-                CoreType::Array(alloc::boxed::Box::new(CoreType::Int64))
-            }
-        }
+            },
+        ),
         Expr::Call { ref callee, .. } => {
             infer_call_return_type(codegen_context, env, callee).unwrap_or(CoreType::Int64)
         }
@@ -521,9 +520,17 @@ fn infer_call_return_type<'context>(
 }
 
 /// Map known runtime functions to language-level return `CoreType`.
+#[expect(
+    clippy::too_many_lines,
+    reason = "Runtime return mapping is intentionally explicit and grouped by API surface"
+)]
 fn known_runtime_return_type(name: &str) -> Option<CoreType> {
     match name {
-        "take_input" | "bytes_to_hex" => Some(CoreType::String),
+        "take_input"
+        | "bytes_to_hex"
+        | "path_file_name"
+        | "path_file_extension"
+        | "read_text_sync" => Some(CoreType::String),
         "random_int8" => Some(CoreType::Int8),
         "random_int16" => Some(CoreType::Int16),
         "random_int32" | "bytes_length" => Some(CoreType::Int32),
@@ -579,60 +586,57 @@ fn known_runtime_return_type(name: &str) -> Option<CoreType> {
             })
         }
         // Path manipulation — infallible path returns
-        "path_from" | "join_path_components" | "path_parent_directory" | "normalize_path"
+        "path_from"
+        | "join_path_components"
+        | "path_parent_directory"
+        | "normalize_path"
         | "absolute_path_sync" => Some(CoreType::Generic {
             name: String::from("FilesystemPath"),
             type_args: Vec::new(),
         }),
-        // Path manipulation — string returns
-        "path_file_name" | "path_file_extension" => Some(CoreType::String),
         // File reading — bytes returns
         "read_contents_sync" | "read_bytes_at_offset_sync" => Some(CoreType::Generic {
             name: String::from("Bytes"),
             type_args: Vec::new(),
         }),
-        // File reading — string returns
-        "read_text_sync" => Some(CoreType::String),
         // File reading — string array return
         "read_lines_sync" => Some(CoreType::Array(alloc::boxed::Box::new(CoreType::String))),
-        // File writing — void returns (FsVoidResult)
+        // Unit-returning filesystem mutators
         "write_contents_sync"
         | "write_text_sync"
         | "write_contents_atomic_sync"
         | "write_text_atomic_sync"
         | "append_contents_sync"
         | "append_text_sync"
-        | "write_bytes_at_offset_sync" => Some(CoreType::Unit),
-        // File management — void returns
-        "create_file_sync" | "delete_file_sync" | "copy_file_sync" | "move_path_sync" => {
-            Some(CoreType::Unit)
-        }
-        // File management — boolean return
-        "path_exists_sync" => Some(CoreType::Boolean),
+        | "write_bytes_at_offset_sync"
+        | "create_file_sync"
+        | "delete_file_sync"
+        | "copy_file_sync"
+        | "move_path_sync"
+        | "create_directory_sync"
+        | "create_directory_recursive_sync"
+        | "delete_directory_sync"
+        | "delete_directory_recursive_sync"
+        | "set_permissions_sync" => Some(CoreType::Unit),
+        // Boolean-returning path and permission checks
+        "path_exists_sync"
+        | "is_file_sync"
+        | "is_file_nofollow_sync"
+        | "is_directory_sync"
+        | "is_directory_nofollow_sync"
+        | "can_read_sync"
+        | "can_write_sync"
+        | "can_execute_sync" => Some(CoreType::Boolean),
         // File management — FileMetadata returns
         "read_metadata_sync" | "read_metadata_nofollow_sync" => Some(CoreType::Generic {
             name: String::from("FileMetadata"),
             type_args: Vec::new(),
         }),
-        // Directory operations — void returns
-        "create_directory_sync"
-        | "create_directory_recursive_sync"
-        | "delete_directory_sync"
-        | "delete_directory_recursive_sync" => Some(CoreType::Unit),
         // Directory operations — FilesystemPath[] return
         "list_directory_sync" => Some(CoreType::Array(alloc::boxed::Box::new(CoreType::Generic {
             name: String::from("FilesystemPath"),
             type_args: Vec::new(),
         }))),
-        // Directory operations — boolean returns
-        "is_file_sync"
-        | "is_file_nofollow_sync"
-        | "is_directory_sync"
-        | "is_directory_nofollow_sync" => Some(CoreType::Boolean),
-        // Permissions — boolean returns
-        "can_read_sync" | "can_write_sync" | "can_execute_sync" => Some(CoreType::Boolean),
-        // Permissions — void return
-        "set_permissions_sync" => Some(CoreType::Unit),
         _ => None,
     }
 }
@@ -650,18 +654,15 @@ fn known_guard_success_type(name: &str) -> Option<CoreType> {
         "string_to_uint64" => Some(CoreType::UInt64),
         "string_to_float32" => Some(CoreType::Float32),
         "string_to_float64" => Some(CoreType::Float64),
-        "bytes_from_hex" | "bytes_slice" => Some(CoreType::Generic {
-            name: String::from("Bytes"),
-            type_args: Vec::new(),
-        }),
+        "bytes_from_hex" | "bytes_slice" | "read_contents_sync" | "read_bytes_at_offset_sync" => {
+            Some(CoreType::Generic {
+                name: String::from("Bytes"),
+                type_args: Vec::new(),
+            })
+        }
         // Filesystem — path returns
         "absolute_path_sync" => Some(CoreType::Generic {
             name: String::from("FilesystemPath"),
-            type_args: Vec::new(),
-        }),
-        // Filesystem — bytes returns
-        "read_contents_sync" | "read_bytes_at_offset_sync" => Some(CoreType::Generic {
-            name: String::from("Bytes"),
             type_args: Vec::new(),
         }),
         // Filesystem — string return

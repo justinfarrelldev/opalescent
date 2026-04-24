@@ -59,7 +59,9 @@ const RUNTIME_SOURCE: &str = concat!(
 
 /// Embedded C runtime headers used during native linking.
 const OPAL_PORTABILITY_H: &[u8] = include_bytes!("../runtime/opal_portability.h");
+/// Embedded reference-counting runtime header.
 const OPAL_RC_H: &[u8] = include_bytes!("../runtime/opal_rc.h");
+/// Embedded public runtime API header.
 const OPAL_RUNTIME_H: &[u8] = include_bytes!("../runtime/opal_runtime.h");
 
 /// Temporary runtime source file materialized for the system C compiler.
@@ -92,8 +94,7 @@ impl RuntimeTempFile {
         std::fs::write(dir.join("opal_portability.h"), OPAL_PORTABILITY_H)
             .map_err(CompileError::Io)?;
         std::fs::write(dir.join("opal_rc.h"), OPAL_RC_H).map_err(CompileError::Io)?;
-        std::fs::write(dir.join("opal_runtime.h"), OPAL_RUNTIME_H)
-            .map_err(CompileError::Io)?;
+        std::fs::write(dir.join("opal_runtime.h"), OPAL_RUNTIME_H).map_err(CompileError::Io)?;
 
         Ok(Self { dir, source_file })
     }
@@ -119,7 +120,7 @@ impl RuntimeTempFile {
 
 impl Drop for RuntimeTempFile {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.dir);
+        drop(std::fs::remove_dir_all(&self.dir));
     }
 }
 
@@ -329,18 +330,16 @@ fn compile_runtime_c_to_obj(
 ) -> Result<PathBuf, CompileError> {
     let obj_path = runtime_c_path.with_extension("obj");
 
-    let cc_bin = if let Ok(override_bin) = std::env::var("OPAL_MSVC_CC") {
-        override_bin
-    } else {
+    let cc_bin = std::env::var("OPAL_MSVC_CC").unwrap_or_else(|_| {
         #[cfg(windows)]
         {
-            "cl.exe".to_string()
+            "cl.exe".to_owned()
         }
         #[cfg(not(windows))]
         {
-            "clang-cl".to_string()
+            "clang-cl".to_owned()
         }
-    };
+    });
 
     let mut cmd = std::process::Command::new(&cc_bin);
     cmd.arg("/c");
@@ -408,10 +407,7 @@ pub fn link_object_files(
 
     // For MSVC targets, compile the runtime .c to .obj first
     let runtime_path = if target.is_windows_msvc() {
-        compile_runtime_c_to_obj(
-            runtime_temp_file.path(),
-            runtime_temp_file.include_dir(),
-        )?
+        compile_runtime_c_to_obj(runtime_temp_file.path(), runtime_temp_file.include_dir())?
     } else {
         runtime_temp_file.path().to_path_buf()
     };
@@ -649,13 +645,16 @@ pub fn compile_project(
                     continue;
                 }
 
-                let resolved_path_result = resolve_import_path(module_path, import_source);
+                let resolved_path_result =
+                    resolve_import_path(module_path, import_source.as_str());
                 let Ok(resolved_path) = resolved_path_result else {
                     continue;
                 };
                 if let Some(discovered_interface) = discovered_interfaces.get(&resolved_path) {
                     let mut source_keyed_interface = discovered_interface.clone();
-                    source_keyed_interface.module_path.clone_from(import_source);
+                    source_keyed_interface
+                        .module_path
+                        .clone_from(import_source);
                     checker.register_module_interface(source_keyed_interface);
                 }
             }
@@ -917,7 +916,7 @@ mod tests {
         );
     }
 
-    /// RED test: emit_object_file should accept a target parameter and emit ELF for Linux.
+    /// RED test: `emit_object_file` should accept a target parameter and emit ELF for Linux.
     #[test]
     fn emit_object_file_linux_produces_elf() {
         let context = Context::create();
@@ -940,7 +939,7 @@ mod tests {
         );
     }
 
-    /// RED test: emit_object_file should accept a target parameter and emit COFF for Windows MSVC.
+    /// RED test: `emit_object_file` should accept a target parameter and emit COFF for Windows MSVC.
     #[test]
     fn emit_object_file_windows_msvc_produces_coff() {
         let context = Context::create();
@@ -985,7 +984,7 @@ mod tests {
             &windows_target,
         );
         // It will fail (no LLVM in unit test context), but the signature must compile
-        let _ = result;
+        drop(result);
         std::fs::remove_dir_all(&output_dir).ok();
     }
 }

@@ -1,6 +1,6 @@
 //! Linker detection and selection based on target triple.
 
-use crate::build_system::targets::{Architecture, Platform, TargetTriple, TripleEnv};
+use crate::build_system::targets::{Platform, TargetTriple, TripleEnv};
 
 /// Supported linker variants for different platforms and toolchains.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,7 +19,7 @@ impl Linker {
     /// Return human-readable binary name for this linker.
     #[must_use]
     pub const fn binary_name(&self) -> &'static str {
-        match self {
+        match *self {
             Self::Msvc => "link.exe",
             Self::MinGw => "x86_64-w64-mingw32-gcc",
             Self::Clang => "clang",
@@ -46,7 +46,7 @@ impl Linker {
 /// assert_eq!(detect_preferred_linker(&linux), Linker::Cc);
 /// ```
 #[must_use]
-pub fn detect_preferred_linker(target: &TargetTriple) -> Linker {
+pub const fn detect_preferred_linker(target: &TargetTriple) -> Linker {
     match (target.platform, target.env) {
         (Platform::Windows, Some(TripleEnv::Gnu)) => Linker::MinGw,
         (Platform::Windows, _) => Linker::Msvc,
@@ -58,7 +58,7 @@ pub fn detect_preferred_linker(target: &TargetTriple) -> Linker {
 /// Check if the `-no-pie` flag should be added for the given target.
 ///
 /// The `-no-pie` flag is required on Linux to avoid Position-Independent Executable (PIE)
-/// relocation failures (`R_X86_64_32S`) on x86_64.
+/// relocation failures (`R_X86_64_32S`) on `x86_64`.
 #[must_use]
 fn needs_no_pie(target: &TargetTriple) -> bool {
     target.platform == Platform::Linux
@@ -74,7 +74,7 @@ pub fn detect_mingw() -> Option<std::path::PathBuf> {
         .output()
         .ok()?;
     if output.status.success() {
-        let path_str = String::from_utf8(output.stdout).ok()?.trim().to_string();
+        let path_str = String::from_utf8(output.stdout).ok()?.trim().to_owned();
         if !path_str.is_empty() {
             return Some(std::path::PathBuf::from(path_str));
         }
@@ -83,7 +83,7 @@ pub fn detect_mingw() -> Option<std::path::PathBuf> {
 }
 
 /// Windows CRT libraries required for Opalescent runtime when linking with MinGW.
-fn mingw_crt_libs() -> &'static [&'static str] {
+const fn mingw_crt_libs() -> &'static [&'static str] {
     &["-lbcrypt", "-luserenv", "-lws2_32", "-ladvapi32", "-lntdll"]
 }
 
@@ -93,11 +93,17 @@ fn mingw_crt_libs() -> &'static [&'static str] {
 /// handling differences between MSVC, MinGW, Clang, and GCC linkers.
 #[derive(Debug, Clone)]
 pub struct LinkerCommand {
+    /// Compilation target triple that drives linker behavior.
     target: TargetTriple,
+    /// Concrete linker implementation selected for the target.
     linker: Linker,
+    /// Object files and other linker inputs.
     inputs: Vec<std::path::PathBuf>,
+    /// Output executable path.
     output: std::path::PathBuf,
+    /// Optional runtime object/library to append.
     runtime: Option<std::path::PathBuf>,
+    /// Optional include directory for linker-invoked C toolchains.
     include_dir: Option<std::path::PathBuf>,
 }
 
@@ -143,89 +149,85 @@ impl LinkerCommand {
     /// Dispatches on the linker variant and constructs the appropriate command line.
     /// Paths containing spaces are automatically quoted.
     pub fn build(self) -> std::process::Command {
-        match self.linker {
-            Linker::Msvc => self.build_msvc(),
-            _ => {
-                let mut cmd = std::process::Command::new(self.linker.binary_name());
-
-                match self.linker {
-                    Linker::MinGw => {
-                        for input in &self.inputs {
-                            let arg = self.quote_if_needed(input.display().to_string());
-                            cmd.arg(arg);
-                        }
-                        if let Some(include_dir) = &self.include_dir {
-                            cmd.arg("-I")
-                                .arg(self.quote_if_needed(include_dir.display().to_string()));
-                        }
-                        if let Some(runtime) = &self.runtime {
-                            cmd.arg(runtime);
-                        }
-                        cmd.arg("-o")
-                            .arg(self.quote_if_needed(self.output.display().to_string()));
-                        for lib in mingw_crt_libs() {
-                            cmd.arg(lib);
-                        }
-                    }
-                    Linker::Clang => {
-                        for input in &self.inputs {
-                            let arg = self.quote_if_needed(input.display().to_string());
-                            cmd.arg(arg);
-                        }
-                        if let Some(include_dir) = &self.include_dir {
-                            cmd.arg("-I")
-                                .arg(self.quote_if_needed(include_dir.display().to_string()));
-                        }
-                        if let Some(runtime) = &self.runtime {
-                            cmd.arg(runtime);
-                        }
-                        cmd.arg("-o")
-                            .arg(self.quote_if_needed(self.output.display().to_string()));
-                    }
-                    Linker::Cc => {
-                        for input in &self.inputs {
-                            let arg = self.quote_if_needed(input.display().to_string());
-                            cmd.arg(arg);
-                        }
-                        if let Some(include_dir) = &self.include_dir {
-                            cmd.arg("-I")
-                                .arg(self.quote_if_needed(include_dir.display().to_string()));
-                        }
-                        if let Some(runtime) = &self.runtime {
-                            cmd.arg(runtime);
-                        }
-                        if needs_no_pie(&self.target) {
-                            cmd.arg("-no-pie");
-                        }
-                        cmd.arg("-o")
-                            .arg(self.quote_if_needed(self.output.display().to_string()));
-                    }
-                    Linker::Msvc => unreachable!(),
-                }
-
-                cmd
-            }
+        if self.linker == Linker::Msvc {
+            return self.build_msvc();
         }
+
+        let mut cmd = std::process::Command::new(self.linker.binary_name());
+
+        match self.linker {
+            Linker::MinGw => {
+                for input in &self.inputs {
+                    let arg = Self::quote_if_needed(input.display().to_string());
+                    cmd.arg(arg);
+                }
+                if let Some(include_dir) = self.include_dir.as_ref() {
+                    cmd.arg("-I")
+                        .arg(Self::quote_if_needed(include_dir.display().to_string()));
+                }
+                if let Some(runtime) = self.runtime.as_ref() {
+                    cmd.arg(runtime);
+                }
+                cmd.arg("-o")
+                    .arg(Self::quote_if_needed(self.output.display().to_string()));
+                for lib in mingw_crt_libs() {
+                    cmd.arg(lib);
+                }
+            }
+            Linker::Clang => {
+                for input in &self.inputs {
+                    let arg = Self::quote_if_needed(input.display().to_string());
+                    cmd.arg(arg);
+                }
+                if let Some(include_dir) = self.include_dir.as_ref() {
+                    cmd.arg("-I")
+                        .arg(Self::quote_if_needed(include_dir.display().to_string()));
+                }
+                if let Some(runtime) = self.runtime.as_ref() {
+                    cmd.arg(runtime);
+                }
+                cmd.arg("-o")
+                    .arg(Self::quote_if_needed(self.output.display().to_string()));
+            }
+            Linker::Cc => {
+                for input in &self.inputs {
+                    let arg = Self::quote_if_needed(input.display().to_string());
+                    cmd.arg(arg);
+                }
+                if let Some(include_dir) = self.include_dir.as_ref() {
+                    cmd.arg("-I")
+                        .arg(Self::quote_if_needed(include_dir.display().to_string()));
+                }
+                if let Some(runtime) = self.runtime.as_ref() {
+                    cmd.arg(runtime);
+                }
+                if needs_no_pie(&self.target) {
+                    cmd.arg("-no-pie");
+                }
+                cmd.arg("-o")
+                    .arg(Self::quote_if_needed(self.output.display().to_string()));
+            }
+            Linker::Msvc => unreachable!(),
+        }
+
+        cmd
     }
 
     /// Build MSVC linker command with platform-specific binary selection.
     fn build_msvc(self) -> std::process::Command {
-        let linker_bin = if let Ok(override_bin) = std::env::var("OPAL_MSVC_LINKER") {
-            override_bin
-        } else {
+        let linker_bin = std::env::var("OPAL_MSVC_LINKER").unwrap_or_else(|_| {
             #[cfg(windows)]
             {
-                "link.exe".to_string()
+                "link.exe".to_owned()
             }
             #[cfg(not(windows))]
             {
                 ["lld-link", "lld-link-14", "lld-link-15"]
                     .iter()
                     .find(|&&name| Self::which_in_path(name))
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "lld-link".to_string())
+                    .map_or_else(|| "lld-link".to_owned(), |symbol| (*symbol).to_owned())
             }
-        };
+        });
 
         let mut cmd = std::process::Command::new(&linker_bin);
 
@@ -256,9 +258,9 @@ impl LinkerCommand {
     ) -> Vec<String> {
         let mut args = vec![
             format!("/OUT:{}", output.display()),
-            "/SUBSYSTEM:CONSOLE".to_string(),
-            "/MACHINE:X64".to_string(),
-            "/DEFAULTLIB:libcmt".to_string(),
+            "/SUBSYSTEM:CONSOLE".to_owned(),
+            "/MACHINE:X64".to_owned(),
+            "/DEFAULTLIB:libcmt".to_owned(),
         ];
 
         for input in inputs {
@@ -281,9 +283,9 @@ impl LinkerCommand {
     }
 
     /// Quote a path if it contains spaces.
-    fn quote_if_needed(&self, path: String) -> String {
+    fn quote_if_needed(path: String) -> String {
         if path.contains(' ') {
-            format!("\"{}\"", path)
+            format!("\"{path}\"")
         } else {
             path
         }
@@ -302,6 +304,7 @@ impl LinkerCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::build_system::targets::Architecture;
 
     #[test]
     fn linker_command_cc_builds_correct_args() {
@@ -399,31 +402,31 @@ mod tests {
             .get_args()
             .map(|s| s.to_string_lossy().to_string())
             .collect();
-        assert!(args.contains(&"-lbcrypt".to_string()), "must have -lbcrypt");
+        assert!(args.contains(&"-lbcrypt".to_owned()), "must have -lbcrypt");
         assert!(
-            args.contains(&"-luserenv".to_string()),
+            args.contains(&"-luserenv".to_owned()),
             "must have -luserenv"
         );
-        assert!(args.contains(&"-lws2_32".to_string()), "must have -lws2_32");
+        assert!(args.contains(&"-lws2_32".to_owned()), "must have -lws2_32");
         assert!(
-            args.contains(&"-ladvapi32".to_string()),
+            args.contains(&"-ladvapi32".to_owned()),
             "must have -ladvapi32"
         );
-        assert!(args.contains(&"-lntdll".to_string()), "must have -lntdll");
+        assert!(args.contains(&"-lntdll".to_owned()), "must have -lntdll");
     }
 
     #[test]
     fn detect_mingw_returns_some_when_available() {
         // This test only verifies the function exists and returns the right type.
         // On CI without MinGW, it returns None — that's fine.
-        let result = detect_mingw();
-        // Just verify it compiles and returns Option<PathBuf>
-        let _ = result.is_some();
+        // Just verify it compiles and returns Option<PathBuf>.
+        drop(detect_mingw());
     }
 
     #[test]
     fn linker_command_msvc_builds_correct_args() {
         #[cfg(not(windows))]
+        // SAFETY: Test-only environment mutation scoped to this test body.
         unsafe {
             std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
             std::env::remove_var("OPAL_MSVC_LINKER");
@@ -452,9 +455,9 @@ mod tests {
             args.iter().any(|a| a == "/OUT:program.exe"),
             "must have /OUT:program.exe"
         );
-        assert!(args.contains(&"main.obj".to_string()), "must have main.obj");
+        assert!(args.contains(&"main.obj".to_owned()), "must have main.obj");
         assert!(
-            args.contains(&"runtime.obj".to_string()),
+            args.contains(&"runtime.obj".to_owned()),
             "must have runtime.obj"
         );
     }
@@ -518,21 +521,23 @@ mod tests {
 
     #[test]
     fn no_pie_flag_only_on_linux() {
+        fn has_arg(command: &std::process::Command, needle: &str) -> bool {
+            command
+                .get_args()
+                .any(|argument| argument.to_string_lossy() == needle)
+        }
+
         // Test 1: Linux GNU — should have -no-pie
         let linux_gnu = TargetTriple {
             arch: Architecture::X86_64,
             platform: Platform::Linux,
             env: Some(TripleEnv::Gnu),
         };
-        let cmd = LinkerCommand::new(&linux_gnu, std::path::PathBuf::from("program"))
+        let linux_gnu_cmd = LinkerCommand::new(&linux_gnu, std::path::PathBuf::from("program"))
             .with_input(std::path::PathBuf::from("main.o"))
             .build();
-        let args: Vec<String> = cmd
-            .get_args()
-            .map(|s| s.to_string_lossy().to_string())
-            .collect();
         assert!(
-            args.contains(&"-no-pie".to_string()),
+            has_arg(&linux_gnu_cmd, "-no-pie"),
             "Linux GNU should have -no-pie"
         );
 
@@ -542,15 +547,11 @@ mod tests {
             platform: Platform::Linux,
             env: Some(TripleEnv::Musl),
         };
-        let cmd = LinkerCommand::new(&linux_musl, std::path::PathBuf::from("program"))
+        let linux_musl_cmd = LinkerCommand::new(&linux_musl, std::path::PathBuf::from("program"))
             .with_input(std::path::PathBuf::from("main.o"))
             .build();
-        let args: Vec<String> = cmd
-            .get_args()
-            .map(|s| s.to_string_lossy().to_string())
-            .collect();
         assert!(
-            args.contains(&"-no-pie".to_string()),
+            has_arg(&linux_musl_cmd, "-no-pie"),
             "Linux MUSL should have -no-pie"
         );
 
@@ -560,15 +561,12 @@ mod tests {
             platform: Platform::Windows,
             env: Some(TripleEnv::Msvc),
         };
-        let cmd = LinkerCommand::new(&windows_msvc, std::path::PathBuf::from("program.exe"))
-            .with_input(std::path::PathBuf::from("main.obj"))
-            .build();
-        let args: Vec<String> = cmd
-            .get_args()
-            .map(|s| s.to_string_lossy().to_string())
-            .collect();
+        let windows_msvc_cmd =
+            LinkerCommand::new(&windows_msvc, std::path::PathBuf::from("program.exe"))
+                .with_input(std::path::PathBuf::from("main.obj"))
+                .build();
         assert!(
-            !args.contains(&"-no-pie".to_string()),
+            !has_arg(&windows_msvc_cmd, "-no-pie"),
             "Windows MSVC should NOT have -no-pie"
         );
 
@@ -578,15 +576,11 @@ mod tests {
             platform: Platform::MacOs,
             env: None,
         };
-        let cmd = LinkerCommand::new(&darwin, std::path::PathBuf::from("program"))
+        let darwin_cmd = LinkerCommand::new(&darwin, std::path::PathBuf::from("program"))
             .with_input(std::path::PathBuf::from("main.o"))
             .build();
-        let args: Vec<String> = cmd
-            .get_args()
-            .map(|s| s.to_string_lossy().to_string())
-            .collect();
         assert!(
-            !args.contains(&"-no-pie".to_string()),
+            !has_arg(&darwin_cmd, "-no-pie"),
             "macOS Darwin should NOT have -no-pie"
         );
     }
@@ -595,6 +589,7 @@ mod tests {
     #[cfg(not(windows))]
     fn msvc_linker_on_linux_host_uses_lld_link() {
         // Set XWIN_CACHE to a fake path
+        // SAFETY: Test-only environment mutation scoped to this test body.
         unsafe {
             std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
             std::env::remove_var("OPAL_MSVC_LINKER");
@@ -630,6 +625,7 @@ mod tests {
     #[test]
     #[cfg(not(windows))]
     fn msvc_linker_env_override_respected() {
+        // SAFETY: Test-only environment mutation scoped to this test body.
         unsafe {
             std::env::set_var("OPAL_MSVC_LINKER", "/custom/my-linker");
             std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
@@ -644,6 +640,7 @@ mod tests {
             .build();
         let prog = cmd.get_program().to_string_lossy().to_string();
         assert_eq!(prog, "/custom/my-linker");
+        // SAFETY: Test-only environment mutation scoped to this test body.
         unsafe {
             std::env::remove_var("OPAL_MSVC_LINKER");
         }
@@ -652,6 +649,7 @@ mod tests {
     #[test]
     #[cfg(not(windows))]
     fn msvc_linker_shared_args_present() {
+        // SAFETY: Test-only environment mutation scoped to this test body.
         unsafe {
             std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
             std::env::remove_var("OPAL_MSVC_LINKER");
@@ -673,15 +671,15 @@ mod tests {
             "must have /OUT:"
         );
         assert!(
-            args.contains(&"/SUBSYSTEM:CONSOLE".to_string()),
+            args.contains(&"/SUBSYSTEM:CONSOLE".to_owned()),
             "must have /SUBSYSTEM:CONSOLE"
         );
         assert!(
-            args.contains(&"/MACHINE:X64".to_string()),
+            args.contains(&"/MACHINE:X64".to_owned()),
             "must have /MACHINE:X64"
         );
         assert!(
-            args.contains(&"/DEFAULTLIB:libcmt".to_string()),
+            args.contains(&"/DEFAULTLIB:libcmt".to_owned()),
             "must have /DEFAULTLIB:libcmt"
         );
     }

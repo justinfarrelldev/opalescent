@@ -9,7 +9,11 @@ impl TypeChecker {
         receiver_type: &CoreType,
         member_name: &str,
     ) -> Option<CoreType> {
-        let CoreType::Generic { ref name, ref type_args } = *receiver_type else {
+        let CoreType::Generic {
+            ref name,
+            ref type_args,
+        } = *receiver_type
+        else {
             return None;
         };
         if name != "Weak" {
