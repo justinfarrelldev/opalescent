@@ -1,0 +1,5 @@
+name = "_fs_write_text_atomic"
+version = "0.1.0"
+
+[build]
+targets = ["x86_64-linux"]

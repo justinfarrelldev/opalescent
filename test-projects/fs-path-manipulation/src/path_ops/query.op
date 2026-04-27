@@ -1,0 +1,8 @@
+import path_from, path_file_name, path_file_extension, path_parent_directory, path_to_string from standard
+
+##
+  Description: Summarizes name, extension, and parent queries for a raw path in one string.
+##
+public let query_show = f(raw: string): string =>
+    let value = path_from(raw)
+    return 'name={path_file_name(value)} ext={path_file_extension(value)} parent={path_to_string(path_parent_directory(value))}'

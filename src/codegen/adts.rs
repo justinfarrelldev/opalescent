@@ -10,6 +10,7 @@ use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
+use inkwell::values::IntValue;
 use inkwell::values::{BasicValue, BasicValueEnum};
 
 #[doc = "Instantiate a concrete ADT symbol name for generic arguments."]
@@ -69,7 +70,13 @@ pub fn codegen_field_access_expression<'context>(
     };
 
     if let Some(lowered) =
-        codegen_intrinsic_member_access(codegen_context, env, &binding, effective_member_name)?
+        codegen_intrinsic_member_access(
+            codegen_context,
+            env,
+            effective_receiver_name.as_str(),
+            &binding,
+            effective_member_name,
+        )?
     {
         return Ok(lowered);
     }
@@ -112,38 +119,93 @@ pub fn codegen_field_access_expression<'context>(
 fn codegen_intrinsic_member_access<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
+    receiver_name: &str,
     binding: &VariableBinding<'context>,
     member_name: &str,
 ) -> Result<Option<BasicValueEnum<'context>>, CodegenError> {
-    let &CoreType::Generic {
+    if let &CoreType::Generic {
         ref name,
         ref type_args,
     } = &binding.core_type
-    else {
-        return Ok(None);
-    };
-
-    if name != "Bytes" || !type_args.is_empty() || member_name != "length" {
-        return Ok(None);
+    {
+        if name == "Bytes" && type_args.is_empty() && member_name == "length" {
+            let runtime_function = crate::codegen::functions_stdlib::declare_stdlib_function(
+                codegen_context,
+                "bytes_length",
+            )
+            .ok_or_else(|| CodegenError::new(String::from("bytes_length declaration missing")))?;
+            let receiver_value = codegen_context
+                .builder
+                .build_load(binding.alloca, &env.next_name("bytes.length.receiver"))?;
+            let call_site = codegen_context.builder.build_call(
+                runtime_function,
+                &[receiver_value.into()],
+                &env.next_name("bytes.length.call"),
+            )?;
+            let Some(length_value) = call_site.try_as_basic_value().basic() else {
+                return Err(CodegenError::new(String::from(
+                    "bytes_length should return an int32 value",
+                )));
+            };
+            return Ok(Some(length_value));
+        }
     }
 
-    let runtime_function =
-        crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, "bytes_length")
-            .ok_or_else(|| CodegenError::new(String::from("bytes_length declaration missing")))?;
-    let receiver_value = codegen_context
-        .builder
-        .build_load(binding.alloca, &env.next_name("bytes.length.receiver"))?;
-    let call_site = codegen_context.builder.build_call(
-        runtime_function,
-        &[receiver_value.into()],
-        &env.next_name("bytes.length.call"),
-    )?;
-    let Some(length_value) = call_site.try_as_basic_value().basic() else {
+    if binding.core_type == CoreType::String && member_name == "length" {
+        let runtime_function = crate::codegen::functions_stdlib::declare_stdlib_function(
+            codegen_context,
+            "string_length",
+        )
+        .ok_or_else(|| CodegenError::new(String::from("string_length declaration missing")))?;
+        let receiver_value = codegen_context
+            .builder
+            .build_load(binding.alloca, &env.next_name("string.length.receiver"))?;
+        let call_site = codegen_context.builder.build_call(
+            runtime_function,
+            &[receiver_value.into()],
+            &env.next_name("string.length.call"),
+        )?;
+        let Some(length_value) = call_site.try_as_basic_value().basic() else {
+            return Err(CodegenError::new(String::from(
+                "string_length should return an int64 value",
+            )));
+        };
+        return Ok(Some(length_value));
+    }
+
+    if matches!(binding.core_type, CoreType::Array(_)) && member_name == "length" {
+        let length_value = resolve_array_length_value(codegen_context, env, receiver_name, binding)?;
+        return Ok(Some(length_value.as_basic_value_enum()));
+    }
+
+    Ok(None)
+}
+
+#[doc = "Resolve the runtime-tracked length value for dynamic array `.length` access."]
+fn resolve_array_length_value<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &CodegenEnv<'context>,
+    receiver_name: &str,
+    binding: &VariableBinding<'context>,
+) -> Result<IntValue<'context>, CodegenError> {
+    if let Some(length) = binding.length {
+        return Ok(codegen_context
+            .context
+            .i64_type()
+            .const_int(u64::from(length), false));
+    }
+
+    let len_binding_name = format!("{receiver_name}_len");
+    let Some(len_binding) = env.variables.get(len_binding_name.as_str()) else {
         return Err(CodegenError::new(String::from(
-            "bytes_length should return an int32 value",
+            "array length binding is missing for intrinsic .length access",
         )));
     };
-    Ok(Some(length_value))
+
+    Ok(codegen_context
+        .builder
+        .build_load(len_binding.alloca, len_binding_name.as_str())?
+        .into_int_value())
 }
 
 #[doc = "Lower match expressions to switch-based control flow."]

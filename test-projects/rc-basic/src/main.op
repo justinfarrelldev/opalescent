@@ -6,5 +6,6 @@ entry main = f(args: string[]): void =>
 	let first = 'hello'
 	let second = 'world'
 	let words = [first, second]
-	print('rc-basic: hello world')
+	let _words_count = words.length
+	print('rc-basic: {first} {second}')
 	return void

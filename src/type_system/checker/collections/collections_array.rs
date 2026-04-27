@@ -134,6 +134,10 @@ impl TypeChecker {
             return None;
         };
 
+        if member_name == "length" {
+            return Some(CoreType::Int64);
+        }
+
         let intrinsic = alloc::format!("[t].{member_name}");
         let symbol = self.symbol_table().lookup(&intrinsic)?;
         Some(Self::bind_array_signature(

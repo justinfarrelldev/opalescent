@@ -1,0 +1,7 @@
+import type Block from ./block.types
+
+##
+  Description: Exposes the block discriminator string for the roundtrip fixture's nominal block type.
+##
+public let block_kind = f(block: Block): string =>
+    return block.kind

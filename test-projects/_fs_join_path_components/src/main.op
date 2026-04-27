@@ -1,0 +1,29 @@
+import path_from, join_path_components, path_parent_directory, path_file_name from standard
+
+##
+  Description: Prints the five locked join_path_components lexical cases.
+##
+entry main = f(args: string[]): void =>
+    let case0 = join_path_components(path_from('home'), ['user', 'docs'])
+    let case0_home = path_file_name(path_parent_directory(path_parent_directory(case0)))
+    let case0_user = path_file_name(path_parent_directory(case0))
+    let case0_docs = path_file_name(case0)
+    print('home + [user, docs] -> {case0_home}/{case0_user}/{case0_docs}')
+
+    let case1 = join_path_components(path_from('a/'), ['b'])
+    let case1_a = path_file_name(path_parent_directory(case1))
+    let case1_b = path_file_name(case1)
+    print('a/ + [b] -> {case1_a}/{case1_b}')
+
+    let case2 = join_path_components(path_from('a'), ['/b', 'c'])
+    let case2_b = path_file_name(path_parent_directory(case2))
+    let case2_c = path_file_name(case2)
+    print('a + [/b, c] -> /{case2_b}/{case2_c}')
+
+    let case3 = join_path_components(path_from('a'), [])
+    print('a + [] -> {path_file_name(case3)}')
+
+    let case4 = join_path_components(path_from(''), ['x'])
+    print('`` + [x] -> {path_file_name(case4)}')
+
+    return void

@@ -282,10 +282,12 @@ fn codegen_guard_statement<'context>(
     let value = codegen_expression(codegen_context, env, expression, None)?;
     if value.is_struct_value() {
         let struct_value = value.into_struct_value();
-        if struct_value.get_type().count_fields() >= 2 {
+        let field_count = struct_value.get_type().count_fields();
+        if field_count >= 2 {
+            let error_field_index = if field_count >= 3 { 2 } else { 1 };
             let error_value = codegen_context.builder.build_extract_value(
                 struct_value,
-                1,
+                error_field_index,
                 env.next_name("guard.err").as_str(),
             )?;
 
@@ -295,12 +297,27 @@ fn codegen_guard_statement<'context>(
                     0,
                     env.next_name("guard.ok").as_str(),
                 )?;
+                let success_core_type =
+                    infer_guard_success_core_type(env, expression, success_value.get_type());
                 let success_alloca = codegen_context
                     .builder
                     .build_alloca(success_value.get_type(), success_binding)?;
                 let _success_init = codegen_context
                     .builder
                     .build_store(success_alloca, success_value.get_type().const_zero())?;
+                let len_binding_name = format!("{success_binding}_len");
+                let len_alloca = if matches!(success_core_type, CoreType::Array(_)) && field_count >= 3 {
+                    let length_alloca = codegen_context
+                        .builder
+                        .build_alloca(codegen_context.context.i64_type(), len_binding_name.as_str())?;
+                    let _length_init = codegen_context.builder.build_store(
+                        length_alloca,
+                        codegen_context.context.i64_type().const_zero(),
+                    )?;
+                    Some(length_alloca)
+                } else {
+                    None
+                };
 
                 let current_fn = current_function(codegen_context)?;
                 let success_block = codegen_context
@@ -327,6 +344,16 @@ fn codegen_guard_statement<'context>(
                 let _store_ok = codegen_context
                     .builder
                     .build_store(success_alloca, success_value)?;
+                if let Some(length_alloca) = len_alloca {
+                    let length_value = codegen_context.builder.build_extract_value(
+                        struct_value,
+                        1,
+                        env.next_name("guard.len").as_str(),
+                    )?;
+                    let _store_len = codegen_context
+                        .builder
+                        .build_store(length_alloca, length_value)?;
+                }
                 if let Some(block) = codegen_context.builder.get_insert_block() {
                     if block.get_terminator().is_none() {
                         let _jump_merge = codegen_context
@@ -369,8 +396,17 @@ fn codegen_guard_statement<'context>(
                 }
 
                 codegen_context.builder.position_at_end(merge_block);
-                let success_core_type =
-                    infer_guard_success_core_type(env, expression, success_value.get_type());
+                if let Some(len_alloca) = len_alloca {
+                    env.variables.insert(
+                        len_binding_name,
+                        VariableBinding {
+                            alloca: len_alloca,
+                            core_type: CoreType::Int64,
+                            length: None,
+                            is_mutable: false,
+                        },
+                    );
+                }
                 env.variables.insert(
                     success_binding.to_owned(),
                     VariableBinding {
@@ -482,6 +518,30 @@ fn infer_core_type_from_expr<'context>(
         Expr::Call { ref callee, .. } => {
             infer_call_return_type(codegen_context, env, callee).unwrap_or(CoreType::Int64)
         }
+        Expr::Propagate { ref call, .. } => infer_core_type_from_expr(codegen_context, env, call),
+        Expr::Identifier { ref name, .. } => env
+            .variables
+            .get(name)
+            .map_or(CoreType::Int64, |binding| binding.core_type.clone()),
+        Expr::Member {
+            ref object,
+            ref member,
+            ..
+        } => {
+            let object_type = infer_core_type_from_expr(codegen_context, env, object);
+            match object_type {
+                CoreType::String | CoreType::Array(_) if member == "length" => {
+                    CoreType::Int64
+                }
+                CoreType::Generic {
+                    ref name,
+                    ref type_args,
+                } if name == "Bytes" && type_args.is_empty() && member == "length" => {
+                    CoreType::Int32
+                }
+                _ => CoreType::Int64,
+            }
+        }
         _ => CoreType::Int64,
     }
 }
@@ -530,7 +590,8 @@ fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "bytes_to_hex"
         | "path_file_name"
         | "path_file_extension"
-        | "read_text_sync" => Some(CoreType::String),
+        | "read_text_sync"
+        | "read_first_line_sync" => Some(CoreType::String),
         "random_int8" => Some(CoreType::Int8),
         "random_int16" => Some(CoreType::Int16),
         "random_int32" | "bytes_length" => Some(CoreType::Int32),
@@ -666,7 +727,7 @@ fn known_guard_success_type(name: &str) -> Option<CoreType> {
             type_args: Vec::new(),
         }),
         // Filesystem — string return
-        "read_text_sync" => Some(CoreType::String),
+        "read_text_sync" | "read_first_line_sync" => Some(CoreType::String),
         // Filesystem — string array return
         "read_lines_sync" => Some(CoreType::Array(alloc::boxed::Box::new(CoreType::String))),
         // Filesystem — void returns (writing, file mgmt, dir ops, permissions)

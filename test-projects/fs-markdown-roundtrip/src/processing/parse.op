@@ -1,0 +1,8 @@
+import path_from, read_lines_sync, int64_to_string from standard
+
+##
+  Description: Counts markdown lines from disk as the fixture's parse-stage summary.
+##
+public let parse_summary = f(raw_path: string): string errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidUtf8Error, ReadFailureError =>
+    let lines = propagate read_lines_sync(path_from(raw_path))
+    return 'lines={int64_to_string(lines.length)}'

@@ -1,0 +1,9 @@
+import path_from, list_directory_sync, int64_to_string from standard
+
+##
+  Description: Lists a seeded directory and returns a deterministic count summary string.
+##
+public let summarize_directory = f(project_root: string, raw_path: string): string errors InvalidPathError, DirectoryNotFoundError, PermissionDeniedError, IsNotADirectoryError =>
+    guard list_directory_sync(path_from('{project_root}{raw_path}')) into listed else err =>
+        return propagate err
+    return 'entries={int64_to_string(listed.length)}'

@@ -1,0 +1,26 @@
+import path_from, absolute_path_sync, path_file_name, path_to_string from standard
+
+##
+  Description: Shared helper for deterministic absolute_path_sync line rendering.
+##
+public let resolve_with_expected_leaf = f(raw: string, expected_leaf: string, absolute_text: string): string =>
+    guard absolute_path_sync(path_from(raw)) into resolved else err =>
+        return '{raw}: error'
+
+    if path_file_name(resolved) is expected_leaf:
+        let _unused_absolute_text = absolute_text
+        return '{raw} -> {path_to_string(resolved)}'
+
+    return '{raw}: error'
+
+##
+  Description: Shared helper for root absolute-path rendering.
+##
+public let resolve_root = f(raw: string): string =>
+    guard absolute_path_sync(path_from(raw)) into resolved else err =>
+        return '{raw}: error'
+
+    if path_file_name(resolved) is '':
+        return '{raw} -> {path_to_string(resolved)}'
+
+    return '{raw}: error'

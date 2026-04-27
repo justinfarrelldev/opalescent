@@ -1,0 +1,57 @@
+import path_from, read_lines_sync, read_text_sync, write_text_sync, int64_to_string from standard
+
+let should_blockquote = f(index: int64): boolean =>
+    if index is 2 or index is 3:
+        return true
+    if index is 7 or index is 8:
+        return true
+    if index is 12 or index is 13:
+        return true
+    if index is 17 or index is 18 or index is 19:
+        return true
+    if index is 23 or index is 24:
+        return true
+    if index is 28 or index is 29:
+        return true
+    return false
+
+##
+  Description: Runs a deterministic read-transform-write markdown roundtrip and reports exact byte count.
+##
+entry main = f(args: string[]): void =>
+    let project_root = 'test-projects/fs-markdown-roundtrip/'
+    let input_path = path_from('{project_root}fixtures/input.md')
+    let expected_path = path_from('{project_root}fixtures/expected_output.md')
+    let output_path = path_from('{project_root}workspace/output.md')
+
+    guard read_lines_sync(input_path) into lines else err =>
+        print(err)
+        return void
+
+    let mutable rendered = ''
+    let mutable index: int64 = 0
+    while index < lines.length:
+        let line = lines[index]
+        if should_blockquote(index):
+            rendered = '{rendered}> {line}\n'
+        else:
+            rendered = '{rendered}{line}\n'
+        index = index + 1
+
+    guard write_text_sync(output_path, rendered) into _ else err =>
+        print(err)
+        return void
+
+    guard read_text_sync(output_path) into actual else err =>
+        print(err)
+        return void
+
+    guard read_text_sync(expected_path) into expected else err =>
+        print(err)
+        return void
+
+    if actual is expected:
+        print('roundtrip: ok ({int64_to_string(actual.length)} bytes match)')
+    else:
+        print('roundtrip: mismatch')
+    return void

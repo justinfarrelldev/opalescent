@@ -270,9 +270,9 @@ fn string_interp_long_does_not_crash() {
         };
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
-        if !stdout.contains("Hello") {
+        if !stdout.contains("Part1=") || !stdout.contains("Part2=") {
             return Err(format!(
-                "string-interp-long binary stdout should contain 'Hello', got: '{stdout}'"
+                "string-interp-long binary stdout should contain both 'Part1=' and 'Part2=', got: '{stdout}'"
             ));
         }
 
@@ -456,9 +456,9 @@ fn cast_safety_compiles_and_runs() {
         };
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
-        if !stdout.contains("float64:") {
+        if !stdout.contains("float64:") || !stdout.contains("float32:") {
             return Err(format!(
-                "cast-safety binary stdout should contain 'float64:', got: '{stdout}'"
+                "cast-safety binary stdout should contain both 'float64:' and 'float32:', got: '{stdout}'"
             ));
         }
 
@@ -530,9 +530,9 @@ fn multi_file_project_compiles_and_runs() {
         };
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
-        if !stdout.contains('7') {
+        if stdout.trim() != "7" {
             return Err(format!(
-                "multi-file binary stdout should contain '7', got: '{stdout}'"
+                "multi-file binary stdout should equal '7', got: '{stdout}'"
             ));
         }
 
@@ -973,3 +973,4 @@ fn import_types_multiple_compiles_and_runs() {
         "import-types-multiple should compile, run, print expected output, and exit cleanly: {failure_message}"
     );
 }
+

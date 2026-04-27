@@ -1,0 +1,15 @@
+import path_from, create_directory_sync, write_text_sync from standard
+
+##
+  Description: Creates a directory from the seed plan for the fs-directory-operations fixture.
+##
+public let create_seed_directory = f(project_root: string, raw_path: string): void errors InvalidPathError, PermissionDeniedError, CreateFailureError, FileAlreadyExistsError, FilesystemFullError =>
+    propagate create_directory_sync(path_from('{project_root}{raw_path}'))
+    return void
+
+##
+  Description: Writes seeded file content for the fs-directory-operations fixture.
+##
+public let write_seed_file = f(project_root: string, raw_path: string, content: string): void errors InvalidPathError, FileNotFoundError, PermissionDeniedError, IsADirectoryError, WriteFailureError, FilesystemFullError =>
+    propagate write_text_sync(path_from('{project_root}{raw_path}'), content)
+    return void

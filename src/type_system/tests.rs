@@ -950,7 +950,7 @@ fn test_pure_function_cannot_call_non_pure_user_function() {
         generic_params: None,
         generic_constraints: None,
         parameters: Vec::new(),
-        return_types: Some(vec![int_type("int32")]),
+        return_types: Some(vec![int_type("int64")]),
         error_types: Vec::new(),
         body: return_stmt(literal_expr(LiteralValue::Integer(1), 7_135_000), 7_135_001),
         visibility: AstVisibility::Private,
@@ -1153,19 +1153,13 @@ fn test_pure_function_allows_collection_member_calls() {
                 id: node_id(7_138_008),
             },
             return_stmt(
-                Expr::Call {
-                    callee: Box::new(Expr::Member {
-                        object: Box::new(identifier_expr("arr", 7_138_009)),
-                        member: "length".to_owned(),
-                        span: test_span(),
-                        id: node_id(7_138_010),
-                    }),
-                    generic_args: None,
-                    args: vec![],
+                Expr::Member {
+                    object: Box::new(identifier_expr("arr", 7_138_009)),
+                    member: "length".to_owned(),
                     span: test_span(),
-                    id: node_id(7_138_011),
+                    id: node_id(7_138_010),
                 },
-                7_138_012,
+                7_138_011,
             ),
         ],
         span: test_span(),
@@ -1177,7 +1171,7 @@ fn test_pure_function_allows_collection_member_calls() {
         generic_params: None,
         generic_constraints: None,
         parameters: Vec::new(),
-        return_types: Some(vec![int_type("int32")]),
+        return_types: Some(vec![int_type("int64")]),
         error_types: Vec::new(),
         body: pure_body,
         visibility: AstVisibility::Private,
@@ -7017,5 +7011,39 @@ return sub.length
     assert!(
         result.is_ok(),
         "bytes_slice with propagate + declared errors SliceRangeError should type check: {result:?}"
+    );
+}
+
+#[test]
+fn test_string_length_member_type_checks_as_int64() {
+    const SOURCE: &str = "
+entry demo = f(): int64 => {
+let message = 'hello'
+return message.length
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "string .length should type check as int64: {result:?}"
+    );
+}
+
+#[test]
+fn test_array_length_member_type_checks_as_int64() {
+    const SOURCE: &str = "
+entry demo = f(): int64 => {
+let values = ['a', 'b', 'c']
+return values.length
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "array .length should type check as int64: {result:?}"
     );
 }

@@ -31,6 +31,7 @@ typedef struct {
   size_t length;
   uint8_t *data;
 } OpalBytes;
+#define OPAL_BYTES_TYPE_DEFINED 1
 
 typedef struct {
   OpalBytes *value;

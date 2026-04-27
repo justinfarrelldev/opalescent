@@ -54,6 +54,7 @@ impl<'context> CodegenContext<'context> {
 
         let target_machine = Self::create_target_machine_for_triple(&inkwell_triple)
             .ok_or(CodegenError::UnsupportedTarget(llvm_triple_str))?;
+        module.set_data_layout(&target_machine.get_target_data().get_data_layout());
 
         Ok(Self {
             context,

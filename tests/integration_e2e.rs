@@ -16,6 +16,13 @@ fn prepare_dir(path: &Path) -> Result<PathBuf, std::io::Error> {
     if path.exists() {
         fs::remove_dir_all(path)?;
     }
+
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+
     fs::create_dir_all(path)?;
     Ok(path.to_path_buf())
 }

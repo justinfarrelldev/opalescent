@@ -1,0 +1,6 @@
+##
+  Description: Structural block type for the markdown roundtrip fixture.
+##
+type Block:
+    kind: string
+    line: string

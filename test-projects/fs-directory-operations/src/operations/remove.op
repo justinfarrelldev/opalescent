@@ -1,0 +1,15 @@
+import path_from, delete_file_sync, delete_directory_sync from standard
+
+##
+  Description: Removes one seeded file path for the fs-directory-operations fixture.
+##
+public let remove_seed_file = f(project_root: string, raw_path: string): void errors InvalidPathError, FileNotFoundError, PermissionDeniedError, DeleteFailureError, IsADirectoryError =>
+    propagate delete_file_sync(path_from('{project_root}{raw_path}'))
+    return void
+
+##
+  Description: Removes one seeded directory path for the fs-directory-operations fixture.
+##
+public let remove_seed_directory = f(project_root: string, raw_path: string): void errors InvalidPathError, DirectoryNotFoundError, PermissionDeniedError, DeleteFailureError, DirectoryNotEmptyError, IsNotADirectoryError =>
+    propagate delete_directory_sync(path_from('{project_root}{raw_path}'))
+    return void

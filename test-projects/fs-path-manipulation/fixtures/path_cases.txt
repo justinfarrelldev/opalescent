@@ -1,0 +1,40 @@
+normalize||
+normalize|.|
+normalize|./a|a
+normalize|a//b|a/b
+normalize|a/./b|a/b
+normalize|a/b/..|a
+normalize|a/b/../../c|c
+normalize|/a//b//c|/a/b/c
+normalize|/a/b/../../..|
+normalize|alpha/beta/../gamma|alpha/gamma
+normalize|nested///path///leaf|nested/path/leaf
+normalize|root/./branch/leaf.txt|root/branch/leaf.txt
+join|home + [user, docs]|home/user/docs
+join|a/ + [b]|a/b
+join|a + [/b, c]|/b/c
+join|a + []|a
+join|`` + [x]|x
+join|/root + [child]|/root/child
+join|alpha/beta + [.., gamma]|alpha/gamma
+join|alpha + [., beta]|alpha/beta
+join|alpha// + [beta, ./leaf]|alpha/beta/leaf
+join|base + [nested///path, file.txt]|base/nested/path/file.txt
+query|/home/user/doc.pdf|name=doc.pdf ext=pdf parent=/home/user
+query|/home/user/|name= ext= parent=/home/user
+query|noext|name=noext ext= parent=.
+query|a/b/c.tar.gz|name=c.tar.gz ext=gz parent=a/b
+query|/|name= ext= parent=/
+query|alpha/beta.txt|name=beta.txt ext=txt parent=alpha
+query|archive.tar|name=archive.tar ext=tar parent=.
+query|dir/subdir/|name= ext= parent=dir/subdir
+query|relative/path/file|name=file ext= parent=relative/path
+query|double.dot/name.with.many.parts|name=name.with.many.parts ext=parts parent=double.dot
+absolute|./test-projects/fs-path-manipulation/src/main.op|parent=src name=main.op
+absolute|./test-projects/fs-path-manipulation/src/path_ops/normalize.op|parent=path_ops name=normalize.op
+absolute|./test-projects/fs-path-manipulation/src/path_ops/join.op|parent=path_ops name=join.op
+absolute|./test-projects/fs-path-manipulation/fixtures/sample.txt|parent=fixtures name=sample.txt
+absolute|./test-projects/fs-path-manipulation/fixtures/sample.bad.txt|parent=fixtures name=sample.bad.txt
+absolute|./test-projects/fs-path-manipulation/fixtures/ghost.txt|parent=fixtures name=ghost.txt
+absolute|./test-projects/fs-path-manipulation/src/../README.md|parent=fs-path-manipulation name=README.md
+absolute|/|/

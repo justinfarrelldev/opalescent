@@ -2576,6 +2576,113 @@ entry main = f(): void => {
 }
 
 #[test]
+fn test_string_length_member_emits_i64_return() {
+    let source = "
+##
+    Description: Entry function validates string .length member lowering
+##
+entry main = f(): void => {
+    let message = 'hello'
+    let len: int64 = message.length
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "string .length member access should compile without errors"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i64 @string_length(i8*)"),
+        "string_length should declare as 'i64 @string_length(i8*)': {ir}"
+    );
+    assert!(
+        ir.contains("call i64 @string_length(i8*"),
+        "string .length member should lower to call i64 @string_length(i8*): {ir}"
+    );
+}
+
+#[test]
+fn test_array_length_member_emits_i64_return() {
+    let source = "
+##
+    Description: Entry function validates array .length member lowering
+##
+entry main = f(): void => {
+    let values = ['a', 'b', 'c']
+    let len: int64 = values.length
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "array .length member access should compile without errors"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("store i64 3, i64* %len"),
+        "array literal .length should still fold to the tracked compile-time length without runtime calls: {ir}"
+    );
+}
+
+#[test]
+fn test_guard_bound_read_lines_length_emits_count_extract_and_runtime_call() {
+    let source = "
+import path_from, read_lines_sync from standard
+
+##
+    Description: Entry function validates guard-bound read_lines length lowering
+##
+entry main = f(): void =>
+    guard read_lines_sync(path_from('/tmp/sample.txt')) into lines else err =>
+        print(err)
+        return void
+    let len: int64 = lines.length
+    return void
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "guard-bound read_lines .length source should compile without errors: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let verification = module.verify();
+    assert!(
+        verification.is_ok(),
+        "module containing guard-bound read_lines .length should verify: {verification:?}"
+    );
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("extractvalue { i8**, i64, i8* }"),
+        "guard-bound read_lines lowering should extract from the string-array result struct: {ir}"
+    );
+    assert!(
+        ir.contains("store i64 %guard.len"),
+        "guard-bound read_lines lowering should store the extracted count into a _len binding: {ir}"
+    );
+    assert!(
+        ir.contains("load i64, i64* %lines_len"),
+        "guard-bound read_lines .length should load the tracked _len binding: {ir}"
+    );
+}
+
+#[test]
 fn test_import_bytes_concatenate_emits_two_arg_declaration() {
     let source = "
 import bytes_new, bytes_concatenate from standard

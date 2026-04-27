@@ -25,4 +25,6 @@ path = "src/main.rs"
 
 [dev-dependencies]
 proptest = "1.4"
+serial_test = "3"
+sha2 = "0.10"
 tempfile = "3.8"

@@ -101,6 +101,10 @@ impl TypeChecker {
             return None;
         }
 
+        if member_name == "length" {
+            return Some(CoreType::Int64);
+        }
+
         let intrinsic = alloc::format!("string.{member_name}");
         self.symbol_table()
             .lookup(&intrinsic)

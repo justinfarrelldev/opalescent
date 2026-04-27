@@ -1,0 +1,5 @@
+name = "fs-directory-operations"
+version = "0.1.0"
+
+[build]
+targets = ["x86_64-linux"]

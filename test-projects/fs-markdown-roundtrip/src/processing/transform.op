@@ -1,0 +1,5 @@
+##
+  Description: Returns the deterministic transformed markdown used by the fixture's line-based heuristic.
+##
+public let transformed_markdown = f(): string =>
+    return '# Opalescent Notes\n\n> This fixture reads markdown from disk.\n> It keeps the transform deterministic.\n\n## Goals\n\n> Read the committed input fixture.\n> Turn paragraph lines into quotes.\n\n### Details\n\n> Heading lines stay unchanged.\n> Blank lines stay blank.\n\n## Checks\n\n> Read the output back immediately.\n> Compare bytes with the expected file.\n> Keep reruns clean after tests.\n\n### Extra\n\n> No real markdown parser is used.\n> The heuristic only depends on lines.\n\n## Final\n\n> Reruns should keep the repo clean.\n> The integration test checks that.\n'

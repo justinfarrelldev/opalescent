@@ -1,0 +1,20 @@
+import path_from, normalize_path from standard
+
+##
+  Description: Auxiliary module containing normalize_path showcase inputs.
+##
+let canonical_inputs = f(): string[] =>
+    return [
+        'a//b',
+        'a/./b',
+        'a/b/..',
+        'a/b/../../c',
+        './a',
+        '/a/b/../../..',
+    ]
+
+##
+  Description: Infallible helper to normalize one input path lexically.
+##
+let normalize_input = f(raw: string): FilesystemPath =>
+    return normalize_path(path_from(raw))

@@ -1,0 +1,126 @@
+import path_from, path_to_string, normalize_path, join_path_components, path_file_name, path_file_extension, path_parent_directory, absolute_path_sync, int64_to_string from standard
+
+let string_match = f(actual: string, expected: string): int64 =>
+    if actual is expected:
+        return 1
+    return 0
+
+##
+  Description: Runs a 40-case path algebra showcase and prints a deterministic pass count.
+##
+entry main = f(args: string[]): void =>
+    let mutable passed: int64 = 0
+    let total: int64 = 40
+
+    passed = passed + string_match(path_to_string(normalize_path(path_from(''))), '')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('.'))), '')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('./a'))), 'a')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('a//b'))), 'a/b')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('a/./b'))), 'a/b')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('a/b/..'))), 'a')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('a/b/../../c'))), 'c')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('/a//b//c'))), '/a/b/c')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('/a/b/../../..'))), '')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('alpha/beta/../gamma'))), 'alpha/gamma')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('nested///path///leaf'))), 'nested/path/leaf')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('root/./branch/leaf.txt'))), 'root/branch/leaf.txt')
+
+    passed = passed + string_match(path_to_string(join_path_components(path_from('home'), ['user', 'docs'])), 'home/user/docs')
+    passed = passed + string_match(path_to_string(join_path_components(path_from('a/'), ['b'])), 'a/b')
+    passed = passed + string_match(path_to_string(join_path_components(path_from('a'), ['/b', 'c'])), '/b/c')
+    passed = passed + string_match(path_to_string(join_path_components(path_from('a'), [])), 'a')
+    passed = passed + string_match(path_to_string(join_path_components(path_from(''), ['x'])), 'x')
+    passed = passed + string_match(path_to_string(join_path_components(path_from('/root'), ['child'])), '/root/child')
+    passed = passed + string_match(path_to_string(join_path_components(path_from('alpha/beta'), ['..', 'gamma'])), 'alpha/gamma')
+    passed = passed + string_match(path_to_string(join_path_components(path_from('alpha'), ['.', 'beta'])), 'alpha/beta')
+    passed = passed + string_match(path_to_string(join_path_components(path_from('alpha//'), ['beta', './leaf'])), 'alpha/beta/leaf')
+    passed = passed + string_match(path_to_string(join_path_components(path_from('base'), ['nested///path', 'file.txt'])), 'base/nested/path/file.txt')
+
+    let q0 = path_from('/home/user/doc.pdf')
+    if path_file_name(q0) is 'doc.pdf' and path_file_extension(q0) is 'pdf' and path_to_string(path_parent_directory(q0)) is '/home/user':
+        passed = passed + 1
+    let q1 = path_from('/home/user/')
+    if path_file_name(q1) is '' and path_file_extension(q1) is '' and path_to_string(path_parent_directory(q1)) is '/home/user':
+        passed = passed + 1
+    let q2 = path_from('noext')
+    if path_file_name(q2) is 'noext' and path_file_extension(q2) is '' and path_to_string(path_parent_directory(q2)) is '.':
+        passed = passed + 1
+    let q3 = path_from('a/b/c.tar.gz')
+    if path_file_name(q3) is 'c.tar.gz' and path_file_extension(q3) is 'gz' and path_to_string(path_parent_directory(q3)) is 'a/b':
+        passed = passed + 1
+    let q4 = path_from('/')
+    if path_file_name(q4) is '' and path_file_extension(q4) is '' and path_to_string(path_parent_directory(q4)) is '/':
+        passed = passed + 1
+    let q5 = path_from('alpha/beta.txt')
+    if path_file_name(q5) is 'beta.txt' and path_file_extension(q5) is 'txt' and path_to_string(path_parent_directory(q5)) is 'alpha':
+        passed = passed + 1
+    let q6 = path_from('archive.tar')
+    if path_file_name(q6) is 'archive.tar' and path_file_extension(q6) is 'tar' and path_to_string(path_parent_directory(q6)) is '.':
+        passed = passed + 1
+    let q7 = path_from('dir/subdir/')
+    if path_file_name(q7) is '' and path_file_extension(q7) is '' and path_to_string(path_parent_directory(q7)) is 'dir/subdir':
+        passed = passed + 1
+    let q8 = path_from('relative/path/file')
+    if path_file_name(q8) is 'file' and path_file_extension(q8) is '' and path_to_string(path_parent_directory(q8)) is 'relative/path':
+        passed = passed + 1
+    let q9 = path_from('double.dot/name.with.many.parts')
+    if path_file_name(q9) is 'name.with.many.parts' and path_file_extension(q9) is 'parts' and path_to_string(path_parent_directory(q9)) is 'double.dot':
+        passed = passed + 1
+
+    guard absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/main.op')) into a0 else err =>
+        let _unused_error = err
+        print('passed {int64_to_string(passed)}/{int64_to_string(total)}')
+        return void
+    if path_file_name(path_parent_directory(a0)) is 'src' and path_file_name(a0) is 'main.op':
+        passed = passed + 1
+
+    guard absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/path_ops/normalize.op')) into a1 else err =>
+        let _unused_error = err
+        print('passed {int64_to_string(passed)}/{int64_to_string(total)}')
+        return void
+    if path_file_name(path_parent_directory(a1)) is 'path_ops' and path_file_name(a1) is 'normalize.op':
+        passed = passed + 1
+
+    guard absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/path_ops/join.op')) into a2 else err =>
+        let _unused_error = err
+        print('passed {int64_to_string(passed)}/{int64_to_string(total)}')
+        return void
+    if path_file_name(path_parent_directory(a2)) is 'path_ops' and path_file_name(a2) is 'join.op':
+        passed = passed + 1
+
+    guard absolute_path_sync(path_from('./test-projects/fs-path-manipulation/fixtures/sample.txt')) into a3 else err =>
+        let _unused_error = err
+        print('passed {int64_to_string(passed)}/{int64_to_string(total)}')
+        return void
+    if path_file_name(path_parent_directory(a3)) is 'fixtures' and path_file_name(a3) is 'sample.txt':
+        passed = passed + 1
+
+    guard absolute_path_sync(path_from('./test-projects/fs-path-manipulation/fixtures/sample.bad.txt')) into a4 else err =>
+        let _unused_error = err
+        print('passed {int64_to_string(passed)}/{int64_to_string(total)}')
+        return void
+    if path_file_name(path_parent_directory(a4)) is 'fixtures' and path_file_name(a4) is 'sample.bad.txt':
+        passed = passed + 1
+
+    guard absolute_path_sync(path_from('./test-projects/fs-path-manipulation/fixtures/ghost.txt')) into a5 else err =>
+        let _unused_error = err
+        print('passed {int64_to_string(passed)}/{int64_to_string(total)}')
+        return void
+    if path_file_name(path_parent_directory(a5)) is 'fixtures' and path_file_name(a5) is 'ghost.txt':
+        passed = passed + 1
+
+    guard absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/../README.md')) into a6 else err =>
+        let _unused_error = err
+        print('passed {int64_to_string(passed)}/{int64_to_string(total)}')
+        return void
+    if path_file_name(path_parent_directory(a6)) is 'fs-path-manipulation' and path_file_name(a6) is 'README.md':
+        passed = passed + 1
+
+    guard absolute_path_sync(path_from('/')) into a7 else err =>
+        let _unused_error = err
+        print('passed {int64_to_string(passed)}/{int64_to_string(total)}')
+        return void
+    passed = passed + string_match(path_to_string(a7), '/')
+
+    print('passed {int64_to_string(passed)}/{int64_to_string(total)}')
+    return void

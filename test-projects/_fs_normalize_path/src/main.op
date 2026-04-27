@@ -1,0 +1,29 @@
+import path_from, normalize_path, path_parent_directory, path_file_name from standard
+
+##
+  Description: Prints six canonical lexical normalize_path showcase cases.
+##
+entry main = f(args: string[]): void =>
+    let case0 = normalize_path(path_from('a//b'))
+    print('a//b -> {path_file_name(path_parent_directory(case0))}/{path_file_name(case0)}')
+
+    let case1 = normalize_path(path_from('a/./b'))
+    print('a/./b -> {path_file_name(path_parent_directory(case1))}/{path_file_name(case1)}')
+
+    let case2 = normalize_path(path_from('a/b/..'))
+    print('a/b/.. -> {path_file_name(case2)}')
+
+    let case3 = normalize_path(path_from('a/b/../../c'))
+    print('a/b/../../c -> {path_file_name(case3)}')
+
+    let case4 = normalize_path(path_from('./a'))
+    print('./a -> {path_file_name(case4)}')
+
+    let case5 = normalize_path(path_from('/a/b/../../..'))
+    let case5_name = path_file_name(case5)
+    if case5_name is '':
+        print('/a/b/../../.. -> empty-sentinel')
+    else:
+        print('/a/b/../../.. -> {case5_name}')
+
+    return void

@@ -5,7 +5,8 @@
 entry main = f(args: string[]): void =>
 	let alpha = 'alpha'
 	let beta = 'beta'
-	let pair = [alpha, beta]
-	let nested = [pair[0], pair[1], 'done']
-	print('iterative-drop: done')
+	let pair: string[] = [alpha, beta]
+	let nested: string[] = [pair[0], pair[1], 'done']
+	let final_word: string = nested[2]
+	print('iterative-drop: {final_word}')
 	return void

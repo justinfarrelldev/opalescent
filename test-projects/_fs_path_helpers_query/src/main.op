@@ -1,0 +1,36 @@
+import path_from, path_file_extension, path_file_name, path_parent_directory from standard
+
+##
+  Description: Prints the 5-case matrix for path helper queries.
+##
+entry main = f(args: string[]): void =>
+    let p0_raw = '/home/user/doc.pdf'
+    let p0 = path_from(p0_raw)
+    let p0_parent = path_parent_directory(p0)
+    let p0_parent_name = path_file_name(p0_parent)
+    let p0_grandparent_name = path_file_name(path_parent_directory(p0_parent))
+    print('{p0_raw}: ext={path_file_extension(p0)}, name={path_file_name(p0)}, parent=/{p0_grandparent_name}/{p0_parent_name}')
+
+    let p1_raw = '/home/user/'
+    let p1 = path_from(p1_raw)
+    let p1_parent = path_parent_directory(p1)
+    let p1_parent_name = path_file_name(p1_parent)
+    let p1_grandparent_name = path_file_name(path_parent_directory(p1_parent))
+    print('{p1_raw}: ext={path_file_extension(p1)}, name={path_file_name(p1)}, parent=/{p1_grandparent_name}/{p1_parent_name}')
+
+    let p2_raw = 'noext'
+    let p2 = path_from(p2_raw)
+    print('{p2_raw}: ext={path_file_extension(p2)}, name={path_file_name(p2)}, parent=.')
+
+    let p3_raw = 'a/b/c.tar.gz'
+    let p3 = path_from(p3_raw)
+    let p3_parent = path_parent_directory(p3)
+    let p3_parent_name = path_file_name(p3_parent)
+    let p3_grandparent_name = path_file_name(path_parent_directory(p3_parent))
+    print('{p3_raw}: ext={path_file_extension(p3)}, name={path_file_name(p3)}, parent={p3_grandparent_name}/{p3_parent_name}')
+
+    let p4_raw = '/'
+    let p4 = path_from(p4_raw)
+    print('{p4_raw}: ext={path_file_extension(p4)}, name={path_file_name(p4)}, parent=/')
+
+    return void

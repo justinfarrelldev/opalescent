@@ -1,0 +1,7 @@
+import path_from, normalize_path, path_to_string from standard
+
+##
+  Description: Returns the normalized string form of a raw path for fixture documentation helpers.
+##
+public let normalize_show = f(raw: string): string =>
+    return path_to_string(normalize_path(path_from(raw)))

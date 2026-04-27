@@ -1,0 +1,8 @@
+import path_from, append_text_sync from standard
+
+##
+  Description: Appends one message line to a log file path.
+##
+public let append_line = f(path: string, msg: string): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, WriteFailureError, FilesystemFullError =>
+    propagate append_text_sync(path_from(path), '{msg}\n')
+    return void

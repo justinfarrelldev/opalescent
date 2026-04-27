@@ -1,0 +1,17 @@
+warning: function `read_evidence` is never used
+  --> tests/integration_e2e/fs_helpers.rs:17:8
+   |
+17 | pub fn read_evidence(name: &str, scenario: &str) -> String {
+   |        ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `opalescent` (test "integration_e2e") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-90a6cd731a338c60)
+
+running 1 test
+test tests::fs_read_first_line::read_first_line_empty ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 60 filtered out; finished in 0.28s
+

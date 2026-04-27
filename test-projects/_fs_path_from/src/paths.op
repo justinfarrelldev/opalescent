@@ -1,0 +1,6 @@
+##
+  Description: Helper for path-printing output in multi-file path_from smoke fixture.
+##
+public let print_path = f(raw: string): void =>
+    print('path={raw}')
+    return void

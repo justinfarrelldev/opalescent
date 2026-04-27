@@ -14,6 +14,8 @@
 
 # Returns a pseudo-random int32 in the inclusive [min, max] range.
 # random_int32(min: int32, max: int32): int32
+# Strings expose `.length`, which lowers to `string_length(value)` and returns int64.
+# Arrays expose `.length`, which lowers to `array_length(values, len)` and returns int64.
 
 # Bytes: opaque, immutable byte buffer.
 # Construct one with bytes_new(), inspect its size via `buffer.length`, and
@@ -26,3 +28,44 @@
 # bytes_from_hex(text: string): Bytes errors HexDecodeError
 # bytes_concatenate(left: Bytes, right: Bytes): Bytes
 # bytes_slice(source: Bytes, start: int32, end: int32): Bytes errors SliceRangeError
+
+## fs
+# Filesystem operations (synchronous). Most operations use the FilesystemPath
+# type for path-safe manipulation and return results that may be handled via
+# guard/propagate for fine-grained error control.
+# fs_path_from(raw: string): FilesystemPath
+# fs_join_path_components(base: FilesystemPath, components: string[]): FilesystemPath
+# fs_path_parent_directory(path: FilesystemPath): FilesystemPath
+# fs_path_file_name(path: FilesystemPath): string
+# fs_path_file_extension(path: FilesystemPath): string
+# fs_normalize_path(path: FilesystemPath): FilesystemPath
+# fs_path_to_string(path: FilesystemPath): string
+# fs_absolute_path_sync(path: FilesystemPath): FilesystemPath errors InvalidPathError, PermissionDeniedError
+# fs_read_contents_sync(path: FilesystemPath): Bytes errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError
+# fs_read_text_sync(path: FilesystemPath): string errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error
+# read_first_line_sync(path: FilesystemPath): string errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidUtf8Error, OffsetOutOfRangeError, ReadFailureError
+# fs_read_lines_sync(path: FilesystemPath): string[] errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error
+# fs_read_bytes_at_offset_sync(path: FilesystemPath, offset: int64, count: int64): Bytes errors FileNotFoundError, PermissionDeniedError, ReadFailureError, OffsetOutOfRangeError, InvalidPathError
+# fs_write_contents_sync(path: FilesystemPath, content: Bytes): unit errors PermissionDeniedError, WriteFailureError, IsADirectoryError, InvalidPathError, FilesystemFullError
+# fs_write_text_sync(path: FilesystemPath, text: string): unit errors PermissionDeniedError, WriteFailureError, IsADirectoryError, InvalidPathError, FilesystemFullError
+# fs_write_contents_atomic_sync(path: FilesystemPath, content: Bytes): unit errors PermissionDeniedError, WriteFailureError, IsADirectoryError, InvalidPathError, FilesystemFullError
+# fs_write_text_atomic_sync(path: FilesystemPath, text: string): unit errors PermissionDeniedError, WriteFailureError, IsADirectoryError, InvalidPathError, FilesystemFullError
+# fs_append_contents_sync(path: FilesystemPath, content: Bytes): unit errors FileNotFoundError, PermissionDeniedError, WriteFailureError, IsADirectoryError, InvalidPathError, FilesystemFullError
+# fs_append_text_sync(path: FilesystemPath, text: string): unit errors FileNotFoundError, PermissionDeniedError, WriteFailureError, IsADirectoryError, InvalidPathError, FilesystemFullError
+# fs_write_bytes_at_offset_sync(path: FilesystemPath, offset: int64, content: Bytes): unit errors FileNotFoundError, PermissionDeniedError, WriteFailureError, OffsetOutOfRangeError, InvalidPathError, FilesystemFullError
+# fs_create_file_sync(path: FilesystemPath): unit errors FileAlreadyExistsError, PermissionDeniedError, CreateFailureError, InvalidPathError, FilesystemFullError
+# fs_delete_file_sync(path: FilesystemPath): unit errors FileNotFoundError, PermissionDeniedError, DeleteFailureError, IsADirectoryError, InvalidPathError
+# fs_copy_file_sync(source: FilesystemPath, destination: FilesystemPath): unit errors FileNotFoundError, PermissionDeniedError, CopyFailureError, IsADirectoryError, InvalidPathError, FilesystemFullError
+# fs_move_path_sync(source: FilesystemPath, destination: FilesystemPath): unit errors FileNotFoundError, PermissionDeniedError, MoveFailureError, FileAlreadyExistsError, InvalidPathError
+# fs_path_exists_sync(path: FilesystemPath): boolean errors PermissionDeniedError, InvalidPathError
+# fs_read_metadata_sync(path: FilesystemPath): FileMetadata errors FileNotFoundError, PermissionDeniedError, MetadataUnavailableError, InvalidPathError
+# fs_read_metadata_nofollow_sync(path: FilesystemPath): FileMetadata errors FileNotFoundError, PermissionDeniedError, MetadataUnavailableError, InvalidPathError
+# fs_create_directory_sync(path: FilesystemPath): unit errors FileAlreadyExistsError, PermissionDeniedError, CreateFailureError, InvalidPathError, FilesystemFullError
+# fs_create_directory_recursive_sync(path: FilesystemPath): unit errors PermissionDeniedError, CreateFailureError, InvalidPathError, FilesystemFullError
+# fs_delete_directory_sync(path: FilesystemPath): unit errors DirectoryNotFoundError, PermissionDeniedError, DeleteFailureError, DirectoryNotEmptyError, IsNotADirectoryError, InvalidPathError
+# fs_delete_directory_recursive_sync(path: FilesystemPath): unit errors DirectoryNotFoundError, PermissionDeniedError, DeleteFailureError, IsNotADirectoryError, InvalidPathError
+# fs_list_directory_sync(path: FilesystemPath): FilesystemPath[] errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError
+# fs_is_file_sync(path: FilesystemPath): boolean errors PermissionDeniedError, InvalidPathError
+# fs_is_file_nofollow_sync(path: FilesystemPath): boolean errors PermissionDeniedError, InvalidPathError
+# fs_is_directory_sync(path: FilesystemPath): boolean errors PermissionDeniedError, InvalidPathError
+# fs_is_directory_nofollow_sync(path: FilesystemPath): boolean errors PermissionDeniedError, InvalidPathError

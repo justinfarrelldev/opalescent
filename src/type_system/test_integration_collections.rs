@@ -95,7 +95,7 @@ mod tests {
     fn test_array_length_returns_int64() {
         const SOURCE: &str = "
 entry main = f(values: int64[]): int64 =>
-    return values.length()
+    return values.length
 ";
 
         let program = parse_pipeline(SOURCE);
@@ -213,7 +213,7 @@ entry main = f(values: int64[], labels: string[]): unit => {
     fn test_string_length_returns_int64() {
         const SOURCE: &str = "
 entry main = f(): int64 =>
-    return 'hello'.length()
+    return 'hello'.length
 ";
 
         let program = parse_pipeline(SOURCE);

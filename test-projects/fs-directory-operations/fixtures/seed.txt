@@ -1,0 +1,10 @@
+workspace/|
+workspace/alpha/|
+workspace/alpha/docs/|
+workspace/alpha/images/|
+workspace/alpha/logs/|
+workspace/alpha/readme.txt|alpha readme
+workspace/alpha/todo.txt|ship tests
+workspace/alpha/notes.txt|clean output
+workspace/alpha/config.txt|mode=demo
+workspace/alpha/data.txt|42

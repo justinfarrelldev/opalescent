@@ -1,0 +1,17 @@
+##
+  Description: Helpers for _fs_read_text_lines fixture summary output.
+##
+public let expected_first = f(): string =>
+    return 'alpha'
+
+##
+  Description: Returns expected mixed-ending raw fixture payload.
+##
+public let expected_raw_text = f(): string =>
+    return 'alpha\r\nbeta\ngamma\r\ndelta\n'
+
+##
+  Description: Joins four known lines with LF to model normalized line policy.
+##
+public let join_four_lines = f(lines: string[]): string =>
+    return '{lines[0]}\n{lines[1]}\n{lines[2]}\n{lines[3]}\n'

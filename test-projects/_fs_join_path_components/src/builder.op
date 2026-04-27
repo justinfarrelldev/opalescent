@@ -1,0 +1,7 @@
+import path_from, join_path_components from standard
+
+##
+  Description: Infallible helper that builds a path from base plus parts.
+##
+let build_doc_path = f(base: string, parts: string[]): FilesystemPath =>
+    return join_path_components(path_from(base), parts)

@@ -1,0 +1,9 @@
+import path_from, absolute_path_sync, path_to_string from standard
+
+##
+  Description: Resolves a raw path to its absolute string form or returns the runtime error text.
+##
+public let absolute_show = f(raw: string): string =>
+    guard absolute_path_sync(path_from(raw)) into value else err =>
+        return err
+    return path_to_string(value)

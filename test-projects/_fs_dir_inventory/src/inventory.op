@@ -1,0 +1,7 @@
+import join_path_components from standard
+
+##
+  Description: Returns inventory file path rooted at a directory.
+##
+public let inventory_file_path = f(root_dir: FilesystemPath, name: string): FilesystemPath =>
+    return join_path_components(root_dir, [name])

@@ -1,0 +1,33 @@
+import path_from, read_lines_sync, read_first_line_sync, read_text_sync, int64_to_string from standard
+
+##
+  Description: Read-family showcase that reports line count, first line, and content match signal.
+##
+entry main = f(args: string[]): void =>
+    guard read_lines_sync(path_from('/home/justi/Projects/opalescent/test-projects/_fs_read_text_lines/fixtures/sample.txt')) into lines else err =>
+        print(err)
+        return void
+
+    print('lines={int64_to_string(lines.length)}')
+
+    guard read_first_line_sync(path_from('/home/justi/Projects/opalescent/test-projects/_fs_read_text_lines/fixtures/sample.txt')) into first else err =>
+        print(err)
+        return void
+
+    print('first={first}')
+
+    guard read_text_sync(path_from('/home/justi/Projects/opalescent/test-projects/_fs_read_text_lines/fixtures/sample.txt')) into full_text else err =>
+        print(err)
+        return void
+
+    let lines_read_ok = true
+    let raw_matches = full_text is 'alpha\r\nbeta\ngamma\r\ndelta\n'
+    let first_matches = first is 'alpha'
+
+    let matches_all = lines_read_ok and raw_matches and first_matches
+    if matches_all:
+        print('match=true')
+    else:
+        print('match=false')
+
+    return void

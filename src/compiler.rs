@@ -63,6 +63,8 @@ const OPAL_PORTABILITY_H: &[u8] = include_bytes!("../runtime/opal_portability.h"
 const OPAL_RC_H: &[u8] = include_bytes!("../runtime/opal_rc.h");
 /// Embedded public runtime API header.
 const OPAL_RUNTIME_H: &[u8] = include_bytes!("../runtime/opal_runtime.h");
+/// Embedded filesystem runtime error discriminant header.
+const OPAL_FS_ERRORS_H: &[u8] = include_bytes!("../runtime/opal_fs_errors.h");
 
 /// Temporary runtime source file materialized for the system C compiler.
 struct RuntimeTempFile {
@@ -95,6 +97,8 @@ impl RuntimeTempFile {
             .map_err(CompileError::Io)?;
         std::fs::write(dir.join("opal_rc.h"), OPAL_RC_H).map_err(CompileError::Io)?;
         std::fs::write(dir.join("opal_runtime.h"), OPAL_RUNTIME_H).map_err(CompileError::Io)?;
+        std::fs::write(dir.join("opal_fs_errors.h"), OPAL_FS_ERRORS_H)
+            .map_err(CompileError::Io)?;
 
         Ok(Self { dir, source_file })
     }

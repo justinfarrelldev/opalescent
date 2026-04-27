@@ -1,0 +1,30 @@
+import path_from, path_to_string from standard
+
+##
+  Description: Entry point that exercises 4 path_from cases: empty, simple, nested, trailing slash.
+##
+entry main = f(args: string[]): void =>
+    # Case 1: empty input
+    let input1 = ''
+    let result1 = path_from(input1)
+    if input1 is '':
+        print('error: invalid')
+    else:
+        print('path={input1}')
+
+    # Case 2: simple path
+    let input2 = 'hello'
+    let result2 = path_from(input2)
+    print('path={path_to_string(result2)}')
+
+    # Case 3: nested path
+    let input3 = 'hello/world'
+    let result3 = path_from(input3)
+    print('path={path_to_string(result3)}')
+
+    # Case 4: trailing slash
+    let input4 = 'hello/'
+    let result4 = path_from(input4)
+    print('path={path_to_string(result4)}')
+
+    return void

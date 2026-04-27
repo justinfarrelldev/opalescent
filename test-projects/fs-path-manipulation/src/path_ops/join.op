@@ -1,0 +1,7 @@
+import path_from, join_path_components, path_to_string from standard
+
+##
+  Description: Returns the joined string form of a base path and component list for fixture documentation helpers.
+##
+public let join_show = f(base: string, parts: string[]): string =>
+    return path_to_string(join_path_components(path_from(base), parts))

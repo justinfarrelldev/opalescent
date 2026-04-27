@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use crate::type_system::symbol_table::SymbolType;
-use crate::type_system::types::CoreType;
+use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{string::String, vec::Vec};
 
 /// Macro-wrapped symbol literal to keep the provider function concise for clippy.
@@ -281,6 +281,35 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                 },
                 SymbolType::Function,
             ),
+            (
+                String::from("string_length"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::Int64],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("array_length"),
+                CoreType::Function {
+                    generic_params: vec![GenericTypeParameter {
+                        name: "T".to_owned(),
+                        type_var: crate::type_system::types::TypeVar::new(9_001, "T".to_owned()),
+                        constraints: Vec::new(),
+                    }],
+                    parameters: vec![CoreType::Array(alloc::boxed::Box::new(
+                        CoreType::Variable(crate::type_system::types::TypeVar::new(
+                            9_001,
+                            "T".to_owned(),
+                        )),
+                    ))],
+                    return_types: vec![CoreType::Int64],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
             // `Bytes` stdlib surface. The opaque byte-buffer type is represented
             // as a nominal `Generic { name: "Bytes", type_args: [] }` which
             // lowers to `i8*` in codegen. The two fallible helpers surface
@@ -477,6 +506,19 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                 SymbolType::Function,
             ),
             (
+                String::from("path_to_string"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
                 String::from("absolute_path_sync"),
                 CoreType::Function {
                     generic_params: Vec::new(),
@@ -570,6 +612,44 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                         },
                         CoreType::Generic {
                             name: String::from("InvalidUtf8Error"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("read_first_line_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("FilesystemPath"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::String],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("FileNotFoundError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("PermissionDeniedError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("IsADirectoryError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("InvalidUtf8Error"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("OffsetOutOfRangeError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("ReadFailureError"),
                             type_args: Vec::new(),
                         },
                     ],

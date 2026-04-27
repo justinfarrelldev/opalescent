@@ -63,6 +63,8 @@ char* uint64_to_string(uint64_t value);
 char* float32_to_string(float value);
 char* float64_to_string(double value);
 char* bool_to_string(int8_t value);
+int64_t string_length(const char* value);
+int64_t array_length(const void* array, int64_t length);
 
 /* `Bytes` stdlib surface. `OpalBytes` is an opaque owned heap pointer
  * passed across the FFI boundary as `i8*`. Fallible helpers mirror the
@@ -77,10 +79,49 @@ char*      bytes_to_hex(OpalBytes* bytes);
 OpalBytes* bytes_concatenate(OpalBytes* left, OpalBytes* right);
 BytesResult bytes_from_hex(const char* hex);
 BytesResult bytes_slice(OpalBytes* source, int32_t start, int32_t end);
+char* path_from(const char* raw);
+char* join_path_components(const char* base, const char** components, int64_t count);
+char* path_parent_directory(const char* path);
+char* path_file_name(const char* path);
+char* path_file_extension(const char* path);
+char* normalize_path(const char* path);
+char* path_to_string(const char* path);
 
 /* Filesystem stdlib surface result types.
- * Each wraps a typed value pointer and a nullable error string.
- * NULL error means success; non-NULL error means failure (value is undefined). */
+ *
+ * FsResult success/failure sentinel contract (frozen ABI rule for lowering):
+ * - Success is represented exclusively by `error == NULL`.
+ * - Failure is represented exclusively by `error != NULL`.
+ * - The payload field(s) (`value`, and `count` for array results) are only
+ *   semantically valid on success and MUST be treated as undefined on failure.
+ * - `FsVoidResult` has no payload semantics; callers and lowering must still
+ *   use only `error` as the sentinel, and ignore `value` on both paths.
+ *
+ * This contract applies to all filesystem result wrappers used by guard/
+ * propagate lowering, including:
+ * - FsPathResult
+ * - FsBytesResult
+ * - FsStringResult
+ * - FsStringArrayResult
+ * - FsVoidResult
+ * - FsBooleanResult
+ * - FsMetadataResult
+ * - FsPathArrayResult
+ *
+ * Infallible lexical path helper policy (char* ABI, no Fs*Result wrappers):
+ * - `path_from(raw)` returns a heap-owned duplicate of `raw`; NULL/empty input
+ *   returns the empty-string sentinel "".
+ * - `normalize_path(path)` is lexical-only (no filesystem probes): separators are
+ *   collapsed, `.` segments removed, and `..` segments resolved. Absolute paths
+ *   preserve their leading separator. If an absolute path would escape above
+ *   root via `..`, normalization returns the empty-string sentinel "".
+ * - `join_path_components(base, parts)` is lexical-only: absolute components
+ *   reset the accumulator, separators are deduplicated to one path separator,
+ *   and the final path is normalized with the same `.`/`..` rules as
+ *   `normalize_path`.
+ * - Trailing-separator behavior is preserved for non-empty normalized paths;
+ *   empty input and root-escape normalization both resolve to "".
+ */
 typedef struct { void*      value; const char* error; } FsVoidResult;
 typedef struct { OpalBytes* value; const char* error; } FsBytesResult;
 typedef struct { char*      value; const char* error; } FsStringResult;
@@ -95,6 +136,7 @@ typedef struct { void*      value; const char* error; } FsPermissionsResult;
 
 FsBytesResult read_contents_sync(const char* path);
 FsStringResult read_text_sync(const char* path);
+FsStringResult read_first_line_sync(const char* path);
 FsStringArrayResult read_lines_sync(const char* path);
 FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_t length);
 FsVoidResult write_contents_sync(const char* path, OpalBytes* data);

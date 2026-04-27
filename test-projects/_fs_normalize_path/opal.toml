@@ -1,0 +1,5 @@
+name = "_fs_normalize_path"
+version = "0.1.0"
+
+[build]
+targets = ["x86_64-linux"]

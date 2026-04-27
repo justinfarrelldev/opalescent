@@ -1,0 +1,7 @@
+import path_from, write_text_sync from standard
+
+##
+  Description: Writes serialized markdown text to disk for the roundtrip fixture.
+##
+public let write_markdown = f(raw_path: string, contents: string): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, WriteFailureError, FilesystemFullError =>
+    return propagate write_text_sync(path_from(raw_path), contents)

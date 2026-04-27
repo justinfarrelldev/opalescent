@@ -1,0 +1,9 @@
+import write_text_sync, move_path_sync from standard
+
+##
+  Description: Writes payload to temp path and moves it into target path atomically.
+##
+let write_text_atomic = f(target_path: FilesystemPath, tmp_path: FilesystemPath, text: string, payload_bytes: int32): int32 errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, WriteFailureError, FilesystemFullError, MoveFailureError, FileAlreadyExistsError =>
+    propagate write_text_sync(tmp_path, text)
+    propagate move_path_sync(tmp_path, target_path)
+    return payload_bytes

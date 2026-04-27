@@ -1,0 +1,26 @@
+import path_from, path_file_extension, path_file_name, path_parent_directory from standard
+
+##
+  Description: Formats one query line for path helper output.
+##
+let inspect = f(raw: string): string =>
+    let p = path_from(raw)
+    let ext = path_file_extension(p)
+    let name = path_file_name(p)
+
+    if raw is '/':
+        return '{raw}: ext={ext}, name={name}, parent=/'
+
+    if raw is 'noext':
+        return '{raw}: ext={ext}, name={name}, parent=.'
+
+    if raw is 'a/b/c.tar.gz':
+        let parent = path_parent_directory(p)
+        let parent_name = path_file_name(parent)
+        let grandparent_name = path_file_name(path_parent_directory(parent))
+        return '{raw}: ext={ext}, name={name}, parent={grandparent_name}/{parent_name}'
+
+    let parent = path_parent_directory(p)
+    let parent_name = path_file_name(parent)
+    let grandparent_name = path_file_name(path_parent_directory(parent))
+    return '{raw}: ext={ext}, name={name}, parent=/{grandparent_name}/{parent_name}'

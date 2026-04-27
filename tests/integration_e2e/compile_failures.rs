@@ -355,3 +355,59 @@ fn value_declaration_in_types_file_is_rejected() {
         "value-in-types-file-fail source should be rejected with NonTypeDeclarationInTypesFile: {failure_message}"
     );
 }
+
+#[test]
+fn ref_basic_fails_to_compile() {
+    let cwd = std::env::current_dir();
+    assert!(cwd.is_ok(), "current working directory should be readable for integration tests");
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+
+    let project_dir = cwd_path.join("test-projects/ref-basic");
+    let temp_dir = project_dir.join("target");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(prepare.is_ok(), "ref-basic target directory should be created");
+
+    let execution_result: Result<(), String> = (|| {
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+        if binary_result.is_ok() {
+            return Err("ref-basic project should fail to compile, but compilation succeeded".to_owned());
+        }
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(cleanup.is_ok(), "ref-basic target directory should be removed");
+    let failure_message = execution_result.err().unwrap_or_default();
+    assert!(failure_message.is_empty(), "ref-basic should be rejected at compile time: {failure_message}");
+}
+
+#[test]
+fn mutable_ref_fails_to_compile() {
+    let cwd = std::env::current_dir();
+    assert!(cwd.is_ok(), "current working directory should be readable for integration tests");
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+
+    let project_dir = cwd_path.join("test-projects/mutable-ref");
+    let temp_dir = project_dir.join("target");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(prepare.is_ok(), "mutable-ref target directory should be created");
+
+    let execution_result: Result<(), String> = (|| {
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+        if binary_result.is_ok() {
+            return Err("mutable-ref project should fail to compile, but compilation succeeded".to_owned());
+        }
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(cleanup.is_ok(), "mutable-ref target directory should be removed");
+    let failure_message = execution_result.err().unwrap_or_default();
+    assert!(failure_message.is_empty(), "mutable-ref should be rejected at compile time: {failure_message}");
+}

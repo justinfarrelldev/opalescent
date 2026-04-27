@@ -4,6 +4,7 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use alloc::format;
 use alloc::string::String;
+use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::AddressSpace;
 use inkwell::values::FunctionValue;
 
@@ -189,6 +190,14 @@ pub fn declare_stdlib_function<'context>(
             let ft = i8_ptr.fn_type(&[i8_type.into()], false);
             Some(module.add_function("bool_to_string", ft, None))
         }),
+        "string_length" => module.get_function("string_length").or_else(|| {
+            let ft = i64_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("string_length", ft, None))
+        }),
+        "array_length" => module.get_function("array_length").or_else(|| {
+            let ft = i64_type.fn_type(&[i8_ptr.into(), i64_type.into()], false);
+            Some(module.add_function("array_length", ft, None))
+        }),
         "opal_runtime_error" => void_fn!("opal_runtime_error", i8_ptr),
         "bytes_new" => module.get_function("bytes_new").or_else(|| {
             let ft = i8_ptr.fn_type(&[], false);
@@ -249,6 +258,10 @@ pub fn declare_stdlib_function<'context>(
             let ft = i8_ptr.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("normalize_path", ft, None))
         }),
+        "path_to_string" => module.get_function("path_to_string").or_else(|| {
+            let ft = i8_ptr.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("path_to_string", ft, None))
+        }),
         "absolute_path_sync" => module.get_function("absolute_path_sync").or_else(|| {
             let fs_path_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
             let ft = fs_path_result_type.fn_type(&[i8_ptr.into()], false);
@@ -264,6 +277,11 @@ pub fn declare_stdlib_function<'context>(
             let ft = fs_string_result_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("read_text_sync", ft, None))
         }),
+        "read_first_line_sync" => module.get_function("read_first_line_sync").or_else(|| {
+            let fs_string_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+            let ft = fs_string_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("read_first_line_sync", ft, None))
+        }),
         "read_lines_sync" => module.get_function("read_lines_sync").or_else(|| {
             let fs_string_array_result_type = ctx.struct_type(
                 &[
@@ -273,8 +291,18 @@ pub fn declare_stdlib_function<'context>(
                 ],
                 false,
             );
-            let ft = fs_string_array_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("read_lines_sync", ft, None))
+            let ft = void_type.fn_type(
+                &[
+                    fs_string_array_result_type
+                        .ptr_type(AddressSpace::default())
+                        .into(),
+                    i8_ptr.into(),
+                ],
+                false,
+            );
+            let function = module.add_function("read_lines_sync", ft, None);
+            apply_sret_attr_if_needed(codegen_context, function, fs_string_array_result_type.into());
+            Some(function)
         }),
         "read_bytes_at_offset_sync" => {
             module
@@ -375,8 +403,18 @@ pub fn declare_stdlib_function<'context>(
                 Some(module.add_function("delete_directory_recursive_sync", ft, None))
             }),
         "list_directory_sync" => module.get_function("list_directory_sync").or_else(|| {
-            let ft = fs_path_array_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("list_directory_sync", ft, None))
+            let ft = void_type.fn_type(
+                &[
+                    fs_path_array_result_type
+                        .ptr_type(AddressSpace::default())
+                        .into(),
+                    i8_ptr.into(),
+                ],
+                false,
+            );
+            let function = module.add_function("list_directory_sync", ft, None);
+            apply_sret_attr_if_needed(codegen_context, function, fs_path_array_result_type.into());
+            Some(function)
         }),
         "is_file_sync" => module.get_function("is_file_sync").or_else(|| {
             let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
@@ -400,6 +438,27 @@ pub fn declare_stdlib_function<'context>(
         }
         _ => None,
     }
+}
+
+#[doc = "Apply the LLVM `sret` attribute to the hidden result pointer when the ABI requires it."]
+fn apply_sret_attr_if_needed<'context>(
+    codegen_context: &CodegenContext<'context>,
+    function: FunctionValue<'context>,
+    struct_type: inkwell::types::AnyTypeEnum<'context>,
+) {
+    if codegen_context.target.platform != crate::build_system::targets::Platform::Linux {
+        return;
+    }
+
+    let sret_kind = Attribute::get_named_enum_kind_id("sret");
+    if sret_kind == 0 {
+        return;
+    }
+
+    let sret_attr = codegen_context
+        .context
+        .create_type_attribute(sret_kind, struct_type);
+    function.add_attribute(AttributeLoc::Param(0), sret_attr);
 }
 
 #[doc = "Resolve imported stdlib symbol to concrete runtime function name."]
@@ -460,6 +519,8 @@ pub const STDLIB_NAMES: &[&str] = &[
     "float32_to_string",
     "float64_to_string",
     "bool_to_string",
+    "string_length",
+    "array_length",
     "opal_runtime_error",
     "bytes_new",
     "bytes_length",
@@ -473,9 +534,11 @@ pub const STDLIB_NAMES: &[&str] = &[
     "path_file_name",
     "path_file_extension",
     "normalize_path",
+    "path_to_string",
     "absolute_path_sync",
     "read_contents_sync",
     "read_text_sync",
+    "read_first_line_sync",
     "read_lines_sync",
     "read_bytes_at_offset_sync",
     "write_contents_sync",
@@ -511,8 +574,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            84,
-            "stdlib registry should have 84 names"
+            88,
+            "stdlib registry should have 88 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),

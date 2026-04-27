@@ -1,0 +1,41 @@
+import path_from, create_directory_sync, write_text_sync, read_text_sync, delete_file_sync, delete_directory_sync from standard
+
+##
+  Description: Runs a deterministic directory inventory lifecycle and cleanup.
+##
+entry main = f(args: string[]): void errors FileNotFoundError, DirectoryNotFoundError, PermissionDeniedError, IsADirectoryError, IsNotADirectoryError, InvalidPathError, CreateFailureError, FileAlreadyExistsError, WriteFailureError, ReadFailureError, InvalidUtf8Error, DeleteFailureError, DirectoryNotEmptyError, FilesystemFullError =>
+    let workspace_dir = path_from('test-projects/_fs_dir_inventory/workspace')
+    let inventory_dir = path_from('test-projects/_fs_dir_inventory/workspace/inventory')
+    let file_a = path_from('test-projects/_fs_dir_inventory/workspace/inventory/a.txt')
+    let file_b = path_from('test-projects/_fs_dir_inventory/workspace/inventory/b.txt')
+    let file_c = path_from('test-projects/_fs_dir_inventory/workspace/inventory/c.txt')
+
+    guard delete_file_sync(file_a) into _ else cleanup_a_err =>
+        let _unused_cleanup_a_error = cleanup_a_err
+    guard delete_file_sync(file_b) into _ else cleanup_b_err =>
+        let _unused_cleanup_b_error = cleanup_b_err
+    guard delete_file_sync(file_c) into _ else cleanup_c_err =>
+        let _unused_cleanup_c_error = cleanup_c_err
+    guard delete_directory_sync(inventory_dir) into _ else cleanup_dir_err =>
+        let _unused_cleanup_dir_error = cleanup_dir_err
+
+    guard create_directory_sync(workspace_dir) into _ else workspace_create_err =>
+        let _unused_workspace_create_error = workspace_create_err
+    guard create_directory_sync(inventory_dir) into _ else inventory_create_err =>
+        let _unused_inventory_create_error = inventory_create_err
+
+    propagate write_text_sync(file_a, 'alpha')
+    propagate write_text_sync(file_b, 'beta')
+    propagate write_text_sync(file_c, 'gamma')
+
+    let _text_a = propagate read_text_sync(file_a)
+    let _text_b = propagate read_text_sync(file_b)
+    let _text_c = propagate read_text_sync(file_c)
+
+    propagate delete_file_sync(file_a)
+    propagate delete_file_sync(file_b)
+    propagate delete_file_sync(file_c)
+    propagate delete_directory_sync(inventory_dir)
+
+    print('inventory: 3 files; cleanup ok')
+    return void

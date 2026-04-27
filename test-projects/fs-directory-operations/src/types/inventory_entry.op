@@ -1,0 +1,7 @@
+##
+  Description: Nominal directory-entry record reserved for seeded inventory metadata.
+##
+public type InventoryEntry:
+    relative_path: string
+    is_directory: boolean
+    content: string

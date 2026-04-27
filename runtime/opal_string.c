@@ -90,3 +90,22 @@ char* bool_to_string(int8_t value) {
     if (!result) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
     return result;
 }
+
+int64_t string_length(const char* value) {
+    if (!value) { fprintf(stderr, "Runtime error: string_length called with NULL string pointer\n"); exit(1); }
+    int64_t length = 0;
+    const unsigned char* cursor = (const unsigned char*)value;
+    while (*cursor != '\0') {
+        if ((*cursor & 0xC0u) != 0x80u) {
+            length++;
+        }
+        cursor++;
+    }
+    return length;
+}
+
+int64_t array_length(const void* array, int64_t length) {
+    if (!array && length != 0) { fprintf(stderr, "Runtime error: array_length called with NULL array pointer and non-zero length\n"); exit(1); }
+    if (length < 0) { fprintf(stderr, "Runtime error: array_length called with negative length\n"); exit(1); }
+    return length;
+}

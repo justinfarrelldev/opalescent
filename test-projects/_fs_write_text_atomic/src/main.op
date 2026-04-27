@@ -1,0 +1,32 @@
+import path_from, join_path_components, write_text_sync, move_path_sync, delete_file_sync, read_text_sync, int64_to_string from standard
+
+##
+  Description: Demonstrates atomic write via composed workdir, temp file, and move.
+##
+entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, WriteFailureError, FilesystemFullError, MoveFailureError, FileAlreadyExistsError, DeleteFailureError, ReadFailureError, InvalidUtf8Error =>
+    let work_dir_raw = '/tmp'
+    let work_dir = path_from(work_dir_raw)
+    let target_path = join_path_components(work_dir, ['opalescent-fs-write-text-atomic.txt'])
+    let tmp_path = join_path_components(work_dir, ['opalescent-fs-write-text-atomic.txt.tmp.1'])
+    let payload = 'atomic payload'
+    guard delete_file_sync(target_path) into _ else target_cleanup_err =>
+        let _unused_target_cleanup_error = target_cleanup_err
+
+    guard delete_file_sync(tmp_path) into _ else tmp_cleanup_err =>
+        let _unused_tmp_cleanup_error = tmp_cleanup_err
+
+    guard write_text_sync(tmp_path, payload) into _ else write_err =>
+        guard delete_file_sync(tmp_path) into _ else cleanup_err =>
+            let _unused_cleanup_error = cleanup_err
+        let _unused_write_error = write_err
+        return void
+
+    guard move_path_sync(tmp_path, target_path) into _ else move_err =>
+        guard delete_file_sync(tmp_path) into _ else cleanup_err =>
+            let _unused_cleanup_error = cleanup_err
+        let _unused_move_error = move_err
+        return void
+
+    let written = propagate read_text_sync(target_path)
+    print('wrote atomically: {int64_to_string(written.length)}')
+    return void

@@ -38,6 +38,7 @@ pub fn codegen_call_expression<'context>(
     let function = resolve_callee_function(codegen_context, env, callee, generic_args)?;
     let mut lowered_args: Vec<BasicMetadataValueEnum<'context>> = Vec::new();
     let mut first_lowered_arg: Option<BasicValueEnum<'context>> = None;
+    let aggregate_result_runtime_name = aggregate_result_runtime_name(env, callee);
     for (index, arg) in args.iter().enumerate() {
         let lowered = codegen_expression(codegen_context, env, arg, None)?;
         if index == 0 {
@@ -253,6 +254,38 @@ pub fn codegen_call_expression<'context>(
         }
     }
 
+    if aggregate_result_runtime_name.is_some() {
+        let result_param = function
+            .get_type()
+            .get_param_types()
+            .first()
+            .copied()
+            .ok_or_else(|| {
+                CodegenError::new(String::from(
+                    "aggregate runtime call missing result storage parameter",
+                ))
+            })?;
+        let result_struct_type = result_param
+            .into_pointer_type()
+            .get_element_type()
+            .into_struct_type();
+        let result_alloca = codegen_context
+            .builder
+            .build_alloca(result_struct_type, env.next_name("call.result").as_str())?;
+        let mut call_args = Vec::with_capacity(lowered_args.len().saturating_add(1));
+        call_args.push(result_alloca.into());
+        call_args.extend(lowered_args);
+        let _call = codegen_context.builder.build_call(
+            function,
+            call_args.as_slice(),
+            env.next_name("call").as_str(),
+        )?;
+        return codegen_context
+            .builder
+            .build_load(result_alloca, env.next_name("call.result.load").as_str())
+            .map_err(CodegenError::from);
+    }
+
     let call_args = lowered_args;
 
     let call = codegen_context.builder.build_call(
@@ -272,6 +305,19 @@ pub fn codegen_call_expression<'context>(
     );
 
     Ok(call_result)
+}
+
+#[doc = "Return the runtime function name for aggregate-result calls that use sret storage."]
+fn aggregate_result_runtime_name(env: &CodegenEnv<'_>, callee: &Expr) -> Option<String> {
+    let Expr::Identifier { ref name, .. } = *callee else {
+        return None;
+    };
+    let runtime_name = env
+        .imported_functions
+        .get(name)
+        .map_or(name.as_str(), alloc::string::String::as_str);
+    matches!(runtime_name, "read_lines_sync" | "list_directory_sync")
+        .then(|| runtime_name.to_owned())
 }
 
 #[doc = "Lower propagate expression control flow."]
@@ -299,10 +345,12 @@ pub fn codegen_propagate_expression<'context>(
     };
     if value.is_struct_value() {
         let struct_value = value.into_struct_value();
-        if struct_value.get_type().count_fields() >= 2 {
+        let field_count = struct_value.get_type().count_fields();
+        if field_count >= 2 {
+            let error_field_index = if field_count >= 3 { 2 } else { 1 };
             let error_field = codegen_context.builder.build_extract_value(
                 struct_value,
-                1,
+                error_field_index,
                 env.next_name("propagate.err").as_str(),
             )?;
             let current_fn = current_function(codegen_context)?;
@@ -368,7 +416,8 @@ pub fn codegen_guard_expression<'context>(
     };
     if value.is_struct_value() {
         let struct_value = value.into_struct_value();
-        if struct_value.get_type().count_fields() >= 1 {
+        let field_count = struct_value.get_type().count_fields();
+        if field_count >= 1 {
             let success_value = codegen_context.builder.build_extract_value(
                 struct_value,
                 0,
@@ -381,6 +430,29 @@ pub fn codegen_guard_expression<'context>(
             let _store = codegen_context.builder.build_store(alloca, success_value)?;
             let binding_core_type =
                 infer_guard_binding_core_type(env, guarded_expr, success_value.get_type());
+            if matches!(binding_core_type, CoreType::Array(_)) && field_count >= 3 {
+                let length_value = codegen_context.builder.build_extract_value(
+                    struct_value,
+                    1,
+                    env.next_name("guard.bind.len").as_str(),
+                )?;
+                let len_binding_name = format!("{binding_name}_len");
+                let len_alloca = codegen_context
+                    .builder
+                    .build_alloca(length_value.get_type(), len_binding_name.as_str())?;
+                let _store_len = codegen_context
+                    .builder
+                    .build_store(len_alloca, length_value)?;
+                env.variables.insert(
+                    len_binding_name,
+                    VariableBinding {
+                        alloca: len_alloca,
+                        core_type: CoreType::Int64,
+                        length: None,
+                        is_mutable: false,
+                    },
+                );
+            }
             env.variables.insert(
                 binding_name.to_owned(),
                 VariableBinding {
@@ -762,230 +834,5 @@ pub fn emit_c_main_wrapper<'context>(
 }
 
 #[cfg(test)]
-mod functions_call_tests {
-    use super::resolve_callee_function;
-    use crate::ast::{Expr, NodeId};
-    use crate::codegen::context::CodegenContext;
-    use crate::codegen::expressions::CodegenEnv;
-    use crate::token::{Position, Span};
-    use inkwell::context::Context;
-
-    #[doc = "Create a deterministic test span for function-resolution unit tests."]
-    fn test_span() -> Span {
-        Span::single(Position::new(1, 1, 0))
-    }
-
-    #[doc = "Create an identifier expression for callee-resolution tests."]
-    fn identifier(name: &str) -> Expr {
-        Expr::Identifier {
-            name: name.to_owned(),
-            span: test_span(),
-            id: NodeId(1),
-        }
-    }
-
-    #[test]
-    fn resolve_print_to_puts() {
-        let context = Context::create();
-        let codegen_context = CodegenContext::new(&context, "resolve_print_to_puts");
-        let mut env = CodegenEnv::new(true);
-
-        let result =
-            resolve_callee_function(&codegen_context, &mut env, &identifier("print"), None);
-        assert!(
-            result.is_ok(),
-            "print should resolve successfully to stdlib puts"
-        );
-
-        let Ok(function) = result else {
-            return;
-        };
-        assert_eq!(
-            function.get_name().to_str(),
-            Ok("puts"),
-            "print should resolve to module function named puts"
-        );
-
-        let function_type = function.get_type();
-        assert!(
-            !function_type.is_var_arg(),
-            "puts prototype should not be variadic"
-        );
-
-        let return_type_text = function_type
-            .get_return_type()
-            .map_or_else(String::new, |return_type| {
-                return_type.print_to_string().to_string()
-            });
-        assert_eq!(return_type_text, "i32", "puts return type should be i32");
-
-        let parameter_types = function_type.get_param_types();
-        assert_eq!(
-            parameter_types.len(),
-            1,
-            "puts should accept exactly one parameter"
-        );
-        let parameter_type_text = parameter_types[0].print_to_string().to_string();
-        assert_eq!(
-            parameter_type_text, "i8*",
-            "puts first parameter should be i8 pointer"
-        );
-    }
-
-    #[test]
-    fn resolve_printf_to_variadic_printf() {
-        let context = Context::create();
-        let codegen_context = CodegenContext::new(&context, "resolve_printf_to_variadic_printf");
-        let mut env = CodegenEnv::new(true);
-
-        let result =
-            resolve_callee_function(&codegen_context, &mut env, &identifier("printf"), None);
-        assert!(
-            result.is_ok(),
-            "printf should resolve successfully to libc printf"
-        );
-
-        let Ok(function) = result else {
-            return;
-        };
-        assert_eq!(
-            function.get_name().to_str(),
-            Ok("printf"),
-            "printf should resolve to module function named printf"
-        );
-
-        let function_type = function.get_type();
-        assert!(
-            function_type.is_var_arg(),
-            "printf prototype should be variadic"
-        );
-
-        let return_type_text = function_type
-            .get_return_type()
-            .map_or_else(String::new, |return_type| {
-                return_type.print_to_string().to_string()
-            });
-        assert_eq!(return_type_text, "i32", "printf return type should be i32");
-
-        let parameter_types = function_type.get_param_types();
-        assert_eq!(
-            parameter_types.len(),
-            1,
-            "printf should declare one fixed parameter"
-        );
-        let parameter_type_text = parameter_types[0].print_to_string().to_string();
-        assert_eq!(
-            parameter_type_text, "i8*",
-            "printf first fixed parameter should be i8 pointer"
-        );
-    }
-
-    #[test]
-    fn unknown_function_produces_error() {
-        let context = Context::create();
-        let codegen_context = CodegenContext::new(&context, "unknown_function_produces_error");
-        let mut env = CodegenEnv::new(true);
-
-        let result = resolve_callee_function(
-            &codegen_context,
-            &mut env,
-            &identifier("definitely_not_registered"),
-            None,
-        );
-        assert!(
-            result.is_err(),
-            "unknown function names should return CodegenError"
-        );
-
-        let error_text = result
-            .err()
-            .map_or_else(String::new, |error| error.to_string());
-        assert!(
-            error_text.contains("unknown function: definitely_not_registered"),
-            "error should include unknown function name, got: {error_text}"
-        );
-    }
-
-    #[test]
-    fn resolve_print_int64_declaration() {
-        let context = Context::create();
-        let codegen_context = CodegenContext::new(&context, "resolve_print_int");
-        let mut env = CodegenEnv::new(true);
-
-        let result =
-            resolve_callee_function(&codegen_context, &mut env, &identifier("print_int64"), None);
-        assert!(result.is_ok(), "print_int64 should resolve successfully");
-
-        let Ok(function) = result else {
-            return;
-        };
-        assert_eq!(
-            function.get_name().to_str(),
-            Ok("print_int64"),
-            "print_int64 should resolve to module function named print_int64"
-        );
-
-        let function_type = function.get_type();
-        assert!(
-            function_type.get_return_type().is_none(),
-            "print_int64 should return void in LLVM"
-        );
-
-        let parameter_types = function_type.get_param_types();
-        assert_eq!(
-            parameter_types.len(),
-            1,
-            "print_int64 should accept exactly one parameter"
-        );
-        let parameter_type_text = parameter_types[0].print_to_string().to_string();
-        assert_eq!(
-            parameter_type_text, "i64",
-            "print_int64 first parameter should be i64"
-        );
-    }
-
-    #[test]
-    fn opal_runtime_error_is_stdlib_name() {
-        let context = Context::create();
-        let codegen_context = CodegenContext::new(&context, "opal_runtime_error_is_stdlib_name");
-        let mut env = CodegenEnv::new(true);
-
-        let result = resolve_callee_function(
-            &codegen_context,
-            &mut env,
-            &identifier("opal_runtime_error"),
-            None,
-        );
-        assert!(
-            result.is_ok(),
-            "opal_runtime_error should resolve successfully to stdlib function"
-        );
-
-        let Ok(function) = result else {
-            return;
-        };
-        assert_eq!(
-            function.get_name().to_str(),
-            Ok("opal_runtime_error"),
-            "opal_runtime_error should resolve to module function named opal_runtime_error"
-        );
-
-        let function_type = function.get_type();
-        assert!(
-            function_type.get_return_type().is_none(),
-            "opal_runtime_error should return void in LLVM"
-        );
-
-        let parameter_types = function_type.get_param_types();
-        assert_eq!(
-            parameter_types.len(),
-            1,
-            "opal_runtime_error should accept exactly one parameter"
-        );
-        let parameter_type_text = parameter_types[0].print_to_string().to_string();
-        assert_eq!(
-            parameter_type_text, "i8*",
-            "opal_runtime_error first parameter should be i8 pointer (string message)"
-        );
-    }
-}
+#[path = "functions_call_tests.rs"]
+mod functions_call_tests;

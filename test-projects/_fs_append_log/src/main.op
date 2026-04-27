@@ -1,0 +1,28 @@
+import path_from, append_text_sync, read_lines_sync, read_text_sync from standard
+
+##
+  Description: Appends five lines to a log and confirms readback count.
+##
+entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, WriteFailureError, FilesystemFullError, ReadFailureError, InvalidUtf8Error =>
+    let log_path = '/tmp/opalescent-fs-append-log.txt'
+
+    propagate append_text_sync(path_from(log_path), 'line-1\n')
+    propagate append_text_sync(path_from(log_path), 'line-2\n')
+    propagate append_text_sync(path_from(log_path), 'line-3\n')
+    propagate append_text_sync(path_from(log_path), 'line-4\n')
+    propagate append_text_sync(path_from(log_path), 'line-5\n')
+
+    guard read_lines_sync(path_from(log_path)) into lines else err =>
+        print(err)
+        return void
+
+    guard read_text_sync(path_from(log_path)) into full_text else err =>
+        print(err)
+        return void
+
+    if full_text is 'line-1\nline-2\nline-3\nline-4\nline-5\n':
+        print('appended 5 lines; readback confirmed')
+    else:
+        print('readback count mismatch')
+
+    return void
