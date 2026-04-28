@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-90a6cd731a338c60)
+
+running 1 test
+test tests::fs_read_text::read_file_to_string_perm_denied ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 110 filtered out; finished in 0.57s
+

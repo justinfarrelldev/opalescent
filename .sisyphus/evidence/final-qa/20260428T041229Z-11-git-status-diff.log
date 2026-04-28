@@ -1,0 +1,18 @@
+--- .sisyphus/evidence/final-qa/20260428T041229Z-00-git-status-before.log	2026-04-28 00:12:29.179389212 -0400
++++ .sisyphus/evidence/final-qa/20260428T041229Z-04-git-status-after-reruns.log	2026-04-28 00:14:57.491386013 -0400
+@@ -87,6 +87,15 @@
+ ?? .sisyphus/evidence/final-qa/20260428T040736Z-09-edge-nonexistent.log
+ ?? .sisyphus/evidence/final-qa/20260428T040736Z-10-run-status.log
+ ?? .sisyphus/evidence/final-qa/20260428T041229Z-00-git-status-before.log
++?? .sisyphus/evidence/final-qa/20260428T041229Z-01-cargo-clean.log
++?? .sisyphus/evidence/final-qa/20260428T041229Z-02-fs-rerun-1.log
++?? .sisyphus/evidence/final-qa/20260428T041229Z-03-fs-rerun-2.log
++?? .sisyphus/evidence/final-qa/20260428T041229Z-04-git-status-after-reruns.log
++?? .sisyphus/evidence/final-qa/20260428T041229Z-05-msvc-full.log
++?? .sisyphus/evidence/final-qa/20260428T041229Z-06-msvc-undefined.log
++?? .sisyphus/evidence/final-qa/20260428T041229Z-07-edge-empty.log
++?? .sisyphus/evidence/final-qa/20260428T041229Z-08-edge-permission.log
++?? .sisyphus/evidence/final-qa/20260428T041229Z-09-edge-nonexistent.log
+ ?? .sisyphus/evidence/final-qa/f2-cargo-build-all-features.txt
+ ?? .sisyphus/evidence/final-qa/f2-cargo-clippy-all-targets-all-features.txt
+ ?? .sisyphus/evidence/final-qa/f2-cargo-fmt-check.txt

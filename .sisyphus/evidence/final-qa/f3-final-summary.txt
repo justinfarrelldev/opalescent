@@ -1,0 +1,25 @@
+[F3 Final Manual QA]
+Date: 2026-04-27
+
+1) cargo clean: PASS
+   - Removed 3797 files, 2.4GiB total
+
+2) cargo test --features integration fs_ (run #1): FAIL
+   - 78 passed; 1 failed
+   - failing test: tests::fs_rerunnability::fs_rerunnability
+   - cause: missing fs fixture directories under test-projects/_fs_*
+
+3) cargo test --features integration fs_ (run #2): FAIL
+   - 78 passed; 1 failed
+   - failing test: tests::fs_rerunnability::fs_rerunnability
+   - cause matches run #1 (same missing directories)
+
+4) git status --short after reruns: NOT CLEAN
+   - observed: modified plan file and untracked final-qa evidence logs
+
+5) XWIN_CACHE="$HOME/.xwin" bash scripts/msvc_link_probe.sh --full: PASS
+   - runtime.dll linked
+   - MSVC LINK PROBE: PASS
+
+6) XWIN_CACHE="$HOME/.xwin" bash scripts/msvc_link_probe.sh --report-undefined: PASS
+   - 0 undefined symbols

@@ -1,0 +1,13 @@
+--- .sisyphus/evidence/final-qa/20260428T071340Z-00-git-status-before.log	2026-04-28 03:13:40.727018701 -0400
++++ .sisyphus/evidence/final-qa/20260428T071340Z-04-git-status-after-reruns.log	2026-04-28 03:15:52.695018052 -0400
+@@ -164,6 +164,10 @@
+ ?? .sisyphus/evidence/final-qa/20260428T070411Z-17-stash-list.log
+ ?? .sisyphus/evidence/final-qa/20260428T070411Z-18-git-status-after-restore.log
+ ?? .sisyphus/evidence/final-qa/20260428T071340Z-00-git-status-before.log
++?? .sisyphus/evidence/final-qa/20260428T071340Z-01-cargo-clean.log
++?? .sisyphus/evidence/final-qa/20260428T071340Z-02-fs-rerun-1.log
++?? .sisyphus/evidence/final-qa/20260428T071340Z-03-fs-rerun-2.log
++?? .sisyphus/evidence/final-qa/20260428T071340Z-04-git-status-after-reruns.log
+ ?? .sisyphus/evidence/final-qa/f2-cargo-build-all-features.txt
+ ?? .sisyphus/evidence/final-qa/f2-cargo-clippy-all-targets-all-features.txt
+ ?? .sisyphus/evidence/final-qa/f2-cargo-fmt-check.txt

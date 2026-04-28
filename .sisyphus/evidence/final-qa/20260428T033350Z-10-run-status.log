@@ -1,0 +1,10 @@
+timestamp=20260428T033350Z
+rc_clean=0
+rc_rerun1=0
+rc_rerun2=0
+rc_git=0
+rc_msvc_full=1
+rc_msvc_undef=1
+rc_edge_empty=0
+rc_edge_perm=0
+rc_edge_nonexistent=0

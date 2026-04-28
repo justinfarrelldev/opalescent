@@ -1,0 +1,101 @@
+    Checking opalescent v0.1.0 (/home/justi/Projects/opalescent)
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/adts.rs:126:12
+    |
+126 |       if let &CoreType::Generic {
+    |  ____________^
+127 | |         ref name,
+128 | |         ref type_args,
+129 | |     } = &binding.core_type
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+    = note: `-D clippy::needless-borrowed-reference` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::needless_borrowed_reference)]`
+help: try removing the `&` and `ref` parts
+    |
+126 ~     if let CoreType::Generic {
+127 ~         name,
+128 ~         type_args,
+    |
+
+error: dereferencing a tuple pattern where every element takes a reference
+   --> src/codegen/control_flow.rs:206:25
+    |
+206 |                     let &CoreType::Array(ref element_core_type) = &binding.core_type else {
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+206 -                     let &CoreType::Array(ref element_core_type) = &binding.core_type else {
+206 +                     let CoreType::Array(element_core_type) = &binding.core_type else {
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/functions_call_helpers.rs:110:25
+    |
+110 | /                         &CoreType::Function {
+111 | |                             ref return_types, ..
+112 | |                         } => return_types.first(),
+    | |_________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+110 ~                         CoreType::Function {
+111 ~                             return_types, ..
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/statements.rs:170:25
+    |
+170 |             if let Some(&Expr::Constructor { ref fields, .. }) = initializer {
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+170 -             if let Some(&Expr::Constructor { ref fields, .. }) = initializer {
+170 +             if let Some(Expr::Constructor { fields, .. }) = initializer {
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/compiler/compiler_helpers.rs:124:16
+    |
+124 |           if let &Decl::Import {
+    |  ________________^
+125 | |             ref items,
+126 | |             source: ref import_source,
+127 | |             ..
+128 | |         } = declaration
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+124 ~         if let Decl::Import {
+125 ~             items,
+126 ~             source: import_source,
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/compiler.rs:643:20
+    |
+643 |               if let &Decl::Import {
+    |  ____________________^
+644 | |                 source: ref import_source,
+645 | |                 ..
+646 | |             } = declaration
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+643 ~             if let Decl::Import {
+644 ~                 source: import_source,
+    |
+
+error: could not compile `opalescent` (lib) due to 6 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `opalescent` (lib test) due to 6 previous errors
