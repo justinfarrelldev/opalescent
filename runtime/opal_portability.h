@@ -213,6 +213,7 @@ typedef struct opal_dir_s opal_dir_t;
 typedef struct {
     char d_name[260];
 } opal_dirent_t;
+#define OPAL_DIRENT_T_DEFINED 1
 
 struct opal_dir_s {
     HANDLE handle;

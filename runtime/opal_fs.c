@@ -70,9 +70,12 @@ typedef struct { void*      value; const char* error; } FsPermissionsResult;
  */
 
 typedef struct opal_dir_s opal_dir_t;
+#ifndef OPAL_DIRENT_T_DEFINED
 typedef struct {
     char d_name[260];  /* MAX_PATH on Windows */
 } opal_dirent_t;
+#define OPAL_DIRENT_T_DEFINED 1
+#endif
 
 opal_dir_t* opal_opendir(const char* path);
 opal_dirent_t* opal_readdir(opal_dir_t* dir);
