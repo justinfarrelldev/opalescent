@@ -317,3 +317,23 @@
 - Fixed `clippy::panic_in_result_fn` in `fs_rerunnability.rs`: replaced `assert!(failures.is_empty(), ...)` with `if !failures.is_empty() { return Err(io::Error::other(...)); }`.
 - Fixed `clippy::filetype_is_file` in `fs_rerunnability.rs`: `file_type.is_file()` → `!file_type.is_dir()` (covers symlinks and other non-directory entries).
 - All gates verified: `cargo make lint` exits 0, `cargo test --features integration fs_` → 79 passed twice, `cargo test --features integration fs_rerunnability` → 1 passed, `cargo build` exits 0.
+
+## 2026-04-27T22:00:00Z Strict-clippy closure verification
+- Re-ran the requested strict gate (`cargo make lint`) and it already exits 0 on current tree, so no additional file edits were required for the listed six T33-follow-up files.
+- Re-verified required stability gates unchanged: `cargo test --features integration fs_` passes (`79 passed`), `cargo test --features integration fs_rerunnability` passes (`1 passed`), and `cargo build` exits 0.
+
+## 2026-04-27T22:XX:XXZ T34 MSVC compile+link verification
+- `clang-cl` is available on this Debian host as `clang-cl-14` (versioned suffix); probe script updated to try unversioned then versioned candidates in order.
+- `/Fo:"path"` syntax (with colon) is parsed by clang-cl on Linux as literal filename `:path`; correct syntax is `/Fo${path}` (no colon, path directly concatenated).
+- `_CRT_SECURE_NO_WARNINGS` and `_CRT_NONSTDC_NO_WARNINGS` suppress MSVC deprecation warnings for `strdup`/`fopen`/`strerror`/`strncpy` — these are style warnings only, not errors.
+- `opal_dirent_t` was doubly-defined when compiling for Windows: `opal_portability.h` defines it in the Windows block, and `opal_fs.c` defines it in `#if !OPAL_HAS_DIRENT`. Fixed with `OPAL_DIRENT_T_DEFINED` guard macro.
+- xwin v0.2.0 is the highest version compatible with Rust 1.86 (v0.5.0+ requires Rust 1.88 via `time` crate dependency).
+- Full probe invocation: `XWIN_CACHE="$HOME/.xwin" bash scripts/msvc_link_probe.sh` → `MSVC LINK PROBE: PASS`.
+
+
+## 2026-04-28T01:16:02Z T34 full MSVC verification closure
+- `scripts/msvc_link_probe.sh --full` now compiles every `runtime/opal_*.c` except the smoke harness into `target/msvc-probe/*.obj` and links `target/msvc-probe/runtime.dll` plus `target/msvc-probe/runtime.lib`.
+- Full-runtime linking needs `bcrypt.lib` in addition to `kernel32.lib`, `libucrt.lib`, and `libcmt.lib` because `runtime/opal_rng.c` uses `BCryptGenRandom` on Windows.
+- The smoke harness must link against the generated import library (`runtime.lib`), not the DLL path itself; `lld-link` rejects the DLL as a bad input type for executable linking.
+- Undefined-symbol reporting is reliable when run against the import library and filtering PE import-library bookkeeping entries (`__NULL_IMPORT_DESCRIPTOR`, `__IMPORT_DESCRIPTOR_*`, `*_NULL_THUNK_DATA`).
+- Verified end-to-end on this host: `XWIN_CACHE="$HOME/.xwin" bash scripts/msvc_link_probe.sh --full`, `--report-undefined`, default quick probe, and `cargo build` all pass.

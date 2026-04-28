@@ -222,3 +222,14 @@
 
 ## 2026-04-27T21:31:54Z T33 follow-up residual issue
 - Test output still includes non-fatal compiler warnings for unused `cwd_path` bindings in path fixture tests (`fs_path_from.rs`, `fs_normalize_path.rs`, `fs_join_path_components.rs`); this does not affect pass/fail but remains noise in verification logs.
+
+## 2026-04-27T22:XX:XXZ T34 MSVC environment resolution
+- Previous sessions documented `clang-cl not found` — this was because only the versioned `clang-cl-14` binary exists on this Debian host, not the unversioned symlink. Probe script now handles this via candidate fallback loop.
+- xwin v0.9.0 (latest) requires Rust 1.88 via `time` crate; installed v0.2.0 which compiles on Rust 1.86.
+- `opal_dirent_t` typedef redefinition was a latent Windows-compile-only bug: POSIX builds never triggered it because `OPAL_HAS_DIRENT=1` on Linux skips the `opal_fs.c` block. Fixed with guard macro.
+- All T34 verification gates now pass: probe exits 0, `cargo build` exits 0, evidence doc written.
+
+
+## 2026-04-28T01:16:02Z T34 verification notes
+- `clang-cl` still emits non-fatal MSVC-extension warnings for `OPAL_STATIC_ASSERT` in `opal_rc.h` / `opal_rc.c` because `static_assert` is used without `<assert.h>` under the Windows-target compile path; these warnings did not block the T34 gate.
+- `nm` on the generated MSVC import library surfaces bookkeeping undefined entries that are not real unresolved runtime symbols; report mode must filter them to avoid false positives in the `0 undefined symbols` acceptance check.
