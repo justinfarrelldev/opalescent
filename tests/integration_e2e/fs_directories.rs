@@ -1,6 +1,8 @@
 #![cfg(feature = "integration")]
 
-use super::fs_helpers::{assert_workspace_empty, fs_project_root, unique_probe_target_dir, FsStateGuard};
+use super::fs_helpers::{
+    FsStateGuard, assert_workspace_empty, fs_project_root, unique_probe_target_dir,
+};
 use super::*;
 use serial_test::serial;
 use std::path::{Path, PathBuf};
@@ -96,7 +98,9 @@ int main(int argc, char** argv) {
         let stdout = String::from_utf8_lossy(&compile.stdout);
         return Err(format!(
             "t28 harness compile should succeed, status={:?}, stdout='{}', stderr='{}'",
-            compile.status.code(), stdout, stderr
+            compile.status.code(),
+            stdout,
+            stderr
         ));
     }
 
@@ -206,7 +210,8 @@ fn mkdir_rmdir_roundtrip() {
     let fixture_dir = make_temp_path("mkdir-rmdir-roundtrip");
 
     let execution_result: Result<(), String> = (|| {
-        let (mkdir_code, mkdir_stdout, mkdir_stderr) = run_harness("mkdir", &fixture_dir, &temp_dir)?;
+        let (mkdir_code, mkdir_stdout, mkdir_stderr) =
+            run_harness("mkdir", &fixture_dir, &temp_dir)?;
         if mkdir_code != 0_i32 || !mkdir_stdout.contains("OK") {
             return Err(format!(
                 "mkdir_rmdir_roundtrip mkdir should succeed, code={mkdir_code}, stdout='{mkdir_stdout}', stderr='{mkdir_stderr}'"
@@ -219,7 +224,8 @@ fn mkdir_rmdir_roundtrip() {
             ));
         }
 
-        let (rmdir_code, rmdir_stdout, rmdir_stderr) = run_harness("rmdir", &fixture_dir, &temp_dir)?;
+        let (rmdir_code, rmdir_stdout, rmdir_stderr) =
+            run_harness("rmdir", &fixture_dir, &temp_dir)?;
         if rmdir_code != 0_i32 || !rmdir_stdout.contains("OK") {
             return Err(format!(
                 "mkdir_rmdir_roundtrip rmdir should succeed, code={rmdir_code}, stdout='{rmdir_stdout}', stderr='{rmdir_stderr}'"

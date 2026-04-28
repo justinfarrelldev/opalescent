@@ -69,15 +69,13 @@ pub fn codegen_field_access_expression<'context>(
         )));
     };
 
-    if let Some(lowered) =
-        codegen_intrinsic_member_access(
-            codegen_context,
-            env,
-            effective_receiver_name.as_str(),
-            &binding,
-            effective_member_name,
-        )?
-    {
+    if let Some(lowered) = codegen_intrinsic_member_access(
+        codegen_context,
+        env,
+        effective_receiver_name.as_str(),
+        &binding,
+        effective_member_name,
+    )? {
         return Ok(lowered);
     }
 
@@ -174,7 +172,8 @@ fn codegen_intrinsic_member_access<'context>(
     }
 
     if matches!(binding.core_type, CoreType::Array(_)) && member_name == "length" {
-        let length_value = resolve_array_length_value(codegen_context, env, receiver_name, binding)?;
+        let length_value =
+            resolve_array_length_value(codegen_context, env, receiver_name, binding)?;
         return Ok(Some(length_value.as_basic_value_enum()));
     }
 

@@ -1,7 +1,9 @@
 #![cfg(feature = "integration")]
 
+use super::fs_helpers::{
+    FsStateGuard, assert_workspace_empty, fs_project_root, strip_crlf, unique_probe_target_dir,
+};
 use super::*;
-use super::fs_helpers::{FsStateGuard, assert_workspace_empty, fs_project_root, strip_crlf, unique_probe_target_dir};
 use serial_test::serial;
 
 #[cfg(feature = "integration")]
@@ -28,18 +30,15 @@ fn fs_markdown_roundtrip() {
         );
 
         let temp_dir = unique_probe_target_dir("markdown-roundtrip-fixture");
-        let binary_result = opalescent::compiler::compile_project(
-            &project_dir,
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "fs-markdown-roundtrip fixture should compile into a binary: {}",
-            binary_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown compile error"), ToString::to_string)
+            binary_result.as_ref().err().map_or_else(
+                || String::from("unknown compile error"),
+                ToString::to_string
+            )
         );
         let Ok(binary_path) = binary_result else {
             return;
@@ -49,10 +48,10 @@ fn fs_markdown_roundtrip() {
         assert!(
             output_result.is_ok(),
             "fs-markdown-roundtrip compiled binary should execute: {}",
-            output_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown execution error"), ToString::to_string)
+            output_result.as_ref().err().map_or_else(
+                || String::from("unknown execution error"),
+                ToString::to_string
+            )
         );
         let Ok(run_output) = output_result else {
             return;

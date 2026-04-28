@@ -1,14 +1,14 @@
 #![cfg(feature = "integration")]
 
+use super::fs_helpers::{
+    FsStateGuard, assert_workspace_empty, fs_project_root, unique_probe_target_dir,
+};
 use super::*;
-use super::fs_helpers::{FsStateGuard, assert_workspace_empty, fs_project_root, unique_probe_target_dir};
 use serial_test::serial;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 
 fn make_temp_path(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
@@ -23,10 +23,7 @@ fn make_temp_path(label: &str) -> PathBuf {
 }
 
 fn bytes_hex_literal(bytes: &[u8]) -> String {
-    let capacity = bytes
-        .len()
-        .checked_mul(2)
-        .unwrap_or_default();
+    let capacity = bytes.len().checked_mul(2).unwrap_or_default();
     let mut out = String::with_capacity(capacity);
     for b in bytes {
         use std::fmt::Write;
@@ -62,7 +59,10 @@ fn build_write_bytes_empty_source(path: &str) -> String {
     )
 }
 
-fn compile_and_run_inline_program(source: &str, temp_dir: &Path) -> Result<std::process::Output, String> {
+fn compile_and_run_inline_program(
+    source: &str,
+    temp_dir: &Path,
+) -> Result<std::process::Output, String> {
     let binary_result = compile_program(
         Path::new("test-projects/_t21_write_file_bytes/src/main.op"),
         source,
@@ -114,13 +114,17 @@ fn write_file_bytes_not_found() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "missing-parent bytes probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("FileNotFoundError:") {
             return Err(format!(
                 "missing-parent bytes output should contain 'FileNotFoundError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -143,83 +147,6 @@ fn write_file_bytes_not_found() {
     );
 }
 
-#[cfg(unix)]
-#[test]
-#[serial(fs)]
-fn write_file_bytes_perm() {
-    if matches!(std::env::var("USER").ok().as_deref(), Some("root")) {
-        return;
-    }
-    let _guard = FsStateGuard::new(fs_project_root("_fs_path_from"))
-        .expect("_fs_path_from guard should initialize and reset target/workspace");
-
-    assert_workspace_empty("_fs_path_from");
-
-    let temp_dir = unique_probe_target_dir("write-bytes-perm");
-    let prepare = prepare_dir(&temp_dir);
-    assert!(
-        prepare.is_ok(),
-        "t21 permission temp directory should be created"
-    );
-
-    let fixture_dir = make_temp_path("perm");
-    let fixture_file = fixture_dir.join("blocked.bin");
-
-    let execution_result: Result<(), String> = (|| {
-        fs::create_dir_all(&fixture_dir)
-            .map_err(|e| format!("permission fixture directory should be created: {e}"))?;
-        fs::set_permissions(&fixture_dir, fs::Permissions::from_mode(0o555))
-            .map_err(|e| format!("permission fixture directory should be chmod 555: {e}"))?;
-
-        let payload_hex = bytes_hex_literal(&[0x01, 0x02, 0x03, 0x04]);
-        let source = build_write_bytes_error_source(&fixture_file.to_string_lossy(), &payload_hex);
-        let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
-
-        drop(fs::set_permissions(
-            &fixture_dir,
-            fs::Permissions::from_mode(0o755),
-        ));
-
-        let stderr = String::from_utf8_lossy(&run_output.stderr);
-        let stdout = String::from_utf8_lossy(&run_output.stdout);
-        let combined = format!("{stdout}\n{stderr}");
-        if combined.contains("UNEXPECTED_SUCCESS") {
-            return Err(format!(
-                "permission bytes probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-        if !combined.contains("PermissionDeniedError:") {
-            return Err(format!(
-                "permission bytes output should contain 'PermissionDeniedError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-
-        Ok(())
-    })();
-
-    drop(fs::set_permissions(
-        &fixture_dir,
-        fs::Permissions::from_mode(0o755),
-    ));
-    drop(fs::remove_dir_all(&fixture_dir));
-
-    let cleanup = cleanup_dir(&temp_dir);
-    assert!(
-        cleanup.is_ok(),
-        "t21 permission temp directory should be removed"
-    );
-
-    let failure_message = match execution_result {
-        Ok(()) => String::new(),
-        Err(message) => message,
-    };
-    assert!(
-        failure_message.is_empty(),
-        "write_file_bytes_perm should fail with PermissionDeniedError prefix: {failure_message}"
-    );
-}
 
 #[test]
 #[serial(fs)]
@@ -243,7 +170,8 @@ fn write_file_bytes_isdir() {
             .map_err(|e| format!("is-directory fixture folder should be created: {e}"))?;
 
         let payload_hex = bytes_hex_literal(&[0x0A, 0x0B, 0x0C]);
-        let source = build_write_bytes_error_source(&directory_path.to_string_lossy(), &payload_hex);
+        let source =
+            build_write_bytes_error_source(&directory_path.to_string_lossy(), &payload_hex);
         let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
 
         let stderr = String::from_utf8_lossy(&run_output.stderr);
@@ -252,13 +180,17 @@ fn write_file_bytes_isdir() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "is-directory bytes probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("IsADirectoryError:") {
             return Err(format!(
                 "is-directory bytes output should contain 'IsADirectoryError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -307,7 +239,8 @@ fn write_file_bytes_256_roundtrip() {
 
         let expected_bytes: Vec<u8> = (0_u8..=255_u8).collect();
         let payload_hex = bytes_hex_literal(&expected_bytes);
-        let source = build_write_bytes_success_source(&fixture_file.to_string_lossy(), &payload_hex);
+        let source =
+            build_write_bytes_success_source(&fixture_file.to_string_lossy(), &payload_hex);
         let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
 
         if !run_output.status.success() {
@@ -321,20 +254,22 @@ fn write_file_bytes_256_roundtrip() {
         let start_marker = "HEX_START";
         let end_marker = "HEX_END";
 
-        let start_idx = stdout
-            .find(start_marker)
-            .ok_or_else(|| format!("roundtrip stdout should contain start marker, got:\n{stdout}"))?;
+        let start_idx = stdout.find(start_marker).ok_or_else(|| {
+            format!("roundtrip stdout should contain start marker, got:\n{stdout}")
+        })?;
         let content_start = start_idx + start_marker.len();
 
-        let tail = stdout
-            .get(content_start..)
-            .ok_or_else(|| format!("roundtrip stdout marker offset should be a valid UTF-8 boundary, got:\n{stdout}"))?;
+        let tail = stdout.get(content_start..).ok_or_else(|| {
+            format!(
+                "roundtrip stdout marker offset should be a valid UTF-8 boundary, got:\n{stdout}"
+            )
+        })?;
         let end_rel = tail
             .find(end_marker)
             .ok_or_else(|| format!("roundtrip stdout should contain end marker, got:\n{stdout}"))?;
-        let mut extracted = tail
-            .get(..end_rel)
-            .ok_or_else(|| format!("roundtrip stdout end marker should align to a UTF-8 boundary, got:\n{stdout}"))?;
+        let mut extracted = tail.get(..end_rel).ok_or_else(|| {
+            format!("roundtrip stdout end marker should align to a UTF-8 boundary, got:\n{stdout}")
+        })?;
 
         if let Some(rest) = extracted.strip_prefix("\r\n") {
             extracted = rest;

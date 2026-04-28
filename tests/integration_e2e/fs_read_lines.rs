@@ -70,7 +70,9 @@ int main(int argc, char** argv) {
         let stdout = String::from_utf8_lossy(&compile.stdout);
         return Err(format!(
             "t17 harness compile should succeed, status={:?}, stdout='{}', stderr='{}'",
-            compile.status.code(), stdout, stderr
+            compile.status.code(),
+            stdout,
+            stderr
         ));
     }
 
@@ -98,7 +100,9 @@ fn run_harness(path: &Path) -> Result<(i64, Vec<String>), String> {
         let stdout = String::from_utf8_lossy(&output.stdout);
         return Err(format!(
             "t17 harness should exit 0, status={:?}, stdout='{}', stderr='{}'",
-            output.status.code(), stdout, stderr
+            output.status.code(),
+            stdout,
+            stderr
         ));
     }
 
@@ -155,7 +159,9 @@ fn read_file_to_lines_lf() {
 
         let expected = ["a", "b", "c"];
         if lines != expected {
-            return Err(format!("LF input should produce a,b,c lines, got {lines:?}"));
+            return Err(format!(
+                "LF input should produce a,b,c lines, got {lines:?}"
+            ));
         }
 
         Ok(())
@@ -194,7 +200,9 @@ fn read_file_to_lines_crlf() {
 
         let expected = ["a", "b"];
         if lines != expected {
-            return Err(format!("CRLF input should normalize and split to a,b, got {lines:?}"));
+            return Err(format!(
+                "CRLF input should normalize and split to a,b, got {lines:?}"
+            ));
         }
 
         Ok(())
@@ -233,7 +241,9 @@ fn read_file_to_lines_mixed() {
 
         let expected = ["a", "b", "c"];
         if lines != expected {
-            return Err(format!("mixed line endings should produce a,b,c, got {lines:?}"));
+            return Err(format!(
+                "mixed line endings should produce a,b,c, got {lines:?}"
+            ));
         }
 
         Ok(())
@@ -274,7 +284,9 @@ fn read_file_to_lines_trailing_newline() {
 
         let expected = ["a", "b", "c"];
         if lines != expected {
-            return Err(format!("trailing newline should not append empty element, got {lines:?}"));
+            return Err(format!(
+                "trailing newline should not append empty element, got {lines:?}"
+            ));
         }
 
         Ok(())
@@ -312,7 +324,9 @@ fn read_file_to_lines_empty() {
         }
 
         if !lines.is_empty() {
-            return Err(format!("empty file should produce no line entries, got {lines:?}"));
+            return Err(format!(
+                "empty file should produce no line entries, got {lines:?}"
+            ));
         }
 
         Ok(())

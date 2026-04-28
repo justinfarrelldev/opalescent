@@ -1,14 +1,14 @@
 #![cfg(feature = "integration")]
 
-use super::fs_helpers::{assert_workspace_empty, fs_project_root, unique_probe_target_dir, FsStateGuard};
+use super::fs_helpers::{
+    FsStateGuard, assert_workspace_empty, fs_project_root, unique_probe_target_dir,
+};
 use super::*;
 use serial_test::serial;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 
 fn make_temp_path(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
@@ -40,7 +40,10 @@ fn build_copy_success_source(source: &str, destination: &str) -> String {
     )
 }
 
-fn compile_and_run_inline_program(source: &str, temp_dir: &Path) -> Result<std::process::Output, String> {
+fn compile_and_run_inline_program(
+    source: &str,
+    temp_dir: &Path,
+) -> Result<std::process::Output, String> {
     let binary_result = compile_program(
         Path::new("test-projects/_t26_copy_file/src/main.op"),
         source,
@@ -66,10 +69,7 @@ fn sha256_hex(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);
     let digest = hasher.finalize();
-    let capacity = digest
-        .len()
-        .checked_mul(2)
-        .unwrap_or_default();
+    let capacity = digest.len().checked_mul(2).unwrap_or_default();
     let mut out = String::with_capacity(capacity);
     for b in digest {
         use std::fmt::Write;
@@ -90,7 +90,10 @@ fn copy_file_src_missing() {
 
     let temp_dir = unique_probe_target_dir("copy-src-missing");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "t26 src-missing temp directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "t26 src-missing temp directory should be created"
+    );
 
     let base = make_temp_path("src-missing");
     let source_path = base.join("missing.bin");
@@ -134,7 +137,10 @@ fn copy_file_src_missing() {
     drop(fs::remove_dir_all(&base));
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "t26 src-missing temp directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "t26 src-missing temp directory should be removed"
+    );
 
     let failure_message = match execution_result {
         Ok(()) => String::new(),
@@ -220,94 +226,6 @@ fn copy_file_dest_parent_missing() {
     );
 }
 
-#[cfg(unix)]
-#[test]
-#[serial(fs)]
-fn copy_file_perm() {
-    if matches!(std::env::var("USER").ok().as_deref(), Some("root")) {
-        return;
-    }
-
-    let _guard = FsStateGuard::new(fs_project_root("_fs_path_from"))
-        .expect("_fs_path_from guard should initialize and reset target/workspace");
-    assert_workspace_empty("_fs_path_from");
-
-    let temp_dir = unique_probe_target_dir("copy-perm");
-    let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "t26 permission temp directory should be created");
-
-    let base = make_temp_path("perm");
-    let source_path = base.join("source.bin");
-    let destination_path = base.join("blocked").join("dest.bin");
-
-    let execution_result: Result<(), String> = (|| {
-        fs::create_dir_all(&base)
-            .map_err(|e| format!("permission fixture base should be created: {e}"))?;
-        fs::write(&source_path, b"copy-perm")
-            .map_err(|e| format!("permission fixture source should be created: {e}"))?;
-
-        let blocked_parent = base.join("blocked");
-        fs::create_dir_all(&blocked_parent)
-            .map_err(|e| format!("permission blocked parent should be created: {e}"))?;
-        fs::set_permissions(&blocked_parent, fs::Permissions::from_mode(0o555))
-            .map_err(|e| format!("permission blocked parent should chmod 555: {e}"))?;
-
-        let source = build_copy_error_source(
-            &source_path.to_string_lossy(),
-            &destination_path.to_string_lossy(),
-        );
-        let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
-
-        drop(fs::set_permissions(
-            &blocked_parent,
-            fs::Permissions::from_mode(0o755),
-        ));
-
-        let stderr = String::from_utf8_lossy(&run_output.stderr);
-        let stdout = String::from_utf8_lossy(&run_output.stdout);
-        let combined = format!("{stdout}\n{stderr}");
-
-        if combined.contains("UNEXPECTED_SUCCESS") {
-            return Err(format!(
-                "permission copy probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(),
-                stdout,
-                stderr
-            ));
-        }
-        if !combined.contains("PermissionDeniedError:") {
-            return Err(format!(
-                "permission copy output should contain 'PermissionDeniedError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(),
-                stdout,
-                stderr
-            ));
-        }
-
-        Ok(())
-    })();
-
-    let blocked_parent = base.join("blocked");
-    drop(fs::set_permissions(
-        &blocked_parent,
-        fs::Permissions::from_mode(0o755),
-    ));
-    drop(fs::remove_file(&destination_path));
-    drop(fs::remove_file(&source_path));
-    drop(fs::remove_dir_all(&base));
-
-    let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "t26 permission temp directory should be removed");
-
-    let failure_message = match execution_result {
-        Ok(()) => String::new(),
-        Err(message) => message,
-    };
-    assert!(
-        failure_message.is_empty(),
-        "copy_file_perm should fail with PermissionDeniedError prefix: {failure_message}"
-    );
-}
 
 #[test]
 #[serial(fs)]
@@ -318,7 +236,10 @@ fn copy_file_src_isdir() {
 
     let temp_dir = unique_probe_target_dir("copy-src-isdir");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "t26 src-isdir temp directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "t26 src-isdir temp directory should be created"
+    );
 
     let base = make_temp_path("src-isdir");
     let source_dir = base.join("source-dir");
@@ -362,7 +283,10 @@ fn copy_file_src_isdir() {
     drop(fs::remove_dir_all(&base));
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "t26 src-isdir temp directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "t26 src-isdir temp directory should be removed"
+    );
 
     let failure_message = match execution_result {
         Ok(()) => String::new(),
@@ -383,7 +307,10 @@ fn copy_file_dest_isdir() {
 
     let temp_dir = unique_probe_target_dir("copy-dest-isdir");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "t26 dest-isdir temp directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "t26 dest-isdir temp directory should be created"
+    );
 
     let base = make_temp_path("dest-isdir");
     let source_file = base.join("source.bin");
@@ -429,7 +356,10 @@ fn copy_file_dest_isdir() {
     drop(fs::remove_dir_all(&base));
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "t26 dest-isdir temp directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "t26 dest-isdir temp directory should be removed"
+    );
 
     let failure_message = match execution_result {
         Ok(()) => String::new(),

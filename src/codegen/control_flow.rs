@@ -251,23 +251,24 @@ pub fn codegen_loop_statement<'context>(
                     (array_ptr, array_length, element_core_type.as_ref().clone())
                 }
                 Expr::Array { ref elements, .. } => {
-                    let element_core_type = elements.first().map_or(CoreType::Int64, |first| {
-                        match *first {
-                            Expr::Literal {
-                                value: crate::ast::LiteralValue::Float(_),
-                                ..
-                            } => CoreType::Float64,
-                            Expr::Literal {
-                                value: crate::ast::LiteralValue::String(_),
-                                ..
-                            } => CoreType::String,
-                            Expr::Literal {
-                                value: crate::ast::LiteralValue::Boolean(_),
-                                ..
-                            } => CoreType::Boolean,
-                            _ => CoreType::Int64,
-                        }
-                    });
+                    let element_core_type =
+                        elements
+                            .first()
+                            .map_or(CoreType::Int64, |first| match *first {
+                                Expr::Literal {
+                                    value: crate::ast::LiteralValue::Float(_),
+                                    ..
+                                } => CoreType::Float64,
+                                Expr::Literal {
+                                    value: crate::ast::LiteralValue::String(_),
+                                    ..
+                                } => CoreType::String,
+                                Expr::Literal {
+                                    value: crate::ast::LiteralValue::Boolean(_),
+                                    ..
+                                } => CoreType::Boolean,
+                                _ => CoreType::Int64,
+                            });
                     let iterable_expected_type =
                         CoreType::Array(Box::new(element_core_type.clone()));
                     let iterable_value = codegen_expression(

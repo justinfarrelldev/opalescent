@@ -1,19 +1,22 @@
 #![cfg(feature = "integration")]
 
+use super::fs_helpers::{
+    FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
+};
 use super::*;
-use super::fs_helpers::{FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir};
 use serial_test::serial;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-fn seed_inventory_files(base_dir: &Path) -> Result<(), String> {
-    fs::create_dir_all(base_dir.join("workspace").join("inventory"))
-        .map_err(|e| format!("fs_dir_inventory harness precreate inventory dir should succeed: {e}"))?;
+fn seed_inventory_files(inventory_dir: &Path) -> Result<(), String> {
+    fs::create_dir_all(inventory_dir).map_err(|e| {
+        format!("fs_dir_inventory harness precreate inventory dir should succeed: {e}")
+    })?;
 
-    fs::write(base_dir.join("workspace").join("inventory").join("a.txt"), "alpha")
+    fs::write(inventory_dir.join("a.txt"), "alpha")
         .map_err(|e| format!("fs_dir_inventory harness seed a.txt should succeed: {e}"))?;
-    fs::write(base_dir.join("workspace").join("inventory").join("b.txt"), "beta")
+    fs::write(inventory_dir.join("b.txt"), "beta")
         .map_err(|e| format!("fs_dir_inventory harness seed b.txt should succeed: {e}"))?;
-    fs::write(base_dir.join("workspace").join("inventory").join("c.txt"), "gamma")
+    fs::write(inventory_dir.join("c.txt"), "gamma")
         .map_err(|e| format!("fs_dir_inventory harness seed c.txt should succeed: {e}"))?;
     Ok(())
 }
@@ -83,11 +86,15 @@ int main(int argc, char** argv) {
 "#
 }
 
-fn compile_list_harness(harness_c: &std::path::Path, harness_bin: &std::path::Path) -> Result<(), String> {
+fn compile_list_harness(
+    repo_root: &Path,
+    harness_c: &std::path::Path,
+    harness_bin: &std::path::Path,
+) -> Result<(), String> {
     let compile = std::process::Command::new("cc")
         .arg("-std=gnu11")
-        .arg("-I.")
-        .arg("runtime/opal_fs.c")
+        .arg(format!("-I{}", repo_root.display()))
+        .arg(repo_root.join("runtime/opal_fs.c"))
         .arg(harness_c)
         .arg("-o")
         .arg(harness_bin)
@@ -99,14 +106,19 @@ fn compile_list_harness(harness_c: &std::path::Path, harness_bin: &std::path::Pa
         let stdout = String::from_utf8_lossy(&compile.stdout);
         return Err(format!(
             "fs_dir_inventory harness compile should succeed, status={:?}, stdout='{}', stderr='{}'",
-            compile.status.code(), stdout, stderr
+            compile.status.code(),
+            stdout,
+            stderr
         ));
     }
     Ok(())
 }
 
-fn run_harness_list_sorted(base_dir: &Path) -> Result<(), String> {
-    seed_inventory_files(base_dir)?;
+fn repo_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+
+fn run_harness_list_sorted() -> Result<(), String> {
     let temp_dir = unique_probe_target_dir("dir-inventory-harness");
     let prepare_target = prepare_dir(&temp_dir);
     if prepare_target.is_err() {
@@ -118,22 +130,25 @@ fn run_harness_list_sorted(base_dir: &Path) -> Result<(), String> {
 
     let harness_c = temp_dir.join("fs_dir_inventory_harness.c");
     let harness_bin = temp_dir.join("fs_dir_inventory_harness");
-    let inventory_dir = base_dir.join("workspace").join("inventory");
+    let harness_root = temp_dir.join("inventory-root");
+    let inventory_dir = harness_root.join("inventory");
+
+    seed_inventory_files(&inventory_dir)?;
 
     fs::write(&harness_c, harness_c_source())
         .map_err(|e| format!("fs_dir_inventory harness source should be written: {e}"))?;
 
-    compile_list_harness(&harness_c, &harness_bin)?;
+    compile_list_harness(&repo_root(), &harness_c, &harness_bin)?;
 
     let run = std::process::Command::new(&harness_bin)
         .arg(inventory_dir.to_string_lossy().into_owned())
-        .current_dir(".")
+        .current_dir(repo_root())
         .output()
         .map_err(|e| format!("fs_dir_inventory harness should execute: {e}"))?;
 
     drop(fs::remove_file(&harness_bin));
     drop(fs::remove_file(&harness_c));
-    drop(fs::remove_dir_all(&inventory_dir));
+    drop(fs::remove_dir_all(&harness_root));
 
     let cleanup_target = cleanup_dir(&temp_dir);
     if cleanup_target.is_err() {
@@ -165,16 +180,7 @@ fn fs_dir_inventory() {
 
         assert_workspace_empty("_fs_dir_inventory");
 
-        let cwd = std::env::current_dir();
-        assert!(
-            cwd.is_ok(),
-            "current working directory should be readable for _fs_dir_inventory fixture test"
-        );
-        let Ok(cwd_path) = cwd else {
-            return;
-        };
-
-        let project_dir = cwd_path.join("test-projects/_fs_dir_inventory");
+        let project_dir = repo_root().join("test-projects/_fs_dir_inventory");
         let temp_dir = unique_probe_target_dir("dir-inventory-fixture");
         let prepare = prepare_dir(&temp_dir);
         assert!(
@@ -182,31 +188,30 @@ fn fs_dir_inventory() {
             "_fs_dir_inventory target directory should be created before compile"
         );
 
-        let binary_result = opalescent::compiler::compile_project(
-            &project_dir,
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_fs_dir_inventory fixture should compile into a binary: {}",
-            binary_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown compile error"), |error| format!("{error}"))
+            binary_result.as_ref().err().map_or_else(
+                || String::from("unknown compile error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(binary_path) = binary_result else {
             return;
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
+        let output_result = std::process::Command::new(&binary_path)
+            .current_dir(&project_dir)
+            .output();
         assert!(
             output_result.is_ok(),
             "_fs_dir_inventory compiled binary should execute: {}",
-            output_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown execution error"), |error| format!("{error}"))
+            output_result.as_ref().err().map_or_else(
+                || String::from("unknown execution error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(run_output) = output_result else {
             return;
@@ -224,7 +229,7 @@ fn fs_dir_inventory() {
             "_fs_dir_inventory output should contain success line, got: {stdout:?}"
         );
 
-        let harness_check = run_harness_list_sorted(&project_dir);
+        let harness_check = run_harness_list_sorted();
         assert!(
             harness_check.is_ok(),
             "_fs_dir_inventory harness should verify sorted list/count and cleanup: {}",

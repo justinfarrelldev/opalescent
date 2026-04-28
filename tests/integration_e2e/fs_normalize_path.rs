@@ -1,7 +1,9 @@
 #![cfg(feature = "integration")]
 
+use super::fs_helpers::{
+    FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
+};
 use super::*;
-use super::fs_helpers::{FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir};
 use serial_test::serial;
 
 fn stringify_error<E: core::fmt::Display>(error: E) -> String {
@@ -100,8 +102,7 @@ entry main = f(args: string[]): void =>
         ];
 
         assert_eq!(
-            lines,
-            expected,
+            lines, expected,
             "normalize_path should satisfy the canonical lexical normalization matrix"
         );
 
@@ -142,18 +143,15 @@ fn fs_normalize_path_fixture_showcase() {
         let project_dir = cwd_path.join("test-projects/_fs_normalize_path");
         let temp_dir = unique_probe_target_dir("normalize-fixture-showcase");
 
-        let binary_result = opalescent::compiler::compile_project(
-            &project_dir,
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_fs_normalize_path fixture should compile into a binary: {}",
-            binary_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown compile error"), |error| format!("{error}"))
+            binary_result.as_ref().err().map_or_else(
+                || String::from("unknown compile error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(binary_path) = binary_result else {
             return;
@@ -163,20 +161,17 @@ fn fs_normalize_path_fixture_showcase() {
         assert!(
             output_result.is_ok(),
             "_fs_normalize_path compiled binary should execute: {}",
-            output_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown execution error"), |error| format!("{error}"))
+            output_result.as_ref().err().map_or_else(
+                || String::from("unknown execution error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(run_output) = output_result else {
             return;
         };
 
         let stdout = strip_crlf(&String::from_utf8_lossy(&run_output.stdout));
-        let lines: Vec<&str> = stdout
-            .lines()
-            .map(str::trim)
-            .collect();
+        let lines: Vec<&str> = stdout.lines().map(str::trim).collect();
 
         let expected = vec![
             "a//b -> a/b",
@@ -187,8 +182,7 @@ fn fs_normalize_path_fixture_showcase() {
             "/a/b/../../.. -> empty-sentinel",
         ];
         assert_eq!(
-            lines,
-            expected,
+            lines, expected,
             "_fs_normalize_path fixture should print the 6 canonical normalize_path showcase lines"
         );
 
@@ -239,10 +233,10 @@ entry main = f(args: string[]): void =>
         assert!(
             binary_result.is_ok(),
             "normalize root-escape source should compile into a binary: {}",
-            binary_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown compile error"), |error| format!("{error}"))
+            binary_result.as_ref().err().map_or_else(
+                || String::from("unknown compile error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(binary_path) = binary_result else {
             return;
@@ -252,10 +246,10 @@ entry main = f(args: string[]): void =>
         assert!(
             output_result.is_ok(),
             "normalize root-escape compiled binary should execute: {}",
-            output_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown execution error"), |error| format!("{error}"))
+            output_result.as_ref().err().map_or_else(
+                || String::from("unknown execution error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(run_output) = output_result else {
             return;

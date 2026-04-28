@@ -48,7 +48,9 @@ fn resolve_print_to_puts() {
 
     let return_type_text = function_type
         .get_return_type()
-        .map_or_else(String::new, |return_type| return_type.print_to_string().to_string());
+        .map_or_else(String::new, |return_type| {
+            return_type.print_to_string().to_string()
+        });
     assert_eq!(return_type_text, "i32", "puts return type should be i32");
 
     let parameter_types = function_type.get_param_types();
@@ -70,8 +72,7 @@ fn resolve_printf_to_variadic_printf() {
     let codegen_context = CodegenContext::new(&context, "resolve_printf_to_variadic_printf");
     let mut env = CodegenEnv::new(true);
 
-    let result =
-        resolve_callee_function(&codegen_context, &mut env, &identifier("printf"), None);
+    let result = resolve_callee_function(&codegen_context, &mut env, &identifier("printf"), None);
     assert!(
         result.is_ok(),
         "printf should resolve successfully to libc printf"
@@ -94,7 +95,9 @@ fn resolve_printf_to_variadic_printf() {
 
     let return_type_text = function_type
         .get_return_type()
-        .map_or_else(String::new, |return_type| return_type.print_to_string().to_string());
+        .map_or_else(String::new, |return_type| {
+            return_type.print_to_string().to_string()
+        });
     assert_eq!(return_type_text, "i32", "printf return type should be i32");
 
     let parameter_types = function_type.get_param_types();

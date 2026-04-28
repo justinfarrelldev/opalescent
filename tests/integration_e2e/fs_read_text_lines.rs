@@ -1,7 +1,9 @@
 #![cfg(feature = "integration")]
 
+use super::fs_helpers::{
+    FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
+};
 use super::*;
-use super::fs_helpers::{FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir};
 use serial_test::serial;
 
 #[cfg(feature = "integration")]
@@ -26,18 +28,15 @@ fn fs_read_text_lines_fixture_showcase() {
         let project_dir = cwd_path.join("test-projects/_fs_read_text_lines");
         let temp_dir = unique_probe_target_dir("read-text-lines-fixture");
 
-        let binary_result = opalescent::compiler::compile_project(
-            &project_dir,
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_fs_read_text_lines fixture should compile into a binary: {}",
-            binary_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown compile error"), |error| format!("{error}"))
+            binary_result.as_ref().err().map_or_else(
+                || String::from("unknown compile error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(binary_path) = binary_result else {
             return;
@@ -47,20 +46,17 @@ fn fs_read_text_lines_fixture_showcase() {
         assert!(
             output_result.is_ok(),
             "_fs_read_text_lines compiled binary should execute: {}",
-            output_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown execution error"), |error| format!("{error}"))
+            output_result.as_ref().err().map_or_else(
+                || String::from("unknown execution error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(run_output) = output_result else {
             return;
         };
 
         let stdout = strip_crlf(&String::from_utf8_lossy(&run_output.stdout));
-        let lines: Vec<&str> = stdout
-            .lines()
-            .map(str::trim)
-            .collect();
+        let lines: Vec<&str> = stdout.lines().map(str::trim).collect();
 
         assert!(
             lines.contains(&"lines=4"),

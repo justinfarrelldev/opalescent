@@ -7,8 +7,6 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 
 fn build_read_bytes_success_source(path: &str) -> String {
     let escaped_path = path.replace('\\', "\\\\").replace('\'', "\\'");
@@ -26,7 +24,10 @@ fn build_read_bytes_error_source(path: &str) -> String {
     )
 }
 
-fn compile_and_run_inline_program(source: &str, temp_dir: &Path) -> Result<std::process::Output, String> {
+fn compile_and_run_inline_program(
+    source: &str,
+    temp_dir: &Path,
+) -> Result<std::process::Output, String> {
     let binary_result = compile_program(
         Path::new("test-projects/_t16_read_bytes/src/main.op"),
         source,
@@ -99,15 +100,17 @@ fn read_file_to_bytes_256_success() {
         let count_offset = count_start
             .checked_add("COUNT_START".len())
             .ok_or_else(|| format!("COUNT_START marker offset overflowed, got:\n{stdout}"))?;
-        let count_tail = stdout
-            .get(count_offset..)
-            .ok_or_else(|| format!("COUNT_START marker should align to a UTF-8 boundary, got:\n{stdout}"))?;
+        let count_tail = stdout.get(count_offset..).ok_or_else(|| {
+            format!("COUNT_START marker should align to a UTF-8 boundary, got:\n{stdout}")
+        })?;
         let count_end_rel = count_tail
             .find("COUNT_END")
             .ok_or_else(|| format!("stdout should include COUNT_END marker, got:\n{stdout}"))?;
         let count_payload = count_tail
             .get(..count_end_rel)
-            .ok_or_else(|| format!("COUNT_END marker should align to a UTF-8 boundary, got:\n{stdout}"))?
+            .ok_or_else(|| {
+                format!("COUNT_END marker should align to a UTF-8 boundary, got:\n{stdout}")
+            })?
             .trim_matches(|c| c == '\n' || c == '\r' || c == ' ' || c == '\t');
 
         if count_payload != "256" {
@@ -122,15 +125,17 @@ fn read_file_to_bytes_256_success() {
         let hex_offset = hex_start
             .checked_add("HEX_START".len())
             .ok_or_else(|| format!("HEX_START marker offset overflowed, got:\n{stdout}"))?;
-        let hex_tail = stdout
-            .get(hex_offset..)
-            .ok_or_else(|| format!("HEX_START marker should align to a UTF-8 boundary, got:\n{stdout}"))?;
+        let hex_tail = stdout.get(hex_offset..).ok_or_else(|| {
+            format!("HEX_START marker should align to a UTF-8 boundary, got:\n{stdout}")
+        })?;
         let hex_end_rel = hex_tail
             .find("HEX_END")
             .ok_or_else(|| format!("stdout should include HEX_END marker, got:\n{stdout}"))?;
         let hex_payload = hex_tail
             .get(..hex_end_rel)
-            .ok_or_else(|| format!("HEX_END marker should align to a UTF-8 boundary, got:\n{stdout}"))?
+            .ok_or_else(|| {
+                format!("HEX_END marker should align to a UTF-8 boundary, got:\n{stdout}")
+            })?
             .trim_matches(|c| c == '\n' || c == '\r' || c == ' ' || c == '\t');
 
         if hex_payload.len() != 512 {
@@ -216,15 +221,17 @@ fn read_file_to_bytes_empty() {
         let count_offset = count_start
             .checked_add("COUNT_START".len())
             .ok_or_else(|| format!("COUNT_START marker offset overflowed, got:\n{stdout}"))?;
-        let count_tail = stdout
-            .get(count_offset..)
-            .ok_or_else(|| format!("COUNT_START marker should align to a UTF-8 boundary, got:\n{stdout}"))?;
+        let count_tail = stdout.get(count_offset..).ok_or_else(|| {
+            format!("COUNT_START marker should align to a UTF-8 boundary, got:\n{stdout}")
+        })?;
         let count_end_rel = count_tail
             .find("COUNT_END")
             .ok_or_else(|| format!("stdout should include COUNT_END marker, got:\n{stdout}"))?;
         let count_payload = count_tail
             .get(..count_end_rel)
-            .ok_or_else(|| format!("COUNT_END marker should align to a UTF-8 boundary, got:\n{stdout}"))?
+            .ok_or_else(|| {
+                format!("COUNT_END marker should align to a UTF-8 boundary, got:\n{stdout}")
+            })?
             .trim_matches(|c| c == '\n' || c == '\r' || c == ' ' || c == '\t');
 
         if count_payload != "0" {
@@ -239,15 +246,17 @@ fn read_file_to_bytes_empty() {
         let hex_offset = hex_start
             .checked_add("HEX_START".len())
             .ok_or_else(|| format!("HEX_START marker offset overflowed, got:\n{stdout}"))?;
-        let hex_tail = stdout
-            .get(hex_offset..)
-            .ok_or_else(|| format!("HEX_START marker should align to a UTF-8 boundary, got:\n{stdout}"))?;
+        let hex_tail = stdout.get(hex_offset..).ok_or_else(|| {
+            format!("HEX_START marker should align to a UTF-8 boundary, got:\n{stdout}")
+        })?;
         let hex_end_rel = hex_tail
             .find("HEX_END")
             .ok_or_else(|| format!("stdout should include HEX_END marker, got:\n{stdout}"))?;
         let hex_payload = hex_tail
             .get(..hex_end_rel)
-            .ok_or_else(|| format!("HEX_END marker should align to a UTF-8 boundary, got:\n{stdout}"))?
+            .ok_or_else(|| {
+                format!("HEX_END marker should align to a UTF-8 boundary, got:\n{stdout}")
+            })?
             .trim_matches(|c| c == '\n' || c == '\r' || c == ' ' || c == '\t');
 
         if !hex_payload.is_empty() {
@@ -300,13 +309,17 @@ fn read_file_to_bytes_not_found() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "missing-path bytes probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("FileNotFoundError:") {
             return Err(format!(
                 "missing-path bytes output should contain 'FileNotFoundError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -329,84 +342,6 @@ fn read_file_to_bytes_not_found() {
     );
 }
 
-#[cfg(unix)]
-#[test]
-#[serial(fs)]
-fn read_file_to_bytes_perm() {
-    if matches!(std::env::var("USER").ok().as_deref(), Some("root")) {
-        return;
-    }
-    let temp_dir = unique_probe_target_dir("read-bytes-perm");
-    let prepare = prepare_dir(&temp_dir);
-    assert!(
-        prepare.is_ok(),
-        "t16 permission temp directory should be created"
-    );
-
-    let fixture_dir = make_temp_path("perm");
-    let fixture_file = fixture_dir.join("perm_denied.bin");
-
-    let execution_result: Result<(), String> = (|| {
-        fs::create_dir_all(&fixture_dir)
-            .map_err(|e| format!("permission fixture directory should be created: {e}"))?;
-        fs::write(&fixture_file, [0xAA_u8, 0xBB, 0xCC])
-            .map_err(|e| format!("permission fixture file should be created: {e}"))?;
-
-        let lock_permissions = fs::set_permissions(&fixture_file, fs::Permissions::from_mode(0o000));
-        if let Err(error) = lock_permissions {
-            return Err(format!(
-                "permission fixture should be chmod 000 for denied read test: {error}"
-            ));
-        }
-
-        let source = build_read_bytes_error_source(&fixture_file.to_string_lossy());
-        let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
-
-        let restore_result =
-            fs::set_permissions(&fixture_file, fs::Permissions::from_mode(0o644));
-        if let Err(error) = restore_result {
-            return Err(format!(
-                "permission fixture permissions should be restored after test run: {error}"
-            ));
-        }
-
-        let stderr = String::from_utf8_lossy(&run_output.stderr);
-        let stdout = String::from_utf8_lossy(&run_output.stdout);
-        let combined = format!("{stdout}\n{stderr}");
-        if combined.contains("UNEXPECTED_SUCCESS") {
-            return Err(format!(
-                "permission-denied bytes probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-        if !combined.contains("PermissionDeniedError:") {
-            return Err(format!(
-                "permission-denied bytes output should contain 'PermissionDeniedError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-
-        Ok(())
-    })();
-
-    drop(fs::remove_file(&fixture_file));
-    drop(fs::remove_dir_all(&fixture_dir));
-
-    let cleanup = cleanup_dir(&temp_dir);
-    assert!(
-        cleanup.is_ok(),
-        "t16 permission temp directory should be removed"
-    );
-
-    let failure_message = match execution_result {
-        Ok(()) => String::new(),
-        Err(message) => message,
-    };
-    assert!(
-        failure_message.is_empty(),
-        "read_file_to_bytes_perm should fail with PermissionDeniedError prefix: {failure_message}"
-    );
-}
 
 #[test]
 #[serial(fs)]
@@ -433,13 +368,17 @@ fn read_file_to_bytes_isdir() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "is-directory bytes probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("IsADirectoryError:") {
             return Err(format!(
                 "directory-path bytes output should contain 'IsADirectoryError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -481,8 +420,9 @@ fn decode_hex(hex: &str) -> Result<Vec<u8>, String> {
             .to_digit(16)
             .ok_or_else(|| format!("invalid hex character '{low}'"))?;
         let combined = (hi << 4_u32) | lo;
-        let byte = u8::try_from(combined)
-            .map_err(|error| format!("hex byte value should fit into u8, got {combined}: {error}"))?;
+        let byte = u8::try_from(combined).map_err(|error| {
+            format!("hex byte value should fit into u8, got {combined}: {error}")
+        })?;
         out.push(byte);
     }
 

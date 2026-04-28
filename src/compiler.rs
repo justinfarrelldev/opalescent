@@ -97,8 +97,7 @@ impl RuntimeTempFile {
             .map_err(CompileError::Io)?;
         std::fs::write(dir.join("opal_rc.h"), OPAL_RC_H).map_err(CompileError::Io)?;
         std::fs::write(dir.join("opal_runtime.h"), OPAL_RUNTIME_H).map_err(CompileError::Io)?;
-        std::fs::write(dir.join("opal_fs_errors.h"), OPAL_FS_ERRORS_H)
-            .map_err(CompileError::Io)?;
+        std::fs::write(dir.join("opal_fs_errors.h"), OPAL_FS_ERRORS_H).map_err(CompileError::Io)?;
 
         Ok(Self { dir, source_file })
     }
@@ -649,16 +648,13 @@ pub fn compile_project(
                     continue;
                 }
 
-                let resolved_path_result =
-                    resolve_import_path(module_path, import_source.as_str());
+                let resolved_path_result = resolve_import_path(module_path, import_source.as_str());
                 let Ok(resolved_path) = resolved_path_result else {
                     continue;
                 };
                 if let Some(discovered_interface) = discovered_interfaces.get(&resolved_path) {
                     let mut source_keyed_interface = discovered_interface.clone();
-                    source_keyed_interface
-                        .module_path
-                        .clone_from(import_source);
+                    source_keyed_interface.module_path.clone_from(import_source);
                     checker.register_module_interface(source_keyed_interface);
                 }
             }

@@ -21,10 +21,9 @@ let multiply = f(x: int32, y: int32): int32 => {
     let mutable acc = 0
     # Loop through and accumulate
     let mutable i = 0
-    while i < y {
+    while i < y:
         acc = acc + x
         i = i + 1
-    }
     return acc
 }
 

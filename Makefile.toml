@@ -89,7 +89,7 @@ args = ["test", "--release"]
 description = "Run Windows/wine integration tests (requires wine, clang-cl, xwin, LLVM)"
 script = [
     "bash scripts/verify-wine-prereqs.sh",
-    "cargo test --features windows-wine -- --test-threads=1",
+    "cargo test --features windows-wine --",
 ]
 condition = { platforms = ["linux"] }
 

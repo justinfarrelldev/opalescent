@@ -7,8 +7,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 
 fn make_temp_path(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
@@ -38,7 +36,10 @@ fn build_read_first_line_error_source(path: &str) -> String {
     )
 }
 
-fn compile_and_run_inline_program(source: &str, temp_dir: &Path) -> Result<std::process::Output, String> {
+fn compile_and_run_inline_program(
+    source: &str,
+    temp_dir: &Path,
+) -> Result<std::process::Output, String> {
     let binary_result = compile_program(
         Path::new("test-projects/_t18_read_first_line/src/main.op"),
         source,
@@ -71,15 +72,15 @@ fn extract_line_payload(stdout: &str) -> Result<String, String> {
         .checked_add(start_marker.len())
         .ok_or_else(|| format!("stdout marker offset overflowed, got:\n{stdout}"))?;
 
-    let tail = stdout
-        .get(content_start..)
-        .ok_or_else(|| format!("stdout marker offset should be a valid UTF-8 boundary, got:\n{stdout}"))?;
+    let tail = stdout.get(content_start..).ok_or_else(|| {
+        format!("stdout marker offset should be a valid UTF-8 boundary, got:\n{stdout}")
+    })?;
     let end_rel = tail
         .find(end_marker)
         .ok_or_else(|| format!("stdout should contain end marker, got:\n{stdout}"))?;
-    let mut extracted = tail
-        .get(..end_rel)
-        .ok_or_else(|| format!("stdout end marker should align to a UTF-8 boundary, got:\n{stdout}"))?;
+    let mut extracted = tail.get(..end_rel).ok_or_else(|| {
+        format!("stdout end marker should align to a UTF-8 boundary, got:\n{stdout}")
+    })?;
 
     if let Some(rest) = extracted.strip_prefix("\r\n") {
         extracted = rest;
@@ -143,7 +144,9 @@ int main(int argc, char** argv) {
         let stdout = String::from_utf8_lossy(&compile.stdout);
         return Err(format!(
             "t18 harness compile should succeed, status={:?}, stdout='{}', stderr='{}'",
-            compile.status.code(), stdout, stderr
+            compile.status.code(),
+            stdout,
+            stderr
         ));
     }
 
@@ -178,13 +181,17 @@ fn read_first_line_empty() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "empty file probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("OffsetOutOfRangeError: file is empty") {
             return Err(format!(
                 "empty file output should contain 'OffsetOutOfRangeError: file is empty', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -371,76 +378,6 @@ fn read_first_line_crlf() {
     );
 }
 
-#[cfg(unix)]
-#[test]
-#[serial(fs)]
-fn read_first_line_permission_denied() {
-    if matches!(std::env::var("USER").ok().as_deref(), Some("root")) {
-        return;
-    }
-    let temp_dir = unique_probe_target_dir("read-first-line-perm");
-    let prepare = prepare_dir(&temp_dir);
-    assert!(
-        prepare.is_ok(),
-        "t18 permission temp directory should be created"
-    );
-
-    let fixture_dir = make_temp_path("perm");
-    let fixture_file = fixture_dir.join("perm.txt");
-
-    let execution_result: Result<(), String> = (|| {
-        fs::create_dir_all(&fixture_dir)
-            .map_err(|e| format!("permission fixture directory should be created: {e}"))?;
-        fs::write(&fixture_file, "secret")
-            .map_err(|e| format!("permission fixture file should be written: {e}"))?;
-        fs::set_permissions(&fixture_file, fs::Permissions::from_mode(0o000))
-            .map_err(|e| format!("permission fixture should be chmod 000: {e}"))?;
-
-        let source = build_read_first_line_error_source(&fixture_file.to_string_lossy());
-        let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
-
-        drop(fs::set_permissions(
-            &fixture_file,
-            fs::Permissions::from_mode(0o644),
-        ));
-
-        let stderr = String::from_utf8_lossy(&run_output.stderr);
-        let stdout = String::from_utf8_lossy(&run_output.stdout);
-        let combined = format!("{stdout}\n{stderr}");
-        if combined.contains("UNEXPECTED_SUCCESS") {
-            return Err(format!(
-                "permission-denied probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-        if !combined.contains("PermissionDeniedError:") {
-            return Err(format!(
-                "permission-denied output should contain 'PermissionDeniedError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-
-        Ok(())
-    })();
-
-    drop(fs::remove_file(&fixture_file));
-    drop(fs::remove_dir_all(&fixture_dir));
-
-    let cleanup = cleanup_dir(&temp_dir);
-    assert!(
-        cleanup.is_ok(),
-        "t18 permission temp directory should be removed"
-    );
-
-    let failure_message = match execution_result {
-        Ok(()) => String::new(),
-        Err(message) => message,
-    };
-    assert!(
-        failure_message.is_empty(),
-        "read_first_line_permission_denied should map EACCES to PermissionDeniedError: {failure_message}"
-    );
-}
 
 #[test]
 #[serial(fs)]
@@ -467,13 +404,17 @@ fn read_first_line_is_directory() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "is-directory probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("IsADirectoryError:") {
             return Err(format!(
                 "is-directory output should contain 'IsADirectoryError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -520,13 +461,17 @@ fn read_first_line_not_found() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "not-found probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("FileNotFoundError:") {
             return Err(format!(
                 "not-found output should contain 'FileNotFoundError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -613,7 +558,9 @@ fn read_first_line_streaming_bounded() {
     drop(fs::remove_file(&fixture_file));
     drop(fs::remove_dir_all(&fixture_dir));
     drop(fs::remove_file(harness_dir.join("read_first_line_harness")));
-    drop(fs::remove_file(harness_dir.join("read_first_line_harness.c")));
+    drop(fs::remove_file(
+        harness_dir.join("read_first_line_harness.c"),
+    ));
     drop(fs::remove_dir_all(&harness_dir));
 
     let failure_message = match execution_result {

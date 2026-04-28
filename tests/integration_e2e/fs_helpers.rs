@@ -8,14 +8,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Example: `fs_project_root("_fs_path_from")` → `<repo>/test-projects/_fs_path_from`
 pub fn fs_project_root(name: &str) -> PathBuf {
     let repo_root = env!("CARGO_MANIFEST_DIR");
-    PathBuf::from(repo_root)
-        .join("test-projects")
-        .join(name)
+    PathBuf::from(repo_root).join("test-projects").join(name)
 }
 
 /// Reads an evidence file from `.sisyphus/evidence/`.
 /// Convenience helper for asserting evidence in tests.
-#[expect(dead_code, reason = "Evidence helper is used selectively by targeted integration checks")]
+#[expect(
+    dead_code,
+    reason = "Evidence helper is used selectively by targeted integration checks"
+)]
 pub fn read_evidence(name: &str, scenario: &str) -> String {
     let repo_root = env!("CARGO_MANIFEST_DIR");
     let evidence_path = PathBuf::from(repo_root)
@@ -32,36 +33,28 @@ pub fn read_evidence(name: &str, scenario: &str) -> String {
 pub fn assert_workspace_empty(project: &str) {
     let project_path = fs_project_root(project);
 
-    let target_dir = project_path.join("target");
-    if target_dir.exists() {
-        let entries_result = fs::read_dir(&target_dir);
-        assert!(entries_result.is_ok(), "Failed to read target dir for {project}");
-        let Ok(entries) = entries_result else {
-            return;
-        };
-        let entries: Vec<_> = entries.collect();
-        assert!(
-            entries.is_empty(),
-            "target/ directory should be empty for project {}, but found {} entries",
-            project,
-            entries.len()
-        );
-    }
+    assert_dir_empty_or_missing(&project_path.join("target"), project, "target");
+    assert_dir_empty_or_missing(&project_path.join("workspace"), project, "workspace");
+}
 
-    let workspace_dir = project_path.join("workspace");
-    if workspace_dir.exists() {
-        let entries_result = fs::read_dir(&workspace_dir);
-        assert!(entries_result.is_ok(), "Failed to read workspace dir for {project}");
-        let Ok(entries) = entries_result else {
-            return;
-        };
-        let entries: Vec<_> = entries.collect();
-        assert!(
-            entries.is_empty(),
-            "workspace/ directory should be empty for project {}, but found {} entries",
-            project,
-            entries.len()
-        );
+fn assert_dir_empty_or_missing(dir: &PathBuf, project: &str, dir_name: &str) {
+    match fs::read_dir(dir) {
+        Ok(entries) => {
+            let entries: Vec<_> = entries.collect();
+            assert!(
+                entries.is_empty(),
+                "{dir_name}/ directory should be empty for project {}, but found {} entries",
+                project,
+                entries.len()
+            );
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            assert!(
+                matches!(error.kind(), std::io::ErrorKind::NotFound),
+                "Failed to read {dir_name} dir for {project}: {error}"
+            );
+        }
     }
 }
 

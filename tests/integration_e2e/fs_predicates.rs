@@ -26,7 +26,10 @@ fn build_predicate_source(path: &str) -> String {
     )
 }
 
-fn compile_and_run_inline_program(source: &str, temp_dir: &Path) -> Result<std::process::Output, String> {
+fn compile_and_run_inline_program(
+    source: &str,
+    temp_dir: &Path,
+) -> Result<std::process::Output, String> {
     let binary_result = compile_program(
         Path::new("test-projects/_t25_fs_predicates/src/main.op"),
         source,
@@ -72,7 +75,8 @@ fn parse_matrix(stdout: &str) -> Result<(bool, bool, bool), String> {
         }
     }
 
-    let exists = exists.ok_or_else(|| format!("predicate output missing exists= line: {stdout}"))?;
+    let exists =
+        exists.ok_or_else(|| format!("predicate output missing exists= line: {stdout}"))?;
     let file = file.ok_or_else(|| format!("predicate output missing file= line: {stdout}"))?;
     let dir = dir.ok_or_else(|| format!("predicate output missing dir= line: {stdout}"))?;
 

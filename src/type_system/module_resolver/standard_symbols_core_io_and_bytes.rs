@@ -299,12 +299,9 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                         type_var: crate::type_system::types::TypeVar::new(9_001, "T".to_owned()),
                         constraints: Vec::new(),
                     }],
-                    parameters: vec![CoreType::Array(alloc::boxed::Box::new(
-                        CoreType::Variable(crate::type_system::types::TypeVar::new(
-                            9_001,
-                            "T".to_owned(),
-                        )),
-                    ))],
+                    parameters: vec![CoreType::Array(alloc::boxed::Box::new(CoreType::Variable(
+                        crate::type_system::types::TypeVar::new(9_001, "T".to_owned()),
+                    )))],
                     return_types: vec![CoreType::Int64],
                     error_types: Vec::new(),
                 },

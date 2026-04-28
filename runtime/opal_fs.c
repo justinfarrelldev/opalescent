@@ -88,7 +88,14 @@ static char* safe_strdup(const char* value) {
 }
 
 static char* errno_to_fs_error(int err, const char* op_prefix);
-static char* fwrite_all(FILE* f, const uint8_t* buf, size_t len);
+static char* fwrite_all(FILE* f, const uint8_t* buf, size_t len, const char* write_prefix);
+static char* fs_invalid_path_error(void);
+static char* fs_out_of_memory_error(const char* prefix, const char* fallback);
+static char* fs_close_error(const char* prefix, const char* fallback);
+static char* fs_offset_out_of_range_error(const char* detail);
+static int fs_write_via_mode(const char* path, const uint8_t* bytes, size_t length, const char* mode, const char* write_prefix, FsVoidResult* out);
+static FsVoidResult write_contents_atomic_bytes_sync(const char* path, const uint8_t* bytes, size_t length);
+static int remove_directory_recursive_inner(const char* path, FsVoidResult* out);
 
 static int opal_is_path_separator(char c) {
     char sep = opal_path_separator();
@@ -113,6 +120,248 @@ static int compare_string_pointers(const void* lhs, const void* rhs) {
     const char* const* left = (const char* const*)lhs;
     const char* const* right = (const char* const*)rhs;
     return strcmp(*left, *right);
+}
+
+static char* fs_invalid_path_error(void) {
+    char* error = opal_fs_format_err(OPAL_FS_ERR_INVALID_PATH, "empty path");
+    if (!error) {
+        error = safe_strdup("InvalidPathError: empty path");
+    }
+    return error;
+}
+
+static char* fs_out_of_memory_error(const char* prefix, const char* fallback) {
+    char* error = opal_fs_format_err(prefix, "out of memory");
+    if (!error) {
+        error = safe_strdup(fallback);
+    }
+    return error;
+}
+
+static char* fs_close_error(const char* prefix, const char* fallback) {
+    int close_errno = errno ? errno : EIO;
+    char detail[256];
+    snprintf(detail, sizeof(detail), "close failed: %s", strerror(close_errno));
+    char* error = opal_fs_format_err(prefix, detail);
+    if (!error) {
+        error = safe_strdup(fallback);
+    }
+    return error;
+}
+
+static char* fs_offset_out_of_range_error(const char* detail) {
+    char* error = opal_fs_format_err(OPAL_FS_ERR_OUT_OF_BOUNDS, detail);
+    if (!error) {
+        error = safe_strdup("OffsetOutOfRangeError: offset out of range");
+    }
+    return error;
+}
+
+static int fs_write_via_mode(const char* path, const uint8_t* bytes, size_t length, const char* mode, const char* write_prefix, FsVoidResult* out) {
+    FILE* file = fopen(path, mode);
+    if (!file) {
+        out->error = errno_to_fs_error(errno, write_prefix);
+        return -1;
+    }
+
+    char* write_error = fwrite_all(file, bytes, length, write_prefix);
+    if (write_error) {
+        out->error = write_error;
+        fclose(file);
+        return -1;
+    }
+
+    if (fclose(file) != 0) {
+        char fallback[96];
+        snprintf(fallback, sizeof(fallback), "%s: close failed", write_prefix);
+        out->error = fs_close_error(write_prefix, fallback);
+        return -1;
+    }
+
+    return 0;
+}
+
+static FsVoidResult write_contents_atomic_bytes_sync(const char* path, const uint8_t* bytes, size_t length) {
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = fs_invalid_path_error();
+        return r;
+    }
+
+    struct opal_stat_result path_stat;
+    if (opal_stat(path, &path_stat) == 0 && path_stat.is_directory) {
+        r.error = opal_fs_format_err(OPAL_FS_ERR_IS_DIRECTORY, "path is a directory");
+        if (!r.error) {
+            r.error = safe_strdup("IsADirectoryError: path is a directory");
+        }
+        return r;
+    }
+
+    size_t path_len = strlen(path);
+    const char suffix[] = ".tmp.XXXXXX";
+    size_t suffix_len = sizeof(suffix) - 1;
+    if (path_len > SIZE_MAX - suffix_len - 1) {
+        r.error = opal_fs_format_err("WriteFailureError", "temporary path too long");
+        if (!r.error) {
+            r.error = safe_strdup("WriteFailureError: temporary path too long");
+        }
+        return r;
+    }
+
+    char* tmp_path = (char*)malloc(path_len + suffix_len + 1);
+    if (!tmp_path) {
+        r.error = fs_out_of_memory_error("WriteFailureError", "WriteFailureError: out of memory");
+        return r;
+    }
+
+    memcpy(tmp_path, path, path_len);
+    memcpy(tmp_path + path_len, suffix, suffix_len + 1);
+
+    if (opal_create_temp_file(tmp_path, path_len + suffix_len + 1) != 0) {
+        if (strcmp(tmp_path, path) == 0) {
+            free(tmp_path);
+            r.error = opal_fs_format_err("WriteFailureError", "temporary path collision");
+            if (!r.error) {
+                r.error = safe_strdup("WriteFailureError: temporary path collision");
+            }
+            return r;
+        }
+        int temp_errno = errno ? errno : EIO;
+        free(tmp_path);
+        r.error = errno_to_fs_error(temp_errno, "WriteFailureError");
+        return r;
+    }
+
+    if (fs_write_via_mode(tmp_path, bytes, length, "wb", "WriteFailureError", &r) != 0) {
+        opal_unlink(tmp_path);
+        free(tmp_path);
+        return r;
+    }
+
+    if (opal_replace_path(tmp_path, path) != 0) {
+        int rename_errno = errno ? errno : EIO;
+        opal_unlink(tmp_path);
+        free(tmp_path);
+        r.error = errno_to_fs_error(rename_errno, "WriteFailureError");
+        return r;
+    }
+
+    free(tmp_path);
+    return r;
+}
+
+static int remove_directory_recursive_inner(const char* path, FsVoidResult* out) {
+    opal_dir_t* dir = opal_opendir(path);
+    if (!dir) {
+        int open_errno = errno;
+        if (open_errno == ENOENT) {
+            out->error = opal_fs_format_err(OPAL_FS_ERR_DIRECTORY_NOT_FOUND, "directory not found");
+            if (!out->error) {
+                out->error = safe_strdup("DirectoryNotFoundError: directory not found");
+            }
+        } else {
+            out->error = errno_to_fs_error(open_errno, "DeleteFailureError");
+        }
+        return -1;
+    }
+
+    for (;;) {
+        errno = 0;
+        opal_dirent_t* entry = opal_readdir(dir);
+        if (!entry) {
+            if (errno != 0) {
+                int read_errno = errno;
+                opal_closedir(dir);
+                out->error = errno_to_fs_error(read_errno, "DeleteFailureError");
+                return -1;
+            }
+            break;
+        }
+
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        size_t path_len = strlen(path);
+        size_t name_len = strlen(entry->d_name);
+        int need_separator = path_len > 0 && !opal_is_path_separator(path[path_len - 1]);
+        if (path_len > SIZE_MAX - name_len - (need_separator ? 2u : 1u)) {
+            opal_closedir(dir);
+            out->error = opal_fs_format_err("DeleteFailureError", "path too long");
+            if (!out->error) {
+                out->error = safe_strdup("DeleteFailureError: path too long");
+            }
+            return -1;
+        }
+
+        char* child_path = (char*)malloc(path_len + name_len + (need_separator ? 2u : 1u));
+        if (!child_path) {
+            opal_closedir(dir);
+            out->error = fs_out_of_memory_error("DeleteFailureError", "DeleteFailureError: out of memory");
+            return -1;
+        }
+
+        memcpy(child_path, path, path_len);
+        size_t child_len = path_len;
+        if (need_separator) {
+            child_path[child_len++] = opal_path_separator();
+        }
+        memcpy(child_path + child_len, entry->d_name, name_len + 1);
+
+        struct opal_stat_result child_stat;
+        if (opal_stat_nofollow(child_path, &child_stat) != 0) {
+            int stat_errno = errno;
+            free(child_path);
+            opal_closedir(dir);
+            out->error = errno_to_fs_error(stat_errno, "DeleteFailureError");
+            return -1;
+        }
+
+        if (child_stat.is_directory && !child_stat.is_symlink) {
+            if (remove_directory_recursive_inner(child_path, out) != 0) {
+                free(child_path);
+                opal_closedir(dir);
+                return -1;
+            }
+        } else if (opal_unlink(child_path) != 0) {
+            int unlink_errno = errno;
+            free(child_path);
+            opal_closedir(dir);
+            out->error = errno_to_fs_error(unlink_errno, "DeleteFailureError");
+            return -1;
+        }
+
+        free(child_path);
+    }
+
+    if (opal_closedir(dir) != 0) {
+        int close_errno = errno ? errno : EIO;
+        out->error = errno_to_fs_error(close_errno, "DeleteFailureError");
+        return -1;
+    }
+
+    if (opal_rmdir(path) != 0) {
+        int rmdir_errno = errno;
+        if (rmdir_errno == ENOENT) {
+            out->error = opal_fs_format_err(OPAL_FS_ERR_DIRECTORY_NOT_FOUND, "directory not found");
+            if (!out->error) {
+                out->error = safe_strdup("DirectoryNotFoundError: directory not found");
+            }
+        } else if (rmdir_errno == ENOTDIR) {
+            out->error = opal_fs_format_err(OPAL_FS_ERR_NOT_A_DIRECTORY, "path is not a directory");
+            if (!out->error) {
+                out->error = safe_strdup("IsNotADirectoryError: path is not a directory");
+            }
+        } else {
+            out->error = errno_to_fs_error(rmdir_errno, "DeleteFailureError");
+        }
+        return -1;
+    }
+
+    return 0;
 }
 
 static char* lex_normalize_path(const char* path) {
@@ -352,7 +601,7 @@ FsPathResult absolute_path_sync(const char* path) {
         r.error = "InvalidPathError: empty path";
         return r;
     }
-    char resolved_buf[OPAL_PATH_MAX];
+    char resolved_buf[OPAL_PATH_BUFFER_CAP];
     char* resolved = opal_realpath(path, resolved_buf, sizeof(resolved_buf)) ? strdup(resolved_buf) : NULL;
     if (!resolved) {
         r.value = NULL;
@@ -480,13 +729,13 @@ FsBytesResult read_contents_sync(const char* path) {
     return r;
 }
 
-static char* fwrite_all(FILE* f, const uint8_t* buf, size_t len) {
-    const char* write_prefix = "Io";
+static char* fwrite_all(FILE* f, const uint8_t* buf, size_t len, const char* write_prefix) {
+    const char* prefix = (write_prefix && write_prefix[0] != '\0') ? write_prefix : "WriteFailureError";
     if (!f) {
-        return opal_fs_format_err(write_prefix, "invalid file handle");
+        return opal_fs_format_err(prefix, "invalid file handle");
     }
     if (!buf && len > 0) {
-        return opal_fs_format_err(write_prefix, "invalid write buffer");
+        return opal_fs_format_err(prefix, "invalid write buffer");
     }
 
     size_t total_written = 0;
@@ -495,12 +744,12 @@ static char* fwrite_all(FILE* f, const uint8_t* buf, size_t len) {
         if (wrote_now == 0) {
             if (ferror(f)) {
                 int write_errno = errno ? errno : EIO;
-                return errno_to_fs_error(write_errno, write_prefix);
+                return errno_to_fs_error(write_errno, prefix);
             }
 
             char detail[96];
             snprintf(detail, sizeof(detail), "short write (%zu/%zu)", total_written, len);
-            return opal_fs_format_err(write_prefix, detail);
+            return opal_fs_format_err(prefix, detail);
         }
 
         total_written += wrote_now;
@@ -1096,12 +1345,110 @@ FsStringArrayResult read_lines_sync(const char* path) {
 }
 
 FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_t length) {
-    (void)path;
-    (void)offset;
-    (void)length;
     FsBytesResult r;
     r.value = NULL;
-    r.error = "not implemented";
+    r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = fs_invalid_path_error();
+        return r;
+    }
+    if (offset < 0) {
+        r.error = fs_offset_out_of_range_error("offset must be non-negative");
+        return r;
+    }
+    if (length < 0) {
+        r.error = fs_offset_out_of_range_error("length must be non-negative");
+        return r;
+    }
+
+    struct opal_stat_result stat_result;
+    if (opal_stat(path, &stat_result) != 0) {
+        r.error = errno_to_fs_error(errno, OPAL_FS_ERR_IO);
+        return r;
+    }
+    if (stat_result.is_directory) {
+        r.error = opal_fs_format_err(OPAL_FS_ERR_IS_DIRECTORY, "path is a directory");
+        if (!r.error) {
+            r.error = safe_strdup("IsADirectoryError: path is a directory");
+        }
+        return r;
+    }
+    if (offset > stat_result.size) {
+        r.error = fs_offset_out_of_range_error("offset out of range");
+        return r;
+    }
+    if (length > stat_result.size - offset) {
+        r.error = fs_offset_out_of_range_error("requested range exceeds file length");
+        return r;
+    }
+
+    FILE* file = fopen(path, "rb");
+    if (!file) {
+        r.error = errno_to_fs_error(errno, OPAL_FS_ERR_IO);
+        return r;
+    }
+
+    if (opal_seek_file(file, offset) != 0) {
+        int seek_errno = errno ? errno : EIO;
+        fclose(file);
+        if (seek_errno == EINVAL) {
+            r.error = fs_offset_out_of_range_error("offset out of range");
+        } else {
+            r.error = errno_to_fs_error(seek_errno, OPAL_FS_ERR_IO);
+        }
+        return r;
+    }
+
+    OpalBytes* bytes = (OpalBytes*)malloc(sizeof(OpalBytes));
+    if (!bytes) {
+        fclose(file);
+        r.error = fs_out_of_memory_error(OPAL_FS_ERR_IO, "ReadFailureError: out of memory");
+        return r;
+    }
+
+    bytes->length = (size_t)length;
+    bytes->data = NULL;
+    if (length > 0) {
+        bytes->data = (uint8_t*)malloc((size_t)length);
+        if (!bytes->data) {
+            free(bytes);
+            fclose(file);
+            r.error = fs_out_of_memory_error(OPAL_FS_ERR_IO, "ReadFailureError: out of memory");
+            return r;
+        }
+
+        size_t total_read = 0;
+        while (total_read < (size_t)length) {
+            size_t read_now = fread(bytes->data + total_read, 1, (size_t)length - total_read, file);
+            if (read_now == 0) {
+                if (ferror(file)) {
+                    int read_errno = errno ? errno : EIO;
+                    free(bytes->data);
+                    free(bytes);
+                    fclose(file);
+                    r.error = errno_to_fs_error(read_errno, OPAL_FS_ERR_IO);
+                    return r;
+                }
+                free(bytes->data);
+                free(bytes);
+                fclose(file);
+                r.error = fs_offset_out_of_range_error("requested range exceeds file length");
+                return r;
+            }
+            total_read += read_now;
+        }
+    }
+
+    if (fclose(file) != 0) {
+        int close_errno = errno ? errno : EIO;
+        free(bytes->data);
+        free(bytes);
+        r.error = errno_to_fs_error(close_errno, OPAL_FS_ERR_IO);
+        return r;
+    }
+
+    r.value = bytes;
     return r;
 }
 
@@ -1131,7 +1478,7 @@ FsVoidResult write_contents_sync(const char* path, OpalBytes* data) {
         return r;
     }
 
-    char* write_error = fwrite_all(file, write_bytes, write_len);
+    char* write_error = fwrite_all(file, write_bytes, write_len, "Io");
     if (write_error) {
         r.error = write_error;
         fclose(file);
@@ -1139,13 +1486,7 @@ FsVoidResult write_contents_sync(const char* path, OpalBytes* data) {
     }
 
     if (fclose(file) != 0) {
-        int close_errno = errno ? errno : EIO;
-        char detail[256];
-        snprintf(detail, sizeof(detail), "close failed: %s", strerror(close_errno));
-        r.error = opal_fs_format_err("Io", detail);
-        if (!r.error) {
-            r.error = safe_strdup("Io: close failed");
-        }
+        r.error = fs_close_error("Io", "Io: close failed");
         return r;
     }
 
@@ -1174,7 +1515,7 @@ FsVoidResult write_text_sync(const char* path, const char* text) {
         return r;
     }
 
-    char* write_error = fwrite_all(file, (const uint8_t*)write_text, write_len);
+    char* write_error = fwrite_all(file, (const uint8_t*)write_text, write_len, "Io");
     if (write_error) {
         r.error = write_error;
         fclose(file);
@@ -1182,13 +1523,7 @@ FsVoidResult write_text_sync(const char* path, const char* text) {
     }
 
     if (fclose(file) != 0) {
-        int close_errno = errno ? errno : EIO;
-        char detail[256];
-        snprintf(detail, sizeof(detail), "close failed: %s", strerror(close_errno));
-        r.error = opal_fs_format_err("Io", detail);
-        if (!r.error) {
-            r.error = safe_strdup("Io: close failed");
-        }
+        r.error = fs_close_error("Io", "Io: close failed");
         return r;
     }
 
@@ -1196,29 +1531,38 @@ FsVoidResult write_text_sync(const char* path, const char* text) {
 }
 
 FsVoidResult write_contents_atomic_sync(const char* path, OpalBytes* data) {
-    (void)path;
-    (void)data;
-    FsVoidResult r;
-    r.value = NULL;
-    r.error = "not implemented";
-    return r;
+    const uint8_t* write_bytes = NULL;
+    size_t write_len = 0;
+    if (data) {
+        write_bytes = data->data;
+        write_len = data->length;
+    }
+    return write_contents_atomic_bytes_sync(path, write_bytes, write_len);
 }
 
 FsVoidResult write_text_atomic_sync(const char* path, const char* text) {
-    (void)path;
-    (void)text;
-    FsVoidResult r;
-    r.value = NULL;
-    r.error = "not implemented";
-    return r;
+    const char* write_text = text ? text : "";
+    return write_contents_atomic_bytes_sync(path, (const uint8_t*)write_text, strlen(write_text));
 }
 
 FsVoidResult append_contents_sync(const char* path, OpalBytes* data) {
-    (void)path;
-    (void)data;
     FsVoidResult r;
     r.value = NULL;
-    r.error = "not implemented";
+    r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = fs_invalid_path_error();
+        return r;
+    }
+
+    const uint8_t* write_bytes = NULL;
+    size_t write_len = 0;
+    if (data) {
+        write_bytes = data->data;
+        write_len = data->length;
+    }
+
+    fs_write_via_mode(path, write_bytes, write_len, "ab", "WriteFailureError", &r);
     return r;
 }
 
@@ -1244,7 +1588,7 @@ FsVoidResult append_text_sync(const char* path, const char* text) {
         return r;
     }
 
-    char* write_error = fwrite_all(file, (const uint8_t*)write_text, write_len);
+    char* write_error = fwrite_all(file, (const uint8_t*)write_text, write_len, "WriteFailureError");
     if (write_error) {
         r.error = write_error;
         fclose(file);
@@ -1252,13 +1596,7 @@ FsVoidResult append_text_sync(const char* path, const char* text) {
     }
 
     if (fclose(file) != 0) {
-        int close_errno = errno ? errno : EIO;
-        char detail[256];
-        snprintf(detail, sizeof(detail), "close failed: %s", strerror(close_errno));
-        r.error = opal_fs_format_err("Io", detail);
-        if (!r.error) {
-            r.error = safe_strdup("Io: close failed");
-        }
+        r.error = fs_close_error("WriteFailureError", "WriteFailureError: close failed");
         return r;
     }
 
@@ -1266,20 +1604,98 @@ FsVoidResult append_text_sync(const char* path, const char* text) {
 }
 
 FsVoidResult write_bytes_at_offset_sync(const char* path, int64_t offset, OpalBytes* data) {
-    (void)path;
-    (void)offset;
-    (void)data;
     FsVoidResult r;
     r.value = NULL;
-    r.error = "not implemented";
+    r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = fs_invalid_path_error();
+        return r;
+    }
+    if (offset < 0) {
+        r.error = fs_offset_out_of_range_error("offset must be non-negative");
+        return r;
+    }
+
+    struct opal_stat_result stat_result;
+    if (opal_stat(path, &stat_result) != 0) {
+        r.error = errno_to_fs_error(errno, "WriteFailureError");
+        return r;
+    }
+    if (stat_result.is_directory) {
+        r.error = opal_fs_format_err(OPAL_FS_ERR_IS_DIRECTORY, "path is a directory");
+        if (!r.error) {
+            r.error = safe_strdup("IsADirectoryError: path is a directory");
+        }
+        return r;
+    }
+    if (offset > stat_result.size) {
+        r.error = fs_offset_out_of_range_error("offset out of range");
+        return r;
+    }
+
+    FILE* file = fopen(path, "r+b");
+    if (!file) {
+        r.error = errno_to_fs_error(errno, "WriteFailureError");
+        return r;
+    }
+
+    if (opal_seek_file(file, offset) != 0) {
+        int seek_errno = errno ? errno : EIO;
+        fclose(file);
+        if (seek_errno == EINVAL) {
+            r.error = fs_offset_out_of_range_error("offset out of range");
+        } else {
+            r.error = errno_to_fs_error(seek_errno, "WriteFailureError");
+        }
+        return r;
+    }
+
+    const uint8_t* write_bytes = NULL;
+    size_t write_len = 0;
+    if (data) {
+        write_bytes = data->data;
+        write_len = data->length;
+    }
+
+    char* write_error = fwrite_all(file, write_bytes, write_len, "WriteFailureError");
+    if (write_error) {
+        r.error = write_error;
+        fclose(file);
+        return r;
+    }
+
+    if (fclose(file) != 0) {
+        r.error = fs_close_error("WriteFailureError", "WriteFailureError: close failed");
+        return r;
+    }
+
     return r;
 }
 
 FsVoidResult create_file_sync(const char* path) {
-    (void)path;
     FsVoidResult r;
     r.value = NULL;
-    r.error = "not implemented";
+    r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = fs_invalid_path_error();
+        return r;
+    }
+
+    if (opal_create_file_exclusive(path) != 0) {
+        int create_errno = errno;
+        if (create_errno == EEXIST || create_errno == EISDIR) {
+            r.error = opal_fs_format_err(OPAL_FS_ERR_ALREADY_EXISTS, "file exists");
+            if (!r.error) {
+                r.error = safe_strdup("FileAlreadyExistsError: file exists");
+            }
+        } else {
+            r.error = errno_to_fs_error(create_errno, "CreateFailureError");
+        }
+        return r;
+    }
+
     return r;
 }
 
@@ -1531,10 +1947,42 @@ FsMetadataResult read_metadata_sync(const char* path) {
 }
 
 FsMetadataResult read_metadata_nofollow_sync(const char* path) {
-    (void)path;
     FsMetadataResult r;
     r.value = NULL;
-    r.error = "not implemented";
+    r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = fs_invalid_path_error();
+        return r;
+    }
+
+    struct opal_stat_result stat_result;
+    if (opal_stat_nofollow(path, &stat_result) != 0) {
+        int stat_errno = errno;
+        if (stat_errno == ENOENT) {
+            r.error = opal_fs_format_err(OPAL_FS_ERR_NOT_FOUND, "path not found");
+            if (!r.error) {
+                r.error = safe_strdup("FileNotFoundError: path not found");
+            }
+            return r;
+        }
+
+        r.error = errno_to_fs_error(stat_errno, OPAL_FS_ERR_METADATA_UNAVAILABLE);
+        return r;
+    }
+
+    OpalFileMetadata* metadata = (OpalFileMetadata*)malloc(sizeof(OpalFileMetadata));
+    if (!metadata) {
+        r.error = fs_out_of_memory_error(OPAL_FS_ERR_METADATA_UNAVAILABLE, "MetadataUnavailableError: out of memory");
+        return r;
+    }
+
+    metadata->size_bytes = stat_result.size;
+    metadata->modified_unix_seconds = stat_result.modified_time;
+    metadata->is_directory = stat_result.is_directory ? 1 : 0;
+    metadata->is_symlink = stat_result.is_symlink ? 1 : 0;
+
+    r.value = metadata;
     return r;
 }
 
@@ -1569,10 +2017,86 @@ FsVoidResult create_directory_sync(const char* path) {
 }
 
 FsVoidResult create_directory_recursive_sync(const char* path) {
-    (void)path;
     FsVoidResult r;
     r.value = NULL;
-    r.error = "not implemented";
+    r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = fs_invalid_path_error();
+        return r;
+    }
+
+    char* normalized = lex_normalize_path(path);
+    if (!normalized) {
+        r.error = fs_out_of_memory_error("CreateFailureError", "CreateFailureError: out of memory");
+        return r;
+    }
+    if (normalized[0] == '\0') {
+        free(normalized);
+        r.error = opal_fs_format_err("CreateFailureError", "normalized path is empty");
+        if (!r.error) {
+            r.error = safe_strdup("CreateFailureError: normalized path is empty");
+        }
+        return r;
+    }
+
+    size_t len = strlen(normalized);
+    char* current = (char*)malloc(len + 2);
+    if (!current) {
+        free(normalized);
+        r.error = fs_out_of_memory_error("CreateFailureError", "CreateFailureError: out of memory");
+        return r;
+    }
+
+    size_t current_len = 0;
+    if (normalized[0] == opal_path_separator()) {
+        current[current_len++] = opal_path_separator();
+        current[current_len] = '\0';
+    }
+
+    size_t index = (normalized[0] == opal_path_separator()) ? 1u : 0u;
+    while (index <= len) {
+        size_t start = index;
+        while (index < len && !opal_is_path_separator(normalized[index])) {
+            index++;
+        }
+        size_t segment_len = index - start;
+        if (segment_len > 0) {
+            if (current_len > 0 && !opal_is_path_separator(current[current_len - 1])) {
+                current[current_len++] = opal_path_separator();
+            }
+            memcpy(current + current_len, normalized + start, segment_len);
+            current_len += segment_len;
+            current[current_len] = '\0';
+
+            if (opal_mkdir(current) != 0) {
+                int mkdir_errno = errno;
+                if (mkdir_errno != EEXIST) {
+                    free(current);
+                    free(normalized);
+                    r.error = errno_to_fs_error(mkdir_errno, "CreateFailureError");
+                    return r;
+                }
+
+                struct opal_stat_result existing_stat;
+                if (opal_stat(current, &existing_stat) != 0 || !existing_stat.is_directory) {
+                    free(current);
+                    free(normalized);
+                    if (errno == ENOENT) {
+                        r.error = errno_to_fs_error(EEXIST, "CreateFailureError");
+                    } else {
+                        r.error = errno_to_fs_error(errno ? errno : ENOTDIR, "CreateFailureError");
+                    }
+                    return r;
+                }
+            }
+        }
+
+        index++;
+    }
+
+    free(current);
+    free(normalized);
     return r;
 }
 
@@ -1607,10 +2131,38 @@ FsVoidResult delete_directory_sync(const char* path) {
 }
 
 FsVoidResult delete_directory_recursive_sync(const char* path) {
-    (void)path;
     FsVoidResult r;
     r.value = NULL;
-    r.error = "not implemented";
+    r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = fs_invalid_path_error();
+        return r;
+    }
+
+    struct opal_stat_result stat_result;
+    if (opal_stat_nofollow(path, &stat_result) != 0) {
+        int stat_errno = errno;
+        if (stat_errno == ENOENT) {
+            r.error = opal_fs_format_err(OPAL_FS_ERR_DIRECTORY_NOT_FOUND, "directory not found");
+            if (!r.error) {
+                r.error = safe_strdup("DirectoryNotFoundError: directory not found");
+            }
+        } else {
+            r.error = errno_to_fs_error(stat_errno, "DeleteFailureError");
+        }
+        return r;
+    }
+
+    if (!stat_result.is_directory || stat_result.is_symlink) {
+        r.error = opal_fs_format_err(OPAL_FS_ERR_NOT_A_DIRECTORY, "path is not a directory");
+        if (!r.error) {
+            r.error = safe_strdup("IsNotADirectoryError: path is not a directory");
+        }
+        return r;
+    }
+
+    remove_directory_recursive_inner(path, &r);
     return r;
 }
 
@@ -1759,10 +2311,28 @@ FsBooleanResult is_file_sync(const char* path) {
 }
 
 FsBooleanResult is_file_nofollow_sync(const char* path) {
-    (void)path;
     FsBooleanResult r;
     r.value = 0;
-    r.error = "not implemented";
+    r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = fs_invalid_path_error();
+        return r;
+    }
+
+    struct opal_stat_result stat_result;
+    if (opal_stat_nofollow(path, &stat_result) != 0) {
+        int stat_errno = errno;
+        if (stat_errno == ENOENT) {
+            r.value = 0;
+            return r;
+        }
+
+        r.error = errno_to_fs_error(stat_errno, OPAL_FS_ERR_IO);
+        return r;
+    }
+
+    r.value = (stat_result.is_directory || stat_result.is_symlink) ? 0 : 1;
     return r;
 }
 
@@ -1796,9 +2366,27 @@ FsBooleanResult is_directory_sync(const char* path) {
 }
 
 FsBooleanResult is_directory_nofollow_sync(const char* path) {
-    (void)path;
     FsBooleanResult r;
     r.value = 0;
-    r.error = "not implemented";
+    r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = fs_invalid_path_error();
+        return r;
+    }
+
+    struct opal_stat_result stat_result;
+    if (opal_stat_nofollow(path, &stat_result) != 0) {
+        int stat_errno = errno;
+        if (stat_errno == ENOENT) {
+            r.value = 0;
+            return r;
+        }
+
+        r.error = errno_to_fs_error(stat_errno, OPAL_FS_ERR_IO);
+        return r;
+    }
+
+    r.value = (stat_result.is_directory && !stat_result.is_symlink) ? 1 : 0;
     return r;
 }

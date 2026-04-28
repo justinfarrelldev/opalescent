@@ -1,7 +1,9 @@
 #![cfg(feature = "integration")]
 
+use super::fs_helpers::{
+    FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
+};
 use super::*;
-use super::fs_helpers::{FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir};
 use serial_test::serial;
 
 fn stringify_error<E: core::fmt::Display>(error: E) -> String {
@@ -30,11 +32,8 @@ fn fs_path_helpers_query_fixture_showcase() {
         let project_dir = cwd_path.join("test-projects/_fs_path_helpers_query");
         let temp_dir = unique_probe_target_dir("path-helpers-query-fixture");
 
-        let binary_result = opalescent::compiler::compile_project(
-            &project_dir,
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_fs_path_helpers_query fixture should compile into a binary: {}",
@@ -61,10 +60,7 @@ fn fs_path_helpers_query_fixture_showcase() {
         };
 
         let stdout = strip_crlf(&String::from_utf8_lossy(&run_output.stdout));
-        let lines: Vec<&str> = stdout
-            .lines()
-            .map(str::trim)
-            .collect();
+        let lines: Vec<&str> = stdout.lines().map(str::trim).collect();
 
         let expected = vec![
             "/home/user/doc.pdf: ext=pdf, name=doc.pdf, parent=/home/user",
@@ -75,8 +71,7 @@ fn fs_path_helpers_query_fixture_showcase() {
         ];
 
         assert_eq!(
-            lines,
-            expected,
+            lines, expected,
             "_fs_path_helpers_query fixture should print the exact 5-case helper matrix"
         );
 

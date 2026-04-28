@@ -45,13 +45,9 @@
 
 #if OPAL_WINDOWS
 #  include <limits.h>
-#  if defined(_MAX_PATH)
-#    define OPAL_PATH_MAX _MAX_PATH
-#  else
-#    define OPAL_PATH_MAX 260
-#  endif
+#  define OPAL_PATH_BUFFER_CAP ((size_t)260)
 #else
-#  define OPAL_PATH_MAX 4096
+#  define OPAL_PATH_BUFFER_CAP ((size_t)4096)
 #endif
 
 /* ── Static assert ──────────────────────────────────────────────────────── */
@@ -74,6 +70,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 
 /* ── ssize_t ────────────────────────────────────────────────────────────── */
 
@@ -149,9 +146,48 @@ static inline ssize_t opal_getline(char **lineptr, size_t *n, FILE *stream) {
 #  include <windows.h>
 #  include <direct.h>
 #  include <io.h>
+#  include <share.h>
 #  include <sys/stat.h>
 
 typedef wchar_t opal_wchar_t;
+
+static inline void opal_set_errno_from_win32(DWORD error) {
+    switch (error) {
+        case ERROR_FILE_NOT_FOUND:
+        case ERROR_PATH_NOT_FOUND:
+            errno = ENOENT;
+            break;
+        case ERROR_ACCESS_DENIED:
+        case ERROR_SHARING_VIOLATION:
+        case ERROR_LOCK_VIOLATION:
+            errno = EACCES;
+            break;
+        case ERROR_FILE_EXISTS:
+        case ERROR_ALREADY_EXISTS:
+            errno = EEXIST;
+            break;
+        case ERROR_DIR_NOT_EMPTY:
+            errno = ENOTEMPTY;
+            break;
+        case ERROR_DIRECTORY:
+            errno = ENOTDIR;
+            break;
+        case ERROR_BUFFER_OVERFLOW:
+        case ERROR_FILENAME_EXCED_RANGE:
+            errno = ENAMETOOLONG;
+            break;
+        case ERROR_INVALID_NAME:
+        case ERROR_INVALID_PARAMETER:
+            errno = EINVAL;
+            break;
+        case ERROR_NOT_SAME_DEVICE:
+            errno = EXDEV;
+            break;
+        default:
+            errno = EIO;
+            break;
+    }
+}
 
 /*
  * opal_utf8_to_wide — Convert UTF-8 string to UTF-16 (wide char).
@@ -228,7 +264,7 @@ static inline opal_dir_t* opal_opendir(const char* path) {
         return NULL;
     }
 
-    char pattern[OPAL_PATH_MAX];
+    char pattern[OPAL_PATH_BUFFER_CAP];
     size_t path_len = strlen(path);
     if (path_len + 3 > sizeof(pattern)) {
         errno = ENAMETOOLONG;
@@ -336,6 +372,7 @@ static inline int opal_closedir(opal_dir_t* dir) {
 
 typedef struct opal_stat_result {
     int is_directory;
+    int is_symlink;
     int64_t size;
     int64_t modified_time;
 } opal_stat_result;
@@ -368,7 +405,7 @@ static inline char* opal_realpath(const char* path, char* resolved_buf, size_t b
         return NULL;
     }
 
-    char absolute[OPAL_PATH_MAX];
+    char absolute[OPAL_PATH_BUFFER_CAP];
     const char* source = path;
 
     if (path[0] == '/') {
@@ -379,7 +416,7 @@ static inline char* opal_realpath(const char* path, char* resolved_buf, size_t b
         }
         memcpy(absolute, path, path_len + 1);
     } else {
-        char cwd[OPAL_PATH_MAX];
+        char cwd[OPAL_PATH_BUFFER_CAP];
         if (!getcwd(cwd, sizeof(cwd))) {
             return NULL;
         }
@@ -469,6 +506,7 @@ static inline int opal_stat(const char* path, struct opal_stat_result* out) {
         return -1;
     }
     out->is_directory = ((st.st_mode & _S_IFDIR) != 0) ? 1 : 0;
+    out->is_symlink = 0;
     out->size = (int64_t)st.st_size;
     out->modified_time = (int64_t)st.st_mtime;
 #else
@@ -477,6 +515,53 @@ static inline int opal_stat(const char* path, struct opal_stat_result* out) {
         return -1;
     }
     out->is_directory = S_ISDIR(st.st_mode) ? 1 : 0;
+    out->is_symlink = S_ISLNK(st.st_mode) ? 1 : 0;
+    out->size = (int64_t)st.st_size;
+    out->modified_time = (int64_t)st.st_mtime;
+#endif
+
+    return 0;
+}
+
+static inline int opal_stat_nofollow(const char* path, struct opal_stat_result* out) {
+    if (!path || !out) {
+        errno = EINVAL;
+        return -1;
+    }
+
+#if OPAL_WINDOWS
+    DWORD attrs = GetFileAttributesA(path);
+    if (attrs == INVALID_FILE_ATTRIBUTES) {
+        struct _stat64 st;
+        if (_stat64(path, &st) != 0) {
+            return -1;
+        }
+        out->is_directory = ((st.st_mode & _S_IFDIR) != 0) ? 1 : 0;
+        out->is_symlink = 0;
+        out->size = (int64_t)st.st_size;
+        out->modified_time = (int64_t)st.st_mtime;
+        return 0;
+    }
+
+    struct _stat64 st;
+    if (_stat64(path, &st) != 0) {
+        if ((attrs & FILE_ATTRIBUTE_REPARSE_POINT) == 0) {
+            return -1;
+        }
+        memset(&st, 0, sizeof(st));
+    }
+
+    out->is_directory = (attrs & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 0;
+    out->is_symlink = (attrs & FILE_ATTRIBUTE_REPARSE_POINT) ? 1 : 0;
+    out->size = (int64_t)st.st_size;
+    out->modified_time = (int64_t)st.st_mtime;
+#else
+    struct stat st;
+    if (lstat(path, &st) != 0) {
+        return -1;
+    }
+    out->is_directory = S_ISDIR(st.st_mode) ? 1 : 0;
+    out->is_symlink = S_ISLNK(st.st_mode) ? 1 : 0;
     out->size = (int64_t)st.st_size;
     out->modified_time = (int64_t)st.st_mtime;
 #endif
@@ -520,6 +605,128 @@ static inline int opal_unlink(const char* path) {
     return _unlink(path);
 #else
     return unlink(path);
+#endif
+}
+
+static inline int opal_seek_file(FILE* file, int64_t offset) {
+    if (!file || offset < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+
+#if OPAL_WINDOWS
+    return _fseeki64(file, offset, SEEK_SET);
+#else
+    return fseeko(file, (off_t)offset, SEEK_SET);
+#endif
+}
+
+static inline int opal_replace_path(const char* source, const char* destination) {
+    if (!source || !destination) {
+        errno = EINVAL;
+        return -1;
+    }
+
+#if OPAL_WINDOWS
+    if (MoveFileExA(source, destination, MOVEFILE_REPLACE_EXISTING) != 0) {
+        return 0;
+    }
+    opal_set_errno_from_win32(GetLastError());
+    return -1;
+#else
+    return rename(source, destination);
+#endif
+}
+
+static inline int opal_create_file_exclusive(const char* path) {
+    if (!path || path[0] == '\0') {
+        errno = EINVAL;
+        return -1;
+    }
+
+#if OPAL_WINDOWS
+    int fd = _open(path, _O_CREAT | _O_EXCL | _O_WRONLY | _O_BINARY, _S_IREAD | _S_IWRITE);
+#else
+    int fd = open(path, O_CREAT | O_EXCL | O_WRONLY, 0666);
+#endif
+    if (fd < 0) {
+        return -1;
+    }
+
+#if OPAL_WINDOWS
+    if (_close(fd) != 0) {
+        return -1;
+    }
+#else
+    if (close(fd) != 0) {
+        return -1;
+    }
+#endif
+
+    return 0;
+}
+
+static inline int opal_create_temp_file(char* path_buf, size_t path_buf_size) {
+    if (!path_buf || path_buf_size == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+
+#if OPAL_WINDOWS
+    const char alphabet[] = "0123456789abcdef";
+    size_t original_len = strlen(path_buf);
+    if (original_len + 1 > path_buf_size) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+
+    char* placeholder = strstr(path_buf, "XXXXXX");
+    if (!placeholder) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    DWORD pid = GetCurrentProcessId();
+    DWORD tick = GetTickCount();
+    for (unsigned attempt = 0; attempt < 256; attempt++) {
+        unsigned value = (unsigned)(pid ^ tick ^ (attempt * 2654435761u));
+        for (size_t i = 0; i < 6; i++) {
+            placeholder[i] = alphabet[value & 0x0Fu];
+            value >>= 4;
+        }
+
+        HANDLE handle = CreateFileA(
+            path_buf,
+            GENERIC_READ | GENERIC_WRITE,
+            0,
+            NULL,
+            CREATE_NEW,
+            FILE_ATTRIBUTE_NORMAL,
+            NULL
+        );
+        if (handle != INVALID_HANDLE_VALUE) {
+            CloseHandle(handle);
+            return 0;
+        }
+
+        DWORD error = GetLastError();
+        if (error != ERROR_FILE_EXISTS && error != ERROR_ALREADY_EXISTS) {
+            opal_set_errno_from_win32(error);
+            return -1;
+        }
+    }
+
+    errno = EEXIST;
+    return -1;
+#else
+    int fd = mkstemp(path_buf);
+    if (fd < 0) {
+        return -1;
+    }
+    if (close(fd) != 0) {
+        return -1;
+    }
+    return 0;
 #endif
 }
 

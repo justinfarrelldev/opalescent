@@ -14,7 +14,7 @@ pub struct FsStateGuard {
 
 impl FsStateGuard {
     pub fn new(project_path: impl AsRef<Path>) -> io::Result<Self> {
-        let project_path = project_path.as_ref().to_path_buf();
+        let project_path = resolve_project_path(project_path.as_ref());
         let manifest = build_manifest(&project_path)?;
         reset_work_dirs(&project_path)?;
 
@@ -81,6 +81,14 @@ impl Drop for FsStateGuard {
             assert!(diffs.is_empty(), "{message}");
         }
     }
+}
+
+fn resolve_project_path(project_path: &Path) -> PathBuf {
+    if project_path.is_absolute() {
+        return project_path.to_path_buf();
+    }
+
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(project_path)
 }
 
 fn reset_work_dirs(project_path: &Path) -> io::Result<()> {
@@ -218,9 +226,15 @@ fn create_project_fixture() -> io::Result<TempDir> {
     fs::create_dir_all(root.join("src"))?;
     fs::create_dir_all(root.join("tests/fixtures"))?;
 
-    fs::write(root.join("src/main.op"), "entry main = f(): void => { return void }\n")?;
+    fs::write(
+        root.join("src/main.op"),
+        "entry main = f(): void => { return void }\n",
+    )?;
     fs::write(root.join("tests/fixtures/sample.txt"), "fixture\n")?;
-    fs::write(root.join("opal.toml"), "name = \"guard\"\nversion = \"1.0.0\"\n")?;
+    fs::write(
+        root.join("opal.toml"),
+        "name = \"guard\"\nversion = \"1.0.0\"\n",
+    )?;
     fs::write(root.join("README.md"), "FsStateGuard smoke fixture\n")?;
     fs::write(root.join(".gitignore"), "target/\nworkspace/\n")?;
 
@@ -242,13 +256,16 @@ fn smoke() {
     let project_root = project.path().to_path_buf();
 
     {
-        let _guard =
-            FsStateGuard::new(&project_root).expect("FsStateGuard should initialize and reset dirs");
+        let _guard = FsStateGuard::new(&project_root)
+            .expect("FsStateGuard should initialize and reset dirs");
 
         let target = project_root.join("target");
         let workspace = project_root.join("workspace");
         assert!(target.is_dir(), "target/ should exist after guard init");
-        assert!(workspace.is_dir(), "workspace/ should exist after guard init");
+        assert!(
+            workspace.is_dir(),
+            "workspace/ should exist after guard init"
+        );
         assert!(
             dir_is_empty(&target).expect("target emptiness should be readable"),
             "target/ should be empty after guard init"
@@ -267,7 +284,10 @@ fn smoke() {
     let target = project_root.join("target");
     let workspace = project_root.join("workspace");
     assert!(target.is_dir(), "target/ should exist after guard drop");
-    assert!(workspace.is_dir(), "workspace/ should exist after guard drop");
+    assert!(
+        workspace.is_dir(),
+        "workspace/ should exist after guard drop"
+    );
     assert!(
         dir_is_empty(&target).expect("target emptiness should be readable after drop"),
         "target/ should be empty after guard drop"
@@ -322,12 +342,18 @@ fn manifest_diff() {
 
     let target = project_root.join("target");
     let workspace = project_root.join("workspace");
-    assert!(target.is_dir(), "target/ should exist after panic path drop");
+    assert!(
+        target.is_dir(),
+        "target/ should exist after panic path drop"
+    );
     assert!(
         dir_is_empty(&target).expect("target emptiness should be readable after panic path"),
         "target/ should be empty after panic path drop"
     );
-    assert!(workspace.is_dir(), "workspace/ should exist after panic path drop");
+    assert!(
+        workspace.is_dir(),
+        "workspace/ should exist after panic path drop"
+    );
     assert!(
         dir_is_empty(&workspace).expect("workspace emptiness should be readable after panic path"),
         "workspace/ should be empty after panic path drop"

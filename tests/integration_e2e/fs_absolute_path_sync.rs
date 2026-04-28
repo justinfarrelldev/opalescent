@@ -1,7 +1,9 @@
 #![cfg(feature = "integration")]
 
+use super::fs_helpers::{
+    FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
+};
 use super::*;
-use super::fs_helpers::{FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir};
 use serial_test::serial;
 
 fn stringify_error<E: core::fmt::Display>(error: E) -> String {
@@ -30,11 +32,8 @@ fn fs_absolute_path_sync_fixture_showcase() {
         let project_dir = cwd_path.join("test-projects/_absolute_path_sync");
         let temp_dir = unique_probe_target_dir("absolute-path-sync-fixture");
 
-        let binary_result = opalescent::compiler::compile_project(
-            &project_dir,
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_absolute_path_sync fixture should compile into a binary: {}",
@@ -61,10 +60,7 @@ fn fs_absolute_path_sync_fixture_showcase() {
         };
 
         let stdout = strip_crlf(&String::from_utf8_lossy(&run_output.stdout));
-        let lines: Vec<&str> = stdout
-            .lines()
-            .map(str::trim)
-            .collect();
+        let lines: Vec<&str> = stdout.lines().map(str::trim).collect();
 
         assert_eq!(
             lines.len(),
@@ -94,7 +90,10 @@ fn fs_absolute_path_sync_fixture_showcase() {
         );
 
         let root_line = lines.get(3).copied().unwrap_or_default();
-        assert_eq!(root_line, "/ -> /", "already absolute root path should remain root");
+        assert_eq!(
+            root_line, "/ -> /",
+            "already absolute root path should remain root"
+        );
 
         assert!(
             run_output.status.success(),

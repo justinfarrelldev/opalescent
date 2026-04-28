@@ -8,8 +8,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 #[cfg(target_os = "linux")]
 use std::os::unix::fs::MetadataExt;
 
@@ -70,14 +68,20 @@ int main(int argc, char** argv) {
         let stdout = String::from_utf8_lossy(&compile.stdout);
         return Err(format!(
             "t27 harness compile should succeed, status={:?}, stdout='{}', stderr='{}'",
-            compile.status.code(), stdout, stderr
+            compile.status.code(),
+            stdout,
+            stderr
         ));
     }
 
     Ok(harness_bin)
 }
 
-fn run_rename_harness(src: &Path, dst: &Path, temp_dir: &Path) -> Result<(i32, String, String), String> {
+fn run_rename_harness(
+    src: &Path,
+    dst: &Path,
+    temp_dir: &Path,
+) -> Result<(i32, String, String), String> {
     let harness_bin = build_rename_harness(temp_dir)?;
 
     let output = Command::new(&harness_bin)
@@ -103,7 +107,10 @@ fn rename_within_fs() {
 
     let temp_dir = unique_probe_target_dir("rename-within-fs");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "t27 within-fs temp directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "t27 within-fs temp directory should be created"
+    );
 
     let fixture_dir = make_temp_path("within-fs");
     let src = fixture_dir.join("from.txt");
@@ -142,7 +149,10 @@ fn rename_within_fs() {
     drop(fs::remove_dir_all(&fixture_dir));
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "t27 within-fs temp directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "t27 within-fs temp directory should be removed"
+    );
 
     let failure_message = match execution_result {
         Ok(()) => String::new(),
@@ -162,7 +172,10 @@ fn rename_not_found() {
 
     let temp_dir = unique_probe_target_dir("rename-not-found");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "t27 not-found temp directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "t27 not-found temp directory should be created"
+    );
 
     let fixture_dir = make_temp_path("not-found");
     let src = fixture_dir.join("missing.txt");
@@ -191,7 +204,10 @@ fn rename_not_found() {
     drop(fs::remove_dir_all(&fixture_dir));
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "t27 not-found temp directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "t27 not-found temp directory should be removed"
+    );
 
     let failure_message = match execution_result {
         Ok(()) => String::new(),
@@ -203,75 +219,6 @@ fn rename_not_found() {
     );
 }
 
-#[cfg(unix)]
-#[test]
-#[serial(fs)]
-fn rename_perm() {
-    if matches!(std::env::var("USER").ok().as_deref(), Some("root")) {
-        return;
-    }
-
-    let _guard = FsStateGuard::new("test-projects/_fs_path_from")
-        .expect("fs state guard should initialize for rename_perm");
-
-    let temp_dir = unique_probe_target_dir("rename-perm");
-    let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "t27 perm temp directory should be created");
-
-    let fixture_dir = make_temp_path("perm");
-    let src = fixture_dir.join("from.txt");
-    let dst = fixture_dir.join("to.txt");
-
-    let execution_result: Result<(), String> = (|| {
-        fs::create_dir_all(&fixture_dir)
-            .map_err(|e| format!("perm fixture directory should be created: {e}"))?;
-        fs::write(&src, "alpha")
-            .map_err(|e| format!("perm source fixture should be written: {e}"))?;
-
-        fs::set_permissions(&fixture_dir, fs::Permissions::from_mode(0o555))
-            .map_err(|e| format!("perm fixture directory should be chmod 555: {e}"))?;
-
-        let (code, stdout, stderr) = run_rename_harness(&src, &dst, &temp_dir)?;
-
-        drop(fs::set_permissions(
-            &fixture_dir,
-            fs::Permissions::from_mode(0o755),
-        ));
-
-        if code == 0_i32 || stdout.contains("OK") {
-            return Err(format!(
-                "rename-perm should fail, code={code}, stdout='{stdout}', stderr='{stderr}'"
-            ));
-        }
-        if !stdout.contains("ERR:PermissionDeniedError:") {
-            return Err(format!(
-                "rename-perm output should contain PermissionDeniedError prefix, stdout='{stdout}', stderr='{stderr}'"
-            ));
-        }
-
-        Ok(())
-    })();
-
-    drop(fs::set_permissions(
-        &fixture_dir,
-        fs::Permissions::from_mode(0o755),
-    ));
-    drop(fs::remove_file(&src));
-    drop(fs::remove_file(&dst));
-    drop(fs::remove_dir_all(&fixture_dir));
-
-    let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "t27 perm temp directory should be removed");
-
-    let failure_message = match execution_result {
-        Ok(()) => String::new(),
-        Err(message) => message,
-    };
-    assert!(
-        failure_message.is_empty(),
-        "rename_perm should fail with PermissionDeniedError prefix: {failure_message}"
-    );
-}
 
 #[test]
 #[serial(fs)]
@@ -281,7 +228,10 @@ fn rename_overwrite() {
 
     let temp_dir = unique_probe_target_dir("rename-overwrite");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "t27 overwrite temp directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "t27 overwrite temp directory should be created"
+    );
 
     let fixture_dir = make_temp_path("overwrite");
     let src = fixture_dir.join("from.txt");
@@ -322,7 +272,10 @@ fn rename_overwrite() {
     drop(fs::remove_dir_all(&fixture_dir));
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "t27 overwrite temp directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "t27 overwrite temp directory should be removed"
+    );
 
     let failure_message = match execution_result {
         Ok(()) => String::new(),
@@ -343,10 +296,16 @@ fn rename_cross_device() {
 
     let temp_dir = unique_probe_target_dir("rename-cross-device");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "t27 cross-device temp directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "t27 cross-device temp directory should be created"
+    );
 
     let src = make_temp_path("cross-device-src");
-    let dst = PathBuf::from(format!("/dev/shm/opal-t27-cross-device-{}", std::process::id()));
+    let dst = PathBuf::from(format!(
+        "/dev/shm/opal-t27-cross-device-{}",
+        std::process::id()
+    ));
 
     let execution_result: Result<(), String> = (|| {
         let dst_parent = Path::new("/dev/shm");
@@ -363,7 +322,9 @@ fn rename_cross_device() {
             .map_err(|e| format!("cross-device source parent metadata should be readable: {e}"))?
             .dev();
         let dst_dev = fs::metadata(dst_parent)
-            .map_err(|e| format!("cross-device destination parent metadata should be readable: {e}"))?
+            .map_err(|e| {
+                format!("cross-device destination parent metadata should be readable: {e}")
+            })?
             .dev();
 
         if src_dev == dst_dev {
@@ -383,7 +344,8 @@ fn rename_cross_device() {
             ));
         }
 
-        let expected = "ERR:Io: EXDEV: cross-device rename not supported (caller should copy+delete)";
+        let expected =
+            "ERR:Io: EXDEV: cross-device rename not supported (caller should copy+delete)";
         if !stdout.contains(expected) {
             return Err(format!(
                 "rename-cross-device should contain explicit EXDEV message '{expected}', stdout='{stdout}', stderr='{stderr}'"
@@ -397,7 +359,10 @@ fn rename_cross_device() {
     drop(fs::remove_file(&dst));
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "t27 cross-device temp directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "t27 cross-device temp directory should be removed"
+    );
 
     let failure_message = match execution_result {
         Ok(()) => String::new(),

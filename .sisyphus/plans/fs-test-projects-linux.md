@@ -2827,7 +2827,7 @@ Max Concurrent: 10 (Wave 4 read-family projects)
   - Files: `tests/integration_e2e/fs_rerunnability.rs`, `tests/integration_e2e/tests.rs` (mod declaration), `.sisyphus/evidence/T33-rerunnability-policy.md`
   - Pre-commit: regression gate + MSVC
 
-- [ ] 34. **T34: MSVC Compile + Link Final Verification (Full Runtime)**
+- [x] 34. **T34: MSVC Compile + Link Final Verification (Full Runtime)**
 
   **What to do**:
   - Extend `scripts/msvc_link_probe.sh` (from T5) to:
@@ -2907,7 +2907,7 @@ Max Concurrent: 10 (Wave 4 read-family projects)
   (d) no permissions or long-path code present.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `cargo test --all-features`, `cargo clippy --all-targets --all-features -- -D warnings`,
   `cargo fmt --check`. Review all changed files for: `as any`/`unsafe` blocks
   without justification comments, empty catches, `println!`/`eprintln!` in non-test
@@ -2916,7 +2916,7 @@ Max Concurrent: 10 (Wave 4 read-family projects)
   Verify `runtime/opal_fs.c` uses only macros from `opal_portability.h` (no raw `_WIN32`).
   Output: `Build [PASS/FAIL] | Clippy [PASS/FAIL] | Fmt [PASS/FAIL] | Tests [N pass/N fail] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA (Bash)** — `unspecified-high`
+- [x] F3. **Real Manual QA (Bash)** — `unspecified-high`
   Start from clean state (`cargo clean`). Execute EVERY QA scenario from EVERY task —
   follow exact steps, capture evidence to `.sisyphus/evidence/final-qa/`. Run
   `cargo test --features integration fs_` TWICE in succession (re-runnability gauntlet);

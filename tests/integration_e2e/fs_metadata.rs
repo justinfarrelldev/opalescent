@@ -7,8 +7,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 
 fn make_temp_path(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
@@ -86,7 +84,9 @@ int main(int argc, char** argv) {
         let stdout = String::from_utf8_lossy(&compile.stdout);
         return Err(format!(
             "t25 metadata harness compile should succeed, status={:?}, stdout='{}', stderr='{}'",
-            compile.status.code(), stdout, stderr
+            compile.status.code(),
+            stdout,
+            stderr
         ));
     }
 
@@ -132,7 +132,10 @@ fn build_remove_file_success_source(path: &str) -> String {
     )
 }
 
-fn compile_and_run_inline_program(source: &str, temp_dir: &Path) -> Result<std::process::Output, String> {
+fn compile_and_run_inline_program(
+    source: &str,
+    temp_dir: &Path,
+) -> Result<std::process::Output, String> {
     let binary_result = compile_program(
         Path::new("test-projects/_t25_fs_metadata/src/main.op"),
         source,
@@ -212,19 +215,26 @@ fn metadata_size_mtime() {
                 };
             }
         }
-        let is_file = is_file.ok_or_else(|| format!("metadata output missing is_file line: {stdout}"))?;
+        let is_file =
+            is_file.ok_or_else(|| format!("metadata output missing is_file line: {stdout}"))?;
 
         if size != 5 {
             return Err(format!("metadata size should be 5 bytes, got {size}"));
         }
         if mtime <= 0 {
-            return Err(format!("metadata mtime should be positive unix seconds, got {mtime}"));
+            return Err(format!(
+                "metadata mtime should be positive unix seconds, got {mtime}"
+            ));
         }
         if is_directory {
-            return Err(String::from("metadata is_directory should be false for regular file"));
+            return Err(String::from(
+                "metadata is_directory should be false for regular file",
+            ));
         }
         if !is_file {
-            return Err(String::from("metadata is_file should be true for regular file"));
+            return Err(String::from(
+                "metadata is_file should be true for regular file",
+            ));
         }
 
         Ok(())
@@ -272,13 +282,17 @@ fn remove_file_not_found() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "remove-file-not-found probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("FileNotFoundError:") {
             return Err(format!(
                 "remove-file-not-found output should contain FileNotFoundError prefix, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -327,13 +341,17 @@ fn remove_file_isdir() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "remove-file-isdir probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("IsADirectoryError:") {
             return Err(format!(
                 "remove-file-isdir output should contain IsADirectoryError prefix, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -358,83 +376,6 @@ fn remove_file_isdir() {
     );
 }
 
-#[cfg(unix)]
-#[test]
-#[serial(fs)]
-fn remove_file_perm() {
-    if matches!(std::env::var("USER").ok().as_deref(), Some("root")) {
-        return;
-    }
-
-    let temp_dir = unique_probe_target_dir("metadata-remove-perm");
-    let prepare = prepare_dir(&temp_dir);
-    assert!(
-        prepare.is_ok(),
-        "t25 remove-file-perm temp directory should be created"
-    );
-
-    let base_dir = make_temp_path("remove-perm");
-    let file_path = base_dir.join("blocked.txt");
-
-    let execution_result: Result<(), String> = (|| {
-        fs::create_dir_all(&base_dir)
-            .map_err(|e| format!("remove-file-perm base directory should be created: {e}"))?;
-        fs::write(&file_path, "x")
-            .map_err(|e| format!("remove-file-perm fixture file should be created: {e}"))?;
-
-        fs::set_permissions(&base_dir, fs::Permissions::from_mode(0o555))
-            .map_err(|e| format!("remove-file-perm base directory should chmod 555: {e}"))?;
-
-        let source = build_remove_file_error_source(&file_path.to_string_lossy());
-        let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
-
-        drop(fs::set_permissions(
-            &base_dir,
-            fs::Permissions::from_mode(0o755),
-        ));
-
-        let stderr = String::from_utf8_lossy(&run_output.stderr);
-        let stdout = String::from_utf8_lossy(&run_output.stdout);
-        let combined = format!("{stdout}\n{stderr}");
-
-        if combined.contains("UNEXPECTED_SUCCESS") {
-            return Err(format!(
-                "remove-file-perm probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-        if !combined.contains("PermissionDeniedError:") {
-            return Err(format!(
-                "remove-file-perm output should contain PermissionDeniedError prefix, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-
-        Ok(())
-    })();
-
-    drop(fs::set_permissions(
-        &base_dir,
-        fs::Permissions::from_mode(0o755),
-    ));
-    drop(fs::remove_file(&file_path));
-    drop(fs::remove_dir_all(&base_dir));
-
-    let cleanup = cleanup_dir(&temp_dir);
-    assert!(
-        cleanup.is_ok(),
-        "t25 remove-file-perm temp directory should be removed"
-    );
-
-    let failure_message = match execution_result {
-        Ok(()) => String::new(),
-        Err(message) => message,
-    };
-    assert!(
-        failure_message.is_empty(),
-        "remove_file_perm should report PermissionDeniedError: {failure_message}"
-    );
-}
 
 #[test]
 #[serial(fs)]

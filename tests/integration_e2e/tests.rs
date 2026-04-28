@@ -4,41 +4,41 @@ use super::*;
 
 mod bytes_stdlib;
 mod compile_failures;
-mod fs_path_from;
-mod fs_normalize_path;
-mod fs_join_path_components;
-mod fs_path_helpers_query;
 mod fs_absolute_path_sync;
-mod fs_read_text;
-mod fs_read_bytes;
-mod fs_read_lines;
-mod fs_read_first_line;
-mod fs_read_text_lines;
-mod fs_write_file_string;
-mod fs_write_file_bytes;
 mod fs_append_file_string;
-mod fs_write_text_atomic;
 mod fs_append_log;
-mod fs_predicates;
-mod fs_metadata;
 mod fs_copy_file;
-mod fs_rename_path;
-mod fs_directories;
 mod fs_dir_inventory;
+mod fs_directories;
+mod fs_join_path_components;
+mod fs_metadata;
+mod fs_normalize_path;
+mod fs_path_from;
+mod fs_path_helpers_query;
+mod fs_predicates;
+mod fs_read_bytes;
+mod fs_read_first_line;
+mod fs_read_lines;
+mod fs_read_text;
+mod fs_read_text_lines;
+mod fs_rename_path;
+mod fs_write_file_bytes;
+mod fs_write_file_string;
+mod fs_write_text_atomic;
 // The following integration test modules are planned but their files do not
 // yet exist; they are commented out so `cargo fmt` can resolve the module
 // tree. Re-enable each `mod` line when the corresponding `.rs` file is added.
-mod fs_path_manipulation;
 mod fs_markdown_roundtrip;
+mod fs_path_manipulation;
 // mod fs_management;
 // mod fs_reading;
 // mod fs_writing;
 // mod fs_directory;
 // mod fs_permissions;
 mod fs_directory_operations;
+pub mod fs_helpers;
 mod fs_rerunnability;
 pub mod fs_state_guard;
-pub mod fs_helpers;
 mod interactive_io;
 mod project_execution;
 mod project_execution_rc;
@@ -448,7 +448,7 @@ import int64_to_string from standard
 entry main = f(args: string[]): void =>
     let result = loop =>
         break result: 42
-    println(int64_to_string(result))
+    print(int64_to_string(result))
     return void
 ";
 

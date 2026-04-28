@@ -4,11 +4,11 @@ import path_from, create_directory_sync, write_text_sync, read_text_sync, delete
   Description: Runs a deterministic directory inventory lifecycle and cleanup.
 ##
 entry main = f(args: string[]): void errors FileNotFoundError, DirectoryNotFoundError, PermissionDeniedError, IsADirectoryError, IsNotADirectoryError, InvalidPathError, CreateFailureError, FileAlreadyExistsError, WriteFailureError, ReadFailureError, InvalidUtf8Error, DeleteFailureError, DirectoryNotEmptyError, FilesystemFullError =>
-    let workspace_dir = path_from('test-projects/_fs_dir_inventory/workspace')
-    let inventory_dir = path_from('test-projects/_fs_dir_inventory/workspace/inventory')
-    let file_a = path_from('test-projects/_fs_dir_inventory/workspace/inventory/a.txt')
-    let file_b = path_from('test-projects/_fs_dir_inventory/workspace/inventory/b.txt')
-    let file_c = path_from('test-projects/_fs_dir_inventory/workspace/inventory/c.txt')
+    let workspace_dir = path_from('workspace')
+    let inventory_dir = path_from('workspace/inventory')
+    let file_a = path_from('workspace/inventory/a.txt')
+    let file_b = path_from('workspace/inventory/b.txt')
+    let file_c = path_from('workspace/inventory/c.txt')
 
     guard delete_file_sync(file_a) into _ else cleanup_a_err =>
         let _unused_cleanup_a_error = cleanup_a_err

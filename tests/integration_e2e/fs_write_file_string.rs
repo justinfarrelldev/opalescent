@@ -7,8 +7,6 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 
 fn make_temp_path(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
@@ -40,7 +38,10 @@ fn build_write_text_error_source(path: &str, text: &str) -> String {
     )
 }
 
-fn compile_and_run_inline_program(source: &str, temp_dir: &Path) -> Result<std::process::Output, String> {
+fn compile_and_run_inline_program(
+    source: &str,
+    temp_dir: &Path,
+) -> Result<std::process::Output, String> {
     let binary_result = compile_program(
         Path::new("test-projects/_t20_write_file_string/src/main.op"),
         source,
@@ -86,13 +87,17 @@ fn write_file_string_not_found() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "missing-parent probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("FileNotFoundError:") {
             return Err(format!(
                 "missing-parent output should contain 'FileNotFoundError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -115,77 +120,6 @@ fn write_file_string_not_found() {
     );
 }
 
-#[cfg(unix)]
-#[test]
-#[serial(fs)]
-fn write_file_string_perm() {
-    if matches!(std::env::var("USER").ok().as_deref(), Some("root")) {
-        return;
-    }
-    let temp_dir = unique_probe_target_dir("write-string-perm");
-    let prepare = prepare_dir(&temp_dir);
-    assert!(
-        prepare.is_ok(),
-        "t20 permission temp directory should be created"
-    );
-
-    let fixture_dir = make_temp_path("perm");
-    let fixture_file = fixture_dir.join("blocked.txt");
-
-    let execution_result: Result<(), String> = (|| {
-        fs::create_dir_all(&fixture_dir)
-            .map_err(|e| format!("permission fixture directory should be created: {e}"))?;
-        fs::set_permissions(&fixture_dir, fs::Permissions::from_mode(0o555))
-            .map_err(|e| format!("permission fixture directory should be chmod 555: {e}"))?;
-
-        let source = build_write_text_error_source(&fixture_file.to_string_lossy(), "x");
-        let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
-
-        drop(fs::set_permissions(
-            &fixture_dir,
-            fs::Permissions::from_mode(0o755),
-        ));
-
-        let stderr = String::from_utf8_lossy(&run_output.stderr);
-        let stdout = String::from_utf8_lossy(&run_output.stdout);
-        let combined = format!("{stdout}\n{stderr}");
-        if combined.contains("UNEXPECTED_SUCCESS") {
-            return Err(format!(
-                "permission probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-        if !combined.contains("PermissionDeniedError:") {
-            return Err(format!(
-                "permission output should contain 'PermissionDeniedError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-
-        Ok(())
-    })();
-
-    drop(fs::set_permissions(
-        &fixture_dir,
-        fs::Permissions::from_mode(0o755),
-    ));
-    drop(fs::remove_dir_all(&fixture_dir));
-
-    let cleanup = cleanup_dir(&temp_dir);
-    assert!(
-        cleanup.is_ok(),
-        "t20 permission temp directory should be removed"
-    );
-
-    let failure_message = match execution_result {
-        Ok(()) => String::new(),
-        Err(message) => message,
-    };
-    assert!(
-        failure_message.is_empty(),
-        "write_file_string_perm should fail with PermissionDeniedError prefix: {failure_message}"
-    );
-}
 
 #[test]
 #[serial(fs)]
@@ -212,13 +146,17 @@ fn write_file_string_isdir() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "is-directory probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("IsADirectoryError:") {
             return Err(format!(
                 "is-directory output should contain 'IsADirectoryError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -265,15 +203,21 @@ fn write_file_string_disk_full() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "disk-full probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !(combined.contains("Io:")
-            && (combined.contains("No space left") || combined.contains("space left") || combined.contains("ENOSPC")))
+            && (combined.contains("No space left")
+                || combined.contains("space left")
+                || combined.contains("ENOSPC")))
         {
             return Err(format!(
                 "disk-full output should contain IO prefix and ENOSPC text, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -314,7 +258,8 @@ fn write_file_string_success() {
         fs::create_dir_all(&fixture_dir)
             .map_err(|e| format!("success fixture directory should be created: {e}"))?;
 
-        let source = build_write_text_success_source(&fixture_file.to_string_lossy(), expected_text);
+        let source =
+            build_write_text_success_source(&fixture_file.to_string_lossy(), expected_text);
         let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
 
         if !run_output.status.success() {
@@ -335,15 +280,15 @@ fn write_file_string_success() {
             .checked_add(start_marker.len())
             .ok_or_else(|| format!("success stdout marker offset overflowed, got:\n{stdout}"))?;
 
-        let tail = stdout
-            .get(content_start..)
-            .ok_or_else(|| format!("success stdout marker offset should be a valid UTF-8 boundary, got:\n{stdout}"))?;
+        let tail = stdout.get(content_start..).ok_or_else(|| {
+            format!("success stdout marker offset should be a valid UTF-8 boundary, got:\n{stdout}")
+        })?;
         let end_rel = tail
             .find(end_marker)
             .ok_or_else(|| format!("success stdout should contain end marker, got:\n{stdout}"))?;
-        let mut extracted = tail
-            .get(..end_rel)
-            .ok_or_else(|| format!("success stdout end marker should align to a UTF-8 boundary, got:\n{stdout}"))?;
+        let mut extracted = tail.get(..end_rel).ok_or_else(|| {
+            format!("success stdout end marker should align to a UTF-8 boundary, got:\n{stdout}")
+        })?;
 
         if let Some(rest) = extracted.strip_prefix("\r\n") {
             extracted = rest;

@@ -5,7 +5,10 @@ use super::*;
 #[test]
 fn rc_basic_compiles_and_runs() {
     let cwd = std::env::current_dir();
-    assert!(cwd.is_ok(), "current working directory should be readable for integration tests");
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
     let Ok(cwd_path) = cwd else {
         return;
     };
@@ -13,7 +16,10 @@ fn rc_basic_compiles_and_runs() {
     let project_dir = cwd_path.join("test-projects/rc-basic");
     let temp_dir = project_dir.join("target");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "rc-basic target directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "rc-basic target directory should be created"
+    );
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
@@ -21,7 +27,9 @@ fn rc_basic_compiles_and_runs() {
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
-                return Err(format!("rc-basic project should compile into a binary: {error}"));
+                return Err(format!(
+                    "rc-basic project should compile into a binary: {error}"
+                ));
             }
         };
 
@@ -44,7 +52,10 @@ fn rc_basic_compiles_and_runs() {
     })();
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "rc-basic target directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "rc-basic target directory should be removed"
+    );
     let failure_message = execution_result.err().unwrap_or_default();
     assert!(
         failure_message.is_empty(),
@@ -55,7 +66,10 @@ fn rc_basic_compiles_and_runs() {
 #[test]
 fn rc_reuse_compiles_and_runs() {
     let cwd = std::env::current_dir();
-    assert!(cwd.is_ok(), "current working directory should be readable for integration tests");
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
     let Ok(cwd_path) = cwd else {
         return;
     };
@@ -63,7 +77,10 @@ fn rc_reuse_compiles_and_runs() {
     let project_dir = cwd_path.join("test-projects/rc-reuse");
     let temp_dir = project_dir.join("target");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "rc-reuse target directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "rc-reuse target directory should be created"
+    );
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
@@ -71,7 +88,9 @@ fn rc_reuse_compiles_and_runs() {
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
-                return Err(format!("rc-reuse project should compile into a binary: {error}"));
+                return Err(format!(
+                    "rc-reuse project should compile into a binary: {error}"
+                ));
             }
         };
 
@@ -94,7 +113,10 @@ fn rc_reuse_compiles_and_runs() {
     })();
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "rc-reuse target directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "rc-reuse target directory should be removed"
+    );
     let failure_message = execution_result.err().unwrap_or_default();
     assert!(
         failure_message.is_empty(),
@@ -105,7 +127,10 @@ fn rc_reuse_compiles_and_runs() {
 #[test]
 fn iterative_drop_compiles_and_runs() {
     let cwd = std::env::current_dir();
-    assert!(cwd.is_ok(), "current working directory should be readable for integration tests");
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
     let Ok(cwd_path) = cwd else {
         return;
     };
@@ -113,7 +138,10 @@ fn iterative_drop_compiles_and_runs() {
     let project_dir = cwd_path.join("test-projects/iterative-drop");
     let temp_dir = project_dir.join("target");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "iterative-drop target directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "iterative-drop target directory should be created"
+    );
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
@@ -146,7 +174,10 @@ fn iterative_drop_compiles_and_runs() {
     })();
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "iterative-drop target directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "iterative-drop target directory should be removed"
+    );
     let failure_message = execution_result.err().unwrap_or_default();
     assert!(
         failure_message.is_empty(),
@@ -157,7 +188,10 @@ fn iterative_drop_compiles_and_runs() {
 #[test]
 fn weak_ref_compiles_and_runs() {
     let cwd = std::env::current_dir();
-    assert!(cwd.is_ok(), "current working directory should be readable for integration tests");
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
     let Ok(cwd_path) = cwd else {
         return;
     };
@@ -165,7 +199,10 @@ fn weak_ref_compiles_and_runs() {
     let project_dir = cwd_path.join("test-projects/weak-ref");
     let temp_dir = project_dir.join("target");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "weak-ref target directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "weak-ref target directory should be created"
+    );
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
@@ -173,7 +210,9 @@ fn weak_ref_compiles_and_runs() {
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
-                return Err(format!("weak-ref project should compile into a binary: {error}"));
+                return Err(format!(
+                    "weak-ref project should compile into a binary: {error}"
+                ));
             }
         };
 
@@ -182,7 +221,9 @@ fn weak_ref_compiles_and_runs() {
             .map_err(|error| format!("weak-ref compiled binary should execute: {error}"))?;
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim() != "weak-ref: ok" {
-            return Err(format!("weak-ref stdout should equal 'weak-ref: ok', got: '{stdout}'"));
+            return Err(format!(
+                "weak-ref stdout should equal 'weak-ref: ok', got: '{stdout}'"
+            ));
         }
         if !run_output.status.success() {
             return Err(format!(
@@ -194,7 +235,10 @@ fn weak_ref_compiles_and_runs() {
     })();
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "weak-ref target directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "weak-ref target directory should be removed"
+    );
     let failure_message = execution_result.err().unwrap_or_default();
     assert!(
         failure_message.is_empty(),

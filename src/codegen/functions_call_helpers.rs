@@ -108,7 +108,8 @@ pub(super) fn infer_guard_binding_core_type(
                     .get(name.as_str())
                     .and_then(|signature| match signature {
                         &CoreType::Function {
-                            ref return_types, ..
+                            ref return_types,
+                            ..
                         } => return_types.first(),
                         _ => None,
                     })

@@ -1,13 +1,18 @@
 #![cfg(feature = "integration")]
 
+use super::fs_helpers::{
+    FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
+};
 use super::*;
-use super::fs_helpers::{FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir};
 use serial_test::serial;
 use std::path::Path;
 
 fn append_log_path() -> String {
     std::env::temp_dir()
-        .join(format!("opalescent-fs-append-log-{}.txt", std::process::id()))
+        .join(format!(
+            "opalescent-fs-append-log-{}.txt",
+            std::process::id()
+        ))
         .to_string_lossy()
         .into_owned()
 }
@@ -46,18 +51,15 @@ fn fs_append_log() {
         let project_dir = cwd_path.join("test-projects/_fs_append_log");
         let temp_dir = unique_probe_target_dir("append-log-fixture");
 
-        let binary_result = opalescent::compiler::compile_project(
-            &project_dir,
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_fs_append_log fixture should compile into a binary: {}",
-            binary_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown compile error"), |error| format!("{error}"))
+            binary_result.as_ref().err().map_or_else(
+                || String::from("unknown compile error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(binary_path) = binary_result else {
             return;
@@ -70,10 +72,10 @@ fn fs_append_log() {
         assert!(
             output_result.is_ok(),
             "_fs_append_log compiled binary should execute: {}",
-            output_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown execution error"), |error| format!("{error}"))
+            output_result.as_ref().err().map_or_else(
+                || String::from("unknown execution error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(run_output) = output_result else {
             return;
@@ -112,7 +114,10 @@ fn fs_append_log_monotonic() {
 
         let temp_dir = unique_probe_target_dir("append-log-monotonic");
         let prepare = prepare_dir(&temp_dir);
-        assert!(prepare.is_ok(), "_fs_append_log target directory should be created");
+        assert!(
+            prepare.is_ok(),
+            "_fs_append_log target directory should be created"
+        );
 
         let mut previous_size: u64 = 0;
         for idx in 0_usize..5_usize {
@@ -128,10 +133,10 @@ fn fs_append_log_monotonic() {
             assert!(
                 binary_result.is_ok(),
                 "monotonic append inline source should compile: {}",
-                binary_result
-                    .as_ref()
-                    .err()
-                    .map_or_else(|| String::from("unknown compile error"), |error| format!("{error}"))
+                binary_result.as_ref().err().map_or_else(
+                    || String::from("unknown compile error"),
+                    |error| format!("{error}")
+                )
             );
             let Ok(binary_path) = binary_result else {
                 return;
@@ -141,10 +146,10 @@ fn fs_append_log_monotonic() {
             assert!(
                 output_result.is_ok(),
                 "monotonic append binary should execute: {}",
-                output_result
-                    .as_ref()
-                    .err()
-                    .map_or_else(|| String::from("unknown execution error"), |error| format!("{error}"))
+                output_result.as_ref().err().map_or_else(
+                    || String::from("unknown execution error"),
+                    |error| format!("{error}")
+                )
             );
             let Ok(run_output) = output_result else {
                 return;
@@ -162,10 +167,10 @@ fn fs_append_log_monotonic() {
                 metadata_result.is_ok(),
                 "log file metadata should be readable after append {}: {}",
                 idx + 1_usize,
-                metadata_result
-                    .as_ref()
-                    .err()
-                    .map_or_else(|| String::from("unknown metadata error"), |error| format!("{error}"))
+                metadata_result.as_ref().err().map_or_else(
+                    || String::from("unknown metadata error"),
+                    |error| format!("{error}")
+                )
             );
             let Ok(metadata) = metadata_result else {
                 return;
@@ -182,7 +187,10 @@ fn fs_append_log_monotonic() {
         }
 
         let cleanup = cleanup_dir(&temp_dir);
-        assert!(cleanup.is_ok(), "_fs_append_log target directory should be removed");
+        assert!(
+            cleanup.is_ok(),
+            "_fs_append_log target directory should be removed"
+        );
     }
 
     drop(fs::remove_file(append_log_path()));

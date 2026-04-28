@@ -973,4 +973,3 @@ fn import_types_multiple_compiles_and_runs() {
         "import-types-multiple should compile, run, print expected output, and exit cleanly: {failure_message}"
     );
 }
-

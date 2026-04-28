@@ -167,7 +167,11 @@ fn codegen_let_statement<'context>(
         if let Some(field_indices) = initializer.and_then(product_field_indices_from_constructor) {
             env.variable_field_indices
                 .insert(binding.name.clone(), field_indices);
-            if let Some(&Expr::Constructor { ref fields, .. }) = initializer {
+            if let Some(&Expr::Constructor {
+                ref fields,
+                ..
+            }) = initializer
+            {
                 let mut field_aliases = alloc::collections::BTreeMap::new();
                 for field in fields {
                     if let Expr::Identifier { ref name, .. } = field.value {
@@ -306,18 +310,20 @@ fn codegen_guard_statement<'context>(
                     .builder
                     .build_store(success_alloca, success_value.get_type().const_zero())?;
                 let len_binding_name = format!("{success_binding}_len");
-                let len_alloca = if matches!(success_core_type, CoreType::Array(_)) && field_count >= 3 {
-                    let length_alloca = codegen_context
-                        .builder
-                        .build_alloca(codegen_context.context.i64_type(), len_binding_name.as_str())?;
-                    let _length_init = codegen_context.builder.build_store(
-                        length_alloca,
-                        codegen_context.context.i64_type().const_zero(),
-                    )?;
-                    Some(length_alloca)
-                } else {
-                    None
-                };
+                let len_alloca =
+                    if matches!(success_core_type, CoreType::Array(_)) && field_count >= 3 {
+                        let length_alloca = codegen_context.builder.build_alloca(
+                            codegen_context.context.i64_type(),
+                            len_binding_name.as_str(),
+                        )?;
+                        let _length_init = codegen_context.builder.build_store(
+                            length_alloca,
+                            codegen_context.context.i64_type().const_zero(),
+                        )?;
+                        Some(length_alloca)
+                    } else {
+                        None
+                    };
 
                 let current_fn = current_function(codegen_context)?;
                 let success_block = codegen_context
@@ -530,9 +536,7 @@ fn infer_core_type_from_expr<'context>(
         } => {
             let object_type = infer_core_type_from_expr(codegen_context, env, object);
             match object_type {
-                CoreType::String | CoreType::Array(_) if member == "length" => {
-                    CoreType::Int64
-                }
+                CoreType::String | CoreType::Array(_) if member == "length" => CoreType::Int64,
                 CoreType::Generic {
                     ref name,
                     ref type_args,
@@ -677,17 +681,13 @@ fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "create_directory_sync"
         | "create_directory_recursive_sync"
         | "delete_directory_sync"
-        | "delete_directory_recursive_sync"
-        | "set_permissions_sync" => Some(CoreType::Unit),
+        | "delete_directory_recursive_sync" => Some(CoreType::Unit),
         // Boolean-returning path and permission checks
         "path_exists_sync"
         | "is_file_sync"
         | "is_file_nofollow_sync"
         | "is_directory_sync"
-        | "is_directory_nofollow_sync"
-        | "can_read_sync"
-        | "can_write_sync"
-        | "can_execute_sync" => Some(CoreType::Boolean),
+        | "is_directory_nofollow_sync" => Some(CoreType::Boolean),
         // File management — FileMetadata returns
         "read_metadata_sync" | "read_metadata_nofollow_sync" => Some(CoreType::Generic {
             name: String::from("FileMetadata"),
@@ -745,17 +745,13 @@ fn known_guard_success_type(name: &str) -> Option<CoreType> {
         | "create_directory_sync"
         | "create_directory_recursive_sync"
         | "delete_directory_sync"
-        | "delete_directory_recursive_sync"
-        | "set_permissions_sync" => Some(CoreType::Unit),
+        | "delete_directory_recursive_sync" => Some(CoreType::Unit),
         // Filesystem — boolean returns
         "path_exists_sync"
         | "is_file_sync"
         | "is_file_nofollow_sync"
         | "is_directory_sync"
-        | "is_directory_nofollow_sync"
-        | "can_read_sync"
-        | "can_write_sync"
-        | "can_execute_sync" => Some(CoreType::Boolean),
+        | "is_directory_nofollow_sync" => Some(CoreType::Boolean),
         // Filesystem — FileMetadata returns
         "read_metadata_sync" | "read_metadata_nofollow_sync" => Some(CoreType::Generic {
             name: String::from("FileMetadata"),

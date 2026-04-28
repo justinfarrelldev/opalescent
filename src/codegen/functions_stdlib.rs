@@ -4,8 +4,8 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use alloc::format;
 use alloc::string::String;
-use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::AddressSpace;
+use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::values::FunctionValue;
 
 #[doc = "Declare a stdlib function in the LLVM module if not already present."]
@@ -301,7 +301,11 @@ pub fn declare_stdlib_function<'context>(
                 false,
             );
             let function = module.add_function("read_lines_sync", ft, None);
-            apply_sret_attr_if_needed(codegen_context, function, fs_string_array_result_type.into());
+            apply_sret_attr_if_needed(
+                codegen_context,
+                function,
+                fs_string_array_result_type.into(),
+            );
             Some(function)
         }),
         "read_bytes_at_offset_sync" => {

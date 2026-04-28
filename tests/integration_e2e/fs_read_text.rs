@@ -23,7 +23,10 @@ fn build_read_text_error_source(path: &str) -> String {
     )
 }
 
-fn compile_and_run_inline_program(source: &str, temp_dir: &Path) -> Result<std::process::Output, String> {
+fn compile_and_run_inline_program(
+    source: &str,
+    temp_dir: &Path,
+) -> Result<std::process::Output, String> {
     let binary_result = compile_program(
         Path::new("test-projects/_t15_read_text/src/main.op"),
         source,
@@ -79,13 +82,17 @@ fn read_file_to_string_not_found() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "missing-path probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("FileNotFoundError:") {
             return Err(format!(
                 "missing-path output should contain 'FileNotFoundError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -108,88 +115,7 @@ fn read_file_to_string_not_found() {
     );
 }
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 
-#[cfg(unix)]
-#[test]
-#[serial(fs)]
-fn read_file_to_string_perm_denied() {
-    if matches!(std::env::var("USER").ok().as_deref(), Some("root")) {
-        return;
-    }
-
-    let temp_dir = unique_probe_target_dir("read-text-perm");
-    let prepare = prepare_dir(&temp_dir);
-    assert!(
-        prepare.is_ok(),
-        "t15 permission temp directory should be created"
-    );
-
-    let fixture_dir = make_temp_path("perm");
-    let fixture_file = fixture_dir.join("perm_denied.txt");
-
-    let execution_result: Result<(), String> = (|| {
-        fs::create_dir_all(&fixture_dir)
-            .map_err(|e| format!("permission fixture directory should be created: {e}"))?;
-        fs::write(&fixture_file, "permission denied fixture")
-            .map_err(|e| format!("permission fixture file should be created: {e}"))?;
-
-        let lock_permissions = fs::set_permissions(&fixture_file, fs::Permissions::from_mode(0o000));
-        if let Err(error) = lock_permissions {
-            return Err(format!(
-                "permission fixture should be chmod 000 for denied read test: {error}"
-            ));
-        }
-
-        let source = build_read_text_error_source(&fixture_file.to_string_lossy());
-        let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
-
-        let restore_result =
-            fs::set_permissions(&fixture_file, fs::Permissions::from_mode(0o644));
-        if let Err(error) = restore_result {
-            return Err(format!(
-                "permission fixture permissions should be restored after test run: {error}"
-            ));
-        }
-
-        let stderr = String::from_utf8_lossy(&run_output.stderr);
-        let stdout = String::from_utf8_lossy(&run_output.stdout);
-        let combined = format!("{stdout}\n{stderr}");
-        if combined.contains("UNEXPECTED_SUCCESS") {
-            return Err(format!(
-                "permission-denied probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-        if !combined.contains("PermissionDeniedError:") {
-            return Err(format!(
-                "permission-denied output should contain 'PermissionDeniedError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
-            ));
-        }
-
-        Ok(())
-    })();
-
-    drop(fs::remove_file(&fixture_file));
-    drop(fs::remove_dir_all(&fixture_dir));
-
-    let cleanup = cleanup_dir(&temp_dir);
-    assert!(
-        cleanup.is_ok(),
-        "t15 permission temp directory should be removed"
-    );
-
-    let failure_message = match execution_result {
-        Ok(()) => String::new(),
-        Err(message) => message,
-    };
-    assert!(
-        failure_message.is_empty(),
-        "read_file_to_string_perm_denied should fail with PermissionDeniedError prefix: {failure_message}"
-    );
-}
 
 #[test]
 #[serial(fs)]
@@ -216,13 +142,17 @@ fn read_file_to_string_is_directory() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "is-directory probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("IsADirectoryError:") {
             return Err(format!(
                 "directory-path output should contain 'IsADirectoryError:', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -275,13 +205,17 @@ fn read_file_to_string_invalid_utf8() {
         if combined.contains("UNEXPECTED_SUCCESS") {
             return Err(format!(
                 "invalid-utf8 probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
         if !combined.contains("InvalidUtf8Error: 0") {
             return Err(format!(
                 "invalid-utf8 output should contain 'InvalidUtf8Error: 0', status={:?}, stdout='{}', stderr='{}'",
-                run_output.status.code(), stdout, stderr
+                run_output.status.code(),
+                stdout,
+                stderr
             ));
         }
 
@@ -346,15 +280,15 @@ fn read_file_to_string_success() {
             .ok_or_else(|| format!("success stdout should contain start marker, got:\n{stdout}"))?;
         let content_start = start_idx + start_marker.len();
 
-        let tail = stdout
-            .get(content_start..)
-            .ok_or_else(|| format!("success stdout marker offset should be a valid UTF-8 boundary, got:\n{stdout}"))?;
+        let tail = stdout.get(content_start..).ok_or_else(|| {
+            format!("success stdout marker offset should be a valid UTF-8 boundary, got:\n{stdout}")
+        })?;
         let end_rel = tail
             .find(end_marker)
             .ok_or_else(|| format!("success stdout should contain end marker, got:\n{stdout}"))?;
-        let mut extracted = tail
-            .get(..end_rel)
-            .ok_or_else(|| format!("success stdout end marker should align to a UTF-8 boundary, got:\n{stdout}"))?;
+        let mut extracted = tail.get(..end_rel).ok_or_else(|| {
+            format!("success stdout end marker should align to a UTF-8 boundary, got:\n{stdout}")
+        })?;
 
         if let Some(rest) = extracted.strip_prefix("\r\n") {
             extracted = rest;

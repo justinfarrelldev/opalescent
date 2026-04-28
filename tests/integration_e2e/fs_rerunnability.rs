@@ -58,7 +58,6 @@ fn fs_rerunnability() {
         .arg("--")
         .arg("--skip")
         .arg("fs_rerunnability")
-        .arg("--test-threads=1")
         .current_dir(&repo_root)
         .env("RUST_TEST_THREADS", "1")
         .output();
@@ -104,7 +103,10 @@ fn assert_all_gitignores_present(project_dirs: &[PathBuf]) -> io::Result<()> {
 
         let gitignore = fs::read_to_string(&gitignore_path)?;
         if !gitignore.lines().any(|line| line == "workspace/") {
-            failures.push(format!("missing workspace/ in {}", gitignore_path.display()));
+            failures.push(format!(
+                "missing workspace/ in {}",
+                gitignore_path.display()
+            ));
         }
         if !gitignore.lines().any(|line| line == "target/") {
             failures.push(format!("missing target/ in {}", gitignore_path.display()));

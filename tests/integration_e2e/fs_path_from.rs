@@ -1,7 +1,9 @@
 #![cfg(feature = "integration")]
 
+use super::fs_helpers::{
+    FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
+};
 use super::*;
-use super::fs_helpers::{FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir};
 use serial_test::serial;
 
 fn stringify_error<E: core::fmt::Display>(error: E) -> String {
@@ -91,8 +93,7 @@ entry main = f(args: string[]): void =>
             "nested_name=world",
         ];
         assert_eq!(
-            lines,
-            expected,
+            lines, expected,
             "path_from should preserve non-empty input and emit empty sentinel for empty input"
         );
 
@@ -133,18 +134,15 @@ fn fs_path_from_smoke() {
         let project_dir = cwd_path.join("test-projects/_fs_path_from");
         let temp_dir = unique_probe_target_dir("path-from-smoke");
 
-        let binary_result = opalescent::compiler::compile_project(
-            &project_dir,
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result =
+            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_fs_path_from fixture should compile into a binary: {}",
-            binary_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown compile error"), |error| format!("{error}"))
+            binary_result.as_ref().err().map_or_else(
+                || String::from("unknown compile error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(binary_path) = binary_result else {
             return;
@@ -154,20 +152,17 @@ fn fs_path_from_smoke() {
         assert!(
             output_result.is_ok(),
             "_fs_path_from compiled binary should execute: {}",
-            output_result
-                .as_ref()
-                .err()
-                .map_or_else(|| String::from("unknown execution error"), |error| format!("{error}"))
+            output_result.as_ref().err().map_or_else(
+                || String::from("unknown execution error"),
+                |error| format!("{error}")
+            )
         );
         let Ok(run_output) = output_result else {
             return;
         };
 
         let stdout = strip_crlf(&String::from_utf8_lossy(&run_output.stdout));
-        let lines: Vec<&str> = stdout
-            .lines()
-            .map(str::trim)
-            .collect();
+        let lines: Vec<&str> = stdout.lines().map(str::trim).collect();
 
         let expected = vec![
             "error: invalid",
@@ -176,8 +171,7 @@ fn fs_path_from_smoke() {
             "path=hello/",
         ];
         assert_eq!(
-            lines,
-            expected,
+            lines, expected,
             "_fs_path_from should exercise 4 cases: empty (error), simple, nested, trailing slash"
         );
 

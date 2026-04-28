@@ -55,15 +55,13 @@ entry main = f(args: string[]): void => {
       == is a bit ugly in my opinion...
       type_of() function can be used to determine type equivalence... for example "if type_of(user_number) is type_of(quiz_num)"
     ##
-    if user_number is quiz_num {
+    if user_number is quiz_num:
         print('Wow, you guessed correctly! Congratulations!')
         return void
-    }
-    if user_number < quiz_num {
+    if user_number < quiz_num:
         print('Oh no, too low, you lose!')
-    } else {
+    else:
         print('Too high, you lose!')
-    }
     return void
     # explicit "return void" is always required to ensure termination of functions is intentional
 }
