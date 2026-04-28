@@ -1,0 +1,5 @@
+name = "_fs_path_file_extension"
+version = "0.1.0"
+
+[build]
+targets = ["x86_64-linux"]

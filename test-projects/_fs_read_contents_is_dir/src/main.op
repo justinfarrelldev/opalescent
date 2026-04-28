@@ -1,0 +1,6 @@
+##
+  Description: Minimal rerunnability fixture entrypoint for fs project directory coverage.
+##
+entry main = f(args: string[]): void =>
+    print('_fs_read_contents_is_dir')
+    return void
