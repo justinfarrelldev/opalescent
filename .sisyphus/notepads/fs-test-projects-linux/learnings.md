@@ -86,3 +86,10 @@ Tasks [29/34 compliant] | Contamination [22 issues] | RGR [0/20 projects with re
 - Required secondary F1 checks remain green: `grep -n "not implemented" runtime/opal_fs.c` returns no output; the fs-project contract probe returns `projects=24` and `missing=0`; and the permissions/long-path forbidden-surface grep returns no matches.
 - Under the preserved fixed denominator model from the plan (`Must Have = 9`, `Must NOT Have = 13`, `Tasks = 34`), the numerators move relative to prior F1 notes: RGR is now satisfied and both functional gates remain satisfied, but per-task MSVC compile-and-link verification is still not evidenced across task-scoped artifacts (task evidence grep still only finds `task-34-msvc.log` plus `task-0_5-unit.log`), and the strict must-not blocker set still preserves `read_first_line_sync` spread as the remaining recorded guardrail violation.
 - Canonical strict F1 line for the current snapshot is therefore corrected to: `Must Have [8/9] | Must NOT Have [11/13] | Tasks [34/34] | VERDICT: REJECT`.
+
+## 2026-04-28T12:13:52Z Contamination cleanup completion
+- Cleaned residual worktree contamination by removing accidental build artifact `runtime/opal_msvc_link_probe.obj` from working tree and committing legitimate cleanup artifacts (final-qa evidence, task evidence logs, test-project fixtures, and state/notepad updates).
+- Final cleanliness outputs:
+  - `git status --short` => (no output)
+  - `git diff --name-only | wc -l` => 0
+  - `git diff --name-only -- .sisyphus/plans/fs-test-projects-linux.md` => (no output)
