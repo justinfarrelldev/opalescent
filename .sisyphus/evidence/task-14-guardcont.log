@@ -1,0 +1,5 @@
+target/program
+ERR:invalid digit 'b' in input:0
+ERR:invalid digit 'b' in input:1
+ERR:invalid digit 'b' in input:2
+exit=0

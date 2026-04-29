@@ -1,9 +1,22 @@
+#![allow(
+    clippy::all,
+    clippy::missing_docs_in_private_items,
+    clippy::pattern_type_mismatch,
+    clippy::panic,
+    reason = "internal codegen implementation module"
+)]
 extern crate alloc;
 
 use crate::ast::{Expr, LabeledValue, Stmt};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
+use crate::codegen::error_abi::{
+    build_error_aggregate, build_success_aggregate, build_void_error_aggregate,
+    build_void_success_aggregate, intern_variant_name,
+};
+use crate::codegen::expressions::{
+    CodegenEnv, LoopContext, VariableBinding, codegen_expression,
+};
 use crate::codegen::statements::codegen_statement;
 use crate::type_system::types::CoreType;
 use alloc::boxed::Box;
@@ -11,6 +24,7 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::IntPredicate;
+use inkwell::types::StructType;
 use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue};
 
 #[doc = "Lower if statement control-flow blocks."]
@@ -468,6 +482,10 @@ pub fn codegen_return_statement<'context>(
     env: &mut CodegenEnv<'context>,
     values: &[LabeledValue],
 ) -> Result<(), CodegenError> {
+    if let Some(error_return_type) = current_error_return_type(codegen_context)? {
+        return codegen_error_aware_return_statement(codegen_context, env, values, error_return_type);
+    }
+
     if values.is_empty() {
         let _ret = codegen_context.builder.build_return(None)?;
         return Ok(());
@@ -510,6 +528,103 @@ pub fn codegen_return_statement<'context>(
     Ok(())
 }
 
+fn codegen_error_aware_return_statement<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    values: &[LabeledValue],
+    error_return_type: StructType<'context>,
+) -> Result<(), CodegenError> {
+    if values.is_empty() {
+        let aggregate = build_void_success_aggregate(codegen_context)?;
+        let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+        return Ok(());
+    }
+
+    if values.len() != 1 {
+        return Err(CodegenError::new(String::from(
+            "errors-bearing functions returning multiple values are not yet supported",
+        )));
+    }
+
+    let labeled_value = &values[0];
+    if labeled_value.label == "err" {
+        let variant_name = extract_error_variant_name(&labeled_value.value)?;
+        let error_ptr = intern_variant_name(codegen_context, env, variant_name.as_str());
+        let success_field_type = error_return_type
+            .get_field_types()
+            .first()
+            .copied()
+            .ok_or_else(|| CodegenError::new(String::from("error ABI return type missing success field")))?;
+        let aggregate = if success_field_type.is_pointer_type() {
+            build_void_error_aggregate(codegen_context, error_ptr)?
+        } else {
+            build_error_aggregate(codegen_context, success_field_type, error_ptr)?
+        };
+        let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+        return Ok(());
+    }
+
+    let value = codegen_expression(codegen_context, env, &labeled_value.value, None)?;
+    if value.is_struct_value() && value.into_struct_value().get_type().count_fields() == 0 {
+        let aggregate = build_void_success_aggregate(codegen_context)?;
+        let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+        return Ok(());
+    }
+
+    let aggregate = build_success_aggregate(codegen_context, value)?;
+    let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+    Ok(())
+}
+
+fn current_error_return_type<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> Result<Option<StructType<'context>>, CodegenError> {
+    let function = current_function(codegen_context)?;
+    let Some(return_type) = function.get_type().get_return_type() else {
+        return Ok(None);
+    };
+    if !return_type.is_struct_type() {
+        return Ok(None);
+    }
+
+    let struct_type = return_type.into_struct_type();
+    if is_error_abi_return_type(struct_type) {
+        Ok(Some(struct_type))
+    } else {
+        Ok(None)
+    }
+}
+
+fn is_error_abi_return_type<'context>(struct_type: StructType<'context>) -> bool {
+    if struct_type.count_fields() != 2 {
+        return false;
+    }
+
+    let field_types = struct_type.get_field_types();
+    if !field_types[1].is_pointer_type() {
+        return false;
+    }
+
+    let error_pointee = field_types[1].into_pointer_type().get_element_type();
+    error_pointee.is_int_type() && error_pointee.into_int_type().get_bit_width() == 8
+}
+
+fn extract_error_variant_name(expr: &Expr) -> Result<String, CodegenError> {
+    match expr {
+        Expr::Identifier { name, .. } => Ok(name.clone()),
+        Expr::Member { member, .. } => Ok(member.clone()),
+        Expr::Constructor { fields, .. } if !fields.is_empty() => Err(CodegenError::new(
+            String::from(
+                "payload-bearing error variants not yet supported in user-defined functions",
+            ),
+        )),
+        Expr::Constructor { callee, .. } => extract_error_variant_name(callee.as_ref()),
+        _ => Err(CodegenError::new(String::from(
+            "error returns must use `return err: VariantName`",
+        ))),
+    }
+}
+
 #[doc = "Extract value form from statement for if-expression lowering."]
 fn statement_to_value<'context>(
     codegen_context: &CodegenContext<'context>,
@@ -550,84 +665,26 @@ fn emit_loop_body_with_targets<'context>(
     break_slots: &[PointerValue<'context>],
     break_labels: &[alloc::string::String],
 ) -> Result<(), CodegenError> {
-    match *stmt {
-        Stmt::Block { ref statements, .. } => {
-            for statement in statements {
-                match *statement {
-                    Stmt::Break { .. } => {
-                        if let Stmt::Break { ref values, .. } = *statement {
-                            store_break_values_into_slots(
-                                codegen_context,
-                                env,
-                                values.as_slice(),
-                                break_slots,
-                                break_labels,
-                            )?;
-                        }
-                        let _br = codegen_context
-                            .builder
-                            .build_unconditional_branch(break_target)?;
-                    }
-                    Stmt::Continue { .. } => {
-                        let _br = codegen_context
-                            .builder
-                            .build_unconditional_branch(continue_target)?;
-                    }
-                    _ => codegen_statement(codegen_context, env, statement)?,
-                }
-            }
-            Ok(())
-        }
-        Stmt::Break { .. } => {
-            if let Stmt::Break { ref values, .. } = *stmt {
-                store_break_values_into_slots(
-                    codegen_context,
-                    env,
-                    values.as_slice(),
-                    break_slots,
-                    break_labels,
-                )?;
-            }
-            let _br = codegen_context
-                .builder
-                .build_unconditional_branch(break_target)?;
-            Ok(())
-        }
-        Stmt::Continue { .. } => {
-            let _br = codegen_context
-                .builder
-                .build_unconditional_branch(continue_target)?;
-            Ok(())
-        }
-        _ => codegen_statement(codegen_context, env, stmt),
-    }
-}
+    env.push_loop(LoopContext {
+        continue_target,
+        break_target,
+        break_slots: break_slots.to_vec(),
+        break_labels: break_labels.to_vec(),
+    });
 
-#[doc = "Store loop-break payload values into pre-allocated binding slots."]
-fn store_break_values_into_slots<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    values: &[LabeledValue],
-    break_slots: &[PointerValue<'context>],
-    break_labels: &[alloc::string::String],
-) -> Result<(), CodegenError> {
-    if break_slots.is_empty() {
-        return Ok(());
+    let result = codegen_statement(codegen_context, env, stmt);
+    let popped_loop = env.pop_loop();
+    debug_assert!(
+        popped_loop.is_some(),
+        "emit_loop_body_with_targets should pop the loop context it pushed"
+    );
+    if popped_loop.is_none() {
+        return Err(CodegenError::new(String::from(
+            "loop context stack underflow in emit_loop_body_with_targets",
+        )));
     }
 
-    for (index, slot) in break_slots.iter().copied().enumerate() {
-        let matching_value = break_labels
-            .get(index)
-            .and_then(|label| values.iter().find(|value| value.label == *label))
-            .or_else(|| values.get(index));
-        let Some(value) = matching_value else {
-            continue;
-        };
-        let lowered_value = codegen_expression(codegen_context, env, &value.value, None)?;
-        let _store = codegen_context.builder.build_store(slot, lowered_value)?;
-    }
-
-    Ok(())
+    result
 }
 
 #[doc = "Fetch current LLVM function from builder insertion block."]
@@ -642,4 +699,133 @@ fn current_function<'context>(
     block
         .get_parent()
         .ok_or_else(|| CodegenError::new(String::from("insert block does not have parent")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::codegen_return_statement;
+    use crate::ast::{ConstructorField, Expr, LabeledValue, LiteralValue};
+    use crate::codegen::context::CodegenContext;
+    use crate::codegen::error::CodegenError;
+    use crate::codegen::error_abi::build_error_return_type;
+    use crate::codegen::expressions::CodegenEnv;
+    use crate::token::{Position, Span};
+    use inkwell::context::Context;
+
+    fn test_span() -> Span {
+        Span::single(Position::new(1, 1, 0))
+    }
+
+    fn labeled_value(label: &str, value: Expr) -> LabeledValue {
+        LabeledValue {
+            label: label.to_owned(),
+            value,
+            span: test_span(),
+            id: crate::ast::NodeId(1),
+        }
+    }
+
+    fn ident(name: &str) -> Expr {
+        Expr::Identifier {
+            name: name.to_owned(),
+            span: test_span(),
+            id: crate::ast::NodeId(2),
+        }
+    }
+
+    fn string_lit(value: &str) -> Expr {
+        Expr::Literal {
+            value: LiteralValue::String(value.to_owned()),
+            span: test_span(),
+            id: crate::ast::NodeId(3),
+        }
+    }
+
+    fn create_error_return_function<'context>(
+        codegen_context: &CodegenContext<'context>,
+        function_name: &str,
+    ) {
+        let function_type = build_error_return_type(codegen_context.context, None).fn_type(&[], false);
+        let function = codegen_context
+            .module
+            .add_function(function_name, function_type, None);
+        let entry = codegen_context.context.append_basic_block(function, "entry");
+        codegen_context.builder.position_at_end(entry);
+    }
+
+    #[test]
+    fn return_statement_builds_void_error_abi_success_and_error_returns() {
+        let context = Context::create();
+        let codegen_context = CodegenContext::new(&context, "control_flow_return_error_abi");
+        let mut env = CodegenEnv::new(true);
+
+        create_error_return_function(&codegen_context, "void_success");
+        let success_result = codegen_return_statement(&codegen_context, &mut env, &[]);
+        assert!(
+            success_result.is_ok(),
+            "void errors return without expr should lower to success aggregate"
+        );
+
+        create_error_return_function(&codegen_context, "void_error");
+        let error_result = codegen_return_statement(
+            &codegen_context,
+            &mut env,
+            &[labeled_value("err", ident("NotFound"))],
+        );
+        assert!(
+            error_result.is_ok(),
+            "return err: NotFound should lower to error aggregate"
+        );
+
+        let ir = codegen_context.module.print_to_string().to_string();
+        assert!(
+            ir.contains("ret { i8*, i8* }") || ir.contains("ret {i8*, i8*}"),
+            "error-aware return lowering should emit aggregate returns: {ir}"
+        );
+        assert!(
+            ir.contains("NotFound\\00") || ir.contains("c\"NotFound\\00\""),
+            "error-aware return lowering should intern the variant name: {ir}"
+        );
+    }
+
+    #[test]
+    fn return_statement_rejects_payload_bearing_error_variants() {
+        let context = Context::create();
+        let codegen_context = CodegenContext::new(&context, "control_flow_return_payload_error");
+        let mut env = CodegenEnv::new(true);
+        create_error_return_function(&codegen_context, "payload_error");
+
+        let payload_error = codegen_return_statement(
+            &codegen_context,
+            &mut env,
+            &[labeled_value(
+                "err",
+                Expr::Constructor {
+                    callee: Box::new(Expr::Member {
+                        object: Box::new(ident("AppError")),
+                        member: String::from("NotFound"),
+                        span: test_span(),
+                        id: crate::ast::NodeId(4),
+                    }),
+                    fields: vec![ConstructorField {
+                        name: String::from("reason"),
+                        value: string_lit("x"),
+                        span: test_span(),
+                    }],
+                    span: test_span(),
+                    id: crate::ast::NodeId(5),
+                },
+            )],
+        );
+
+        match payload_error {
+            Err(CodegenError { message, .. }) => assert!(
+                message.contains(
+                    "payload-bearing error variants not yet supported in user-defined functions"
+                ),
+                "unexpected payload-bearing error message: {message}"
+            ),
+            Ok(()) => panic!("payload-bearing error return should fail"),
+        }
+    }
 }

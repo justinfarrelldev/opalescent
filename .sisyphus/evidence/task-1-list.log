@@ -1,0 +1,16 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-033dd992ae8b06fd)
+0 tests, 0 benchmarks
+     Running unittests src/main.rs (target/debug/deps/opalescent-1022cef4f35ac85a)
+0 tests, 0 benchmarks
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-a4969f9e5cc4d20e)
+0 tests, 0 benchmarks
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-5d8106ff6216d2d2)
+0 tests, 0 benchmarks
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-90a6cd731a338c60)
+tests::op_cat::op_cat_error_path_continues_to_next_arg: test
+tests::op_cat::op_cat_happy_path_prints_file_contents: test
+
+2 tests, 0 benchmarks
+     Running tests/integration_print.rs (target/debug/deps/integration_print-4ad08da74fd6bcfb)
+0 tests, 0 benchmarks

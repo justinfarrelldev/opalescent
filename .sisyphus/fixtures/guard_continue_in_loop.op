@@ -1,0 +1,15 @@
+import string_to_int32 from standard
+
+##
+  Description: Task 14 fixture ensuring guard else can continue the active loop.
+##
+entry main = f(args: string[]): void =>
+    let mutable i = 0
+    while i < 3:
+        guard string_to_int32('bad') into n else e =>
+            print('ERR:{e}:{i}')
+            i = i + 1
+            continue
+        print('OK:{n}')
+        i = i + 1
+    return void

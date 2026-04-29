@@ -7,6 +7,7 @@ pub mod adts;
 pub mod context;
 pub mod control_flow;
 pub mod error;
+pub mod error_abi;
 pub mod expressions;
 pub mod expressions_cast;
 pub mod expressions_numeric;

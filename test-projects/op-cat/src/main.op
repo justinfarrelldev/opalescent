@@ -1,0 +1,24 @@
+import read_lines_sync, path_from from standard
+
+let cat_file = f(path: string): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error => 
+    let lines = propagate read_lines_sync(path_from(path))
+    let mutable i = 0
+    while i < lines.length:
+        print(lines[i])
+        i = i + 1
+    return void
+
+##
+    Description: Entry point for op-cat, an Opalescent port for the Unix cat command
+    This project is mostly a test project
+##
+entry main = f(args: string[]): void =>
+    let mutable i = 0
+    while i < args.length: 
+        guard cat_file(args[i]) into _ else e => 
+            print('An error occurred while catting a file: {e}')
+            i = i + 1
+            continue
+        i = i + 1
+
+    return void

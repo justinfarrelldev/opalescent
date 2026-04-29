@@ -1,0 +1,24 @@
+import AppError from ./app.types
+
+##
+  Description: T7 fixture for user-defined void errors return lowering.
+##
+let do_work = f(flag: boolean): void errors AppError =>
+    if flag:
+        return void
+    return err: NotFound
+
+##
+  Description: Runs the T7 void-errors return fixture and prints the captured error.
+##
+entry main = f(args: string[]): void =>
+    guard do_work(true) into _ else err =>
+        print('unexpected success error: {err}')
+        return void
+
+    guard do_work(false) into _ else err =>
+        print('ERR:{err}')
+        return void
+
+    print('unexpected error success')
+    return void

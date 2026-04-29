@@ -1,0 +1,11 @@
+target/program
+An error occurred while catting a file: InvalidUtf8Error: 40
+line one
+line two
+line three
+An error occurred while catting a file: FileNotFoundError: No such file or directory
+line one
+line two
+line three
+
+EXIT_CODE=0

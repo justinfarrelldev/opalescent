@@ -1,0 +1,30 @@
+297e27e chore: append final cleanliness audit notes
+cc588f8 chore: finalize remaining cleanup artifacts
+3ee1989 chore: capture final QA evidence logs
+9839f52 refactor: fs-markdown-roundtrip scenario
+df0f16f green: fs-markdown-roundtrip scenario
+2784441 red: fs-markdown-roundtrip scenario
+4978a43 refactor: fs-path-manipulation scenario
+cd70754 green: fs-path-manipulation scenario
+45474e4 red: fs-path-manipulation scenario
+f8311da refactor: fs-directory-operations scenario
+778183e green: fs-directory-operations scenario
+6ac2f50 red: fs-directory-operations scenario
+d360808 refactor: _fs_read_offset_oob scenario
+93a3b31 green: _fs_read_offset_oob scenario
+373fd67 red: _fs_read_offset_oob scenario
+4b386a5 refactor: _fs_read_offset_happy scenario
+dd15fc2 green: _fs_read_offset_happy scenario
+3c63c9c red: _fs_read_offset_happy scenario
+7db8681 refactor: _fs_read_lines_mixed scenario
+3c72c68 green: _fs_read_lines_mixed scenario
+270390b red: _fs_read_lines_mixed scenario
+5bd74a3 refactor: _fs_read_lines_crlf scenario
+de7b155 green: _fs_read_lines_crlf scenario
+beea3ff red: _fs_read_lines_crlf scenario
+af3ac56 refactor: _fs_read_lines_lf scenario
+4ac16c4 green: _fs_read_lines_lf scenario
+1a94335 red: _fs_read_lines_lf scenario
+098ba1d refactor: _fs_read_contents_not_found scenario
+0985f61 green: _fs_read_contents_not_found scenario
+cbda930 red: _fs_read_contents_not_found scenario

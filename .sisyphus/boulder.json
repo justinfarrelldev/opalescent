@@ -1,86 +1,132 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/fs-test-projects-linux.md",
-  "started_at": "2026-04-25T00:42:58.024Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/op-cat-guard-codegen-fixes.md",
+  "started_at": "2026-04-28T22:25:07Z",
   "session_ids": [
-    "ses_23e87787effejup25wKeNgwdT5"
+    "ses_22a26d8dbffep2DraGr90YcNMY",
+    "ses_229cc9112ffetu74MdaBK0qElu",
+    "ses_229cc8f70ffeN49I7F5yyIL5PM",
+    "ses_229cc8f67ffdZlpeaP6gQOhS3Q",
+    "ses_229cc8f68ffeteOUvPbI49D1g3",
+    "ses_229cc8f55ffegl5muA1zntlaJn"
   ],
   "session_origins": {
-    "ses_23e87787effejup25wKeNgwdT5": "direct"
+    "ses_22a26d8dbffep2DraGr90YcNMY": "direct",
+    "ses_229cc9112ffetu74MdaBK0qElu": "appended",
+    "ses_229cc8f70ffeN49I7F5yyIL5PM": "appended",
+    "ses_229cc8f67ffdZlpeaP6gQOhS3Q": "appended",
+    "ses_229cc8f68ffeteOUvPbI49D1g3": "appended",
+    "ses_229cc8f55ffegl5muA1zntlaJn": "appended"
   },
-  "plan_name": "fs-test-projects-linux",
+  "plan_name": "op-cat-guard-codegen-fixes",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "**T1: Codegen Lowering Audit + Success-Sentinel Contract**",
-      "session_id": "ses_23de72941ffe6nLjjEuoMNFVw8",
+      "task_title": "**Add failing integration test for op-cat (RED)**",
+      "session_id": "ses_229c7beafffeCjFBtu2j7b4CMm",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-25T00:47:37.127Z"
+      "category": "quick",
+      "updated_at": "2026-04-28T22:34:18.170Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "**T2: Error-Discriminant SSOT (`runtime/opal_fs_errors.h`)**",
-      "session_id": "ses_23de28a4dffe9KebJeninp04C2",
+      "task_title": "**LoopContext type + CodegenEnv stack helpers**",
+      "session_id": "ses_229c4518effeX2G7Msi9l8fOhw",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-25T00:51:13.548Z"
+      "category": "unspecified-low",
+      "updated_at": "2026-04-28T22:37:17.592Z"
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "**T3: Portability Extend — Windows Shims in `runtime/opal_portability.h`**",
-      "session_id": "ses_23dddb385ffevIUjyzKfNQe53b",
+      "task_title": "**error_abi.rs module: shape constants + helpers (no consumers)**",
+      "session_id": "ses_229c20635ffeQdV6XkQ2cgbX6d",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-25T01:07:26.663Z"
+      "category": "quick",
+      "updated_at": "2026-04-28T22:40:47.159Z"
     },
     "todo:4": {
       "task_key": "todo:4",
       "task_label": "4",
-      "task_title": "**T4: `FsStateGuard` RAII Implementation**",
-      "session_id": "ses_23dd0de3fffejqW27H7BoW2c72",
+      "task_title": "**Sample fixture for op-cat tests**",
+      "session_id": "ses_229bcf451ffeZXDZHtj4xsFET3",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-25T01:12:17.208Z"
+      "category": "quick",
+      "updated_at": "2026-04-28T22:44:08.825Z"
     },
     "todo:5": {
       "task_key": "todo:5",
       "task_label": "5",
-      "task_title": "**T5: MSVC Link-Probe Harness (`runtime/opal_msvc_link_probe.c` + script)**",
-      "session_id": "ses_23dcca842ffe3ekymlkUR34Wky",
+      "task_title": "**Audit & document atomic-commit message style**",
+      "session_id": "ses_229bbf4dbffeKZoJiD5m3UltIR",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-25T01:16:04.052Z"
+      "category": "quick",
+      "updated_at": "2026-04-28T22:45:16.198Z"
     },
     "todo:6": {
       "task_key": "todo:6",
       "task_label": "6",
-      "task_title": "**T6: Test Fixture Conventions — `.gitattributes` + Helper Module**",
-      "session_id": "ses_23dc9d9e5ffebFG2Y3JT3EBdOe",
+      "task_title": "**build_function_type honors error_types (Unit + scalar fast paths)**",
+      "session_id": "ses_229bad97affesHfNJ1EHJfWvjo",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-25T01:19:18.004Z"
+      "category": "deep",
+      "updated_at": "2026-04-28T22:54:04.750Z"
     },
     "todo:7": {
       "task_key": "todo:7",
       "task_label": "7",
-      "task_title": "**T7: `serial_test` Dev-Dep + Prelude `fs` Doc Section**",
-      "session_id": "ses_23dc6ddd3ffeAAN7ofDsKN6dPG",
+      "task_title": "**codegen_return_statement: error-aware aggregate construction**",
+      "session_id": "ses_229b0e0bfffefxc4OevFJZ8mes",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-28T23:09:56.829Z"
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "**Replace emit_function_default_return error path with forwarded-error emission**",
+      "session_id": "ses_229a25178ffecyV5l3y9eAIMvE",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-28T23:15:49.177Z"
+    },
+    "todo:9": {
+      "task_key": "todo:9",
+      "task_label": "9",
+      "task_title": "**Rewrite codegen_propagate_expression to forward inner error into caller's aggregate**",
+      "session_id": "ses_2299d46c6ffemtKaJlGHocPpuJ",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-28T23:21:05.450Z"
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "**emit_loop_body_with_targets pushes/pops LoopContext; remove inline Break/Continue interception**",
+      "session_id": "ses_228f810cdffeQAiaFcoVDV1iMq",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-29T02:21:07.735Z"
+    },
+    "todo:15": {
+      "task_key": "todo:15",
+      "task_label": "15",
+      "task_title": "**Documentation: README + .op error-handling notes for new ABI**",
+      "session_id": "ses_228f361f2ffeArAvBdxG1mH1Zg",
       "agent": "Sisyphus-Junior",
       "category": "writing",
-      "updated_at": "2026-04-25T01:22:50.362Z"
+      "updated_at": "2026-04-29T02:25:33.162Z"
     },
     "final-wave:f1": {
       "task_key": "final-wave:f1",
       "task_label": "F1",
       "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "ses_22c18a842ffe5Tg4JJohVT2sc4",
+      "session_id": "ses_228e47a7cffetyPfMu4sPrp1yT",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-04-28T12:00:27.946Z"
+      "category": "quick",
+      "updated_at": "2026-04-29T02:46:16.618Z"
     }
   }
 }

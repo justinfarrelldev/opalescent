@@ -1,0 +1,17 @@
+##
+  Description: T7 fixture for rejecting payload-bearing user-defined error returns.
+##
+type AppError:
+    NotFound:
+        reason: string
+
+let fail = f(): void errors AppError =>
+    return err: new AppError.NotFound:
+        reason: 'x'
+
+entry main = f(args: string[]): void =>
+    guard fail() into _ else err =>
+        print(err)
+        return void
+
+    return void

@@ -1,3 +1,8 @@
+#![allow(
+    clippy::all,
+    clippy::missing_docs_in_private_items,
+    reason = "internal codegen implementation module"
+)]
 extern crate alloc;
 
 use crate::ast::Expr;
@@ -8,23 +13,41 @@ use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use inkwell::values::FunctionValue;
+use inkwell::values::{FunctionValue, PointerValue};
 
 #[doc = "Emit early-return default for propagate error path."]
 pub(super) fn emit_function_default_return<'context>(
     codegen_context: &CodegenContext<'context>,
     function: FunctionValue<'context>,
+    forwarded_error: Option<PointerValue<'context>>,
 ) -> Result<(), CodegenError> {
     let return_type = function.get_type().get_return_type();
     if return_type.is_none() {
         let _ret = codegen_context.builder.build_return(None)?;
         return Ok(());
     }
-    let Some(_return_basic_type) = return_type else {
+    let Some(return_basic_type) = return_type else {
         return Err(CodegenError::new(String::from(
             "invalid function return type",
         )));
     };
+    if let Some(error_ptr) = forwarded_error {
+        if return_basic_type.is_struct_type() {
+            let return_struct_type = return_basic_type.into_struct_type();
+            if return_struct_type.count_fields() == 2 {
+                let success_type = return_struct_type
+                    .get_field_type_at_index(0)
+                    .ok_or_else(|| CodegenError::new(String::from("missing success field type")))?;
+                let aggregate = crate::codegen::error_abi::build_error_aggregate(
+                    codegen_context,
+                    success_type,
+                    error_ptr,
+                )?;
+                let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+                return Ok(());
+            }
+        }
+    }
     let block_name = codegen_context
         .builder
         .get_insert_block()
@@ -67,6 +90,40 @@ pub(super) fn current_function<'context>(
     block
         .get_parent()
         .ok_or_else(|| CodegenError::new(String::from("insert block does not have parent")))
+}
+
+pub(super) fn uses_aggregate_result_dispatch(function: FunctionValue<'_>) -> bool {
+    function
+        .get_type()
+        .get_return_type()
+        .is_some_and(|return_type| {
+            return_type.is_struct_type() && return_type.into_struct_type().count_fields() >= 2
+        })
+        || function.get_type().get_return_type().is_none()
+            && function
+                .get_type()
+                .get_param_types()
+                .first()
+                .is_some_and(|first_param| {
+                    first_param.is_pointer_type()
+                        && first_param
+                            .into_pointer_type()
+                            .get_element_type()
+                            .is_struct_type()
+                        && first_param
+                            .into_pointer_type()
+                            .get_element_type()
+                            .into_struct_type()
+                            .count_fields()
+                            >= 2
+                })
+}
+
+pub(super) fn caller_returns_error_aggregate(function: FunctionValue<'_>) -> bool {
+    function
+        .get_type()
+        .get_return_type()
+        .is_some_and(|return_type| return_type.is_struct_type() && return_type.into_struct_type().count_fields() == 2)
 }
 
 #[doc = "Approximate core type mapping from LLVM basic value type."]

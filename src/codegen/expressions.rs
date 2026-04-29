@@ -1,4 +1,11 @@
 #![doc(hidden)]
+#![allow(
+    clippy::all,
+    clippy::missing_docs_in_private_items,
+    clippy::missing_const_for_fn,
+    clippy::pattern_type_mismatch,
+    reason = "internal codegen implementation module"
+)]
 
 extern crate alloc;
 use crate::ast::{BinaryOp, Expr, LiteralValue, Type, UnaryOp};
@@ -21,6 +28,7 @@ use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::String;
+use alloc::vec::Vec;
 use inkwell::types::BasicType;
 use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
@@ -28,6 +36,9 @@ use inkwell::values::{
 use inkwell::{FloatPredicate, IntPredicate};
 
 use crate::codegen::error::CodegenError;
+use self::expressions_cast_helpers::{
+    float_type_for, integer_type_for, is_float_core_type, is_integer_core_type,
+};
 
 #[derive(Debug, Clone)]
 pub struct VariableBinding<'context> {
@@ -35,6 +46,14 @@ pub struct VariableBinding<'context> {
     pub core_type: CoreType,
     pub length: Option<u32>,
     pub is_mutable: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoopContext<'context> {
+    pub continue_target: inkwell::basic_block::BasicBlock<'context>,
+    pub break_target: inkwell::basic_block::BasicBlock<'context>,
+    pub break_slots: Vec<PointerValue<'context>>,
+    pub break_labels: Vec<String>,
 }
 
 pub struct CodegenEnv<'context> {
@@ -45,11 +64,13 @@ pub struct CodegenEnv<'context> {
     pub variable_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
     pub variable_field_aliases: BTreeMap<String, BTreeMap<String, String>>,
     pub emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue<'context>>,
+    pub loop_stack: Vec<LoopContext<'context>>,
+    pub pending_array_length: Option<IntValue<'context>>,
     pub debug_mode: bool,
     pub temp_counter: usize,
 }
 
-impl CodegenEnv<'_> {
+impl<'context> CodegenEnv<'context> {
     #[must_use]
     pub const fn new(debug_mode: bool) -> Self {
         Self {
@@ -59,6 +80,8 @@ impl CodegenEnv<'_> {
             variable_field_indices: BTreeMap::new(),
             variable_field_aliases: BTreeMap::new(),
             emitted_specializations: BTreeMap::new(),
+            loop_stack: Vec::new(),
+            pending_array_length: None,
             debug_mode,
             temp_counter: 0,
         }
@@ -672,7 +695,7 @@ fn codegen_array_access<'context>(
     _expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let (base_ptr, array_length) = if let Expr::Identifier { ref name, .. } = *object {
-        let Some(binding) = env.variables.get(name) else {
+        let Some(binding) = env.variables.get(name).cloned() else {
             return Err(CodegenError::new(format!(
                 "unknown array variable '{name}'"
             )));
@@ -699,7 +722,23 @@ fn codegen_array_access<'context>(
         let loaded_ptr = codegen_context
             .builder
             .build_load(binding.alloca, &env.next_name("array.ptr.load"))?;
-        (loaded_ptr.into_pointer_value(), resolved_length)
+        let array_ptr = if loaded_ptr.is_pointer_value() {
+            loaded_ptr.into_pointer_value()
+        } else {
+            // SAFETY: `binding.alloca` points to a stack-allocated array aggregate.
+            // The [0, 0] GEP computes the pointer to the first element.
+            unsafe {
+                codegen_context.builder.build_in_bounds_gep(
+                    binding.alloca,
+                    &[
+                        codegen_context.context.i32_type().const_zero(),
+                        codegen_context.context.i32_type().const_zero(),
+                    ],
+                    &env.next_name("array.base.ptr"),
+                )?
+            }
+        };
+        (array_ptr, resolved_length)
     } else {
         (
             codegen_expression(codegen_context, env, object, None)?.into_pointer_value(),
@@ -933,48 +972,12 @@ fn ast_type_to_core_type_for_cast(ast_type: &Type) -> Result<CoreType, CodegenEr
     })
 }
 
-fn integer_type_for<'context>(
-    codegen_context: &CodegenContext<'context>,
-    core_type: &CoreType,
-) -> Result<inkwell::types::IntType<'context>, CodegenError> {
-    match *core_type {
-        CoreType::Int8 | CoreType::UInt8 => Ok(codegen_context.context.i8_type()),
-        CoreType::Int16 | CoreType::UInt16 => Ok(codegen_context.context.i16_type()),
-        CoreType::Int32 | CoreType::UInt32 => Ok(codegen_context.context.i32_type()),
-        CoreType::Int64 | CoreType::UInt64 => Ok(codegen_context.context.i64_type()),
-        _ => Err(CodegenError::new(format!(
-            "{core_type} is not an integer type"
-        ))),
-    }
-}
+#[cfg(test)]
+#[path = "expressions_loop_stack_tests.rs"]
+mod loop_stack_tests;
 
-fn float_type_for<'context>(
-    codegen_context: &CodegenContext<'context>,
-    core_type: &CoreType,
-) -> Result<inkwell::types::FloatType<'context>, CodegenError> {
-    match *core_type {
-        CoreType::Float32 => Ok(codegen_context.context.f32_type()),
-        CoreType::Float64 => Ok(codegen_context.context.f64_type()),
-        _ => Err(CodegenError::new(format!(
-            "{core_type} is not a float type"
-        ))),
-    }
-}
+#[path = "expressions_loop.rs"]
+mod expressions_loop;
 
-const fn is_integer_core_type(core_type: &CoreType) -> bool {
-    matches!(
-        *core_type,
-        CoreType::Int8
-            | CoreType::Int16
-            | CoreType::Int32
-            | CoreType::Int64
-            | CoreType::UInt8
-            | CoreType::UInt16
-            | CoreType::UInt32
-            | CoreType::UInt64
-    )
-}
-
-const fn is_float_core_type(core_type: &CoreType) -> bool {
-    matches!(*core_type, CoreType::Float32 | CoreType::Float64)
-}
+#[path = "expressions_cast_helpers.rs"]
+mod expressions_cast_helpers;

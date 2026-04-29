@@ -1,3 +1,9 @@
+#![allow(
+    clippy::all,
+    clippy::similar_names,
+    clippy::missing_docs_in_private_items,
+    reason = "internal codegen implementation module"
+)]
 extern crate alloc;
 
 use crate::ast::{Expr, Type};
@@ -19,7 +25,8 @@ use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, Functi
 #[doc = "Helper utilities for call-expression lowering internals."]
 mod functions_call_helpers;
 use self::functions_call_helpers::{
-    current_function, emit_function_default_return, infer_guard_binding_core_type,
+    caller_returns_error_aggregate, current_function, emit_function_default_return,
+    infer_guard_binding_core_type, uses_aggregate_result_dispatch,
 };
 
 #[doc = "Lower a function call expression."]
@@ -38,7 +45,6 @@ pub fn codegen_call_expression<'context>(
     let function = resolve_callee_function(codegen_context, env, callee, generic_args)?;
     let mut lowered_args: Vec<BasicMetadataValueEnum<'context>> = Vec::new();
     let mut first_lowered_arg: Option<BasicValueEnum<'context>> = None;
-    let aggregate_result_runtime_name = aggregate_result_runtime_name(env, callee);
     for (index, arg) in args.iter().enumerate() {
         let lowered = codegen_expression(codegen_context, env, arg, None)?;
         if index == 0 {
@@ -254,7 +260,37 @@ pub fn codegen_call_expression<'context>(
         }
     }
 
-    if aggregate_result_runtime_name.is_some() {
+    if uses_aggregate_result_dispatch(function) {
+        if let Some(return_type) = function.get_type().get_return_type() {
+            if return_type.is_struct_type() {
+                let result_struct_type = return_type.into_struct_type();
+                if result_struct_type.count_fields() >= 2 {
+                    let result_alloca = codegen_context.builder.build_alloca(
+                        result_struct_type,
+                        env.next_name("call.result").as_str(),
+                    )?;
+                    let call = codegen_context.builder.build_call(
+                        function,
+                        lowered_args.as_slice(),
+                        env.next_name("call").as_str(),
+                    )?;
+                    if let Some(result_value) = call.try_as_basic_value().basic() {
+                        codegen_context
+                            .builder
+                            .build_store(result_alloca, result_value)?;
+                    } else {
+                        return Err(CodegenError::new(String::from(
+                            "aggregate error-abi call should return struct result",
+                        )));
+                    }
+                    return codegen_context
+                        .builder
+                        .build_load(result_alloca, env.next_name("call.result.load").as_str())
+                        .map_err(CodegenError::from);
+                }
+            }
+        }
+
         let result_param = function
             .get_type()
             .get_param_types()
@@ -307,25 +343,13 @@ pub fn codegen_call_expression<'context>(
     Ok(call_result)
 }
 
-#[doc = "Return the runtime function name for aggregate-result calls that use sret storage."]
-fn aggregate_result_runtime_name(env: &CodegenEnv<'_>, callee: &Expr) -> Option<String> {
-    let Expr::Identifier { ref name, .. } = *callee else {
-        return None;
-    };
-    let runtime_name = env
-        .imported_functions
-        .get(name)
-        .map_or(name.as_str(), alloc::string::String::as_str);
-    matches!(runtime_name, "read_lines_sync" | "list_directory_sync")
-        .then(|| runtime_name.to_owned())
-}
-
 #[doc = "Lower propagate expression control flow."]
 pub fn codegen_propagate_expression<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     call_expr: &Expr,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
+    env.set_pending_array_length(None);
     let value = if let Expr::Call {
         ref callee,
         ref args,
@@ -347,13 +371,17 @@ pub fn codegen_propagate_expression<'context>(
         let struct_value = value.into_struct_value();
         let field_count = struct_value.get_type().count_fields();
         if field_count >= 2 {
-            let error_field_index = if field_count >= 3 { 2 } else { 1 };
+            let error_field_index = crate::codegen::error_abi::error_field_index(field_count);
             let error_field = codegen_context.builder.build_extract_value(
                 struct_value,
                 error_field_index,
                 env.next_name("propagate.err").as_str(),
             )?;
             let current_fn = current_function(codegen_context)?;
+            let forward_error = error_field
+                .is_pointer_value()
+                .then(|| error_field.into_pointer_value())
+                .filter(|_| caller_returns_error_aggregate(current_fn));
             let early_return = codegen_context
                 .context
                 .append_basic_block(current_fn, env.next_name("propagate.ret").as_str());
@@ -379,14 +407,24 @@ pub fn codegen_propagate_expression<'context>(
                 )?;
             }
             codegen_context.builder.position_at_end(early_return);
-            emit_function_default_return(codegen_context, current_fn)?;
+            emit_function_default_return(codegen_context, current_fn, forward_error)?;
             codegen_context.builder.position_at_end(continue_block);
-            return codegen_context
+            let success_value = codegen_context
                 .builder
                 .build_extract_value(struct_value, 0, env.next_name("propagate.ok").as_str())
-                .map_err(CodegenError::from);
+                .map_err(CodegenError::from)?;
+            if field_count >= 3 {
+                let length_value = codegen_context.builder.build_extract_value(
+                    struct_value,
+                    1,
+                    env.next_name("propagate.len").as_str(),
+                )?;
+                env.set_pending_array_length(Some(length_value.into_int_value()));
+            }
+            return Ok(success_value);
         }
     }
+    env.set_pending_array_length(None);
     Ok(value)
 }
 
@@ -538,6 +576,7 @@ fn resolve_callee_function<'context>(
         Expr::Lambda {
             ref params,
             ref return_types,
+            ref error_types,
             ref captured_variables,
             ref body,
             ..
@@ -559,10 +598,35 @@ fn resolve_callee_function<'context>(
                 .collect::<Result<Vec<_>, _>>()?;
             let metadata_params = parameter_types
                 .iter()
-                .map(|core_type| core_type_to_llvm(codegen_context.context, core_type).into())
+                .flat_map(|core_type| {
+                    let mut lowered = Vec::with_capacity(2);
+                    match core_type {
+                        CoreType::Array(element_type) => {
+                            lowered.push(
+                                core_type_to_llvm(codegen_context.context, element_type)
+                                    .ptr_type(AddressSpace::default())
+                                    .into(),
+                            );
+                            lowered.push(codegen_context.context.i64_type().into());
+                        }
+                        _ => lowered.push(core_type_to_llvm(codegen_context.context, core_type).into()),
+                    }
+                    lowered
+                })
                 .collect::<Vec<BasicMetadataTypeEnum<'context>>>();
-            let function_type =
-                build_function_type(codegen_context, &metadata_params, &return_core_types);
+            let error_core_types = error_types
+                .iter()
+                .map(|error_type| CoreType::Generic {
+                    name: error_type.clone(),
+                    type_args: Vec::new(),
+                })
+                .collect::<Vec<_>>();
+            let function_type = build_function_type(
+                codegen_context,
+                &metadata_params,
+                &return_core_types,
+                &error_core_types,
+            )?;
             let lambda_name = env.next_name("lambda");
             let function =
                 codegen_context
@@ -577,8 +641,9 @@ fn resolve_callee_function<'context>(
             let args: Vec<_> = function.get_params().into_iter().collect();
             let mut shadowed_bindings: Vec<(String, Option<VariableBinding<'context>>)> =
                 Vec::new();
+            let mut lowered_index = 0_usize;
             for (i, param) in params.iter().enumerate() {
-                let param_value = args[i];
+                let param_value = args[lowered_index];
                 let alloca = codegen_context
                     .builder
                     .build_alloca(param_value.get_type(), &param.name)?;
@@ -593,6 +658,26 @@ fn resolve_callee_function<'context>(
                     },
                 );
                 shadowed_bindings.push((param.name.clone(), previous_binding));
+                if matches!(parameter_types[i], CoreType::Array(_)) {
+                    let len_param_value = args[lowered_index + 1];
+                    let len_binding_name = format!("{}_len", param.name);
+                    let len_alloca = codegen_context
+                        .builder
+                        .build_alloca(len_param_value.get_type(), len_binding_name.as_str())?;
+                    codegen_context.builder.build_store(len_alloca, len_param_value)?;
+                    let previous_length_binding = env.variables.insert(
+                        len_binding_name.clone(),
+                        VariableBinding {
+                            alloca: len_alloca,
+                            core_type: CoreType::Int64,
+                            length: None,
+                            is_mutable: false,
+                        },
+                    );
+                    shadowed_bindings.push((len_binding_name, previous_length_binding));
+                    lowered_index += 1;
+                }
+                lowered_index += 1;
             }
 
             // Bind captured variables to allocas
@@ -614,8 +699,8 @@ fn resolve_callee_function<'context>(
                 shadowed_bindings.push((capture.clone(), previous_binding));
             }
 
-            // Codegen lambda body
-            let codegen_result: Result<(), CodegenError> = match body {
+            // Codegen lambda body with isolated loop stack so nested lambdas never inherit outer loop targets.
+            let codegen_result: Result<(), CodegenError> = env.with_loop_isolated(|env| match body {
                 crate::ast::LambdaBody::Expression(expr) => {
                     let result = crate::codegen::expressions::codegen_expression(
                         codegen_context,
@@ -636,7 +721,7 @@ fn resolve_callee_function<'context>(
                     }
                     Ok(())
                 }
-            };
+            });
 
             for (binding_name, previous_binding) in shadowed_bindings.into_iter().rev() {
                 if let Some(binding) = previous_binding {
@@ -672,6 +757,7 @@ fn declare_external_imported_function<'context>(
     let CoreType::Function {
         ref parameters,
         ref return_types,
+        ref error_types,
         ..
     } = *signature
     else {
@@ -692,7 +778,8 @@ fn declare_external_imported_function<'context>(
         .iter()
         .map(|core_type| core_type_to_llvm(codegen_context.context, core_type).into())
         .collect::<Vec<BasicMetadataTypeEnum<'context>>>();
-    let function_type = build_function_type(codegen_context, &parameter_types, return_types);
+    let function_type =
+        build_function_type(codegen_context, &parameter_types, return_types, error_types)?;
 
     Ok(codegen_context.module.add_function(
         function_name,
@@ -701,30 +788,72 @@ fn declare_external_imported_function<'context>(
     ))
 }
 
-#[doc = "Build LLVM function type from core parameter and return types."]
+#[doc = "Build LLVM function type from core parameter, return, and error types."]
 pub fn build_function_type<'context>(
     codegen_context: &CodegenContext<'context>,
     parameters: &[BasicMetadataTypeEnum<'context>],
     returns: &[CoreType],
-) -> inkwell::types::FunctionType<'context> {
-    if returns.is_empty() || (returns.len() == 1 && matches!(returns[0], CoreType::Unit)) {
-        return codegen_context
+    error_types: &[CoreType],
+) -> Result<inkwell::types::FunctionType<'context>, CodegenError> {
+    if error_types.is_empty() {
+        if returns.is_empty() || (returns.len() == 1 && matches!(returns[0], CoreType::Unit)) {
+            return Ok(codegen_context.context.void_type().fn_type(parameters, false));
+        }
+        if returns.len() == 1 {
+            let return_type = core_type_to_llvm(codegen_context.context, &returns[0]);
+            return Ok(return_type.fn_type(parameters, false));
+        }
+        let aggregate_fields = returns
+            .iter()
+            .map(|core_type| core_type_to_llvm(codegen_context.context, core_type))
+            .collect::<Vec<_>>();
+        let aggregate = codegen_context
             .context
-            .void_type()
-            .fn_type(parameters, false);
+            .struct_type(aggregate_fields.as_slice(), false);
+        return Ok(aggregate.fn_type(parameters, false));
     }
+
+    if returns.is_empty() || (returns.len() == 1 && matches!(returns[0], CoreType::Unit)) {
+        return Ok(
+            crate::codegen::error_abi::build_error_return_type(codegen_context.context, None)
+                .fn_type(parameters, false),
+        );
+    }
+
     if returns.len() == 1 {
-        let return_type = core_type_to_llvm(codegen_context.context, &returns[0]);
-        return return_type.fn_type(parameters, false);
+        let success_type = core_type_to_llvm(codegen_context.context, &returns[0]);
+        if matches!(
+            success_type,
+            inkwell::types::BasicTypeEnum::ArrayType(_)
+                | inkwell::types::BasicTypeEnum::StructType(_)
+                | inkwell::types::BasicTypeEnum::VectorType(_)
+                | inkwell::types::BasicTypeEnum::ScalableVectorType(_)
+        ) {
+            return unsupported_error_return_type(&returns[0]);
+        }
+        return Ok(
+            crate::codegen::error_abi::build_error_return_type(
+                codegen_context.context,
+                Some(success_type),
+            )
+            .fn_type(parameters, false),
+        );
     }
-    let aggregate_fields = returns
-        .iter()
-        .map(|core_type| core_type_to_llvm(codegen_context.context, core_type))
-        .collect::<Vec<_>>();
-    let aggregate = codegen_context
-        .context
-        .struct_type(aggregate_fields.as_slice(), false);
-    aggregate.fn_type(parameters, false)
+
+    unsupported_error_return_type(&CoreType::Function {
+        generic_params: Vec::new(),
+        parameters: Vec::new(),
+        return_types: returns.to_vec(),
+        error_types: error_types.to_vec(),
+    })
+}
+
+fn unsupported_error_return_type<'context>(
+    return_type: &CoreType,
+) -> Result<inkwell::types::FunctionType<'context>, CodegenError> {
+    Err(CodegenError::new(format!(
+        "aggregate error return type '{return_type:?}' not yet supported; only Unit and scalar/pointer returns can use an errors ABI"
+    )))
 }
 
 #[doc = "Emit a default return for current function based on return shape."]
@@ -796,19 +925,36 @@ pub fn emit_c_main_wrapper<'context>(
     let block = codegen_context.context.append_basic_block(c_main, "entry");
     codegen_context.builder.position_at_end(block);
 
-    let _argv = c_main
+    let argc_param = c_main
+        .get_nth_param(0)
+        .expect("main must have argc param")
+        .into_int_value();
+    let argv_param = c_main
         .get_nth_param(1)
         .expect("main must have argv param")
         .into_pointer_value();
 
     let parameter_types = entry_function.get_type().get_param_types();
-    let mut args: Vec<BasicMetadataValueEnum<'context>> = Vec::with_capacity(parameter_types.len());
+    let mut call_args: Vec<BasicMetadataValueEnum<'context>> = Vec::with_capacity(parameter_types.len());
+    let mut argv_forwarded = false;
     for parameter_type in parameter_types {
         let argument = match parameter_type {
-            BasicMetadataTypeEnum::ArrayType(array_type) => array_type.const_zero().into(),
+            BasicMetadataTypeEnum::PointerType(pointer_type) if !argv_forwarded => {
+                argv_forwarded = true;
+                argv_param.const_cast(pointer_type).into()
+            }
+            BasicMetadataTypeEnum::IntType(int_type)
+                if argv_forwarded && int_type.get_bit_width() == 64 =>
+            {
+                codegen_context
+                    .builder
+                    .build_int_z_extend(argc_param, int_type, "entry.argc.i64")?
+                    .into()
+            }
             BasicMetadataTypeEnum::FloatType(float_type) => float_type.const_zero().into(),
             BasicMetadataTypeEnum::IntType(int_type) => int_type.const_zero().into(),
             BasicMetadataTypeEnum::PointerType(pointer_type) => pointer_type.const_null().into(),
+            BasicMetadataTypeEnum::ArrayType(array_type) => array_type.const_zero().into(),
             BasicMetadataTypeEnum::StructType(struct_type) => struct_type.const_zero().into(),
             BasicMetadataTypeEnum::VectorType(vector_type) => vector_type.const_zero().into(),
             BasicMetadataTypeEnum::ScalableVectorType(vector_type) => {
@@ -820,13 +966,13 @@ pub fn emit_c_main_wrapper<'context>(
                 )));
             }
         };
-        args.push(argument);
+        call_args.push(argument);
     }
 
     let _call =
         codegen_context
             .builder
-            .build_call(entry_function, args.as_slice(), "entry.call")?;
+            .build_call(entry_function, call_args.as_slice(), "entry.call")?;
     let _ret = codegen_context.builder.build_return(Some(
         &codegen_context.context.i32_type().const_int(0, false),
     ))?;

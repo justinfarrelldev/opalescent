@@ -1472,9 +1472,10 @@ fn test_guard_statement_compiles_to_valid_llvm_ir() {
     Description: Entry function validates guard statement codegen path
 ##
 entry main = f(): void =>
-    guard string_to_int32('5') into n else e =>
-        continue
-    print('number: {n}')
+    while false:
+        guard string_to_int32('5') into n else e =>
+            continue
+        print('number: {n}')
     return void
 ";
 
@@ -2331,7 +2332,7 @@ fn test_codegen_function_pointer_is_comparison_emits_icmp() {
     let f1_alloca = codegen_context
         .builder
         .build_alloca(i8_ptr_type, "f1")
-        .unwrap();
+        .expect("function-pointer is-comparison test should allocate storage for f1");
     env.variables.insert(
         String::from("f1"),
         VariableBinding {
@@ -2350,7 +2351,7 @@ fn test_codegen_function_pointer_is_comparison_emits_icmp() {
     let f2_alloca = codegen_context
         .builder
         .build_alloca(i8_ptr_type, "f2")
-        .unwrap();
+        .expect("function-pointer is-comparison test should allocate storage for f2");
     env.variables.insert(
         String::from("f2"),
         VariableBinding {
@@ -2407,7 +2408,7 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
     let f1_alloca = codegen_context
         .builder
         .build_alloca(i8_ptr_type, "f1")
-        .unwrap();
+        .expect("function-pointer non-comparison test should allocate storage for f1");
     env.variables.insert(
         String::from("f1"),
         VariableBinding {
@@ -2426,7 +2427,7 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
     let f2_alloca = codegen_context
         .builder
         .build_alloca(i8_ptr_type, "f2")
-        .unwrap();
+        .expect("function-pointer non-comparison test should allocate storage for f2");
     env.variables.insert(
         String::from("f2"),
         VariableBinding {
@@ -2804,10 +2805,9 @@ fn test_windows_target_uses_dllexport_linkage() {
         "function declaration should codegen successfully: {result:?}"
     );
 
-    let _func = result.unwrap();
+    let _func = result.expect("Windows dllexport codegen test should produce a function value");
 
     let ir = codegen_ctx.module.print_to_string().to_string();
-    eprintln!("DEBUG TEST: LLVM IR:\n{ir}");
 
     assert!(
         ir.contains("define dllexport void @test_func()"),

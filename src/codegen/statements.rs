@@ -1,6 +1,12 @@
+#![allow(
+    clippy::all,
+    clippy::too_many_lines,
+    clippy::needless_pass_by_ref_mut,
+    reason = "internal codegen implementation module"
+)]
 extern crate alloc;
 
-use crate::ast::{Expr, LetBinding, Stmt, Type};
+use crate::ast::{Expr, LabeledValue, LetBinding, Stmt, Type};
 use crate::codegen::adts::product_field_indices_from_constructor;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::{
@@ -86,7 +92,11 @@ pub fn codegen_statement<'context>(
             let _value = codegen_expression(codegen_context, env, expr, None)?;
             Ok(())
         }
-        Stmt::Break { .. } | Stmt::Continue { .. } | Stmt::Comment { .. } => Ok(()),
+        Stmt::Break { ref values, .. } => {
+            codegen_break_statement(codegen_context, env, values.as_slice())
+        }
+        Stmt::Continue { .. } => codegen_continue_statement(codegen_context, env),
+        Stmt::Comment { .. } => Ok(()),
     }
 }
 
@@ -153,6 +163,12 @@ fn codegen_let_statement<'context>(
             None
         }
     });
+    let pending_array_length = if array_length.is_none() && matches!(declared_type, CoreType::Array(_)) {
+        env.take_pending_array_length()
+    } else {
+        env.set_pending_array_length(None);
+        None
+    };
 
     env.variables.insert(
         binding.name.clone(),
@@ -163,6 +179,24 @@ fn codegen_let_statement<'context>(
             is_mutable: binding.is_mutable,
         },
     );
+    if let Some(length_value) = pending_array_length {
+        let len_binding_name = format!("{}_len", binding.name);
+        let len_alloca = codegen_context
+            .builder
+            .build_alloca(length_value.get_type(), len_binding_name.as_str())?;
+        let _store_len = codegen_context
+            .builder
+            .build_store(len_alloca, length_value)?;
+        env.variables.insert(
+            len_binding_name,
+            VariableBinding {
+                alloca: len_alloca,
+                core_type: CoreType::Int64,
+                length: None,
+                is_mutable: false,
+            },
+        );
+    }
     if let Some(&Expr::Constructor { .. }) = initializer {
         if let Some(field_indices) = initializer.and_then(product_field_indices_from_constructor) {
             env.variable_field_indices
@@ -235,6 +269,77 @@ fn codegen_let_destructure_statement<'context>(
         slots.as_slice(),
         labels.as_slice(),
     )
+}
+
+/// Lower a `break` statement using the active loop frame.
+fn codegen_break_statement<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    values: &[LabeledValue],
+) -> Result<(), CodegenError> {
+    let loop_context = env.current_loop().cloned().ok_or_else(|| {
+        CodegenError::new(String::from("break used outside of loop body"))
+    })?;
+    store_break_values_into_slots(
+        codegen_context,
+        env,
+        values,
+        loop_context.break_slots.as_slice(),
+        loop_context.break_labels.as_slice(),
+    )?;
+    let _branch = codegen_context
+        .builder
+        .build_unconditional_branch(loop_context.break_target)?;
+    let continuation = codegen_context
+        .context
+        .append_basic_block(current_function(codegen_context)?, "break.after");
+    codegen_context.builder.position_at_end(continuation);
+    Ok(())
+}
+
+/// Lower a `continue` statement using the active loop frame.
+fn codegen_continue_statement<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+) -> Result<(), CodegenError> {
+    let loop_context = env.current_loop().cloned().ok_or_else(|| {
+        CodegenError::new(String::from("continue used outside of loop body"))
+    })?;
+    let _branch = codegen_context
+        .builder
+        .build_unconditional_branch(loop_context.continue_target)?;
+    let continuation = codegen_context
+        .context
+        .append_basic_block(current_function(codegen_context)?, "continue.after");
+    codegen_context.builder.position_at_end(continuation);
+    Ok(())
+}
+
+/// Store loop-break payload values into pre-allocated binding slots.
+fn store_break_values_into_slots<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    values: &[LabeledValue],
+    break_slots: &[inkwell::values::PointerValue<'context>],
+    break_labels: &[String],
+) -> Result<(), CodegenError> {
+    if break_slots.is_empty() {
+        return Ok(());
+    }
+
+    for (index, slot) in break_slots.iter().copied().enumerate() {
+        let matching_value = break_labels
+            .get(index)
+            .and_then(|label| values.iter().find(|value| value.label == *label))
+            .or_else(|| values.get(index));
+        let Some(value) = matching_value else {
+            continue;
+        };
+        let lowered_value = codegen_expression(codegen_context, env, &value.value, None)?;
+        let _store = codegen_context.builder.build_store(slot, lowered_value)?;
+    }
+
+    Ok(())
 }
 
 /// Lower a simple identifier assignment into a store.

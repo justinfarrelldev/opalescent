@@ -1,0 +1,1 @@
+src/codegen/functions_call.rs:            emit_function_default_return(codegen_context, current_fn, None)?;

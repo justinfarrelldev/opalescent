@@ -42,6 +42,7 @@ pub mod fs_state_guard;
 mod interactive_io;
 mod project_execution;
 mod project_execution_rc;
+mod op_cat;
 
 #[cfg(feature = "windows-wine")]
 mod windows_wine;

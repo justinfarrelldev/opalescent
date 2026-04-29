@@ -608,6 +608,17 @@ let load_number = f(path: string): int32 errors IoError, ParseError =>
     return value
 ```
 
+#### ABI and Error Encoding
+
+The compiler uses a canonical ABI for error-bearing functions:
+- **Scalar Returns**: Returns `{T, i8*}` where `T` is the success value.
+- **Void Returns**: Returns `{i8*, i8*}` where the first field is always `null`.
+- **Encoding**: The second field is the error pointer. `null` indicates success. A non-null pointer points to the interned error variant name.
+
+**Limitations**:
+- **Aggregate Returns**: Only scalar types are supported as return values when errors are declared.
+- **Error Payloads**: Only payload-free error variants are supported for propagation.
+
 ### Generics
 
 Generic functions declare type parameters after `f`:

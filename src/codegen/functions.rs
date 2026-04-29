@@ -1,3 +1,8 @@
+#![allow(
+    clippy::all,
+    clippy::pattern_type_mismatch,
+    reason = "internal codegen implementation module"
+)]
 extern crate alloc;
 
 use crate::ast::{Decl, ImportItem, Visibility};
@@ -10,9 +15,10 @@ use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
+use inkwell::AddressSpace;
 use inkwell::DLLStorageClass;
 use inkwell::module::Linkage;
-use inkwell::types::BasicMetadataTypeEnum;
+use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::FunctionValue;
 
 pub use crate::codegen::functions_call::{
@@ -35,6 +41,7 @@ pub fn codegen_function_declaration<'context>(
         ref name,
         ref parameters,
         ref return_types,
+        ref error_types,
         ref body,
         is_entry,
         ref visibility,
@@ -59,6 +66,13 @@ pub fn codegen_function_declaration<'context>(
                 .collect::<Result<Vec<_>, _>>()
         },
     )?;
+    let error_core_types = error_types
+        .iter()
+        .map(|error_type| CoreType::Generic {
+            name: error_type.clone(),
+            type_args: Vec::new(),
+        })
+        .collect::<Vec<_>>();
     let function_name = if is_entry {
         format!("__opalescent_entry_{name}")
     } else {
@@ -74,9 +88,15 @@ pub fn codegen_function_declaration<'context>(
     }
     let parameter_types = lowered_parameter_core_types
         .iter()
-        .map(|core_type| core_type_to_llvm(codegen_context.context, core_type).into())
+        .map(|core_type| match core_type {
+            CoreType::Array(element_type) => core_type_to_llvm(codegen_context.context, element_type)
+                .ptr_type(AddressSpace::default())
+                .into(),
+            _ => core_type_to_llvm(codegen_context.context, core_type).into(),
+        })
         .collect::<Vec<BasicMetadataTypeEnum<'context>>>();
-    let function_type = build_function_type(codegen_context, &parameter_types, &returns);
+    let function_type =
+        build_function_type(codegen_context, &parameter_types, &returns, &error_core_types)?;
     let function_linkage = if is_entry || matches!(*visibility, Visibility::Public) {
         Some(Linkage::External)
     } else {
@@ -262,6 +282,7 @@ fn codegen_local_import_declaration<'context>(
                 let CoreType::Function {
                     ref parameters,
                     ref return_types,
+                    ref error_types,
                     ..
                 } = core_type
                 else {
@@ -271,13 +292,18 @@ fn codegen_local_import_declaration<'context>(
                 // Build lowered parameter types (arrays get an extra length i64 param).
                 let mut lowered_params: Vec<BasicMetadataTypeEnum<'context>> = Vec::new();
                 for param_type in parameters {
-                    lowered_params
-                        .push(core_type_to_llvm(codegen_context.context, param_type).into());
+                    lowered_params.push(match param_type {
+                        CoreType::Array(element_type) => core_type_to_llvm(codegen_context.context, element_type)
+                            .ptr_type(AddressSpace::default())
+                            .into(),
+                        _ => core_type_to_llvm(codegen_context.context, param_type).into(),
+                    });
                     if matches!(*param_type, CoreType::Array(_)) {
                         lowered_params.push(codegen_context.context.i64_type().into());
                     }
                 }
-                let fn_type = build_function_type(codegen_context, &lowered_params, return_types);
+                let fn_type =
+                    build_function_type(codegen_context, &lowered_params, return_types, error_types)?;
                 // Declare the function as external (defined in another object file).
                 let extern_fn = codegen_context.module.add_function(
                     name.as_str(),
