@@ -9,3 +9,6 @@
 ## Task 7 Problems
 - None unresolved.
 - [2026-05-04T00:00:00Z] Baseline snapshot is intentionally limited; broader codegen/compiler/test cleanup remains deferred to later commits.
+- 2026-05-04 Unresolved: repository-wide clippy/fmt drift outside Task 1-7 scope currently blocks a full seven-command green matrix required for READY.
+- 2026-05-04 Follow-up needed: separate scope-authorized remediation pass for global lint/format debt, then rerun Task-7 command set to seek READY.
+- [2026-05-04T19:46:01-04:00] No new unresolved blockers for Task 6a after remediation; both required gates (`clippy -D warnings` and `fmt --check`) pass.

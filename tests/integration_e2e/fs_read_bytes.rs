@@ -7,7 +7,6 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-
 fn build_read_bytes_success_source(path: &str) -> String {
     let escaped_path = path.replace('\\', "\\\\").replace('\'', "\\'");
 
@@ -341,7 +340,6 @@ fn read_file_to_bytes_not_found() {
         "read_file_to_bytes_not_found should fail with FileNotFoundError prefix: {failure_message}"
     );
 }
-
 
 #[test]
 #[serial(fs)]

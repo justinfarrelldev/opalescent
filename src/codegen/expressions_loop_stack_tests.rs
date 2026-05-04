@@ -1,12 +1,8 @@
-#![allow(
-    clippy::all,
-    clippy::panic,
-    reason = "test helper module"
-)]
+#![allow(clippy::all, clippy::panic, reason = "test helper module")]
 extern crate alloc;
 use super::{CodegenEnv, LoopContext};
-use inkwell::context::Context;
 use alloc::string::String;
+use inkwell::context::Context;
 
 #[test]
 fn with_loop_isolated_clears_and_restores_loop_stack() {

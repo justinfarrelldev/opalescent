@@ -121,11 +121,7 @@ fn codegen_intrinsic_member_access<'context>(
     binding: &VariableBinding<'context>,
     member_name: &str,
 ) -> Result<Option<BasicValueEnum<'context>>, CodegenError> {
-    if let &CoreType::Generic {
-        ref name,
-        ref type_args,
-    } = &binding.core_type
-    {
+    if let &CoreType::Generic { ref name, ref type_args } = &binding.core_type {
         if name == "Bytes" && type_args.is_empty() && member_name == "length" {
             let runtime_function = crate::codegen::functions_stdlib::declare_stdlib_function(
                 codegen_context,

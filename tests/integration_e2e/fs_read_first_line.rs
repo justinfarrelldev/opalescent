@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-
 fn make_temp_path(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -377,7 +376,6 @@ fn read_first_line_crlf() {
         "read_first_line_crlf should normalize CRLF to LF semantics for first line: {failure_message}"
     );
 }
-
 
 #[test]
 #[serial(fs)]

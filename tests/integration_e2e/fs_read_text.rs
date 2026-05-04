@@ -115,8 +115,6 @@ fn read_file_to_string_not_found() {
     );
 }
 
-
-
 #[test]
 #[serial(fs)]
 fn read_file_to_string_is_directory() {

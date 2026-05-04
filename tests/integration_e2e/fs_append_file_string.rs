@@ -7,7 +7,6 @@ use serial_test::serial;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-
 fn make_temp_path(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -161,7 +160,6 @@ fn append_not_found() {
         "append_not_found should fail with FileNotFoundError prefix: {failure_message}"
     );
 }
-
 
 #[test]
 #[serial(fs)]

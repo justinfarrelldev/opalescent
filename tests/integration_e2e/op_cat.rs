@@ -21,9 +21,7 @@ fn op_cat_happy_path_prints_file_contents() {
         let source_str = match source_result {
             Ok(contents) => contents,
             Err(error) => {
-                return Err(format!(
-                    "op-cat source file should be readable: {error}"
-                ));
+                return Err(format!("op-cat source file should be readable: {error}"));
             }
         };
 
@@ -98,9 +96,7 @@ fn op_cat_error_path_continues_to_next_arg() {
         let source_str = match source_result {
             Ok(contents) => contents,
             Err(error) => {
-                return Err(format!(
-                    "op-cat source file should be readable: {error}"
-                ));
+                return Err(format!("op-cat source file should be readable: {error}"));
             }
         };
 

@@ -89,14 +89,20 @@ pub fn codegen_function_declaration<'context>(
     let parameter_types = lowered_parameter_core_types
         .iter()
         .map(|core_type| match core_type {
-            CoreType::Array(element_type) => core_type_to_llvm(codegen_context.context, element_type)
-                .ptr_type(AddressSpace::default())
-                .into(),
+            CoreType::Array(element_type) => {
+                core_type_to_llvm(codegen_context.context, element_type)
+                    .ptr_type(AddressSpace::default())
+                    .into()
+            }
             _ => core_type_to_llvm(codegen_context.context, core_type).into(),
         })
         .collect::<Vec<BasicMetadataTypeEnum<'context>>>();
-    let function_type =
-        build_function_type(codegen_context, &parameter_types, &returns, &error_core_types)?;
+    let function_type = build_function_type(
+        codegen_context,
+        &parameter_types,
+        &returns,
+        &error_core_types,
+    )?;
     let function_linkage = if is_entry || matches!(*visibility, Visibility::Public) {
         Some(Linkage::External)
     } else {
@@ -293,17 +299,23 @@ fn codegen_local_import_declaration<'context>(
                 let mut lowered_params: Vec<BasicMetadataTypeEnum<'context>> = Vec::new();
                 for param_type in parameters {
                     lowered_params.push(match param_type {
-                        CoreType::Array(element_type) => core_type_to_llvm(codegen_context.context, element_type)
-                            .ptr_type(AddressSpace::default())
-                            .into(),
+                        CoreType::Array(element_type) => {
+                            core_type_to_llvm(codegen_context.context, element_type)
+                                .ptr_type(AddressSpace::default())
+                                .into()
+                        }
                         _ => core_type_to_llvm(codegen_context.context, param_type).into(),
                     });
                     if matches!(*param_type, CoreType::Array(_)) {
                         lowered_params.push(codegen_context.context.i64_type().into());
                     }
                 }
-                let fn_type =
-                    build_function_type(codegen_context, &lowered_params, return_types, error_types)?;
+                let fn_type = build_function_type(
+                    codegen_context,
+                    &lowered_params,
+                    return_types,
+                    error_types,
+                )?;
                 // Declare the function as external (defined in another object file).
                 let extern_fn = codegen_context.module.add_function(
                     name.as_str(),

@@ -219,7 +219,6 @@ fn rename_not_found() {
     );
 }
 
-
 #[test]
 #[serial(fs)]
 fn rename_overwrite() {

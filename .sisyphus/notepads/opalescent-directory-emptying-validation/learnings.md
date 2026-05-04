@@ -21,3 +21,11 @@
 - Importance of maintaining strict scope control during verification tasks.
 - Qualified test names are essential for reliable targeted integration testing.
 - [2026-05-04T00:00:00Z] Baseline snapshot captured after removing out-of-scope churn; keep future follow-up work in separate atomic commits.
+- 2026-05-04 Task 7 scope-fidelity remediation: restoring all out-of-scope tracked churn first keeps the verification signal focused on true gate status (plan-relevant code + evidence only).
+- 2026-05-04 Task 7 verification rerun: fully-qualified integration test names are required in this harness for exact matching (`tests::...::test_name`) to avoid false green `0 tests` runs.
+- [2026-05-04T19:46:01-04:00] Task 6a lint/format remediation confirmed clippy `needless_borrowed_reference` fixes were mechanical in `src/codegen/adts.rs`, `src/compiler/compiler_helpers.rs`, and `src/compiler.rs`; no bridge logic changes were made in `src/type_system/checker/call_resolution.rs`.
+
+## 2026-05-04: Readiness Verification
+- Verified that all required filesystem functions are correctly exported and usable from `.op` source.
+- Confirmed that the full directory-emptying workflow passes end-to-end integration testing.
+- Ensured that exact test filters must be fully-qualified (`tests::...`) for reliable execution in the current test harness.

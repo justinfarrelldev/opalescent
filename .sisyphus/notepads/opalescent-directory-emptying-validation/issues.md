@@ -22,3 +22,6 @@
 ## Task 7 Issues
 - Discovered clippy and fmt regressions during final readiness check that required isolation and fixing.
 - [2026-05-04T00:00:00Z] Baseline snapshot captured after reverting out-of-scope churn; remaining follow-up work must stay uncommitted.
+- 2026-05-04 Task 7 rerun issue: `cargo clippy --all-targets --all-features -- -D warnings` failed with pre-existing workspace lint debt (`needless_borrowed_reference`) in out-of-scope files (`src/codegen/adts.rs`, `src/compiler/compiler_helpers.rs`, `src/compiler.rs`).
+- 2026-05-04 Task 7 rerun issue: `cargo fmt --all -- --check` failed due to formatting drift in out-of-scope files under `src/codegen/*`, preventing READY verdict despite scoped plan files being normalized.
+- [2026-05-04T19:46:01-04:00] `cargo fmt --all -- --check` required workspace-wide rustfmt updates in additional files beyond the three clippy targets; applied pure formatting changes only, then rechecked to green.

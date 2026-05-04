@@ -14,9 +14,7 @@ use crate::codegen::error_abi::{
     build_error_aggregate, build_success_aggregate, build_void_error_aggregate,
     build_void_success_aggregate, intern_variant_name,
 };
-use crate::codegen::expressions::{
-    CodegenEnv, LoopContext, VariableBinding, codegen_expression,
-};
+use crate::codegen::expressions::{CodegenEnv, LoopContext, VariableBinding, codegen_expression};
 use crate::codegen::statements::codegen_statement;
 use crate::type_system::types::CoreType;
 use alloc::boxed::Box;
@@ -483,7 +481,12 @@ pub fn codegen_return_statement<'context>(
     values: &[LabeledValue],
 ) -> Result<(), CodegenError> {
     if let Some(error_return_type) = current_error_return_type(codegen_context)? {
-        return codegen_error_aware_return_statement(codegen_context, env, values, error_return_type);
+        return codegen_error_aware_return_statement(
+            codegen_context,
+            env,
+            values,
+            error_return_type,
+        );
     }
 
     if values.is_empty() {
@@ -554,7 +557,9 @@ fn codegen_error_aware_return_statement<'context>(
             .get_field_types()
             .first()
             .copied()
-            .ok_or_else(|| CodegenError::new(String::from("error ABI return type missing success field")))?;
+            .ok_or_else(|| {
+                CodegenError::new(String::from("error ABI return type missing success field"))
+            })?;
         let aggregate = if success_field_type.is_pointer_type() {
             build_void_error_aggregate(codegen_context, error_ptr)?
         } else {
@@ -613,11 +618,11 @@ fn extract_error_variant_name(expr: &Expr) -> Result<String, CodegenError> {
     match expr {
         Expr::Identifier { name, .. } => Ok(name.clone()),
         Expr::Member { member, .. } => Ok(member.clone()),
-        Expr::Constructor { fields, .. } if !fields.is_empty() => Err(CodegenError::new(
-            String::from(
+        Expr::Constructor { fields, .. } if !fields.is_empty() => {
+            Err(CodegenError::new(String::from(
                 "payload-bearing error variants not yet supported in user-defined functions",
-            ),
-        )),
+            )))
+        }
         Expr::Constructor { callee, .. } => extract_error_variant_name(callee.as_ref()),
         _ => Err(CodegenError::new(String::from(
             "error returns must use `return err: VariantName`",
@@ -745,11 +750,14 @@ mod tests {
         codegen_context: &CodegenContext<'context>,
         function_name: &str,
     ) {
-        let function_type = build_error_return_type(codegen_context.context, None).fn_type(&[], false);
+        let function_type =
+            build_error_return_type(codegen_context.context, None).fn_type(&[], false);
         let function = codegen_context
             .module
             .add_function(function_name, function_type, None);
-        let entry = codegen_context.context.append_basic_block(function, "entry");
+        let entry = codegen_context
+            .context
+            .append_basic_block(function, "entry");
         codegen_context.builder.position_at_end(entry);
     }
 

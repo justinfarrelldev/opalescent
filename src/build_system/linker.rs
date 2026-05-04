@@ -305,6 +305,9 @@ impl LinkerCommand {
 mod tests {
     use super::*;
     use crate::build_system::targets::Architecture;
+    use std::sync::Mutex;
+
+    static ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn linker_command_cc_builds_correct_args() {
@@ -625,6 +628,7 @@ mod tests {
     #[test]
     #[cfg(not(windows))]
     fn msvc_linker_env_override_respected() {
+        let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
         // SAFETY: Test-only environment mutation scoped to this test body.
         unsafe {
             std::env::set_var("OPAL_MSVC_LINKER", "/custom/my-linker");
@@ -649,6 +653,7 @@ mod tests {
     #[test]
     #[cfg(not(windows))]
     fn msvc_linker_shared_args_present() {
+        let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
         // SAFETY: Test-only environment mutation scoped to this test body.
         unsafe {
             std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");

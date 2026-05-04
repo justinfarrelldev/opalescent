@@ -265,10 +265,9 @@ pub fn codegen_call_expression<'context>(
             if return_type.is_struct_type() {
                 let result_struct_type = return_type.into_struct_type();
                 if result_struct_type.count_fields() >= 2 {
-                    let result_alloca = codegen_context.builder.build_alloca(
-                        result_struct_type,
-                        env.next_name("call.result").as_str(),
-                    )?;
+                    let result_alloca = codegen_context
+                        .builder
+                        .build_alloca(result_struct_type, env.next_name("call.result").as_str())?;
                     let call = codegen_context.builder.build_call(
                         function,
                         lowered_args.as_slice(),
@@ -609,7 +608,8 @@ fn resolve_callee_function<'context>(
                             );
                             lowered.push(codegen_context.context.i64_type().into());
                         }
-                        _ => lowered.push(core_type_to_llvm(codegen_context.context, core_type).into()),
+                        _ => lowered
+                            .push(core_type_to_llvm(codegen_context.context, core_type).into()),
                     }
                     lowered
                 })
@@ -664,7 +664,9 @@ fn resolve_callee_function<'context>(
                     let len_alloca = codegen_context
                         .builder
                         .build_alloca(len_param_value.get_type(), len_binding_name.as_str())?;
-                    codegen_context.builder.build_store(len_alloca, len_param_value)?;
+                    codegen_context
+                        .builder
+                        .build_store(len_alloca, len_param_value)?;
                     let previous_length_binding = env.variables.insert(
                         len_binding_name.clone(),
                         VariableBinding {
@@ -700,28 +702,33 @@ fn resolve_callee_function<'context>(
             }
 
             // Codegen lambda body with isolated loop stack so nested lambdas never inherit outer loop targets.
-            let codegen_result: Result<(), CodegenError> = env.with_loop_isolated(|env| match body {
-                crate::ast::LambdaBody::Expression(expr) => {
-                    let result = crate::codegen::expressions::codegen_expression(
-                        codegen_context,
-                        env,
-                        expr,
-                        None,
-                    )?;
-                    codegen_context.builder.build_return(Some(&result))?;
-                    Ok(())
-                }
-                crate::ast::LambdaBody::Block(stmts) => {
-                    for stmt in stmts {
-                        crate::codegen::statements::codegen_statement(codegen_context, env, stmt)?;
+            let codegen_result: Result<(), CodegenError> =
+                env.with_loop_isolated(|env| match body {
+                    crate::ast::LambdaBody::Expression(expr) => {
+                        let result = crate::codegen::expressions::codegen_expression(
+                            codegen_context,
+                            env,
+                            expr,
+                            None,
+                        )?;
+                        codegen_context.builder.build_return(Some(&result))?;
+                        Ok(())
                     }
-                    // If no explicit return, emit default
-                    if codegen_context.builder.get_insert_block().is_some() {
-                        emit_default_return(codegen_context, env, &return_core_types)?;
+                    crate::ast::LambdaBody::Block(stmts) => {
+                        for stmt in stmts {
+                            crate::codegen::statements::codegen_statement(
+                                codegen_context,
+                                env,
+                                stmt,
+                            )?;
+                        }
+                        // If no explicit return, emit default
+                        if codegen_context.builder.get_insert_block().is_some() {
+                            emit_default_return(codegen_context, env, &return_core_types)?;
+                        }
+                        Ok(())
                     }
-                    Ok(())
-                }
-            });
+                });
 
             for (binding_name, previous_binding) in shadowed_bindings.into_iter().rev() {
                 if let Some(binding) = previous_binding {
@@ -797,7 +804,10 @@ pub fn build_function_type<'context>(
 ) -> Result<inkwell::types::FunctionType<'context>, CodegenError> {
     if error_types.is_empty() {
         if returns.is_empty() || (returns.len() == 1 && matches!(returns[0], CoreType::Unit)) {
-            return Ok(codegen_context.context.void_type().fn_type(parameters, false));
+            return Ok(codegen_context
+                .context
+                .void_type()
+                .fn_type(parameters, false));
         }
         if returns.len() == 1 {
             let return_type = core_type_to_llvm(codegen_context.context, &returns[0]);
@@ -814,10 +824,11 @@ pub fn build_function_type<'context>(
     }
 
     if returns.is_empty() || (returns.len() == 1 && matches!(returns[0], CoreType::Unit)) {
-        return Ok(
-            crate::codegen::error_abi::build_error_return_type(codegen_context.context, None)
-                .fn_type(parameters, false),
-        );
+        return Ok(crate::codegen::error_abi::build_error_return_type(
+            codegen_context.context,
+            None,
+        )
+        .fn_type(parameters, false));
     }
 
     if returns.len() == 1 {
@@ -831,13 +842,11 @@ pub fn build_function_type<'context>(
         ) {
             return unsupported_error_return_type(&returns[0]);
         }
-        return Ok(
-            crate::codegen::error_abi::build_error_return_type(
-                codegen_context.context,
-                Some(success_type),
-            )
-            .fn_type(parameters, false),
-        );
+        return Ok(crate::codegen::error_abi::build_error_return_type(
+            codegen_context.context,
+            Some(success_type),
+        )
+        .fn_type(parameters, false));
     }
 
     unsupported_error_return_type(&CoreType::Function {
@@ -935,7 +944,8 @@ pub fn emit_c_main_wrapper<'context>(
         .into_pointer_value();
 
     let parameter_types = entry_function.get_type().get_param_types();
-    let mut call_args: Vec<BasicMetadataValueEnum<'context>> = Vec::with_capacity(parameter_types.len());
+    let mut call_args: Vec<BasicMetadataValueEnum<'context>> =
+        Vec::with_capacity(parameter_types.len());
     let mut argv_forwarded = false;
     for parameter_type in parameter_types {
         let argument = match parameter_type {

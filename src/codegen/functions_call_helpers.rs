@@ -123,7 +123,9 @@ pub(super) fn caller_returns_error_aggregate(function: FunctionValue<'_>) -> boo
     function
         .get_type()
         .get_return_type()
-        .is_some_and(|return_type| return_type.is_struct_type() && return_type.into_struct_type().count_fields() == 2)
+        .is_some_and(|return_type| {
+            return_type.is_struct_type() && return_type.into_struct_type().count_fields() == 2
+        })
 }
 
 #[doc = "Approximate core type mapping from LLVM basic value type."]
@@ -165,8 +167,7 @@ pub(super) fn infer_guard_binding_core_type(
                     .get(name.as_str())
                     .and_then(|signature| match signature {
                         &CoreType::Function {
-                            ref return_types,
-                            ..
+                            ref return_types, ..
                         } => return_types.first(),
                         _ => None,
                     })

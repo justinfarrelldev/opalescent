@@ -97,15 +97,15 @@ pub fn build_success_aggregate<'context>(
     codegen_context: &CodegenContext<'context>,
     success_value: BasicValueEnum<'context>,
 ) -> Result<StructValue<'context>, CodegenError> {
-    let aggregate_type = build_error_return_type(
-        codegen_context.context,
-        Some(success_value.get_type()),
-    );
+    let aggregate_type =
+        build_error_return_type(codegen_context.context, Some(success_value.get_type()));
     insert_aggregate_fields(
         codegen_context,
         aggregate_type,
         success_value,
-        i8_ptr_type(codegen_context.context).const_null().as_basic_value_enum(),
+        i8_ptr_type(codegen_context.context)
+            .const_null()
+            .as_basic_value_enum(),
         "error_abi.success",
     )
 }
@@ -134,8 +134,12 @@ pub fn build_void_success_aggregate<'context>(
     insert_aggregate_fields(
         codegen_context,
         aggregate_type,
-        i8_ptr_type(codegen_context.context).const_null().as_basic_value_enum(),
-        i8_ptr_type(codegen_context.context).const_null().as_basic_value_enum(),
+        i8_ptr_type(codegen_context.context)
+            .const_null()
+            .as_basic_value_enum(),
+        i8_ptr_type(codegen_context.context)
+            .const_null()
+            .as_basic_value_enum(),
         "error_abi.void.success",
     )
 }
@@ -149,7 +153,9 @@ pub fn build_void_error_aggregate<'context>(
     insert_aggregate_fields(
         codegen_context,
         aggregate_type,
-        i8_ptr_type(codegen_context.context).const_null().as_basic_value_enum(),
+        i8_ptr_type(codegen_context.context)
+            .const_null()
+            .as_basic_value_enum(),
         error_value.as_basic_value_enum(),
         "error_abi.void.error",
     )

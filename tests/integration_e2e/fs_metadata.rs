@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-
 fn make_temp_path(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -375,7 +374,6 @@ fn remove_file_isdir() {
         "remove_file_isdir should report IsADirectoryError: {failure_message}"
     );
 }
-
 
 #[test]
 #[serial(fs)]

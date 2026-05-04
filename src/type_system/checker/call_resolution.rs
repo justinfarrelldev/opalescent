@@ -505,19 +505,18 @@ impl TypeChecker {
     ) -> bool {
         if let Expr::Identifier { ref name, .. } = *callee {
             if name == "join_path_components" {
-                return matches!(
-                    (param_type, arg_type),
-                    (
-                        &CoreType::Array(ref param_inner),
-                        &CoreType::Array(ref arg_inner),
-                    ) if matches!(
-                        (&**param_inner, &**arg_inner),
-                        (
-                            &CoreType::String,
-                            &CoreType::Generic { name: ref arg_name, .. }
-                        ) if arg_name == "FilesystemPath"
-                    )
-                );
+                return match (param_type, arg_type) {
+                    (&CoreType::Array(ref param_inner), &CoreType::Array(ref arg_inner)) => {
+                        matches!(
+                            (param_inner.as_ref(), arg_inner.as_ref()),
+                            (
+                                &CoreType::String,
+                                &CoreType::Generic { name: ref arg_name, .. }
+                            ) if arg_name == "FilesystemPath"
+                        )
+                    }
+                    _ => false,
+                };
             }
         }
         false

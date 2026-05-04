@@ -163,12 +163,13 @@ fn codegen_let_statement<'context>(
             None
         }
     });
-    let pending_array_length = if array_length.is_none() && matches!(declared_type, CoreType::Array(_)) {
-        env.take_pending_array_length()
-    } else {
-        env.set_pending_array_length(None);
-        None
-    };
+    let pending_array_length =
+        if array_length.is_none() && matches!(declared_type, CoreType::Array(_)) {
+            env.take_pending_array_length()
+        } else {
+            env.set_pending_array_length(None);
+            None
+        };
 
     env.variables.insert(
         binding.name.clone(),
@@ -201,11 +202,7 @@ fn codegen_let_statement<'context>(
         if let Some(field_indices) = initializer.and_then(product_field_indices_from_constructor) {
             env.variable_field_indices
                 .insert(binding.name.clone(), field_indices);
-            if let Some(&Expr::Constructor {
-                ref fields,
-                ..
-            }) = initializer
-            {
+            if let Some(&Expr::Constructor { ref fields, .. }) = initializer {
                 let mut field_aliases = alloc::collections::BTreeMap::new();
                 for field in fields {
                     if let Expr::Identifier { ref name, .. } = field.value {
@@ -277,9 +274,10 @@ fn codegen_break_statement<'context>(
     env: &mut CodegenEnv<'context>,
     values: &[LabeledValue],
 ) -> Result<(), CodegenError> {
-    let loop_context = env.current_loop().cloned().ok_or_else(|| {
-        CodegenError::new(String::from("break used outside of loop body"))
-    })?;
+    let loop_context = env
+        .current_loop()
+        .cloned()
+        .ok_or_else(|| CodegenError::new(String::from("break used outside of loop body")))?;
     store_break_values_into_slots(
         codegen_context,
         env,
@@ -302,9 +300,10 @@ fn codegen_continue_statement<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
 ) -> Result<(), CodegenError> {
-    let loop_context = env.current_loop().cloned().ok_or_else(|| {
-        CodegenError::new(String::from("continue used outside of loop body"))
-    })?;
+    let loop_context = env
+        .current_loop()
+        .cloned()
+        .ok_or_else(|| CodegenError::new(String::from("continue used outside of loop body")))?;
     let _branch = codegen_context
         .builder
         .build_unconditional_branch(loop_context.continue_target)?;

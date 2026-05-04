@@ -35,10 +35,10 @@ use inkwell::values::{
 };
 use inkwell::{FloatPredicate, IntPredicate};
 
-use crate::codegen::error::CodegenError;
 use self::expressions_cast_helpers::{
     float_type_for, integer_type_for, is_float_core_type, is_integer_core_type,
 };
+use crate::codegen::error::CodegenError;
 
 #[derive(Debug, Clone)]
 pub struct VariableBinding<'context> {
