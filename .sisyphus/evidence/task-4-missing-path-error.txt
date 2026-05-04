@@ -1,0 +1,5 @@
+2026-05-04T00:00:00Z
+Command: cargo test --all-features --test integration_e2e tests::fs_delete_directory_recursive::fs_recursive_delete_missing_path_error_from_op_source -- --exact
+Result: PASS
+Observed stdout: test tests::fs_delete_directory_recursive::fs_recursive_delete_missing_path_error_from_op_source ... ok
+Observed behavior: .op guard handled missing recursive-delete target, printed ERR_PATH=, and did not print UNEXPECTED_SUCCESS.

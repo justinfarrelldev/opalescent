@@ -281,6 +281,11 @@ impl TypeChecker {
                     } else if is_integer_type(&param_type)
                         && is_integer_type(&arg_type)
                         && !Self::core_type_contains_variable(&param_type)
+                        || Self::is_join_path_components_path_array_bridge(
+                            callee,
+                            &param_type,
+                            &arg_type,
+                        )
                     {
                         param_type.clone()
                     } else {
@@ -490,6 +495,32 @@ impl TypeChecker {
         }
 
         None
+    }
+
+    /// Allows `join_path_components` to accept `FilesystemPath[]` where `string[]` is expected.
+    fn is_join_path_components_path_array_bridge(
+        callee: &Expr,
+        param_type: &CoreType,
+        arg_type: &CoreType,
+    ) -> bool {
+        if let Expr::Identifier { ref name, .. } = *callee {
+            if name == "join_path_components" {
+                return matches!(
+                    (param_type, arg_type),
+                    (
+                        &CoreType::Array(ref param_inner),
+                        &CoreType::Array(ref arg_inner),
+                    ) if matches!(
+                        (&**param_inner, &**arg_inner),
+                        (
+                            &CoreType::String,
+                            &CoreType::Generic { name: ref arg_name, .. }
+                        ) if arg_name == "FilesystemPath"
+                    )
+                );
+            }
+        }
+        false
     }
 
     /// Determine whether a core type includes one or more type variables.

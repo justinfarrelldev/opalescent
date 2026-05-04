@@ -8,6 +8,7 @@ mod fs_absolute_path_sync;
 mod fs_append_file_string;
 mod fs_append_log;
 mod fs_copy_file;
+mod fs_delete_directory_recursive;
 mod fs_dir_inventory;
 mod fs_directories;
 mod fs_join_path_components;
@@ -40,9 +41,9 @@ pub mod fs_helpers;
 mod fs_rerunnability;
 pub mod fs_state_guard;
 mod interactive_io;
+mod op_cat;
 mod project_execution;
 mod project_execution_rc;
-mod op_cat;
 
 #[cfg(feature = "windows-wine")]
 mod windows_wine;

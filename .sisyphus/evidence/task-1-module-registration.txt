@@ -1,0 +1,6 @@
+Task 1 module registration evidence
+Date: 2026-05-04
+
+Status: `mod fs_delete_directory_recursive;` could not remain in `tests/integration_e2e/tests.rs` because the backing module file does not exist yet
+Location: baseline registry still omits the module line
+Notes: leaving the line in place breaks `cargo test --test integration_e2e`

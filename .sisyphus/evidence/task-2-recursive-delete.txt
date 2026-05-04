@@ -1,0 +1,8 @@
+Task 2 evidence: recursive delete integration test
+- Added tests/integration_e2e/fs_delete_directory_recursive.rs
+- Test: fs_recursive_delete_from_op_source
+- Covers nested directory tree fixture deletion via .op standard import delete_directory_recursive_sync
+- Asserts output markers exists_after= and dir_after= parse as false
+- Asserts fixture root no longer exists after execution
+- Verification command to run:
+  cargo test --all-features --test integration_e2e tests::fs_delete_directory_recursive::fs_recursive_delete_from_op_source -- --exact

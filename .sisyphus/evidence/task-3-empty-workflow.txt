@@ -1,0 +1,21 @@
+Task 3 Evidence: Empty-directory workflow from inline .op source
+Date: 2026-05-04
+
+Command:
+cargo test --all-features --test integration_e2e tests::fs_delete_directory_recursive::fs_empty_directory_workflow_from_op_source -- --exact
+
+Result:
+PASS
+- test tests::fs_delete_directory_recursive::fs_empty_directory_workflow_from_op_source ... ok
+- test result: ok. 1 passed; 0 failed
+
+Assertions and behavior locked by test:
+- Inline .op source imports and exercises: path_from, list_directory_sync, join_path_components, is_directory_sync, delete_directory_recursive_sync, delete_file_sync.
+- Workflow lists top-level children, classifies each path, deletes directories recursively and files directly.
+- Final workflow print includes remaining={remaining_len}; parser requires remaining=0.
+- Rust postconditions assert target root still exists and read_dir(target_dir).count() == 0.
+- Fixture shape under temp-root child includes: a.txt, b.txt, sub/c.txt, sub/nested/d.txt.
+
+Scope correction note:
+- [2026-05-04T18:02:39-04:00] Removed out-of-scope debug artifact `test-projects/_t26_debug_empty_workflow/src/main.op` and deleted its empty parent directories.
+- Re-ran required exact Task 3 command after cleanup; status remained PASS.
