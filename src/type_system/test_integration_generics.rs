@@ -277,10 +277,11 @@ entry main = f(): void =>
         let errors = result.expect_err("reserved Pair redeclaration must fail type checking");
         assert!(
             errors.iter().any(|error| {
-                matches!(
-                    error,
-                    &TypeError::ReservedTypeName { ref type_name, .. } if type_name == "Pair"
-                )
+                if let TypeError::ReservedTypeName { ref type_name, .. } = *error {
+                    type_name == "Pair"
+                } else {
+                    false
+                }
             }),
             "expected ReservedTypeName diagnostic for Pair, got: {errors:?}",
         );

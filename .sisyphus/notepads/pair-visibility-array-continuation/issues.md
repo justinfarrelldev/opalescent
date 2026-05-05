@@ -12,3 +12,4 @@
 - The first RED capture was a false pass because `array_zip_runs` had not been added to `tests/array_integration.rs` yet; rerunning after wiring the targeted test produced the correct failure (`array method 'zip' is not implemented yet`).
 - Full-gate verification exposed a pre-existing clippy blocker in `src/type_system/test_integration_generics.rs`; fixing that lint was necessary to satisfy the required `cargo clippy --all-targets --all-features -- -D warnings` gate for this task.
 - `cargo fmt --all -- --check` reformatted several touched Rust files after implementation, so final verification must always include a formatting pass before the last check gate.
+- 2026-05-05 22:57:38Z: fixed clippy::needless_borrowed_reference in src/type_system/test_integration_generics.rs by removing the borrowed/ref pattern from the Pair reserved-name assertion so the strict lint gate passes.
