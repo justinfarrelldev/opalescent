@@ -111,6 +111,11 @@ mod tests {
     }
 
     #[test]
+    fn array_pair_runs() {
+        assert_stdout("array-pair", &read_expected_stdout("array-pair"));
+    }
+
+    #[test]
     fn array_push_runs() {
         assert_stdout("array-push", &read_expected_stdout("array-push"));
     }

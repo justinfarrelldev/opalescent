@@ -1,0 +1,10 @@
+##
+  Description: Verifies predefined Pair construction and field access.
+##
+entry main = f(args: string[]): void =>
+    let pair = new Pair:
+        first: 7 as int32
+        second: 'seven'
+    print('first {pair.first}')
+    print('second {pair.second}')
+    return void
