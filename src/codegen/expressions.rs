@@ -14,6 +14,7 @@ use crate::codegen::adts::{
 };
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::codegen_if_expression;
+use crate::codegen::expressions_array::{codegen_array_access, codegen_array_literal};
 use crate::codegen::expressions_numeric::{
     codegen_cmp, codegen_div, codegen_div_euclid, codegen_mod_euclid, codegen_numeric_binop,
     codegen_power, codegen_rem,
@@ -22,14 +23,13 @@ use crate::codegen::expressions_string::codegen_string_interpolation;
 use crate::codegen::functions::{
     codegen_call_expression, codegen_guard_expression, codegen_propagate_expression,
 };
-use crate::codegen::types::{core_type_to_llvm, integer_literal_bits, is_signed_core_type};
+use crate::codegen::types::{integer_literal_bits, is_signed_core_type};
 use crate::type_system::type_mapping::{AstTypeMappingError, ast_type_to_core_type};
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use inkwell::types::BasicType;
 use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
 };
@@ -107,6 +107,7 @@ pub fn codegen_expression<'context>(
     expr: &Expr,
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
+    env.set_pending_array_metadata(None);
     match *expr {
         Expr::Literal { ref value, .. } => {
             codegen_literal(codegen_context, env, value, expected_type)
@@ -640,175 +641,6 @@ fn codegen_cast<'context>(
     Err(CodegenError::new(format!(
         "unsupported cast to type {target_type}"
     )))
-}
-
-fn codegen_array_literal<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    elements: &[Expr],
-    expected_type: Option<&CoreType>,
-) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let element_core = expected_type.map_or(&CoreType::Int64, |core_type| match *core_type {
-        CoreType::Array(ref element) => element.as_ref(),
-        _ => &CoreType::Int64,
-    });
-    let element_type = core_type_to_llvm(codegen_context.context, element_core);
-    let count = u32::try_from(elements.len()).map_err(|conversion_error| {
-        CodegenError::new(format!("array literal is too large: {conversion_error}"))
-    })?;
-    let array_type = element_type.array_type(count);
-    let array_alloca = codegen_context
-        .builder
-        .build_alloca(array_type, &env.next_name("array.alloca"))?;
-
-    for (index, element_expr) in elements.iter().enumerate() {
-        let idx = u64::try_from(index).map_err(|conversion_error| {
-            CodegenError::new(format!("array index conversion failed: {conversion_error}"))
-        })?;
-        // SAFETY: array_alloca refers to stack memory for this array and indices are bounded by iteration.
-        let ptr = unsafe {
-            codegen_context.builder.build_in_bounds_gep(
-                array_alloca,
-                &[
-                    codegen_context.context.i32_type().const_zero(),
-                    codegen_context.context.i32_type().const_int(idx, false),
-                ],
-                &env.next_name("array.store.ptr"),
-            )?
-        };
-        let value = codegen_expression(codegen_context, env, element_expr, Some(element_core))?;
-        let _store_instruction = codegen_context.builder.build_store(ptr, value)?;
-    }
-
-    // SAFETY: zero-offset GEP into the alloca points to the start of the contiguous array payload.
-    let base_ptr = unsafe {
-        codegen_context.builder.build_in_bounds_gep(
-            array_alloca,
-            &[
-                codegen_context.context.i32_type().const_zero(),
-                codegen_context.context.i32_type().const_zero(),
-            ],
-            &env.next_name("array.base.ptr"),
-        )?
-    };
-    Ok(base_ptr.as_basic_value_enum())
-}
-
-fn codegen_array_access<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    object: &Expr,
-    index: &Expr,
-    _expected_type: Option<&CoreType>,
-) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let (base_ptr, array_length) = if let Expr::Identifier { ref name, .. } = *object {
-        let Some(binding) = env.variables.get(name).cloned() else {
-            return Err(CodegenError::new(format!(
-                "unknown array variable '{name}'"
-            )));
-        };
-        let resolved_length = if let Some(length) = binding.length {
-            Some(
-                codegen_context
-                    .context
-                    .i64_type()
-                    .const_int(u64::from(length), false),
-            )
-        } else {
-            let len_binding_name = format!("{name}_len");
-            env.variables
-                .get(len_binding_name.as_str())
-                .map(|len_binding| {
-                    codegen_context
-                        .builder
-                        .build_load(len_binding.alloca, len_binding_name.as_str())
-                })
-                .transpose()?
-                .map(|loaded| loaded.into_int_value())
-        };
-        let loaded_ptr = codegen_context
-            .builder
-            .build_load(binding.alloca, &env.next_name("array.ptr.load"))?;
-        let array_ptr = if loaded_ptr.is_pointer_value() {
-            loaded_ptr.into_pointer_value()
-        } else {
-            // SAFETY: `binding.alloca` points to a stack-allocated array aggregate.
-            // The [0, 0] GEP computes the pointer to the first element.
-            unsafe {
-                codegen_context.builder.build_in_bounds_gep(
-                    binding.alloca,
-                    &[
-                        codegen_context.context.i32_type().const_zero(),
-                        codegen_context.context.i32_type().const_zero(),
-                    ],
-                    &env.next_name("array.base.ptr"),
-                )?
-            }
-        };
-        (array_ptr, resolved_length)
-    } else {
-        (
-            codegen_expression(codegen_context, env, object, None)?.into_pointer_value(),
-            None,
-        )
-    };
-
-    let index_value =
-        codegen_expression(codegen_context, env, index, Some(&CoreType::Int64))?.into_int_value();
-
-    // Emit bounds check if the array has a known length
-    if let Some(len_value) = array_length {
-        let is_out_of_bounds = codegen_context.builder.build_int_compare(
-            IntPredicate::UGE,
-            index_value,
-            len_value,
-            &env.next_name("array.bounds.check"),
-        )?;
-        let current_fn = current_function(codegen_context)?;
-        let trap_block = codegen_context
-            .context
-            .append_basic_block(current_fn, &env.next_name("array.trap"));
-        let cont_block = codegen_context
-            .context
-            .append_basic_block(current_fn, &env.next_name("array.cont"));
-        let _branch = codegen_context.builder.build_conditional_branch(
-            is_out_of_bounds,
-            trap_block,
-            cont_block,
-        )?;
-
-        codegen_context.builder.position_at_end(trap_block);
-        let msg = codegen_context
-            .builder
-            .build_global_string_ptr("array index out of bounds\n", &env.next_name("array.msg"))?
-            .as_pointer_value();
-        let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
-            codegen_context,
-            "opal_runtime_error",
-        )
-        .ok_or_else(|| CodegenError::new(String::from("opal_runtime_error declaration missing")))?;
-        let trap_args: [BasicMetadataValueEnum<'context>; 1] = [msg.into()];
-        let _call = codegen_context.builder.build_call(
-            runtime_fn,
-            &trap_args,
-            &env.next_name("array.trap.call"),
-        )?;
-        let _unreachable = codegen_context.builder.build_unreachable()?;
-
-        codegen_context.builder.position_at_end(cont_block);
-    }
-    // SAFETY: base_ptr is valid contiguous-element pointer, and index_value is an LLVM integer index.
-    let element_ptr = unsafe {
-        codegen_context.builder.build_in_bounds_gep(
-            base_ptr,
-            &[index_value],
-            &env.next_name("array.load.ptr"),
-        )?
-    };
-
-    Ok(codegen_context
-        .builder
-        .build_load(element_ptr, &env.next_name("array.load"))?)
 }
 
 fn codegen_add<'context>(

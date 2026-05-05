@@ -3,7 +3,8 @@
 extern crate alloc;
 
 use super::helpers::{
-    invalid_operation_error, is_boolean_type, is_numeric_type, is_string_type, type_mismatch_error,
+    coerce_literal_to_expected, invalid_operation_error, is_boolean_type, is_numeric_type,
+    is_string_type, type_mismatch_error,
 };
 use crate::ast::{AstNode, Expr, StringPart};
 use crate::token::Span;
@@ -52,17 +53,31 @@ impl TypeChecker {
             if let Some(existing) = element_type.as_ref() {
                 let existing_type = &existing.0;
                 let existing_span = existing.1;
-                if !self.types_compatible(existing_type, &element_core_type) {
+                let reconciled_type = if self.types_compatible(existing_type, &element_core_type) {
+                    element_core_type
+                } else if let Some(adjusted) =
+                    coerce_literal_to_expected(existing_type, element, &element_core_type)
+                {
+                    adjusted
+                } else if let Some(adjusted_existing) =
+                    coerce_literal_to_expected(&element_core_type, &elements[0], existing_type)
+                {
+                    element_type = Some((adjusted_existing.clone(), existing_span));
+                    adjusted_existing
+                } else {
                     return Err(type_mismatch_error(
                         existing_type,
                         Some(existing_span),
                         &element_core_type,
                         element_span,
                     ));
-                }
+                };
+                let current_element_type = element_type
+                    .as_ref()
+                    .map_or_else(|| reconciled_type.clone(), |pair| pair.0.clone());
                 self.add_constraint(TypeConstraint::equality(
-                    existing_type.clone(),
-                    element_core_type,
+                    current_element_type,
+                    reconciled_type,
                     Some(existing_span),
                     Some(element_span),
                 ));

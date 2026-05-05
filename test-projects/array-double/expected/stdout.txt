@@ -1,0 +1,11 @@
+uniform outer 3
+uniform inner 3
+uniform value 8
+jagged outer 3
+jagged row0 2
+jagged row1 0
+jagged row2 3
+jagged value 5
+single row 1 3 12
+single col 3 1 22
+empty outer 0

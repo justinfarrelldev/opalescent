@@ -113,12 +113,26 @@ pub fn codegen_field_access_expression<'context>(
         }
     }
 
-    let object_value = codegen_expression(codegen_context, env, object.as_ref(), None)?;
     let object_core_type = infer_product_core_type(env, object.as_ref()).ok_or_else(|| {
         CodegenError::new(String::from(
             "receiver expression is not a known product type",
         ))
     })?;
+    if matches!(object_core_type, CoreType::Array(_)) && member.as_str() == "length" {
+        codegen_expression(
+            codegen_context,
+            env,
+            object.as_ref(),
+            Some(&object_core_type),
+        )?;
+        let metadata = env.take_pending_array_metadata().ok_or_else(|| {
+            CodegenError::new(String::from(
+                "array expression did not publish metadata for intrinsic .length access",
+            ))
+        })?;
+        return Ok(metadata.length.as_basic_value_enum());
+    }
+    let object_value = codegen_expression(codegen_context, env, object.as_ref(), None)?;
     let field_index = product_field_index_for_core_type(&object_core_type, member.as_str())
         .ok_or_else(|| {
             CodegenError::new(format!("unknown field '{member}' on receiver expression"))

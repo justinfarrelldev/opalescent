@@ -9,6 +9,7 @@ pub mod control_flow;
 pub mod error;
 pub mod error_abi;
 pub mod expressions;
+pub mod expressions_array;
 pub mod expressions_cast;
 pub mod expressions_numeric;
 pub mod expressions_string;

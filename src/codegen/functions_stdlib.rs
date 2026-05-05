@@ -198,6 +198,10 @@ pub fn declare_stdlib_function<'context>(
             let ft = i64_type.fn_type(&[i8_ptr.into(), i64_type.into()], false);
             Some(module.add_function("array_length", ft, None))
         }),
+        "opal_array_bounds_error" => module.get_function("opal_array_bounds_error").or_else(|| {
+            let ft = void_type.fn_type(&[i64_type.into(), i64_type.into()], false);
+            Some(module.add_function("opal_array_bounds_error", ft, None))
+        }),
         "opal_runtime_error" => void_fn!("opal_runtime_error", i8_ptr),
         "bytes_new" => module.get_function("bytes_new").or_else(|| {
             let ft = i8_ptr.fn_type(&[], false);
@@ -525,6 +529,7 @@ pub const STDLIB_NAMES: &[&str] = &[
     "bool_to_string",
     "string_length",
     "array_length",
+    "opal_array_bounds_error",
     "opal_runtime_error",
     "bytes_new",
     "bytes_length",
@@ -578,8 +583,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            88,
-            "stdlib registry should have 88 names"
+            89,
+            "stdlib registry should have 89 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),

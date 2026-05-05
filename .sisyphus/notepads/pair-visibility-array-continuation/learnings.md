@@ -15,3 +15,8 @@
 - Added concrete LLVM lowering for `Pair<T, U>` in `src/codegen/types.rs`, which lets zipped results store inline `first`/`second` fields instead of degrading to opaque pointers during code generation.
 - Extended product field access fallback in `src/codegen/adts.rs` so expression receivers like `pairs[0].first` and `pairs[0].second` extract fields directly from the indexed Pair struct value instead of requiring an identifier-backed constructor binding.
 - Added zip integration coverage in `tests/array_integration.rs` for unequal lengths, equal lengths, and empty-left/empty-right cases; the RED evidence now fails specifically on missing zip codegen and the GREEN evidence confirms truncation and Pair field reads.
+
+## 2026-05-05 Task 4: double arrays
+- Double-array literals now lower nested rows as explicit `{ptr,len,cap}` values inside the outer buffer, which preserves jagged row metadata for `grid[row].length` and `grid[row][col]` without changing the one-dimensional array calling convention.
+- The type checker needed two aligned fixes for jagged literals with empty rows: nested empty-array coercion in `coerce_literal_to_expected` and sibling-row reconciliation inside `type_check_array_expr`, otherwise `[]` inside `int32[][]` stayed as `[tN]`.
+- Integration evidence must stay serialized with `--test-threads=1`; running the happy-path and bounds cases in parallel produced a false failure because both compete for the shared `target/program`.

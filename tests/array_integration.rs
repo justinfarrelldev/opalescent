@@ -121,6 +121,31 @@ mod tests {
     }
 
     #[test]
+    fn array_double_runs() {
+        assert_stdout("array-double", &read_expected_stdout("array-double"));
+    }
+
+    #[test]
+    fn array_double_nested_out_of_bounds_reports_row_length() {
+        let temp_dir = write_temp_project_source(
+            "array-double-nested-bounds",
+            "##\n  Description: Verifies nested array bounds checks use the inner row length.\n##\nentry main = f(args: string[]): void =>\n    let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]\n    let value = jagged[1][0]\n    print('value {value}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let combined = format!("{stdout}\n{stderr}");
+        assert!(
+            !output.status.success() || combined.contains("index 0 is out of bounds for length 0"),
+            "nested bounds fixture should report a runtime bounds error, stdout/stderr: {combined}"
+        );
+        assert!(
+            combined.contains("index 0 is out of bounds for length 0"),
+            "nested bounds output should mention the inner row length, stdout/stderr: {combined}"
+        );
+    }
+
+    #[test]
     fn array_zip_equal_lengths() {
         let temp_dir = write_temp_project_source(
             "array-zip-equal",

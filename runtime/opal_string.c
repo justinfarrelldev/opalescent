@@ -109,3 +109,8 @@ int64_t array_length(const void* array, int64_t length) {
     if (length < 0) { fprintf(stderr, "Runtime error: array_length called with negative length\n"); exit(1); }
     return length;
 }
+
+void opal_array_bounds_error(uint64_t index, uint64_t length) {
+    fprintf(stderr, "index %" PRIu64 " is out of bounds for length %" PRIu64 "\n", index, length);
+    exit(1);
+}

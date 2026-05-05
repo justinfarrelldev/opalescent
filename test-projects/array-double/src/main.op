@@ -1,0 +1,25 @@
+##
+  Description: Runs double-array literals, lengths, and nested reads.
+##
+entry main = f(args: string[]): void =>
+    let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+    print('uniform outer {uniform.length}')
+    print('uniform inner {uniform[1].length}')
+    print('uniform value {uniform[2][1]}')
+
+    let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    print('jagged outer {jagged.length}')
+    print('jagged row0 {jagged[0].length}')
+    print('jagged row1 {jagged[1].length}')
+    print('jagged row2 {jagged[2].length}')
+    print('jagged value {jagged[2][2]}')
+
+    let single_row: int32[][] = [[10 as int32, 11 as int32, 12 as int32]]
+    print('single row {single_row.length} {single_row[0].length} {single_row[0][2]}')
+
+    let single_col: int32[][] = [[20 as int32], [21 as int32], [22 as int32]]
+    print('single col {single_col.length} {single_col[2].length} {single_col[2][0]}')
+
+    let empty_outer: int32[][] = []
+    print('empty outer {empty_outer.length}')
+    return void

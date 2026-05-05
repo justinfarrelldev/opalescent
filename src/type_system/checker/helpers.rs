@@ -105,9 +105,40 @@ pub(super) fn coerce_literal_to_expected(
             }
             _ => None,
         },
-        Expr::Array { ref elements, .. } => (elements.is_empty()
-            && matches!(expected, &CoreType::Array(_)))
-        .then(|| expected.clone()),
+        Expr::Array { ref elements, .. } => {
+            if let CoreType::Array(ref expected_element) = *expected {
+                if elements.is_empty() {
+                    Some(expected.clone())
+                } else {
+                    let all_elements_match = elements.iter().all(|element| {
+                        let actual_element_type = match *element {
+                            Expr::Literal { ref value, .. } => Some(literal_to_core_type(value)),
+                            Expr::Array {
+                                elements: ref nested_elements,
+                                ..
+                            } => Some(if nested_elements.is_empty() {
+                                CoreType::Array(alloc::boxed::Box::new(CoreType::Int64))
+                            } else {
+                                expected_element.as_ref().clone()
+                            }),
+                            _ => None,
+                        };
+                        actual_element_type.as_ref().is_some_and(|actual_type| {
+                            actual_type == expected_element.as_ref()
+                                || coerce_literal_to_expected(
+                                    expected_element.as_ref(),
+                                    element,
+                                    actual_type,
+                                )
+                                .is_some_and(|coerced| coerced == expected_element.as_ref().clone())
+                        })
+                    });
+                    all_elements_match.then(|| expected.clone())
+                }
+            } else {
+                None
+            }
+        }
         _ => None,
     }
 }

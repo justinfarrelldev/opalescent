@@ -65,6 +65,7 @@ char* float64_to_string(double value);
 char* bool_to_string(int8_t value);
 int64_t string_length(const char* value);
 int64_t array_length(const void* array, int64_t length);
+void opal_array_bounds_error(uint64_t index, uint64_t length);
 
 /* `Bytes` stdlib surface. `OpalBytes` is an opaque owned heap pointer
  * passed across the FFI boundary as `i8*`. Fallible helpers mirror the

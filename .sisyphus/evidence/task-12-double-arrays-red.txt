@@ -1,0 +1,47 @@
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.58s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-033dd992ae8b06fd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1170 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-1022cef4f35ac85a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-c5ad84a6e6300338)
+
+running 1 test
+test tests::array_double_runs ... 
+thread 'tests::array_double_runs' panicked at tests/array_integration.rs:55:5:
+array-double integration run should exit successfully, got: Some(1)
+stderr: [31mopalescent::type_system::type_mismatch[0m
+
+  [31m×[0m Type mismatch: expected '[int32]', found '[t3]'
+    ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/array-double/src/main.op:10:30[0m]
+ [2m 9[0m │ 
+ [2m10[0m │     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    · [35;1m                             ────────────┬───────────[0m[33;1m  ─┬[0m
+    ·                                          [35;1m│[0m              [33;1m╰── [33;1mtype '[t3]' found here[0m[0m
+    ·                                          [35;1m╰── [35;1mtype '[int32]' expected here[0m[0m
+ [2m11[0m │     print('jagged outer {jagged.length}')
+    ╰────
+[36m  help: [0mConsider using an explicit cast if this conversion is intentional, or change one of the types to match
+
+
+error: aborting due to 1 previous error
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    tests::array_double_runs
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--test array_integration`
