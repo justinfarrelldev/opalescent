@@ -19,11 +19,34 @@ use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
+use crate::type_system::substitution::Substitution;
 use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{format, string::String, vec::Vec};
 
 impl TypeChecker {
+    /// Resolve a generic ADT field type against concrete owner type arguments.
+    fn resolve_generic_adt_field_type(
+        &self,
+        owner_name: &str,
+        owner_type_args: &[CoreType],
+        field_type: &CoreType,
+    ) -> CoreType {
+        let Some(generic_params) = self.adt_generic_params_for(owner_name) else {
+            return field_type.clone();
+        };
+        if generic_params.len() != owner_type_args.len() {
+            return field_type.clone();
+        }
+
+        let mut substitution = Substitution::empty();
+        for (generic_param, type_arg) in generic_params.iter().zip(owner_type_args.iter()) {
+            substitution = Substitution::single(generic_param.type_var.id, type_arg.clone())
+                .compose(&substitution);
+        }
+        substitution.apply(field_type)
+    }
+
     /// Resolve lambda signature/core AST types with in-scope lambda generic bindings.
     fn ast_type_to_core_type_with_lambda_generics(
         ast_type: &Type,
@@ -185,7 +208,8 @@ impl TypeChecker {
                 } = object_type
                 {
                     if let Some(field_type) = self.adt_field_type(name, member) {
-                        let resolved_field_type = field_type.clone();
+                        let resolved_field_type =
+                            self.resolve_generic_adt_field_type(name, type_args, field_type);
                         self.add_constraint(TypeConstraint::HasField {
                             owner: CoreType::Generic {
                                 name: name.clone(),

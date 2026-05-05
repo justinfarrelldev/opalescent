@@ -279,6 +279,7 @@ impl TypeChecker {
                 type_args: Vec::new(),
             },
         );
+        self.register_builtin_pair_type();
 
         let random_int32_signature = CoreType::Function {
             generic_params: Vec::new(),

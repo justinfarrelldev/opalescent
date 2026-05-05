@@ -2,6 +2,9 @@
 
 extern crate alloc;
 
+/// Predefined language-visible type names that user declarations may not reuse.
+const RESERVED_BUILTIN_TYPE_NAMES: &[&str] = &["Pair"];
+
 use crate::ast::{
     AstNode, Decl, Expr, FunctionModifier, LetBinding, Parameter, Program, Stmt, Type, TypeDef,
     TypeParameter, Visibility as AstVisibility,
@@ -378,6 +381,12 @@ impl TypeChecker {
                 visibility,
                 ..
             } => {
+                if RESERVED_BUILTIN_TYPE_NAMES.contains(&name.as_str()) {
+                    return Err(TypeError::ReservedTypeName {
+                        type_name: name.clone(),
+                        span: TypeError::span_from_span(decl.span()),
+                    });
+                }
                 let mut generic_bindings: Vec<(alloc::string::String, CoreType)> = Vec::new();
                 if let Some(declarations) = generic_constraints.as_ref() {
                     for declaration in declarations {

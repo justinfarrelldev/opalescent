@@ -3129,6 +3129,7 @@ fn test_type_environment_creation() {
     assert!(env.has_type("int32"));
     assert!(env.has_type("string"));
     assert!(env.has_type("boolean"));
+    assert!(env.has_type("Pair"));
 
     // Test extended integer types
     assert!(env.has_type("int8"));
@@ -3184,6 +3185,14 @@ fn test_type_environment_lookup() {
     // Test unit type
     assert_eq!(env.lookup_type("unit", span).unwrap(), &CoreType::Unit);
 
+    assert_eq!(
+        env.lookup_type("Pair", span).unwrap(),
+        &CoreType::Generic {
+            name: "Pair".to_owned(),
+            type_args: Vec::new(),
+        }
+    );
+
     // Test non-existent type
     assert!(env.lookup_type("nonexistent", span).is_err());
 }
@@ -3204,6 +3213,7 @@ fn test_type_checker_creation() {
     let checker = TypeChecker::new();
     assert!(checker.environment().has_type("int32"));
     assert!(checker.environment().has_type("string"));
+    assert!(checker.environment().has_type("Pair"));
 }
 
 #[test]

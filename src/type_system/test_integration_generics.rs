@@ -115,13 +115,9 @@ entry main = f(): Node<int64> =>
     }
 
     #[test]
-    fn test_generic_product_constructor_infers_multiple_type_args() {
+    fn test_builtin_pair_constructor_infers_multiple_type_args() {
         const SOURCE: &str = "
-type Pair<T, U>:
-    first: T
-    second: U
-
-## Description: Entry validates multi-parameter generic constructor inference ##
+## Description: Entry validates predefined Pair constructor inference ##
 entry main = f(): Pair<string, boolean> =>
     return new Pair:
         first: 'hello'
@@ -133,7 +129,7 @@ entry main = f(): Pair<string, boolean> =>
         let result = checker.type_check_program(&program);
         assert!(
             result.is_ok(),
-            "generic Pair constructor should infer T=string,U=boolean: {result:?}",
+            "predefined Pair constructor should infer T=string,U=boolean: {result:?}",
         );
     }
 
@@ -184,7 +180,7 @@ entry main = f(): NumberBox<string> =>
     #[test]
     fn test_generic_instantiation_metadata_records_unique_call_and_constructor_instantiations() {
         const SOURCE: &str = "
-type Pair<T, U>:
+type Record<T, U>:
     first: T
     second: U
 
@@ -193,10 +189,10 @@ public identity = f<T>(x: T): T =>
 
 ## Description: Entry validates generic instantiation metadata recording ##
 entry main = f(): int64 =>
-    let first: Pair<int64, boolean> = new Pair:
+    let first: Record<int64, boolean> = new Record:
         first: 42
         second: true
-    let second: Pair<int64, boolean> = new Pair:
+    let second: Record<int64, boolean> = new Record:
         first: 7
         second: false
     let one: int64 = identity(42)
@@ -213,18 +209,18 @@ entry main = f(): int64 =>
         );
 
         let recorded = checker.generic_instantiations();
-        let pair_entries = recorded
-            .get("Pair")
-            .expect("Pair instantiations should be recorded");
+        let record_entries = recorded
+            .get("Record")
+            .expect("Record instantiations should be recorded");
         assert_eq!(
-            pair_entries.len(),
+            record_entries.len(),
             1,
-            "Pair<int64, boolean> should be recorded uniquely",
+            "Record<int64, boolean> should be recorded uniquely",
         );
         assert_eq!(
-            pair_entries[0],
+            record_entries[0],
             vec![CoreType::Int64, CoreType::Boolean],
-            "Pair concrete type args should match inferred instantiation",
+            "Record concrete type args should match inferred instantiation",
         );
 
         let identity_entries = recorded
@@ -239,6 +235,59 @@ entry main = f(): int64 =>
             identity_entries[0],
             vec![CoreType::Int64],
             "identity concrete type args should match inferred instantiation",
+        );
+    }
+
+    #[test]
+    fn test_builtin_pair_field_access_resolves_concrete_field_types() {
+        const SOURCE: &str = "
+## Description: Entry validates predefined Pair field access typing ##
+entry main = f(): int32 =>
+    let pair: Pair<int32, string> = new Pair:
+        first: 1 as int32
+        second: 'x'
+    let label: string = pair.second
+    return pair.first
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "predefined Pair field access should resolve concrete types: {result:?}",
+        );
+    }
+
+    #[test]
+    fn test_builtin_pair_redeclaration_reports_reserved_name_error() {
+        const SOURCE: &str = "
+type Pair<T, U>:
+    first: T
+    second: U
+
+## Description: Entry validates reserved Pair redeclaration diagnostics ##
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        let errors = result.expect_err("reserved Pair redeclaration must fail type checking");
+        assert!(
+            errors.iter().any(|error| matches!(
+                error,
+                &TypeError::ReservedTypeName { ref type_name, .. } if type_name == "Pair"
+            )),
+            "expected ReservedTypeName diagnostic for Pair, got: {errors:?}",
+        );
+        assert!(
+            errors.iter().any(|error| {
+                let rendered = format!("{error}").to_lowercase();
+                rendered.contains("pair") && rendered.contains("reserved")
+            }),
+            "expected diagnostic text mentioning reserved Pair, got: {errors:?}",
         );
     }
 }

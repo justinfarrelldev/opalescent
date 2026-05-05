@@ -1,10 +1,35 @@
 extern crate alloc;
 
 use crate::type_system::checker::TypeChecker;
-use crate::type_system::types::{CoreType, GenericTypeParameter};
+use crate::type_system::types::{CoreType, GenericTypeParameter, TypeVar};
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 
 impl TypeChecker {
+    /// Register the predefined generic Pair<T, U> product type metadata.
+    pub(super) fn register_builtin_pair_type(&mut self) {
+        let first_var = TypeVar::new(10_001, "T".to_owned());
+        let second_var = TypeVar::new(10_002, "U".to_owned());
+        let pair_params = vec![
+            GenericTypeParameter {
+                name: "T".to_owned(),
+                type_var: first_var.clone(),
+                constraints: Vec::new(),
+            },
+            GenericTypeParameter {
+                name: "U".to_owned(),
+                type_var: second_var.clone(),
+                constraints: Vec::new(),
+            },
+        ];
+        let pair_fields = BTreeMap::from([
+            ("first".to_owned(), CoreType::Variable(first_var)),
+            ("second".to_owned(), CoreType::Variable(second_var)),
+        ]);
+
+        self.register_adt_generic_params("Pair".to_owned(), pair_params);
+        self.register_adt_fields("Pair".to_owned(), pair_fields);
+    }
+
     /// Register declared generic parameters for a nominal ADT.
     pub(super) fn register_adt_generic_params(
         &mut self,

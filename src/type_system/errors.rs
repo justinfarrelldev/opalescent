@@ -107,6 +107,20 @@ pub enum TypeError {
         span: SourceSpan,
     },
 
+    /// Type declaration reuses a reserved predefined name.
+    #[error("Type '{type_name}' is reserved and cannot be redeclared")]
+    #[diagnostic(
+        code(opalescent::type_system::reserved_type_name),
+        help("Choose a different type name because '{type_name}' is predefined by the language")
+    )]
+    ReservedTypeName {
+        /// Reserved predefined type name that user code attempted to redeclare.
+        type_name: String,
+        #[label("reserved type name redeclared here")]
+        /// Source location of the reserved type declaration.
+        span: SourceSpan,
+    },
+
     /// Program contains no entry point declaration.
     #[error("Program is missing an `entry` function")]
     #[diagnostic(

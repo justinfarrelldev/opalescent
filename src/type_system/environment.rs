@@ -57,6 +57,13 @@ impl TypeEnvironment {
                 type_args: Vec::new(),
             },
         );
+        self.types.insert(
+            "Pair".to_owned(),
+            CoreType::Generic {
+                name: "Pair".to_owned(),
+                type_args: Vec::new(),
+            },
+        );
     }
 
     /// Register a built-in function signature in the environment.
