@@ -375,6 +375,7 @@ pub fn codegen_loop_statement<'context>(
                     alloca: iteration_alloca,
                     core_type: element_core_type,
                     length: None,
+                    capacity: None,
                     is_mutable: false,
                 },
             );

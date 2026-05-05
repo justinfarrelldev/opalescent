@@ -169,6 +169,24 @@ pub fn codegen_function_declaration<'context>(
                     alloca: len_alloca,
                     core_type: CoreType::Int64,
                     length: None,
+                    capacity: None,
+                    is_mutable: false,
+                },
+            );
+            let cap_binding_name = format!("{}_cap", parameter.name);
+            let cap_alloca = codegen_context
+                .builder
+                .build_alloca(len_param_value.get_type(), cap_binding_name.as_str())?;
+            let _store_cap = codegen_context
+                .builder
+                .build_store(cap_alloca, len_param_value)?;
+            env.variables.insert(
+                cap_binding_name,
+                VariableBinding {
+                    alloca: cap_alloca,
+                    core_type: CoreType::Int64,
+                    length: None,
+                    capacity: None,
                     is_mutable: false,
                 },
             );
@@ -181,6 +199,7 @@ pub fn codegen_function_declaration<'context>(
                 alloca,
                 core_type: parameter_core_types[index].clone(),
                 length,
+                capacity: length,
                 is_mutable: false,
             },
         );
@@ -231,6 +250,11 @@ pub fn codegen_import_declaration<'context>(
                 ref alias,
                 ..
             } => {
+                let local_name = alias.as_ref().unwrap_or(name).clone();
+                if name == "append" && source == "standard" {
+                    env.imported_functions.insert(local_name, name.clone());
+                    continue;
+                }
                 let runtime_name = crate::codegen::functions_stdlib::resolve_imported_runtime_name(
                     source.as_str(),
                     name.as_str(),
@@ -244,7 +268,6 @@ pub fn codegen_import_declaration<'context>(
                         "unsupported stdlib import '{name}' from module '{source}'"
                     ))
                 })?;
-                let local_name = alias.as_ref().unwrap_or(name).clone();
                 env.imported_functions.insert(
                     local_name,
                     stdlib_function

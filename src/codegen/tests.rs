@@ -2344,6 +2344,7 @@ fn test_codegen_function_pointer_is_comparison_emits_icmp() {
                 error_types: Vec::new(),
             },
             length: None,
+            capacity: None,
             is_mutable: false,
         },
     );
@@ -2363,6 +2364,7 @@ fn test_codegen_function_pointer_is_comparison_emits_icmp() {
                 error_types: Vec::new(),
             },
             length: None,
+            capacity: None,
             is_mutable: false,
         },
     );
@@ -2420,6 +2422,7 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
                 error_types: Vec::new(),
             },
             length: None,
+            capacity: None,
             is_mutable: false,
         },
     );
@@ -2439,6 +2442,7 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
                 error_types: Vec::new(),
             },
             length: None,
+            capacity: None,
             is_mutable: false,
         },
     );

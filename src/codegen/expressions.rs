@@ -40,11 +40,18 @@ use self::expressions_cast_helpers::{
 };
 use crate::codegen::error::CodegenError;
 
+#[derive(Debug, Clone, Copy)]
+pub struct ArrayMetadata<'context> {
+    pub length: IntValue<'context>,
+    pub capacity: IntValue<'context>,
+}
+
 #[derive(Debug, Clone)]
 pub struct VariableBinding<'context> {
     pub alloca: PointerValue<'context>,
     pub core_type: CoreType,
     pub length: Option<u32>,
+    pub capacity: Option<u32>,
     pub is_mutable: bool,
 }
 
@@ -65,7 +72,7 @@ pub struct CodegenEnv<'context> {
     pub variable_field_aliases: BTreeMap<String, BTreeMap<String, String>>,
     pub emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue<'context>>,
     pub loop_stack: Vec<LoopContext<'context>>,
-    pub pending_array_length: Option<IntValue<'context>>,
+    pub pending_array_metadata: Option<ArrayMetadata<'context>>,
     pub debug_mode: bool,
     pub temp_counter: usize,
 }
@@ -81,7 +88,7 @@ impl<'context> CodegenEnv<'context> {
             variable_field_aliases: BTreeMap::new(),
             emitted_specializations: BTreeMap::new(),
             loop_stack: Vec::new(),
-            pending_array_length: None,
+            pending_array_metadata: None,
             debug_mode,
             temp_counter: 0,
         }

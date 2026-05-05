@@ -537,6 +537,10 @@ pub fn compile_program_host(
     clippy::too_many_lines,
     reason = "Project compilation orchestrates discovery, parsing, typing, codegen, and linking in one flow"
 )]
+#[expect(
+    clippy::needless_borrowed_reference,
+    reason = "borrowed declaration matching avoids the repo's pattern-type-mismatch lint"
+)]
 pub fn compile_project(
     project_dir: &Path,
     output_dir: &Path,

@@ -498,6 +498,10 @@ impl TypeChecker {
     }
 
     /// Allows `join_path_components` to accept `FilesystemPath[]` where `string[]` is expected.
+    #[expect(
+        clippy::needless_borrowed_reference,
+        reason = "borrowed core-type matching avoids the repo's pattern-type-mismatch lint"
+    )]
     fn is_join_path_components_path_array_bridge(
         callee: &Expr,
         param_type: &CoreType,

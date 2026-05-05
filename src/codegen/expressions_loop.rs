@@ -3,8 +3,7 @@
     clippy::missing_const_for_fn,
     reason = "internal codegen implementation module"
 )]
-use crate::codegen::expressions::{CodegenEnv, LoopContext};
-use inkwell::values::IntValue;
+use crate::codegen::expressions::{ArrayMetadata, CodegenEnv, LoopContext};
 
 impl<'context> CodegenEnv<'context> {
     /// Push a loop frame for nested break/continue lowering.
@@ -31,13 +30,13 @@ impl<'context> CodegenEnv<'context> {
         result
     }
 
-    /// Record a runtime length extracted from the current array-producing expression.
-    pub fn set_pending_array_length(&mut self, length: Option<IntValue<'context>>) {
-        self.pending_array_length = length;
+    /// Record runtime array metadata extracted from the current array-producing expression.
+    pub fn set_pending_array_metadata(&mut self, metadata: Option<ArrayMetadata<'context>>) {
+        self.pending_array_metadata = metadata;
     }
 
-    /// Consume any runtime array length left by the immediately preceding expression lowering.
-    pub fn take_pending_array_length(&mut self) -> Option<IntValue<'context>> {
-        self.pending_array_length.take()
+    /// Consume any runtime array metadata left by the immediately preceding expression lowering.
+    pub fn take_pending_array_metadata(&mut self) -> Option<ArrayMetadata<'context>> {
+        self.pending_array_metadata.take()
     }
 }

@@ -114,6 +114,10 @@ pub fn codegen_field_access_expression<'context>(
 }
 
 #[doc = "Lower intrinsic member access forms that are backed by runtime functions."]
+#[expect(
+    clippy::needless_borrowed_reference,
+    reason = "borrowed core-type matching avoids the repo's pattern-type-mismatch lint"
+)]
 fn codegen_intrinsic_member_access<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -121,7 +125,11 @@ fn codegen_intrinsic_member_access<'context>(
     binding: &VariableBinding<'context>,
     member_name: &str,
 ) -> Result<Option<BasicValueEnum<'context>>, CodegenError> {
-    if let &CoreType::Generic { ref name, ref type_args } = &binding.core_type {
+    if let &CoreType::Generic {
+        ref name,
+        ref type_args,
+    } = &binding.core_type
+    {
         if name == "Bytes" && type_args.is_empty() && member_name == "length" {
             let runtime_function = crate::codegen::functions_stdlib::declare_stdlib_function(
                 codegen_context,

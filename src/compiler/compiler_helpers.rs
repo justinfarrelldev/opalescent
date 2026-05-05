@@ -114,6 +114,10 @@ pub fn validate_entry_declarations_for_module(
 }
 
 /// Collects type signatures of imported symbols for code generation.
+#[expect(
+    clippy::needless_borrowed_reference,
+    reason = "borrowed declaration matching avoids the repo's pattern-type-mismatch lint"
+)]
 pub fn collect_imported_symbol_signatures(
     checker: &TypeChecker,
     program: &Program,
