@@ -105,6 +105,9 @@ pub(super) fn coerce_literal_to_expected(
             }
             _ => None,
         },
+        Expr::Array { ref elements, .. } => (elements.is_empty()
+            && matches!(expected, &CoreType::Array(_)))
+        .then(|| expected.clone()),
         _ => None,
     }
 }

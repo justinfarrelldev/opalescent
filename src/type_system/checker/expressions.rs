@@ -680,7 +680,28 @@ impl TypeChecker {
             }
         }
 
-        self.type_check_call_expr_impl(callee, generic_args, args, span)
+        let result = self.type_check_call_expr_impl(callee, generic_args, args, span);
+        if let Err(error) = result {
+            if let Expr::Member { ref member, .. } = *callee {
+                if member == "filter" && args.len() == 1 {
+                    let predicate_type = self.type_check_expr(&args[0]);
+                    if let Ok(CoreType::Function { return_types, .. }) = predicate_type {
+                        if let Some(first_return_type) = return_types.first() {
+                            if first_return_type != &CoreType::Boolean {
+                                return Err(invalid_operation_error(
+                                    "filter predicate must return boolean",
+                                    first_return_type,
+                                    args[0].span(),
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+            return Err(error);
+        }
+
+        result
     }
 
     /// Type check an array indexing operation, confirming integer indices and yielding the

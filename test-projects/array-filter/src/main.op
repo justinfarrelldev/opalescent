@@ -1,0 +1,14 @@
+##
+  Description: Runs the filter fixture for array predicate behavior.
+##
+entry main = f(args: string[]): void =>
+    let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+    let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+    print('length {evens.length}')
+    print('values {evens[0]} {evens[1]}')
+    let none = xs.filter(f(x: int32): boolean => x > (10 as int32))
+    print('none length {none.length}')
+    let all_values = xs.filter(f(x: int32): boolean => x > (0 as int32))
+    print('all length {all_values.length}')
+    print('source length {xs.length}')
+    return void

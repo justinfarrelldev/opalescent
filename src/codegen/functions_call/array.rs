@@ -44,6 +44,7 @@ pub(super) fn codegen_array_member_call<'context>(
         "push" => codegen_array_push_call(codegen_context, env, receiver, args),
         "pop" => codegen_array_pop_call(codegen_context, env, receiver, args),
         "map" => codegen_array_map_call(codegen_context, env, receiver, args),
+        "filter" => codegen_array_filter_call(codegen_context, env, receiver, args),
         _ => Err(CodegenError::new(format!(
             "array method '{member}' is not implemented yet"
         ))),
@@ -536,10 +537,275 @@ fn codegen_array_map_call<'context>(
 }
 
 #[expect(
+    clippy::too_many_lines,
     clippy::pattern_type_mismatch,
-    reason = "matching borrowed function signatures is clearer than manual dereferencing"
+    reason = "filter lowering builds a dedicated loop with packed writes for matching elements"
 )]
-fn infer_map_callback_return_core_type(
+fn codegen_array_filter_call<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    receiver: &Expr,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    if args.len() != 1 {
+        return Err(CodegenError::new(format!(
+            "array method 'filter' expects exactly 1 argument but received {}",
+            args.len()
+        )));
+    }
+
+    let (_array_name, array_binding, base_ptr, length_value, capacity_value) =
+        resolve_array_identifier_binding(codegen_context, env, "filter", receiver)?;
+    validate_array_operation_metadata(
+        codegen_context,
+        env,
+        "filter",
+        base_ptr,
+        length_value,
+        capacity_value,
+    )?;
+    let input_element_core_type = match &array_binding.core_type {
+        CoreType::Array(element_type) => element_type.as_ref().clone(),
+        _ => {
+            return Err(CodegenError::new(format!(
+                "filter expects an array receiver, found '{}'",
+                array_binding.core_type
+            )));
+        }
+    };
+
+    let insertion_block = codegen_context.builder.get_insert_block();
+    let callback_function = resolve_callee_function(codegen_context, env, &args[0], None)?;
+    if let Some(block) = insertion_block {
+        codegen_context.builder.position_at_end(block);
+    }
+    let predicate_return_core_type = infer_array_callback_return_core_type(env, &args[0])
+        .or_else(|| {
+            callback_function
+                .get_type()
+                .get_return_type()
+                .map(llvm_basic_type_to_core_type)
+        })
+        .ok_or_else(|| {
+            CodegenError::new(String::from(
+                "array filter predicate must declare a concrete return type",
+            ))
+        })?;
+    if predicate_return_core_type != CoreType::Boolean {
+        return Err(CodegenError::new(String::from(
+            "array filter predicate must return boolean",
+        )));
+    }
+
+    let result_pointer_type = core_type_to_llvm(codegen_context.context, &input_element_core_type)
+        .ptr_type(AddressSpace::default());
+    let result_alloca = codegen_context
+        .builder
+        .build_alloca(result_pointer_type, &env.next_name("filter.result.ptr"))?;
+    let index_alloca = codegen_context.builder.build_alloca(
+        codegen_context.context.i64_type(),
+        &env.next_name("filter.index"),
+    )?;
+    let write_index_alloca = codegen_context.builder.build_alloca(
+        codegen_context.context.i64_type(),
+        &env.next_name("filter.write_index"),
+    )?;
+    codegen_context.builder.build_store(
+        index_alloca,
+        codegen_context.context.i64_type().const_zero(),
+    )?;
+    codegen_context.builder.build_store(
+        write_index_alloca,
+        codegen_context.context.i64_type().const_zero(),
+    )?;
+
+    let current_function = current_function(codegen_context)?;
+    let empty_block = codegen_context
+        .context
+        .append_basic_block(current_function, &env.next_name("filter.empty"));
+    let non_empty_block = codegen_context
+        .context
+        .append_basic_block(current_function, &env.next_name("filter.non_empty"));
+    let loop_block = codegen_context
+        .context
+        .append_basic_block(current_function, &env.next_name("filter.loop"));
+    let body_block = codegen_context
+        .context
+        .append_basic_block(current_function, &env.next_name("filter.body"));
+    let keep_block = codegen_context
+        .context
+        .append_basic_block(current_function, &env.next_name("filter.keep"));
+    let skip_block = codegen_context
+        .context
+        .append_basic_block(current_function, &env.next_name("filter.skip"));
+    let exit_block = codegen_context
+        .context
+        .append_basic_block(current_function, &env.next_name("filter.exit"));
+    let is_empty = codegen_context.builder.build_int_compare(
+        inkwell::IntPredicate::EQ,
+        length_value,
+        codegen_context.context.i64_type().const_zero(),
+        &env.next_name("filter.is_empty"),
+    )?;
+    codegen_context
+        .builder
+        .build_conditional_branch(is_empty, empty_block, non_empty_block)?;
+
+    codegen_context.builder.position_at_end(empty_block);
+    codegen_context
+        .builder
+        .build_store(result_alloca, result_pointer_type.const_null())?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(exit_block)?;
+
+    codegen_context.builder.position_at_end(non_empty_block);
+    let result_ptr = allocate_array_buffer(
+        codegen_context,
+        env,
+        "filter",
+        &input_element_core_type,
+        length_value,
+    )?;
+    codegen_context
+        .builder
+        .build_store(result_alloca, result_ptr)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_block)?;
+
+    codegen_context.builder.position_at_end(loop_block);
+    let index_value = codegen_context
+        .builder
+        .build_load(index_alloca, &env.next_name("filter.index.load"))?
+        .into_int_value();
+    let should_continue = codegen_context.builder.build_int_compare(
+        inkwell::IntPredicate::ULT,
+        index_value,
+        length_value,
+        &env.next_name("filter.cond"),
+    )?;
+    codegen_context
+        .builder
+        .build_conditional_branch(should_continue, body_block, exit_block)?;
+
+    codegen_context.builder.position_at_end(body_block);
+    // SAFETY: the loop guard ensures `index_value < length_value`, so this source element access is in bounds.
+    let source_slot = unsafe {
+        codegen_context.builder.build_in_bounds_gep(
+            base_ptr,
+            &[index_value],
+            &env.next_name("filter.src"),
+        )?
+    };
+    let source_value = codegen_context
+        .builder
+        .build_load(source_slot, &env.next_name("filter.value"))?;
+    let mut callback_args: Vec<BasicMetadataValueEnum<'context>> = vec![source_value.into()];
+    if let Expr::Lambda {
+        ref captured_variables,
+        ..
+    } = args[0]
+    {
+        for capture in captured_variables {
+            let Some(binding) = env.variables.get(capture.as_str()) else {
+                return Err(CodegenError::new(format!(
+                    "filter callback capture '{capture}' not found in scope"
+                )));
+            };
+            let captured_value = codegen_context
+                .builder
+                .build_load(binding.alloca, capture.as_str())?;
+            callback_args.push(captured_value.into());
+        }
+    }
+    let predicate_value = codegen_context
+        .builder
+        .build_call(
+            callback_function,
+            callback_args.as_slice(),
+            &env.next_name("filter.call"),
+        )?
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| {
+            CodegenError::new(String::from("array filter predicate must return a value"))
+        })?;
+    if !predicate_value.is_int_value() {
+        return Err(CodegenError::new(String::from(
+            "array filter predicate must lower to a boolean value",
+        )));
+    }
+    codegen_context.builder.build_conditional_branch(
+        predicate_value.into_int_value(),
+        keep_block,
+        skip_block,
+    )?;
+
+    codegen_context.builder.position_at_end(keep_block);
+    let destination_ptr = codegen_context
+        .builder
+        .build_load(result_alloca, &env.next_name("filter.result.load"))?
+        .into_pointer_value();
+    let write_index_value = codegen_context
+        .builder
+        .build_load(
+            write_index_alloca,
+            &env.next_name("filter.write_index.load"),
+        )?
+        .into_int_value();
+    // SAFETY: `write_index_value` counts only kept elements and never exceeds the source length used to allocate the result buffer.
+    let destination_slot = unsafe {
+        codegen_context.builder.build_in_bounds_gep(
+            destination_ptr,
+            &[write_index_value],
+            &env.next_name("filter.dst"),
+        )?
+    };
+    codegen_context
+        .builder
+        .build_store(destination_slot, source_value)?;
+    let next_write_index = codegen_context.builder.build_int_add(
+        write_index_value,
+        codegen_context.context.i64_type().const_int(1, false),
+        &env.next_name("filter.write_index.next"),
+    )?;
+    codegen_context
+        .builder
+        .build_store(write_index_alloca, next_write_index)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(skip_block)?;
+
+    codegen_context.builder.position_at_end(skip_block);
+    let next_index = codegen_context.builder.build_int_add(
+        index_value,
+        codegen_context.context.i64_type().const_int(1, false),
+        &env.next_name("filter.next"),
+    )?;
+    codegen_context
+        .builder
+        .build_store(index_alloca, next_index)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_block)?;
+
+    codegen_context.builder.position_at_end(exit_block);
+    let final_result_ptr = codegen_context
+        .builder
+        .build_load(result_alloca, &env.next_name("filter.result.final"))?;
+    let final_length = codegen_context
+        .builder
+        .build_load(write_index_alloca, &env.next_name("filter.length.final"))?
+        .into_int_value();
+    env.set_pending_array_metadata(Some(ArrayMetadata {
+        length: final_length,
+        capacity: length_value,
+    }));
+    Ok(final_result_ptr)
+}
+
+fn infer_array_callback_return_core_type(
     env: &CodegenEnv<'_>,
     callback: &Expr,
 ) -> Option<CoreType> {
@@ -553,17 +819,25 @@ fn infer_map_callback_return_core_type(
             .variables
             .get(name.as_str())
             .and_then(|binding| match &binding.core_type {
-                CoreType::Function { return_types, .. } => return_types.first().cloned(),
+                &CoreType::Function {
+                    ref return_types, ..
+                } => return_types.first().cloned(),
                 _ => None,
             })
             .or_else(|| {
                 env.imported_signatures
                     .get(name.as_str())
                     .and_then(|signature| match signature {
-                        CoreType::Function { return_types, .. } => return_types.first().cloned(),
+                        &CoreType::Function {
+                            ref return_types, ..
+                        } => return_types.first().cloned(),
                         _ => None,
                     })
             }),
         _ => None,
     }
+}
+
+fn infer_map_callback_return_core_type(env: &CodegenEnv<'_>, callback: &Expr) -> Option<CoreType> {
+    infer_array_callback_return_core_type(env, callback)
 }

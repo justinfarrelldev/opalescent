@@ -257,6 +257,68 @@ entry main = f(args: string[]): void =>
     }
 
     #[test]
+    fn array_filter_all_pass_preserves_order() {
+        let temp_dir = write_temp_project_source(
+            "array-filter-all-pass",
+            "##\n  Description: Verifies array filter keeps all elements in original order when every predicate check passes.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]\n    let all_values = xs.filter(f(x: int32): boolean => x > (0 as int32))\n    print('length {all_values.length}')\n    print('values {all_values[0]} {all_values[1]} {all_values[2]} {all_values[3]}')\n    print('source length {xs.length}')\n    print('source values {xs[0]} {xs[1]} {xs[2]} {xs[3]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "all-pass filter fixture should exit successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual, "length 4\nvalues 1 2 3 4\nsource length 4\nsource values 1 2 3 4\n",
+            "all-pass filter should preserve order and leave the source array unchanged"
+        );
+    }
+
+    #[test]
+    fn array_filter_empty_input_returns_empty_array() {
+        let temp_dir = write_temp_project_source(
+            "array-filter-empty",
+            "##\n  Description: Verifies array filter over an empty input yields an empty output.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = []\n    let out = xs.filter(f(x: int32): boolean => x > (0 as int32))\n    print('length {out.length}')\n    print('source length {xs.length}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "empty filter fixture should exit successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual, "length 0\nsource length 0\n",
+            "empty filter stdout should match"
+        );
+    }
+
+    #[test]
+    fn array_filter_non_boolean_predicate_fails_at_check_time() {
+        let temp_dir = write_temp_project_source(
+            "array-filter-non-boolean",
+            "##\n  Description: Verifies array filter rejects predicates that do not return boolean values.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = [1 as int32, 2 as int32]\n    let filtered = xs.filter(f(x: int32): int32 => x)\n    print('length {filtered.length}')\n    return void\n",
+        );
+        let output = run_opal_check(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            !output.status.success(),
+            "non-boolean filter predicate fixture should fail compilation"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("filter") && stderr.contains("boolean"),
+            "filter predicate diagnostic should mention filter and boolean, stderr: {stderr}"
+        );
+    }
+
+    #[test]
     fn array_reduce_runs() {
         assert_stdout("array-reduce", &read_expected_stdout("array-reduce"));
     }
