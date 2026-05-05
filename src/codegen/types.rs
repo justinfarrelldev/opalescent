@@ -20,13 +20,31 @@ pub fn core_type_to_llvm<'context>(
         CoreType::Float32 => context.f32_type().into(),
         CoreType::Float64 => context.f64_type().into(),
         CoreType::Boolean => context.bool_type().into(),
-        CoreType::String
-        | CoreType::Variable(_)
-        | CoreType::Function { .. }
-        | CoreType::Generic { .. } => context
+        CoreType::String | CoreType::Variable(_) | CoreType::Function { .. } => context
             .i8_type()
             .ptr_type(AddressSpace::default())
             .as_basic_type_enum(),
+        CoreType::Generic {
+            ref name,
+            ref type_args,
+        } => {
+            if name == "Pair" && type_args.len() == 2 {
+                context
+                    .struct_type(
+                        &[
+                            core_type_to_llvm(context, &type_args[0]),
+                            core_type_to_llvm(context, &type_args[1]),
+                        ],
+                        false,
+                    )
+                    .as_basic_type_enum()
+            } else {
+                context
+                    .i8_type()
+                    .ptr_type(AddressSpace::default())
+                    .as_basic_type_enum()
+            }
+        }
         CoreType::Array(ref element_type) => core_type_to_llvm(context, element_type)
             .array_type(0)
             .as_basic_type_enum(),

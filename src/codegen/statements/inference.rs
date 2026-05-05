@@ -75,6 +75,14 @@ pub(super) fn infer_core_type_from_expr<'context>(
                 } if name == "Bytes" && type_args.is_empty() && member == "length" => {
                     CoreType::Int32
                 }
+                CoreType::Generic {
+                    ref name,
+                    ref type_args,
+                } if name == "Pair" && type_args.len() == 2 => match member.as_str() {
+                    "first" => type_args[0].clone(),
+                    "second" => type_args[1].clone(),
+                    _ => CoreType::Int64,
+                },
                 _ => CoreType::Int64,
             }
         }
@@ -166,6 +174,22 @@ fn infer_member_call_return_type(
             Some(CoreType::Array(Box::new(element_type.as_ref().clone())))
         }
         (CoreType::Array(_), "reduce") => infer_callback_return_core_type(env, args.get(1)?),
+        (CoreType::Array(left_type), "zip") => {
+            let Expr::Identifier { ref name, .. } = *args.first()? else {
+                return None;
+            };
+            let right_type = env.variables.get(name)?.core_type.clone();
+            let CoreType::Array(right_element_type) = right_type else {
+                return None;
+            };
+            Some(CoreType::Array(alloc::boxed::Box::new(CoreType::Generic {
+                name: String::from("Pair"),
+                type_args: vec![
+                    left_type.as_ref().clone(),
+                    right_element_type.as_ref().clone(),
+                ],
+            })))
+        }
         (CoreType::Generic { name, type_args }, "length")
             if name == "Bytes" && type_args.is_empty() =>
         {

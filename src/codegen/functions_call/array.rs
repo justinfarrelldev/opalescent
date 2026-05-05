@@ -12,6 +12,7 @@ use self::helpers::{
     resolve_array_identifier_binding, store_array_binding_with_metadata,
     trap_on_invalid_array_state, validate_array_operation_metadata,
 };
+use self::zip::codegen_array_zip_call;
 use super::functions_call_helpers::{current_function, llvm_basic_type_to_core_type};
 use super::resolve_callee_function;
 use crate::ast::Expr;
@@ -29,6 +30,8 @@ use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, Pointe
 
 #[path = "array/helpers.rs"]
 mod helpers;
+#[path = "array/zip.rs"]
+mod zip;
 
 pub(super) fn is_append_intrinsic_name(name: &str) -> bool {
     matches!(name, "append")
@@ -47,6 +50,7 @@ pub(super) fn codegen_array_member_call<'context>(
         "map" => codegen_array_map_call(codegen_context, env, receiver, args),
         "filter" => codegen_array_filter_call(codegen_context, env, receiver, args),
         "reduce" => codegen_array_reduce_call(codegen_context, env, receiver, args),
+        "zip" => codegen_array_zip_call(codegen_context, env, receiver, args),
         _ => Err(CodegenError::new(format!(
             "array method '{member}' is not implemented yet"
         ))),

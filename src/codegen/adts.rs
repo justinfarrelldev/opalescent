@@ -52,64 +52,81 @@ pub fn codegen_field_access_expression<'context>(
     env: &mut CodegenEnv<'context>,
     expr: &Expr,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let (receiver_name, member_name) = member_parts(expr)?;
-    let mut effective_receiver_name = receiver_name.clone();
-    let effective_member_name = member_name.as_str();
-    if let Some((root, field)) = receiver_name.split_once('.') {
-        if let Some(alias_map) = env.variable_field_aliases.get(root) {
-            if let Some(target_binding) = alias_map.get(field) {
-                effective_receiver_name.clone_from(target_binding);
+    let Expr::Member {
+        ref object,
+        ref member,
+        ..
+    } = *expr
+    else {
+        return Err(CodegenError::new(String::from(
+            "expected member expression",
+        )));
+    };
+
+    if let Ok((receiver_name, member_name)) = member_parts(expr) {
+        let mut effective_receiver_name = receiver_name.clone();
+        let effective_member_name = member_name.as_str();
+        if let Some((root, field)) = receiver_name.split_once('.') {
+            if let Some(alias_map) = env.variable_field_aliases.get(root) {
+                if let Some(target_binding) = alias_map.get(field) {
+                    effective_receiver_name.clone_from(target_binding);
+                }
+            }
+        }
+
+        if let Some(binding) = env.variables.get(effective_receiver_name.as_str()).cloned() {
+            if let Some(lowered) = codegen_intrinsic_member_access(
+                codegen_context,
+                env,
+                effective_receiver_name.as_str(),
+                &binding,
+                effective_member_name,
+            )? {
+                return Ok(lowered);
+            }
+
+            if let Some(field_indices) = env
+                .variable_field_indices
+                .get(effective_receiver_name.as_str())
+            {
+                if let Some(index) = field_indices.get(effective_member_name) {
+                    // SAFETY: Index comes from tracked constructor field layout for same receiver alloca.
+                    let field_ptr = unsafe {
+                        codegen_context.builder.build_in_bounds_gep(
+                            binding.alloca,
+                            &[
+                                codegen_context.context.i32_type().const_zero(),
+                                codegen_context
+                                    .context
+                                    .i32_type()
+                                    .const_int(u64::from(*index), false),
+                            ],
+                            &env.next_name("field.gep"),
+                        )?
+                    };
+                    return codegen_context
+                        .builder
+                        .build_load(field_ptr, &env.next_name("field.load"))
+                        .map_err(CodegenError::from);
+                }
             }
         }
     }
 
-    let Some(binding) = env.variables.get(effective_receiver_name.as_str()).cloned() else {
-        return Err(CodegenError::new(format!(
-            "unknown field-access receiver '{receiver_name}'"
-        )));
-    };
-
-    if let Some(lowered) = codegen_intrinsic_member_access(
-        codegen_context,
-        env,
-        effective_receiver_name.as_str(),
-        &binding,
-        effective_member_name,
-    )? {
-        return Ok(lowered);
-    }
-
-    let Some(field_indices) = env
-        .variable_field_indices
-        .get(effective_receiver_name.as_str())
-    else {
-        return Err(CodegenError::new(format!(
-            "receiver '{receiver_name}' does not have tracked product fields"
-        )));
-    };
-    let Some(index) = field_indices.get(effective_member_name) else {
-        return Err(CodegenError::new(format!(
-            "unknown field '{member_name}' on receiver '{receiver_name}'"
-        )));
-    };
-
-    // SAFETY: Index comes from tracked constructor field layout for same receiver alloca.
-    let field_ptr = unsafe {
-        codegen_context.builder.build_in_bounds_gep(
-            binding.alloca,
-            &[
-                codegen_context.context.i32_type().const_zero(),
-                codegen_context
-                    .context
-                    .i32_type()
-                    .const_int(u64::from(*index), false),
-            ],
-            &env.next_name("field.gep"),
-        )?
-    };
+    let object_value = codegen_expression(codegen_context, env, object.as_ref(), None)?;
+    let object_core_type = infer_product_core_type(env, object.as_ref()).ok_or_else(|| {
+        CodegenError::new(String::from(
+            "receiver expression is not a known product type",
+        ))
+    })?;
+    let field_index = product_field_index_for_core_type(&object_core_type, member.as_str())
+        .ok_or_else(|| {
+            CodegenError::new(format!("unknown field '{member}' on receiver expression"))
+        })?;
+    let struct_value = object_value.into_struct_value();
     codegen_context
         .builder
-        .build_load(field_ptr, &env.next_name("field.load"))
+        .build_extract_value(struct_value, field_index, &env.next_name("field.extract"))
         .map_err(CodegenError::from)
 }
 
@@ -371,6 +388,87 @@ fn current_function<'context>(
     block.get_parent().ok_or_else(|| {
         CodegenError::new(String::from("insert block does not have a parent function"))
     })
+}
+
+#[doc = "Infer the concrete product core type represented by a codegen expression."]
+fn infer_product_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<CoreType> {
+    match *expr {
+        Expr::Identifier { ref name, .. } => env
+            .variables
+            .get(name)
+            .map(|binding| binding.core_type.clone()),
+        Expr::Index { ref object, .. } => match infer_product_core_type(env, object.as_ref()) {
+            Some(CoreType::Array(element_type)) => Some(element_type.as_ref().clone()),
+            _ => None,
+        },
+        Expr::Member {
+            ref object,
+            ref member,
+            ..
+        } => {
+            let owner_type = infer_product_core_type(env, object.as_ref())?;
+            match owner_type {
+                CoreType::Generic { name, type_args } if name == "Pair" && type_args.len() == 2 => {
+                    match member.as_str() {
+                        "first" => Some(type_args[0].clone()),
+                        "second" => Some(type_args[1].clone()),
+                        _ => None,
+                    }
+                }
+                _ => None,
+            }
+        }
+        Expr::Call {
+            ref callee,
+            ref args,
+            ..
+        } => {
+            let Expr::Member {
+                ref object,
+                ref member,
+                ..
+            } = *callee.as_ref()
+            else {
+                return None;
+            };
+            let receiver_type = infer_product_core_type(env, object.as_ref())?;
+            match (receiver_type, member.as_str()) {
+                (CoreType::Array(left_type), "zip") => {
+                    let Expr::Identifier { ref name, .. } = *args.first()? else {
+                        return None;
+                    };
+                    let right_type = env.variables.get(name)?.core_type.clone();
+                    let CoreType::Array(right_element_type) = right_type else {
+                        return None;
+                    };
+                    Some(CoreType::Array(alloc::boxed::Box::new(CoreType::Generic {
+                        name: String::from("Pair"),
+                        type_args: vec![
+                            left_type.as_ref().clone(),
+                            right_element_type.as_ref().clone(),
+                        ],
+                    })))
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+#[doc = "Resolve the field index for a known lowered product core type."]
+fn product_field_index_for_core_type(core_type: &CoreType, member: &str) -> Option<u32> {
+    match *core_type {
+        CoreType::Generic {
+            ref name,
+            ref type_args,
+        } if name == "Pair" && type_args.len() == 2 => match member {
+            "first" => Some(0),
+            "second" => Some(1),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 #[doc = "Extract receiver/member string slices from member access expression."]

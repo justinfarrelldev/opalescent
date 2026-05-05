@@ -116,6 +116,60 @@ mod tests {
     }
 
     #[test]
+    fn array_zip_runs() {
+        assert_stdout("array-zip", &read_expected_stdout("array-zip"));
+    }
+
+    #[test]
+    fn array_zip_equal_lengths() {
+        let temp_dir = write_temp_project_source(
+            "array-zip-equal",
+            "##\n  Description: Verifies zip preserves all pairs when both arrays have equal length.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [1 as int32, 2 as int32]\n    let right: string[] = ['a', 'b']\n    let pairs = left.zip(right)\n    print('length {pairs.length}')\n    print('pair0 {pairs[0].first} {pairs[0].second}')\n    print('pair1 {pairs[1].first} {pairs[1].second}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "equal-length zip fixture should exit successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual, "length 2\npair0 1 a\npair1 2 b\n",
+            "equal-length zip stdout should match"
+        );
+    }
+
+    #[test]
+    fn array_zip_empty_side() {
+        for (project_name, source) in [
+            (
+                "array-zip-empty-left",
+                "##\n  Description: Verifies zip returns empty output when the left array is empty.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = []\n    let right: string[] = ['a', 'b']\n    let pairs = left.zip(right)\n    print('length {pairs.length}')\n    return void\n",
+            ),
+            (
+                "array-zip-empty-right",
+                "##\n  Description: Verifies zip returns empty output when the right array is empty.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [1 as int32, 2 as int32]\n    let right: string[] = []\n    let pairs = left.zip(right)\n    print('length {pairs.length}')\n    return void\n",
+            ),
+        ] {
+            let temp_dir = write_temp_project_source(project_name, source);
+            let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+            assert!(
+                output.status.success(),
+                "{project_name} fixture should exit successfully, stderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let raw_stdout = String::from_utf8_lossy(&output.stdout);
+            let actual = raw_stdout
+                .strip_prefix("target/program\n")
+                .unwrap_or_else(|| raw_stdout.as_ref());
+            assert_eq!(actual, "length 0\n", "{project_name} stdout should match");
+        }
+    }
+
+    #[test]
     fn array_push_runs() {
         assert_stdout("array-push", &read_expected_stdout("array-push"));
     }
