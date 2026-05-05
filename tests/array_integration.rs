@@ -322,4 +322,27 @@ entry main = f(args: string[]): void =>
     fn array_reduce_runs() {
         assert_stdout("array-reduce", &read_expected_stdout("array-reduce"));
     }
+
+    #[test]
+    fn array_reduce_accumulator_mismatch_fails_at_check_time() {
+        let temp_dir = write_temp_project_source(
+            "array-reduce-accumulator-mismatch",
+            "##\n  Description: Verifies array reduce rejects reducer return types that do not match the seeded accumulator.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = [1 as int32, 2 as int32]\n    let sum = xs.reduce(0 as int32, f(acc: int32, x: int32): string => 'wrong type')\n    print('sum {sum}')\n    return void\n",
+        );
+        let output = run_opal_check(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            !output.status.success(),
+            "reduce accumulator mismatch fixture should fail compilation"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            ((stderr.contains("Cannot unify types") || stderr.contains("Type mismatch"))
+                && stderr.contains("int32")
+                && stderr.contains("string"))
+                || (stderr.contains("reduce")
+                    && stderr.contains("int32")
+                    && stderr.contains("string")),
+            "reduce accumulator mismatch diagnostic should mention int32 and string, stderr: {stderr}"
+        );
+    }
 }

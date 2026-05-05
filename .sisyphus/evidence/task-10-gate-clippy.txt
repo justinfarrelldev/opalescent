@@ -1,0 +1,2 @@
+    Checking opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.32s

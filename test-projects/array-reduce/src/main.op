@@ -1,0 +1,11 @@
+##
+  Description: Runs the reduce red fixture for seeded array accumulation behavior.
+##
+entry main = f(args: string[]): void =>
+    let xs: int32[] = [1 as int32, 2 as int32, 3 as int32]
+    let sum = xs.reduce(0 as int32, f(acc: int32, x: int32): int32 => acc + x)
+    print('sum {sum}')
+    let empty: int32[] = []
+    let seed = empty.reduce(99 as int32, f(acc: int32, x: int32): int32 => acc + x)
+    print('empty {seed}')
+    return void

@@ -11,6 +11,7 @@ use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{ArrayMetadata, CodegenEnv, VariableBinding};
+use crate::codegen::functions_call::ast_type_to_core_type_for_signature;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::format;
@@ -18,6 +19,46 @@ use alloc::string::String;
 use inkwell::AddressSpace;
 use inkwell::types::BasicType;
 use inkwell::values::{BasicValue, FunctionValue, IntValue, PointerValue};
+
+pub(super) fn infer_array_callback_return_core_type(
+    env: &CodegenEnv<'_>,
+    callback: &Expr,
+) -> Option<CoreType> {
+    match *callback {
+        Expr::Lambda {
+            ref return_types, ..
+        } => return_types
+            .first()
+            .and_then(|return_type| ast_type_to_core_type_for_signature(return_type).ok()),
+        Expr::Identifier { ref name, .. } => env
+            .variables
+            .get(name.as_str())
+            .and_then(|binding| match &binding.core_type {
+                &CoreType::Function {
+                    ref return_types, ..
+                } => return_types.first().cloned(),
+                _ => None,
+            })
+            .or_else(|| {
+                env.imported_signatures
+                    .get(name.as_str())
+                    .and_then(|signature| match signature {
+                        &CoreType::Function {
+                            ref return_types, ..
+                        } => return_types.first().cloned(),
+                        _ => None,
+                    })
+            }),
+        _ => None,
+    }
+}
+
+pub(super) fn infer_map_callback_return_core_type(
+    env: &CodegenEnv<'_>,
+    callback: &Expr,
+) -> Option<CoreType> {
+    infer_array_callback_return_core_type(env, callback)
+}
 
 pub(super) fn store_array_binding_with_metadata<'context>(
     codegen_context: &CodegenContext<'context>,

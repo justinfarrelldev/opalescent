@@ -8,11 +8,12 @@ extern crate alloc;
 
 use self::helpers::{
     allocate_array_buffer, compute_next_array_capacity, copy_existing_array_elements,
+    infer_array_callback_return_core_type, infer_map_callback_return_core_type,
     resolve_array_identifier_binding, store_array_binding_with_metadata,
     trap_on_invalid_array_state, validate_array_operation_metadata,
 };
 use super::functions_call_helpers::{current_function, llvm_basic_type_to_core_type};
-use super::{ast_type_to_core_type_for_signature, resolve_callee_function};
+use super::resolve_callee_function;
 use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
@@ -45,6 +46,7 @@ pub(super) fn codegen_array_member_call<'context>(
         "pop" => codegen_array_pop_call(codegen_context, env, receiver, args),
         "map" => codegen_array_map_call(codegen_context, env, receiver, args),
         "filter" => codegen_array_filter_call(codegen_context, env, receiver, args),
+        "reduce" => codegen_array_reduce_call(codegen_context, env, receiver, args),
         _ => Err(CodegenError::new(format!(
             "array method '{member}' is not implemented yet"
         ))),
@@ -805,39 +807,177 @@ fn codegen_array_filter_call<'context>(
     Ok(final_result_ptr)
 }
 
-fn infer_array_callback_return_core_type(
-    env: &CodegenEnv<'_>,
-    callback: &Expr,
-) -> Option<CoreType> {
-    match *callback {
-        Expr::Lambda {
-            ref return_types, ..
-        } => return_types
-            .first()
-            .and_then(|return_type| ast_type_to_core_type_for_signature(return_type).ok()),
-        Expr::Identifier { ref name, .. } => env
-            .variables
-            .get(name.as_str())
-            .and_then(|binding| match &binding.core_type {
-                &CoreType::Function {
-                    ref return_types, ..
-                } => return_types.first().cloned(),
-                _ => None,
-            })
-            .or_else(|| {
-                env.imported_signatures
-                    .get(name.as_str())
-                    .and_then(|signature| match signature {
-                        &CoreType::Function {
-                            ref return_types, ..
-                        } => return_types.first().cloned(),
-                        _ => None,
-                    })
-            }),
-        _ => None,
+#[expect(
+    clippy::too_many_lines,
+    clippy::pattern_type_mismatch,
+    reason = "reduce lowering builds a dedicated loop that threads the seeded accumulator"
+)]
+fn codegen_array_reduce_call<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    receiver: &Expr,
+    args: &[Expr],
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    if args.len() != 2 {
+        return Err(CodegenError::new(format!(
+            "array method 'reduce' expects exactly 2 arguments but received {}",
+            args.len()
+        )));
     }
-}
 
-fn infer_map_callback_return_core_type(env: &CodegenEnv<'_>, callback: &Expr) -> Option<CoreType> {
-    infer_array_callback_return_core_type(env, callback)
+    let (_array_name, array_binding, base_ptr, length_value, capacity_value) =
+        resolve_array_identifier_binding(codegen_context, env, "reduce", receiver)?;
+    validate_array_operation_metadata(
+        codegen_context,
+        env,
+        "reduce",
+        base_ptr,
+        length_value,
+        capacity_value,
+    )?;
+    let _input_element_core_type = match &array_binding.core_type {
+        CoreType::Array(element_type) => element_type.as_ref().clone(),
+        _ => {
+            return Err(CodegenError::new(format!(
+                "reduce expects an array receiver, found '{}'",
+                array_binding.core_type
+            )));
+        }
+    };
+
+    let insertion_block = codegen_context.builder.get_insert_block();
+    let callback_function = resolve_callee_function(codegen_context, env, &args[1], None)?;
+    if let Some(block) = insertion_block {
+        codegen_context.builder.position_at_end(block);
+    }
+    let accumulator_core_type = infer_array_callback_return_core_type(env, &args[1])
+        .or_else(|| {
+            callback_function
+                .get_type()
+                .get_return_type()
+                .map(llvm_basic_type_to_core_type)
+        })
+        .ok_or_else(|| {
+            CodegenError::new(String::from(
+                "array reduce callback must declare a concrete return type",
+            ))
+        })?;
+    if matches!(accumulator_core_type, CoreType::Variable(_)) {
+        return Err(CodegenError::new(String::from(
+            "array reduce callback return type remained unresolved during code generation",
+        )));
+    }
+
+    let initial_value =
+        codegen_expression(codegen_context, env, &args[0], Some(&accumulator_core_type))?;
+    let accumulator_alloca = codegen_context
+        .builder
+        .build_alloca(initial_value.get_type(), &env.next_name("reduce.acc"))?;
+    codegen_context
+        .builder
+        .build_store(accumulator_alloca, initial_value)?;
+    let index_alloca = codegen_context.builder.build_alloca(
+        codegen_context.context.i64_type(),
+        &env.next_name("reduce.index"),
+    )?;
+    codegen_context.builder.build_store(
+        index_alloca,
+        codegen_context.context.i64_type().const_zero(),
+    )?;
+
+    let current_function = current_function(codegen_context)?;
+    let loop_block = codegen_context
+        .context
+        .append_basic_block(current_function, &env.next_name("reduce.loop"));
+    let body_block = codegen_context
+        .context
+        .append_basic_block(current_function, &env.next_name("reduce.body"));
+    let exit_block = codegen_context
+        .context
+        .append_basic_block(current_function, &env.next_name("reduce.exit"));
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_block)?;
+
+    codegen_context.builder.position_at_end(loop_block);
+    let index_value = codegen_context
+        .builder
+        .build_load(index_alloca, &env.next_name("reduce.index.load"))?
+        .into_int_value();
+    let should_continue = codegen_context.builder.build_int_compare(
+        inkwell::IntPredicate::ULT,
+        index_value,
+        length_value,
+        &env.next_name("reduce.cond"),
+    )?;
+    codegen_context
+        .builder
+        .build_conditional_branch(should_continue, body_block, exit_block)?;
+
+    codegen_context.builder.position_at_end(body_block);
+    let accumulator_value = codegen_context
+        .builder
+        .build_load(accumulator_alloca, &env.next_name("reduce.acc.load"))?;
+    // SAFETY: the loop guard ensures `index_value < length_value`, so this source element access is in bounds.
+    let source_slot = unsafe {
+        codegen_context.builder.build_in_bounds_gep(
+            base_ptr,
+            &[index_value],
+            &env.next_name("reduce.src"),
+        )?
+    };
+    let source_value = codegen_context
+        .builder
+        .build_load(source_slot, &env.next_name("reduce.value"))?;
+    let mut callback_args: Vec<BasicMetadataValueEnum<'context>> =
+        vec![accumulator_value.into(), source_value.into()];
+    if let Expr::Lambda {
+        ref captured_variables,
+        ..
+    } = args[1]
+    {
+        for capture in captured_variables {
+            let Some(binding) = env.variables.get(capture.as_str()) else {
+                return Err(CodegenError::new(format!(
+                    "reduce callback capture '{capture}' not found in scope"
+                )));
+            };
+            let captured_value = codegen_context
+                .builder
+                .build_load(binding.alloca, capture.as_str())?;
+            callback_args.push(captured_value.into());
+        }
+    }
+    let next_accumulator = codegen_context
+        .builder
+        .build_call(
+            callback_function,
+            callback_args.as_slice(),
+            &env.next_name("reduce.call"),
+        )?
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| {
+            CodegenError::new(String::from("array reduce callback must return a value"))
+        })?;
+    codegen_context
+        .builder
+        .build_store(accumulator_alloca, next_accumulator)?;
+    let next_index = codegen_context.builder.build_int_add(
+        index_value,
+        codegen_context.context.i64_type().const_int(1, false),
+        &env.next_name("reduce.next"),
+    )?;
+    codegen_context
+        .builder
+        .build_store(index_alloca, next_index)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_block)?;
+
+    codegen_context.builder.position_at_end(exit_block);
+    codegen_context
+        .builder
+        .build_load(accumulator_alloca, &env.next_name("reduce.result"))
+        .map_err(Into::into)
 }
