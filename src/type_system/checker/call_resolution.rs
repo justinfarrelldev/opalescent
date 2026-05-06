@@ -118,6 +118,8 @@ impl TypeChecker {
         args: &[Expr],
         span: Span,
     ) -> Result<CoreType, TypeError> {
+        self.ensure_mutating_member_receiver_is_mutable(callee)?;
+
         if self.current_function_is_pure() {
             if let Expr::Identifier {
                 ref name,
@@ -366,6 +368,45 @@ impl TypeChecker {
                 ),
             ),
         }
+    }
+
+    /// Reject mutating collection member calls on immutable identifier bindings.
+    fn ensure_mutating_member_receiver_is_mutable(&self, callee: &Expr) -> Result<(), TypeError> {
+        let Expr::Member {
+            ref object,
+            ref member,
+            ..
+        } = *callee
+        else {
+            return Ok(());
+        };
+
+        if !matches!(member.as_str(), "push" | "pop") {
+            return Ok(());
+        }
+
+        let Expr::Identifier {
+            ref name,
+            span: object_span,
+            ..
+        } = **object
+        else {
+            return Ok(());
+        };
+
+        let Some(symbol) = self.symbol_table.lookup(name) else {
+            return Ok(());
+        };
+
+        if symbol.is_mutable {
+            return Ok(());
+        }
+
+        Err(TypeError::InvalidOperation {
+            operation: alloc::format!("array method '{member}' requires mutable receiver '{name}'"),
+            type_name: symbol.core_type.to_string(),
+            span: TypeError::span_from_span(object_span),
+        })
     }
 
     /// Resolve concrete instantiated types for each declared generic parameter.

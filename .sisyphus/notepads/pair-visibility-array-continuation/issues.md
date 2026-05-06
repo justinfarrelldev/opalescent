@@ -17,3 +17,14 @@
 ## 2026-05-05 Task 4: double arrays
 - C/header LSP diagnostics were unavailable in this environment (`clang` initialization failed), so runtime-side changes were verified through the required cargo test/clippy/fmt gates instead.
 - A first attempt to build bounds messages in LLVM via `format_interpolated_string` failed at link time because generated programs do not currently link that helper; replacing it with a dedicated runtime helper fixed the diagnostic path cleanly.
+
+## 2026-05-05 Task F3: real manual array CLI QA
+- No mismatches or runtime exit-code failures were observed across the required positive array fixtures in this run.
+
+## 2026-05-05 Task F2: immutable array push checker regression
+- The regression lived in checker call resolution, where array member calls were accepted by signature alone and the receiver binding mutability was never validated during .
+- The first implementation attempt used a nonexistent  helper; switching the diagnostic to the receiver identifier span kept the fix compatible with the existing span API and still pointed at the immutable binding.
+
+## 2026-05-05 Task F2: immutable array push checker regression (correction)
+- The regression lived in checker call resolution, where array member calls were accepted by signature alone and the receiver binding mutability was never validated during `opal check`.
+- The first implementation attempt used a nonexistent `Span::union` helper; switching the diagnostic to the receiver identifier span kept the fix compatible with the existing span API and still pointed at the immutable binding.

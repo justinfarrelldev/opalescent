@@ -1,0 +1,16 @@
+
+## 2026-05-05 F3 Real Manual QA (array CLI) - 2026-05-05 23:36:42Z
+Build: cargo build (debug) -> success
+Normalization rule: stripped leading "target/program" line before stdout equality check.
+Per-project results:
+- array-append: PASS (exit=0, stdout_match=true)
+- array-push: PASS (exit=0, stdout_match=true)
+- array-pop: PASS (exit=0, stdout_match=true)
+- array-map: PASS (exit=0, stdout_match=true)
+- array-filter: PASS (exit=0, stdout_match=true)
+- array-reduce: PASS (exit=0, stdout_match=true)
+- array-pair: PASS (exit=0, stdout_match=true)
+- array-zip: PASS (exit=0, stdout_match=true)
+- array-double: PASS (exit=0, stdout_match=true)
+Mismatches: none
+Final verdict: APPROVE

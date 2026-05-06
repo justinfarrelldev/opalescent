@@ -20,3 +20,11 @@
 - Double-array literals now lower nested rows as explicit `{ptr,len,cap}` values inside the outer buffer, which preserves jagged row metadata for `grid[row].length` and `grid[row][col]` without changing the one-dimensional array calling convention.
 - The type checker needed two aligned fixes for jagged literals with empty rows: nested empty-array coercion in `coerce_literal_to_expected` and sibling-row reconciliation inside `type_check_array_expr`, otherwise `[]` inside `int32[][]` stayed as `[tN]`.
 - Integration evidence must stay serialized with `--test-threads=1`; running the happy-path and bounds cases in parallel produced a false failure because both compete for the shared `target/program`.
+
+## 2026-05-05 Task F3: real manual array CLI QA
+- Manual CLI parity gate can be automated deterministically by stripping the leading `target/program` banner before comparing stdout fixtures.
+- Positive array fixtures (`append/push/pop/map/filter/reduce/pair/zip/double`) all exited 0 and matched expected stdout byte-for-byte after normalization.
+
+## 2026-05-05 Task F2: immutable array push checker regression
+- `opal check` only consults the type checker, so the existing mutable-receiver guard in array codegen was insufficient to catch immutable `.push(...)` regressions.
+- Restoring the behavior required a checker-side mutability gate in `src/type_system/checker/call_resolution.rs` before normal member-call typing, which keeps mutable `push/pop` valid while preserving non-mutating array methods and recent zip/double-array work.
