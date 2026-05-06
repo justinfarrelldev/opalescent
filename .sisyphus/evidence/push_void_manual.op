@@ -1,0 +1,8 @@
+##
+  Description: Manual check that push cannot be used as value.
+##
+entry main = f(args: string[]): void =>
+    let mutable xs: int32[] = []
+    let length_after_push: int32 = xs.push(1 as int32)
+    print('length {length_after_push}')
+    return void

@@ -1,0 +1,109 @@
+# Task 1 Baseline Failure Evidence
+
+Timestamp: 2026-05-04T23:17:34-04:00
+Status: FAILURE
+Stopping Condition: First nonzero baseline command
+
+## Failing Command
+```text
+cargo clippy --all-targets --all-features -- -D warnings
+```
+
+## Exact Output
+```text
+$ cargo clippy --all-targets --all-features -- -D warnings
+    Checking opalescent v0.1.0 (/home/justi/Projects/opalescent)
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/codegen/adts.rs:124:12
+    |
+124 |     if let &CoreType::Generic { ref name, ref type_args } = &binding.core_type {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+    = note: `-D clippy::needless-borrowed-reference` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::needless_borrowed_reference)]`
+help: try removing the `&` and `ref` parts
+    |
+124 -     if let &CoreType::Generic { ref name, ref type_args } = &binding.core_type {
+124 +     if let CoreType::Generic { name, type_args } = &binding.core_type {
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/compiler/compiler_helpers.rs:124:16
+    |
+124 |           if let &Decl::Import {
+    |  ________________^
+125 | |             ref items,
+126 | |             source: ref import_source,
+127 | |             ..
+128 | |         } = declaration
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+124 ~         if let Decl::Import {
+125 ~             items,
+126 ~             source: import_source,
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/compiler.rs:642:20
+    |
+642 |               if let &Decl::Import {
+    |  ____________________^
+643 | |                 source: ref import_source,
+644 | |                 ..
+645 | |             } = declaration
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+642 ~             if let Decl::Import {
+643 ~                 source: import_source,
+    |
+
+error: dereferencing a tuple pattern where every element takes a reference
+   --> src/type_system/checker/call_resolution.rs:509:22
+    |
+509 |                     (&CoreType::Array(ref param_inner), &CoreType::Array(ref arg_inner)) => {
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+509 -                     (&CoreType::Array(ref param_inner), &CoreType::Array(ref arg_inner)) => {
+509 +                     (CoreType::Array(param_inner), &CoreType::Array(ref arg_inner)) => {
+    |
+
+error: dereferencing a tuple pattern where every element takes a reference
+   --> src/type_system/checker/call_resolution.rs:509:57
+    |
+509 |                     (&CoreType::Array(ref param_inner), &CoreType::Array(ref arg_inner)) => {
+    |                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+509 -                     (&CoreType::Array(ref param_inner), &CoreType::Array(ref arg_inner)) => {
+509 +                     (&CoreType::Array(ref param_inner), CoreType::Array(arg_inner)) => {
+    |
+
+error: dereferencing a struct pattern where every field's pattern takes a reference
+   --> src/type_system/checker/call_resolution.rs:514:33
+    |
+514 | ...                   &CoreType::Generic { name: ref arg_name, .. }
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_borrowed_reference
+help: try removing the `&` and `ref` parts
+    |
+514 -                                 &CoreType::Generic { name: ref arg_name, .. }
+514 +                                 CoreType::Generic { name: arg_name, .. }
+    |
+
+error: could not compile `opalescent` (lib) due to 6 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `opalescent` (lib test) due to 6 previous errors
+```

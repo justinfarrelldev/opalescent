@@ -1,0 +1,10 @@
+##
+  Description: Runs the pop red fixture for mutable array shrink behavior.
+##
+entry main = f(args: string[]): void =>
+    let mutable xs: int32[] = [4 as int32, 5 as int32, 6 as int32]
+    let last = xs.pop()
+    print('last {last}')
+    print('length {xs.length}')
+    print('remaining {xs[0]} {xs[1]}')
+    return void

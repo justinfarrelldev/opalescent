@@ -1,0 +1,12 @@
+import append from standard
+
+##
+  Description: Runs the append red fixture for array growth behavior.
+##
+entry main = f(args: string[]): void =>
+    let original: int32[] = [1 as int32, 2 as int32]
+    let grown = append(original, 3 as int32)
+    print('original length {original.length}')
+    print('grown length {grown.length}')
+    print('grown values {grown[0]} {grown[1]} {grown[2]}')
+    return void

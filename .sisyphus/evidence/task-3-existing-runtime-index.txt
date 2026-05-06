@@ -1,0 +1,12 @@
+Task 3 evidence: existing runtime indexing preservation
+Date: 2026-05-05
+
+Command:
+  cargo test array_runtime_supports_allocation_indexing_and_bounds_checks
+
+Result:
+  PASS
+
+Observed evidence:
+  - runtime::tests::array_runtime_supports_allocation_indexing_and_bounds_checks ... ok
+  - Existing bounds behavior preserved: RuntimeError::IndexOutOfBounds { index: 8, length: 4 }

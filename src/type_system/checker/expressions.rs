@@ -18,8 +18,8 @@ use crate::type_system::arithmetic::{
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
-use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::substitution::Substitution;
+use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{format, string::String, vec::Vec};

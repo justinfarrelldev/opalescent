@@ -307,6 +307,33 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                 },
                 SymbolType::Function,
             ),
+            (
+                String::from("append"),
+                CoreType::Function {
+                    generic_params: vec![GenericTypeParameter {
+                        name: "T".to_owned(),
+                        type_var: crate::type_system::types::TypeVar::new(9_002, "T".to_owned()),
+                        constraints: Vec::new(),
+                    }],
+                    parameters: vec![
+                        CoreType::Array(alloc::boxed::Box::new(CoreType::Variable(
+                            crate::type_system::types::TypeVar::new(9_002, "T".to_owned()),
+                        ))),
+                        CoreType::Variable(crate::type_system::types::TypeVar::new(
+                            9_002,
+                            "T".to_owned(),
+                        )),
+                    ],
+                    return_types: vec![CoreType::Array(alloc::boxed::Box::new(
+                        CoreType::Variable(crate::type_system::types::TypeVar::new(
+                            9_002,
+                            "T".to_owned(),
+                        )),
+                    ))],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
             // `Bytes` stdlib surface. The opaque byte-buffer type is represented
             // as a nominal `Generic { name: "Bytes", type_args: [] }` which
             // lowers to `i8*` in codegen. The two fallible helpers surface

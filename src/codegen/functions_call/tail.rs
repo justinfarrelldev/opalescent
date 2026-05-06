@@ -160,9 +160,7 @@ pub fn emit_default_return(
     Ok(())
 }
 
-pub fn ast_type_to_core_type_for_signature(
-    ast_type: &Type,
-) -> Result<CoreType, CodegenError> {
+pub fn ast_type_to_core_type_for_signature(ast_type: &Type) -> Result<CoreType, CodegenError> {
     if matches!(*ast_type, Type::Function { .. }) {
         return Err(CodegenError::new(String::from(
             "unsupported function type annotation",

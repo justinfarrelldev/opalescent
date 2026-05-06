@@ -1,0 +1,9 @@
+2026-05-04T23:00:00-04:00
+Command: cargo test --features integration array_ -- --nocapture
+Result: nonzero exit (RED as intended)
+Summary:
+- array-append failed with `type_system::symbol_not_found` for `append`
+- array-push and array-pop failed with `unsupported call callee expression`
+- array-map and array-filter failed with `unsupported call callee expression`
+- array-reduce failed with `symbol_not_found` / member-call parsing in the red fixture run
+- Harness exercised six array projects in `tests/array_integration.rs`

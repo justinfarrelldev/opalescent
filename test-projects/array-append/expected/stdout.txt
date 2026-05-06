@@ -1,0 +1,3 @@
+original length 2
+grown length 3
+grown values 1 2 3
