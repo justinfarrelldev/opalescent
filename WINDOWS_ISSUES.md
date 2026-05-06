@@ -37,6 +37,12 @@ Issues preventing Opalescent programs from running on Windows with file system o
 - [ ] **11. `opal_stat` always reports `is_symlink = 0` on Windows**
   `runtime/opal_portability.h` — The follow-symlinks `opal_stat` unconditionally sets `out->is_symlink = 0`. `read_metadata_sync` therefore never reports a symlink on Windows, even though the `opal_stat_nofollow` path does report it via `FILE_ATTRIBUTE_REPARSE_POINT`. Programs that make decisions on `is_symlink` from `read_metadata_sync` will behave incorrectly on Windows symlinks and junctions.
 
+- [ ] **15. `opal_runtime_init` is never called for generated programs**
+  `runtime/opal_runtime.c`, `src/codegen/functions_call/tail.rs` — `opal_runtime_init()` calls `SetConsoleOutputCP(65001)` to enable UTF-8 console output on Windows. However, `opal_runtime.c` is not included in `RUNTIME_SOURCE` and the generated `main` wrapper (`emit_c_main_wrapper`) never calls `opal_runtime_init`. As a result, Unicode output from compiled programs is corrupted on Windows consoles that default to a non-UTF-8 codepage.
+
+- [ ] **16. Filesystem path buffer capped at 260 bytes (`MAX_PATH` limit)**
+  `runtime/opal_portability.h` — `OPAL_PATH_BUFFER_CAP` is defined as `260` on Windows, matching the legacy `MAX_PATH` constant. Paths longer than 260 bytes (valid on Windows 10+ with long-path support enabled) will be silently truncated or cause buffer overflows in any `fs` function that uses a stack-allocated path buffer.
+
 ## Build System
 
 - [ ] **12. `Cargo.toml` still includes `"llvm14-0-prefer-dynamic"`**
@@ -44,6 +50,18 @@ Issues preventing Opalescent programs from running on Windows with file system o
 
 - [ ] **13. CI `cross-msvc-from-linux` job installs `xwin` without version pinning**
   `.github/workflows/ci.yml` — `cargo install xwin --locked` fetches the latest version each run. A breaking `xwin` release could silently break cross-compilation from Linux to Windows.
+
+- [ ] **17. MSVC linker invocation missing `bcrypt.lib`**
+  `src/build_system/linker.rs` — `msvc_shared_args()` only passes `/DEFAULTLIB:libcmt` to the linker. `opal_rng.c` calls `BCryptGenRandom`, which requires `bcrypt.lib` at link time. The MinGW path correctly passes `-lbcrypt` via `mingw_crt_libs()`, but the MSVC path does not, causing an unresolved-external link error for any program that uses the RNG stdlib.
+
+- [ ] **18. `opal_rc.c` is absent from `RUNTIME_SOURCE`**
+  `src/compiler.rs` — The `RUNTIME_SOURCE` constant concatenates all C runtime files written to the temp directory before compilation. `opal_rc.c` (reference-counting allocator) is missing from this list. `src/codegen/rc_emitter.rs` declares `opal_rc_alloc`, `opal_rc_inc`, `opal_rc_dec`, `opal_rc_drop_iterative`, `opal_weak_alloc`, `opal_weak_upgrade`, and `opal_weak_dec` as external symbols, so any compiled program that exercises RC will fail to link with unresolved-external errors on all platforms, but it is categorised here because Windows is the primary target for the MSVC toolchain path.
+
+- [ ] **19. Missing `XWIN_CACHE` / `OPAL_XWIN_SYSROOT` panics instead of returning an error**
+  `src/build_system/linker.rs` — `build_msvc()` on a non-Windows host calls `.expect("XWIN_CACHE env var required…")` when neither `XWIN_CACHE` nor `OPAL_XWIN_SYSROOT` is set. This terminates the compiler process with a panic instead of propagating a structured diagnostic. Users who omit the env var get an unformatted panic trace rather than an actionable error message.
+
+- [ ] **20. `quote_if_needed` wraps paths in literal quote characters**
+  `src/build_system/linker.rs` — `quote_if_needed()` prepends and appends `"` bytes to path strings that contain spaces, then passes the result to `std::process::Command::arg()`. `Command::arg` already handles OS-level argument quoting; adding literal quote characters produces an argument whose value on the child process's command line includes the quote bytes as part of the path, causing the linker to fail with a "file not found" error for any path that contains spaces (e.g., `/home/user name/…`).
 
 ## Hot-Reload
 
