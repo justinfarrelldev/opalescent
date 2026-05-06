@@ -1,132 +1,60 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/op-cat-guard-codegen-fixes.md",
-  "started_at": "2026-04-28T22:25:07Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/pair-visibility-array-continuation.md",
+  "started_at": "2026-05-05T22:18:04.966Z",
   "session_ids": [
-    "ses_22a26d8dbffep2DraGr90YcNMY",
-    "ses_229cc9112ffetu74MdaBK0qElu",
-    "ses_229cc8f70ffeN49I7F5yyIL5PM",
-    "ses_229cc8f67ffdZlpeaP6gQOhS3Q",
-    "ses_229cc8f68ffeteOUvPbI49D1g3",
-    "ses_229cc8f55ffegl5muA1zntlaJn"
+    "ses_20a5b5ef5ffeyw0mSP4jzsEWsF",
+    "ses_20a5b5ef5ffeyw0mSP4jzsEWsF"
   ],
   "session_origins": {
-    "ses_22a26d8dbffep2DraGr90YcNMY": "direct",
-    "ses_229cc9112ffetu74MdaBK0qElu": "appended",
-    "ses_229cc8f70ffeN49I7F5yyIL5PM": "appended",
-    "ses_229cc8f67ffdZlpeaP6gQOhS3Q": "appended",
-    "ses_229cc8f68ffeteOUvPbI49D1g3": "appended",
-    "ses_229cc8f55ffegl5muA1zntlaJn": "appended"
+    "ses_20a5b5ef5ffeyw0mSP4jzsEWsF": "direct"
   },
-  "plan_name": "op-cat-guard-codegen-fixes",
+  "plan_name": "pair-visibility-array-continuation",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "**Add failing integration test for op-cat (RED)**",
-      "session_id": "ses_229c7beafffeCjFBtu2j7b4CMm",
+      "task_title": "Expose predefined generic `Pair<T, U>`",
+      "session_id": "ses_205c69ac0ffeOaSAYrcdmrIrDg",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-28T22:34:18.170Z"
+      "category": "deep",
+      "updated_at": "2026-05-05T22:28:21.058Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "**LoopContext type + CodegenEnv stack helpers**",
-      "session_id": "ses_229c4518effeX2G7Msi9l8fOhw",
+      "task_title": "Add Pair smoke project and sanity-check completed prior array slices",
+      "session_id": "ses_205bad5a8ffea8K3ob1k8Qxk2p",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-low",
-      "updated_at": "2026-04-28T22:37:17.592Z"
+      "category": "deep",
+      "updated_at": "2026-05-05T22:38:21.480Z"
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "**error_abi.rs module: shape constants + helpers (no consumers)**",
-      "session_id": "ses_229c20635ffeQdV6XkQ2cgbX6d",
+      "task_title": "Resume Task 11 and implement `.zip` returning `Pair<T, U>[]`",
+      "session_id": "ses_205b3df34ffeJqCLdehqxAaRj4",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-28T22:40:47.159Z"
+      "category": "deep",
+      "updated_at": "2026-05-05T22:55:38.578Z"
     },
     "todo:4": {
       "task_key": "todo:4",
       "task_label": "4",
-      "task_title": "**Sample fixture for op-cat tests**",
-      "session_id": "ses_229bcf451ffeZXDZHtj4xsFET3",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-28T22:44:08.825Z"
-    },
-    "todo:5": {
-      "task_key": "todo:5",
-      "task_label": "5",
-      "task_title": "**Audit & document atomic-commit message style**",
-      "session_id": "ses_229bbf4dbffeKZoJiD5m3UltIR",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-28T22:45:16.198Z"
-    },
-    "todo:6": {
-      "task_key": "todo:6",
-      "task_label": "6",
-      "task_title": "**build_function_type honors error_types (Unit + scalar fast paths)**",
-      "session_id": "ses_229bad97affesHfNJ1EHJfWvjo",
+      "task_title": "Resume Task 12 double-array literals, lengths, and reads",
+      "session_id": "ses_2059e6160ffeyP5xWIXlV7mFfB",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-04-28T22:54:04.750Z"
-    },
-    "todo:7": {
-      "task_key": "todo:7",
-      "task_label": "7",
-      "task_title": "**codegen_return_statement: error-aware aggregate construction**",
-      "session_id": "ses_229b0e0bfffefxc4OevFJZ8mes",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-28T23:09:56.829Z"
-    },
-    "todo:8": {
-      "task_key": "todo:8",
-      "task_label": "8",
-      "task_title": "**Replace emit_function_default_return error path with forwarded-error emission**",
-      "session_id": "ses_229a25178ffecyV5l3y9eAIMvE",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-28T23:15:49.177Z"
-    },
-    "todo:9": {
-      "task_key": "todo:9",
-      "task_label": "9",
-      "task_title": "**Rewrite codegen_propagate_expression to forward inner error into caller's aggregate**",
-      "session_id": "ses_2299d46c6ffemtKaJlGHocPpuJ",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-28T23:21:05.450Z"
-    },
-    "todo:10": {
-      "task_key": "todo:10",
-      "task_label": "10",
-      "task_title": "**emit_loop_body_with_targets pushes/pops LoopContext; remove inline Break/Continue interception**",
-      "session_id": "ses_228f810cdffeQAiaFcoVDV1iMq",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-04-29T02:21:07.735Z"
-    },
-    "todo:15": {
-      "task_key": "todo:15",
-      "task_label": "15",
-      "task_title": "**Documentation: README + .op error-handling notes for new ABI**",
-      "session_id": "ses_228f361f2ffeArAvBdxG1mH1Zg",
-      "agent": "Sisyphus-Junior",
-      "category": "writing",
-      "updated_at": "2026-04-29T02:25:33.162Z"
+      "updated_at": "2026-05-05T23:32:54.307Z"
     },
     "final-wave:f1": {
       "task_key": "final-wave:f1",
       "task_label": "F1",
-      "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "ses_228e47a7cffetyPfMu4sPrp1yT",
+      "task_title": "Plan Compliance Audit — oracle",
+      "session_id": "ses_2057c5d10ffeZ9va7yPVss5FNU",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-29T02:46:16.618Z"
+      "category": "deep",
+      "updated_at": "2026-05-05T23:45:40.243Z"
     }
   }
 }
