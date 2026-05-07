@@ -1,0 +1,3 @@
+Command: bash scripts/verify-wine-prereqs.sh
+Output:
+SKIP: clang-cl not found in PATH

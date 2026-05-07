@@ -59,32 +59,10 @@ typedef struct { void*      value; const char* error; } FsPermissionsResult;
 #  include <dirent.h>
 #endif
 
-/* ── Windows directory listing shim (forward declarations) ──────────────── */
-
-#if !OPAL_HAS_DIRENT
-
-/*
- * Forward declarations for Windows directory listing shim APIs.
- * These are used to provide POSIX-like directory iteration on Windows.
- * Full implementations are provided in Task 16.
- */
-
-typedef struct opal_dir_s opal_dir_t;
-#ifndef OPAL_DIRENT_T_DEFINED
-typedef struct {
-    char d_name[260];  /* MAX_PATH on Windows */
-} opal_dirent_t;
-#define OPAL_DIRENT_T_DEFINED 1
-#endif
-
-opal_dir_t* opal_opendir(const char* path);
-opal_dirent_t* opal_readdir(opal_dir_t* dir);
-int opal_closedir(opal_dir_t* dir);
-
-#endif /* !OPAL_HAS_DIRENT */
+/* Windows directory iteration shims are defined in opal_portability.h. */
 
 static char* safe_strdup(const char* value) {
-    return strdup(value ? value : "");
+    return opal_strdup(value ? value : "");
 }
 
 static char* errno_to_fs_error(int err, const char* op_prefix);
@@ -98,8 +76,215 @@ static FsVoidResult write_contents_atomic_bytes_sync(const char* path, const uin
 static int remove_directory_recursive_inner(const char* path, FsVoidResult* out);
 
 static int opal_is_path_separator(char c) {
+    return c == '/' || c == '\\';
+}
+
+typedef enum {
+    OPAL_PATH_ROOT_NONE = 0,
+    OPAL_PATH_ROOT_POSIX,
+    OPAL_PATH_ROOT_DRIVE,
+    OPAL_PATH_ROOT_UNC,
+} opal_path_root_kind_t;
+
+typedef struct {
+    opal_path_root_kind_t kind;
+    size_t parse_start;
+    size_t server_start;
+    size_t server_len;
+    size_t share_start;
+    size_t share_len;
+} opal_path_root_info_t;
+
+static int opal_is_ascii_alpha(char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+static opal_path_root_info_t opal_parse_path_root(const char* path) {
+    opal_path_root_info_t info;
+    memset(&info, 0, sizeof(info));
+
+    if (!path || path[0] == '\0') {
+        return info;
+    }
+
+    if (opal_is_ascii_alpha(path[0]) && path[1] == ':' && opal_is_path_separator(path[2])) {
+        size_t index = 2;
+        while (path[index] && opal_is_path_separator(path[index])) {
+            index++;
+        }
+        info.kind = OPAL_PATH_ROOT_DRIVE;
+        info.parse_start = index;
+        return info;
+    }
+
+    if (opal_is_path_separator(path[0])) {
+        if (opal_is_path_separator(path[1])) {
+            size_t server_start = 2;
+            size_t index = server_start;
+            while (path[index] && !opal_is_path_separator(path[index])) {
+                index++;
+            }
+
+            if (index > server_start) {
+                size_t server_len = index - server_start;
+                while (path[index] && opal_is_path_separator(path[index])) {
+                    index++;
+                }
+
+                size_t share_start = index;
+                while (path[index] && !opal_is_path_separator(path[index])) {
+                    index++;
+                }
+
+                if (index > share_start) {
+                    info.kind = OPAL_PATH_ROOT_UNC;
+                    info.parse_start = index;
+                    info.server_start = server_start;
+                    info.server_len = server_len;
+                    info.share_start = share_start;
+                    info.share_len = index - share_start;
+                    return info;
+                }
+            }
+        }
+
+        info.kind = OPAL_PATH_ROOT_POSIX;
+        info.parse_start = 1;
+        while (path[info.parse_start] && opal_is_path_separator(path[info.parse_start])) {
+            info.parse_start++;
+        }
+    }
+
+    return info;
+}
+
+static size_t opal_trimmed_path_end(const char* path, const opal_path_root_info_t* root) {
+    size_t end = strlen(path);
+    while (end > root->parse_start && opal_is_path_separator(path[end - 1])) {
+        end--;
+    }
+    return end;
+}
+
+static ssize_t opal_find_last_path_separator(const char* path, size_t end) {
+    size_t index = end;
+    while (index > 0) {
+        index--;
+        if (opal_is_path_separator(path[index])) {
+            return (ssize_t)index;
+        }
+    }
+    return -1;
+}
+
+static char* opal_strdup_slice(const char* start, size_t length) {
+    char* copy = (char*)malloc(length + 1);
+    if (!copy) {
+        return NULL;
+    }
+    if (length > 0) {
+        memcpy(copy, start, length);
+    }
+    copy[length] = '\0';
+    return copy;
+}
+
+static char* opal_strdup_root_preserving_style(const char* path, const opal_path_root_info_t* root) {
+    if (!root || root->kind == OPAL_PATH_ROOT_NONE) {
+        return safe_strdup("");
+    }
+
+    if (root->kind == OPAL_PATH_ROOT_POSIX) {
+        char sep[2] = { path[0] ? path[0] : opal_path_separator(), '\0' };
+        return safe_strdup(sep);
+    }
+
+    if (root->kind == OPAL_PATH_ROOT_DRIVE) {
+        char sep[2] = { opal_is_path_separator(path[2]) ? path[2] : opal_path_separator(), '\0' };
+        char drive_root[4] = { path[0], ':', sep[0], '\0' };
+        return safe_strdup(drive_root);
+    }
+
+    if (root->kind == OPAL_PATH_ROOT_UNC) {
+        char sep = opal_is_path_separator(path[0]) ? path[0] : opal_path_separator();
+        size_t length = 2 + root->server_len + 1 + root->share_len;
+        char* value = (char*)malloc(length + 1);
+        if (!value) {
+            return NULL;
+        }
+
+        size_t position = 0;
+        value[position++] = sep;
+        value[position++] = sep;
+        memcpy(value + position, path + root->server_start, root->server_len);
+        position += root->server_len;
+        value[position++] = sep;
+        memcpy(value + position, path + root->share_start, root->share_len);
+        position += root->share_len;
+        value[position] = '\0';
+        return value;
+    }
+
+    return safe_strdup("");
+}
+
+static size_t opal_normalized_root_length(const opal_path_root_info_t* root) {
+    if (!root) {
+        return 0;
+    }
+
+    switch (root->kind) {
+        case OPAL_PATH_ROOT_POSIX:
+            return 1;
+        case OPAL_PATH_ROOT_DRIVE:
+            return 2;
+        case OPAL_PATH_ROOT_UNC:
+            return 2 + root->server_len + 1 + root->share_len;
+        case OPAL_PATH_ROOT_NONE:
+        default:
+            return 0;
+    }
+}
+
+static int opal_root_needs_separator_before_first_segment(const opal_path_root_info_t* root) {
+    if (!root) {
+        return 0;
+    }
+
+    return root->kind == OPAL_PATH_ROOT_DRIVE || root->kind == OPAL_PATH_ROOT_UNC;
+}
+
+static size_t opal_append_normalized_root(char* output, const char* path, const opal_path_root_info_t* root) {
     char sep = opal_path_separator();
-    return c == '/' || c == sep;
+    size_t position = 0;
+
+    if (!root) {
+        return 0;
+    }
+
+    switch (root->kind) {
+        case OPAL_PATH_ROOT_POSIX:
+            output[position++] = sep;
+            break;
+        case OPAL_PATH_ROOT_DRIVE:
+            output[position++] = path[0];
+            output[position++] = ':';
+            break;
+        case OPAL_PATH_ROOT_UNC:
+            output[position++] = sep;
+            output[position++] = sep;
+            memcpy(output + position, path + root->server_start, root->server_len);
+            position += root->server_len;
+            output[position++] = sep;
+            memcpy(output + position, path + root->share_start, root->share_len);
+            position += root->share_len;
+            break;
+        case OPAL_PATH_ROOT_NONE:
+        default:
+            break;
+    }
+
+    return position;
 }
 
 static void free_path_segments(char** segments, int64_t count) {
@@ -158,7 +343,7 @@ static char* fs_offset_out_of_range_error(const char* detail) {
 }
 
 static int fs_write_via_mode(const char* path, const uint8_t* bytes, size_t length, const char* mode, const char* write_prefix, FsVoidResult* out) {
-    FILE* file = fopen(path, mode);
+    FILE* file = opal_fopen(path, mode);
     if (!file) {
         out->error = errno_to_fs_error(errno, write_prefix);
         return -1;
@@ -370,8 +555,9 @@ static char* lex_normalize_path(const char* path) {
     }
 
     size_t input_len = strlen(path);
-    int is_absolute = path[0] == '/';
-    int had_trailing_separator = input_len > 0 && opal_is_path_separator(path[input_len - 1]);
+    opal_path_root_info_t root = opal_parse_path_root(path);
+    int is_absolute = root.kind != OPAL_PATH_ROOT_NONE;
+    int had_trailing_separator = input_len > root.parse_start && opal_is_path_separator(path[input_len - 1]);
 
     char** segments = (char**)calloc(input_len + 1, sizeof(char*));
     if (!segments) {
@@ -380,7 +566,7 @@ static char* lex_normalize_path(const char* path) {
 
     int64_t segment_count = 0;
     int escaped_root = 0;
-    size_t i = 0;
+    size_t i = root.parse_start;
 
     while (i < input_len) {
         while (i < input_len && opal_is_path_separator(path[i])) {
@@ -439,16 +625,18 @@ static char* lex_normalize_path(const char* path) {
     if (segment_count == 0) {
         free(segments);
         if (is_absolute) {
-            return safe_strdup("/");
+            char* root_only = opal_strdup_root_preserving_style(path, &root);
+            return root_only ? root_only : safe_strdup("");
         }
         return safe_strdup("");
     }
 
     char sep = opal_path_separator();
-    size_t output_len = is_absolute ? 1 : 0;
+    int root_needs_first_separator = opal_root_needs_separator_before_first_segment(&root);
+    size_t output_len = opal_normalized_root_length(&root);
     for (int64_t index = 0; index < segment_count; index++) {
         output_len += strlen(segments[index]);
-        if (index > 0) {
+        if (index > 0 || (index == 0 && root_needs_first_separator)) {
             output_len += 1;
         }
     }
@@ -464,13 +652,10 @@ static char* lex_normalize_path(const char* path) {
         return safe_strdup("");
     }
 
-    size_t position = 0;
-    if (is_absolute) {
-        output[position++] = sep;
-    }
+    size_t position = opal_append_normalized_root(output, path, &root);
 
     for (int64_t index = 0; index < segment_count; index++) {
-        if (index > 0) {
+        if (index > 0 || (index == 0 && root_needs_first_separator)) {
             output[position++] = sep;
         }
         size_t length = strlen(segments[index]);
@@ -514,7 +699,7 @@ char* join_path_components(const char* base, const char** components, int64_t co
             continue;
         }
 
-        if (component[0] == '/') {
+        if (opal_parse_path_root(component).kind != OPAL_PATH_ROOT_NONE) {
             free(accumulator);
             accumulator = safe_strdup(component);
             if (!accumulator) {
@@ -560,30 +745,79 @@ char* join_path_components(const char* base, const char** components, int64_t co
 }
 
 char* path_parent_directory(const char* path) {
-    if (!path || path[0] == '\0') return strdup(".");
-    char* copy = strdup(path);
-    char* last = strrchr(copy, '/');
-    if (!last) { free(copy); return strdup("."); }
-    if (last == copy) { free(copy); return strdup("/"); }
-    *last = '\0';
-    char* result = strdup(copy);
-    free(copy);
-    return result;
+    if (!path || path[0] == '\0') return safe_strdup(".");
+
+    opal_path_root_info_t root = opal_parse_path_root(path);
+    size_t full_len = strlen(path);
+    int had_trailing_separator = full_len > root.parse_start && opal_is_path_separator(path[full_len - 1]);
+    size_t end = opal_trimmed_path_end(path, &root);
+
+    if (had_trailing_separator) {
+        if (end <= root.parse_start) {
+            char* root_only = opal_strdup_root_preserving_style(path, &root);
+            return root_only ? root_only : safe_strdup("");
+        }
+        return opal_strdup_slice(path, end);
+    }
+
+    ssize_t last_separator = opal_find_last_path_separator(path, end);
+
+    if (last_separator < 0) {
+        return safe_strdup(".");
+    }
+
+    if ((size_t)last_separator < root.parse_start) {
+        char* root_only = opal_strdup_root_preserving_style(path, &root);
+        return root_only ? root_only : safe_strdup("");
+    }
+
+    if (root.kind == OPAL_PATH_ROOT_NONE && (size_t)last_separator == 0) {
+        return safe_strdup(".");
+    }
+
+    return opal_strdup_slice(path, (size_t)last_separator);
 }
 
 char* path_file_name(const char* path) {
-    if (!path || path[0] == '\0') return strdup("");
-    const char* last = strrchr(path, '/');
-    return strdup(last ? last + 1 : path);
+    if (!path || path[0] == '\0') return safe_strdup("");
+
+    opal_path_root_info_t root = opal_parse_path_root(path);
+    size_t full_len = strlen(path);
+    if (full_len > root.parse_start && opal_is_path_separator(path[full_len - 1])) {
+        return safe_strdup("");
+    }
+
+    size_t end = opal_trimmed_path_end(path, &root);
+    if (end <= root.parse_start) {
+        return safe_strdup("");
+    }
+
+    ssize_t last_separator = opal_find_last_path_separator(path, end);
+    size_t name_start = (last_separator < 0) ? 0u : (size_t)last_separator + 1u;
+    if (name_start < root.parse_start) {
+        name_start = root.parse_start;
+    }
+
+    return opal_strdup_slice(path + name_start, end - name_start);
 }
 
 char* path_file_extension(const char* path) {
-    if (!path || path[0] == '\0') return strdup("");
-    const char* name = strrchr(path, '/');
-    name = name ? name + 1 : path;
+    if (!path || path[0] == '\0') return safe_strdup("");
+
+    char* name = path_file_name(path);
+    if (!name) {
+        return safe_strdup("");
+    }
+
     const char* dot = strrchr(name, '.');
-    if (!dot || dot == name) return strdup("");
-    return strdup(dot + 1);
+    if (!dot || dot == name) {
+        free(name);
+        return safe_strdup("");
+    }
+
+    char* extension = safe_strdup(dot + 1);
+    free(name);
+    return extension ? extension : safe_strdup("");
 }
 
 char* normalize_path(const char* path) {
@@ -596,20 +830,27 @@ char* path_to_string(const char* path) {
 
 FsPathResult absolute_path_sync(const char* path) {
     FsPathResult r;
-    if (!path || path[0] == '\0') {
-        r.value = NULL;
-        r.error = "InvalidPathError: empty path";
-        return r;
-    }
-    char resolved_buf[OPAL_PATH_BUFFER_CAP];
-    char* resolved = opal_realpath(path, resolved_buf, sizeof(resolved_buf)) ? strdup(resolved_buf) : NULL;
-    if (!resolved) {
-        r.value = NULL;
-        r.error = "InvalidPathError: could not resolve path";
-        return r;
-    }
-    r.value = resolved;
+    r.value = NULL;
     r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = opal_fs_format_err(OPAL_FS_ERR_INVALID_PATH, "empty path");
+        if (!r.error) {
+            r.error = safe_strdup("InvalidPathError: empty path");
+        }
+        return r;
+    }
+
+    char* resolved = opal_realpath_owned(path);
+    if (!resolved) {
+        r.error = opal_fs_format_err(OPAL_FS_ERR_INVALID_PATH, "could not resolve path");
+        if (!r.error) {
+            r.error = safe_strdup("InvalidPathError: could not resolve path");
+        }
+        return r;
+    }
+
+    r.value = resolved;
     return r;
 }
 
@@ -640,7 +881,7 @@ FsBytesResult read_contents_sync(const char* path) {
         return r;
     }
 
-    FILE* file = fopen(path, "rb");
+    FILE* file = opal_fopen(path, "rb");
     if (!file) {
         r.error = errno_to_fs_error(errno, OPAL_FS_ERR_IO);
         return r;
@@ -905,7 +1146,7 @@ FsStringResult read_text_sync(const char* path) {
         return r;
     }
 
-    FILE* file = fopen(path, "rb");
+    FILE* file = opal_fopen(path, "rb");
     if (!file) {
         r.error = errno_to_fs_error(errno, OPAL_FS_ERR_IO);
         return r;
@@ -1017,7 +1258,7 @@ FsStringResult read_first_line_sync(const char* path) {
         return r;
     }
 
-    FILE* file = fopen(path, "rb");
+    FILE* file = opal_fopen(path, "rb");
     if (!file) {
         r.error = errno_to_fs_error(errno, OPAL_FS_ERR_IO);
         return r;
@@ -1162,7 +1403,7 @@ FsStringArrayResult read_lines_sync(const char* path) {
         return r;
     }
 
-    FILE* file = fopen(path, "rb");
+    FILE* file = opal_fopen(path, "rb");
     if (!file) {
         r.error = errno_to_fs_error(errno, OPAL_FS_ERR_IO);
         return r;
@@ -1383,7 +1624,7 @@ FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_
         return r;
     }
 
-    FILE* file = fopen(path, "rb");
+    FILE* file = opal_fopen(path, "rb");
     if (!file) {
         r.error = errno_to_fs_error(errno, OPAL_FS_ERR_IO);
         return r;
@@ -1472,7 +1713,7 @@ FsVoidResult write_contents_sync(const char* path, OpalBytes* data) {
         write_bytes = data->data;
     }
 
-    FILE* file = fopen(path, "wb");
+    FILE* file = opal_fopen(path, "wb");
     if (!file) {
         r.error = errno_to_fs_error(errno, "Io");
         return r;
@@ -1509,7 +1750,7 @@ FsVoidResult write_text_sync(const char* path, const char* text) {
     const char* write_text = text ? text : "";
     size_t write_len = strlen(write_text);
 
-    FILE* file = fopen(path, "wb");
+    FILE* file = opal_fopen(path, "wb");
     if (!file) {
         r.error = errno_to_fs_error(errno, "Io");
         return r;
@@ -1582,7 +1823,7 @@ FsVoidResult append_text_sync(const char* path, const char* text) {
     const char* write_text = text ? text : "";
     size_t write_len = strlen(write_text);
 
-    FILE* file = fopen(path, "ab");
+    FILE* file = opal_fopen(path, "ab");
     if (!file) {
         r.error = errno_to_fs_error(errno, "Io");
         return r;
@@ -1634,7 +1875,7 @@ FsVoidResult write_bytes_at_offset_sync(const char* path, int64_t offset, OpalBy
         return r;
     }
 
-    FILE* file = fopen(path, "r+b");
+    FILE* file = opal_fopen(path, "r+b");
     if (!file) {
         r.error = errno_to_fs_error(errno, "WriteFailureError");
         return r;
@@ -1762,33 +2003,18 @@ FsVoidResult copy_file_sync(const char* source, const char* destination) {
         return r;
     }
 
-#if OPAL_WINDOWS
-    struct _stat64 source_native_stat;
-    struct _stat64 destination_native_stat;
-    if (_stat64(source, &source_native_stat) == 0 && _stat64(destination, &destination_native_stat) == 0) {
-        if (source_native_stat.st_dev == destination_native_stat.st_dev &&
-            source_native_stat.st_ino == destination_native_stat.st_ino) {
-            return r;
-        }
+    int same_file = 0;
+    if (opal_paths_refer_to_same_file(source, destination, &same_file) == 0 && same_file) {
+        return r;
     }
-#else
-    struct stat source_native_stat;
-    struct stat destination_native_stat;
-    if (stat(source, &source_native_stat) == 0 && stat(destination, &destination_native_stat) == 0) {
-        if (source_native_stat.st_dev == destination_native_stat.st_dev &&
-            source_native_stat.st_ino == destination_native_stat.st_ino) {
-            return r;
-        }
-    }
-#endif
 
-    FILE* source_file = fopen(source, "rb");
+    FILE* source_file = opal_fopen(source, "rb");
     if (!source_file) {
         r.error = errno_to_fs_error(errno, OPAL_FS_ERR_IO);
         return r;
     }
 
-    FILE* destination_file = fopen(destination, "wb");
+    FILE* destination_file = opal_fopen(destination, "wb");
     if (!destination_file) {
         int open_errno = errno;
         if (fclose(source_file) != 0 && open_errno == 0) {
@@ -1854,7 +2080,7 @@ FsVoidResult move_path_sync(const char* source, const char* destination) {
         return r;
     }
 
-    if (rename(source, destination) != 0) {
+    if (opal_replace_path(source, destination) != 0) {
         int rename_errno = errno;
         if (rename_errno == EXDEV) {
             r.error = opal_fs_format_err("Io", "EXDEV: cross-device rename not supported (caller should copy+delete)");

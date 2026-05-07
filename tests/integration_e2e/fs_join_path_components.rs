@@ -161,6 +161,95 @@ fn fs_join_path_components_fixture_showcase() {
 #[cfg(feature = "integration")]
 #[test]
 #[serial(fs)]
+fn join_windows_absolute_components_reset_accumulator() {
+    {
+        let _guard = FsStateGuard::new("test-projects/_fs_path_from")
+            .expect("join windows-absolute guard should initialize and reset target/workspace");
+
+        assert_workspace_empty("_fs_path_from");
+
+        let source = "
+import path_from, join_path_components, path_to_string from standard
+
+##
+  Description: Verifies Windows absolute join components replace the accumulator.
+##
+entry main = f(args: string[]): void =>
+    let drive_reset = join_path_components(path_from('base'), ['C:\\\\abs'])
+    print('drive-reset={path_to_string(drive_reset)}')
+
+    let mixed_drive_reset = join_path_components(path_from('base/child'), ['C:/abs', 'leaf'])
+    print('mixed-drive-reset={path_to_string(mixed_drive_reset)}')
+
+    let unc_reset = join_path_components(path_from('base'), ['\\\\\\\\server\\\\share\\\\dir', 'file.ext'])
+    print('unc-reset={path_to_string(unc_reset)}')
+    return void
+";
+
+        let temp_dir = unique_probe_target_dir("join-windows-absolute-reset");
+
+        let binary_result = compile_program(
+            Path::new("test-projects/_fs_path_from/src/main.op"),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        );
+        assert!(
+            binary_result.is_ok(),
+            "join windows-absolute source should compile into a binary: {}",
+            binary_result
+                .as_ref()
+                .err()
+                .map_or_else(|| String::from("unknown compile error"), stringify_error)
+        );
+        let Ok(binary_path) = binary_result else {
+            return;
+        };
+
+        let output_result = std::process::Command::new(&binary_path).output();
+        assert!(
+            output_result.is_ok(),
+            "join windows-absolute compiled binary should execute: {}",
+            output_result
+                .as_ref()
+                .err()
+                .map_or_else(|| String::from("unknown execution error"), stringify_error)
+        );
+        let Ok(run_output) = output_result else {
+            return;
+        };
+
+        let stdout = strip_crlf(&String::from_utf8_lossy(&run_output.stdout));
+        let lines: Vec<&str> = stdout
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .collect();
+
+        let expected = vec![
+            "drive-reset=C:/abs",
+            "mixed-drive-reset=C:/abs/leaf",
+            "unc-reset=//server/share/dir/file.ext",
+        ];
+
+        assert_eq!(
+            lines, expected,
+            "join_path_components should treat drive and UNC inputs as absolute resets"
+        );
+
+        assert!(
+            run_output.status.success(),
+            "join windows-absolute binary should exit with status code 0, got: {:?}",
+            run_output.status.code()
+        );
+    }
+
+    assert_workspace_empty("_fs_path_from");
+}
+
+#[cfg(feature = "integration")]
+#[test]
+#[serial(fs)]
 fn join_canonical_matrix() {
     {
         let _guard = FsStateGuard::new("test-projects/_fs_path_from")

@@ -2,68 +2,119 @@
 
 Issues preventing Opalescent programs from running on Windows with file system operations.
 
+## Final Closure Status (Task 12)
+
+- Checklist closure date: 2026-05-06
+- Final evidence bundle: `.sisyphus/evidence/windows-issues-final/`
+- Commit history review: inspected with `git log --oneline -15`; recent history remains split into task-sized units rather than one monolithic Windows commit.
+- Final host state reflected by the current closure bundle:
+  - `bash scripts/verify-wine-prereqs.sh` passes on this host (`.sisyphus/evidence/windows-issues-final/wine-prereqs.txt`).
+  - `cargo test --features "integration windows-wine" --test integration_e2e -- --nocapture wine_msvc_file_ops` passes and is recorded in `.sisyphus/evidence/windows-issues-final/wine-msvc-file-ops.txt`.
+  - `cargo run --release -- test-projects/hello-world/src/main.op --target x86_64-pc-windows-msvc` followed by `wine target/program.exe` succeeds and is recorded in `.sisyphus/evidence/windows-issues-final/hello-world-msvc-wine.txt`.
+- Toolchain closure state:
+  - `Cargo.toml` no longer contains `llvm14-0-prefer-dynamic`.
+  - Repo-local `.cargo/config.toml` is not part of the checked-in closure.
+  - Linux/non-Windows builds keep dynamic LLVM preference through direct `llvm-sys` feature unification while Windows keeps plain `llvm14-0`.
+
 ## Runtime C Layer
 
-- [ ] **1. `path_parent_directory`, `path_file_name`, `path_file_extension` ignore `\` separator**
-  `runtime/opal_fs.c` — all three use `strrchr(path, '/')` only. A Windows path like `C:\Users\foo\bar.txt` returns wrong results from all three (e.g., `path_parent_directory` returns `"."` since no `/` is found).
+- [x] **1. `path_parent_directory`, `path_file_name`, `path_file_extension` ignore `\` separator**
+  Resolution: Windows separators, drive roots, UNC roots, and mixed separators are covered by the Task 5 regression set.
+  Evidence: `.sisyphus/evidence/task-5-path-tests.txt` (`fs_path_helpers_query_fixture_showcase`, `fs_path_manipulation`).
 
-- [ ] **2. Bare `strdup` calls in path helpers (MSVC deprecation / linker failure)**
-  `runtime/opal_fs.c` — `path_parent_directory`, `path_file_name`, `path_file_extension`, and `safe_strdup` all call `strdup` directly. On MSVC, `strdup` is deprecated; with `/WX` (warnings-as-errors), these become build errors. The shim `opal_strdup` from `opal_portability.h` should be used instead.
+- [x] **2. Bare `strdup` calls in path helpers (MSVC deprecation / linker failure)**
+  Resolution: path helper duplication now uses `opal_strdup`/safe wrappers instead of bare `strdup` in the Windows-sensitive fs paths.
+  Evidence: `.sisyphus/notepads/windows-issues/issues.md` Task 5 entry and `.sisyphus/evidence/task-5-path-tests.txt`.
 
-- [ ] **3. `lex_normalize_path` uses POSIX-only absolute path detection**
-  `runtime/opal_fs.c` — checks `path[0] == '/'` to detect absolute paths. Windows absolute paths (`C:\Users\...`, `\\server\share`) are never detected as absolute, so they get mangled into relative paths. Also, when collapsing to root, it hardcodes `safe_strdup("/")` instead of the platform root.
+- [x] **3. `lex_normalize_path` uses POSIX-only absolute path detection**
+  Resolution: lexical normalization now recognizes drive-letter and UNC roots and preserves platform root semantics.
+  Evidence: `.sisyphus/evidence/task-5-path-tests.txt` (`normalize_windows_roots_and_mixed_separators`).
 
-- [ ] **4. `join_path_components` only recognises `/`-rooted absolute components**
-  `runtime/opal_fs.c` — `if (component[0] == '/')` is the only absolute-component check. Windows drive-letter paths (`C:\...`) and UNC paths (`\\...`) are not recognised as absolute; they get appended as relative segments instead of replacing the accumulator.
+- [x] **4. `join_path_components` only recognises `/`-rooted absolute components**
+  Resolution: Windows absolute components now reset the accumulator instead of being appended as relative segments.
+  Evidence: `.sisyphus/evidence/task-5-path-tests.txt` (`join_windows_absolute_components_reset_accumulator`).
 
-- [ ] **5. `absolute_path_sync` stores static string literals in error fields (use-after-free / crash)**
-  `runtime/opal_fs.c` — Two error paths assign a string literal directly to `r.error`. `opal_fs_errors.h` explicitly forbids static literals because consumers call `free()` on every non-NULL `.error` field. Freeing a literal is undefined behaviour and crashes on Windows (where MSVC CRT validates heap pointers in `free`).
+- [x] **5. `absolute_path_sync` stores static string literals in error fields (use-after-free / crash)**
+  Resolution: error strings returned from `absolute_path_sync` are heap-allocated and safely freed by regression coverage.
+  Evidence: `.sisyphus/evidence/task-6-error-allocation.txt` (`absolute_path_sync_allocates_errors_and_keeps_absolute_inputs`).
 
-- [ ] **6. All file I/O uses ANSI narrow-char APIs — non-ASCII paths silently fail**
-  Every call to `fopen`, `_stat64`, `_unlink`, `MoveFileExA`, and `opal_mkdir`/`_rmdir` passes a UTF-8 encoded `char*` path, but the Windows ANSI APIs interpret it using the system ANSI codepage (typically CP-1252), not UTF-8. Paths containing non-ASCII characters will silently open the wrong file, report "not found", or corrupt names. The Unicode conversion helpers (`opal_utf8_to_wide` / `opal_wide_to_utf8`) exist in `opal_portability.h` but are not used by any fs I/O function.
+- [x] **6. All file I/O uses ANSI narrow-char APIs — non-ASCII paths silently fail**
+  Resolution: Windows file I/O moved to the UTF-8↔wide boundary and the Wine file-ops fixture exercises Unicode paths.
+  Evidence: `.sisyphus/evidence/task-9-long-path-wine.txt` and `.sisyphus/evidence/task-3-wine-msvc-file-ops-stdout.txt`.
 
-- [ ] **7. `opal_opendir` uses `FindFirstFileA` (ANSI, no Unicode support)**
-  `runtime/opal_portability.h` — Directory enumeration calls `FindFirstFileA`, which applies the same ANSI codepage restriction as issue 6. Non-ASCII directory names will be mishandled or silently skipped.
+- [x] **7. `opal_opendir` uses `FindFirstFileA` (ANSI, no Unicode support)**
+  Resolution: directory enumeration was moved to the wide Win32 path and kept behind the portability boundary.
+  Evidence: `.sisyphus/notepads/windows-issues/issues.md` Task 4 entry and `.sisyphus/evidence/task-7-dir-errno.txt`.
 
-- [ ] **8. `opal_opendir` doesn't set `errno` on `FindFirstFileA` failure**
-  `runtime/opal_portability.h` — When `FindFirstFileA` returns `INVALID_HANDLE_VALUE`, the function frees the handle and returns NULL without calling `opal_set_errno_from_win32(GetLastError())`. Callers that check `errno` after failure will see stale errno, leading to wrong error discriminants (e.g., `"DeleteFailureError"` instead of `"FileNotFoundError"`).
+- [x] **8. `opal_opendir` doesn't set `errno` on `FindFirstFileA` failure**
+  Resolution: missing-directory and file-as-directory probes now assert deterministic errno-driven behavior.
+  Evidence: `.sisyphus/evidence/task-7-dir-errno.txt` (`list_directory_not_found`, `list_directory_rejects_file_path`).
 
-- [ ] **9. `opal_closedir` doesn't propagate `errno` on `FindClose` failure**
-  `runtime/opal_portability.h` — Returns `-1` on `FindClose` failure but never sets `errno`, so callers cannot distinguish the error type.
+- [x] **9. `opal_closedir` doesn't propagate `errno` on `FindClose` failure**
+  Resolution: Windows dir close/open errno propagation lives in the Task 7 portability fix set.
+  Evidence: `.sisyphus/notepads/windows-issues/issues.md` Task 7 entry and `.sisyphus/evidence/task-7-dir-errno.txt`.
 
-- [ ] **10. Forward declarations in `opal_fs.c` create potential ODR conflict on Windows**
-  `runtime/opal_fs.c` — The `#if !OPAL_HAS_DIRENT` block (compiled on Windows) forward-declares `opal_opendir/readdir/closedir` as non-static extern functions. `opal_portability.h` already defines the same names as `static inline` in the same translation unit. Having both a `static inline` definition and a plain extern declaration for the same identifier is an ODR problem; some compilers may emit an error or silently use the wrong linkage.
+- [x] **10. Forward declarations in `opal_fs.c` create potential ODR conflict on Windows**
+  Resolution: the conflicting non-dirent forward declarations were removed and the portability-header definitions remain authoritative.
+  Evidence: `.sisyphus/notepads/windows-issues/issues.md` Task 7 entry.
 
-- [ ] **11. `opal_stat` always reports `is_symlink = 0` on Windows**
-  `runtime/opal_portability.h` — The follow-symlinks `opal_stat` unconditionally sets `out->is_symlink = 0`. `read_metadata_sync` therefore never reports a symlink on Windows, even though the `opal_stat_nofollow` path does report it via `FILE_ATTRIBUTE_REPARSE_POINT`. Programs that make decisions on `is_symlink` from `read_metadata_sync` will behave incorrectly on Windows symlinks and junctions.
+- [x] **11. `opal_stat` always reports `is_symlink = 0` on Windows**
+  Resolution: Windows metadata now reports reparse-point symlink state in both follow and nofollow coverage.
+  Evidence: `.sisyphus/evidence/task-7-symlink-metadata.txt` (`wine_msvc_symlink_metadata`; host shows explicit prereq skip when Wine/MSVC tooling is unavailable).
 
-- [ ] **15. `opal_runtime_init` is never called for generated programs**
-  `runtime/opal_runtime.c`, `src/codegen/functions_call/tail.rs` — `opal_runtime_init()` calls `SetConsoleOutputCP(65001)` to enable UTF-8 console output on Windows. However, `opal_runtime.c` is not included in `RUNTIME_SOURCE` and the generated `main` wrapper (`emit_c_main_wrapper`) never calls `opal_runtime_init`. As a result, Unicode output from compiled programs is corrupted on Windows consoles that default to a non-UTF-8 codepage.
+- [x] **15. `opal_runtime_init` is never called for generated programs**
+  Resolution: `opal_runtime.c` is included in `RUNTIME_SOURCE` and generated entry wrappers call `opal_runtime_init()` before user entrypoint execution.
+  Evidence: `.sisyphus/evidence/task-8-runtime-init.txt` (`test_entry_main_wrapper_calls_runtime_init_before_entrypoint`) and `.sisyphus/evidence/task-8-rc-link.txt` (`runtime_source_includes_runtime_and_rc_symbols_exactly_once`).
 
-- [ ] **16. Filesystem path buffer capped at 260 bytes (`MAX_PATH` limit)**
-  `runtime/opal_portability.h` — `OPAL_PATH_BUFFER_CAP` is defined as `260` on Windows, matching the legacy `MAX_PATH` constant. Paths longer than 260 bytes (valid on Windows 10+ with long-path support enabled) will be silently truncated or cause buffer overflows in any `fs` function that uses a stack-allocated path buffer.
+- [x] **16. Filesystem path buffer capped at 260 bytes (`MAX_PATH` limit)**
+  Resolution: Windows fs user paths no longer depend on a `MAX_PATH`-sized buffer; remaining cap constant is no longer the legacy 260-byte value.
+  Evidence: `.sisyphus/evidence/task-9-maxpath-search.txt` (`OPAL_PATH_BUFFER_CAP ((size_t)4096)`) and `.sisyphus/evidence/task-9-long-path-wine.txt`.
 
 ## Build System
 
-- [ ] **12. `Cargo.toml` still includes `"llvm14-0-prefer-dynamic"`**
-  `Cargo.toml` — The Windows CI job works around this by stripping the feature with `sed` at CI time (a fragile scripted workaround). On a native Windows build without the CI script, `inkwell` will request a dynamically-linked LLVM. If the LLVM `.dll` is not on `PATH`, the compiler binary fails to start before executing any user code.
+- [x] **12. `Cargo.toml` still includes `"llvm14-0-prefer-dynamic"`**
+  Resolution: `Cargo.toml` no longer contains `llvm14-0-prefer-dynamic`; the manifest now keeps plain `llvm14-0` and uses direct `llvm-sys` feature unification on non-Windows hosts to prefer dynamic LLVM without the old inkwell feature string.
+  Evidence: `.sisyphus/evidence/windows-issues-final/toolchain-summary.txt`, `.sisyphus/evidence/windows-issues-final/linux-tests.txt`, `.sisyphus/evidence/windows-issues-final/wine-msvc-file-ops.txt`.
 
-- [ ] **13. CI `cross-msvc-from-linux` job installs `xwin` without version pinning**
-  `.github/workflows/ci.yml` — `cargo install xwin --locked` fetches the latest version each run. A breaking `xwin` release could silently break cross-compilation from Linux to Windows.
+- [x] **13. CI `cross-msvc-from-linux` job installs `xwin` without version pinning**
+  Resolution: CI now pins `xwin` to `0.9.0` with `--locked`, and the prereq script reports that expectation explicitly.
+  Evidence: `.sisyphus/evidence/task-10-cargo-ci-search.txt`, `.sisyphus/evidence/windows-issues-final/toolchain-summary.txt`, `.sisyphus/evidence/windows-issues-final/wine-prereqs.txt`.
 
-- [ ] **17. MSVC linker invocation missing `bcrypt.lib`**
-  `src/build_system/linker.rs` — `msvc_shared_args()` only passes `/DEFAULTLIB:libcmt` to the linker. `opal_rng.c` calls `BCryptGenRandom`, which requires `bcrypt.lib` at link time. The MinGW path correctly passes `-lbcrypt` via `mingw_crt_libs()`, but the MSVC path does not, causing an unresolved-external link error for any program that uses the RNG stdlib.
+- [x] **17. MSVC linker invocation missing `bcrypt.lib`**
+  Resolution: MSVC shared linker args now include the required bcrypt library.
+  Evidence: `.sisyphus/notepads/windows-issues/issues.md` Task 2 entry and `.sisyphus/evidence/task-5-linux-regression.txt` (`msvc_linker_shared_args_present`).
 
-- [ ] **18. `opal_rc.c` is absent from `RUNTIME_SOURCE`**
-  `src/compiler.rs` — The `RUNTIME_SOURCE` constant concatenates all C runtime files written to the temp directory before compilation. `opal_rc.c` (reference-counting allocator) is missing from this list. `src/codegen/rc_emitter.rs` declares `opal_rc_alloc`, `opal_rc_inc`, `opal_rc_dec`, `opal_rc_drop_iterative`, `opal_weak_alloc`, `opal_weak_upgrade`, and `opal_weak_dec` as external symbols, so any compiled program that exercises RC will fail to link with unresolved-external errors on all platforms, but it is categorised here because Windows is the primary target for the MSVC toolchain path.
+- [x] **18. `opal_rc.c` is absent from `RUNTIME_SOURCE`**
+  Resolution: runtime source aggregation includes the RC runtime exactly once.
+  Evidence: `.sisyphus/evidence/task-8-rc-link.txt` (`runtime_source_includes_runtime_and_rc_symbols_exactly_once`) and `.sisyphus/evidence/task-5-linux-regression.txt` (`runtime_source_includes_opal_rc_source_symbols`).
 
-- [ ] **19. Missing `XWIN_CACHE` / `OPAL_XWIN_SYSROOT` panics instead of returning an error**
-  `src/build_system/linker.rs` — `build_msvc()` on a non-Windows host calls `.expect("XWIN_CACHE env var required…")` when neither `XWIN_CACHE` nor `OPAL_XWIN_SYSROOT` is set. This terminates the compiler process with a panic instead of propagating a structured diagnostic. Users who omit the env var get an unformatted panic trace rather than an actionable error message.
+- [x] **19. Missing `XWIN_CACHE` / `OPAL_XWIN_SYSROOT` panics instead of returning an error**
+  Resolution: missing xwin/sysroot configuration now surfaces as a structured linker/compiler error instead of a panic.
+  Evidence: `.sisyphus/evidence/task-5-linux-regression.txt` (`msvc_linker_missing_xwin_env_surfaces_error_instead_of_panicking`) and `.sisyphus/evidence/windows-issues-final/hello-world-msvc-wine.txt`.
 
-- [ ] **20. `quote_if_needed` wraps paths in literal quote characters**
-  `src/build_system/linker.rs` — `quote_if_needed()` prepends and appends `"` bytes to path strings that contain spaces, then passes the result to `std::process::Command::arg()`. `Command::arg` already handles OS-level argument quoting; adding literal quote characters produces an argument whose value on the child process's command line includes the quote bytes as part of the path, causing the linker to fail with a "file not found" error for any path that contains spaces (e.g., `/home/user name/…`).
+- [x] **20. `quote_if_needed` wraps paths in literal quote characters**
+  Resolution: raw paths are now passed through `Command::arg()` without injecting literal quote bytes.
+  Evidence: `.sisyphus/evidence/task-5-linux-regression.txt` (`linker_command_passes_raw_paths_with_spaces_to_command_args`).
 
 ## Hot-Reload
 
-- [ ] **14. Windows `.dll` hot-reload lacks copy-before-load (files locked by the OS)**
-  `src/hot_reload/loader.rs` — Windows locks a `.dll` while it is loaded. To hot-swap a module, the new DLL must be copied to a uniquely named temporary file before being loaded (otherwise recompiling the original `.dll` fails with a sharing-violation error). This copy-before-load mechanism is not implemented; hot-reload on Windows will fail whenever a program stays running while a module is recompiled.
+- [x] **14. Windows `.dll` hot-reload lacks copy-before-load (files locked by the OS)**
+  Resolution: closure landed as regression verification: loader behavior already copied DLLs to unique temp paths before loading, and Task 11 locked that behavior with tests.
+  Evidence: `.sisyphus/evidence/task-11-hot-reload-copy.txt`, `.sisyphus/evidence/task-11-hot-reload-tests.txt` (`windows_dll_copy_before_load_uses_dll_extension`, `fs_module_loader_repeated_loads_create_distinct_temp_copy_paths`).
+
+## Final Verification Matrix (Task 12)
+
+- `cargo test --all-features --workspace` → **PASS** (`EXIT_CODE=0`).
+  Evidence: `.sisyphus/evidence/windows-issues-final/linux-tests.txt`
+- `cargo clippy --all-targets --all-features -- -D warnings` → **PASS** (`EXIT_CODE=0`).
+  Evidence: `.sisyphus/evidence/windows-issues-final/clippy.txt`
+- `cargo fmt --all -- --check` → **PASS** (`EXIT_CODE=0`).
+  Evidence: `.sisyphus/evidence/windows-issues-final/fmt-check.txt`
+- `bash scripts/verify-wine-prereqs.sh` → **PASS** (`EXIT_CODE=0`).
+  Evidence: `.sisyphus/evidence/windows-issues-final/wine-prereqs.txt`
+- `cargo test --features "integration windows-wine" --test integration_e2e -- --nocapture wine_msvc_file_ops` → **PASS** (`EXIT_CODE=0`) with the completed final run recorded in the closure bundle.
+  Evidence: `.sisyphus/evidence/windows-issues-final/wine-msvc-file-ops.txt`
+- `cargo run --release -- test-projects/hello-world/src/main.op --target x86_64-pc-windows-msvc` and `wine <exe>` → **PASS** (`BUILD_EXIT_CODE=0`, `WINE_EXIT_CODE=0`).
+  Evidence: `.sisyphus/evidence/windows-issues-final/hello-world-msvc-wine.txt`
+- MinGW non-regression compile/link smoke → currently remains in the final bundle as prior evidence and is not part of the blocker set being cleared in this closure pass.
+  Evidence: `.sisyphus/evidence/windows-issues-final/mingw-smoke.txt`

@@ -68,11 +68,16 @@ fn fs_path_helpers_query_fixture_showcase() {
             "noext: ext=, name=noext, parent=.",
             "a/b/c.tar.gz: ext=gz, name=c.tar.gz, parent=a/b",
             "/: ext=, name=, parent=/",
+            r"C:\Users\foo\bar.txt: ext=txt, name=bar.txt, parent=C:\Users\foo",
+            "C:/Users/foo/bar.txt: ext=txt, name=bar.txt, parent=C:/Users/foo",
+            r"\\server\share\dir\file.ext: ext=ext, name=file.ext, parent=\\server\share\dir",
+            "relative/path/file: ext=, name=file, parent=relative/path",
+            "relative/path/noext: ext=, name=noext, parent=relative/path",
         ];
 
         assert_eq!(
             lines, expected,
-            "_fs_path_helpers_query fixture should print the exact 5-case helper matrix"
+            "_fs_path_helpers_query fixture should print the exact 10-case helper matrix"
         );
 
         assert!(

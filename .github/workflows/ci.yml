@@ -55,11 +55,6 @@ jobs:
         run: |
           echo "LLVM_SYS_140_PREFIX=${{ steps.llvm.outputs.llvm-path }}" >> "$GITHUB_ENV"
 
-      - name: Remove llvm14-0-prefer-dynamic from Cargo.toml
-        shell: bash
-        run: |
-          sed -i 's/, "llvm14-0-prefer-dynamic"//' Cargo.toml
-
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
@@ -117,7 +112,7 @@ jobs:
       - name: Install xwin
         shell: bash
         run: |
-          cargo install xwin --locked
+          cargo install xwin --version 0.9.0 --locked
           xwin --accept-license splat --output ${{ env.XWIN_CACHE }}
 
       - name: Cache Rust dependencies

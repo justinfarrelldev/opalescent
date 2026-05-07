@@ -1,0 +1,3 @@
+.github/workflows/ci.yml:115:          cargo install xwin --version 0.9.0 --locked
+
+EXIT_CODE=0

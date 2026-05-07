@@ -123,6 +123,14 @@ impl FsModuleLoader {
         }
     }
 
+    #[cfg(test)]
+    #[must_use]
+    pub fn loaded_copy_path_for(&self, module_name: &str) -> Option<&Path> {
+        self.loaded_library_paths
+            .get(module_name)
+            .map(PathBuf::as_path)
+    }
+
     /// Build a unique temp path for a copied shared library candidate.
     #[must_use]
     pub fn temp_copy_path_for(module_name: &str) -> PathBuf {

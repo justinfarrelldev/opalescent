@@ -1,0 +1,3 @@
+Hello world
+
+WINE_EXIT_CODE=0

@@ -1,0 +1,3 @@
+OK: wine=wine-8.0 (Debian 8.0~repack-4) (minimum 8+) clang-cl=Debian clang version 14.0.6 clang_cl_path=/usr/lib/llvm-14/bin/clang-cl xwin=xwin 0.9.0 (expected 0.9.0) xwin_cache=/home/justi/.xwin llvm=/usr/lib/llvm-14
+
+EXIT_CODE=0

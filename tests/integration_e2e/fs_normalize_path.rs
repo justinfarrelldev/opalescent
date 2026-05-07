@@ -199,6 +199,99 @@ fn fs_normalize_path_fixture_showcase() {
 #[cfg(feature = "integration")]
 #[test]
 #[serial(fs)]
+fn normalize_windows_roots_and_mixed_separators() {
+    {
+        let _guard = FsStateGuard::new("test-projects/_fs_path_from")
+            .expect("normalize windows-root guard should initialize and reset target/workspace");
+
+        assert_workspace_empty("_fs_path_from");
+
+        let source = "
+import path_from, normalize_path, path_to_string from standard
+
+##
+  Description: Verifies Windows lexical roots and mixed separators normalize correctly.
+##
+entry main = f(args: string[]): void =>
+    let drive_backslash = normalize_path(path_from('C:\\\\Users\\\\foo\\\\..\\\\bar.txt'))
+    print('drive-backslash={path_to_string(drive_backslash)}')
+
+    let drive_slash = normalize_path(path_from('C:/Users/foo/../bar.txt'))
+    print('drive-slash={path_to_string(drive_slash)}')
+
+    let unc = normalize_path(path_from('\\\\\\\\server\\\\share\\\\dir\\\\..\\\\file.ext'))
+    print('unc={path_to_string(unc)}')
+
+    let posix = normalize_path(path_from('/tmp/../file.ext'))
+    print('posix={path_to_string(posix)}')
+    return void
+";
+
+        let temp_dir = unique_probe_target_dir("normalize-windows-roots");
+
+        let binary_result = compile_program(
+            Path::new("test-projects/_fs_path_from/src/main.op"),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        );
+        assert!(
+            binary_result.is_ok(),
+            "normalize windows-root source should compile into a binary: {}",
+            binary_result
+                .as_ref()
+                .err()
+                .map_or_else(|| String::from("unknown compile error"), stringify_error)
+        );
+        let Ok(binary_path) = binary_result else {
+            return;
+        };
+
+        let output_result = std::process::Command::new(&binary_path).output();
+        assert!(
+            output_result.is_ok(),
+            "normalize windows-root compiled binary should execute: {}",
+            output_result
+                .as_ref()
+                .err()
+                .map_or_else(|| String::from("unknown execution error"), stringify_error)
+        );
+        let Ok(run_output) = output_result else {
+            return;
+        };
+
+        let stdout = strip_crlf(&String::from_utf8_lossy(&run_output.stdout));
+        let lines: Vec<&str> = stdout
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .collect();
+
+        let expected = vec![
+            "drive-backslash=C:/Users/bar.txt",
+            "drive-slash=C:/Users/bar.txt",
+            "unc=//server/share/file.ext",
+            "posix=/file.ext",
+        ];
+
+        assert_eq!(
+            lines, expected,
+            "normalize_path should preserve Windows roots and POSIX root collapse semantics"
+        );
+
+        assert!(
+            run_output.status.success(),
+            "normalize windows-root binary should exit with status code 0, got: {:?}",
+            run_output.status.code()
+        );
+    }
+
+    assert_workspace_empty("_fs_path_from");
+}
+
+#[cfg(feature = "integration")]
+#[test]
+#[serial(fs)]
 fn normalize_root_escape_returns_empty() {
     {
         let _guard = FsStateGuard::new("test-projects/_fs_path_from")

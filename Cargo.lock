@@ -383,6 +383,7 @@ version = "0.1.0"
 dependencies = [
  "inkwell",
  "libloading",
+ "llvm-sys",
  "miette",
  "proptest",
  "serial_test",

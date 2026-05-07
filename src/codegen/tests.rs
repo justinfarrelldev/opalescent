@@ -10,6 +10,7 @@ use crate::codegen::functions::{
     codegen_call_expression, codegen_function_declaration, codegen_guard_expression,
     codegen_propagate_expression,
 };
+use crate::codegen::functions_stdlib::declare_stdlib_function;
 use crate::codegen::monomorphization::monomorphized_function_name;
 use crate::codegen::statements::codegen_statement;
 use crate::codegen::types::core_type_to_llvm;
@@ -1297,6 +1298,92 @@ entry main = f(args: string[]): void => {
     assert!(
         ir.contains("i8**") || ir.contains("ptr"),
         "C main wrapper must declare argv (i8** or ptr) as second param: {ir}"
+    );
+}
+
+#[test]
+fn test_entry_main_wrapper_calls_runtime_init_before_entrypoint() {
+    let source = "
+##
+    Description: Entry wrapper calls runtime init before entrypoint dispatch
+##
+entry main = f(args: string[]): void => {
+    return void
+}
+";
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "entry main(args: string[]) should compile: {:?}",
+        module_result.err()
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+
+    let ir = module.print_to_string().to_string();
+    let runtime_init_call = "call void @opal_runtime_init()";
+    let entry_call = "call void @__opalescent_entry_main(";
+
+    assert!(
+        ir.contains(runtime_init_call),
+        "C main wrapper should call opal_runtime_init: {ir}"
+    );
+    assert_eq!(
+        ir.matches(runtime_init_call).count(),
+        1,
+        "C main wrapper should emit exactly one opal_runtime_init call: {ir}"
+    );
+
+    let runtime_init_index = ir
+        .find(runtime_init_call)
+        .expect("runtime init call must be present");
+    let entry_call_index = ir.find(entry_call).expect("entry call must be present");
+    assert!(
+        runtime_init_index < entry_call_index,
+        "runtime init call must appear before entrypoint call: {ir}"
+    );
+}
+
+#[test]
+fn test_entry_main_wrapper_traps_on_error_returning_entrypoint() {
+    let source = "
+import path_from, read_text_sync from standard
+
+##
+    Description: Entry wrapper should surface propagated entry errors instead of silently returning success
+##
+entry main = f(args: string[]): void errors InvalidPathError, ReadFailureError, InvalidUtf8Error, IsADirectoryError, FileNotFoundError, PermissionDeniedError =>
+    let text = propagate read_text_sync(path_from('missing.txt'))
+    print(text)
+    return void
+";
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "error-bearing entry main should compile: {:?}",
+        module_result.err()
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("call { i8*, i8* } @__opalescent_entry_main(")
+            || ir.contains("call { ptr, ptr } @__opalescent_entry_main("),
+        "main wrapper should capture the error-bearing entry return aggregate: {ir}"
+    );
+    assert!(
+        ir.contains("extractvalue { i8*, i8* }") || ir.contains("extractvalue { ptr, ptr }"),
+        "main wrapper should inspect the entry error field: {ir}"
+    );
+    assert!(
+        ir.contains("call void @opal_runtime_error(")
+            || ir.contains("call void @opal_runtime_error(ptr "),
+        "main wrapper should route entry errors to opal_runtime_error: {ir}"
     );
 }
 
@@ -2684,6 +2771,78 @@ entry main = f(): void =>
     assert!(
         ir.contains("load i64, i64* %lines_len"),
         "guard-bound read_lines .length should load the tracked _len binding: {ir}"
+    );
+}
+
+#[test]
+fn test_linux_target_uses_direct_fs_small_results_and_sret_for_array_results() {
+    use crate::build_system::targets::parse_target_triple;
+
+    let context = Context::create();
+    let linux_target =
+        parse_target_triple("x86_64-unknown-linux-gnu").expect("valid Linux GNU triple");
+    let codegen_ctx = CodegenContext::for_triple(&context, "linux_fs_abi", &linux_target)
+        .expect("should create context for Linux target");
+
+    let read_text = declare_stdlib_function(&codegen_ctx, "read_text_sync")
+        .expect("read_text_sync declaration should exist");
+    let list_directory = declare_stdlib_function(&codegen_ctx, "list_directory_sync")
+        .expect("list_directory_sync declaration should exist");
+
+    let ir = codegen_ctx.module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare { i8*, i8* } @read_text_sync(i8*)"),
+        "Linux should return two-field filesystem results directly: {ir}"
+    );
+    assert!(
+        ir.contains("declare void @list_directory_sync({ i8**, i64, i8* }* sret({ i8**, i64, i8* }), i8*)"),
+        "Linux should keep sret only for larger array filesystem results: {ir}"
+    );
+    assert!(
+        read_text.get_type().get_return_type().is_some(),
+        "Linux read_text_sync should keep a direct struct return"
+    );
+    assert!(
+        list_directory.get_type().get_return_type().is_none(),
+        "Linux list_directory_sync should lower through a hidden sret pointer"
+    );
+}
+
+#[test]
+fn test_windows_msvc_target_uses_sret_for_filesystem_results() {
+    use crate::build_system::targets::parse_target_triple;
+
+    let context = Context::create();
+    let windows_target =
+        parse_target_triple("x86_64-pc-windows-msvc").expect("valid Windows MSVC triple");
+    let codegen_ctx = CodegenContext::for_triple(&context, "windows_fs_abi", &windows_target)
+        .expect("should create context for Windows MSVC target");
+
+    let read_text = declare_stdlib_function(&codegen_ctx, "read_text_sync")
+        .expect("read_text_sync declaration should exist");
+    let is_directory = declare_stdlib_function(&codegen_ctx, "is_directory_sync")
+        .expect("is_directory_sync declaration should exist");
+    let list_directory = declare_stdlib_function(&codegen_ctx, "list_directory_sync")
+        .expect("list_directory_sync declaration should exist");
+
+    let ir = codegen_ctx.module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare void @read_text_sync({ i8*, i8* }* sret({ i8*, i8* }), i8*)"),
+        "Windows MSVC should lower two-field filesystem string results with sret: {ir}"
+    );
+    assert!(
+        ir.contains("declare void @is_directory_sync({ i8, i8* }* sret({ i8, i8* }), i8*)"),
+        "Windows MSVC should lower filesystem boolean results with sret: {ir}"
+    );
+    assert!(
+        ir.contains("declare void @list_directory_sync({ i8**, i64, i8* }* sret({ i8**, i64, i8* }), i8*)"),
+        "Windows MSVC should lower array filesystem results with sret: {ir}"
+    );
+    assert!(
+        read_text.get_type().get_return_type().is_none()
+            && is_directory.get_type().get_return_type().is_none()
+            && list_directory.get_type().get_return_type().is_none(),
+        "Windows MSVC filesystem result declarations should all use a hidden sret pointer"
     );
 }
 

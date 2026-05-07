@@ -131,6 +131,14 @@ fn build_remove_file_success_source(path: &str) -> String {
     )
 }
 
+fn build_list_directory_error_source(path: &str) -> String {
+    let escaped_path = path.replace('\\', "\\\\").replace('\'', "\\'");
+
+    format!(
+        "import path_from, list_directory_sync from standard\n\n##\n  Description: T25 list_directory error probe.\n##\nentry main = f(args: string[]): void =>\n    guard list_directory_sync(path_from('{escaped_path}')) into listed else err =>\n        print(err)\n        return void\n\n    print('UNEXPECTED_SUCCESS count={{listed.length}}')\n    return void\n"
+    )
+}
+
 fn compile_and_run_inline_program(
     source: &str,
     temp_dir: &Path,
@@ -372,6 +380,128 @@ fn remove_file_isdir() {
     assert!(
         failure_message.is_empty(),
         "remove_file_isdir should report IsADirectoryError: {failure_message}"
+    );
+}
+
+#[test]
+#[serial(fs)]
+fn list_directory_not_found() {
+    let temp_dir = unique_probe_target_dir("metadata-list-not-found");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "t25 list-directory-not-found temp directory should be created"
+    );
+
+    let missing_path = make_temp_path("list-missing").join("missing-dir");
+
+    let execution_result: Result<(), String> = (|| {
+        let source = build_list_directory_error_source(&missing_path.to_string_lossy());
+        let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
+
+        let stderr = String::from_utf8_lossy(&run_output.stderr);
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        let combined = format!("{stdout}\n{stderr}");
+
+        if combined.contains("UNEXPECTED_SUCCESS") {
+            return Err(format!(
+                "list-directory-not-found probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
+                run_output.status.code(),
+                stdout,
+                stderr
+            ));
+        }
+        if !combined.contains("DirectoryNotFoundError:") && !combined.contains("FileNotFoundError:")
+        {
+            return Err(format!(
+                "list-directory-not-found output should contain DirectoryNotFoundError or FileNotFoundError prefix, status={:?}, stdout='{}', stderr='{}'",
+                run_output.status.code(),
+                stdout,
+                stderr
+            ));
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "t25 list-directory-not-found temp directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "list_directory_not_found should report a missing-directory error prefix: {failure_message}"
+    );
+}
+
+#[test]
+#[serial(fs)]
+fn list_directory_rejects_file_path() {
+    let temp_dir = unique_probe_target_dir("metadata-list-file");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "t25 list-directory-file temp directory should be created"
+    );
+
+    let base = make_temp_path("list-file");
+    let file_path = base.join("plain-file.txt");
+
+    let execution_result: Result<(), String> = (|| {
+        fs::create_dir_all(&base)
+            .map_err(|e| format!("list-directory-file base directory should be created: {e}"))?;
+        fs::write(&file_path, "payload")
+            .map_err(|e| format!("list-directory-file fixture file should be created: {e}"))?;
+
+        let source = build_list_directory_error_source(&file_path.to_string_lossy());
+        let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
+
+        let stderr = String::from_utf8_lossy(&run_output.stderr);
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        let combined = format!("{stdout}\n{stderr}");
+
+        if combined.contains("UNEXPECTED_SUCCESS") {
+            return Err(format!(
+                "list-directory-file probe unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
+                run_output.status.code(),
+                stdout,
+                stderr
+            ));
+        }
+        if !combined.contains("IsNotADirectoryError:") {
+            return Err(format!(
+                "list-directory-file output should contain IsNotADirectoryError prefix, status={:?}, stdout='{}', stderr='{}'",
+                run_output.status.code(),
+                stdout,
+                stderr
+            ));
+        }
+
+        Ok(())
+    })();
+
+    drop(fs::remove_file(&file_path));
+    drop(fs::remove_dir_all(&base));
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "t25 list-directory-file temp directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "list_directory_rejects_file_path should report IsNotADirectoryError: {failure_message}"
     );
 }
 

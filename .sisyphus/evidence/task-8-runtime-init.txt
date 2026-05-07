@@ -1,0 +1,48 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-b43b4eef981e575b)
+
+running 1 test
+test codegen::tests::test_entry_main_wrapper_calls_runtime_init_before_entrypoint ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1172 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-73664f5befab7a3f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-c705df98f3074c58)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-492faafc932fc4ed)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-8b626eb79b6ca532)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-82f79ca027d1ee87)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 116 filtered out; finished in 0.00s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-5bbc3bfbac3c9c23)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+

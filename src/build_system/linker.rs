@@ -147,7 +147,6 @@ impl LinkerCommand {
     /// Build the final `std::process::Command` with all platform-specific arguments.
     ///
     /// Dispatches on the linker variant and constructs the appropriate command line.
-    /// Paths containing spaces are automatically quoted.
     pub fn build(self) -> std::process::Command {
         if self.linker == Linker::Msvc {
             return self.build_msvc();
@@ -158,45 +157,37 @@ impl LinkerCommand {
         match self.linker {
             Linker::MinGw => {
                 for input in &self.inputs {
-                    let arg = Self::quote_if_needed(input.display().to_string());
-                    cmd.arg(arg);
+                    cmd.arg(input);
                 }
                 if let Some(include_dir) = self.include_dir.as_ref() {
-                    cmd.arg("-I")
-                        .arg(Self::quote_if_needed(include_dir.display().to_string()));
+                    cmd.arg("-I").arg(include_dir);
                 }
                 if let Some(runtime) = self.runtime.as_ref() {
                     cmd.arg(runtime);
                 }
-                cmd.arg("-o")
-                    .arg(Self::quote_if_needed(self.output.display().to_string()));
+                cmd.arg("-o").arg(&self.output);
                 for lib in mingw_crt_libs() {
                     cmd.arg(lib);
                 }
             }
             Linker::Clang => {
                 for input in &self.inputs {
-                    let arg = Self::quote_if_needed(input.display().to_string());
-                    cmd.arg(arg);
+                    cmd.arg(input);
                 }
                 if let Some(include_dir) = self.include_dir.as_ref() {
-                    cmd.arg("-I")
-                        .arg(Self::quote_if_needed(include_dir.display().to_string()));
+                    cmd.arg("-I").arg(include_dir);
                 }
                 if let Some(runtime) = self.runtime.as_ref() {
                     cmd.arg(runtime);
                 }
-                cmd.arg("-o")
-                    .arg(Self::quote_if_needed(self.output.display().to_string()));
+                cmd.arg("-o").arg(&self.output);
             }
             Linker::Cc => {
                 for input in &self.inputs {
-                    let arg = Self::quote_if_needed(input.display().to_string());
-                    cmd.arg(arg);
+                    cmd.arg(input);
                 }
                 if let Some(include_dir) = self.include_dir.as_ref() {
-                    cmd.arg("-I")
-                        .arg(Self::quote_if_needed(include_dir.display().to_string()));
+                    cmd.arg("-I").arg(include_dir);
                 }
                 if let Some(runtime) = self.runtime.as_ref() {
                     cmd.arg(runtime);
@@ -204,8 +195,7 @@ impl LinkerCommand {
                 if needs_no_pie(&self.target) {
                     cmd.arg("-no-pie");
                 }
-                cmd.arg("-o")
-                    .arg(Self::quote_if_needed(self.output.display().to_string()));
+                cmd.arg("-o").arg(&self.output);
             }
             Linker::Msvc => unreachable!(),
         }
@@ -238,12 +228,11 @@ impl LinkerCommand {
 
         #[cfg(not(windows))]
         {
-            let xwin_cache = std::env::var("XWIN_CACHE")
-                .or_else(|_| std::env::var("OPAL_XWIN_SYSROOT"))
-                .expect("XWIN_CACHE env var required for Linux→MSVC cross-compilation (point to xwin splat directory)");
-            let libpath_args = Self::msvc_sysroot_libpath_args(&xwin_cache);
-            for arg in libpath_args {
-                cmd.arg(arg);
+            if let Some(xwin_cache) = Self::msvc_xwin_sysroot() {
+                let libpath_args = Self::msvc_sysroot_libpath_args(&xwin_cache);
+                for arg in libpath_args {
+                    cmd.arg(arg);
+                }
             }
         }
 
@@ -261,6 +250,7 @@ impl LinkerCommand {
             "/SUBSYSTEM:CONSOLE".to_owned(),
             "/MACHINE:X64".to_owned(),
             "/DEFAULTLIB:libcmt".to_owned(),
+            "/DEFAULTLIB:bcrypt".to_owned(),
         ];
 
         for input in inputs {
@@ -273,6 +263,13 @@ impl LinkerCommand {
         args
     }
 
+    /// Resolve the xwin sysroot path for Linux→MSVC cross-compilation.
+    fn msvc_xwin_sysroot() -> Option<String> {
+        std::env::var("XWIN_CACHE")
+            .ok()
+            .or_else(|| std::env::var("OPAL_XWIN_SYSROOT").ok())
+    }
+
     /// Build MSVC sysroot libpath arguments for xwin cross-compilation.
     fn msvc_sysroot_libpath_args(xwin_cache: &str) -> Vec<String> {
         vec![
@@ -280,15 +277,6 @@ impl LinkerCommand {
             format!("/libpath:{}/sdk/lib/um/x86_64", xwin_cache),
             format!("/libpath:{}/sdk/lib/ucrt/x86_64", xwin_cache),
         ]
-    }
-
-    /// Quote a path if it contains spaces.
-    fn quote_if_needed(path: String) -> String {
-        if path.contains(' ') {
-            format!("\"{path}\"")
-        } else {
-            path
-        }
     }
 
     /// Check if a binary exists in PATH.
@@ -308,6 +296,18 @@ mod tests {
     use std::sync::Mutex;
 
     static ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn lock_env() -> std::sync::MutexGuard<'static, ()> {
+        ENV_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn has_arg(command: &std::process::Command, needle: &str) -> bool {
+        command
+            .get_args()
+            .any(|argument| argument.to_string_lossy() == needle)
+    }
 
     #[test]
     fn linker_command_cc_builds_correct_args() {
@@ -429,9 +429,12 @@ mod tests {
     #[test]
     fn linker_command_msvc_builds_correct_args() {
         #[cfg(not(windows))]
+        let _guard = lock_env();
+        #[cfg(not(windows))]
         // SAFETY: Test-only environment mutation scoped to this test body.
         unsafe {
             std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
+            std::env::remove_var("OPAL_XWIN_SYSROOT");
             std::env::remove_var("OPAL_MSVC_LINKER");
         }
 
@@ -466,7 +469,7 @@ mod tests {
     }
 
     #[test]
-    fn linker_command_quotes_paths_with_spaces() {
+    fn linker_command_passes_raw_paths_with_spaces_to_command_args() {
         let target = TargetTriple {
             arch: Architecture::X86_64,
             platform: Platform::Linux,
@@ -486,9 +489,9 @@ mod tests {
             .map(|s| s.to_string_lossy().to_string())
             .collect();
 
-        assert_eq!(args[0], "\"my object.o\"");
+        assert_eq!(args[0], "my object.o");
         assert_eq!(args[1], "my runtime.o");
-        assert_eq!(args[4], "\"my program\"");
+        assert_eq!(args[4], "my program");
     }
 
     #[test]
@@ -524,11 +527,7 @@ mod tests {
 
     #[test]
     fn no_pie_flag_only_on_linux() {
-        fn has_arg(command: &std::process::Command, needle: &str) -> bool {
-            command
-                .get_args()
-                .any(|argument| argument.to_string_lossy() == needle)
-        }
+        let _guard = lock_env();
 
         // Test 1: Linux GNU — should have -no-pie
         let linux_gnu = TargetTriple {
@@ -559,6 +558,12 @@ mod tests {
         );
 
         // Test 3: Windows MSVC — should NOT have -no-pie
+        #[cfg(not(windows))]
+        // SAFETY: Test-only environment mutation scoped to this test body.
+        unsafe {
+            std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
+            std::env::remove_var("OPAL_XWIN_SYSROOT");
+        }
         let windows_msvc = TargetTriple {
             arch: Architecture::X86_64,
             platform: Platform::Windows,
@@ -591,10 +596,12 @@ mod tests {
     #[test]
     #[cfg(not(windows))]
     fn msvc_linker_on_linux_host_uses_lld_link() {
+        let _guard = lock_env();
         // Set XWIN_CACHE to a fake path
         // SAFETY: Test-only environment mutation scoped to this test body.
         unsafe {
             std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
+            std::env::remove_var("OPAL_XWIN_SYSROOT");
             std::env::remove_var("OPAL_MSVC_LINKER");
         }
         let target = TargetTriple {
@@ -628,7 +635,7 @@ mod tests {
     #[test]
     #[cfg(not(windows))]
     fn msvc_linker_env_override_respected() {
-        let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
+        let _guard = lock_env();
         // SAFETY: Test-only environment mutation scoped to this test body.
         unsafe {
             std::env::set_var("OPAL_MSVC_LINKER", "/custom/my-linker");
@@ -652,8 +659,36 @@ mod tests {
 
     #[test]
     #[cfg(not(windows))]
+    fn msvc_linker_missing_xwin_env_surfaces_error_instead_of_panicking() {
+        let _guard = lock_env();
+        // SAFETY: Test-only environment mutation scoped to this test body.
+        unsafe {
+            std::env::remove_var("XWIN_CACHE");
+            std::env::remove_var("OPAL_XWIN_SYSROOT");
+            std::env::remove_var("OPAL_MSVC_LINKER");
+        }
+        let target = TargetTriple {
+            arch: Architecture::X86_64,
+            platform: Platform::Windows,
+            env: Some(TripleEnv::Msvc),
+        };
+
+        let build_result = std::panic::catch_unwind(|| {
+            let _command = LinkerCommand::new(&target, std::path::PathBuf::from("program.exe"))
+                .with_input(std::path::PathBuf::from("main.obj"))
+                .build();
+        });
+
+        assert!(
+            build_result.is_ok(),
+            "missing XWIN_CACHE/OPAL_XWIN_SYSROOT should surface a structured error path instead of panicking"
+        );
+    }
+
+    #[test]
+    #[cfg(not(windows))]
     fn msvc_linker_shared_args_present() {
-        let _guard = ENV_TEST_LOCK.lock().expect("env test lock poisoned");
+        let _guard = lock_env();
         // SAFETY: Test-only environment mutation scoped to this test body.
         unsafe {
             std::env::set_var("XWIN_CACHE", "/tmp/fake-xwin");
@@ -686,6 +721,10 @@ mod tests {
         assert!(
             args.contains(&"/DEFAULTLIB:libcmt".to_owned()),
             "must have /DEFAULTLIB:libcmt"
+        );
+        assert!(
+            args.contains(&"/DEFAULTLIB:bcrypt".to_owned()),
+            "must have /DEFAULTLIB:bcrypt"
         );
     }
 }

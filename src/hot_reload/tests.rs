@@ -836,13 +836,93 @@ fn fs_module_loader_loads_real_shared_library() {
         "loaded module name should match input"
     );
 
+    let loaded_copy_path = loader
+        .loaded_copy_path_for(&module_name)
+        .expect("loader should track copied module path")
+        .to_path_buf();
+    assert_ne!(
+        loaded_copy_path, temp_dir,
+        "loader should load a copied temp path, not the original module path"
+    );
+    assert!(
+        loaded_copy_path.exists(),
+        "copied temp path should exist while module is loaded"
+    );
+
+    let overwrite_result = fs::copy(&loaded_copy_path, &temp_dir);
+    assert!(
+        overwrite_result.is_ok(),
+        "original module path should stay replaceable after load because loader holds temp copy"
+    );
+
     let unload_result = loader.unload_module(&module_name);
     assert!(
         unload_result.is_ok(),
         "FsModuleLoader should unload module: {unload_result:?}"
     );
+    assert!(
+        !loaded_copy_path.exists(),
+        "unload should remove copied temp module path when platform permits"
+    );
 
     drop(fs::remove_file(&temp_dir));
+}
+
+#[cfg(unix)]
+#[test]
+fn fs_module_loader_repeated_loads_create_distinct_temp_copy_paths() {
+    use crate::hot_reload::loader::FsModuleLoader;
+
+    let temp_dir = std::env::temp_dir();
+    let module_path = temp_dir.join(format!(
+        "opalescent_hot_reload_repeat_load_{}.so",
+        std::process::id()
+    ));
+
+    drop(fs::remove_file(&module_path));
+    compile_test_module(&module_path).expect("compile repeat-load module");
+
+    let module_name = module_path.to_string_lossy().to_string();
+    let mut first_loader = FsModuleLoader::new();
+    let first_load = first_loader.load_module(&module_name);
+    assert!(
+        first_load.is_ok(),
+        "first load should succeed: {first_load:?}"
+    );
+    let first_copy = first_loader
+        .loaded_copy_path_for(&module_name)
+        .expect("first loader should track copied path")
+        .to_path_buf();
+
+    let first_unload = first_loader.unload_module(&module_name);
+    assert!(
+        first_unload.is_ok(),
+        "first unload should succeed: {first_unload:?}"
+    );
+
+    let mut second_loader = FsModuleLoader::new();
+    let second_load = second_loader.load_module(&module_name);
+    assert!(
+        second_load.is_ok(),
+        "second load should succeed: {second_load:?}"
+    );
+    let second_copy = second_loader
+        .loaded_copy_path_for(&module_name)
+        .expect("second loader should track copied path")
+        .to_path_buf();
+
+    assert_ne!(
+        first_copy, second_copy,
+        "repeated loads should produce distinct temp copy paths"
+    );
+
+    let second_unload = second_loader.unload_module(&module_name);
+    assert!(
+        second_unload.is_ok(),
+        "second unload should succeed: {second_unload:?}"
+    );
+
+    drop(fs::remove_file(&module_path));
 }
 
 #[cfg(unix)]

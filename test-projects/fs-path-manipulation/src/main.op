@@ -6,11 +6,11 @@ let string_match = f(actual: string, expected: string): int64 =>
     return 0
 
 ##
-  Description: Runs a 40-case path algebra showcase and prints a deterministic pass count.
+  Description: Runs a 50-case path algebra showcase and prints a deterministic pass count.
 ##
 entry main = f(args: string[]): void =>
     let mutable passed: int64 = 0
-    let total: int64 = 40
+    let total: int64 = 50
 
     passed = passed + string_match(path_to_string(normalize_path(path_from(''))), '')
     passed = passed + string_match(path_to_string(normalize_path(path_from('.'))), '')
@@ -21,6 +21,9 @@ entry main = f(args: string[]): void =>
     passed = passed + string_match(path_to_string(normalize_path(path_from('a/b/../../c'))), 'c')
     passed = passed + string_match(path_to_string(normalize_path(path_from('/a//b//c'))), '/a/b/c')
     passed = passed + string_match(path_to_string(normalize_path(path_from('/a/b/../../..'))), '')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('C:/Users/foo/../bar.txt'))), 'C:/Users/bar.txt')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('C:\\Users\\foo\\..\\bar.txt'))), 'C:/Users/bar.txt')
+    passed = passed + string_match(path_to_string(normalize_path(path_from('\\\\server\\share\\dir\\..\\file.ext'))), '//server/share/file.ext')
     passed = passed + string_match(path_to_string(normalize_path(path_from('alpha/beta/../gamma'))), 'alpha/gamma')
     passed = passed + string_match(path_to_string(normalize_path(path_from('nested///path///leaf'))), 'nested/path/leaf')
     passed = passed + string_match(path_to_string(normalize_path(path_from('root/./branch/leaf.txt'))), 'root/branch/leaf.txt')
@@ -31,6 +34,9 @@ entry main = f(args: string[]): void =>
     passed = passed + string_match(path_to_string(join_path_components(path_from('a'), [])), 'a')
     passed = passed + string_match(path_to_string(join_path_components(path_from(''), ['x'])), 'x')
     passed = passed + string_match(path_to_string(join_path_components(path_from('/root'), ['child'])), '/root/child')
+    passed = passed + string_match(path_to_string(join_path_components(path_from('base'), ['C:\\abs'])), 'C:/abs')
+    passed = passed + string_match(path_to_string(join_path_components(path_from('base/child'), ['C:/abs', 'leaf'])), 'C:/abs/leaf')
+    passed = passed + string_match(path_to_string(join_path_components(path_from('base'), ['\\\\server\\share\\dir', 'file.ext'])), '//server/share/dir/file.ext')
     passed = passed + string_match(path_to_string(join_path_components(path_from('alpha/beta'), ['..', 'gamma'])), 'alpha/gamma')
     passed = passed + string_match(path_to_string(join_path_components(path_from('alpha'), ['.', 'beta'])), 'alpha/beta')
     passed = passed + string_match(path_to_string(join_path_components(path_from('alpha//'), ['beta', './leaf'])), 'alpha/beta/leaf')
@@ -65,6 +71,18 @@ entry main = f(args: string[]): void =>
         passed = passed + 1
     let q9 = path_from('double.dot/name.with.many.parts')
     if path_file_name(q9) is 'name.with.many.parts' and path_file_extension(q9) is 'parts' and path_to_string(path_parent_directory(q9)) is 'double.dot':
+        passed = passed + 1
+    let q10 = path_from('C:\\Users\\foo\\bar.txt')
+    if path_file_name(q10) is 'bar.txt' and path_file_extension(q10) is 'txt' and path_to_string(path_parent_directory(q10)) is 'C:\\Users\\foo':
+        passed = passed + 1
+    let q11 = path_from('C:/Users/foo/bar.txt')
+    if path_file_name(q11) is 'bar.txt' and path_file_extension(q11) is 'txt' and path_to_string(path_parent_directory(q11)) is 'C:/Users/foo':
+        passed = passed + 1
+    let q12 = path_from('\\\\server\\share\\dir\\file.ext')
+    if path_file_name(q12) is 'file.ext' and path_file_extension(q12) is 'ext' and path_to_string(path_parent_directory(q12)) is '\\\\server\\share\\dir':
+        passed = passed + 1
+    let q13 = path_from('relative/path/noext')
+    if path_file_name(q13) is 'noext' and path_file_extension(q13) is '' and path_to_string(path_parent_directory(q13)) is 'relative/path':
         passed = passed + 1
 
     guard absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/main.op')) into a0 else err =>

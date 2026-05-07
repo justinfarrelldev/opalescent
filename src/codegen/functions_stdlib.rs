@@ -268,23 +268,39 @@ pub fn declare_stdlib_function<'context>(
         }),
         "absolute_path_sync" => module.get_function("absolute_path_sync").or_else(|| {
             let fs_path_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
-            let ft = fs_path_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("absolute_path_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "absolute_path_sync",
+                fs_path_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "read_contents_sync" => module.get_function("read_contents_sync").or_else(|| {
             let fs_bytes_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
-            let ft = fs_bytes_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("read_contents_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "read_contents_sync",
+                fs_bytes_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "read_text_sync" => module.get_function("read_text_sync").or_else(|| {
             let fs_string_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
-            let ft = fs_string_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("read_text_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "read_text_sync",
+                fs_string_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "read_first_line_sync" => module.get_function("read_first_line_sync").or_else(|| {
             let fs_string_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
-            let ft = fs_string_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("read_first_line_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "read_first_line_sync",
+                fs_string_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "read_lines_sync" => module.get_function("read_lines_sync").or_else(|| {
             let fs_string_array_result_type = ctx.struct_type(
@@ -295,22 +311,12 @@ pub fn declare_stdlib_function<'context>(
                 ],
                 false,
             );
-            let ft = void_type.fn_type(
-                &[
-                    fs_string_array_result_type
-                        .ptr_type(AddressSpace::default())
-                        .into(),
-                    i8_ptr.into(),
-                ],
-                false,
-            );
-            let function = module.add_function("read_lines_sync", ft, None);
-            apply_sret_attr_if_needed(
+            Some(declare_fs_result_function(
                 codegen_context,
-                function,
-                fs_string_array_result_type.into(),
-            );
-            Some(function)
+                "read_lines_sync",
+                fs_string_array_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "read_bytes_at_offset_sync" => {
             module
@@ -318,153 +324,264 @@ pub fn declare_stdlib_function<'context>(
                 .or_else(|| {
                     let fs_bytes_result_type =
                         ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
-                    let ft = fs_bytes_result_type
-                        .fn_type(&[i8_ptr.into(), i64_type.into(), i64_type.into()], false);
-                    Some(module.add_function("read_bytes_at_offset_sync", ft, None))
+                    Some(declare_fs_result_function(
+                        codegen_context,
+                        "read_bytes_at_offset_sync",
+                        fs_bytes_result_type,
+                        &[i8_ptr.into(), i64_type.into(), i64_type.into()],
+                    ))
                 })
         }
         "write_contents_sync" => module.get_function("write_contents_sync").or_else(|| {
-            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
-            Some(module.add_function("write_contents_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "write_contents_sync",
+                fs_void_result_type,
+                &[i8_ptr.into(), i8_ptr.into()],
+            ))
         }),
         "write_text_sync" => module.get_function("write_text_sync").or_else(|| {
-            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
-            Some(module.add_function("write_text_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "write_text_sync",
+                fs_void_result_type,
+                &[i8_ptr.into(), i8_ptr.into()],
+            ))
         }),
         "write_contents_atomic_sync" => {
             module
                 .get_function("write_contents_atomic_sync")
                 .or_else(|| {
-                    let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
-                    Some(module.add_function("write_contents_atomic_sync", ft, None))
+                    Some(declare_fs_result_function(
+                        codegen_context,
+                        "write_contents_atomic_sync",
+                        fs_void_result_type,
+                        &[i8_ptr.into(), i8_ptr.into()],
+                    ))
                 })
         }
         "write_text_atomic_sync" => module.get_function("write_text_atomic_sync").or_else(|| {
-            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
-            Some(module.add_function("write_text_atomic_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "write_text_atomic_sync",
+                fs_void_result_type,
+                &[i8_ptr.into(), i8_ptr.into()],
+            ))
         }),
         "append_contents_sync" => module.get_function("append_contents_sync").or_else(|| {
-            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
-            Some(module.add_function("append_contents_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "append_contents_sync",
+                fs_void_result_type,
+                &[i8_ptr.into(), i8_ptr.into()],
+            ))
         }),
         "append_text_sync" => module.get_function("append_text_sync").or_else(|| {
-            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
-            Some(module.add_function("append_text_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "append_text_sync",
+                fs_void_result_type,
+                &[i8_ptr.into(), i8_ptr.into()],
+            ))
         }),
         "write_bytes_at_offset_sync" => {
             module
                 .get_function("write_bytes_at_offset_sync")
                 .or_else(|| {
-                    let ft = fs_void_result_type
-                        .fn_type(&[i8_ptr.into(), i64_type.into(), i8_ptr.into()], false);
-                    Some(module.add_function("write_bytes_at_offset_sync", ft, None))
+                    Some(declare_fs_result_function(
+                        codegen_context,
+                        "write_bytes_at_offset_sync",
+                        fs_void_result_type,
+                        &[i8_ptr.into(), i64_type.into(), i8_ptr.into()],
+                    ))
                 })
         }
         "create_file_sync" => module.get_function("create_file_sync").or_else(|| {
-            let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("create_file_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "create_file_sync",
+                fs_void_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "delete_file_sync" => module.get_function("delete_file_sync").or_else(|| {
-            let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("delete_file_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "delete_file_sync",
+                fs_void_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "copy_file_sync" => module.get_function("copy_file_sync").or_else(|| {
-            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
-            Some(module.add_function("copy_file_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "copy_file_sync",
+                fs_void_result_type,
+                &[i8_ptr.into(), i8_ptr.into()],
+            ))
         }),
         "move_path_sync" => module.get_function("move_path_sync").or_else(|| {
-            let ft = fs_void_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false);
-            Some(module.add_function("move_path_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "move_path_sync",
+                fs_void_result_type,
+                &[i8_ptr.into(), i8_ptr.into()],
+            ))
         }),
         "path_exists_sync" => module.get_function("path_exists_sync").or_else(|| {
-            let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("path_exists_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "path_exists_sync",
+                fs_boolean_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "read_metadata_sync" => module.get_function("read_metadata_sync").or_else(|| {
-            let ft = fs_metadata_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("read_metadata_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "read_metadata_sync",
+                fs_metadata_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "read_metadata_nofollow_sync" => module
             .get_function("read_metadata_nofollow_sync")
             .or_else(|| {
-                let ft = fs_metadata_result_type.fn_type(&[i8_ptr.into()], false);
-                Some(module.add_function("read_metadata_nofollow_sync", ft, None))
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "read_metadata_nofollow_sync",
+                    fs_metadata_result_type,
+                    &[i8_ptr.into()],
+                ))
             }),
         "create_directory_sync" => module.get_function("create_directory_sync").or_else(|| {
-            let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("create_directory_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "create_directory_sync",
+                fs_void_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "create_directory_recursive_sync" => module
             .get_function("create_directory_recursive_sync")
             .or_else(|| {
-                let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
-                Some(module.add_function("create_directory_recursive_sync", ft, None))
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "create_directory_recursive_sync",
+                    fs_void_result_type,
+                    &[i8_ptr.into()],
+                ))
             }),
         "delete_directory_sync" => module.get_function("delete_directory_sync").or_else(|| {
-            let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("delete_directory_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "delete_directory_sync",
+                fs_void_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "delete_directory_recursive_sync" => module
             .get_function("delete_directory_recursive_sync")
             .or_else(|| {
-                let ft = fs_void_result_type.fn_type(&[i8_ptr.into()], false);
-                Some(module.add_function("delete_directory_recursive_sync", ft, None))
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "delete_directory_recursive_sync",
+                    fs_void_result_type,
+                    &[i8_ptr.into()],
+                ))
             }),
         "list_directory_sync" => module.get_function("list_directory_sync").or_else(|| {
-            let ft = void_type.fn_type(
-                &[
-                    fs_path_array_result_type
-                        .ptr_type(AddressSpace::default())
-                        .into(),
-                    i8_ptr.into(),
-                ],
-                false,
-            );
-            let function = module.add_function("list_directory_sync", ft, None);
-            apply_sret_attr_if_needed(codegen_context, function, fs_path_array_result_type.into());
-            Some(function)
+            Some(declare_fs_result_function(
+                codegen_context,
+                "list_directory_sync",
+                fs_path_array_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "is_file_sync" => module.get_function("is_file_sync").or_else(|| {
-            let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("is_file_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "is_file_sync",
+                fs_boolean_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "is_file_nofollow_sync" => module.get_function("is_file_nofollow_sync").or_else(|| {
-            let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("is_file_nofollow_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "is_file_nofollow_sync",
+                fs_boolean_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "is_directory_sync" => module.get_function("is_directory_sync").or_else(|| {
-            let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("is_directory_sync", ft, None))
+            Some(declare_fs_result_function(
+                codegen_context,
+                "is_directory_sync",
+                fs_boolean_result_type,
+                &[i8_ptr.into()],
+            ))
         }),
         "is_directory_nofollow_sync" => {
             module
                 .get_function("is_directory_nofollow_sync")
                 .or_else(|| {
-                    let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
-                    Some(module.add_function("is_directory_nofollow_sync", ft, None))
+                    Some(declare_fs_result_function(
+                        codegen_context,
+                        "is_directory_nofollow_sync",
+                        fs_boolean_result_type,
+                        &[i8_ptr.into()],
+                    ))
                 })
         }
         _ => None,
     }
 }
 
-#[doc = "Apply the LLVM `sret` attribute to the hidden result pointer when the ABI requires it."]
-fn apply_sret_attr_if_needed<'context>(
+/// Declare a filesystem helper using direct returns or an `sret` out-parameter.
+fn declare_fs_result_function<'context>(
     codegen_context: &CodegenContext<'context>,
+    name: &str,
+    result_type: inkwell::types::StructType<'context>,
+    params: &[inkwell::types::BasicMetadataTypeEnum<'context>],
+) -> FunctionValue<'context> {
+    let module = &codegen_context.module;
+    let requires_sret = codegen_context.target.is_windows_msvc() || result_type.count_fields() >= 3;
+
+    if requires_sret {
+        let mut sret_params =
+            alloc::vec::Vec::with_capacity(params.len().saturating_add(1_usize));
+        sret_params.push(result_type.ptr_type(AddressSpace::default()).into());
+        sret_params.extend_from_slice(params);
+
+        let function = module.add_function(
+            name,
+            codegen_context
+                .context
+                .void_type()
+                .fn_type(&sret_params, false),
+            None,
+        );
+        apply_sret_attr(function, result_type.into());
+        return function;
+    }
+
+    module.add_function(name, result_type.fn_type(params, false), None)
+}
+
+/// Apply the LLVM `sret` type attribute to the hidden first parameter.
+fn apply_sret_attr<'context>(
     function: FunctionValue<'context>,
     struct_type: inkwell::types::AnyTypeEnum<'context>,
 ) {
-    if codegen_context.target.platform != crate::build_system::targets::Platform::Linux {
-        return;
-    }
-
     let sret_kind = Attribute::get_named_enum_kind_id("sret");
     if sret_kind == 0 {
         return;
     }
 
-    let sret_attr = codegen_context
-        .context
+    let sret_attr = function
+        .get_type()
+        .get_context()
         .create_type_attribute(sret_kind, struct_type);
     function.add_attribute(AttributeLoc::Param(0), sret_attr);
 }

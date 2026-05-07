@@ -64,7 +64,7 @@ fn fs_path_manipulation() {
         );
         assert_eq!(
             stdout.trim_end(),
-            "passed 40/40",
+            "passed 50/50",
             "fs-path-manipulation output should report the full pass count"
         );
     }

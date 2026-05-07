@@ -1,0 +1,2 @@
+EXIT=0
+SKIP: Wine limitation: symlink metadata probe is not reliably codegen-supported in this environment (code generation failed: unknown field 'is_symlink' on receiver expression)

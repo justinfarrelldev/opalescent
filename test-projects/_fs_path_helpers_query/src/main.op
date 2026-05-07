@@ -1,7 +1,7 @@
-import path_from, path_file_extension, path_file_name, path_parent_directory from standard
+import path_from, path_file_extension, path_file_name, path_parent_directory, path_to_string from standard
 
 ##
-  Description: Prints the 5-case matrix for path helper queries.
+  Description: Prints the 10-case matrix for path helper queries.
 ##
 entry main = f(args: string[]): void =>
     let p0_raw = '/home/user/doc.pdf'
@@ -32,5 +32,30 @@ entry main = f(args: string[]): void =>
     let p4_raw = '/'
     let p4 = path_from(p4_raw)
     print('{p4_raw}: ext={path_file_extension(p4)}, name={path_file_name(p4)}, parent=/')
+
+    let p5_raw = 'C:\\Users\\foo\\bar.txt'
+    let p5 = path_from(p5_raw)
+    let p5_parent = path_parent_directory(p5)
+    print('{p5_raw}: ext={path_file_extension(p5)}, name={path_file_name(p5)}, parent={path_to_string(p5_parent)}')
+
+    let p6_raw = 'C:/Users/foo/bar.txt'
+    let p6 = path_from(p6_raw)
+    let p6_parent = path_parent_directory(p6)
+    print('{p6_raw}: ext={path_file_extension(p6)}, name={path_file_name(p6)}, parent={path_to_string(p6_parent)}')
+
+    let p7_raw = '\\\\server\\share\\dir\\file.ext'
+    let p7 = path_from(p7_raw)
+    let p7_parent = path_parent_directory(p7)
+    print('{p7_raw}: ext={path_file_extension(p7)}, name={path_file_name(p7)}, parent={path_to_string(p7_parent)}')
+
+    let p8_raw = 'relative/path/file'
+    let p8 = path_from(p8_raw)
+    let p8_parent = path_parent_directory(p8)
+    print('{p8_raw}: ext={path_file_extension(p8)}, name={path_file_name(p8)}, parent={path_to_string(p8_parent)}')
+
+    let p9_raw = 'relative/path/noext'
+    let p9 = path_from(p9_raw)
+    let p9_parent = path_parent_directory(p9)
+    print('{p9_raw}: ext={path_file_extension(p9)}, name={path_file_name(p9)}, parent={path_to_string(p9_parent)}')
 
     return void

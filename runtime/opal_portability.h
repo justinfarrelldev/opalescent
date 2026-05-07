@@ -43,12 +43,8 @@
 #  define OPAL_API
 #endif
 
-#if OPAL_WINDOWS
-#  include <limits.h>
-#  define OPAL_PATH_BUFFER_CAP ((size_t)260)
-#else
-#  define OPAL_PATH_BUFFER_CAP ((size_t)4096)
-#endif
+#include <limits.h>
+#define OPAL_PATH_BUFFER_CAP ((size_t)4096)
 
 /* ── Static assert ──────────────────────────────────────────────────────── */
 
@@ -148,6 +144,7 @@ static inline ssize_t opal_getline(char **lineptr, size_t *n, FILE *stream) {
 #  include <io.h>
 #  include <share.h>
 #  include <sys/stat.h>
+#  include <wchar.h>
 
 typedef wchar_t opal_wchar_t;
 
@@ -245,15 +242,139 @@ static inline char* opal_wide_to_utf8(const wchar_t* wide) {
     return utf8;
 }
 
+static inline wchar_t* opal_windows_apply_long_path_prefix(const wchar_t* wide_path) {
+    if (!wide_path) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    if (wcsncmp(wide_path, L"\\\\?\\", 4) == 0) {
+        size_t existing_len = wcslen(wide_path) + 1;
+        wchar_t* copy = (wchar_t*)malloc(existing_len * sizeof(wchar_t));
+        if (!copy) {
+            errno = ENOMEM;
+            return NULL;
+        }
+        memcpy(copy, wide_path, existing_len * sizeof(wchar_t));
+        return copy;
+    }
+
+    if (wcsncmp(wide_path, L"\\\\", 2) == 0) {
+        const wchar_t* unc_body = wide_path + 2;
+        size_t unc_len = wcslen(unc_body);
+        size_t total_len = 8 + unc_len + 1; /* \\?\UNC\ + body + nul */
+        wchar_t* prefixed = (wchar_t*)malloc(total_len * sizeof(wchar_t));
+        if (!prefixed) {
+            errno = ENOMEM;
+            return NULL;
+        }
+        memcpy(prefixed, L"\\\\?\\UNC\\", 8 * sizeof(wchar_t));
+        memcpy(prefixed + 8, unc_body, (unc_len + 1) * sizeof(wchar_t));
+        return prefixed;
+    }
+
+    size_t path_len = wcslen(wide_path);
+    size_t total_len = 4 + path_len + 1; /* \\?\ + path + nul */
+    wchar_t* prefixed = (wchar_t*)malloc(total_len * sizeof(wchar_t));
+    if (!prefixed) {
+        errno = ENOMEM;
+        return NULL;
+    }
+    memcpy(prefixed, L"\\\\?\\", 4 * sizeof(wchar_t));
+    memcpy(prefixed + 4, wide_path, (path_len + 1) * sizeof(wchar_t));
+    return prefixed;
+}
+
+static inline wchar_t* opal_utf8_to_wide_path(const char* utf8) {
+    if (!utf8) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    int wide_len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, NULL, 0);
+    if (wide_len <= 0) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    wchar_t* wide = (wchar_t*)malloc((size_t)wide_len * sizeof(wchar_t));
+    if (!wide) {
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, wide, wide_len) <= 0) {
+        free(wide);
+        errno = EINVAL;
+        return NULL;
+    }
+
+    DWORD absolute_len = GetFullPathNameW(wide, 0, NULL, NULL);
+    if (absolute_len == 0) {
+        DWORD error = GetLastError();
+        free(wide);
+        opal_set_errno_from_win32(error);
+        return NULL;
+    }
+
+    wchar_t* absolute = (wchar_t*)malloc((size_t)absolute_len * sizeof(wchar_t));
+    if (!absolute) {
+        free(wide);
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    DWORD absolute_result = GetFullPathNameW(wide, absolute_len, absolute, NULL);
+    free(wide);
+    if (absolute_result == 0) {
+        DWORD error = GetLastError();
+        free(absolute);
+        opal_set_errno_from_win32(error);
+        return NULL;
+    }
+    if (absolute_result >= absolute_len) {
+        free(absolute);
+        errno = ENAMETOOLONG;
+        return NULL;
+    }
+
+    wchar_t* prefixed = opal_windows_apply_long_path_prefix(absolute);
+    free(absolute);
+    return prefixed;
+}
+
+static inline FILE* opal_fopen(const char* path, const char* mode) {
+    if (!path || !mode) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    wchar_t* wide_path = opal_utf8_to_wide_path(path);
+    if (!wide_path) {
+        return NULL;
+    }
+
+    wchar_t* wide_mode = opal_utf8_to_wide(mode);
+    if (!wide_mode) {
+        free(wide_path);
+        return NULL;
+    }
+
+    FILE* file = _wfopen(wide_path, wide_mode);
+    free(wide_mode);
+    free(wide_path);
+    return file;
+}
+
 typedef struct opal_dir_s opal_dir_t;
 typedef struct {
-    char d_name[260];
+    char* d_name;
 } opal_dirent_t;
 #define OPAL_DIRENT_T_DEFINED 1
 
 struct opal_dir_s {
     HANDLE handle;
-    WIN32_FIND_DATAA find_data;
+    WIN32_FIND_DATAW find_data;
     int has_first;
     opal_dirent_t current;
 };
@@ -264,10 +385,10 @@ static inline opal_dir_t* opal_opendir(const char* path) {
         return NULL;
     }
 
-    char pattern[OPAL_PATH_BUFFER_CAP];
     size_t path_len = strlen(path);
-    if (path_len + 3 > sizeof(pattern)) {
-        errno = ENAMETOOLONG;
+    char* pattern = (char*)malloc(path_len + 3);
+    if (!pattern) {
+        errno = ENOMEM;
         return NULL;
     }
 
@@ -278,20 +399,30 @@ static inline opal_dir_t* opal_opendir(const char* path) {
     pattern[path_len++] = '*';
     pattern[path_len] = '\0';
 
+    wchar_t* wide_pattern = opal_utf8_to_wide_path(pattern);
+    free(pattern);
+    if (!wide_pattern) {
+        return NULL;
+    }
+
     opal_dir_t* dir = (opal_dir_t*)malloc(sizeof(*dir));
     if (!dir) {
+        free(wide_pattern);
         errno = ENOMEM;
         return NULL;
     }
 
-    dir->handle = FindFirstFileA(pattern, &dir->find_data);
+    dir->handle = FindFirstFileW(wide_pattern, &dir->find_data);
+    free(wide_pattern);
     if (dir->handle == INVALID_HANDLE_VALUE) {
+        DWORD error = GetLastError();
         free(dir);
+        opal_set_errno_from_win32(error);
         return NULL;
     }
 
     dir->has_first = 1;
-    dir->current.d_name[0] = '\0';
+    dir->current.d_name = NULL;
     return dir;
 }
 
@@ -302,23 +433,35 @@ static inline opal_dirent_t* opal_readdir(opal_dir_t* dir) {
     }
 
     for (;;) {
-        WIN32_FIND_DATAA* src = NULL;
+        WIN32_FIND_DATAW* src = NULL;
         if (dir->has_first) {
             dir->has_first = 0;
             src = &dir->find_data;
         } else {
-            if (!FindNextFileA(dir->handle, &dir->find_data)) {
+            if (!FindNextFileW(dir->handle, &dir->find_data)) {
+                DWORD error = GetLastError();
+                if (error == ERROR_NO_MORE_FILES) {
+                    errno = 0;
+                } else {
+                    opal_set_errno_from_win32(error);
+                }
                 return NULL;
             }
             src = &dir->find_data;
         }
 
-        if (strcmp(src->cFileName, ".") == 0 || strcmp(src->cFileName, "..") == 0) {
+        if (wcscmp(src->cFileName, L".") == 0 || wcscmp(src->cFileName, L"..") == 0) {
             continue;
         }
 
-        strncpy(dir->current.d_name, src->cFileName, sizeof(dir->current.d_name) - 1);
-        dir->current.d_name[sizeof(dir->current.d_name) - 1] = '\0';
+        char* utf8_name = opal_wide_to_utf8(src->cFileName);
+        if (!utf8_name) {
+            errno = EINVAL;
+            return NULL;
+        }
+
+        free(dir->current.d_name);
+        dir->current.d_name = utf8_name;
         return &dir->current;
     }
 }
@@ -331,8 +474,13 @@ static inline int opal_closedir(opal_dir_t* dir) {
 
     int result = 0;
     if (dir->handle != INVALID_HANDLE_VALUE) {
-        result = FindClose(dir->handle) ? 0 : -1;
+        if (!FindClose(dir->handle)) {
+            DWORD error = GetLastError();
+            opal_set_errno_from_win32(error);
+            result = -1;
+        }
     }
+    free(dir->current.d_name);
     free(dir);
     return result;
 }
@@ -353,6 +501,10 @@ typedef char opal_wchar_t;
 
 typedef DIR opal_dir_t;
 typedef struct dirent opal_dirent_t;
+
+static inline FILE* opal_fopen(const char* path, const char* mode) {
+    return fopen(path, mode);
+}
 
 static inline opal_dir_t* opal_opendir(const char* path) {
     return opendir(path);
@@ -378,25 +530,69 @@ typedef struct opal_stat_result {
 } opal_stat_result;
 
 /*
- * opal_realpath
+ * opal_realpath_owned
  *
  * Normalized cross-platform behavior:
- * - Windows: uses _fullpath(), which can resolve lexical absolute paths even
+ * - Windows: uses GetFullPathNameW(), which can resolve lexical absolute paths even
  *   for non-existent filesystem entries.
  * - POSIX: first attempts realpath(); if that fails with ENOENT, falls back to
  *   lexical absolute resolution (cwd + input path with '.'/'..' collapsed and
  *   separators normalized) so behavior matches Windows for non-existent paths.
+ *
+ * Returns a heap-owned UTF-8 buffer that the caller must free().
  */
-static inline char* opal_realpath(const char* path, char* resolved_buf, size_t buf_size) {
-    if (!path || !resolved_buf || buf_size == 0) {
+static inline char* opal_realpath_owned(const char* path) {
+    if (!path) {
         errno = EINVAL;
         return NULL;
     }
 
 #if OPAL_WINDOWS
-    return _fullpath(resolved_buf, path, buf_size);
+    wchar_t* wide_path = opal_utf8_to_wide(path);
+    if (!wide_path) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    DWORD required = GetFullPathNameW(wide_path, 0, NULL, NULL);
+    if (required == 0) {
+        DWORD error = GetLastError();
+        free(wide_path);
+        opal_set_errno_from_win32(error);
+        return NULL;
+    }
+
+    wchar_t* wide_resolved = (wchar_t*)malloc((size_t)required * sizeof(wchar_t));
+    if (!wide_resolved) {
+        free(wide_path);
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    DWORD result = GetFullPathNameW(wide_path, required, wide_resolved, NULL);
+    free(wide_path);
+    if (result == 0) {
+        DWORD error = GetLastError();
+        free(wide_resolved);
+        opal_set_errno_from_win32(error);
+        return NULL;
+    }
+    if (result >= required) {
+        free(wide_resolved);
+        errno = ENAMETOOLONG;
+        return NULL;
+    }
+
+    char* utf8_resolved = opal_wide_to_utf8(wide_resolved);
+    free(wide_resolved);
+    if (!utf8_resolved) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    return utf8_resolved;
 #else
-    char* resolved = realpath(path, resolved_buf);
+    char* resolved = realpath(path, NULL);
     if (resolved) {
         return resolved;
     }
@@ -405,33 +601,49 @@ static inline char* opal_realpath(const char* path, char* resolved_buf, size_t b
         return NULL;
     }
 
-    char absolute[OPAL_PATH_BUFFER_CAP];
+    char* absolute = NULL;
     const char* source = path;
 
     if (path[0] == '/') {
-        size_t path_len = strlen(path);
-        if (path_len + 1 > sizeof(absolute)) {
-            errno = ENAMETOOLONG;
+        absolute = opal_strdup(path);
+        if (!absolute) {
+            errno = ENOMEM;
             return NULL;
         }
-        memcpy(absolute, path, path_len + 1);
     } else {
-        char cwd[OPAL_PATH_BUFFER_CAP];
-        if (!getcwd(cwd, sizeof(cwd))) {
+        char* cwd = getcwd(NULL, 0);
+        if (!cwd) {
             return NULL;
         }
 
-        int wrote = snprintf(absolute, sizeof(absolute), "%s/%s", cwd, path);
-        if (wrote < 0 || (size_t)wrote >= sizeof(absolute)) {
-            errno = ENAMETOOLONG;
+        size_t cwd_len = strlen(cwd);
+        size_t path_len = strlen(path);
+        absolute = (char*)malloc(cwd_len + 1 + path_len + 1);
+        if (!absolute) {
+            free(cwd);
+            errno = ENOMEM;
             return NULL;
         }
+
+        memcpy(absolute, cwd, cwd_len);
+        absolute[cwd_len] = '/';
+        memcpy(absolute + cwd_len + 1, path, path_len + 1);
+        free(cwd);
     }
 
     source = absolute;
+    size_t source_len = strlen(source);
+    size_t output_cap = source_len + 2;
+    char* normalized = (char*)malloc(output_cap);
+    if (!normalized) {
+        free(absolute);
+        errno = ENOMEM;
+        return NULL;
+    }
+
     size_t out_len = 0;
-    resolved_buf[out_len++] = '/';
-    resolved_buf[out_len] = '\0';
+    normalized[out_len++] = '/';
+    normalized[out_len] = '\0';
 
     const char* p = source;
     while (*p) {
@@ -455,42 +667,30 @@ static inline char* opal_realpath(const char* path, char* resolved_buf, size_t b
         if (seg_len == 2 && seg_start[0] == '.' && seg_start[1] == '.') {
             if (out_len > 1) {
                 out_len--;
-                while (out_len > 1 && resolved_buf[out_len - 1] != '/') {
+                while (out_len > 1 && normalized[out_len - 1] != '/') {
                     out_len--;
                 }
-                resolved_buf[out_len] = '\0';
+                normalized[out_len] = '\0';
             }
             continue;
         }
 
         if (out_len > 1) {
-            if (out_len + 1 >= buf_size) {
-                errno = ENAMETOOLONG;
-                return NULL;
-            }
-            resolved_buf[out_len++] = '/';
+            normalized[out_len++] = '/';
         }
 
-        if (out_len + seg_len >= buf_size) {
-            errno = ENAMETOOLONG;
-            return NULL;
-        }
-
-        memcpy(resolved_buf + out_len, seg_start, seg_len);
+        memcpy(normalized + out_len, seg_start, seg_len);
         out_len += seg_len;
-        resolved_buf[out_len] = '\0';
+        normalized[out_len] = '\0';
     }
 
     if (out_len == 0) {
-        if (buf_size < 2) {
-            errno = ENAMETOOLONG;
-            return NULL;
-        }
-        resolved_buf[0] = '/';
-        resolved_buf[1] = '\0';
+        normalized[0] = '/';
+        normalized[1] = '\0';
     }
 
-    return resolved_buf;
+    free(absolute);
+    return normalized;
 #endif
 }
 
@@ -501,12 +701,29 @@ static inline int opal_stat(const char* path, struct opal_stat_result* out) {
     }
 
 #if OPAL_WINDOWS
-    struct _stat64 st;
-    if (_stat64(path, &st) != 0) {
+    wchar_t* wide_path = opal_utf8_to_wide_path(path);
+    if (!wide_path) {
         return -1;
     }
+
+    DWORD attrs = GetFileAttributesW(wide_path);
+    DWORD attrs_error = (attrs == INVALID_FILE_ATTRIBUTES) ? GetLastError() : 0;
+    struct _stat64 st;
+    int result = _wstat64(wide_path, &st);
+    free(wide_path);
+    if (result != 0) {
+        if (attrs == INVALID_FILE_ATTRIBUTES) {
+            opal_set_errno_from_win32(attrs_error);
+            return -1;
+        }
+        out->is_directory = (attrs & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 0;
+        out->is_symlink = (attrs & FILE_ATTRIBUTE_REPARSE_POINT) ? 1 : 0;
+        out->size = 0;
+        out->modified_time = 0;
+        return 0;
+    }
     out->is_directory = ((st.st_mode & _S_IFDIR) != 0) ? 1 : 0;
-    out->is_symlink = 0;
+    out->is_symlink = (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_REPARSE_POINT)) ? 1 : 0;
     out->size = (int64_t)st.st_size;
     out->modified_time = (int64_t)st.st_mtime;
 #else
@@ -530,10 +747,19 @@ static inline int opal_stat_nofollow(const char* path, struct opal_stat_result* 
     }
 
 #if OPAL_WINDOWS
-    DWORD attrs = GetFileAttributesA(path);
+    wchar_t* wide_path = opal_utf8_to_wide_path(path);
+    if (!wide_path) {
+        return -1;
+    }
+
+    DWORD attrs = GetFileAttributesW(wide_path);
     if (attrs == INVALID_FILE_ATTRIBUTES) {
+        DWORD attrs_error = GetLastError();
         struct _stat64 st;
-        if (_stat64(path, &st) != 0) {
+        int stat_result = _wstat64(wide_path, &st);
+        free(wide_path);
+        if (stat_result != 0) {
+            opal_set_errno_from_win32(attrs_error);
             return -1;
         }
         out->is_directory = ((st.st_mode & _S_IFDIR) != 0) ? 1 : 0;
@@ -544,7 +770,9 @@ static inline int opal_stat_nofollow(const char* path, struct opal_stat_result* 
     }
 
     struct _stat64 st;
-    if (_stat64(path, &st) != 0) {
+    int stat_result = _wstat64(wide_path, &st);
+    free(wide_path);
+    if (stat_result != 0) {
         if ((attrs & FILE_ATTRIBUTE_REPARSE_POINT) == 0) {
             return -1;
         }
@@ -569,6 +797,107 @@ static inline int opal_stat_nofollow(const char* path, struct opal_stat_result* 
     return 0;
 }
 
+static inline int opal_paths_refer_to_same_file(const char* first, const char* second, int* out_same) {
+    if (!first || !second || !out_same) {
+        errno = EINVAL;
+        return -1;
+    }
+
+#if OPAL_WINDOWS
+    wchar_t* wide_first = opal_utf8_to_wide_path(first);
+    if (!wide_first) {
+        return -1;
+    }
+
+    wchar_t* wide_second = opal_utf8_to_wide_path(second);
+    if (!wide_second) {
+        free(wide_first);
+        return -1;
+    }
+
+    HANDLE first_handle = CreateFileW(
+        wide_first,
+        FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS,
+        NULL
+    );
+    if (first_handle == INVALID_HANDLE_VALUE) {
+        DWORD error = GetLastError();
+        free(wide_second);
+        free(wide_first);
+        opal_set_errno_from_win32(error);
+        return -1;
+    }
+
+    HANDLE second_handle = CreateFileW(
+        wide_second,
+        FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS,
+        NULL
+    );
+    free(wide_second);
+    free(wide_first);
+    if (second_handle == INVALID_HANDLE_VALUE) {
+        DWORD error = GetLastError();
+        CloseHandle(first_handle);
+        opal_set_errno_from_win32(error);
+        return -1;
+    }
+
+    BY_HANDLE_FILE_INFORMATION first_info;
+    if (!GetFileInformationByHandle(first_handle, &first_info)) {
+        DWORD error = GetLastError();
+        CloseHandle(second_handle);
+        CloseHandle(first_handle);
+        opal_set_errno_from_win32(error);
+        return -1;
+    }
+
+    BY_HANDLE_FILE_INFORMATION second_info;
+    if (!GetFileInformationByHandle(second_handle, &second_info)) {
+        DWORD error = GetLastError();
+        CloseHandle(second_handle);
+        CloseHandle(first_handle);
+        opal_set_errno_from_win32(error);
+        return -1;
+    }
+
+    if (!CloseHandle(second_handle)) {
+        DWORD error = GetLastError();
+        CloseHandle(first_handle);
+        opal_set_errno_from_win32(error);
+        return -1;
+    }
+    if (!CloseHandle(first_handle)) {
+        DWORD error = GetLastError();
+        opal_set_errno_from_win32(error);
+        return -1;
+    }
+
+    *out_same = (
+        first_info.dwVolumeSerialNumber == second_info.dwVolumeSerialNumber &&
+        first_info.nFileIndexHigh == second_info.nFileIndexHigh &&
+        first_info.nFileIndexLow == second_info.nFileIndexLow
+    ) ? 1 : 0;
+    return 0;
+#else
+    struct stat first_stat;
+    struct stat second_stat;
+    if (stat(first, &first_stat) != 0 || stat(second, &second_stat) != 0) {
+        return -1;
+    }
+
+    *out_same = (first_stat.st_dev == second_stat.st_dev && first_stat.st_ino == second_stat.st_ino) ? 1 : 0;
+    return 0;
+#endif
+}
+
 static inline int opal_mkdir(const char* path) {
     if (!path) {
         errno = EINVAL;
@@ -576,7 +905,14 @@ static inline int opal_mkdir(const char* path) {
     }
 
 #if OPAL_WINDOWS
-    return _mkdir(path);
+    wchar_t* wide_path = opal_utf8_to_wide_path(path);
+    if (!wide_path) {
+        return -1;
+    }
+
+    int result = _wmkdir(wide_path);
+    free(wide_path);
+    return result;
 #else
     return mkdir(path, 0755);
 #endif
@@ -589,7 +925,14 @@ static inline int opal_rmdir(const char* path) {
     }
 
 #if OPAL_WINDOWS
-    return _rmdir(path);
+    wchar_t* wide_path = opal_utf8_to_wide_path(path);
+    if (!wide_path) {
+        return -1;
+    }
+
+    int result = _wrmdir(wide_path);
+    free(wide_path);
+    return result;
 #else
     return rmdir(path);
 #endif
@@ -602,7 +945,14 @@ static inline int opal_unlink(const char* path) {
     }
 
 #if OPAL_WINDOWS
-    return _unlink(path);
+    wchar_t* wide_path = opal_utf8_to_wide_path(path);
+    if (!wide_path) {
+        return -1;
+    }
+
+    int result = _wunlink(wide_path);
+    free(wide_path);
+    return result;
 #else
     return unlink(path);
 #endif
@@ -628,10 +978,27 @@ static inline int opal_replace_path(const char* source, const char* destination)
     }
 
 #if OPAL_WINDOWS
-    if (MoveFileExA(source, destination, MOVEFILE_REPLACE_EXISTING) != 0) {
+    wchar_t* wide_source = opal_utf8_to_wide_path(source);
+    if (!wide_source) {
+        return -1;
+    }
+
+    wchar_t* wide_destination = opal_utf8_to_wide_path(destination);
+    if (!wide_destination) {
+        free(wide_source);
+        return -1;
+    }
+
+    if (MoveFileExW(wide_source, wide_destination, MOVEFILE_REPLACE_EXISTING) != 0) {
+        free(wide_destination);
+        free(wide_source);
         return 0;
     }
-    opal_set_errno_from_win32(GetLastError());
+
+    DWORD error = GetLastError();
+    free(wide_destination);
+    free(wide_source);
+    opal_set_errno_from_win32(error);
     return -1;
 #else
     return rename(source, destination);
@@ -645,7 +1012,13 @@ static inline int opal_create_file_exclusive(const char* path) {
     }
 
 #if OPAL_WINDOWS
-    int fd = _open(path, _O_CREAT | _O_EXCL | _O_WRONLY | _O_BINARY, _S_IREAD | _S_IWRITE);
+    wchar_t* wide_path = opal_utf8_to_wide_path(path);
+    if (!wide_path) {
+        return -1;
+    }
+
+    int fd = _wopen(wide_path, _O_CREAT | _O_EXCL | _O_WRONLY | _O_BINARY, _S_IREAD | _S_IWRITE);
+    free(wide_path);
 #else
     int fd = open(path, O_CREAT | O_EXCL | O_WRONLY, 0666);
 #endif
@@ -695,8 +1068,13 @@ static inline int opal_create_temp_file(char* path_buf, size_t path_buf_size) {
             value >>= 4;
         }
 
-        HANDLE handle = CreateFileA(
-            path_buf,
+        wchar_t* wide_path = opal_utf8_to_wide_path(path_buf);
+        if (!wide_path) {
+            return -1;
+        }
+
+        HANDLE handle = CreateFileW(
+            wide_path,
             GENERIC_READ | GENERIC_WRITE,
             0,
             NULL,
@@ -705,11 +1083,13 @@ static inline int opal_create_temp_file(char* path_buf, size_t path_buf_size) {
             NULL
         );
         if (handle != INVALID_HANDLE_VALUE) {
+            free(wide_path);
             CloseHandle(handle);
             return 0;
         }
 
         DWORD error = GetLastError();
+        free(wide_path);
         if (error != ERROR_FILE_EXISTS && error != ERROR_ALREADY_EXISTS) {
             opal_set_errno_from_win32(error);
             return -1;

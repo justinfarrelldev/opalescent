@@ -48,6 +48,17 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    if (strcmp(argv[1], "mkdirp") == 0) {
+        FsVoidResult result = create_directory_recursive_sync(argv[2]);
+        if (result.error != NULL) {
+            printf("ERR:%s\n", result.error);
+            free((void*)result.error);
+            return 2;
+        }
+        printf("OK\n");
+        return 0;
+    }
+
     if (strcmp(argv[1], "rmdir") == 0) {
         FsVoidResult result = delete_directory_sync(argv[2]);
         if (result.error != NULL) {
@@ -255,6 +266,61 @@ fn mkdir_rmdir_roundtrip() {
     assert!(
         failure_message.is_empty(),
         "mkdir_rmdir_roundtrip should create and remove directory cleanly: {failure_message}"
+    );
+}
+
+#[test]
+#[serial(fs)]
+fn mkdirp_accepts_existing_ancestor_directories() {
+    let _guard = FsStateGuard::new(fs_project_root("_fs_path_from"))
+        .expect("_fs_path_from guard should initialize and reset target/workspace");
+    assert_workspace_empty("_fs_path_from");
+
+    let temp_dir = unique_probe_target_dir("directories-mkdirp-existing-ancestors");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "t28 mkdirp-existing-ancestors temp directory should be created"
+    );
+
+    let fixture_root = make_temp_path("mkdirp-existing-ancestors");
+    let nested_dir = fixture_root.join("existing-parent").join("child").join("grandchild");
+
+    let execution_result: Result<(), String> = (|| {
+        fs::create_dir_all(fixture_root.join("existing-parent"))
+            .map_err(|e| format!("t28 mkdirp existing parent should be created: {e}"))?;
+
+        let (code, stdout, stderr) = run_harness("mkdirp", &nested_dir, &temp_dir)?;
+        if code != 0_i32 || !stdout.contains("OK") {
+            return Err(format!(
+                "mkdirp_accepts_existing_ancestor_directories should succeed, code={code}, stdout='{stdout}', stderr='{stderr}'"
+            ));
+        }
+
+        if !nested_dir.exists() {
+            return Err(format!(
+                "mkdirp_accepts_existing_ancestor_directories should create nested directory {}",
+                nested_dir.display()
+            ));
+        }
+
+        Ok(())
+    })();
+
+    drop(fs::remove_dir_all(&fixture_root));
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "t28 mkdirp-existing-ancestors temp directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "mkdirp_accepts_existing_ancestor_directories should allow pre-existing ancestor directories: {failure_message}"
     );
 }
 

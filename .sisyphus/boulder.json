@@ -1,60 +1,139 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/pair-visibility-array-continuation.md",
-  "started_at": "2026-05-05T22:18:04.966Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/windows-issues.md",
+  "started_at": "2026-05-06T06:11:41.564Z",
   "session_ids": [
-    "ses_20a5b5ef5ffeyw0mSP4jzsEWsF",
-    "ses_20a5b5ef5ffeyw0mSP4jzsEWsF"
+    "ses_204bb7ceeffeNMgNf9E40z0Uli",
+    "ses_204bb7ceeffeNMgNf9E40z0Uli",
+    "ses_2040dc272ffevgkzMLAg3l2Bdh",
+    "ses_2040dc1a2ffeiXg742O62SrOpd",
+    "ses_2040dc1a0ffeqjF481KGJxwb2k",
+    "ses_20097a706ffezK4BaGtBJnMl0S",
+    "ses_20097a6f9ffdAy3ToGp4Hf9qEA",
+    "ses_20097a6faffebFZpaf5OQUvxd4",
+    "ses_2007b1b8effeWIhx91gsn1q2pN",
+    "ses_2007b189fffe7MUS4rCaKn26g6"
   ],
   "session_origins": {
-    "ses_20a5b5ef5ffeyw0mSP4jzsEWsF": "direct"
+    "ses_204bb7ceeffeNMgNf9E40z0Uli": "direct",
+    "ses_2040dc272ffevgkzMLAg3l2Bdh": "appended",
+    "ses_2040dc1a2ffeiXg742O62SrOpd": "appended",
+    "ses_2040dc1a0ffeqjF481KGJxwb2k": "appended",
+    "ses_20097a706ffezK4BaGtBJnMl0S": "appended",
+    "ses_20097a6f9ffdAy3ToGp4Hf9qEA": "appended",
+    "ses_20097a6faffebFZpaf5OQUvxd4": "appended",
+    "ses_2007b1b8effeWIhx91gsn1q2pN": "appended",
+    "ses_2007b189fffe7MUS4rCaKn26g6": "appended"
   },
-  "plan_name": "pair-visibility-array-continuation",
+  "plan_name": "windows-issues",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Expose predefined generic `Pair<T, U>`",
-      "session_id": "ses_205c69ac0ffeOaSAYrcdmrIrDg",
+      "task_title": "Establish Baseline, Issue Checklist, and Blast-Radius Map",
+      "session_id": "ses_20412d49dffeRiKQmI6CGjAXNa",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-05-05T22:28:21.058Z"
+      "updated_at": "2026-05-06T06:19:17.106Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "Add Pair smoke project and sanity-check completed prior array slices",
-      "session_id": "ses_205bad5a8ffea8K3ob1k8Qxk2p",
+      "task_title": "Fix MSVC Build/Link Bootstrap Issues",
+      "session_id": "ses_20407615affeg7foCcJkSGM44c",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-05-05T22:38:21.480Z"
+      "updated_at": "2026-05-06T06:32:25.481Z"
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "Resume Task 11 and implement `.zip` returning `Pair<T, U>[]`",
-      "session_id": "ses_205b3df34ffeJqCLdehqxAaRj4",
+      "task_title": "Add Wine MSVC File-Operation Acceptance Fixture",
+      "session_id": "ses_203fdb7faffeewNU7eGDrOOeZn",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-05-05T22:55:38.578Z"
+      "updated_at": "2026-05-06T06:42:44.805Z"
     },
     "todo:4": {
       "task_key": "todo:4",
       "task_label": "4",
-      "task_title": "Resume Task 12 double-array literals, lengths, and reads",
-      "session_id": "ses_2059e6160ffeyP5xWIXlV7mFfB",
+      "task_title": "Centralize Windows UTF-8/Wide File API Boundary",
+      "session_id": "ses_203f28850ffeQnruRglVbtRmuP",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-05-05T23:32:54.307Z"
+      "updated_at": "2026-05-06T07:02:43.681Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Fix Windows Path Helper Semantics and `strdup` Usage",
+      "session_id": "ses_203c30ad1ffe3cLs2Z422Eeqis",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-05-06T07:57:58.538Z"
+    },
+    "todo:6": {
+      "task_key": "todo:6",
+      "task_label": "6",
+      "task_title": "Fix Runtime File I/O Error Allocation and Absolute Path Behavior",
+      "session_id": "ses_203b16cd9ffeU2s6xZ22QDDDow",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-05-06T08:09:42.872Z"
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "Fix Directory Enumeration Errno and Windows Symlink Metadata",
+      "session_id": "ses_203a7d685ffeo0yRKUCxKHCH1j",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-05-06T08:25:55.985Z"
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "Add Runtime Initialization Call and Verify Reference Counting Source Inclusion",
+      "session_id": "ses_2039a48c2ffewnpRowDGxv88tU",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-05-06T08:35:47.567Z"
+    },
+    "todo:9": {
+      "task_key": "todo:9",
+      "task_label": "9",
+      "task_title": "Remove MAX_PATH-Capped Runtime Buffers",
+      "session_id": "ses_2038feee5ffeYgMoy5TZ7YjLx6",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-05-06T08:53:46.268Z"
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "Harden Cargo and CI Windows Toolchain Reproducibility",
+      "session_id": "ses_203364274ffenFNzMJTEepsWtc",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-05-06T10:21:24.837Z"
+    },
+    "todo:12": {
+      "task_key": "todo:12",
+      "task_label": "12",
+      "task_title": "Close `WINDOWS_ISSUES.md` and Produce Final Evidence Bundle",
+      "session_id": "ses_20323f19effeCr5zKQURx9S4TS",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-05-06T10:55:31.051Z"
     },
     "final-wave:f1": {
       "task_key": "final-wave:f1",
       "task_label": "F1",
       "task_title": "Plan Compliance Audit — oracle",
-      "session_id": "ses_2057c5d10ffeZ9va7yPVss5FNU",
+      "session_id": "ses_20054680affejHSXcMI2C7hUV9",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-05-05T23:45:40.243Z"
+      "updated_at": "2026-05-06T23:49:04.279Z"
     }
   }
 }

@@ -170,8 +170,10 @@ pub fn compile_checked_program_to_module<'context>(
     context: &'context Context,
     program: &Program,
     imported_signatures: BTreeMap<String, CoreType>,
+    target: &crate::build_system::targets::TargetTriple,
 ) -> Result<Module<'context>, crate::codegen::error::CodegenError> {
-    let codegen_context = CodegenContext::new(context, "opalescent_module");
+    let codegen_context = CodegenContext::for_triple(context, "opalescent_module", target)
+        .map_err(|error| crate::codegen::error::CodegenError::new(format!("{error:?}")))?;
     let mut env = CodegenEnv::new(true);
     env.imported_signatures = imported_signatures;
 
