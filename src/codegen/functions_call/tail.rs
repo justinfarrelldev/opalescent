@@ -18,9 +18,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::AddressSpace;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
-use inkwell::values::{
-    BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue,
-};
+use inkwell::values::{BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue};
 
 pub(super) fn declare_external_imported_function<'context>(
     codegen_context: &CodegenContext<'context>,
@@ -270,10 +268,13 @@ fn emit_entry_error_trap_if_needed<'context>(
     let trap_block = codegen_context
         .context
         .append_basic_block(c_main, "entry.error.trap");
-    let success_block = codegen_context.context.append_basic_block(c_main, "entry.ok");
-    let _branch = codegen_context
-        .builder
-        .build_conditional_branch(is_error, trap_block, success_block)?;
+    let success_block = codegen_context
+        .context
+        .append_basic_block(c_main, "entry.ok");
+    let _branch =
+        codegen_context
+            .builder
+            .build_conditional_branch(is_error, trap_block, success_block)?;
 
     codegen_context.builder.position_at_end(trap_block);
     let runtime_error_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
@@ -327,13 +328,15 @@ pub fn emit_c_main_wrapper<'context>(
 
     let call_args = build_entry_call_args(codegen_context, entry_function, argc_param, argv_param)?;
     let runtime_init_function = declare_runtime_init_function(codegen_context);
-    let _runtime_init_call = codegen_context
-        .builder
-        .build_call(runtime_init_function, &[], "runtime.init")?;
+    let _runtime_init_call =
+        codegen_context
+            .builder
+            .build_call(runtime_init_function, &[], "runtime.init")?;
 
-    let entry_call = codegen_context
-        .builder
-        .build_call(entry_function, call_args.as_slice(), "entry.call")?;
+    let entry_call =
+        codegen_context
+            .builder
+            .build_call(entry_function, call_args.as_slice(), "entry.call")?;
     emit_entry_error_trap_if_needed(codegen_context, c_main, entry_call)?;
 
     let _ret = codegen_context.builder.build_return(Some(

@@ -42,6 +42,8 @@ mod patterns;
 pub mod precedence;
 /// Parser submodule for statement parsing (let, return, block, if, for, while, loop)
 mod statements;
+/// Parser submodule for guard statement parsing helpers
+mod statements_guard;
 /// Parser submodule for type parsing (type annotations, function types)
 mod types;
 

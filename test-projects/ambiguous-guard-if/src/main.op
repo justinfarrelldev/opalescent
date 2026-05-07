@@ -1,0 +1,13 @@
+##
+  Description: Function with intentionally ambiguous guard-if header
+##
+let parse = f(): int32 errors ParseError => {
+    guard if true { return 1 } else { return 0 } else err =>
+        return 42
+}
+
+##
+  Description: Nearby valid declaration for parser recovery validation
+##
+entry main = f(args: string[]): void =>
+    return void

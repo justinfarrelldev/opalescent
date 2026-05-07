@@ -403,6 +403,30 @@ mod formatter_tests {
         }
     }
 
+    #[test]
+    fn test_naming_guard_omitted_success_binding_has_no_violation() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    guard compute_result() else err =>\n",
+            "        return void\n",
+            "    return void\n"
+        );
+        let lexer = crate::lexer::Lexer::new(source);
+        let (tokens, _) = lexer.tokenize();
+        let parser = crate::parser::Parser::new(tokens);
+        let (prog, _) = parser.parse();
+        assert!(prog.is_some(), "source should parse successfully: {source}");
+        if let Some(program) = prog {
+            let violations = check_program(&program);
+            assert!(
+                violations
+                    .iter()
+                    .all(|v| v.location != "guard success binding"),
+                "shorthand guard should not report a success-binding violation, got: {violations:?}"
+            );
+        }
+    }
+
     // ─── Formatter / Printer Tests ───────────────────────────────────────────────
 
     /// Formatting a simple function declaration produces syntactically valid
@@ -1162,6 +1186,57 @@ mod formatter_tests {
             "}\n"
         );
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_formatter_guard_shorthand_roundtrip() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    guard compute_result() else err =>\n",
+            "        return void\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let first_pass = fmt
+            .format_source(source)
+            .expect("guard shorthand should format");
+        assert!(
+            first_pass.contains("guard compute_result() else err =>"),
+            "shorthand guard should omit `into`, got: {first_pass}"
+        );
+        assert!(
+            !first_pass.contains("into"),
+            "shorthand guard should not introduce `into`, got: {first_pass}"
+        );
+        let second_pass = fmt
+            .format_source(&first_pass)
+            .expect("formatted shorthand guard should reformat");
+        assert_eq!(
+            first_pass, second_pass,
+            "guard shorthand formatting must be idempotent"
+        );
+    }
+
+    #[test]
+    fn test_formatter_guard_into_underscore_preserved() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    guard compute_result() into _ else err =>\n",
+            "        return void\n",
+            "    return void\n"
+        );
+        let fmt = Formatter::with_defaults();
+        let result = fmt
+            .format_source(source)
+            .expect("explicit underscore guard should format");
+        assert!(
+            result.contains("guard compute_result() into _ else err =>"),
+            "explicit underscore binding should remain explicit, got: {result}"
+        );
+        assert!(
+            !result.contains("guard compute_result() else err =>"),
+            "explicit underscore binding must not be rewritten to shorthand, got: {result}"
+        );
     }
 
     #[test]

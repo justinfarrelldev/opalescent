@@ -1,0 +1,21 @@
+import string_to_int32, int32_to_string from standard
+
+##
+  Description: Entry point validating guard shorthand and named guard bindings
+##
+entry main = f(args: string[]): void =>
+    guard string_to_int32('27') else parse_err =>
+        print('UNEXPECTED_SHORTHAND_SUCCESS_ERROR={parse_err}')
+        return void
+
+    print('GUARD_SHORTHAND_SUCCESS=ok')
+
+    guard string_to_int32('not-a-number') else invalid_err =>
+        print('GUARD_SHORTHAND_ERROR=handled')
+
+    guard string_to_int32('41') into parsed else named_err =>
+        print('UNEXPECTED_NAMED_ERROR={named_err}')
+        return void
+
+    print('GUARD_NAMED_BINDING={int32_to_string(parsed)}')
+    return void

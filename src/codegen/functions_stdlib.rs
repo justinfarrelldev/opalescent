@@ -549,8 +549,7 @@ fn declare_fs_result_function<'context>(
     let requires_sret = codegen_context.target.is_windows_msvc() || result_type.count_fields() >= 3;
 
     if requires_sret {
-        let mut sret_params =
-            alloc::vec::Vec::with_capacity(params.len().saturating_add(1_usize));
+        let mut sret_params = alloc::vec::Vec::with_capacity(params.len().saturating_add(1_usize));
         sret_params.push(result_type.ptr_type(AddressSpace::default()).into());
         sret_params.extend_from_slice(params);
 

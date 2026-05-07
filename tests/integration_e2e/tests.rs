@@ -31,6 +31,8 @@ mod fs_write_text_atomic;
 // tree. Re-enable each `mod` line when the corresponding `.rs` file is added.
 mod fs_markdown_roundtrip;
 mod fs_path_manipulation;
+mod guard_optional_binding;
+mod guard_shorthand;
 // mod fs_management;
 // mod fs_reading;
 // mod fs_writing;

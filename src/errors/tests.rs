@@ -77,6 +77,31 @@ fn test_format_diagnostic_includes_phase_code_help_and_docs() {
 }
 
 #[test]
+fn guard_ambiguous_if_else_diagnostic() {
+    let error = ParseError::GuardAmbiguousIfElse {
+        span: test_source_span(10, 4),
+    };
+    let rendered = format_diagnostic(CompilerPhase::Parser, &CompilerError::Parser(error));
+
+    assert!(
+        rendered.contains("opalescent::parser::guard_ambiguous_if_else"),
+        "ambiguous guarded if/else should use a dedicated parser diagnostic code"
+    );
+    assert!(
+        rendered.contains("Ambiguous guarded if/else expression in guard statement"),
+        "diagnostic should render the dedicated ambiguous guard error message"
+    );
+    assert!(
+        rendered.contains("guard (if"),
+        "diagnostic help should include a parenthesized guard example"
+    );
+    assert!(
+        rendered.contains("Wrap the guarded if-expression in parentheses"),
+        "diagnostic help should explicitly instruct parenthesizing the guarded if-expression"
+    );
+}
+
+#[test]
 fn test_format_codegen_error_uses_standardized_code() {
     let rendered = format_codegen_error("failed to emit phi node");
     assert!(rendered.contains("opalescent::codegen::backend_failure"));

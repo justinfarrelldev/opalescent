@@ -1,6 +1,9 @@
 #![cfg(feature = "integration")]
 
 use super::*;
+use std::time::Duration;
+
+const INTERACTIVE_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[cfg(feature = "integration")]
 #[test]
@@ -57,28 +60,25 @@ fn simple_quiz_compiles_links_and_runs() {
             }
         };
 
-        if let Some(ref mut stdin) = child.stdin {
-            let write_result = std::io::Write::write_all(stdin, b"TestUser\n3\n");
+        if let Some(mut stdin) = child.stdin.take() {
+            let write_result = std::io::Write::write_all(&mut stdin, b"TestUser\n3\n");
             if let Err(error) = write_result {
                 return Err(format!(
                     "simple-quiz stdin should accept scripted user input: {error}"
                 ));
             }
+            drop(stdin);
         } else {
             return Err(
                 "simple-quiz process stdin should be piped so test input can be written".to_owned(),
             );
         }
 
-        let output_result = child.wait_with_output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "simple-quiz compiled binary should complete and produce output: {error}"
-                ));
-            }
-        };
+        let run_output = super::fs_helpers::wait_for_child_output_with_timeout(
+            child,
+            INTERACTIVE_TEST_TIMEOUT,
+            "simple-quiz compiled binary",
+        )?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("What is your name?") {

@@ -150,10 +150,16 @@ impl Parser {
                 TokenType::Else => {
                     let next = self.tokens.get(index.saturating_add(1));
                     let after_next = self.tokens.get(index.saturating_add(2));
-                    return next.is_some_and(|next_token| {
+                    let is_statement_else = next.is_some_and(|next_token| {
                         matches!(&next_token.token_type, &TokenType::Identifier(_))
                     }) && after_next
                         .is_some_and(|after_token| after_token.token_type == TokenType::Arrow);
+
+                    if is_statement_else {
+                        return true;
+                    }
+
+                    index = index.saturating_add(1);
                 }
                 TokenType::Newline | TokenType::EndOfFile => return false,
                 _ => {
@@ -391,7 +397,10 @@ impl Parser {
         let mut statements = Vec::new();
         self.skip_newlines();
 
-        while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
+        while !self.check(&TokenType::RightBrace)
+            && !self.check(&TokenType::Dedent)
+            && !self.is_at_end()
+        {
             if self.consume_inline_doc_comment() {
                 self.skip_newlines();
                 continue;
@@ -441,7 +450,7 @@ impl Parser {
     /// `skip_newlines()` and before the `Indent` token, then prepends them to the
     /// resulting block statement so control-flow statement bodies keep first-line
     /// comments.
-    fn parse_indented_body_with_leading_comments(
+    pub(super) fn parse_indented_body_with_leading_comments(
         &mut self,
         expected_message: &str,
     ) -> ParseResult<Box<Stmt>> {
@@ -661,73 +670,6 @@ impl Parser {
         Ok(Stmt::While {
             condition,
             body,
-            span,
-            id: self.next_node_id(),
-        })
-    }
-
-    /// Parse a guard statement.
-    ///
-    /// Syntax: `guard <expr> into <success_binding> else <error_binding> => <indent-body>`
-    pub(super) fn parse_guard_statement(&mut self) -> ParseResult<Stmt> {
-        let start_span = self.current_token().span;
-        self.advance();
-
-        let expression = self.parse_expression()?;
-        self.consume(&TokenType::Into, "Expected 'into' after guard expression")?;
-
-        let success_binding = if self.check_identifier() {
-            let token = self.advance().clone();
-            if let TokenType::Identifier(name) = token.token_type {
-                name
-            } else {
-                return Err(ParseError::UnexpectedToken {
-                    expected: "identifier after 'into'".to_owned(),
-                    found: format!("{}", token.token_type),
-                    span: ParseError::span_from_token(&token),
-                });
-            }
-        } else {
-            return Err(ParseError::UnexpectedToken {
-                expected: "identifier after 'into'".to_owned(),
-                found: format!("{}", self.current_token().token_type),
-                span: ParseError::span_from_token(self.current_token()),
-            });
-        };
-
-        self.consume(&TokenType::Else, "Expected 'else' in guard statement")?;
-
-        let error_binding = if self.check_identifier() {
-            let token = self.advance().clone();
-            if let TokenType::Identifier(name) = token.token_type {
-                name
-            } else {
-                return Err(ParseError::UnexpectedToken {
-                    expected: "identifier after 'else'".to_owned(),
-                    found: format!("{}", token.token_type),
-                    span: ParseError::span_from_token(&token),
-                });
-            }
-        } else {
-            return Err(ParseError::UnexpectedToken {
-                expected: "identifier after 'else'".to_owned(),
-                found: format!("{}", self.current_token().token_type),
-                span: ParseError::span_from_token(self.current_token()),
-            });
-        };
-
-        self.consume(&TokenType::Arrow, "Expected '=>' after guard else binding")?;
-        self.skip_newlines();
-        let else_body = self.parse_indented_body_with_leading_comments(
-            "indentation block after '=>' in guard statement",
-        )?;
-
-        let span = Span::new(start_span.start, else_body.span().end);
-        Ok(Stmt::Guard {
-            expression: Box::new(expression),
-            success_binding,
-            error_binding,
-            else_body,
             span,
             id: self.next_node_id(),
         })

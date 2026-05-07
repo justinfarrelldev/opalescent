@@ -587,26 +587,30 @@ let load_number = f(path: string): int32 errors IoError, ParseError =>
     ...
 ```
 
-**`guard ... into ... else`** — handle an error locally without propagating:
+**`guard ... else` / `guard ... into ... else`** — handle an error locally without propagating.
+Use statement shorthand when you only care about the error branch, and keep `into` when you need the success value afterward:
 
 ```opal
 let parse_number = f(text: string): int32 errors ParseError =>
-    guard parse_number_core(text) into parsed else {
+    guard parse_number_core(text) else parse_error =>
         log_parse_failure(text)
         return 0
-    }
-    return parsed
+    return 7
 ```
-
-Combined example:
 
 ```opal
 let load_number = f(path: string): int32 errors IoError, ParseError =>
     let content = propagate read_line_from_disk(path)
-    guard parse_number(content) into value else {
+    guard parse_number(content) into value else parse_error =>
         return 0
-    }
     return value
+```
+
+If the guarded subject is an `if ... else ...` expression, parenthesize it so the parser can distinguish the subject from the guard handler:
+
+```opal
+guard (if ready { parse_number_core(text) } else { parse_number_core('0') }) else parse_error =>
+    return 0
 ```
 
 #### ABI and Error Encoding

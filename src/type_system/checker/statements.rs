@@ -157,7 +157,7 @@ impl TypeChecker {
                 ..
             } => self.type_check_guard_stmt_with_return(
                 expression.as_ref(),
-                success_binding.as_str(),
+                success_binding.as_deref(),
                 error_binding.as_str(),
                 else_body.as_ref(),
                 span,
@@ -601,7 +601,7 @@ impl TypeChecker {
     fn type_check_guard_statement(
         &mut self,
         expression: &Expr,
-        success_binding: &str,
+        success_binding: Option<&str>,
         error_binding: &str,
         else_body: &Stmt,
         span: Span,
@@ -613,24 +613,33 @@ impl TypeChecker {
         self.context.in_guard_subject_context = previous_guard_subject_context;
         let success_type = success_result?;
 
-        self.symbol_table.register(SymbolInfo {
-            name: success_binding.to_owned(),
-            symbol_type: SymbolType::Constant,
-            core_type: success_type,
-            visibility: Visibility::Private,
-            source_location: span,
-            is_let_binding: true,
-            is_mutable: false,
-            read_count: 0,
-            is_pure: false,
-        });
+        let success_binding_info =
+            success_binding.map(|success_name| (success_name.to_owned(), success_type.clone()));
+
+        if let Some(success_binding_entry) = success_binding_info.as_ref() {
+            let success_name = &success_binding_entry.0;
+            let success_binding_type = &success_binding_entry.1;
+            self.symbol_table.register(SymbolInfo {
+                name: success_name.clone(),
+                symbol_type: SymbolType::Constant,
+                core_type: success_binding_type.clone(),
+                visibility: Visibility::Private,
+                source_location: span,
+                is_let_binding: true,
+                is_mutable: false,
+                read_count: 0,
+                is_pure: false,
+            });
+        }
 
         self.within_new_scope(|checker| {
-            if let Some(existing_success) = checker.symbol_table.lookup(success_binding).cloned() {
+            if let Some(success_binding_entry) = success_binding_info.as_ref() {
+                let success_name = &success_binding_entry.0;
+                let success_binding_type = &success_binding_entry.1;
                 checker.symbol_table.register(SymbolInfo {
-                    name: success_binding.to_owned(),
+                    name: success_name.clone(),
                     symbol_type: SymbolType::Constant,
-                    core_type: existing_success.core_type,
+                    core_type: success_binding_type.clone(),
                     visibility: Visibility::Private,
                     source_location: span,
                     is_let_binding: true,
@@ -788,7 +797,7 @@ impl TypeChecker {
     fn type_check_guard_stmt_with_return(
         &mut self,
         expression: &Expr,
-        success_binding: &str,
+        success_binding: Option<&str>,
         error_binding: &str,
         else_body: &Stmt,
         span: Span,

@@ -27,71 +27,71 @@ entry main = f(args: string[]): void =>
         cleanup_index = cleanup_index - 1
         let line = lines[cleanup_index]
         if line is 'workspace/alpha/data.txt|42':
-            guard delete_file_sync(path_from('{project_root}workspace/alpha/data.txt')) into _ else cleanup_err =>
+            guard delete_file_sync(path_from('{project_root}workspace/alpha/data.txt')) else cleanup_err =>
                 let _unused_cleanup_error = cleanup_err
         if line is 'workspace/alpha/config.txt|mode=demo':
-            guard delete_file_sync(path_from('{project_root}workspace/alpha/config.txt')) into _ else cleanup_err =>
+            guard delete_file_sync(path_from('{project_root}workspace/alpha/config.txt')) else cleanup_err =>
                 let _unused_cleanup_error = cleanup_err
         if line is 'workspace/alpha/notes.txt|clean output':
-            guard delete_file_sync(path_from('{project_root}workspace/alpha/notes.txt')) into _ else cleanup_err =>
+            guard delete_file_sync(path_from('{project_root}workspace/alpha/notes.txt')) else cleanup_err =>
                 let _unused_cleanup_error = cleanup_err
         if line is 'workspace/alpha/todo.txt|ship tests':
-            guard delete_file_sync(path_from('{project_root}workspace/alpha/todo.txt')) into _ else cleanup_err =>
+            guard delete_file_sync(path_from('{project_root}workspace/alpha/todo.txt')) else cleanup_err =>
                 let _unused_cleanup_error = cleanup_err
         if line is 'workspace/alpha/readme.txt|alpha readme':
-            guard delete_file_sync(path_from('{project_root}workspace/alpha/readme.txt')) into _ else cleanup_err =>
+            guard delete_file_sync(path_from('{project_root}workspace/alpha/readme.txt')) else cleanup_err =>
                 let _unused_cleanup_error = cleanup_err
         if line is 'workspace/alpha/logs/|':
-            guard delete_directory_sync(path_from('{project_root}workspace/alpha/logs/')) into _ else cleanup_err =>
+            guard delete_directory_sync(path_from('{project_root}workspace/alpha/logs/')) else cleanup_err =>
                 let _unused_cleanup_error = cleanup_err
         if line is 'workspace/alpha/images/|':
-            guard delete_directory_sync(path_from('{project_root}workspace/alpha/images/')) into _ else cleanup_err =>
+            guard delete_directory_sync(path_from('{project_root}workspace/alpha/images/')) else cleanup_err =>
                 let _unused_cleanup_error = cleanup_err
         if line is 'workspace/alpha/docs/|':
-            guard delete_directory_sync(path_from('{project_root}workspace/alpha/docs/')) into _ else cleanup_err =>
+            guard delete_directory_sync(path_from('{project_root}workspace/alpha/docs/')) else cleanup_err =>
                 let _unused_cleanup_error = cleanup_err
         if line is 'workspace/alpha/|':
-            guard delete_directory_sync(path_from('{project_root}workspace/alpha/')) into _ else cleanup_err =>
+            guard delete_directory_sync(path_from('{project_root}workspace/alpha/')) else cleanup_err =>
                 let _unused_cleanup_error = cleanup_err
         if line is 'workspace/|':
-            guard delete_directory_sync(path_from('{project_root}workspace/')) into _ else cleanup_err =>
+            guard delete_directory_sync(path_from('{project_root}workspace/')) else cleanup_err =>
                 let _unused_cleanup_error = cleanup_err
 
     let mutable created_count = 0
     for line in lines:
         if line is 'workspace/|':
-            guard create_directory_sync(path_from('{project_root}workspace/')) into _ else create_err =>
+            guard create_directory_sync(path_from('{project_root}workspace/')) else create_err =>
                 let _unused_create_error = create_err
         if line is 'workspace/alpha/|':
-            guard create_directory_sync(path_from('{project_root}workspace/alpha/')) into _ else create_err =>
+            guard create_directory_sync(path_from('{project_root}workspace/alpha/')) else create_err =>
                 let _unused_create_error = create_err
         if line is 'workspace/alpha/docs/|':
-            guard create_directory_sync(path_from('{project_root}workspace/alpha/docs/')) into _ else create_err =>
+            guard create_directory_sync(path_from('{project_root}workspace/alpha/docs/')) else create_err =>
                 let _unused_create_error = create_err
         if line is 'workspace/alpha/images/|':
-            guard create_directory_sync(path_from('{project_root}workspace/alpha/images/')) into _ else create_err =>
+            guard create_directory_sync(path_from('{project_root}workspace/alpha/images/')) else create_err =>
                 let _unused_create_error = create_err
         if line is 'workspace/alpha/logs/|':
-            guard create_directory_sync(path_from('{project_root}workspace/alpha/logs/')) into _ else create_err =>
+            guard create_directory_sync(path_from('{project_root}workspace/alpha/logs/')) else create_err =>
                 let _unused_create_error = create_err
         if line is 'workspace/alpha/readme.txt|alpha readme':
-            guard write_text_sync(path_from('{project_root}workspace/alpha/readme.txt'), 'alpha readme') into _ else err =>
+            guard write_text_sync(path_from('{project_root}workspace/alpha/readme.txt'), 'alpha readme') else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/todo.txt|ship tests':
-            guard write_text_sync(path_from('{project_root}workspace/alpha/todo.txt'), 'ship tests') into _ else err =>
+            guard write_text_sync(path_from('{project_root}workspace/alpha/todo.txt'), 'ship tests') else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/notes.txt|clean output':
-            guard write_text_sync(path_from('{project_root}workspace/alpha/notes.txt'), 'clean output') into _ else err =>
+            guard write_text_sync(path_from('{project_root}workspace/alpha/notes.txt'), 'clean output') else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/config.txt|mode=demo':
-            guard write_text_sync(path_from('{project_root}workspace/alpha/config.txt'), 'mode=demo') into _ else err =>
+            guard write_text_sync(path_from('{project_root}workspace/alpha/config.txt'), 'mode=demo') else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/data.txt|42':
-            guard write_text_sync(path_from('{project_root}workspace/alpha/data.txt'), '42') into _ else err =>
+            guard write_text_sync(path_from('{project_root}workspace/alpha/data.txt'), '42') else err =>
                 print(err)
                 return void
         if is_counted_entry(line):
@@ -108,43 +108,43 @@ entry main = f(args: string[]): void =>
         remove_index = remove_index - 1
         let line = lines[remove_index]
         if line is 'workspace/alpha/data.txt|42':
-            guard delete_file_sync(path_from('{project_root}workspace/alpha/data.txt')) into _ else err =>
+            guard delete_file_sync(path_from('{project_root}workspace/alpha/data.txt')) else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/config.txt|mode=demo':
-            guard delete_file_sync(path_from('{project_root}workspace/alpha/config.txt')) into _ else err =>
+            guard delete_file_sync(path_from('{project_root}workspace/alpha/config.txt')) else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/notes.txt|clean output':
-            guard delete_file_sync(path_from('{project_root}workspace/alpha/notes.txt')) into _ else err =>
+            guard delete_file_sync(path_from('{project_root}workspace/alpha/notes.txt')) else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/todo.txt|ship tests':
-            guard delete_file_sync(path_from('{project_root}workspace/alpha/todo.txt')) into _ else err =>
+            guard delete_file_sync(path_from('{project_root}workspace/alpha/todo.txt')) else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/readme.txt|alpha readme':
-            guard delete_file_sync(path_from('{project_root}workspace/alpha/readme.txt')) into _ else err =>
+            guard delete_file_sync(path_from('{project_root}workspace/alpha/readme.txt')) else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/logs/|':
-            guard delete_directory_sync(path_from('{project_root}workspace/alpha/logs/')) into _ else err =>
+            guard delete_directory_sync(path_from('{project_root}workspace/alpha/logs/')) else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/images/|':
-            guard delete_directory_sync(path_from('{project_root}workspace/alpha/images/')) into _ else err =>
+            guard delete_directory_sync(path_from('{project_root}workspace/alpha/images/')) else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/docs/|':
-            guard delete_directory_sync(path_from('{project_root}workspace/alpha/docs/')) into _ else err =>
+            guard delete_directory_sync(path_from('{project_root}workspace/alpha/docs/')) else err =>
                 print(err)
                 return void
         if line is 'workspace/alpha/|':
-            guard delete_directory_sync(path_from('{project_root}workspace/alpha/')) into _ else err =>
+            guard delete_directory_sync(path_from('{project_root}workspace/alpha/')) else err =>
                 print(err)
                 return void
         if line is 'workspace/|':
-            guard delete_directory_sync(path_from('{project_root}workspace/')) into _ else err =>
+            guard delete_directory_sync(path_from('{project_root}workspace/')) else err =>
                 print(err)
                 return void
         if is_counted_entry(line):

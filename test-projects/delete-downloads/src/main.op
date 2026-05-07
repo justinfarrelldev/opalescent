@@ -13,10 +13,10 @@ entry main = f(args: string[]): void =>
     for item in entries:
         let child = join_path_components(folder, [item])
 
-        guard delete_directory_recursive_sync(child) into _ else rmdir_err =>
+        guard delete_directory_recursive_sync(child) else rmdir_err =>
             let _ignored_rmdir_err = rmdir_err
 
-            guard delete_file_sync(child) into _ else delete_err =>
+            guard delete_file_sync(child) else delete_err =>
                 print('DELETE_ERR={path_to_string(child)}: {delete_err}')
 
     print('removed_or_attempted={int64_to_string(entries.length)}')

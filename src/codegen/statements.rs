@@ -76,7 +76,7 @@ pub fn codegen_statement<'context>(
             codegen_context,
             env,
             expression.as_ref(),
-            success_binding.as_str(),
+            success_binding.as_deref(),
             error_binding.as_str(),
             else_body.as_ref(),
         ),
@@ -429,7 +429,7 @@ fn codegen_guard_statement<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     expression: &Expr,
-    success_binding: &str,
+    success_binding: Option<&str>,
     error_binding: &str,
     else_body: &Stmt,
 ) -> Result<(), CodegenError> {
@@ -453,36 +453,44 @@ fn codegen_guard_statement<'context>(
                 )?;
                 let success_core_type =
                     infer_guard_success_core_type(env, expression, success_value.get_type());
-                let success_alloca = codegen_context
-                    .builder
-                    .build_alloca(success_value.get_type(), success_binding)?;
-                let _success_init = codegen_context
-                    .builder
-                    .build_store(success_alloca, success_value.get_type().const_zero())?;
-                let len_binding_name = format!("{success_binding}_len");
-                let cap_binding_name = format!("{success_binding}_cap");
-                let metadata_allocas =
-                    if matches!(success_core_type, CoreType::Array(_)) && field_count >= 3 {
-                        let length_alloca = codegen_context.builder.build_alloca(
-                            codegen_context.context.i64_type(),
-                            len_binding_name.as_str(),
-                        )?;
-                        let _length_init = codegen_context.builder.build_store(
-                            length_alloca,
-                            codegen_context.context.i64_type().const_zero(),
-                        )?;
-                        let capacity_alloca = codegen_context.builder.build_alloca(
-                            codegen_context.context.i64_type(),
-                            cap_binding_name.as_str(),
-                        )?;
-                        let _capacity_init = codegen_context.builder.build_store(
-                            capacity_alloca,
-                            codegen_context.context.i64_type().const_zero(),
-                        )?;
-                        Some((length_alloca, capacity_alloca))
-                    } else {
-                        None
-                    };
+                let success_binding_name = success_binding.unwrap_or("");
+                let success_alloca = if success_binding.is_some() {
+                    let alloca = codegen_context
+                        .builder
+                        .build_alloca(success_value.get_type(), success_binding_name)?;
+                    let _success_init = codegen_context
+                        .builder
+                        .build_store(alloca, success_value.get_type().const_zero())?;
+                    Some(alloca)
+                } else {
+                    None
+                };
+                let len_binding_name = format!("{success_binding_name}_len");
+                let cap_binding_name = format!("{success_binding_name}_cap");
+                let metadata_allocas = if success_binding.is_some()
+                    && matches!(success_core_type, CoreType::Array(_))
+                    && field_count >= 3
+                {
+                    let length_alloca = codegen_context.builder.build_alloca(
+                        codegen_context.context.i64_type(),
+                        len_binding_name.as_str(),
+                    )?;
+                    let _length_init = codegen_context.builder.build_store(
+                        length_alloca,
+                        codegen_context.context.i64_type().const_zero(),
+                    )?;
+                    let capacity_alloca = codegen_context.builder.build_alloca(
+                        codegen_context.context.i64_type(),
+                        cap_binding_name.as_str(),
+                    )?;
+                    let _capacity_init = codegen_context.builder.build_store(
+                        capacity_alloca,
+                        codegen_context.context.i64_type().const_zero(),
+                    )?;
+                    Some((length_alloca, capacity_alloca))
+                } else {
+                    None
+                };
 
                 let current_fn = current_function(codegen_context)?;
                 let success_block = codegen_context
@@ -506,9 +514,11 @@ fn codegen_guard_statement<'context>(
                 )?;
 
                 codegen_context.builder.position_at_end(success_block);
-                let _store_ok = codegen_context
-                    .builder
-                    .build_store(success_alloca, success_value)?;
+                if let Some(success_slot) = success_alloca {
+                    let _store_ok = codegen_context
+                        .builder
+                        .build_store(success_slot, success_value)?;
+                }
                 if let Some((length_alloca, capacity_alloca)) = metadata_allocas {
                     let length_value = codegen_context.builder.build_extract_value(
                         struct_value,
@@ -574,60 +584,69 @@ fn codegen_guard_statement<'context>(
                 }
 
                 codegen_context.builder.position_at_end(merge_block);
-                if let Some((len_alloca, cap_alloca)) = metadata_allocas {
+                if success_binding.is_some() {
+                    if let Some((len_alloca, cap_alloca)) = metadata_allocas {
+                        env.variables.insert(
+                            len_binding_name,
+                            VariableBinding {
+                                alloca: len_alloca,
+                                core_type: CoreType::Int64,
+                                length: None,
+                                capacity: None,
+                                is_mutable: false,
+                            },
+                        );
+                        env.variables.insert(
+                            cap_binding_name,
+                            VariableBinding {
+                                alloca: cap_alloca,
+                                core_type: CoreType::Int64,
+                                length: None,
+                                capacity: None,
+                                is_mutable: false,
+                            },
+                        );
+                    }
+                    let Some(success_slot) = success_alloca else {
+                        return Err(CodegenError::new(String::from(
+                            "guard success binding slot missing in bound guard path",
+                        )));
+                    };
                     env.variables.insert(
-                        len_binding_name,
+                        success_binding_name.to_owned(),
                         VariableBinding {
-                            alloca: len_alloca,
-                            core_type: CoreType::Int64,
-                            length: None,
-                            capacity: None,
-                            is_mutable: false,
-                        },
-                    );
-                    env.variables.insert(
-                        cap_binding_name,
-                        VariableBinding {
-                            alloca: cap_alloca,
-                            core_type: CoreType::Int64,
+                            alloca: success_slot,
+                            core_type: success_core_type,
                             length: None,
                             capacity: None,
                             is_mutable: false,
                         },
                     );
                 }
-                env.variables.insert(
-                    success_binding.to_owned(),
-                    VariableBinding {
-                        alloca: success_alloca,
-                        core_type: success_core_type,
-                        length: None,
-                        capacity: None,
-                        is_mutable: false,
-                    },
-                );
 
                 return Ok(());
             }
         }
     }
 
-    let inferred_type = infer_core_type_from_expr(codegen_context, env, expression);
-    let alloca = codegen_context
-        .builder
-        .build_alloca(value.get_type(), success_binding)?;
-    let _store_instruction = codegen_context.builder.build_store(alloca, value)?;
+    if let Some(success_name) = success_binding {
+        let inferred_type = infer_core_type_from_expr(codegen_context, env, expression);
+        let alloca = codegen_context
+            .builder
+            .build_alloca(value.get_type(), success_name)?;
+        let _store_instruction = codegen_context.builder.build_store(alloca, value)?;
 
-    env.variables.insert(
-        success_binding.to_owned(),
-        VariableBinding {
-            alloca,
-            core_type: inferred_type,
-            length: None,
-            capacity: None,
-            is_mutable: false,
-        },
-    );
+        env.variables.insert(
+            success_name.to_owned(),
+            VariableBinding {
+                alloca,
+                core_type: inferred_type,
+                length: None,
+                capacity: None,
+                is_mutable: false,
+            },
+        );
+    }
 
     Ok(())
 }

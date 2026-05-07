@@ -38,7 +38,7 @@ entry main = f(args: string[]): void =>
             rendered = '{rendered}{line}\n'
         index = index + 1
 
-    guard write_text_sync(output_path, rendered) into _ else err =>
+    guard write_text_sync(output_path, rendered) else err =>
         print(err)
         return void
 

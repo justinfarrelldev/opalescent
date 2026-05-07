@@ -37,7 +37,7 @@ entry main = f(args: string[]): void =>
         wait_for_input('DEST_EXISTS: press Enter to list Downloads')
     else:
         wait_for_input('DEST_MISSING: press Enter to create To-Be-Deleted')
-        guard create_directory_sync(destination_folder) into _ else create_err =>
+        guard create_directory_sync(destination_folder) else create_err =>
             print('CREATE_ERR={create_err}')
             wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
             return void
@@ -56,7 +56,7 @@ entry main = f(args: string[]): void =>
 
         wait_for_input('NEXT_MOVE={path_to_string(child)} -> {path_to_string(destination)}; press Enter to move')
 
-        guard move_path_sync(child, destination) into _ else move_err =>
+        guard move_path_sync(child, destination) else move_err =>
             print('MOVE_ERR={path_to_string(child)} -> {path_to_string(destination)}: {move_err}')
             wait_for_input('PAUSE_AFTER_ERROR: press Enter to continue')
 

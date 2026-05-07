@@ -258,7 +258,7 @@ fn check_stmt(stmt: &Stmt, violations: &mut Vec<NamingViolation>) {
             ..
         } => check_guard_statement(
             expression,
-            success_binding,
+            success_binding.as_deref(),
             error_binding,
             else_body,
             violations,
@@ -271,17 +271,19 @@ fn check_stmt(stmt: &Stmt, violations: &mut Vec<NamingViolation>) {
 /// Checks guard statement bindings and nested nodes for naming violations.
 fn check_guard_statement(
     expression: &Expr,
-    success_binding: &str,
+    success_binding: Option<&str>,
     error_binding: &str,
     else_body: &Stmt,
     violations: &mut Vec<NamingViolation>,
 ) {
-    if !is_snake_case(success_binding) {
-        violations.push(NamingViolation {
-            name: success_binding.to_owned(),
-            expected: NamingStyle::SnakeCase,
-            location: "guard success binding".to_owned(),
-        });
+    if let Some(success_name) = success_binding {
+        if !is_snake_case(success_name) {
+            violations.push(NamingViolation {
+                name: success_name.to_owned(),
+                expected: NamingStyle::SnakeCase,
+                location: "guard success binding".to_owned(),
+            });
+        }
     }
 
     if !is_snake_case(error_binding) {

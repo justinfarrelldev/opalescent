@@ -10,18 +10,18 @@ entry main = f(args: string[]): void errors FileNotFoundError, DirectoryNotFound
     let file_b = path_from('workspace/inventory/b.txt')
     let file_c = path_from('workspace/inventory/c.txt')
 
-    guard delete_file_sync(file_a) into _ else cleanup_a_err =>
+    guard delete_file_sync(file_a) else cleanup_a_err =>
         let _unused_cleanup_a_error = cleanup_a_err
-    guard delete_file_sync(file_b) into _ else cleanup_b_err =>
+    guard delete_file_sync(file_b) else cleanup_b_err =>
         let _unused_cleanup_b_error = cleanup_b_err
-    guard delete_file_sync(file_c) into _ else cleanup_c_err =>
+    guard delete_file_sync(file_c) else cleanup_c_err =>
         let _unused_cleanup_c_error = cleanup_c_err
-    guard delete_directory_sync(inventory_dir) into _ else cleanup_dir_err =>
+    guard delete_directory_sync(inventory_dir) else cleanup_dir_err =>
         let _unused_cleanup_dir_error = cleanup_dir_err
 
-    guard create_directory_sync(workspace_dir) into _ else workspace_create_err =>
+    guard create_directory_sync(workspace_dir) else workspace_create_err =>
         let _unused_workspace_create_error = workspace_create_err
-    guard create_directory_sync(inventory_dir) into _ else inventory_create_err =>
+    guard create_directory_sync(inventory_dir) else inventory_create_err =>
         let _unused_inventory_create_error = inventory_create_err
 
     propagate write_text_sync(file_a, 'alpha')

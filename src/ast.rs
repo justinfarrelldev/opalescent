@@ -681,7 +681,7 @@ pub enum Stmt {
 
     Guard {
         expression: Box<Expr>,
-        success_binding: String,
+        success_binding: Option<String>,
         error_binding: String,
         else_body: Box<Stmt>,
         span: Span,

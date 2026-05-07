@@ -15,7 +15,7 @@ let cat_file = f(path: string): void errors FileNotFoundError, PermissionDeniedE
 entry main = f(args: string[]): void =>
     let mutable i = 1
     while i < args.length: 
-        guard cat_file(args[i]) into _ else e => 
+        guard cat_file(args[i]) else e => 
             print('An error occurred while catting a file: {e}')
             i = i + 1
             continue

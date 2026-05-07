@@ -2130,6 +2130,90 @@ fn test_guard_statement_binds_success_and_error_types() {
     );
 }
 
+#[test]
+fn type_check_guard_shorthand_discards_success_binding() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        entry main = f(): void =>
+            guard string_to_int32('5') else err =>
+                let err_message: string = err
+                continue
+            return void
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "guard shorthand without success binding should type-check while preserving else error binding: {result:?}"
+    );
+}
+
+#[test]
+fn type_check_guard_shorthand_success_binding_not_in_scope() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        entry main = f(): int32 =>
+            guard string_to_int32('5') else err =>
+                let err_message: string = err
+                continue
+            return n
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("omitted guard success binding should not introduce a success symbol");
+    assert!(
+        errors.into_iter().any(
+            |error| matches!(error, TypeError::SymbolNotFound { ref name, .. } if name == "n")
+        ),
+        "expected SymbolNotFound for omitted success binding"
+    );
+}
+
+#[test]
+fn type_check_named_guard_binding_still_available_after_guard() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        entry main = f(): int32 =>
+            guard string_to_int32('5') into n else err =>
+                let err_message: string = err
+                continue
+            return n
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "named guard success binding should remain available after guard statement: {result:?}"
+    );
+}
+
+#[test]
+fn type_check_guard_into_underscore_still_valid() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        entry main = f(): void =>
+            guard string_to_int32('5') into _ else err =>
+                let err_message: string = err
+                continue
+            return void
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "explicit guard discard binding into _ should remain valid: {result:?}"
+    );
+}
+
 /// Guard used as an expression should reject else branches whose fallback type
 /// does not match the guarded call's success type.
 #[test]

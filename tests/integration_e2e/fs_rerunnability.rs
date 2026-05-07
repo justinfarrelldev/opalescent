@@ -6,7 +6,10 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::Duration;
+
+const FS_RERUNNABILITY_TIMEOUT: Duration = Duration::from_secs(180);
 
 const FS_PROJECTS: [&str; 20] = [
     "_fs_path_from",
@@ -60,13 +63,30 @@ fn fs_rerunnability() {
         .arg("fs_rerunnability")
         .current_dir(&repo_root)
         .env("RUST_TEST_THREADS", "1")
-        .output();
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn();
 
     assert!(
         run.is_ok(),
-        "fs rerunnability should run fs_ suite subprocess"
+        "fs rerunnability should spawn fs_ suite subprocess"
     );
-    let Ok(run_output) = run else {
+    let Ok(child) = run else {
+        return;
+    };
+
+    let run_output_result = super::fs_helpers::wait_for_child_output_with_timeout(
+        child,
+        FS_RERUNNABILITY_TIMEOUT,
+        "fs rerunnability fs_ suite subprocess",
+    );
+    assert!(
+        run_output_result.is_ok(),
+        "{}",
+        run_output_result.err().unwrap_or_default()
+    );
+    let Ok(run_output) = run_output_result else {
         return;
     };
 

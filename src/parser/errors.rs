@@ -67,6 +67,22 @@ pub enum ParseError {
         span: SourceSpan,
     },
 
+    /// Guard statement used an ambiguous bare `if` expression subject.
+    #[error("Ambiguous guarded if/else expression in guard statement")]
+    #[diagnostic(
+        code(opalescent::parser::guard_ambiguous_if_else),
+        help(
+            "Wrap the guarded if-expression in parentheses, for example: `guard (if ... else ...) else err =>`"
+        )
+    )]
+    GuardAmbiguousIfElse {
+        #[label(
+            "this `else` can be read as part of `if ... else ...` instead of the guard handler"
+        )]
+        /// Source span showing the ambiguous `else` token.
+        span: SourceSpan,
+    },
+
     /// The syntax is invalid according to the language grammar
     #[error("Invalid syntax: {message}")]
     #[diagnostic(

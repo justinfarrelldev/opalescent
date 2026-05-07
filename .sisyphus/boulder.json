@@ -1,139 +1,122 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/windows-issues.md",
-  "started_at": "2026-05-06T06:11:41.564Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/optional-guard-into.md",
+  "started_at": "2026-05-07T04:10:16.495Z",
   "session_ids": [
-    "ses_204bb7ceeffeNMgNf9E40z0Uli",
-    "ses_204bb7ceeffeNMgNf9E40z0Uli",
-    "ses_2040dc272ffevgkzMLAg3l2Bdh",
-    "ses_2040dc1a2ffeiXg742O62SrOpd",
-    "ses_2040dc1a0ffeqjF481KGJxwb2k",
-    "ses_20097a706ffezK4BaGtBJnMl0S",
-    "ses_20097a6f9ffdAy3ToGp4Hf9qEA",
-    "ses_20097a6faffebFZpaf5OQUvxd4",
-    "ses_2007b1b8effeWIhx91gsn1q2pN",
-    "ses_2007b189fffe7MUS4rCaKn26g6"
+    "ses_1ff7557b3ffeaDA9mrUl7ydXyi",
+    "ses_1ff58dcf7ffehf1z1BKdPgH3cz",
+    "ses_1ff58dc0fffdieNrRDwiElbJ3r",
+    "ses_1ff58dc0bffeEuVZnrNP1zWwwz",
+    "ses_1fc0cf2eeffewQvagLRwis7P9A",
+    "ses_1fc0cf11effeleV651HltV2R2o"
   ],
   "session_origins": {
-    "ses_204bb7ceeffeNMgNf9E40z0Uli": "direct",
-    "ses_2040dc272ffevgkzMLAg3l2Bdh": "appended",
-    "ses_2040dc1a2ffeiXg742O62SrOpd": "appended",
-    "ses_2040dc1a0ffeqjF481KGJxwb2k": "appended",
-    "ses_20097a706ffezK4BaGtBJnMl0S": "appended",
-    "ses_20097a6f9ffdAy3ToGp4Hf9qEA": "appended",
-    "ses_20097a6faffebFZpaf5OQUvxd4": "appended",
-    "ses_2007b1b8effeWIhx91gsn1q2pN": "appended",
-    "ses_2007b189fffe7MUS4rCaKn26g6": "appended"
+    "ses_1ff7557b3ffeaDA9mrUl7ydXyi": "direct",
+    "ses_1ff58dcf7ffehf1z1BKdPgH3cz": "appended",
+    "ses_1ff58dc0fffdieNrRDwiElbJ3r": "appended",
+    "ses_1ff58dc0bffeEuVZnrNP1zWwwz": "appended",
+    "ses_1fc0cf2eeffewQvagLRwis7P9A": "appended",
+    "ses_1fc0cf11effeleV651HltV2R2o": "appended"
   },
-  "plan_name": "windows-issues",
+  "plan_name": "optional-guard-into",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Establish Baseline, Issue Checklist, and Blast-Radius Map",
-      "session_id": "ses_20412d49dffeRiKQmI6CGjAXNa",
+      "task_title": "Add RED parser and diagnostic tests for the new guard grammar",
+      "session_id": "ses_1ff5dde3bffet0xRK609zwyitM",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-06T06:19:17.106Z"
+      "category": "quick",
+      "updated_at": "2026-05-07T04:13:45.923Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "Fix MSVC Build/Link Bootstrap Issues",
-      "session_id": "ses_20407615affeg7foCcJkSGM44c",
+      "task_title": "Change statement guard AST and parser to support omitted success binding",
+      "session_id": "ses_1ff48703cffeYxmOlPBYZzi4mh",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-06T06:32:25.481Z"
+      "category": "unspecified-high",
+      "updated_at": "2026-05-07T04:38:10.684Z"
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "Add Wine MSVC File-Operation Acceptance Fixture",
-      "session_id": "ses_203fdb7faffeewNU7eGDrOOeZn",
+      "task_title": "Implement dedicated ambiguous guarded-if miette diagnostic and parser recovery",
+      "session_id": "ses_1ff444e2dffeBsmln9J4g7U4d1",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-06T06:42:44.805Z"
+      "category": "unspecified-high",
+      "updated_at": "2026-05-07T04:46:11.702Z"
     },
     "todo:4": {
       "task_key": "todo:4",
       "task_label": "4",
-      "task_title": "Centralize Windows UTF-8/Wide File API Boundary",
-      "session_id": "ses_203f28850ffeQnruRglVbtRmuP",
+      "task_title": "Update type checker and scope handling for optional statement guard bindings",
+      "session_id": "ses_1ff3c2c78ffe8hLf687yqxtifs",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-06T07:02:43.681Z"
+      "category": "unspecified-high",
+      "updated_at": "2026-05-07T04:51:23.468Z"
     },
     "todo:5": {
       "task_key": "todo:5",
       "task_label": "5",
-      "task_title": "Fix Windows Path Helper Semantics and `strdup` Usage",
-      "session_id": "ses_203c30ad1ffe3cLs2Z422Eeqis",
+      "task_title": "Update statement guard codegen to discard omitted success values safely",
+      "session_id": "ses_1ff3163d9ffewspCHMIqRMzDx7",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-06T07:57:58.538Z"
+      "category": "unspecified-high",
+      "updated_at": "2026-05-07T05:03:32.220Z"
     },
     "todo:6": {
       "task_key": "todo:6",
       "task_label": "6",
-      "task_title": "Fix Runtime File I/O Error Allocation and Absolute Path Behavior",
-      "session_id": "ses_203b16cd9ffeU2s6xZ22QDDDow",
+      "task_title": "Update formatter and naming checks for optional guard success bindings",
+      "session_id": "ses_1ff2cbb99ffecElCZCBBDc1LYS",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-06T08:09:42.872Z"
-    },
-    "todo:7": {
-      "task_key": "todo:7",
-      "task_label": "7",
-      "task_title": "Fix Directory Enumeration Errno and Windows Symlink Metadata",
-      "session_id": "ses_203a7d685ffeo0yRKUCxKHCH1j",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-06T08:25:55.985Z"
+      "category": "quick",
+      "updated_at": "2026-05-07T05:06:43.061Z"
     },
     "todo:8": {
       "task_key": "todo:8",
       "task_label": "8",
-      "task_title": "Add Runtime Initialization Call and Verify Reference Counting Source Inclusion",
-      "session_id": "ses_2039a48c2ffewnpRowDGxv88tU",
+      "task_title": "Add host integration project coverage for shorthand guard success and error paths",
+      "session_id": "ses_1ff25cfe6ffeovfvx0oZ89E8SF",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-05-06T08:35:47.567Z"
+      "updated_at": "2026-05-07T05:14:46.897Z"
     },
     "todo:9": {
       "task_key": "todo:9",
       "task_label": "9",
-      "task_title": "Remove MAX_PATH-Capped Runtime Buffers",
-      "session_id": "ses_2038feee5ffeYgMoy5TZ7YjLx6",
+      "task_title": "Add Windows/Wine validation for guard shorthand",
+      "session_id": "ses_1ff22c237ffe5PUGzI7z1LjccI",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-06T08:53:46.268Z"
+      "category": "unspecified-high",
+      "updated_at": "2026-05-07T05:19:57.424Z"
     },
     "todo:10": {
       "task_key": "todo:10",
       "task_label": "10",
-      "task_title": "Harden Cargo and CI Windows Toolchain Reproducibility",
-      "session_id": "ses_203364274ffenFNzMJTEepsWtc",
+      "task_title": "Rewrite test-project `guard ... into _ else ... =>` statements to shorthand after green validation",
+      "session_id": "ses_1fef4df1cffeh80FO7PzC3zN15",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-05-06T10:21:24.837Z"
+      "updated_at": "2026-05-07T06:09:42.452Z"
     },
-    "todo:12": {
-      "task_key": "todo:12",
-      "task_label": "12",
-      "task_title": "Close `WINDOWS_ISSUES.md` and Produce Final Evidence Bundle",
-      "session_id": "ses_20323f19effeCr5zKQURx9S4TS",
+    "todo:11": {
+      "task_key": "todo:11",
+      "task_label": "11",
+      "task_title": "Run full regression, update narrow docs/spec examples, and capture final evidence",
+      "session_id": "ses_1fc04cc36ffe62K0K6556XZAfa",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-05-06T10:55:31.051Z"
+      "updated_at": "2026-05-07T19:48:58.668Z"
     },
     "final-wave:f1": {
       "task_key": "final-wave:f1",
       "task_label": "F1",
       "task_title": "Plan Compliance Audit — oracle",
-      "session_id": "ses_20054680affejHSXcMI2C7hUV9",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-06T23:49:04.279Z"
+      "session_id": "ses_1fbf997ffffe6zuhCoIOZKajY3",
+      "agent": "oracle",
+      "updated_at": "2026-05-07T20:01:13.279Z"
     }
   }
 }

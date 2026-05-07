@@ -16,19 +16,19 @@ entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathEr
     let long_nested_file = join_path_components(long_nested_dir, [long_file_suffix])
     let long_nested_file_string = path_to_string(long_nested_file)
 
-    guard delete_file_sync(summary_file) into _ else cleanup_summary_err =>
+    guard delete_file_sync(summary_file) else cleanup_summary_err =>
         let _ignored_cleanup_summary_err = cleanup_summary_err
-    guard delete_file_sync(renamed_file) into _ else cleanup_renamed_err =>
+    guard delete_file_sync(renamed_file) else cleanup_renamed_err =>
         let _ignored_cleanup_renamed_err = cleanup_renamed_err
-    guard delete_file_sync(original_file) into _ else cleanup_original_err =>
+    guard delete_file_sync(original_file) else cleanup_original_err =>
         let _ignored_cleanup_original_err = cleanup_original_err
-    guard delete_directory_sync(unicode_dir) into _ else cleanup_unicode_err =>
+    guard delete_directory_sync(unicode_dir) else cleanup_unicode_err =>
         let _ignored_cleanup_unicode_err = cleanup_unicode_err
-    guard delete_directory_sync(nested_dir) into _ else cleanup_nested_err =>
+    guard delete_directory_sync(nested_dir) else cleanup_nested_err =>
         let _ignored_cleanup_nested_err = cleanup_nested_err
-    guard delete_directory_recursive_sync(long_nested_dir) into _ else cleanup_long_dir_err =>
+    guard delete_directory_recursive_sync(long_nested_dir) else cleanup_long_dir_err =>
         let _ignored_cleanup_long_dir_err = cleanup_long_dir_err
-    guard delete_directory_sync(workspace) into _ else cleanup_workspace_err =>
+    guard delete_directory_sync(workspace) else cleanup_workspace_err =>
         let _ignored_cleanup_workspace_err = cleanup_workspace_err
 
     propagate create_directory_recursive_sync(unicode_dir)

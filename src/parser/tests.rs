@@ -449,6 +449,135 @@ let after = f(): int32 => {
     );
 }
 
+#[test]
+fn guard_ambiguous_if_else_diagnostic() {
+    let result = parse_statement_from_string(
+        "guard if true { return 1 } else { return 0 } else err =>\n    return void",
+    );
+
+    assert!(
+        matches!(result, Err(ParseError::GuardAmbiguousIfElse { .. })),
+        "ambiguous bare guarded if/else should emit GuardAmbiguousIfElse, found: {result:?}"
+    );
+}
+
+#[test]
+fn guard_ambiguous_if_else_recovers_without_cascading_errors() {
+    let source = "\
+let parse = f(): int32 errors ParseError => {
+    guard if true { return 1 } else { return 0 } else err =>
+        return 42
+}
+
+let after = f(): int32 => {
+    return 0
+}
+";
+
+    let lexer = Lexer::new(source);
+    let (tokens, _) = lexer.tokenize();
+    let parser = Parser::new(tokens);
+    let (_program, errors) = parser.parse();
+
+    assert_eq!(
+        errors.errors.len(),
+        1,
+        "ambiguous guard if/else should produce exactly one parse error after recovery"
+    );
+
+    assert!(
+        matches!(
+            errors.errors.first(),
+            Some(ParseError::GuardAmbiguousIfElse { .. })
+        ),
+        "expected the recorded parse error to be GuardAmbiguousIfElse, found: {:?}",
+        errors.errors
+    );
+}
+
+#[test]
+fn guard_parenthesized_if_subject_parses() {
+    let stmt = parse_statement_from_string(
+        "guard (if true { return 1 } else { return 0 }) else err =>\n    return void",
+    )
+    .expect("parenthesized guarded if subject should parse as a statement guard");
+
+    match stmt {
+        Stmt::Guard {
+            success_binding,
+            error_binding,
+            else_body,
+            ..
+        } => {
+            assert!(
+                success_binding.is_none(),
+                "parenthesized shorthand should omit the success binding"
+            );
+            assert_eq!(error_binding, "err");
+            assert!(matches!(*else_body, Stmt::Block { .. }));
+        }
+        other => panic!("expected statement guard, found: {other:?}"),
+    }
+}
+
+#[test]
+fn guard_shorthand_without_into_parses_as_statement() {
+    let stmt = parse_statement_from_string("guard foo() else err =>\n    return void")
+        .expect("guard shorthand should parse as a statement");
+
+    match stmt {
+        Stmt::Guard {
+            success_binding,
+            error_binding,
+            else_body,
+            ..
+        } => {
+            assert!(
+                success_binding.is_none(),
+                "statement shorthand should omit the success binding"
+            );
+            assert_eq!(error_binding, "err");
+            assert!(matches!(*else_body, Stmt::Block { .. }));
+        }
+        other => panic!("expected statement guard, found: {other:?}"),
+    }
+}
+
+#[test]
+fn guard_into_underscore_still_parses_as_explicit_binding() {
+    let stmt = parse_statement_from_string("guard foo() into _ else err =>\n    return void")
+        .expect("guard into _ should parse as explicit statement binding");
+
+    match stmt {
+        Stmt::Guard {
+            success_binding,
+            error_binding,
+            else_body,
+            ..
+        } => {
+            assert_eq!(success_binding.as_deref(), Some("_"));
+            assert_eq!(error_binding, "err");
+            assert!(matches!(*else_body, Stmt::Block { .. }));
+        }
+        other => panic!("expected statement guard, found: {other:?}"),
+    }
+}
+
+#[test]
+fn guard_expression_shorthand_still_requires_into() {
+    let result = parse_statement_from_string("let x = guard foo() else fallback");
+
+    assert!(
+        result.is_err(),
+        "expression guard shorthand should still be rejected"
+    );
+
+    assert!(
+        matches!(result, Err(ParseError::GuardMissingIntoClause { .. })),
+        "expression shorthand should surface the guard-specific missing-into diagnostic"
+    );
+}
+
 fn identifier_strategy() -> impl Strategy<Value = String> {
     string_regex("[a-z]{1,8}")
         .expect("regex is valid")
@@ -2598,7 +2727,7 @@ entry main = f(): void =>
                 } = statement
                 {
                     found_guard = true;
-                    assert_eq!(success_binding, "n");
+                    assert_eq!(success_binding.as_deref(), Some("n"));
                     assert_eq!(error_binding, "e");
                     assert!(matches!(
                         else_body.as_ref(),

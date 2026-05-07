@@ -761,8 +761,9 @@ pub fn compile_project(
             .unwrap_or_default();
 
         let context = Context::create();
-        let llvm_module = compile_checked_program_to_module(&context, program, imported_signatures, target)
-            .map_err(CompileError::Codegen)?;
+        let llvm_module =
+            compile_checked_program_to_module(&context, program, imported_signatures, target)
+                .map_err(CompileError::Codegen)?;
 
         let object_ext = object_file_extension(target);
         let object_path = output_dir.join(format!("module_{index}{object_ext}"));

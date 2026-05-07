@@ -692,10 +692,16 @@ impl Formatter {
                 ..
             } => {
                 let expression_str = self.print_expr(expression, depth);
+                let guard_header = success_binding.as_ref().map_or_else(
+                    || format!("{indent}guard {expression_str} else {error_binding} =>"),
+                    |binding| {
+                        format!(
+                            "{indent}guard {expression_str} into {binding} else {error_binding} =>"
+                        )
+                    },
+                );
                 if let Stmt::Block { ref statements, .. } = **else_body {
-                    let mut lines = vec![format!(
-                        "{indent}guard {expression_str} into {success_binding} else {error_binding} =>"
-                    )];
+                    let mut lines = vec![guard_header];
                     lines.extend(
                         statements
                             .iter()
@@ -704,9 +710,7 @@ impl Formatter {
                     lines.join("\n")
                 } else {
                     let else_body_str = self.print_stmt(else_body, depth.saturating_add(1));
-                    format!(
-                        "{indent}guard {expression_str} into {success_binding} else {error_binding} =>\n{else_body_str}"
-                    )
+                    format!("{guard_header}\n{else_body_str}")
                 }
             }
             Stmt::Loop { ref body, .. } => {

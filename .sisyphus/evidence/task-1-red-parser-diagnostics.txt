@@ -1,0 +1,26 @@
+Task 1 RED parser/diagnostic evidence
+======================================
+
+Modified files:
+- src/parser/tests.rs
+- src/errors/tests.rs
+
+Added tests:
+- guard_shorthand_without_into_parses_as_statement
+- guard_expression_shorthand_still_requires_into
+- guard_ambiguous_if_else_diagnostic
+
+Verification:
+- lsp_diagnostics on both modified files: no diagnostics found
+- cargo test --lib guard_shorthand_without_into_parses_as_statement -- --nocapture: FAILED as expected
+  - panic: MissingToken { expected: "keyword 'into'", span: SourceSpan { offset: SourceOffset(12), length: 4 } }
+- cargo test --lib guard_expression_shorthand_still_requires_into -- --nocapture: FAILED as expected
+  - panic: assertion expected ParseError::GuardMissingIntoClause, but parser currently routes differently
+- cargo test --lib guard_ambiguous_if_else_diagnostic -- --nocapture: FAILED as expected
+  - panic at assertion that dedicated parser diagnostic code/help is not yet emitted
+
+Rerun notes:
+- Expression shorthand assertion was tightened back to the guard-specific missing-into diagnostic family.
+- The test remains RED because the implementation still does not emit that diagnostic for shorthand expression use.
+
+State: RED confirmed; no production code changed.

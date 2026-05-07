@@ -2730,6 +2730,50 @@ entry main = f(): void => {
 }
 
 #[test]
+fn codegen_guard_shorthand_does_not_register_underscore_metadata() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "guard_stmt_shorthand_no_metadata");
+    let _function =
+        create_codegen_function(&codegen_context, "guard_stmt_shorthand_no_metadata_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let stmt = Stmt::Guard {
+        expression: Box::new(call_expr(
+            9700,
+            ident(9701, "read_lines_sync"),
+            vec![call_expr(
+                9702,
+                ident(9703, "path_from"),
+                vec![string_lit(9704, "/tmp/sample.txt")],
+            )],
+        )),
+        success_binding: None,
+        error_binding: String::from("err"),
+        else_body: Box::new(Stmt::Return {
+            values: vec![labeled_value(9705, "", void_lit(9706))],
+            span: test_span(),
+            id: test_node_id(9707),
+        }),
+        span: test_span(),
+        id: test_node_id(9708),
+    };
+
+    let result = codegen_statement(&codegen_context, &mut env, &stmt);
+    assert!(
+        result.is_ok(),
+        "guard shorthand statement codegen should succeed without creating success binding metadata"
+    );
+    assert!(
+        !env.variables.contains_key("_len"),
+        "guard shorthand should not register synthesized '_len' metadata variable"
+    );
+    assert!(
+        !env.variables.contains_key("_cap"),
+        "guard shorthand should not register synthesized '_cap' metadata variable"
+    );
+}
+
+#[test]
 fn test_guard_bound_read_lines_length_emits_count_extract_and_runtime_call() {
     let source = "
 import path_from, read_lines_sync from standard
@@ -2795,7 +2839,9 @@ fn test_linux_target_uses_direct_fs_small_results_and_sret_for_array_results() {
         "Linux should return two-field filesystem results directly: {ir}"
     );
     assert!(
-        ir.contains("declare void @list_directory_sync({ i8**, i64, i8* }* sret({ i8**, i64, i8* }), i8*)"),
+        ir.contains(
+            "declare void @list_directory_sync({ i8**, i64, i8* }* sret({ i8**, i64, i8* }), i8*)"
+        ),
         "Linux should keep sret only for larger array filesystem results: {ir}"
     );
     assert!(
@@ -2835,7 +2881,9 @@ fn test_windows_msvc_target_uses_sret_for_filesystem_results() {
         "Windows MSVC should lower filesystem boolean results with sret: {ir}"
     );
     assert!(
-        ir.contains("declare void @list_directory_sync({ i8**, i64, i8* }* sret({ i8**, i64, i8* }), i8*)"),
+        ir.contains(
+            "declare void @list_directory_sync({ i8**, i64, i8* }* sret({ i8**, i64, i8* }), i8*)"
+        ),
         "Windows MSVC should lower array filesystem results with sret: {ir}"
     );
     assert!(

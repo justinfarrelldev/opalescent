@@ -1,0 +1,4 @@
+lsp_diagnostics src/formatter/tests.rs: No diagnostics found
+cargo test --lib formatter_guard_shorthand_roundtrip -- --nocapture: passed
+cargo test --lib formatter_guard_into_underscore_preserved -- --nocapture: passed
+cargo test --lib naming_guard_omitted_success_binding_has_no_violation -- --nocapture: passed

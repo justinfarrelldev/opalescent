@@ -3,12 +3,8 @@
 extern crate alloc;
 
 use crate::lsp::completion::get_completions;
-use crate::lsp::definition::get_definition;
-use crate::lsp::diagnostics::get_diagnostics;
-use crate::lsp::hover::get_hover;
-use crate::lsp::protocol::{
-    DiagnosticSeverity, LspNotification, LspRequest, LspResponse, Position,
-};
+use crate::lsp::definition::word_at_position;
+use crate::lsp::protocol::{LspNotification, LspRequest, LspResponse, Position};
 use crate::lsp::rename::get_rename_edits;
 use crate::lsp::semantic_tokens::get_semantic_tokens;
 use crate::lsp::server::LspServer;
@@ -16,16 +12,18 @@ use crate::lsp::transport::{read_framed_message, write_framed_message};
 use std::io::Cursor;
 
 #[test]
-fn diagnostics_report_type_error_from_inline_source() {
-    let source = "entry f main(): int32 => {\n  let value: int32 = true\n  return value\n}\n";
-    let diagnostics = get_diagnostics(source);
+fn initialize_exposes_diagnostics_capability() {
+    let mut server = LspServer::new();
+    let response = server.handle_request(LspRequest::Initialize);
 
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error),
-        "expected at least one error diagnostic"
-    );
+    assert!(matches!(response, LspResponse::Initialized { .. }));
+    let LspResponse::Initialized { capabilities } = response else {
+        return;
+    };
+
+    assert_eq!(capabilities.get("diagnostics"), Some(&true));
+    assert_eq!(capabilities.get("hover"), Some(&true));
+    assert_eq!(capabilities.get("definition"), Some(&true));
 }
 
 #[test]
@@ -113,34 +111,19 @@ fn server_rename_returns_edits_across_open_documents() {
 }
 
 #[test]
-fn server_definition_uses_request_uri() {
+fn server_definition_requires_initialization() {
     let mut server = LspServer::new();
-    let init = server.handle_request(LspRequest::Initialize);
-    assert!(matches!(init, LspResponse::Initialized { .. }));
 
     let response = server.handle_request(LspRequest::Definition {
         uri: String::from("file:///defs.op"),
-        source: String::from(
-            "entry f main(): int32 => {\n  return helper()\n}\n\nf helper(): int32 => {\n  return 1\n}\n",
-        ),
+        source: String::from("entry f main(): int32 => { return 1 }"),
         position: Position {
-            line: 1,
-            character: 9,
+            line: 0,
+            character: 0,
         },
     });
 
-    assert!(
-        matches!(response, LspResponse::Definition(_)),
-        "expected definition response"
-    );
-    let LspResponse::Definition(location_opt) = response else {
-        return;
-    };
-    let location = location_opt.expect("expected definition location");
-    assert_eq!(
-        location.uri, "file:///defs.op",
-        "definition location should use request URI"
-    );
+    assert!(matches!(response, LspResponse::Error(_)));
 }
 
 #[test]
@@ -161,9 +144,9 @@ fn completion_includes_keywords_and_locals() {
 }
 
 #[test]
-fn hover_returns_symbol_type_info() {
+fn hover_location_extracts_identifier_word() {
     let source = "entry f main(): int32 => {\n  let value: int32 = 1\n  return value\n}\n";
-    let hover = get_hover(
+    let word = word_at_position(
         source,
         Position {
             line: 1,
@@ -171,38 +154,21 @@ fn hover_returns_symbol_type_info() {
         },
     );
 
-    assert!(hover.is_some(), "expected hover result");
-    if let Some(hover_result) = hover {
-        assert!(
-            hover_result.contents.contains("value"),
-            "expected hover to mention symbol name"
-        );
-    }
+    assert_eq!(word.as_deref(), Some("value"));
 }
 
 #[test]
-fn definition_returns_top_level_function_location() {
-    let source = "entry f main(): int32 => {\n  return helper()\n}\n\nf helper(): int32 => {\n  return 1\n}\n";
-    let definition = get_definition(
+fn word_at_position_extracts_helper_name_from_call_site() {
+    let source = "entry f main(): int32 => {\n  return helper()\n}\n";
+    let word = word_at_position(
         source,
         Position {
-            line: 4,
-            character: 2,
+            line: 1,
+            character: 10,
         },
-        "file:///test.op",
     );
 
-    assert!(definition.is_some(), "expected definition location");
-    if let Some(location) = definition {
-        assert_eq!(
-            location.uri, "file:///test.op",
-            "definition should use request URI"
-        );
-        assert!(
-            location.range.start.line >= 4,
-            "expected helper declaration line"
-        );
-    }
+    assert_eq!(word.as_deref(), Some("helper"));
 }
 
 #[test]

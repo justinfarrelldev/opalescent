@@ -80,7 +80,10 @@ fn compile_to_module_type_error() {
     let context = Context::create();
     let source = "##\n  Description: Entry type mismatch sample with valid docs\n##\nentry main = f(): void => { return 1 }";
     let result = compile_to_module(&context, Path::new("test.op"), source);
-    assert!(result.is_err(), "semantic mismatches should fail compilation");
+    assert!(
+        result.is_err(),
+        "semantic mismatches should fail compilation"
+    );
 
     let Err((report, _source)) = result else {
         return;
@@ -119,9 +122,9 @@ fn compile_to_module_collects_multiple_type_errors() {
             entry,
             &(
                 _,
-                CompilerError::TypeChecker(crate::type_system::errors::TypeError::TypeMismatch {
-                    ..
-                })
+                CompilerError::TypeChecker(
+                    crate::type_system::errors::TypeError::TypeMismatch { .. }
+                )
             )
         )
     });
@@ -135,9 +138,9 @@ fn compile_to_module_collects_multiple_type_errors() {
             entry,
             &(
                 _,
-                CompilerError::TypeChecker(crate::type_system::errors::TypeError::SymbolNotFound {
-                    ..
-                })
+                CompilerError::TypeChecker(
+                    crate::type_system::errors::TypeError::SymbolNotFound { .. }
+                )
             )
         )
     });
@@ -199,8 +202,9 @@ fn compile_checked_program_to_module_preserves_windows_target_for_stdlib_abi() {
         .expect("source should type-check");
     let imported_signatures =
         crate::compiler::compiler_helpers::collect_imported_symbol_signatures(&checker, &program);
-    let module = compile_checked_program_to_module(&context, &program, imported_signatures, &target)
-        .expect("compiler helper should build module for windows target");
+    let module =
+        compile_checked_program_to_module(&context, &program, imported_signatures, &target)
+            .expect("compiler helper should build module for windows target");
     let ir = module.print_to_string().to_string();
     assert!(
         ir.contains("declare void @read_text_sync({ i8*, i8* }* sret({ i8*, i8* }), i8*)"),

@@ -284,7 +284,10 @@ fn mkdirp_accepts_existing_ancestor_directories() {
     );
 
     let fixture_root = make_temp_path("mkdirp-existing-ancestors");
-    let nested_dir = fixture_root.join("existing-parent").join("child").join("grandchild");
+    let nested_dir = fixture_root
+        .join("existing-parent")
+        .join("child")
+        .join("grandchild");
 
     let execution_result: Result<(), String> = (|| {
         fs::create_dir_all(fixture_root.join("existing-parent"))

@@ -1,8 +1,11 @@
 #![cfg(feature = "integration")]
 
 use std::fs;
+use std::io::{self, Read};
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::process::{Child, Output};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// Returns the absolute path to a test project by name.
 /// Example: `fs_project_root("_fs_path_from")` → `<repo>/test-projects/_fs_path_from`
@@ -79,6 +82,66 @@ pub fn unique_probe_target_dir(label: &str) -> PathBuf {
         "opalescent-probe-target-{label}-{}-{nanos}",
         std::process::id()
     ))
+}
+
+/// Waits for a child process to exit within a timeout and collects captured output.
+pub fn wait_for_child_output_with_timeout(
+    mut child: Child,
+    timeout: Duration,
+    context: &str,
+) -> Result<Output, String> {
+    let start = Instant::now();
+
+    loop {
+        if let Some(status) = child.try_wait().map_err(|error| {
+            format!("{context} should report process status while waiting: {error}")
+        })? {
+            return collect_child_output(child, status).map_err(|error| {
+                format!("{context} should collect stdout/stderr after exit: {error}")
+            });
+        }
+
+        if start.elapsed() >= timeout {
+            drop(child.kill());
+            let status = child.wait().map_err(|error| {
+                format!(
+                    "{context} should terminate after timing out at {}s: {error}",
+                    timeout.as_secs()
+                )
+            })?;
+            let output = collect_child_output(child, status).map_err(|error| {
+                format!("{context} should collect stdout/stderr after timeout: {error}")
+            })?;
+
+            return Err(format!(
+                "{context} timed out after {}s\nstdout:\n{}\nstderr:\n{}\nexit status: {:?}",
+                timeout.as_secs(),
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr),
+                output.status.code()
+            ));
+        }
+
+        thread::sleep(Duration::from_millis(50));
+    }
+}
+
+fn collect_child_output(mut child: Child, status: std::process::ExitStatus) -> io::Result<Output> {
+    let mut stdout = Vec::new();
+    if let Some(mut stdout_pipe) = child.stdout.take() {
+        stdout_pipe.read_to_end(&mut stdout)?;
+    }
+
+    let mut stderr = Vec::new();
+    if let Some(mut stderr_pipe) = child.stderr.take() {
+        stderr_pipe.read_to_end(&mut stderr)?;
+    }
+
+    Ok(Output {
+        status,
+        stdout,
+        stderr,
+    })
 }
 
 /// Type alias for `FsStateGuard` for convenience in test modules.

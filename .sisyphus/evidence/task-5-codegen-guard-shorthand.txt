@@ -1,0 +1,135 @@
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+error[E0308]: mismatched types
+    --> src/codegen/tests.rs:2740:21
+     |
+2740 |           expression: call_expr(
+     |  _____________________^
+2741 | |             9700,
+2742 | |             ident(9701, "read_lines_sync"),
+2743 | |             vec![call_expr(9702, ident(9703, "path_from"), vec![string_lit(9704, "/tmp/sample.txt")])],
+2744 | |         ),
+     | |_________^ expected `Box<Expr>`, found `Expr`
+     |
+     = note: expected struct `Box<ast::Expr>`
+                  found enum `ast::Expr`
+     = note: for more on the distinction between the stack and the heap, read https://doc.rust-lang.org/book/ch15-01-box.html, https://doc.rust-lang.org/rust-by-example/std/box.html, and https://doc.rust-lang.org/std/boxed/index.html
+help: store this in the heap by calling `Box::new`
+     |
+2740 ~         expression: Box::new(call_expr(
+2741 |             9700,
+2742 |             ident(9701, "read_lines_sync"),
+2743 |             vec![call_expr(9702, ident(9703, "path_from"), vec![string_lit(9704, "/tmp/sample.txt")])],
+2744 ~         )),
+     |
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `opalescent` (lib test) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.45s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-318f93a5d9546528)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1191 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-ca2e98ac77c3d204)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-fb5926c634f46b48)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-3d2595767f7967e9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-861d32cab9c71d81)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-e4da129dbd241e8b)
+
+running 1 test
+test tests::guard_optional_binding::guard_shorthand_compiles_links_and_runs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.49s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-007082ff94c50273)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-318f93a5d9546528)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1191 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-ca2e98ac77c3d204)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-fb5926c634f46b48)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-3d2595767f7967e9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-861d32cab9c71d81)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-e4da129dbd241e8b)
+
+running 1 test
+test tests::guard_optional_binding::guard_named_binding_still_compiles_links_and_runs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.34s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-007082ff94c50273)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.27s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-2e0f335919757aaa)
+
+running 1 test
+test codegen::tests::codegen_guard_shorthand_does_not_register_underscore_metadata ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1190 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+  Executable unittests src/lib.rs (target/debug/deps/opalescent-318f93a5d9546528)
+  Executable unittests src/main.rs (target/debug/deps/opalescent-ca2e98ac77c3d204)
+  Executable tests/array_integration.rs (target/debug/deps/array_integration-fb5926c634f46b48)
+  Executable tests/fmt_integration.rs (target/debug/deps/fmt_integration-3d2595767f7967e9)
+  Executable tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-861d32cab9c71d81)
+  Executable tests/integration_e2e.rs (target/debug/deps/integration_e2e-e4da129dbd241e8b)
+  Executable tests/integration_print.rs (target/debug/deps/integration_print-007082ff94c50273)
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.40s
