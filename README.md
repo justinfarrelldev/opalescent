@@ -1081,7 +1081,54 @@ targets = ["x86_64-linux", "aarch64-darwin"]
 
 ## Building Windows Programs
 
+### Before you build on Linux (MSVC target)
+
+Cross-compiling to Windows (MSVC) from Linux requires a Windows SDK sysroot. If you attempt to build for `x86_64-pc-windows-msvc` without a proper environment, Opalescent fails with:
+`missing XWIN_CACHE or OPAL_XWIN_SYSROOT for Linux cross-compilation`.
+
+To set up the required environment:
+
+1. **Install xwin**:
+   ```bash
+   cargo install xwin --locked --version 0.9.0
+   ```
+
+2. **Download Windows SDK to a global location**:
+   Use a single global directory like `~/.xwin` for all your projects.
+   ```bash
+   xwin --accept-license splat --output ~/.xwin
+   ```
+   *Note: If you see a `.xwin-cache` folder in your project root, it was likely created accidentally. Do not commit it. Remove it and use the global location instead.*
+
+3. **Export Environment Variables**:
+   ```bash
+   export XWIN_CACHE=$HOME/.xwin
+   export OPAL_XWIN_SYSROOT=$HOME/.xwin
+   export CC_x86_64_pc_windows_msvc=clang-cl
+   export CFLAGS_x86_64_pc_windows_msvc="/imsvc $XWIN_CACHE/crt/include /imsvc $XWIN_CACHE/sdk/include/ucrt /imsvc $XWIN_CACHE/sdk/include/um /imsvc $XWIN_CACHE/sdk/include/shared"
+   ```
+
 Opalescent programs can be built for Windows using several paths. The primary supported runtime is **MSVC**, and the recommended validation environment on Linux is **Wine**.
+
+### Troubleshooting
+
+#### `io failed: No such file or directory (os error 2)`
+This error usually means a required tool or path is missing from your environment.
+
+1. **Check your toolchain**: Ensure `clang-cl` and `lld-link` are installed and in your PATH.
+   ```bash
+   which clang-cl
+   which lld-link
+   ```
+2. **Set explicit paths**: If the tools are installed but not found, set the path manually.
+   ```bash
+   export OPAL_MSVC_CC=/usr/lib/llvm-14/bin/clang-cl
+   ```
+3. **Verify xwin paths**: Ensure `XWIN_CACHE` and `OPAL_XWIN_SYSROOT` point to the directory where you ran `xwin splat`.
+4. **Check LLVM prefix**: If you see LLVM related errors, ensure your prefix is set.
+   ```bash
+   export LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
+   ```
 
 ### Build Options
 
