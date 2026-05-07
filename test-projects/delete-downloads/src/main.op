@@ -1,0 +1,23 @@
+import path_from, path_to_string, list_directory_sync, join_path_components, delete_directory_recursive_sync, delete_file_sync, int64_to_string from standard
+
+##
+  Description: Removes every child entry from the configured Downloads folder.
+##
+entry main = f(args: string[]): void =>
+    let folder = path_from('C:\\Users\\justi\\Downloads')
+
+    guard list_directory_sync(folder) into entries else err =>
+        print('LIST_ERR={err}')
+        return void
+
+    for item in entries:
+        let child = join_path_components(folder, [item])
+
+        guard delete_directory_recursive_sync(child) into _ else rmdir_err =>
+            let _ignored_rmdir_err = rmdir_err
+
+            guard delete_file_sync(child) into _ else delete_err =>
+                print('DELETE_ERR={path_to_string(child)}: {delete_err}')
+
+    print('removed_or_attempted={int64_to_string(entries.length)}')
+    return void
