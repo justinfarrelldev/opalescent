@@ -8,7 +8,7 @@ A statically-typed, expression-oriented programming language with first-class er
 
 - [Quick Start](#quick-start)
 - [Installation](#installation)
-- [Windows Build](#windows-build)
+- [Building the Compiler for Windows](#building-the-compiler-for-windows)
 - [CLI Reference](#cli-reference)
 - [Language Basics](#language-basics)
   - [Functions](#functions)
@@ -34,6 +34,7 @@ A statically-typed, expression-oriented programming language with first-class er
 - [Language Server (LSP)](#language-server-lsp)
 - [Hot Reload](#hot-reload)
 - [Build Targets](#build-targets)
+- [Building Windows Programs](#building-windows-programs)
 - [IDE Integration](#ide-integration)
 
 ---
@@ -87,7 +88,7 @@ alias opal="$(pwd)/target/release/opalescent"
 
 ---
 
-## Windows Build
+## Building the Compiler for Windows
 
 ### Native Windows Build (MSVC)
 
@@ -1075,6 +1076,58 @@ targets = ["x86_64-linux", "aarch64-darwin"]
 | `aarch64-darwin` | macOS (Apple Silicon) | `.dylib` |
 | `x86_64-pc-windows-msvc` | Windows (64-bit, MSVC CRT) | `.dll` |
 | `x86_64-pc-windows-gnu` | Windows (64-bit, MinGW-w64) | `.dll` |
+
+---
+
+## Building Windows Programs
+
+Opalescent programs can be built for Windows using several paths. The primary supported runtime is **MSVC**, and the recommended validation environment on Linux is **Wine**.
+
+### Build Options
+
+#### 1. Native Windows + MSVC
+This is the standard path when running the Opalescent compiler on a Windows host.
+- **Toolchain**: Visual Studio Build Tools (MSVC), LLVM 14.
+- **Command**:
+  ```powershell
+  opal build --target x86_64-pc-windows-msvc
+  ```
+- **Artifact**: `target/program.exe`
+- **Verification**: Direct execution in PowerShell or CMD.
+
+#### 2. Linux Cross-compilation (MSVC)
+Recommended for CI and Linux-based development. Uses `xwin` to provide Windows SDK headers and libraries.
+- **Toolchain**: `clang-cl`, `lld-link`, `xwin` (0.9.0+).
+- **Command**:
+  ```bash
+  opal build --target x86_64-pc-windows-msvc
+  ```
+- **Artifact**: `target/program.exe`
+- **Verification**: `wine target/program.exe`
+
+#### 3. Linux Cross-compilation (GNU)
+A secondary path using the MinGW-w64 toolchain. Not considered a primary regression path.
+- **Toolchain**: `x86_64-w64-mingw32-gcc`.
+- **Command**:
+  ```bash
+  opal build --target x86_64-pc-windows-gnu
+  ```
+- **Artifact**: `target/program.exe` (linked against MinGW CRT).
+
+### Windows vs. Linux Comparison
+
+| Feature | Linux Build (`x86_64-linux`) | Windows Build (`x86_64-pc-windows-msvc`) |
+|---------|-----------------------------|------------------------------------------|
+| **Linker** | `ld` or `lld` | `link.exe` or `lld-link` |
+| **CRT** | `glibc` | `ucrt` (Universal C Runtime) |
+| **Artifact Name** | `program` | `program.exe` |
+| **Verification** | Native execution | Native (Windows) or Wine (Linux) |
+| **Primary Target** | Yes | Yes (Windows Primary) |
+
+### Key Differences & Caveats
+- **Artifact Extensions**: Windows builds always append `.exe` to the final binary, unlike Linux which produces extensionless binaries by default.
+- **Wine Validation**: On Linux hosts, Wine is the official gate for verifying Windows artifacts. While most core language features work identically, certain filesystem behaviors or deep platform integrations may vary.
+- **Toolchain Setup**: Cross-compiling to MSVC from Linux requires `xwin` to be initialized (`xwin splat`) and relevant environment variables (`CC_x86_64_pc_windows_msvc`, etc.) to be set.
 
 ---
 
