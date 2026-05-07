@@ -1100,13 +1100,35 @@ To set up the required environment:
    ```
    *Note: If you see a `.xwin-cache` folder in your project root, it was likely created accidentally. Do not commit it. Remove it and use the global location instead.*
 
-3. **Export Environment Variables**:
+3. **Configure Environment Variables**:
+   Consolidate these variables in your shell profile (e.g., `~/.bashrc` or `~/.zshrc`) to ensure consistent cross-compilation:
+
    ```bash
+   # LLVM 14 location and binaries
+   export LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
+   export PATH=$LLVM_SYS_140_PREFIX/bin:$PATH
+
+   # Windows SDK location (managed by xwin)
    export XWIN_CACHE=$HOME/.xwin
    export OPAL_XWIN_SYSROOT=$HOME/.xwin
+
+   # Toolchain configuration
+   export OPAL_MSVC_CC=$LLVM_SYS_140_PREFIX/bin/clang-cl
    export CC_x86_64_pc_windows_msvc=clang-cl
    export CFLAGS_x86_64_pc_windows_msvc="/imsvc $XWIN_CACHE/crt/include /imsvc $XWIN_CACHE/sdk/include/ucrt /imsvc $XWIN_CACHE/sdk/include/um /imsvc $XWIN_CACHE/sdk/include/shared"
    ```
+
+#### Variable Explanations
+
+| Variable | Description |
+|----------|-------------|
+| `LLVM_SYS_140_PREFIX` | Informs the build system where LLVM 14 is installed. |
+| `PATH` | Updated to include LLVM binaries so `clang-cl` and `lld-link` are discoverable. |
+| `XWIN_CACHE` | Directory where `xwin` caches Windows SDK artifacts. |
+| `OPAL_XWIN_SYSROOT` | Tells the Opalescent compiler where to find the splatted Windows headers/libraries. |
+| `OPAL_MSVC_CC` | Explicitly points to the `clang-cl` binary used for cross-compiling. |
+| `CC_x86_64_pc_windows_msvc` | Informs Cargo which C compiler to use for this specific target. |
+| `CFLAGS_x86_64_pc_windows_msvc` | Provides the necessary include paths for Windows headers to the C compiler. |
 
 Opalescent programs can be built for Windows using several paths. The primary supported runtime is **MSVC**, and the recommended validation environment on Linux is **Wine**.
 
