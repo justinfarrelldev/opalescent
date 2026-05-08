@@ -294,10 +294,7 @@ impl Parser {
     /// multiple syntax errors in one compilation pass, improving developer
     /// experience by showing all issues at once rather than failing on the first error.
     pub(super) fn synchronize(&mut self) {
-        if matches!(
-            self.current_token().token_type,
-            TokenType::RightBrace | TokenType::Dedent
-        ) {
+        if matches!(self.current_token().token_type, TokenType::RightBrace) {
             return;
         }
 
