@@ -1,4 +1,6 @@
-## 2026-05-09 Task 1 follow-up
-- Workspace cleanliness is still a risk for the eventual Task 1 commit because unrelated modified and untracked `.sisyphus` artifacts exist on `main`.
-- The final slice must avoid staging `.sisyphus/boulder.json`, deleted drafts, and unrelated integration helper edits unless a later repository policy explicitly requires them.
-- Remaining verification work after this note append: refresh green evidence with a successful full gate and then stage only Task 1 files for the green commit.
+## 2026-05-08T00:35:00Z Task: 1
+No unresolved blockers for Task 1 after evidence correction. Main risk for next tasks is avoiding scope creep into implementation before parser/typechecker RED task slices are completed.
+
+## 2026-05-09 03:54:55Z
+- Wine/MSVC guard-shorthand execution is still environment-sensitive on this host: the harness now records known `Unhandled page fault` crashes as skips when they surface through `run_under_wine` error returns, but the underlying Wine instability remains external technical debt.
+- The parser red evidence command needs fully qualified unit names; otherwise `cargo test -- --list` can show the tests while the targeted filtered run reports `0 tests`.

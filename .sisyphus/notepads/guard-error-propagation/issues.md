@@ -1,4 +1,6 @@
-## 2026-05-09 Task 1 follow-up
-- Previous RED evidence was invalid because it used a cargo invocation that executed zero tests, producing a false-green file at `.sisyphus/evidence/task-1-red.txt`.
-- An earlier `cargo fmt --all` pass also touched `tests/integration_e2e/compile_failures.rs`, which was outside Task 1 scope and had to be restored.
-- The workspace contains unrelated pre-existing dirty files (`.sisyphus/boulder.json`, draft deletions, other integration helpers), so Task 1 commit staging must be extremely selective.
+## 2026-05-08T00:35:00Z Task: 1
+Initial RED evidence capture was invalid because it showed a successful test run with no failing semantic assertion. Replaced with explicit baseline-gap evidence that intentionally fails the step while documenting the semantic mismatch.
+
+## 2026-05-09 03:54:55Z
+- A minimal test-only clippy fix exposed an unrelated integration blocker: `tests::windows_wine::tests::wine_msvc_guard_shorthand` timed out under Wine with `Unhandled page fault` and failed before the harness could classify it as a known host limitation.
+- Running parser red evidence by bare test name returned `0 tests`; the suite requires fully qualified `parser::tests::...` selectors for these unit tests.
