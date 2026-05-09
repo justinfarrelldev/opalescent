@@ -263,6 +263,17 @@ fn check_stmt(stmt: &Stmt, violations: &mut Vec<NamingViolation>) {
             else_body,
             violations,
         ),
+        Stmt::PropagateGuardError {
+            ref error_binding, ..
+        } => {
+            if !is_snake_case(error_binding) {
+                violations.push(NamingViolation {
+                    name: error_binding.to_owned(),
+                    expected: NamingStyle::SnakeCase,
+                    location: "guard error binding".to_owned(),
+                });
+            }
+        }
         Stmt::Loop { ref body, .. } => check_stmt(body, violations),
         Stmt::Comment { .. } => {}
     }

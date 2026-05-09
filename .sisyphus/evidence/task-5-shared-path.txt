@@ -1,0 +1,19 @@
+Task 5 shared-path verification (2026-05-09T04:49:53Z)
+
+Modified files:
+- src/type_system/checker/statements.rs
+- src/type_system/checker/expressions_guard.rs
+- src/type_system/checker/expressions.rs
+- src/type_system/checker/control_flow.rs
+
+Key refactor:
+- Statement `Stmt::Guard` now forwards parsed binding annotation/mutability into `GuardBindingInfo` and calls the shared guard checker with `GuardUsage::Statement`.
+- Removed duplicate statement-only success-binding registration that previously happened before and inside the error clause.
+- Preserved current statement error-binding behavior by registering the existing string-typed error binding inside the shared else-scope for statement guards only.
+
+Targeted commands and results:
+- `cargo test --lib type_system::tests::test_guard_rejects_empty_error_list -- --exact` => PASS
+- `cargo test --lib type_system::tests::test_guard_statement_binds_success_and_error_types -- --exact` => PASS
+- `cargo test --lib type_system::tests::test_guard_statement_return_err_currently_fails_as_string_to_unit_mismatch -- --exact` => PASS
+- `cargo test --lib type_system::tests::test_propagate_call_remains_valid_unmodified -- --exact` => PASS
+- `cargo test --lib type_system::tests::test_guard_else_expression_allows_matching_success_type -- --exact` => PASS

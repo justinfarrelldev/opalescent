@@ -558,9 +558,9 @@ fn find_guard_ambiguous_if_else_error<T>(entries: &[(T, CompilerError)]) -> Opti
     entries.iter().find_map(|entry| {
         matches!(
             &entry.1,
-            &CompilerError::Parser(opalescent::parser::errors::ParseError::GuardAmbiguousIfElse {
-                ..
-            })
+            &CompilerError::Parser(
+                opalescent::parser::errors::ParseError::GuardAmbiguousIfElse { .. }
+            )
         )
         .then_some(&entry.1)
     })

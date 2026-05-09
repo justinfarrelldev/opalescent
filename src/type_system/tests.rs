@@ -1,3 +1,4 @@
+#![allow(clippy::pattern_type_mismatch, clippy::too_many_lines, reason = "large regression tests and borrowed-pattern checks are intentional here")]
 //! Tests for the type system
 
 extern crate alloc;
@@ -2110,7 +2111,7 @@ fn test_guard_binding_available_after_guard() {
 }
 
 #[test]
-fn test_guard_statement_success_binding_currently_leaks_into_else_clause() {
+fn test_guard_statement_success_binding_is_hidden_inside_else_clause() {
     let program = parse_program_from_source_with_spaces(
         "
         entry main = f(): void =>
@@ -2122,10 +2123,13 @@ fn test_guard_statement_success_binding_currently_leaks_into_else_clause() {
     );
 
     let mut checker = TypeChecker::new();
-    let result = checker.type_check_program(&program);
+    let errors = checker.type_check_program(&program).expect_err(
+        "statement guard success binding should not be visible inside the error clause",
+    );
+    let error_text = format!("{errors:?}");
     assert!(
-        result.is_ok(),
-        "current statement-guard behavior still exposes the success binding inside the error clause: {result:?}"
+        error_text.contains("success binding is not available inside guard error clause"),
+        "expected guard success-binding scope diagnostic, got: {error_text}"
     );
 }
 
@@ -2135,7 +2139,7 @@ fn test_guard_statement_binds_success_and_error_types() {
         "
         entry main = f(): void =>
             guard string_to_int32('5') into n else e =>
-                let err_message: string = e
+                let err_value: ParseError = e
                 continue
             let parsed: int32 = n
             return void
@@ -2146,7 +2150,7 @@ fn test_guard_statement_binds_success_and_error_types() {
     let result = checker.type_check_program(&program);
     assert!(
         result.is_ok(),
-        "guard statement should bind success value and string error in expected scopes: {result:?}"
+        "guard statement should bind success value and real error type in expected scopes: {result:?}"
     );
 }
 
@@ -2156,7 +2160,7 @@ fn type_check_guard_shorthand_discards_success_binding() {
         "
         entry main = f(): void =>
             guard string_to_int32('5') else err =>
-                let err_message: string = err
+                let err_value: ParseError = err
                 continue
             return void
         ",
@@ -2176,7 +2180,7 @@ fn type_check_guard_shorthand_success_binding_not_in_scope() {
         "
         entry main = f(): int32 =>
             guard string_to_int32('5') else err =>
-                let err_message: string = err
+                let err_value: ParseError = err
                 continue
             return n
         ",
@@ -2200,7 +2204,7 @@ fn type_check_named_guard_binding_still_available_after_guard() {
         "
         entry main = f(): int32 =>
             guard string_to_int32('5') into n else err =>
-                let err_message: string = err
+                let err_value: ParseError = err
                 continue
             return n
         ",
@@ -2220,7 +2224,7 @@ fn type_check_guard_into_underscore_still_valid() {
         "
         entry main = f(): void =>
             guard string_to_int32('5') into _ else err =>
-                let err_message: string = err
+                let err_value: ParseError = err
                 continue
             return void
         ",
@@ -2235,7 +2239,97 @@ fn type_check_guard_into_underscore_still_valid() {
 }
 
 #[test]
-fn test_guard_statement_return_err_currently_fails_as_string_to_unit_mismatch() {
+fn type_check_guard_into_underscore_does_not_introduce_binding_after_guard() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        entry main = f(): int32 =>
+            guard string_to_int32('5') into _ else err =>
+                let err_value: ParseError = err
+                continue
+            return _
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("discard guard binding into _ should not introduce a usable success symbol");
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::SymbolNotFound { name, .. } if name == "_")),
+        "expected SymbolNotFound for discarded success binding, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_guard_statement_multi_error_binding_stays_contextual() {
+    let program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7_519_900),
+        make_unit_type_decl("IoError", 7_519_901),
+        make_function_decl_with_errors(
+            "parse_or_load",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError", "IoError"],
+            return_stmt(literal_expr(LiteralValue::Integer(1), 7_519_902), 7_519_903),
+            7_519_904,
+        ),
+        make_function_decl_with_errors(
+            "worker",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("void")),
+            vec!["ParseError", "IoError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Guard {
+                        expression: Box::new(call_expr("parse_or_load", &["input"], 7_519_905)),
+                        success_binding: Some("value".to_owned()),
+                        success_binding_type: Some(int_type("int32")),
+                        success_binding_is_mutable: false,
+                        error_binding: "err".to_owned(),
+                        else_body: Box::new(Stmt::Block {
+                            statements: vec![Stmt::Let {
+                                binding: LetBinding {
+                                    name: "copy".to_owned(),
+                                    type_annotation: Some(int_type("ParseError")),
+                                    is_mutable: false,
+                                    span: test_span(),
+                                    id: node_id(7_519_906),
+                                },
+                                initializer: Some(identifier_expr("err", 7_519_907)),
+                                span: test_span(),
+                                id: node_id(7_519_908),
+                            }],
+                            span: test_span(),
+                            id: node_id(7_519_909),
+                        }),
+                        span: test_span(),
+                        id: node_id(7_519_910),
+                    },
+                    return_stmt(literal_expr(LiteralValue::Void, 7_519_911), 7_519_912),
+                ],
+                span: test_span(),
+                id: node_id(7_519_913),
+            },
+            7_519_914,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker.type_check_program(&program).expect_err(
+        "multi-error guard binding should not masquerade as a concrete single error type",
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::TypeMismatch { .. })),
+        "expected multi-error guard binding to reject narrowing into a concrete single error type, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_guard_statement_return_err_uses_dedicated_guard_diagnostic() {
     let worker = make_function_decl_with_errors(
         "worker",
         Vec::new(),
@@ -2246,6 +2340,8 @@ fn test_guard_statement_return_err_currently_fails_as_string_to_unit_mismatch() 
                 Stmt::Guard {
                     expression: Box::new(call_expr("string_to_int32", &["input"], 7_520_001)),
                     success_binding: Some("value".to_owned()),
+                    success_binding_type: Some(int_type("int32")),
+                    success_binding_is_mutable: false,
                     error_binding: "err".to_owned(),
                     else_body: Box::new(Stmt::Block {
                         statements: vec![return_stmt(identifier_expr("err", 7_520_002), 7_520_003)],
@@ -2278,21 +2374,14 @@ fn test_guard_statement_return_err_currently_fails_as_string_to_unit_mismatch() 
 
     let mut checker = TypeChecker::new();
     let errors = checker.type_check_program(&program).expect_err(
-        "return err in a guard error clause should still fail under current baseline behavior",
+        "return err in a guard error clause should fail with the dedicated Task 7 diagnostic",
     );
-    let saw_type_mismatch = errors.iter().any(|error| {
-        matches!(
-            error,
-            &TypeError::TypeMismatch {
-                ref expected,
-                ref found,
-                ..
-            } if expected == "unit" && found == "string"
-        )
-    });
+    let error_text = format!("{errors:?}");
     assert!(
-        saw_type_mismatch,
-        "current baseline should record that guard-clause return err currently fails as string-to-unit mismatch, got: {errors:?}"
+        error_text.contains(
+            "return err is not valid in a guard error clause; use propagate err to forward the guard error"
+        ),
+        "expected Task 7 guard-clause return err diagnostic, got: {error_text}"
     );
 }
 
@@ -3094,6 +3183,536 @@ fn test_guard_statement_else_rejects_mismatched_propagate_errors() {
             .into_iter()
             .any(|error| matches!(error, TypeError::GuardChainedErrorMismatch { .. })),
         "expected GuardChainedErrorMismatch when guard statement else propagates mismatched errors"
+    );
+}
+
+#[test]
+fn test_guard_error_clause_success_binding_does_not_leak_over_outer_shadowing() {
+    let leaking_guard_stmt = Stmt::Expression {
+        expr: guard_call_expr(
+            call_expr("string_to_int32", &["input"], 7600),
+            "value",
+            Some(int_type("int32")),
+            false,
+            Stmt::Block {
+                statements: vec![Stmt::Let {
+                    binding: LetBinding {
+                        name: "seen".to_owned(),
+                        type_annotation: Some(int_type("string")),
+                        is_mutable: false,
+                        span: test_span(),
+                        id: node_id(7601),
+                    },
+                    initializer: Some(identifier_expr("value", 7602)),
+                    span: test_span(),
+                    id: node_id(7603),
+                }],
+                span: test_span(),
+                id: node_id(7604),
+            },
+            7605,
+        ),
+        span: test_span(),
+        id: node_id(7606),
+    };
+
+    let shadowing_guard_stmt = Stmt::Expression {
+        expr: guard_call_expr(
+            call_expr("string_to_int32", &["input"], 7618),
+            "value",
+            Some(int_type("int32")),
+            false,
+            Stmt::Block {
+                statements: vec![Stmt::Let {
+                    binding: LetBinding {
+                        name: "shadow_copy".to_owned(),
+                        type_annotation: Some(int_type("string")),
+                        is_mutable: false,
+                        span: test_span(),
+                        id: node_id(7619),
+                    },
+                    initializer: Some(identifier_expr("value", 7620)),
+                    span: test_span(),
+                    id: node_id(7621),
+                }],
+                span: test_span(),
+                id: node_id(7622),
+            },
+            7623,
+        ),
+        span: test_span(),
+        id: node_id(7624),
+    };
+
+    let leaking_program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7625),
+        make_function_decl_with_errors(
+            "string_to_int32",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(1), 7626), 7627),
+            7628,
+        ),
+        make_function_decl_with_errors(
+            "use_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("void")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    leaking_guard_stmt,
+                    return_stmt(literal_expr(LiteralValue::Void, 7629), 7630),
+                ],
+                span: test_span(),
+                id: node_id(7631),
+            },
+            7632,
+        ),
+    ]);
+
+    let mut leak_checker = TypeChecker::new();
+    let errors = leak_checker
+        .type_check_program(&leaking_program)
+        .expect_err("guard success binding should not be available inside the error clause");
+    let error_text = format!("{errors:?}");
+    assert!(
+        error_text.contains("success binding is not available inside guard error clause"),
+        "expected scope diagnostic for guard success binding leak, got: {error_text}"
+    );
+
+    let shadowing_program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7633),
+        make_function_decl_with_errors(
+            "string_to_int32",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(2), 7634), 7635),
+            7636,
+        ),
+        make_function_decl_with_errors(
+            "use_shadowed_outer",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("void")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Let {
+                        binding: LetBinding {
+                            name: "value".to_owned(),
+                            type_annotation: Some(int_type("string")),
+                            is_mutable: false,
+                            span: test_span(),
+                            id: node_id(7637),
+                        },
+                        initializer: Some(identifier_expr("input", 7638)),
+                        span: test_span(),
+                        id: node_id(7639),
+                    },
+                    shadowing_guard_stmt,
+                    return_stmt(literal_expr(LiteralValue::Void, 7640), 7641),
+                ],
+                span: test_span(),
+                id: node_id(7642),
+            },
+            7643,
+        ),
+    ]);
+
+    let mut shadow_checker = TypeChecker::new();
+    let shadow_result = shadow_checker.type_check_program(&shadowing_program);
+    assert!(
+        shadow_result.is_ok(),
+        "outer lexical variable with same name should remain visible in guard error clause: {shadow_result:?}"
+    );
+}
+
+#[test]
+fn test_guard_error_binding_is_not_available_after_guard() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        entry main = f(): ParseError errors ParseError =>
+            guard string_to_int32('5') into value else err =>
+                let current_error: ParseError = err
+                continue
+            return err
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("guard error binding should not be available after the guard clause");
+    assert!(
+        errors.into_iter().any(
+            |error| matches!(error, TypeError::SymbolNotFound { ref name, .. } if name == "err")
+        ),
+        "expected SymbolNotFound when using guard error binding after guard clause"
+    );
+}
+
+#[test]
+fn test_guard_error_clause_return_err_is_rejected() {
+    let guard_stmt = Stmt::Guard {
+        expression: Box::new(call_expr("string_to_int32", &["input"], 7620)),
+        success_binding: Some("value".to_owned()),
+        success_binding_type: Some(int_type("int32")),
+        success_binding_is_mutable: false,
+        error_binding: "err".to_owned(),
+        else_body: Box::new(Stmt::Block {
+            statements: vec![return_stmt(identifier_expr("err", 7621), 7622)],
+            span: test_span(),
+            id: node_id(7623),
+        }),
+        span: test_span(),
+        id: node_id(7625),
+    };
+
+    let program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7626),
+        make_function_decl_with_errors(
+            "string_to_int32",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(2), 7627), 7628),
+            7629,
+        ),
+        make_function_decl_with_errors(
+            "use_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("void")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    guard_stmt,
+                    return_stmt(literal_expr(LiteralValue::Void, 7630), 7631),
+                ],
+                span: test_span(),
+                id: node_id(7632),
+            },
+            7633,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("return err should be rejected in a guard error clause");
+    let error_text = format!("{errors:?}");
+    assert!(
+        error_text.contains(
+            "return err is not valid in a guard error clause; use propagate err to forward the guard error"
+        ),
+        "expected return-err diagnostic, got: {error_text}"
+    );
+}
+
+#[test]
+fn test_guard_error_clause_propagate_err_must_be_terminal() {
+    let guard_stmt = Stmt::Guard {
+        expression: Box::new(call_expr("string_to_int32", &["input"], 7640)),
+        success_binding: Some("value".to_owned()),
+        success_binding_type: Some(int_type("int32")),
+        success_binding_is_mutable: false,
+        error_binding: "err".to_owned(),
+        else_body: Box::new(Stmt::Block {
+            statements: vec![
+                Stmt::PropagateGuardError {
+                    error_binding: "err".to_owned(),
+                    span: test_span(),
+                    id: node_id(7643),
+                },
+                Stmt::Expression {
+                    expr: literal_expr(LiteralValue::Void, 7644),
+                    span: test_span(),
+                    id: node_id(7645),
+                },
+            ],
+            span: test_span(),
+            id: node_id(7646),
+        }),
+        span: test_span(),
+        id: node_id(7648),
+    };
+
+    let program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7649),
+        make_function_decl_with_errors(
+            "string_to_int32",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(3), 7650), 7651),
+            7652,
+        ),
+        make_function_decl_with_errors(
+            "use_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("void")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    guard_stmt,
+                    return_stmt(literal_expr(LiteralValue::Void, 7653), 7654),
+                ],
+                span: test_span(),
+                id: node_id(7655),
+            },
+            7656,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("propagate err should be terminal inside guard error clauses");
+    let error_text = format!("{errors:?}");
+    assert!(
+        error_text
+            .contains("propagate err is only valid as the final statement of a guard error clause"),
+        "expected terminal-propagate diagnostic, got: {error_text}"
+    );
+}
+
+#[test]
+fn test_guard_error_clause_only_propagate_is_rejected() {
+    let guard_stmt = Stmt::Guard {
+        expression: Box::new(call_expr("string_to_int32", &["input"], 7660)),
+        success_binding: Some("value".to_owned()),
+        success_binding_type: Some(int_type("int32")),
+        success_binding_is_mutable: false,
+        error_binding: "err".to_owned(),
+        else_body: Box::new(Stmt::PropagateGuardError {
+            error_binding: "err".to_owned(),
+            span: test_span(),
+            id: node_id(7663),
+        }),
+        span: test_span(),
+        id: node_id(7665),
+    };
+
+    let program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7666),
+        make_function_decl_with_errors(
+            "string_to_int32",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(4), 7667), 7668),
+            7669,
+        ),
+        make_function_decl_with_errors(
+            "use_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("void")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    guard_stmt,
+                    return_stmt(literal_expr(LiteralValue::Void, 7670), 7671),
+                ],
+                span: test_span(),
+                id: node_id(7672),
+            },
+            7673,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("only-propagate guard error clauses should be rejected");
+    let error_text = format!("{errors:?}");
+    assert!(
+        error_text.contains(
+            "guard error clause must perform handling before propagating; replace this guard with shorthand propagate <call>() when no handling is needed"
+        ),
+        "expected only-propagate diagnostic, got: {error_text}"
+    );
+}
+
+#[test]
+fn test_guard_error_clause_side_effect_then_propagate_err_is_allowed() {
+    let guard_stmt = Stmt::Guard {
+        expression: Box::new(call_expr("string_to_int32", &["input"], 7674)),
+        success_binding: Some("value".to_owned()),
+        success_binding_type: Some(int_type("int32")),
+        success_binding_is_mutable: false,
+        error_binding: "err".to_owned(),
+        else_body: Box::new(Stmt::Block {
+            statements: vec![
+                Stmt::Let {
+                    binding: LetBinding {
+                        name: "seen_error".to_owned(),
+                        type_annotation: Some(Type::Basic {
+                            name: "ParseError".to_owned(),
+                            span: test_span(),
+                        }),
+                        is_mutable: false,
+                        span: test_span(),
+                        id: node_id(7675),
+                    },
+                    initializer: Some(identifier_expr("err", 7676)),
+                    span: test_span(),
+                    id: node_id(7677),
+                },
+                Stmt::PropagateGuardError {
+                    error_binding: "err".to_owned(),
+                    span: test_span(),
+                    id: node_id(7678),
+                },
+            ],
+            span: test_span(),
+            id: node_id(7679),
+        }),
+        span: test_span(),
+        id: node_id(7681),
+    };
+
+    let program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7682),
+        make_function_decl_with_errors(
+            "string_to_int32",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(5), 7683), 7684),
+            7685,
+        ),
+        make_function_decl_with_errors(
+            "use_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("void")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    guard_stmt,
+                    return_stmt(literal_expr(LiteralValue::Void, 7686), 7687),
+                ],
+                span: test_span(),
+                id: node_id(7688),
+            },
+            7689,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "guard error clause should allow handling before final propagate err: {result:?}"
+    );
+}
+
+#[test]
+fn test_guard_error_clause_must_handle_or_propagate_bound_error() {
+    let guard_stmt = Stmt::Guard {
+        expression: Box::new(call_expr("string_to_int32", &["input"], 7680)),
+        success_binding: Some("value".to_owned()),
+        success_binding_type: Some(int_type("int32")),
+        success_binding_is_mutable: false,
+        error_binding: "err".to_owned(),
+        else_body: Box::new(Stmt::Block {
+            statements: vec![Stmt::Expression {
+                expr: literal_expr(LiteralValue::Void, 7681),
+                span: test_span(),
+                id: node_id(7682),
+            }],
+            span: test_span(),
+            id: node_id(7683),
+        }),
+        span: test_span(),
+        id: node_id(7685),
+    };
+
+    let program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7686),
+        make_function_decl_with_errors(
+            "string_to_int32",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(5), 7687), 7688),
+            7689,
+        ),
+        make_function_decl_with_errors(
+            "use_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("void")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    guard_stmt,
+                    return_stmt(literal_expr(LiteralValue::Void, 7690), 7691),
+                ],
+                span: test_span(),
+                id: node_id(7692),
+            },
+            7693,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("guard error clauses must handle or propagate the bound error");
+    let error_text = format!("{errors:?}");
+    assert!(
+        error_text.contains("guard error clause must handle or propagate the bound error"),
+        "expected fallthrough diagnostic, got: {error_text}"
+    );
+}
+
+#[test]
+fn test_propagate_call_remains_valid_unmodified() {
+    let program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7700),
+        make_function_decl_with_errors(
+            "string_to_int32",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(6), 7701), 7702),
+            7703,
+        ),
+        make_function_decl_with_errors(
+            "use_propagate",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    Stmt::Let {
+                        binding: LetBinding {
+                            name: "value".to_owned(),
+                            type_annotation: Some(int_type("int32")),
+                            is_mutable: false,
+                            span: test_span(),
+                            id: node_id(7704),
+                        },
+                        initializer: Some(propagate_call(
+                            call_expr("string_to_int32", &["input"], 7705),
+                            7706,
+                        )),
+                        span: test_span(),
+                        id: node_id(7707),
+                    },
+                    return_stmt(identifier_expr("value", 7708), 7709),
+                ],
+                span: test_span(),
+                id: node_id(7710),
+            },
+            7711,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "ordinary propagate <call> behavior should remain valid: {result:?}"
     );
 }
 

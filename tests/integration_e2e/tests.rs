@@ -33,6 +33,7 @@ mod fs_markdown_roundtrip;
 mod fs_path_manipulation;
 mod guard_optional_binding;
 mod guard_shorthand;
+mod guard_stmt;
 // mod fs_management;
 // mod fs_reading;
 // mod fs_writing;

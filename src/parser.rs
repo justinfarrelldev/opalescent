@@ -69,6 +69,8 @@ pub struct Parser {
     deferred_comment_declarations: Vec<Decl>,
     /// Documentation comments deferred while finishing indentation blocks.
     deferred_doc_comments: Vec<(String, Span)>,
+    /// Stack of active guard error binding names while parsing guard error clauses.
+    active_guard_error_bindings: Vec<String>,
     /// Node ID counter for unique AST node identification
     next_node_id: usize,
 }
@@ -82,6 +84,7 @@ impl Parser {
             errors: ParseErrors::new(),
             deferred_comment_declarations: Vec::new(),
             deferred_doc_comments: Vec::new(),
+            active_guard_error_bindings: Vec::new(),
             next_node_id: 1,
         }
     }

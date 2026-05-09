@@ -1,0 +1,11 @@
+import string_to_int32, int32_to_string from standard
+
+##
+  Description: Entry point proving success bindings do not leak into guard error clauses
+##
+entry main = f(args: string[]): void =>
+    guard string_to_int32('bad') into value: int32 else err =>
+        print('LEAKED_VALUE={int32_to_string(value)}')
+        propagate err
+    print('UNEXPECTED_SUCCESS={int32_to_string(value)}')
+    return void

@@ -1,7 +1,8 @@
+#![allow(clippy::pattern_type_mismatch, reason = "expression matcher patterns intentionally work on borrowed AST nodes")]
 //! Expression type checking for the Opalescent type system
 extern crate alloc;
 
-use super::control_flow::{GuardBindingInfo, GuardUsage};
+use super::control_flow::{GuardBindingInfo, GuardCheckRequest, GuardUsage};
 use super::helpers::{
     binary_operation_name, coerce_literal_to_expected, constant_integer_overflow_warning,
     ensure_boolean_type, ensure_integer_type, ensure_numeric_type, ensure_same_type,
@@ -329,13 +330,14 @@ impl TypeChecker {
                     is_mutable,
                     span,
                 };
-                self.type_check_guard_expr(
+                self.type_check_guard_expr(GuardCheckRequest {
                     expr,
-                    &binding_info,
+                    binding: &binding_info,
+                    error_binding: None,
                     else_branch,
-                    GuardUsage::Expression,
-                    None,
-                )
+                    usage: GuardUsage::Expression,
+                    expected_return: None,
+                })
             }
             Expr::Propagate { ref call, span, .. } => {
                 self.type_check_propagate_expr(call.as_ref(), span)
@@ -470,6 +472,37 @@ impl TypeChecker {
         if let Some(info) = self.symbol_table_mut().lookup_mut(name) {
             info.read_count = info.read_count.saturating_add(1);
             return Ok(info.core_type.clone());
+        }
+
+        if self.context.guard_else_depth > 0 {
+            if self
+                .context
+                .pending_guard_success_bindings
+                .iter()
+                .any(|hidden_name| hidden_name == name)
+            {
+                return Err(TypeError::ConstraintSolvingFailed {
+                    reason: "success binding is not available inside guard error clause".to_owned(),
+                    span: TypeError::span_from_span(span),
+                });
+            }
+
+            if self
+                .context
+                .active_guard_error_bindings
+                .last()
+                .is_some_and(|active_error_binding| active_error_binding == name)
+            {
+                if let Some(active_errors) = self.context.guard_error_stack.last() {
+                    if let [single_error_type] = active_errors.as_slice() {
+                        return Ok(single_error_type.clone());
+                    }
+                    return Ok(CoreType::Generic {
+                        name: "GuardErrorContext".to_owned(),
+                        type_args: active_errors.clone(),
+                    });
+                }
+            }
         }
 
         Err(TypeError::SymbolNotFound {

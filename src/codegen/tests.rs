@@ -2748,6 +2748,8 @@ fn codegen_guard_shorthand_does_not_register_underscore_metadata() {
             )],
         )),
         success_binding: None,
+        success_binding_type: None,
+        success_binding_is_mutable: false,
         error_binding: String::from("err"),
         else_body: Box::new(Stmt::Return {
             values: vec![labeled_value(9705, "", void_lit(9706))],

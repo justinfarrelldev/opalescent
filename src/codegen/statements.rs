@@ -2,6 +2,7 @@
     clippy::all,
     clippy::too_many_lines,
     clippy::needless_pass_by_ref_mut,
+    clippy::missing_docs_in_private_items,
     reason = "internal codegen implementation module"
 )]
 extern crate alloc;
@@ -14,6 +15,7 @@ use crate::codegen::control_flow::{
     codegen_return_statement,
 };
 use crate::codegen::error::CodegenError;
+use crate::codegen::error_abi::build_error_aggregate;
 use crate::codegen::expressions::{ArrayMetadata, CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
@@ -82,6 +84,11 @@ pub fn codegen_statement<'context>(
         ),
         Stmt::For { .. } | Stmt::While { .. } | Stmt::Loop { .. } => {
             codegen_loop_statement(codegen_context, env, stmt)
+        }
+        Stmt::PropagateGuardError {
+            ref error_binding, ..
+        } => {
+            codegen_guard_error_propagation_statement(codegen_context, env, error_binding.as_str())
         }
         Stmt::Return { ref values, .. } => {
             codegen_return_statement(codegen_context, env, values.as_slice())
@@ -566,8 +573,15 @@ fn codegen_guard_statement<'context>(
                         is_mutable: false,
                     },
                 );
+                env.push_active_guard_error_slot(error_alloca);
 
                 codegen_statement(codegen_context, env, else_body)?;
+
+                let popped_guard_error_slot = env.pop_active_guard_error_slot();
+                debug_assert!(
+                    popped_guard_error_slot == Some(error_alloca),
+                    "guard error slot stack should unwind in LIFO order"
+                );
 
                 if let Some(previous) = previous_error_binding {
                     env.variables.insert(error_binding.to_owned(), previous);
@@ -886,6 +900,56 @@ fn llvm_return_type_to_core_type(return_type: Option<BasicTypeEnum<'_>>) -> Opti
 }
 
 /// Fetch current LLVM function from builder insertion block.
+fn codegen_guard_error_propagation_statement<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    error_binding: &str,
+) -> Result<(), CodegenError> {
+    let Some(error_slot) = env.current_guard_error_slot() else {
+        return Err(CodegenError::new(format!(
+            "guard error binding '{error_binding}' is not active during propagation"
+        )));
+    };
+    let loaded_error = codegen_context
+        .builder
+        .build_load(error_slot, env.next_name("guard.err.propagate").as_str())?;
+    if !loaded_error.is_pointer_value() {
+        return Err(CodegenError::new(format!(
+            "guard error binding '{error_binding}' does not lower to a pointer error payload"
+        )));
+    }
+
+    let current_fn = current_function(codegen_context)?;
+    let Some(return_type) = current_fn.get_type().get_return_type() else {
+        return Err(CodegenError::new(String::from(
+            "guard error propagation requires caller to return an error aggregate",
+        )));
+    };
+    if !return_type.is_struct_type() {
+        return Err(CodegenError::new(String::from(
+            "guard error propagation requires caller error aggregate return type",
+        )));
+    }
+
+    let return_struct_type = return_type.into_struct_type();
+    if return_struct_type.count_fields() != 2 {
+        return Err(CodegenError::new(String::from(
+            "guard error propagation requires canonical two-field error aggregate",
+        )));
+    }
+
+    let success_type = return_struct_type
+        .get_field_type_at_index(0)
+        .ok_or_else(|| CodegenError::new(String::from("error aggregate missing success field")))?;
+    let aggregate = build_error_aggregate(
+        codegen_context,
+        success_type,
+        loaded_error.into_pointer_value(),
+    )?;
+    let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+    Ok(())
+}
+
 fn current_function<'context>(
     codegen_context: &CodegenContext<'context>,
 ) -> Result<FunctionValue<'context>, CodegenError> {

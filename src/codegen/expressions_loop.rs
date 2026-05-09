@@ -4,6 +4,7 @@
     reason = "internal codegen implementation module"
 )]
 use crate::codegen::expressions::{ArrayMetadata, CodegenEnv, LoopContext};
+use inkwell::values::PointerValue;
 
 impl<'context> CodegenEnv<'context> {
     /// Push a loop frame for nested break/continue lowering.
@@ -38,5 +39,21 @@ impl<'context> CodegenEnv<'context> {
     /// Consume any runtime array metadata left by the immediately preceding expression lowering.
     pub fn take_pending_array_metadata(&mut self) -> Option<ArrayMetadata<'context>> {
         self.pending_array_metadata.take()
+    }
+
+    /// Push the active guard error slot for a guard else-scope.
+    pub fn push_active_guard_error_slot(&mut self, error_slot: PointerValue<'context>) {
+        self.active_guard_error_slots.push(error_slot);
+    }
+
+    /// Pop the innermost active guard error slot.
+    pub fn pop_active_guard_error_slot(&mut self) -> Option<PointerValue<'context>> {
+        self.active_guard_error_slots.pop()
+    }
+
+    /// Borrow the innermost active guard error slot if one exists.
+    #[must_use]
+    pub fn current_guard_error_slot(&self) -> Option<PointerValue<'context>> {
+        self.active_guard_error_slots.last().copied()
     }
 }

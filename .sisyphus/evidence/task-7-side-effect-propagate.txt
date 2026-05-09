@@ -1,0 +1,12 @@
+Task 7 evidence — side effect then propagate err accepted
+Date: 2026-05-09
+Command: cargo test --lib type_system::tests::test_guard_error_clause_side_effect_then_propagate_err_is_allowed -- --exact
+
+Result:
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.84s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-2e0f335919757aaa)
+
+running 1 test
+test type_system::tests::test_guard_error_clause_side_effect_then_propagate_err_is_allowed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1206 filtered out; finished in 0.00s

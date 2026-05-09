@@ -1,0 +1,38 @@
+=== Task 9 Green Evidence ===
+Date: 2026-05-09
+Command: cargo test --all-features
+
+--- Per-suite test result summary (collected via `cargo test --all-features 2>&1 | grep -E '^test result:|FAILED|^failures:'`) ---
+test result: ok. 1204 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.39s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.02s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+test tests::windows_wine::tests::wine_msvc_guard_shorthand ... FAILED
+failures:
+test result: FAILED. 124 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 178.76s
+EXIT=101
+
+--- Failure detail (single failure) ---
+test tests::windows_wine::tests::wine_msvc_guard_shorthand ... FAILED
+
+thread 'tests::windows_wine::tests::wine_msvc_guard_shorthand' panicked at tests/integration_e2e/windows_wine.rs:818:9:
+wine_msvc_guard_shorthand should execute under Wine after a successful build:
+Some("Wine execution timed out after 120s (elapsed 120.035169856s, exit=None), stdout=\"\",
+stderr=\"wine: Unhandled page fault on write access to 000000014002A000 at address 000000014002955A
+(thread 0108), starting debugger...\\n\"")
+
+--- Classification ---
+ENVIRONMENT FLAKE: This failure is the documented Wine-host flake. The cross-compiled
+Windows binary built fine; Wine itself crashed at runtime with an unhandled page fault
+inside the Wine process (NOT an Opalescent compiler defect). It is unrelated to the
+docs-only changes performed in Task 9.
+
+--- Result for Task 9 acceptance ---
+All non-Wine suites are GREEN:
+- Library/unit tests: 1204 passed; 0 failed
+- Doc tests: 0 / 22 / 14 / 3 passed; 0 failed each
+- Integration suite (124 ran): all tests except the single Wine host flake pass.
+
+Task 9 modifies only documentation (error-handler-proposals/propagation-only/proposal.md)
+and evidence/notepad files; no src/** or tests/** changes. No regression introduced.

@@ -1,6 +1,3 @@
 EXIT=0
-SKIP: Wine limitation: fatal crash/dialog requires manual close (exit=84, stderr=wine: Unhandled page fault on write access to 000000014002A000 at address 000000014002955A (thread 00cc), starting debugger...
-X connection to :0 broken (explicit kill or server shutdown).
-X connection to :0 broken (explicit kill or server shutdown).
-X connection to :0 broken (explicit kill or server shutdown).
+SKIP: Wine limitation: fatal crash/dialog requires manual close (exit=5, stderr=wine: Unhandled page fault on write access to 000000014002A000 at address 000000014002955A (thread 0110), starting debugger...
 )

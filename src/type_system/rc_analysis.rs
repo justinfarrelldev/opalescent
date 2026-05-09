@@ -282,6 +282,7 @@ impl RcAnalysis {
                 Self::expr_uses_var(expression, variable)
                     || Self::stmt_uses_var(else_body, variable)
             }
+            Stmt::PropagateGuardError { error_binding, .. } => error_binding == variable,
             Stmt::Loop { body, .. } => Self::stmt_uses_var(body, variable),
             Stmt::Break { values, .. } | Stmt::Continue { values, .. } => values
                 .iter()

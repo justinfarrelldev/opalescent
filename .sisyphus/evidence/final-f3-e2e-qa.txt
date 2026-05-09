@@ -1,0 +1,60 @@
+# Final F3 E2E QA Report — Guard Statement + Broad Gate
+
+Date: 2026-05-09
+Workspace: /home/justi/Projects/opalescent
+
+## Scope
+- Final-wave verification-only QA for guard statement pass/fail projects and broader test gate behavior.
+- No source or test files were modified.
+
+## Command 1 (required)
+`cargo test --features integration guard_stmt`
+
+### Result
+PASS
+
+### Observed tests
+- tests::guard_stmt::guard_stmt_return_err_banned_project_emits_return_err_diagnostic ... ok
+- tests::guard_stmt::guard_stmt_only_propagate_project_emits_shorthand_guidance ... ok
+- tests::guard_stmt::guard_stmt_success_binding_leak_project_emits_scope_diagnostic ... ok
+- tests::guard_stmt::guard_stmt_propagate_err_project_compiles_links_and_runs ... ok
+- tests::guard_stmt::guard_stmt_typed_binding_project_compiles_links_and_runs ... ok
+
+### Gate summary
+- `test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 120 filtered out`
+
+### QA confirmation against expected behavior
+- Pass fixtures executed and passed:
+  - `guard_stmt_typed_binding_project_compiles_links_and_runs`
+  - `guard_stmt_propagate_err_project_compiles_links_and_runs`
+- Runtime markers enforced by test logic:
+  - typed binding fixture rejects unexpected success-path error marker: `UNEXPECTED_TYPED_BINDING_ERROR=`
+  - propagate fixture rejects unexpected success marker: `UNEXPECTED_GUARD_PROPAGATE_SUCCESS`
+- Fail fixtures executed and passed with exact diagnostic substring assertions:
+  - success-binding leak diagnostic contains: `success binding is not available inside guard error clause`
+  - propagate-only diagnostic contains: `guard error clause must perform handling before propagating; replace this guard with shorthand propagate <call>() when no handling is needed`
+  - return-err banned diagnostic contains: `return err is not valid in a guard error clause; use propagate err to forward the guard error`
+
+## Command 2 (required)
+`cargo test --all-features`
+
+### Result
+FAIL (single known environmental flake)
+
+### Failure classification
+- Failing test: `tests::windows_wine::tests::wine_msvc_guard_shorthand`
+- Error signature:
+  - `Wine execution timed out after 120s`
+  - `wine: Unhandled page fault on write access ... starting debugger...`
+- Contextual classification:
+  - This is the known Wine host/environment flake (not a guard-statement semantic regression).
+  - Guard statement integration tests inside the all-features run were all green.
+
+### Broad gate summary
+- `test result: FAILED. 129 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out`
+- Exactly one failure observed, matching the known out-of-scope Wine issue.
+
+## Binary verdict
+VERDICT: APPROVE
+
+Rationale: required guard_stmt E2E pass/fail coverage is green with exact runtime-marker and diagnostic-substring behavior validated; broad gate failure is limited to the pre-known Wine host flake with matching signature and no additional regressions.

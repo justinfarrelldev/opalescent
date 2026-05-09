@@ -1,8 +1,9 @@
+#![allow(clippy::pattern_type_mismatch, reason = "statement matcher patterns intentionally work on borrowed AST nodes")]
 //! Statement type checking for the Opalescent type system
 
 extern crate alloc;
 
-use super::control_flow::{GuardBindingInfo, GuardUsage};
+use super::control_flow::{GuardBindingInfo, GuardCheckRequest, GuardUsage};
 use super::helpers::{
     coerce_literal_to_expected, ensure_boolean_type, invalid_operation_error, is_integer_type,
     type_mismatch_error,
@@ -40,7 +41,10 @@ impl TypeChecker {
 
             if matches!(
                 statement,
-                &Stmt::Return { .. } | &Stmt::Break { .. } | &Stmt::Continue { .. }
+                &Stmt::Return { .. }
+                    | &Stmt::Break { .. }
+                    | &Stmt::Continue { .. }
+                    | &Stmt::PropagateGuardError { .. }
             ) {
                 terminator_seen = true;
             }
@@ -151,18 +155,29 @@ impl TypeChecker {
             Stmt::Guard {
                 ref expression,
                 ref success_binding,
+                ref success_binding_type,
+                success_binding_is_mutable,
                 ref error_binding,
                 ref else_body,
                 span,
                 ..
-            } => self.type_check_guard_stmt_with_return(
-                expression.as_ref(),
-                success_binding.as_deref(),
-                error_binding.as_str(),
-                else_body.as_ref(),
-                span,
-                expected_return,
-            ),
+            } => {
+                let binding_info = GuardBindingInfo {
+                    name: success_binding.as_deref().unwrap_or("_"),
+                    annotation: success_binding_type.as_ref(),
+                    is_mutable: success_binding_is_mutable,
+                    span,
+                };
+                self.type_check_guard_expr(GuardCheckRequest {
+                    expr: expression.as_ref(),
+                    binding: &binding_info,
+                    error_binding: Some(error_binding.as_str()),
+                    else_branch: else_body.as_ref(),
+                    usage: GuardUsage::Statement,
+                    expected_return,
+                })?;
+                Ok(())
+            }
             Stmt::Loop { ref body, .. } => self.within_new_scope(|checker| {
                 checker.context.loop_break_type_stack.push(None);
                 let result = checker.type_check_stmt_with_return(body.as_ref(), expected_return);
@@ -209,6 +224,9 @@ impl TypeChecker {
                 }
                 Ok(())
             }
+            Stmt::PropagateGuardError { .. } => self
+                .type_check_guard_error_clause_statement(stmt, expected_return, false)
+                .map(|_| ()),
             Stmt::Comment { .. } => Ok(()),
         }
     }
@@ -236,13 +254,14 @@ impl TypeChecker {
                 is_mutable,
                 span: guard_span,
             };
-            self.type_check_guard_expr(
-                guarded_expr.as_ref(),
-                &binding_info,
-                guard_else.as_ref(),
-                GuardUsage::Statement,
+            self.type_check_guard_expr(GuardCheckRequest {
+                expr: guarded_expr.as_ref(),
+                binding: &binding_info,
+                error_binding: None,
+                else_branch: guard_else.as_ref(),
+                usage: GuardUsage::Statement,
                 expected_return,
-            )?;
+            })?;
         } else {
             self.type_check_expr(expr)?;
         }
@@ -446,79 +465,71 @@ impl TypeChecker {
         }
 
         let mut found_break_types: Option<alloc::vec::Vec<CoreType>> = None;
-        self.collect_break_types(stmt, &mut found_break_types, span)?;
+        let mut stack = alloc::vec::Vec::from([stmt]);
+        while let Some(current) = stack.pop() {
+            match current {
+                Stmt::Break { values, .. } => {
+                    let mut current_types = alloc::vec::Vec::new();
+                    for value in values {
+                        current_types.push(self.type_check_expr(&value.value)?);
+                    }
+
+                    if let Some(existing) = found_break_types.as_ref() {
+                        if existing.len() != current_types.len() {
+                            return Err(TypeError::ArityMismatch {
+                                expected: existing.len(),
+                                found: current_types.len(),
+                                span: TypeError::span_from_span(span),
+                            });
+                        }
+
+                        for (expected, found) in existing.iter().zip(current_types.iter()) {
+                            if !self.types_compatible(expected, found) {
+                                return Err(type_mismatch_error(expected, None, found, span));
+                            }
+                        }
+                    } else {
+                        found_break_types = Some(current_types);
+                    }
+                }
+                Stmt::Block { statements, .. } => {
+                    for statement in statements.iter().rev() {
+                        stack.push(statement);
+                    }
+                }
+                Stmt::If {
+                    then_branch,
+                    else_branch,
+                    ..
+                } => {
+                    if let Some(else_stmt) = else_branch.as_deref() {
+                        stack.push(else_stmt);
+                    }
+                    stack.push(then_branch.as_ref());
+                }
+                Stmt::For { body, .. } | Stmt::While { body, .. } => {
+                    stack.push(body.as_ref());
+                }
+                Stmt::Guard { else_body, .. } => {
+                    stack.push(else_body.as_ref());
+                }
+                Stmt::PropagateGuardError { .. }
+                | Stmt::Loop { .. }
+                | Stmt::Let { .. }
+                | Stmt::LetDestructure { .. }
+                | Stmt::Assignment { .. }
+                | Stmt::Return { .. }
+                | Stmt::Expression { .. }
+                | Stmt::Continue { .. }
+                | Stmt::Comment { .. } => {}
+            }
+        }
+
         found_break_types.ok_or_else(|| TypeError::InvalidOperation {
             operation: "loop expression used in destructuring must break with values".to_owned(),
             type_name: "loop".to_owned(),
             span: TypeError::span_from_span(span),
         })
-    }
-
-    /// Recursively collect break value types from all break statements within the loop body.
-    fn collect_break_types(
-        &mut self,
-        stmt: &Stmt,
-        found_break_types: &mut Option<alloc::vec::Vec<CoreType>>,
-        span: Span,
-    ) -> Result<(), TypeError> {
-        match *stmt {
-            Stmt::Break { ref values, .. } => {
-                let mut current_types = alloc::vec::Vec::new();
-                for value in values {
-                    current_types.push(self.type_check_expr(&value.value)?);
-                }
-
-                if let Some(existing) = found_break_types.as_ref() {
-                    if existing.len() != current_types.len() {
-                        return Err(TypeError::ArityMismatch {
-                            expected: existing.len(),
-                            found: current_types.len(),
-                            span: TypeError::span_from_span(span),
-                        });
-                    }
-
-                    for (expected, found) in existing.iter().zip(current_types.iter()) {
-                        if !self.types_compatible(expected, found) {
-                            return Err(type_mismatch_error(expected, None, found, span));
-                        }
-                    }
-                } else {
-                    *found_break_types = Some(current_types);
-                }
-                Ok(())
-            }
-            Stmt::Block { ref statements, .. } => {
-                for statement in statements {
-                    self.collect_break_types(statement, found_break_types, span)?;
-                }
-                Ok(())
-            }
-            Stmt::If {
-                ref then_branch,
-                ref else_branch,
-                ..
-            } => {
-                self.collect_break_types(then_branch, found_break_types, span)?;
-                if let Some(else_stmt) = else_branch.as_deref() {
-                    self.collect_break_types(else_stmt, found_break_types, span)?;
-                }
-                Ok(())
-            }
-            Stmt::For { ref body, .. } | Stmt::While { ref body, .. } => {
-                self.collect_break_types(body, found_break_types, span)
-            }
-            Stmt::Guard { ref else_body, .. } => {
-                self.collect_break_types(else_body.as_ref(), found_break_types, span)
-            }
-            Stmt::Loop { .. }
-            | Stmt::Let { .. }
-            | Stmt::LetDestructure { .. }
-            | Stmt::Assignment { .. }
-            | Stmt::Return { .. }
-            | Stmt::Expression { .. }
-            | Stmt::Continue { .. }
-            | Stmt::Comment { .. } => Ok(()),
-        }
     }
 
     /// Ensure an assignment statement has a valid target and a value that is
@@ -595,74 +606,6 @@ impl TypeChecker {
         }
 
         validity
-    }
-
-    /// Type-check a guard statement by binding success/error names and checking the else body.
-    fn type_check_guard_statement(
-        &mut self,
-        expression: &Expr,
-        success_binding: Option<&str>,
-        error_binding: &str,
-        else_body: &Stmt,
-        span: Span,
-        expected_return: Option<&[CoreType]>,
-    ) -> Result<(), TypeError> {
-        let previous_guard_subject_context = self.context.in_guard_subject_context;
-        self.context.in_guard_subject_context = true;
-        let success_result = self.type_check_expr(expression);
-        self.context.in_guard_subject_context = previous_guard_subject_context;
-        let success_type = success_result?;
-
-        let success_binding_info =
-            success_binding.map(|success_name| (success_name.to_owned(), success_type.clone()));
-
-        if let Some(success_binding_entry) = success_binding_info.as_ref() {
-            let success_name = &success_binding_entry.0;
-            let success_binding_type = &success_binding_entry.1;
-            self.symbol_table.register(SymbolInfo {
-                name: success_name.clone(),
-                symbol_type: SymbolType::Constant,
-                core_type: success_binding_type.clone(),
-                visibility: Visibility::Private,
-                source_location: span,
-                is_let_binding: true,
-                is_mutable: false,
-                read_count: 0,
-                is_pure: false,
-            });
-        }
-
-        self.within_new_scope(|checker| {
-            if let Some(success_binding_entry) = success_binding_info.as_ref() {
-                let success_name = &success_binding_entry.0;
-                let success_binding_type = &success_binding_entry.1;
-                checker.symbol_table.register(SymbolInfo {
-                    name: success_name.clone(),
-                    symbol_type: SymbolType::Constant,
-                    core_type: success_binding_type.clone(),
-                    visibility: Visibility::Private,
-                    source_location: span,
-                    is_let_binding: true,
-                    is_mutable: false,
-                    read_count: 0,
-                    is_pure: false,
-                });
-            }
-
-            checker.symbol_table.register(SymbolInfo {
-                name: error_binding.to_owned(),
-                symbol_type: SymbolType::Constant,
-                core_type: CoreType::String,
-                visibility: Visibility::Private,
-                source_location: span,
-                is_let_binding: true,
-                is_mutable: false,
-                read_count: 0,
-                is_pure: false,
-            });
-
-            checker.type_check_stmt_with_return(else_body, expected_return)
-        })
     }
 
     /// Validate a return statement against the function's expected return type,
@@ -791,25 +734,5 @@ impl TypeChecker {
     /// Returns `TypeError` variants when statement typing fails.
     pub fn type_check_stmt(&mut self, stmt: &Stmt) -> Result<(), TypeError> {
         self.type_check_stmt_with_return(stmt, None)
-    }
-
-    /// Delegate guard statement typing while preserving expected return context.
-    fn type_check_guard_stmt_with_return(
-        &mut self,
-        expression: &Expr,
-        success_binding: Option<&str>,
-        error_binding: &str,
-        else_body: &Stmt,
-        span: Span,
-        expected_return: Option<&[CoreType]>,
-    ) -> Result<(), TypeError> {
-        self.type_check_guard_statement(
-            expression,
-            success_binding,
-            error_binding,
-            else_body,
-            span,
-            expected_return,
-        )
     }
 }

@@ -1,3 +1,4 @@
+#![allow(clippy::missing_docs_in_private_items, reason = "private guard typing helpers are internal implementation details")]
 //! Control-flow expression typing helpers for the type checker.
 
 extern crate alloc;
@@ -30,6 +31,17 @@ pub struct GuardBindingInfo<'type_ref> {
     pub is_mutable: bool,
     /// Source span that identifies the binding declaration site.
     pub span: Span,
+}
+
+/// Input bundle for guard typing to keep checker call sites compact.
+#[derive(Debug)]
+pub struct GuardCheckRequest<'expr, 'binding, 'error, 'stmt, 'expected> {
+    pub expr: &'expr Expr,
+    pub binding: &'binding GuardBindingInfo<'binding>,
+    pub error_binding: Option<&'error str>,
+    pub else_branch: &'stmt Stmt,
+    pub usage: GuardUsage,
+    pub expected_return: Option<&'expected [CoreType]>,
 }
 
 impl TypeChecker {
@@ -195,12 +207,13 @@ impl TypeChecker {
             is_mutable,
             span,
         };
-        self.type_check_guard_expr(
+        self.type_check_guard_expr(GuardCheckRequest {
             expr,
-            &binding_info,
+            binding: &binding_info,
+            error_binding: None,
             else_branch,
-            GuardUsage::Expression,
-            None,
-        )
+            usage: GuardUsage::Expression,
+            expected_return: None,
+        })
     }
 }

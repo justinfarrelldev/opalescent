@@ -20,34 +20,21 @@ extern crate alloc;
 use crate::token::Span;
 use alloc::string::String;
 
-// Re-export operators from the operators module for public use
 pub use self::operators::{BinaryOp, UnaryOp};
-
-// Re-export type structures from the types module for public use
 pub use self::types::{Field, Parameter, Type, TypeDef, TypeParameter, Variant};
 
 pub use self::patterns::{MatchArm, Pattern};
 
-// Re-export documentation structures for public use
 pub use self::documentation::Documentation;
 
-// Re-export hot-reload metadata structures for public use
 pub use self::metadata::{HotReloadMetadata, ModulePath, SymbolInfo};
 
-// Re-export function modifiers for public use
 pub use self::modifiers::FunctionModifier;
 
 /// A unique identifier for AST nodes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(pub usize);
 
-/// Base trait for all AST nodes, extended for hot-reload metadata
-///
-/// # Hot Reload Metadata
-/// This trait is designed to support Opalescent's hot-reloading architecture.
-/// It provides ABI symbol info, dependency tracking, and reloadable status for each node.
-///
-/// All core methods are required for ABI signature generation and dynamic reload.
 pub trait AstNode {
     /// Returns the source span of this AST node
     fn span(&self) -> Span;
@@ -136,6 +123,7 @@ impl Stmt {
             | Self::For { span, .. }
             | Self::While { span, .. }
             | Self::Guard { span, .. }
+            | Self::PropagateGuardError { span, .. }
             | Self::Loop { span, .. }
             | Self::Break { span, .. }
             | Self::Continue { span, .. }
@@ -157,6 +145,7 @@ impl Stmt {
             | Self::For { id, .. }
             | Self::While { id, .. }
             | Self::Guard { id, .. }
+            | Self::PropagateGuardError { id, .. }
             | Self::Loop { id, .. }
             | Self::Break { id, .. }
             | Self::Continue { id, .. }
@@ -682,9 +671,21 @@ pub enum Stmt {
     Guard {
         expression: Box<Expr>,
         success_binding: Option<String>,
+        success_binding_type: Option<Type>,
+        success_binding_is_mutable: bool,
         error_binding: String,
         else_body: Box<Stmt>,
         span: Span,
+        id: NodeId,
+    },
+
+    /// Statement-only terminal propagation of the active guard error binding.
+    PropagateGuardError {
+        /// Name of the active guard error binding being forwarded.
+        error_binding: String,
+        /// Source code location of this propagation statement.
+        span: Span,
+        /// Unique identifier for this AST node.
         id: NodeId,
     },
 

@@ -1,0 +1,10 @@
+import string_to_int32 from standard
+
+##
+  Description: Entry point proving return err is rejected in guard error clauses
+##
+entry main = f(args: string[]): void =>
+    guard string_to_int32('bad') into value: int32 else err =>
+        return err
+    print('UNEXPECTED_SUCCESS={value}')
+    return void

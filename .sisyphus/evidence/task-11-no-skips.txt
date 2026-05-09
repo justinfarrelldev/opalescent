@@ -1,0 +1,27 @@
+# Task 11 No-Skips Audit
+
+Timestamp: 2026-05-09T09:18:20Z
+
+Audit checks:
+- No newly added `#[ignore]` for guard/error migrations.
+- No guard test projects deleted.
+- No commented-out failing guard test bodies introduced.
+- No weakening via skip/ignore shortcuts.
+
+Evidence commands:
+- `git diff -- test-projects tests src/type_system/tests.rs > .sisyphus/evidence/task-11-guard-scope.diff`
+- `git status --short > .sisyphus/evidence/task-11-status-short.txt`
+
+Findings:
+- Search and diff review found no Task-11-introduced skip/ignore/comment-out shortcuts.
+- Guard regression migration consisted of one semantic fix in:
+  - `test-projects/fs-path-manipulation/src/path_ops/absolute.op`
+- No `#[ignore]` additions in the Task-11-modified guard/error scope.
+- No guard test/project deletions in the Task-11-modified guard/error scope.
+
+Verification artifacts:
+- Integration gate: `.sisyphus/evidence/task-11-integration-green.txt`
+- All-features gate: `.sisyphus/evidence/task-11-all-features-green.txt`
+  - Contains known environment flake only:
+    - `tests::windows_wine::tests::wine_msvc_guard_shorthand`
+    - Wine page fault / timeout on host, not compiler semantics regression.

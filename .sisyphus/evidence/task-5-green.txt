@@ -1,0 +1,18 @@
+Task 5 verification summary (2026-05-09T04:49:53Z)
+
+LSP diagnostics:
+- `lsp_diagnostics src/type_system/checker/statements.rs` => clean
+- `lsp_diagnostics src/type_system/checker/expressions_guard.rs` => clean
+- `lsp_diagnostics src/type_system/checker/control_flow.rs` => clean
+- `lsp_diagnostics src/type_system/checker/expressions.rs` => clean
+
+Targeted green checks:
+- `cargo test --lib type_system::tests::test_guard_rejects_empty_error_list -- --exact` => PASS
+- `cargo test --lib type_system::tests::test_guard_statement_binds_success_and_error_types -- --exact` => PASS
+- `cargo test --lib type_system::tests::test_guard_statement_return_err_currently_fails_as_string_to_unit_mismatch -- --exact` => PASS
+- `cargo test --lib type_system::tests::test_propagate_call_remains_valid_unmodified -- --exact` => PASS
+- `cargo test --lib type_system::tests::test_guard_else_expression_allows_matching_success_type -- --exact` => PASS
+
+Broad gate:
+- `cargo test --all-features` => FAIL
+- Remaining failures are later guard-error semantics tests plus the now-obsolete baseline leak test, which changed intentionally in this slice.

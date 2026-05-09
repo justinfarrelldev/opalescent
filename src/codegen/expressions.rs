@@ -73,6 +73,7 @@ pub struct CodegenEnv<'context> {
     pub emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue<'context>>,
     pub loop_stack: Vec<LoopContext<'context>>,
     pub pending_array_metadata: Option<ArrayMetadata<'context>>,
+    pub active_guard_error_slots: Vec<PointerValue<'context>>,
     pub debug_mode: bool,
     pub temp_counter: usize,
 }
@@ -89,6 +90,7 @@ impl<'context> CodegenEnv<'context> {
             emitted_specializations: BTreeMap::new(),
             loop_stack: Vec::new(),
             pending_array_metadata: None,
+            active_guard_error_slots: Vec::new(),
             debug_mode,
             temp_counter: 0,
         }

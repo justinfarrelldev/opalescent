@@ -1,0 +1,19 @@
+import string_to_int32 from standard
+
+##
+  Description: Helper proving guard error clauses must handle before final propagation
+##
+let parse_with_only_propagate = f(text: string): int32 errors ParseError =>
+    guard string_to_int32(text) into value: int32 else err =>
+        propagate err
+    return value
+
+##
+  Description: Entry point exercising the invalid only-propagate guard helper
+##
+entry main = f(args: string[]): void =>
+    guard parse_with_only_propagate('bad') else err =>
+        print('UNEXPECTED_ONLY_PROPAGATE_HANDLER={err}')
+        return void
+    print('UNEXPECTED_SUCCESS')
+    return void

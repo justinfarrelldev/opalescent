@@ -1,6 +1,6 @@
 //! Guard statement parsing helpers split from `statements.rs` to keep file size manageable.
 
-use crate::ast::{AstNode, Stmt};
+use crate::ast::{AstNode, Stmt, Type};
 use crate::parser::{ParseError, ParseResult, Parser};
 use crate::token::{Span, TokenType};
 
@@ -8,7 +8,7 @@ impl Parser {
     /// Parse a guard statement.
     ///
     /// Syntax:
-    /// - `guard <expr> into <success_binding> else <error_binding> => <indent-body>`
+    /// - `guard <expr> into <success_binding> [: Type] [mutable] else <error_binding> => <indent-body>`
     /// - `guard <expr> else <error_binding> => <indent-body>`
     pub(super) fn parse_guard_statement(&mut self) -> ParseResult<Stmt> {
         let start_span = self.current_token().span;
@@ -27,29 +27,49 @@ impl Parser {
 
         let expression = self.parse_expression()?;
 
-        let success_binding = if self.check(&TokenType::Into) {
-            self.advance();
-            if self.check_identifier() {
-                let token = self.advance().clone();
-                if let TokenType::Identifier(name) = token.token_type {
-                    Some(name)
+        let (success_binding, success_binding_type, success_binding_is_mutable) =
+            if self.check(&TokenType::Into) {
+                self.advance();
+                let success_binding = if self.check_identifier() {
+                    let token = self.advance().clone();
+                    if let TokenType::Identifier(name) = token.token_type {
+                        name
+                    } else {
+                        return Err(ParseError::UnexpectedToken {
+                            expected: "identifier after 'into'".to_owned(),
+                            found: format!("{}", token.token_type),
+                            span: ParseError::span_from_token(&token),
+                        });
+                    }
                 } else {
                     return Err(ParseError::UnexpectedToken {
                         expected: "identifier after 'into'".to_owned(),
-                        found: format!("{}", token.token_type),
-                        span: ParseError::span_from_token(&token),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
                     });
-                }
+                };
+
+                let success_binding_type: Option<Type> = self
+                    .check(&TokenType::Colon)
+                    .then(|| {
+                        self.advance();
+                        self.parse_type()
+                    })
+                    .transpose()?;
+
+                let success_binding_is_mutable = self.check(&TokenType::Mutable) && {
+                    self.advance();
+                    true
+                };
+
+                (
+                    Some(success_binding),
+                    success_binding_type,
+                    success_binding_is_mutable,
+                )
             } else {
-                return Err(ParseError::UnexpectedToken {
-                    expected: "identifier after 'into'".to_owned(),
-                    found: format!("{}", self.current_token().token_type),
-                    span: ParseError::span_from_token(self.current_token()),
-                });
-            }
-        } else {
-            None
-        };
+                (None, None, false)
+            };
 
         self.consume(&TokenType::Else, "Expected 'else' in guard statement")?;
 
@@ -74,14 +94,24 @@ impl Parser {
 
         self.consume(&TokenType::Arrow, "Expected '=>' after guard else binding")?;
         self.skip_newlines();
-        let else_body = self.parse_indented_body_with_leading_comments(
+        self.active_guard_error_bindings.push(error_binding.clone());
+        let else_body_result = self.parse_indented_body_with_leading_comments(
             "indentation block after '=>' in guard statement",
-        )?;
+        );
+        let popped_guard_error_binding = self.active_guard_error_bindings.pop();
+        debug_assert_eq!(
+            popped_guard_error_binding.as_deref(),
+            Some(error_binding.as_str()),
+            "guard error binding stack should unwind in LIFO order"
+        );
+        let else_body = else_body_result?;
 
         let span = Span::new(start_span.start, else_body.span().end);
         Ok(Stmt::Guard {
             expression: Box::new(expression),
             success_binding,
+            success_binding_type,
+            success_binding_is_mutable,
             error_binding,
             else_body,
             span,

@@ -1,0 +1,147 @@
+## git status --short
+ M .sisyphus/boulder.json
+ M .sisyphus/evidence/task-1-green.txt
+ M .sisyphus/evidence/task-1-red.txt
+ M .sisyphus/evidence/task-2-propagate-red.txt
+ M .sisyphus/evidence/task-2-red.txt
+ M .sisyphus/evidence/task-3-wine-msvc-file-ops-fs.txt
+ M .sisyphus/evidence/task-9-wine-guard-shorthand-stdout.txt
+ M .sisyphus/notepads/guard-error-propagation/issues.md
+ M .sisyphus/notepads/guard-error-propagation/learnings.md
+ M error-handler-proposals/propagation-only/proposal.md
+ M src/ast.rs
+ M src/ast/node_impls.rs
+ M src/codegen/expressions.rs
+ M src/codegen/expressions_loop.rs
+ M src/codegen/statements.rs
+ M src/codegen/tests.rs
+ M src/formatter/naming.rs
+ M src/formatter/printer.rs
+ M src/parser.rs
+ M src/parser/captures.rs
+ M src/parser/statements.rs
+ M src/parser/statements_guard.rs
+ M src/parser/tests.rs
+ M src/type_system/checker.rs
+ M src/type_system/checker/control_flow.rs
+ M src/type_system/checker/expr_collections.rs
+ M src/type_system/checker/expressions.rs
+ M src/type_system/checker/expressions_guard.rs
+ M src/type_system/checker/statements.rs
+ M src/type_system/rc_analysis.rs
+ M src/type_system/tests.rs
+ M test-projects/fs-path-manipulation/src/path_ops/absolute.op
+ M tests/integration_e2e/compile_failures.rs
+ M tests/integration_e2e/guard_optional_binding.rs
+ M tests/integration_e2e/tests.rs
+?? .sisyphus/evidence/task-10-fail-projects.txt
+?? .sisyphus/evidence/task-10-pass-projects.txt
+?? .sisyphus/evidence/task-11-all-features-green.txt
+?? .sisyphus/evidence/task-11-diff-name-status.txt
+?? .sisyphus/evidence/task-11-guard-scope.diff
+?? .sisyphus/evidence/task-11-integration-green.txt
+?? .sisyphus/evidence/task-11-migrated-file.diff
+?? .sisyphus/evidence/task-11-migration-checklist.md
+?? .sisyphus/evidence/task-11-no-skips.txt
+?? .sisyphus/evidence/task-11-status-short.txt
+?? .sisyphus/evidence/task-12-commit-audit.txt
+?? .sisyphus/evidence/task-12-final-gate.txt
+?? .sisyphus/evidence/task-12-final-index.md
+?? .sisyphus/evidence/task-3-propagate-red.txt
+?? .sisyphus/evidence/task-3-red.txt
+?? .sisyphus/evidence/task-3-scope-red.txt
+?? .sisyphus/evidence/task-5-diagnostic-diff.md
+?? .sisyphus/evidence/task-5-green.txt
+?? .sisyphus/evidence/task-5-shared-path.txt
+?? .sisyphus/evidence/task-6-full-gate.txt
+?? .sisyphus/evidence/task-6-shadowing.txt
+?? .sisyphus/evidence/task-6-success-scope.txt
+?? .sisyphus/evidence/task-7-only-propagate.txt
+?? .sisyphus/evidence/task-7-side-effect-propagate.txt
+?? .sisyphus/evidence/task-8-green.txt
+?? .sisyphus/evidence/task-8-return-err-rejected.txt
+?? .sisyphus/evidence/task-8-runtime-propagation.txt
+?? .sisyphus/evidence/task-9-doc-search.txt
+?? .sisyphus/evidence/task-9-green.txt
+?? .sisyphus/plans/guard-error-propagation.md
+?? test-projects/guard-stmt-only-propagate/
+?? test-projects/guard-stmt-propagate-err/
+?? test-projects/guard-stmt-return-err-banned/
+?? test-projects/guard-stmt-success-binding-leak/
+?? test-projects/guard-stmt-typed-binding/
+?? tests/integration_e2e/guard_stmt.rs
+
+## git log --oneline -n 30
+0ac3b70 docs(notes): record guard propagation slice 2 findings
+fe71609 test(parser): slice 2 - specify statement guard parsing
+8043dfc test(guards): slice 1 - capture guard baseline behavior
+ce09e04 fix(parser): avoid error recovery hang on dedent
+0a5a27d feat(error-handling): add comprehensive proposals for error handling strategies
+878ec9b feat(guard): complete optional guard shorthand rollout
+92c761b feat(delete-downloads): add functionality to remove all files from the Downloads folder feat(move-downloads): implement feature to move files from Downloads to Desktop To-Be-Deleted folder
+a13c799 docs(readme): update Windows environment variable configuration and add explanations
+0237a0f docs(readme): clarify Linux MSVC xwin setup and troubleshooting
+8ad6f56 docs(readme): add Windows program build options
+6b51390 fix(windows): close MSVC/Wine filesystem issue set
+84a67f5 feat(windows): add new issues related to Windows file system operations
+a57c48b chore(sisyphus): sync tracker metadata and map evidence
+ea6a3b2 chore(array): commit remaining fixtures and evidence artifacts
+6409b81 fix(checker): enforce mutable array receiver for push/pop
+f3d066a feat(array): support double arrays
+cff999c fix: resolve zip task clippy lint
+cf8df04 feat(array): implement zip
+2486eee test(array): add Pair smoke coverage
+2989482 feat(array): expose Pair
+37f7136 feat(array): implement reduce
+9b68afd feat(array): implement filter
+b9005b9 feat(array): implement map
+ef9b918 fix: revert unintended modifications to task tracking and restore plan compliance
+3773019 chore: resolve lint debt and refresh readiness evidence
+4999a38 chore: capture validated baseline snapshot
+4bafb33 Added ARRAY_FEATURES and WINDOWS_ISSUES files for tracking issues related to both
+fd58acd Fixed small bug in op-cat and adding sisyphus artifact
+10c3618 chore: capture codegen and QA updates
+297e27e chore: append final cleanliness audit notes
+
+## git diff --stat
+ .sisyphus/boulder.json                             |  119 +-
+ .sisyphus/evidence/task-1-green.txt                | 1439 +++++++++++++++++++-
+ .sisyphus/evidence/task-1-red.txt                  |   49 +-
+ .sisyphus/evidence/task-2-propagate-red.txt        |    4 +-
+ .sisyphus/evidence/task-2-red.txt                  |    3 +-
+ .../evidence/task-3-wine-msvc-file-ops-fs.txt      |  122 +-
+ .../task-9-wine-guard-shorthand-stdout.txt         |    5 +-
+ .../notepads/guard-error-propagation/issues.md     |   65 +
+ .../notepads/guard-error-propagation/learnings.md  |   81 ++
+ .../propagation-only/proposal.md                   |   89 +-
+ src/ast.rs                                         |   14 +
+ src/ast/node_impls.rs                              |    2 +
+ src/codegen/expressions.rs                         |    2 +
+ src/codegen/expressions_loop.rs                    |   17 +
+ src/codegen/statements.rs                          |   63 +
+ src/codegen/tests.rs                               |    2 +
+ src/formatter/naming.rs                            |   11 +
+ src/formatter/printer.rs                           |   17 +-
+ src/parser.rs                                      |    3 +
+ src/parser/captures.rs                             |    5 +
+ src/parser/statements.rs                           |   27 +
+ src/parser/statements_guard.rs                     |   74 +-
+ src/parser/tests.rs                                |   53 +-
+ src/type_system/checker.rs                         |    4 +
+ src/type_system/checker/control_flow.rs            |   22 +-
+ src/type_system/checker/expr_collections.rs        |   26 +-
+ src/type_system/checker/expressions.rs             |   44 +-
+ src/type_system/checker/expressions_guard.rs       |  663 ++++++++ -
+ src/type_system/checker/statements.rs              |  258 ++--
+ src/type_system/rc_analysis.rs                     |    1 +
+ src/type_system/tests.rs                           |  666 ++++++++ -
+ .../fs-path-manipulation/src/path_ops/absolute.op  |    2 +-
+ tests/integration_e2e/compile_failures.rs          |    6 +-
+ tests/integration_e2e/guard_optional_binding.rs    |  293 ++++
+ tests/integration_e2e/tests.rs                     |    1 +
+ 35 files changed, 3770 insertions(+), 482 deletions(-)
+
+## audit notes
+- Final post-refresh gate: `cargo fmt --all -- --check` passed; `cargo clippy --all-targets --all-features -- -D warnings` passed; `cargo test --all-features` failed only on known Wine host flake `tests::windows_wine::tests::wine_msvc_guard_shorthand`.
+- No git commit, amend, rebase, or push was performed.
+- Audit snapshot was captured after refreshing Task 12 evidence files and appending notepad entries so the record matches the finished workspace state.

@@ -1,0 +1,3 @@
+INNER_GUARD_HANDLED=invalid digit 'o' in input
+OUTER_GUARD_PROPAGATED=invalid digit 'o' in input
+propagated-after-handling-ok

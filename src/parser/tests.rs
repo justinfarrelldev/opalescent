@@ -263,6 +263,7 @@ fn stmt_contains_feature(stmt: &Stmt, feature: AstFeature) -> bool {
         Stmt::Break { values, .. } | Stmt::Continue { values, .. } => values
             .iter()
             .any(|value| labeled_value_contains_feature(value, feature)),
+        Stmt::PropagateGuardError { .. } => matches!(feature, AstFeature::Propagate),
     }
 }
 
@@ -505,6 +506,8 @@ fn guard_parenthesized_if_subject_parses() {
     match stmt {
         Stmt::Guard {
             success_binding,
+            success_binding_type,
+            success_binding_is_mutable,
             error_binding,
             else_body,
             ..
@@ -512,6 +515,14 @@ fn guard_parenthesized_if_subject_parses() {
             assert!(
                 success_binding.is_none(),
                 "parenthesized shorthand should omit the success binding"
+            );
+            assert!(
+                success_binding_type.is_none(),
+                "parenthesized shorthand should omit success binding type metadata"
+            );
+            assert!(
+                !success_binding_is_mutable,
+                "parenthesized shorthand should keep success binding immutable"
             );
             assert_eq!(error_binding, "err");
             assert!(matches!(*else_body, Stmt::Block { .. }));
@@ -528,6 +539,8 @@ fn guard_shorthand_without_into_parses_as_statement() {
     match stmt {
         Stmt::Guard {
             success_binding,
+            success_binding_type,
+            success_binding_is_mutable,
             error_binding,
             else_body,
             ..
@@ -535,6 +548,14 @@ fn guard_shorthand_without_into_parses_as_statement() {
             assert!(
                 success_binding.is_none(),
                 "statement shorthand should omit the success binding"
+            );
+            assert!(
+                success_binding_type.is_none(),
+                "statement shorthand should omit success binding type metadata"
+            );
+            assert!(
+                !success_binding_is_mutable,
+                "statement shorthand should keep success binding immutable"
             );
             assert_eq!(error_binding, "err");
             assert!(matches!(*else_body, Stmt::Block { .. }));
@@ -551,11 +572,21 @@ fn guard_into_underscore_still_parses_as_explicit_binding() {
     match stmt {
         Stmt::Guard {
             success_binding,
+            success_binding_type,
+            success_binding_is_mutable,
             error_binding,
             else_body,
             ..
         } => {
             assert_eq!(success_binding.as_deref(), Some("_"));
+            assert!(
+                success_binding_type.is_none(),
+                "explicit discard binding should keep type annotation absent when omitted"
+            );
+            assert!(
+                !success_binding_is_mutable,
+                "explicit discard binding should remain immutable by default"
+            );
             assert_eq!(error_binding, "err");
             assert!(matches!(*else_body, Stmt::Block { .. }));
         }
@@ -579,7 +610,6 @@ fn guard_expression_shorthand_still_requires_into() {
 }
 
 #[test]
-#[ignore]
 fn statement_guard_parses_typed_mutable_binding_like_expression_guards() {
     let stmt = parse_statement_from_string(
         "guard fallible() into value: int32 mutable else err =>\n    handle(err)",
@@ -589,20 +619,28 @@ fn statement_guard_parses_typed_mutable_binding_like_expression_guards() {
     match stmt {
         Stmt::Guard {
             success_binding,
+            success_binding_type,
+            success_binding_is_mutable,
             error_binding,
             else_body,
             ..
         } => {
             assert_eq!(success_binding.as_deref(), Some("value"));
+            assert!(
+                matches!(success_binding_type, Some(Type::Basic { name, .. }) if name == "int32")
+            );
+            assert!(
+                success_binding_is_mutable,
+                "typed statement guard binding should preserve mutable flag"
+            );
             assert_eq!(error_binding, "err");
-            assert!(matches!(*else_body, Stmt::Expression { .. }));
+            assert!(matches!(*else_body, Stmt::Block { .. }));
         }
         other => panic!("expected statement guard, found: {other:?}"),
     }
 }
 
 #[test]
-#[ignore]
 fn statement_guard_allows_guard_only_propagate_err_terminal() {
     let stmt = parse_statement_from_string(
         "guard fallible() into value else err =>\n    log_error(err)\n    propagate err",
@@ -621,8 +659,8 @@ fn statement_guard_allows_guard_only_propagate_err_terminal() {
                 assert!(
                     statements
                         .iter()
-                        .any(|stmt| matches!(stmt, Stmt::Expression { expr: Expr::Propagate { .. }, .. })),
-                    "guard error clause should parse terminal propagate err as a statement"
+                        .any(|stmt| matches!(stmt, Stmt::PropagateGuardError { error_binding, .. } if error_binding == "err")),
+                    "guard error clause should parse terminal propagate err as a statement-only terminal"
                 );
             }
             other => panic!("expected guard else block, found: {other:?}"),
@@ -635,7 +673,10 @@ fn statement_guard_allows_guard_only_propagate_err_terminal() {
 fn bare_propagate_err_outside_guard_remains_invalid() {
     let result = parse_statement_from_string("propagate err");
 
-    assert!(result.is_err(), "bare propagate err must remain rejected outside guard error clauses");
+    assert!(
+        result.is_err(),
+        "bare propagate err must remain rejected outside guard error clauses"
+    );
 }
 
 fn identifier_strategy() -> impl Strategy<Value = String> {

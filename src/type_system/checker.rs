@@ -71,6 +71,10 @@ struct TypeCheckContext {
     guard_else_depth: usize,
     /// Stack tracking the error types handled by active guard else branches.
     guard_error_stack: Vec<Vec<CoreType>>,
+    /// Stack of guard success bindings intentionally hidden while typing the active error clause.
+    pending_guard_success_bindings: Vec<String>,
+    /// Stack of active guard error binding names currently in scope.
+    active_guard_error_bindings: Vec<String>,
     /// Tracks whether calls are being checked from within a propagate expression.
     in_propagate_context: bool,
     /// Tracks whether calls are being checked as the subject expression of a guard.

@@ -1,3 +1,4 @@
+#![allow(clippy::missing_docs_in_private_items, clippy::pattern_type_mismatch, reason = "private checker helpers and pattern matches are internal implementation details")]
 //! Collection and interpolation expression helpers.
 
 extern crate alloc;
@@ -26,7 +27,9 @@ impl TypeChecker {
                 let expr_type = self.type_check_expr(expr)?;
                 if !(is_numeric_type(&expr_type)
                     || is_boolean_type(&expr_type)
-                    || is_string_type(&expr_type))
+                    || is_string_type(&expr_type)
+                    || Self::is_displayable_error_type(&expr_type)
+                    || Self::is_guard_error_interpolation_type(&expr_type))
                 {
                     return Err(invalid_operation_error(
                         "string interpolation",
@@ -37,6 +40,28 @@ impl TypeChecker {
             }
         }
         Ok(())
+    }
+
+    fn is_guard_error_interpolation_type(expr_type: &CoreType) -> bool {
+        match expr_type {
+            CoreType::Generic { name, type_args } => {
+                name == "GuardErrorContext" && type_args.iter().all(Self::is_displayable_error_type)
+            }
+            _ => false,
+        }
+    }
+
+    fn is_displayable_error_type(expr_type: &CoreType) -> bool {
+        match expr_type {
+            CoreType::Generic { name, type_args } => {
+                type_args.is_empty() && Self::looks_like_error_type_name(name)
+            }
+            _ => false,
+        }
+    }
+
+    fn looks_like_error_type_name(name: &str) -> bool {
+        name.ends_with("Error") && name.chars().next().is_some_and(char::is_uppercase)
     }
 
     /// Type check an array literal, deriving a unified element type and generating equality

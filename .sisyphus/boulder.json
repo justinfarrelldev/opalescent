@@ -1,122 +1,55 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/optional-guard-into.md",
-  "started_at": "2026-05-07T04:10:16.495Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/guard-error-propagation.md",
+  "started_at": "2026-05-07T23:23:01.433Z",
   "session_ids": [
-    "ses_1ff7557b3ffeaDA9mrUl7ydXyi",
-    "ses_1ff58dcf7ffehf1z1BKdPgH3cz",
-    "ses_1ff58dc0fffdieNrRDwiElbJ3r",
-    "ses_1ff58dc0bffeEuVZnrNP1zWwwz",
-    "ses_1fc0cf2eeffewQvagLRwis7P9A",
-    "ses_1fc0cf11effeleV651HltV2R2o"
+    "ses_1fb604f16ffe0lmKIRhtvud5re",
+    "ses_1f51fdd82ffesiZ3lhC9x5nKli",
+    "ses_1f51fdbc2ffdqpujgIVWwuXANv",
+    "ses_1f51fdbbfffeqJuetr91G8tYHX"
   ],
   "session_origins": {
-    "ses_1ff7557b3ffeaDA9mrUl7ydXyi": "direct",
-    "ses_1ff58dcf7ffehf1z1BKdPgH3cz": "appended",
-    "ses_1ff58dc0fffdieNrRDwiElbJ3r": "appended",
-    "ses_1ff58dc0bffeEuVZnrNP1zWwwz": "appended",
-    "ses_1fc0cf2eeffewQvagLRwis7P9A": "appended",
-    "ses_1fc0cf11effeleV651HltV2R2o": "appended"
+    "ses_1fb604f16ffe0lmKIRhtvud5re": "direct",
+    "ses_1f51fdd82ffesiZ3lhC9x5nKli": "appended",
+    "ses_1f51fdbc2ffdqpujgIVWwuXANv": "appended",
+    "ses_1f51fdbbfffeqJuetr91G8tYHX": "appended"
   },
-  "plan_name": "optional-guard-into",
+  "plan_name": "guard-error-propagation",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Add RED parser and diagnostic tests for the new guard grammar",
-      "session_id": "ses_1ff5dde3bffet0xRK609zwyitM",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-05-07T04:13:45.923Z"
+      "task_title": "Baseline impact map and characterization tests",
+      "session_id": "ses_1f51fdbc2ffdqpujgIVWwuXANv",
+      "agent": "explore",
+      "updated_at": "2026-05-09T03:59:27.933Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "Change statement guard AST and parser to support omitted success binding",
-      "session_id": "ses_1ff48703cffeYxmOlPBYZzi4mh",
+      "task_title": "Add RED parser and AST tests for typed statement guards and guard-only propagation terminal",
+      "session_id": "ses_1f512dd16ffe220E67QVdqIw9k",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-07T04:38:10.684Z"
+      "category": "quick",
+      "updated_at": "2026-05-09T04:11:03.544Z"
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "Implement dedicated ambiguous guarded-if miette diagnostic and parser recovery",
-      "session_id": "ses_1ff444e2dffeBsmln9J4g7U4d1",
+      "task_title": "Add RED typechecker tests for guard scope and must-handle semantics",
+      "session_id": "ses_1f50ffdfeffej0oFK1uZ1hP5uK",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-07T04:46:11.702Z"
+      "category": "quick",
+      "updated_at": "2026-05-09T04:18:14.292Z"
     },
     "todo:4": {
       "task_key": "todo:4",
       "task_label": "4",
-      "task_title": "Update type checker and scope handling for optional statement guard bindings",
-      "session_id": "ses_1ff3c2c78ffe8hLf687yqxtifs",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-07T04:51:23.468Z"
-    },
-    "todo:5": {
-      "task_key": "todo:5",
-      "task_label": "5",
-      "task_title": "Update statement guard codegen to discard omitted success values safely",
-      "session_id": "ses_1ff3163d9ffewspCHMIqRMzDx7",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-07T05:03:32.220Z"
-    },
-    "todo:6": {
-      "task_key": "todo:6",
-      "task_label": "6",
-      "task_title": "Update formatter and naming checks for optional guard success bindings",
-      "session_id": "ses_1ff2cbb99ffecElCZCBBDc1LYS",
+      "task_title": "Implement statement guard AST/parser parity and guard-only terminal representation",
+      "session_id": "ses_1f3c62305ffex65wPrEd5IUH9g",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-05-07T05:06:43.061Z"
-    },
-    "todo:8": {
-      "task_key": "todo:8",
-      "task_label": "8",
-      "task_title": "Add host integration project coverage for shorthand guard success and error paths",
-      "session_id": "ses_1ff25cfe6ffeovfvx0oZ89E8SF",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-07T05:14:46.897Z"
-    },
-    "todo:9": {
-      "task_key": "todo:9",
-      "task_label": "9",
-      "task_title": "Add Windows/Wine validation for guard shorthand",
-      "session_id": "ses_1ff22c237ffe5PUGzI7z1LjccI",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-07T05:19:57.424Z"
-    },
-    "todo:10": {
-      "task_key": "todo:10",
-      "task_label": "10",
-      "task_title": "Rewrite test-project `guard ... into _ else ... =>` statements to shorthand after green validation",
-      "session_id": "ses_1fef4df1cffeh80FO7PzC3zN15",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-07T06:09:42.452Z"
-    },
-    "todo:11": {
-      "task_key": "todo:11",
-      "task_label": "11",
-      "task_title": "Run full regression, update narrow docs/spec examples, and capture final evidence",
-      "session_id": "ses_1fc04cc36ffe62K0K6556XZAfa",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-07T19:48:58.668Z"
-    },
-    "final-wave:f1": {
-      "task_key": "final-wave:f1",
-      "task_label": "F1",
-      "task_title": "Plan Compliance Audit — oracle",
-      "session_id": "ses_1fbf997ffffe6zuhCoIOZKajY3",
-      "agent": "oracle",
-      "updated_at": "2026-05-07T20:01:13.279Z"
+      "updated_at": "2026-05-09T10:16:53.552Z"
     }
   }
 }

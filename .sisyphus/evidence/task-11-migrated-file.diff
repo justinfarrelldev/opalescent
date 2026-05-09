@@ -1,0 +1,11 @@
+diff --git a/test-projects/fs-path-manipulation/src/path_ops/absolute.op b/test-projects/fs-path-manipulation/src/path_ops/absolute.op
+index e6a116b..d615ae4 100644
+--- a/test-projects/fs-path-manipulation/src/path_ops/absolute.op
++++ b/test-projects/fs-path-manipulation/src/path_ops/absolute.op
+@@ -5,5 +5,5 @@ import path_from, absolute_path_sync, path_to_string from standard
+ ##
+ public let absolute_show = f(raw: string): string =>
+     guard absolute_path_sync(path_from(raw)) into value else err =>
+-        return err
++        return '{err}'
+     return path_to_string(value)

@@ -199,6 +199,11 @@ fn collect_identifiers_in_stmt(
             collect_identifiers_in_expr(expression, param_names, seen, captures);
             collect_identifiers_in_stmt(else_body, param_names, seen, captures);
         }
+        Stmt::PropagateGuardError { error_binding, .. } => {
+            if !param_names.contains(error_binding.as_str()) && seen.insert(error_binding.clone()) {
+                captures.push(error_binding.clone());
+            }
+        }
         Stmt::Loop { body, .. } => {
             collect_identifiers_in_stmt(body, param_names, seen, captures);
         }

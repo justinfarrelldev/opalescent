@@ -828,6 +828,33 @@ impl Parser {
     /// - The expression syntax is invalid
     /// - An assignment target is invalid (e.g., `5 = x`)
     pub(super) fn parse_expression_statement(&mut self) -> ParseResult<Stmt> {
+        if self.check(&TokenType::Propagate) {
+            if let Some(active_guard_error_binding) =
+                self.active_guard_error_bindings.last().cloned()
+            {
+                let start_span = self.current_token().span;
+                let next_token = self.tokens.get(self.current.saturating_add(1));
+                let maybe_matches_guard_error = next_token.and_then(|token| {
+                    if let TokenType::Identifier(ref identifier) = token.token_type {
+                        Some(identifier == &active_guard_error_binding)
+                    } else {
+                        None
+                    }
+                });
+
+                if maybe_matches_guard_error == Some(true) {
+                    self.advance();
+                    let binding_token = self.advance().clone();
+                    let span = Span::new(start_span.start, binding_token.span.end);
+                    return Ok(Stmt::PropagateGuardError {
+                        error_binding: active_guard_error_binding,
+                        span,
+                        id: self.next_node_id(),
+                    });
+                }
+            }
+        }
+
         let expr = self.parse_expression()?;
 
         // Check if this is an assignment

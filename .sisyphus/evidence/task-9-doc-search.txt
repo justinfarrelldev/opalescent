@@ -1,0 +1,53 @@
+=== Task 9 Documentation Search ===
+Date: 2026-05-09T04:46:04-04:00
+
+--- CMD: grep -n 'return err\|propagate err' error-handler-proposals/propagation-only/proposal.md ---
+9:- `return err`
+15:This is closest in spirit to Rust's `?`, Zig's `try`, and Go's common `return err` style, but it stays aligned with Opalescent's `guard` syntax.
+20:- `return err` is an error return, not a success-value return.
+32:    return err
+89:    return err
+139:        return err
+154:        return err
+187:- **Implementation effort**: Medium-High, mostly type-checker enforcement around `return err`, compatible error sets, and unique wrapper-lift resolution.
+
+--- CMD: grep -n 'guard ' error-handler-proposals/propagation-only/proposal.md ---
+5:This proposal is the narrowest low-ceremony option: guard error bindings are handled only by sending the error upward, either unchanged or through a typed wrapper variant.
+11:- `propagate` for direct fallible calls outside the guard handler, including unique typed auto-lifts
+31:guard parse_config(config_text) into config else err =>
+42:guard parse_config(config_text) into config else err =>
+85:A guard handler must terminate through an error return:
+88:guard read_text_sync(input_path) into text else err =>
+99:guard read_text_sync(input_path) into text else err =>
+108:guard read_text_sync(input_path) into text else err =>
+138:    guard parse_trade_count(batch_text) into trade_count else err =>
+153:    guard read_text_sync(manifest_path) into manifest_text else err =>
+
+--- CMD: grep -n 'return err\|propagate err\|guard error clause' src/type_system/tests.rs (excerpt) ---
+2130:        error_text.contains("success binding is not available inside guard error clause"),
+2374:        "return err in a guard error clause should fail with the dedicated Task 7 diagnostic",
+2379:            "return err is not valid in a guard error clause; use propagate err to forward the guard error"
+2381:        "expected Task 7 guard-clause return err diagnostic, got: {error_text}"
+3274:        error_text.contains("success binding is not available inside guard error clause"),
+3321:        "outer lexical variable with same name should remain visible in guard error clause: {shadow_result:?}"
+3333:            return err
+3393:        .expect_err("return err should be rejected in a guard error clause");
+3397:            "return err is not valid in a guard error clause; use propagate err to forward the guard error"
+3458:        .expect_err("propagate err should be terminal inside guard error clauses");
+3462:            "propagate err is only valid as the final statement of a guard error clause"
+3512:        .expect_err("only-propagate guard error clauses should be rejected");
+3516:            "guard error clause must perform handling before propagating; replace this guard with shorthand propagate <call>() when no handling is needed"
+3588:        "guard error clause should allow handling before final propagate err: {result:?}"
+3640:        .expect_err("guard error clauses must handle or propagate the bound error");
+3643:        error_text.contains("guard error clause must handle or propagate the bound error"),
+
+--- CMD: grep -n 'return err\|propagate err\|guard error clause' src/type_system/errors.rs ---
+521:    /// A `guard` expression was used on an expression that does not return errors.
+
+--- Implemented caveat (from type_system tests) ---
+1. return err in guard error clause => REJECTED with diagnostic:
+   'return err is not valid in a guard error clause; use propagate err to forward the guard error'
+2. propagate err is only valid as the FINAL statement of a guard error clause.
+3. guard error clause containing ONLY 'propagate err' is REJECTED:
+   'guard error clause must perform handling before propagating; replace this guard with shorthand propagate <call>() when no handling is needed'
+4. Guard error clauses must handle or propagate the bound error.

@@ -687,6 +687,8 @@ impl Formatter {
             Stmt::Guard {
                 ref expression,
                 ref success_binding,
+                ref success_binding_type,
+                ref success_binding_is_mutable,
                 ref error_binding,
                 ref else_body,
                 ..
@@ -695,8 +697,16 @@ impl Formatter {
                 let guard_header = success_binding.as_ref().map_or_else(
                     || format!("{indent}guard {expression_str} else {error_binding} =>"),
                     |binding| {
+                        let binding_type = success_binding_type
+                            .as_ref()
+                            .map_or_else(String::new, |ty| format!(": {}", print_type(ty)));
+                        let mutable = if *success_binding_is_mutable {
+                            " mutable"
+                        } else {
+                            ""
+                        };
                         format!(
-                            "{indent}guard {expression_str} into {binding} else {error_binding} =>"
+                            "{indent}guard {expression_str} into {binding}{binding_type}{mutable} else {error_binding} =>"
                         )
                     },
                 );
@@ -712,6 +722,11 @@ impl Formatter {
                     let else_body_str = self.print_stmt(else_body, depth.saturating_add(1));
                     format!("{guard_header}\n{else_body_str}")
                 }
+            }
+            Stmt::PropagateGuardError {
+                ref error_binding, ..
+            } => {
+                format!("{indent}propagate {error_binding}")
             }
             Stmt::Loop { ref body, .. } => {
                 // Per language spec: colon-block syntax
