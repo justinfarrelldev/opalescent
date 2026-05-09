@@ -578,6 +578,66 @@ fn guard_expression_shorthand_still_requires_into() {
     );
 }
 
+#[test]
+#[ignore]
+fn statement_guard_parses_typed_mutable_binding_like_expression_guards() {
+    let stmt = parse_statement_from_string(
+        "guard fallible() into value: int32 mutable else err =>\n    handle(err)",
+    )
+    .expect("statement guards should accept typed mutable success bindings");
+
+    match stmt {
+        Stmt::Guard {
+            success_binding,
+            error_binding,
+            else_body,
+            ..
+        } => {
+            assert_eq!(success_binding.as_deref(), Some("value"));
+            assert_eq!(error_binding, "err");
+            assert!(matches!(*else_body, Stmt::Expression { .. }));
+        }
+        other => panic!("expected statement guard, found: {other:?}"),
+    }
+}
+
+#[test]
+#[ignore]
+fn statement_guard_allows_guard_only_propagate_err_terminal() {
+    let stmt = parse_statement_from_string(
+        "guard fallible() into value else err =>\n    log_error(err)\n    propagate err",
+    )
+    .expect("guard error clauses should accept propagate err as the terminal statement");
+
+    match stmt {
+        Stmt::Guard { else_body, .. } => match *else_body {
+            Stmt::Block { statements, .. } => {
+                assert!(
+                    statements
+                        .iter()
+                        .any(|stmt| matches!(stmt, Stmt::Expression { .. })),
+                    "guard error clause should retain its handling statement"
+                );
+                assert!(
+                    statements
+                        .iter()
+                        .any(|stmt| matches!(stmt, Stmt::Expression { expr: Expr::Propagate { .. }, .. })),
+                    "guard error clause should parse terminal propagate err as a statement"
+                );
+            }
+            other => panic!("expected guard else block, found: {other:?}"),
+        },
+        other => panic!("expected statement guard, found: {other:?}"),
+    }
+}
+
+#[test]
+fn bare_propagate_err_outside_guard_remains_invalid() {
+    let result = parse_statement_from_string("propagate err");
+
+    assert!(result.is_err(), "bare propagate err must remain rejected outside guard error clauses");
+}
+
 fn identifier_strategy() -> impl Strategy<Value = String> {
     string_regex("[a-z]{1,8}")
         .expect("regex is valid")

@@ -1,0 +1,24 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-2e0f335919757aaa)
+
+running 1 test
+test parser::tests::statement_guard_parses_typed_mutable_binding_like_expression_guards ... FAILED
+
+failures:
+
+---- parser::tests::statement_guard_parses_typed_mutable_binding_like_expression_guards stdout ----
+
+thread 'parser::tests::statement_guard_parses_typed_mutable_binding_like_expression_guards' panicked at src/parser/tests.rs:586:6:
+statement guards should accept typed mutable success bindings: MissingToken { expected: "keyword 'else'", span: SourceSpan { offset: SourceOffset(27), length: 1 } }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    parser::tests::statement_guard_parses_typed_mutable_binding_like_expression_guards
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1198 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
