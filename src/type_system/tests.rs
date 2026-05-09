@@ -2110,6 +2110,26 @@ fn test_guard_binding_available_after_guard() {
 }
 
 #[test]
+fn test_guard_statement_success_binding_currently_leaks_into_else_clause() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        entry main = f(): void =>
+            guard string_to_int32('5') into value else err =>
+                let leaked: int32 = value
+                continue
+            return void
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "current statement-guard behavior still exposes the success binding inside the error clause: {result:?}"
+    );
+}
+
+#[test]
 fn test_guard_statement_binds_success_and_error_types() {
     let program = parse_program_from_source_with_spaces(
         "
@@ -2211,6 +2231,68 @@ fn type_check_guard_into_underscore_still_valid() {
     assert!(
         result.is_ok(),
         "explicit guard discard binding into _ should remain valid: {result:?}"
+    );
+}
+
+#[test]
+fn test_guard_statement_return_err_currently_fails_as_string_to_unit_mismatch() {
+    let worker = make_function_decl_with_errors(
+        "worker",
+        Vec::new(),
+        Some(int_type("void")),
+        vec!["ParseError"],
+        Stmt::Block {
+            statements: vec![
+                Stmt::Guard {
+                    expression: Box::new(call_expr("string_to_int32", &["input"], 7_520_001)),
+                    success_binding: Some("value".to_owned()),
+                    error_binding: "err".to_owned(),
+                    else_body: Box::new(Stmt::Block {
+                        statements: vec![return_stmt(identifier_expr("err", 7_520_002), 7_520_003)],
+                        span: test_span(),
+                        id: node_id(7_520_004),
+                    }),
+                    span: test_span(),
+                    id: node_id(7_520_005),
+                },
+                return_stmt(literal_expr(LiteralValue::Void, 7_520_006), 7_520_007),
+            ],
+            span: test_span(),
+            id: node_id(7_520_008),
+        },
+        7_520_009,
+    );
+
+    let input_decl = make_let_decl(
+        "input",
+        Some(int_type("string")),
+        literal_expr(LiteralValue::String(String::from("5")), 7_520_010),
+        7_520_011,
+    );
+
+    let program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7_520_000),
+        input_decl,
+        worker,
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker.type_check_program(&program).expect_err(
+        "return err in a guard error clause should still fail under current baseline behavior",
+    );
+    let saw_type_mismatch = errors.iter().any(|error| {
+        matches!(
+            error,
+            &TypeError::TypeMismatch {
+                ref expected,
+                ref found,
+                ..
+            } if expected == "unit" && found == "string"
+        )
+    });
+    assert!(
+        saw_type_mismatch,
+        "current baseline should record that guard-clause return err currently fails as string-to-unit mismatch, got: {errors:?}"
     );
 }
 

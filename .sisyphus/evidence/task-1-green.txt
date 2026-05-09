@@ -1,0 +1,13 @@
+Diff in /home/justi/Projects/opalescent/tests/integration_e2e/compile_failures.rs:558:
+     entries.iter().find_map(|entry| {
+         matches!(
+             &entry.1,
+[31m-            &CompilerError::Parser(opalescent::parser::errors::ParseError::GuardAmbiguousIfElse {
+(B[m[31m-                ..
+(B[m[31m-            })
+(B[m[32m+            &CompilerError::Parser(
+(B[m[32m+                opalescent::parser::errors::ParseError::GuardAmbiguousIfElse { .. }
+(B[m[32m+            )
+(B[m         )
+         .then_some(&entry.1)
+     })

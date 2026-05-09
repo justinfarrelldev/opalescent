@@ -1,0 +1,19 @@
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.38s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-2e0f335919757aaa)
+
+running 1 test
+
+thread 'type_system::tests::test_guard_statement_success_binding_currently_leaks_into_else_clause' panicked at src/type_system/tests.rs:2126:5:
+future guard semantics should reject success binding references inside the error clause, but current baseline is: Ok(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test type_system::tests::test_guard_statement_success_binding_currently_leaks_into_else_clause ... FAILED
+
+failures:
+
+failures:
+    type_system::tests::test_guard_statement_success_binding_currently_leaks_into_else_clause
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1195 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
