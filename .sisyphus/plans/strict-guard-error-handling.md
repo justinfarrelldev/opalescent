@@ -482,7 +482,7 @@ Wave 4: Tasks 10-11 (atomic commits/final clean verification, documentation of e
 
   **Commit**: YES | Message: `refactor(guard): simplify strict terminal validation` | Files: `src/type_system/checker/expressions_guard.rs`, related tests only if needed
 
-- [ ] 10. Run full verification and create atomic commits in order
+- [x] 10. Run full verification and create atomic commits in order
 
   **What to do**: Ensure all implementation work is split into atomic commits in the commit strategy order. Use normal hooks; do not skip verification. Run full build/test/integration commands and save outputs. If any red-phase evidence files are untracked and not meant to be committed, either commit them only if project convention allows `.sisyphus/evidence`, or remove generated evidence before final status check according to repository policy. Final repository state must have all intended source/test changes committed and no staged/unstaged changes.
   **Must NOT do**: Do not use `--no-verify`, do not amend unless hook-modified files require it and git safety rules allow it, do not push unless explicitly requested.
@@ -526,7 +526,7 @@ Wave 4: Tasks 10-11 (atomic commits/final clean verification, documentation of e
 
   **Commit**: YES | Message: multiple atomic green commits per strategy | Files: all intended implementation/test/fixture changes
 
-- [ ] 11. Record execution evidence summary, clean evidence files, and verify final status
+- [x] 11. Record execution evidence summary, clean evidence files, and verify final status
 
   **What to do**: Create a concise execution summary during the task listing final diagnostic codes, fixtures added/updated, red-phase confirmation results, final verification commands, commit hashes, and any deviations from the plan. If repository convention allows versioned `.sisyphus/evidence`, commit `.sisyphus/evidence/strict-guard-error-handling-summary.md` as the final evidence commit. Otherwise, include the same summary in the final assistant response, remove untracked `.sisyphus/evidence/*` files before final status verification, and record the cleanup decision in the response. Run `git status --porcelain` after the summary commit/removal decision.
   **Must NOT do**: Do not leave untracked evidence files behind. Do not modify source docs or README files unless required by tests. Do not include secrets or environment-specific paths beyond repository-relative paths.

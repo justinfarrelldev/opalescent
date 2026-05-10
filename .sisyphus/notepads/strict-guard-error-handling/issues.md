@@ -5,3 +5,4 @@
 - Working tree still includes broad pre-existing evidence and planning artifacts under `.sisyphus/evidence` and `.sisyphus/plans`, so commit slicing must stage only strict-guard Task 10 scope.
 - `git status --porcelain` remains non-clean prior to commit batching by design; final clean-state evidence must be generated after all Task 10 commits.
 - Recent history includes a dual-subject commit line (`feat(delete-downloads)... feat(move-downloads)...`), so keep upcoming commit subjects singular and atomic.
+- Task 11 subagent attempts repeatedly failed due orchestration/session errors (`Bad Request`) and were completed manually in Atlas session.

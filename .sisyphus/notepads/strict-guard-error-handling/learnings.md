@@ -7,3 +7,4 @@
 - Full Task 10 verification rerun passed (`cargo build`, `cargo test`, `cargo test --features integration`, strict clippy, and fmt check) and was captured in `.sisyphus/evidence/task-10-full-verification.txt`.
 - Strict terminal guard behavior remains enforced end-to-end: non-terminal `propagate(err)` handlers stay rejected while valid wrapper terminal returns preserve source error provenance checks.
 - Regression coverage now confirms wrapper-valid and wrapper-invalid guard statement fixtures stay deterministic across checker, codegen, and e2e execution.
+- Task 11 summary artifact was generated at `.sisyphus/evidence/strict-guard-error-handling-summary.md` and includes diagnostics, fixtures, verification commands, and commit references.
