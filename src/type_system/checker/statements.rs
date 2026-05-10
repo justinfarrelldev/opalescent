@@ -1,4 +1,7 @@
-#![allow(clippy::pattern_type_mismatch, reason = "statement matcher patterns intentionally work on borrowed AST nodes")]
+#![allow(
+    clippy::pattern_type_mismatch,
+    reason = "statement matcher patterns intentionally work on borrowed AST nodes"
+)]
 //! Statement type checking for the Opalescent type system
 
 extern crate alloc;
@@ -224,9 +227,9 @@ impl TypeChecker {
                 }
                 Ok(())
             }
-            Stmt::PropagateGuardError { .. } => self
-                .type_check_guard_error_clause_statement(stmt, expected_return, false)
-                .map(|_| ()),
+            Stmt::PropagateGuardError { .. } => {
+                self.type_check_guard_error_clause_statement(stmt, expected_return, false)
+            }
             Stmt::Comment { .. } => Ok(()),
         }
     }

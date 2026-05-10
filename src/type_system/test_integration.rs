@@ -560,7 +560,8 @@ entry main = f(): int64 => {
         const SOURCE: &str = "
 entry main = f(): int32 errors ParseError => {
     guard string_to_int32('7') into parsed else _e =>
-        return 0
+        let handled: ParseError = _e
+        propagate _e
     return parsed
 }
 ";

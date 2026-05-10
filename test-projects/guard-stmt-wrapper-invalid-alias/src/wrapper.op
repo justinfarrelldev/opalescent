@@ -1,0 +1,13 @@
+import string_to_int32 from standard
+import type ParseError, WrappedParseError from ./wrapper.types
+
+##
+  Description: Alias sources must be rejected for strict wrapper returns
+##
+public let parse_with_wrapper_alias = f(text: string): int32 errors WrappedParseError =>
+    guard string_to_int32(text) into value: int32 else err =>
+        let alias_err: ParseError = err
+        return new WrappedParseError.Reading:
+            source: alias_err
+            context: 'bad-input={text}'
+    return value

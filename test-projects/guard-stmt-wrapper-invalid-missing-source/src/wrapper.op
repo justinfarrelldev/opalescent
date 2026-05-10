@@ -1,0 +1,11 @@
+import string_to_int32 from standard
+import type WrappedParseError from ./wrapper.types
+
+##
+  Description: Wrapper returns without source must be rejected
+##
+public let parse_with_wrapper_missing_source = f(text: string): int32 errors WrappedParseError =>
+    guard string_to_int32(text) into value: int32 else err =>
+        return new WrappedParseError.Reading:
+            context: 'bad-input={text}'
+    return value

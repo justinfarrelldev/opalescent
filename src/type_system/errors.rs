@@ -1,11 +1,9 @@
 //! Type checking error types and error handling utilities
-
 extern crate alloc;
 use crate::token::Span;
 use alloc::string::String;
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
-
 /// Type checking errors that can occur during type analysis
 #[derive(Error, Debug, Clone, PartialEq, Eq, Diagnostic)]
 pub enum TypeError {
@@ -22,7 +20,6 @@ pub enum TypeError {
         /// Source span highlighting where the type was referenced
         span: SourceSpan,
     },
-
     /// Symbol (variable/function) was not found in the current scope
     #[error("Symbol '{name}' not found in this scope")]
     #[diagnostic(
@@ -38,7 +35,6 @@ pub enum TypeError {
         /// Location where the symbol was referenced
         span: SourceSpan,
     },
-
     /// Unknown sum-type variant was referenced in a constructor expression.
     #[error("Unknown variant '{variant_name}' on type '{type_name}'")]
     #[diagnostic(
@@ -54,7 +50,6 @@ pub enum TypeError {
         /// Source location of the unknown variant reference.
         span: SourceSpan,
     },
-
     /// Required constructor field was not provided.
     #[error("Missing required field '{field_name}' for '{type_name}'")]
     #[diagnostic(
@@ -70,7 +65,6 @@ pub enum TypeError {
         /// Source location of the constructor expression.
         span: SourceSpan,
     },
-
     /// Constructor provided a value that does not match the declared field type.
     #[error(
         "Field '{field_name}' type mismatch in '{type_name}': expected '{expected}', found '{found}'"
@@ -92,7 +86,6 @@ pub enum TypeError {
         /// Source location of the mismatching field value.
         span: SourceSpan,
     },
-
     /// Constructor declared the same field more than once.
     #[error("Duplicate field '{field_name}' in constructor expression")]
     #[diagnostic(
@@ -106,7 +99,6 @@ pub enum TypeError {
         /// Source location of the duplicate field occurrence.
         span: SourceSpan,
     },
-
     /// Type declaration reuses a reserved predefined name.
     #[error("Type '{type_name}' is reserved and cannot be redeclared")]
     #[diagnostic(
@@ -120,7 +112,6 @@ pub enum TypeError {
         /// Source location of the reserved type declaration.
         span: SourceSpan,
     },
-
     /// Program contains no entry point declaration.
     #[error("Program is missing an `entry` function")]
     #[diagnostic(
@@ -133,7 +124,6 @@ pub enum TypeError {
         /// Label span used in diagnostics.
         span: SourceSpan,
     },
-
     /// Program declares more than one entry point.
     #[error("Program declares multiple `entry` functions ({count} found)")]
     #[diagnostic(
@@ -148,7 +138,6 @@ pub enum TypeError {
         /// Label span used in diagnostics.
         span: SourceSpan,
     },
-
     /// Types do not match in an expression
     #[error("Type mismatch: expected '{expected}', found '{found}'")]
     #[diagnostic(
@@ -169,7 +158,6 @@ pub enum TypeError {
         /// Source span highlighting where the expected type was required
         expected_span: Option<SourceSpan>,
     },
-
     /// Pattern cannot match the scrutinee type in a `match` expression.
     #[error("Pattern type mismatch: expected '{expected}', found '{found}'")]
     #[diagnostic(
@@ -185,7 +173,6 @@ pub enum TypeError {
         /// Source span of the incompatible pattern.
         span: SourceSpan,
     },
-
     /// Match expression is missing one or more variants for an ADT scrutinee.
     #[error("Non-exhaustive match: missing variants {missing_variants:?}")]
     #[diagnostic(
@@ -199,7 +186,6 @@ pub enum TypeError {
         /// Source span of the non-exhaustive match expression.
         span: SourceSpan,
     },
-
     /// Match arm body type differs from the expected arm result type.
     #[error("Match arm #{arm_index} has type '{found}', expected '{expected}'")]
     #[diagnostic(
@@ -217,7 +203,6 @@ pub enum TypeError {
         /// Source span of the mismatching arm.
         span: SourceSpan,
     },
-
     /// Invalid type operation
     #[error("Invalid operation '{operation}' for type '{type_name}'")]
     #[diagnostic(
@@ -235,7 +220,6 @@ pub enum TypeError {
         /// Source span highlighting where the invalid operation was attempted
         span: SourceSpan,
     },
-
     /// Assignment attempted on an immutable `let` binding.
     #[error("Cannot assign to immutable variable '{name}'")]
     #[diagnostic(
@@ -252,7 +236,6 @@ pub enum TypeError {
         /// Optional source span of the original immutable declaration.
         declaration_span: Option<SourceSpan>,
     },
-
     /// Compile-time detected division or modulo by a constant zero divisor.
     #[error("Compile-time {operation} by zero is not allowed")]
     #[diagnostic(
@@ -266,7 +249,6 @@ pub enum TypeError {
         /// Source span highlighting the zero-valued divisor expression.
         span: SourceSpan,
     },
-
     #[error(
         "Invalid shift count {shift_count} for {bit_width}-bit integer (must be in 0..{bit_width})"
     )]
@@ -288,7 +270,6 @@ pub enum TypeError {
         /// Span of the invalid shift-count expression.
         span: SourceSpan,
     },
-
     /// Generic type parameter not found
     #[error("Generic type parameter '{param_name}' not found")]
     #[diagnostic(
@@ -302,7 +283,6 @@ pub enum TypeError {
         /// Source span highlighting where the parameter was referenced
         span: SourceSpan,
     },
-
     /// Generic call-site inference failed for a declared type parameter.
     #[error("Cannot infer generic type parameter '{param_name}' at this call site")]
     #[diagnostic(
@@ -319,7 +299,6 @@ pub enum TypeError {
         /// Label span used in diagnostics.
         span: SourceSpan,
     },
-
     /// Unification failed between two types
     #[error("Cannot unify types '{left}' and '{right}'")]
     #[diagnostic(
@@ -340,7 +319,6 @@ pub enum TypeError {
         /// Source span highlighting the right type location
         right_span: SourceSpan,
     },
-
     /// Occurs check failed (infinite type)
     #[error("Occurs check failed: type variable '{var_name}' occurs in '{type_name}'")]
     #[diagnostic(
@@ -358,7 +336,6 @@ pub enum TypeError {
         /// Source span highlighting where the occurs check failed
         span: SourceSpan,
     },
-
     /// Constraint solving failed
     #[error("Constraint solving failed: {reason}")]
     #[diagnostic(
@@ -374,7 +351,6 @@ pub enum TypeError {
         /// Source span highlighting where the constraint failed
         span: SourceSpan,
     },
-
     /// Type variable ID overflow occurred
     #[error("Type variable ID overflow - too many type variables generated")]
     #[diagnostic(
@@ -388,7 +364,6 @@ pub enum TypeError {
         /// Source span highlighting where the overflow occurred
         span: SourceSpan,
     },
-
     /// Function arity mismatch (wrong number of arguments)
     #[error("Function arity mismatch: expected {expected} argument(s), found {found}")]
     #[diagnostic(
@@ -404,7 +379,6 @@ pub enum TypeError {
         /// Source span highlighting where the call occurred
         span: SourceSpan,
     },
-
     /// Type is not callable
     #[error("Type '{type_name}' is not callable")]
     #[diagnostic(
@@ -420,7 +394,6 @@ pub enum TypeError {
         /// Source span highlighting where the call was attempted
         span: SourceSpan,
     },
-
     /// Invalid cast between types
     #[error("Invalid cast from '{from_type}' to '{to_type}'")]
     #[diagnostic(
@@ -438,7 +411,6 @@ pub enum TypeError {
         /// Source span highlighting where the cast was attempted
         span: SourceSpan,
     },
-
     /// An error type was used in a function signature but not declared in the current scope.
     #[error("Undeclared error type '{name}'")]
     #[diagnostic(
@@ -452,7 +424,6 @@ pub enum TypeError {
         /// The source span where the undeclared error type was referenced.
         span: SourceSpan,
     },
-
     /// A call to an error-producing function was made without `guard` or `propagate`.
     #[error("Call to error-producing function `{name}` must be wrapped in `guard` or `propagate`")]
     #[diagnostic(
@@ -468,7 +439,6 @@ pub enum TypeError {
         /// The source span where the bare call occurred.
         span: SourceSpan,
     },
-
     /// `propagate` was used outside a function that declares error types.
     #[error("`propagate` used outside a function that declares errors")]
     #[diagnostic(
@@ -482,7 +452,6 @@ pub enum TypeError {
         /// The source span where `propagate` was used.
         span: SourceSpan,
     },
-
     /// The error types of a propagated call are not a subset of the enclosing function's declared error types.
     #[error("Propagated error types are not compatible with the function's declared errors")]
     #[diagnostic(
@@ -503,7 +472,6 @@ pub enum TypeError {
         /// The source span of the call being propagated.
         callee_span: SourceSpan,
     },
-
     /// `propagate` was used on a call that does not declare any error types.
     #[error("`propagate` used on a call that cannot produce errors")]
     #[diagnostic(
@@ -517,7 +485,6 @@ pub enum TypeError {
         /// The span covering the `propagate` expression.
         span: SourceSpan,
     },
-
     /// A `guard` expression was used on an expression that does not return errors.
     #[error("`guard` used on an expression that cannot produce errors")]
     #[diagnostic(
@@ -531,7 +498,6 @@ pub enum TypeError {
         /// The source span of the `guard` expression.
         span: SourceSpan,
     },
-
     /// The type of the binding in a `guard` expression does not match the success type of the guarded expression.
     #[error("Guard binding type mismatch: expected '{expected}', found '{found}'")]
     #[diagnostic(
@@ -549,27 +515,6 @@ pub enum TypeError {
         /// The source span of the binding.
         span: SourceSpan,
     },
-
-    /// The `else` branch of a `guard` expression does not handle the possible error types.
-    #[error(
-        "Guard `else` branch is incompatible with error types: expected '{expected}', found '{found}'"
-    )]
-    #[diagnostic(
-        code(opalescent::type_system::guard_else_incompatible_error),
-        help(
-            "The `else` branch of a `guard` must be able to handle all possible errors from the guarded expression."
-        )
-    )]
-    GuardElseIncompatibleError {
-        /// The expected error types.
-        expected: String,
-        /// The type handled by the `else` branch.
-        found: String,
-        #[label("incompatible `else` branch here")]
-        /// The source span of the `else` branch.
-        span: SourceSpan,
-    },
-
     /// Nested guard or propagate introduces error types that differ from the surrounding guard.
     #[error(
         "Guard handler introduces incompatible error types: expected '{expected}', found '{found}'"
@@ -589,7 +534,88 @@ pub enum TypeError {
         /// Span for the nested guard/propagate expression.
         span: SourceSpan,
     },
-
+    /// The `else` branch of a `guard` expression does not handle the possible error types.
+    #[error(
+        "Guard `else` branch is incompatible with error types: expected '{expected}', found '{found}'"
+    )]
+    #[diagnostic(
+        code(opalescent::type_system::guard_else_incompatible_error),
+        help(
+            "The `else` branch of a `guard` must be able to handle all possible errors from the guarded expression."
+        )
+    )]
+    GuardElseIncompatibleError {
+        /// The expected error types.
+        expected: String,
+        /// The type handled by the `else` branch.
+        found: String,
+        #[label("incompatible `else` branch here")]
+        /// The source span of the `else` branch.
+        span: SourceSpan,
+    },
+    /// `guard` was used but the clause cannot terminate with a handled error path.
+    #[error("`guard` clause is missing a terminal error-handling expression")]
+    #[diagnostic(
+        code(opalescent::guard::missing_terminal),
+        help(
+            "End the guard clause with a terminal `return`, `propagate`, or equivalent error-handling expression"
+        )
+    )]
+    GuardErrorClauseMissingTerminal {
+        /// Source span covering the non-terminal guard clause.
+        #[label("guard clause missing terminal expression")]
+        clause_span: SourceSpan,
+    },
+    /// `propagate` was used as the final guard-handler expression when the guard requires a non-final result.
+    #[error("`propagate` cannot be the final expression in this guard handler")]
+    #[diagnostic(
+        code(opalescent::guard::propagate_not_final),
+        help(
+            "Add a final handler expression after `propagate`, or restructure the guard so the clause ends with an explicit result"
+        )
+    )]
+    GuardPropagateErrNotFinal {
+        /// Source span covering the final propagate expression.
+        #[label("`propagate` cannot end this guard handler")]
+        propagate_span: SourceSpan,
+    },
+    /// `return err` is invalid in a strict guard error clause.
+    #[error("`return err` is not valid in a guard error clause")]
+    #[diagnostic(
+        code(opalescent::guard::return_err_invalid),
+        help(
+            "Use `propagate err` to forward the error, or return a concrete recovery value instead"
+        )
+    )]
+    GuardReturnErrInvalid {
+        /// Source span of the invalid `return err` statement.
+        #[label("`return err` is not allowed here")]
+        return_span: SourceSpan,
+    },
+    /// Guard wrapper source expression is not a valid strict guard source.
+    #[error("`guard` wrapper source expression is invalid")]
+    #[diagnostic(
+        code(opalescent::guard::wrapper_source_invalid),
+        help(
+            "Wrap a valid fallible expression or call in `guard` so the wrapper source can be type-checked"
+        )
+    )]
+    GuardWrapperSourceInvalid {
+        /// Source span of the invalid wrapped source expression.
+        #[label("invalid guard wrapper source")]
+        source_span: SourceSpan,
+    },
+    /// Shorthand guard syntax requires an explicit binding or terminal clause in strict mode.
+    #[error("`guard` shorthand is required in this context")]
+    #[diagnostic(
+        code(opalescent::guard::shorthand_required),
+        help("Provide the required shorthand guard form for this expression shape")
+    )]
+    GuardShorthandRequired {
+        /// Source span where shorthand guard syntax is required.
+        #[label("guard shorthand required here")]
+        span: SourceSpan,
+    },
     /// Return statements in the same function use incompatible label shapes.
     #[error("Return label mismatch: expected '{expected}', found '{found}'")]
     #[diagnostic(
@@ -607,7 +633,6 @@ pub enum TypeError {
         /// Source span of the mismatching return statement.
         span: SourceSpan,
     },
-
     #[error("If expression used for a value must include an else branch")]
     #[diagnostic(
         code(opalescent::type_system::missing_else_branch),
@@ -623,7 +648,6 @@ pub enum TypeError {
         /// Span of the non-exhaustive if expression.
         span: SourceSpan,
     },
-
     /// Import graph contains a dependency cycle.
     #[error("Circular module dependency detected: {cycle:?}")]
     #[diagnostic(
@@ -637,7 +661,6 @@ pub enum TypeError {
         /// Span of the import site that triggered cycle validation.
         span: SourceSpan,
     },
-
     /// Import source path could not be resolved in the module registry.
     #[error("Unresolved import path '{path}'")]
     #[diagnostic(
@@ -651,7 +674,6 @@ pub enum TypeError {
         /// Span of the unresolved import declaration.
         span: SourceSpan,
     },
-
     /// Two imports introduce the same local binding name from different modules.
     #[error(
         "Import name conflict for '{name}': already imported from '{first_module}', cannot also import from '{second_module}'"
@@ -671,7 +693,6 @@ pub enum TypeError {
         /// Span of the second import that caused the conflict.
         span: SourceSpan,
     },
-
     /// Import attempts to read a private symbol from another module.
     #[error("Cannot access private symbol '{symbol}' from module '{module}'")]
     #[diagnostic(
@@ -687,7 +708,6 @@ pub enum TypeError {
         /// Span of the import item requesting private access.
         span: SourceSpan,
     },
-
     /// Call to an impure function from a pure function context.
     #[error("cannot call impure function '{callee_name}' from pure function context")]
     #[diagnostic(
@@ -705,7 +725,6 @@ pub enum TypeError {
         /// Source span of the impure call expression.
         span: SourceSpan,
     },
-
     /// Public function is missing a documentation comment.
     #[error("Public function '{name}' is missing a documentation comment")]
     #[diagnostic(
@@ -719,7 +738,6 @@ pub enum TypeError {
         /// Source span of the function declaration.
         span: SourceSpan,
     },
-
     /// Documentation comment is too short.
     #[error(
         "Documentation comment for '{name}' is too short ({found_length} characters, minimum {min_length})"
@@ -739,7 +757,6 @@ pub enum TypeError {
         /// Source span of the documentation comment.
         span: SourceSpan,
     },
-
     /// Entry keyword used outside the main module.
     #[error("The 'entry' keyword is only allowed in src/main.op, found in '{file_path}'")]
     #[diagnostic(
@@ -755,7 +772,6 @@ pub enum TypeError {
         /// Source span of the entry declaration.
         span: SourceSpan,
     },
-
     /// Module import path could not be resolved.
     #[error("Module '{path}' not found")]
     #[diagnostic(
@@ -769,7 +785,6 @@ pub enum TypeError {
         /// Source span of the import statement.
         span: SourceSpan,
     },
-
     /// Package imports are not yet supported.
     #[error("Package imports are not yet supported: '{path}'")]
     #[diagnostic(
@@ -785,7 +800,6 @@ pub enum TypeError {
         /// Source span of the package import statement.
         span: SourceSpan,
     },
-
     /// `type` declaration found outside a `.types.op` file.
     #[error("type declaration '{type_name}' is not allowed in '{file_path}'")]
     #[diagnostic(
@@ -803,7 +817,6 @@ pub enum TypeError {
         /// Source span of the type declaration.
         span: SourceSpan,
     },
-
     /// Non-type declaration found inside a `.types.op` file.
     #[error("'{decl_kind}' declaration '{decl_name}' is not allowed in types file '{file_path}'")]
     #[diagnostic(
@@ -824,7 +837,6 @@ pub enum TypeError {
         span: SourceSpan,
     },
 }
-
 /// Warning diagnostics produced during type checking.
 ///
 /// Warnings represent non-fatal issues that should be surfaced to users without
@@ -851,7 +863,6 @@ pub enum Warning {
         /// Optional suppression annotation identifier for future warning controls.
         suppression_annotation: Option<String>,
     },
-
     /// Unsafe cast that may lose data or precision.
     #[error("Unsafe cast from '{from_type}' to '{to_type}' may lose data")]
     #[diagnostic(
@@ -871,7 +882,6 @@ pub enum Warning {
         /// Optional suppression annotation identifier for future warning controls.
         suppression_annotation: Option<String>,
     },
-
     /// `let` binding that is never read during type checking.
     #[error("Variable '{name}' is never used")]
     #[diagnostic(
@@ -887,7 +897,6 @@ pub enum Warning {
         /// Optional suppression annotation identifier for future warning controls.
         suppression_annotation: Option<String>,
     },
-
     /// Placeholder warning for future unreachable-code analysis.
     #[error("Unreachable code detected")]
     #[diagnostic(
@@ -901,7 +910,6 @@ pub enum Warning {
         /// Optional suppression annotation identifier for future warning controls.
         suppression_annotation: Option<String>,
     },
-
     /// Placeholder warning for future exhaustiveness analysis.
     #[error("Pattern match may be non-exhaustive")]
     #[diagnostic(
@@ -916,7 +924,6 @@ pub enum Warning {
         suppression_annotation: Option<String>,
     },
 }
-
 impl Warning {
     /// Return the suppression annotation attached to this warning, if present.
     pub fn suppression_annotation(&self) -> Option<&str> {
@@ -942,11 +949,9 @@ impl Warning {
                 ..
             } => suppression_annotation,
         };
-
         suppression_annotation.as_deref()
     }
 }
-
 impl TypeError {
     /// Convert AST Span to miette `SourceSpan`
     ///
@@ -957,7 +962,6 @@ impl TypeError {
         let len = span.end.offset.saturating_sub(span.start.offset);
         SourceSpan::new(start.into(), len)
     }
-
     /// Create a default/unknown source span for errors without location information
     ///
     /// Used as a temporary measure for code that doesn't yet track source locations.

@@ -12,6 +12,7 @@ entry main = f(args: string[]): void =>
 
     guard string_to_int32('not-a-number') else invalid_err =>
         print('GUARD_SHORTHAND_ERROR=handled')
+        propagate invalid_err
 
     guard string_to_int32('41') into parsed else named_err =>
         print('UNEXPECTED_NAMED_ERROR={named_err}')

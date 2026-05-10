@@ -1,0 +1,8 @@
+import parse_with_wrapper_alias from ./wrapper
+
+##
+  Description: Entry exercises the alias-source compile-fail path
+##
+entry main = f(args: string[]): void =>
+    let _ = parse_with_wrapper_alias('oops')
+    return void

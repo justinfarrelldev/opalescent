@@ -1,0 +1,8 @@
+import parse_with_wrapper_missing_source from ./wrapper
+
+##
+  Description: Entry exercises the missing-source compile-fail path
+##
+entry main = f(args: string[]): void =>
+    let _ = parse_with_wrapper_missing_source('oops')
+    return void

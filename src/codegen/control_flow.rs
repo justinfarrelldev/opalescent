@@ -570,6 +570,28 @@ fn codegen_error_aware_return_statement<'context>(
         return Ok(());
     }
 
+    if labeled_value.label.is_empty() {
+        if let Some(variant_name) =
+            extract_guard_wrapper_error_variant(codegen_context, env, &labeled_value.value)?
+        {
+            let error_ptr = intern_variant_name(codegen_context, env, variant_name.as_str());
+            let success_field_type = error_return_type
+                .get_field_types()
+                .first()
+                .copied()
+                .ok_or_else(|| {
+                    CodegenError::new(String::from("error ABI return type missing success field"))
+                })?;
+            let aggregate = if success_field_type.is_pointer_type() {
+                build_void_error_aggregate(codegen_context, error_ptr)?
+            } else {
+                build_error_aggregate(codegen_context, success_field_type, error_ptr)?
+            };
+            let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+            return Ok(());
+        }
+    }
+
     let value = codegen_expression(codegen_context, env, &labeled_value.value, None)?;
     if value.is_struct_value() && value.into_struct_value().get_type().count_fields() == 0 {
         let aggregate = build_void_success_aggregate(codegen_context)?;
@@ -613,6 +635,44 @@ fn is_error_abi_return_type<'context>(struct_type: StructType<'context>) -> bool
 
     let error_pointee = field_types[1].into_pointer_type().get_element_type();
     error_pointee.is_int_type() && error_pointee.into_int_type().get_bit_width() == 8
+}
+
+fn extract_guard_wrapper_error_variant<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    expr: &Expr,
+) -> Result<Option<String>, CodegenError> {
+    let Expr::Constructor { callee, fields, .. } = expr else {
+        return Ok(None);
+    };
+
+    let Some(source_field) = fields.iter().find(|field| field.name == "source") else {
+        return Ok(None);
+    };
+
+    let Expr::Identifier { name, .. } = &source_field.value else {
+        return Ok(None);
+    };
+
+    let Some(active_guard_error_slot) = env.current_guard_error_slot() else {
+        return Ok(None);
+    };
+    let Some(source_binding) = env.variables.get(name) else {
+        return Ok(None);
+    };
+    if source_binding.alloca != active_guard_error_slot {
+        return Ok(None);
+    }
+
+    for field in fields {
+        if field.name == "source" {
+            continue;
+        }
+        let _unused: inkwell::values::BasicValueEnum<'_> =
+            codegen_expression(codegen_context, env, &field.value, None)?;
+    }
+
+    Ok(Some(extract_error_variant_name(callee.as_ref())?))
 }
 
 fn extract_error_variant_name(expr: &Expr) -> Result<String, CodegenError> {

@@ -224,6 +224,16 @@ impl TypeChecker {
         reason = "Matching on &Decl requires referencing the variant while avoiding clones"
     )]
     fn register_declaration_signature(&mut self, decl: &Decl) -> Result<(), TypeError> {
+        if let Decl::Import {
+            items,
+            source,
+            span,
+            ..
+        } = decl
+        {
+            return self.register_import_declaration(items, source, *span);
+        }
+
         match decl {
             &Decl::Function {
                 name: ref function_name,
@@ -528,13 +538,7 @@ impl TypeChecker {
                 }
                 Ok(())
             }
-            Decl::Import {
-                items,
-                source,
-                span,
-                ..
-            } => self.register_import_declaration(items, source, *span),
-            &Decl::Comment { .. } => Ok(()),
+            Decl::Import { .. } | &Decl::Comment { .. } => Ok(()),
         }
     }
 

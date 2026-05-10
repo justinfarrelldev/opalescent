@@ -1,4 +1,7 @@
-#![allow(clippy::missing_docs_in_private_items, reason = "private guard typing helpers are internal implementation details")]
+#![allow(
+    clippy::missing_docs_in_private_items,
+    reason = "private guard typing helpers are internal implementation details"
+)]
 //! Control-flow expression typing helpers for the type checker.
 
 extern crate alloc;

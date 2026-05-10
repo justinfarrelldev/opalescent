@@ -3,10 +3,10 @@ import string_to_int32, int32_to_string from standard
 ##
   Description: Entry point validating typed mutable statement guard bindings
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors ParseError =>
     guard string_to_int32('42') into value: int32 mutable else parse_err =>
         print('UNEXPECTED_TYPED_BINDING_ERROR={parse_err}')
-        return void
+        propagate parse_err
 
     print('TYPED_BINDING_VALUE={int32_to_string(value)}')
     print('TYPED_BINDING_TYPED_MUTABLE=accepted')

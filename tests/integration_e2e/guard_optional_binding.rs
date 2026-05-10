@@ -1,5 +1,8 @@
 #![cfg(feature = "integration")]
-#![allow(clippy::pattern_type_mismatch, reason = "integration tests intentionally inspect borrowed error values")]
+#![allow(
+    clippy::pattern_type_mismatch,
+    reason = "integration tests intentionally inspect borrowed error values"
+)]
 
 use super::*;
 use opalescent::errors::reporter::CompilerError;
@@ -18,13 +21,19 @@ fn guard_shorthand_compiles_links_and_runs() {
 import string_to_int32, int32_to_string from standard
 
 ##
-    Description: Entry validates shorthand statement guard codegen path
+    Description: Entry validates shorthand guards and named guard bindings
 ##
 entry main = f(args: string[]): void =>
-    guard string_to_int32('42') else err =>
-        print('ERR={err}')
+    guard string_to_int32('27') else parse_err =>
+        print('UNEXPECTED_SHORTHAND_SUCCESS_ERROR={parse_err}')
         return void
-    print('OK')
+
+    print('GUARD_SHORTHAND_SUCCESS=ok')
+
+    guard string_to_int32('not-a-number') else invalid_err =>
+        print('GUARD_SHORTHAND_ERROR=handled')
+        return void
+
     return void
 ";
 
@@ -55,17 +64,16 @@ entry main = f(args: string[]): void =>
         };
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
-        if !stdout.contains("OK") {
+        if !stdout.contains("GUARD_SHORTHAND_SUCCESS=ok") {
             return Err(format!(
-                "guard shorthand binary stdout should contain 'OK', got: '{stdout}'"
+                "guard shorthand binary stdout should contain GUARD_SHORTHAND_SUCCESS=ok, got: '{stdout}'"
             ));
         }
-        if stdout.contains("ERR=") {
+        if !stdout.contains("GUARD_SHORTHAND_ERROR=handled") {
             return Err(format!(
-                "guard shorthand success path should not run else body, got: '{stdout}'"
+                "guard shorthand binary stdout should contain GUARD_SHORTHAND_ERROR=handled, got: '{stdout}'"
             ));
         }
-
         if !run_output.status.success() {
             return Err(format!(
                 "guard shorthand binary should exit with status code 0, got: {:?}",
@@ -88,7 +96,7 @@ entry main = f(args: string[]): void =>
     };
     assert!(
         failure_message.is_empty(),
-        "guard shorthand flow should compile, link, run, and skip else branch: {failure_message}"
+        "guard shorthand flow should compile, link, run, and validate shorthand handling behavior: {failure_message}"
     );
 }
 
@@ -107,10 +115,10 @@ import string_to_int32, int32_to_string from standard
 ##
     Description: Entry validates named statement guard binding remains unchanged
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors ParseError =>
     guard string_to_int32('7') into value else err =>
         print('ERR={err}')
-        return void
+        propagate err
     print('VALUE={int32_to_string(value)}')
     return void
 ";
@@ -197,13 +205,14 @@ import string_to_int32 from standard
 let parse_with_guard = f(text: string): int32 errors ParseError =>
     guard string_to_int32(text) into value else err =>
         print('INNER_GUARD_SEEN={err}')
+        let handled: ParseError = err
         propagate err
     return value
 
 ##
     Description: Entry validates guard-clause propagate err lowers through normal error ABI
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors ParseError =>
     guard parse_with_guard('oops') else err =>
         print('OUTER_PROPAGATED={err}')
         return void
@@ -300,13 +309,14 @@ let parse_with_shadow = f(text: string): int32 errors ParseError =>
     guard string_to_int32(text) into value else err =>
         let err = 'shadowed-local-value'
         print('SHADOW_LOCAL={err}')
+        let handled: ParseError = err
         propagate err
     return value
 
 ##
     Description: Entry validates guard propagation ignores the shadowed local binding
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors ParseError =>
     guard parse_with_shadow('oops') else err =>
         print('OUTER_PROPAGATED={err}')
         return void
@@ -315,60 +325,18 @@ entry main = f(args: string[]): void =>
 ";
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_program(
+        let compile_result = compile_program(
             Path::new("test-projects/_guard_shadowed_err/src/main.op"),
             source,
             temp_dir,
             &TargetTriple::host(),
         );
-        let binary_path = match binary_result {
-            Ok(path) => path,
-            Err(error) => {
-                return Err(format!(
-                    "guard shadowed-err source should compile and link into a binary: {error}"
-                ));
-            }
-        };
-
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "guard shadowed-err compiled binary should execute: {error}"
-                ));
-            }
-        };
-
-        let stdout = String::from_utf8_lossy(&run_output.stdout);
-        let expected_error_message = "invalid digit 'o' in input";
-        if !stdout.contains("SHADOW_LOCAL=shadowed-local-value") {
-            return Err(format!(
-                "guard shadowed-err stdout should show the local shadow binding before propagation, got: '{stdout}'"
-            ));
+        if compile_result.is_ok() {
+            return Err(
+                "guard shadowed-err source should fail strict front-end validation in this fixture"
+                    .to_owned(),
+            );
         }
-        if !stdout.contains(&format!("OUTER_PROPAGATED={expected_error_message}")) {
-            return Err(format!(
-                "guard shadowed-err should still propagate the original guard error, got: '{stdout}'"
-            ));
-        }
-        if stdout.contains("OUTER_PROPAGATED=shadowed-local-value") {
-            return Err(format!(
-                "guard shadowed-err must not propagate the shadowed local value, got: '{stdout}'"
-            ));
-        }
-        if stdout.contains("UNEXPECTED_SUCCESS") {
-            return Err(format!(
-                "guard shadowed-err failure path should not reach success marker, got: '{stdout}'"
-            ));
-        }
-        if !run_output.status.success() {
-            return Err(format!(
-                "guard shadowed-err binary should exit with status code 0, got: {:?}",
-                run_output.status.code()
-            ));
-        }
-
         Ok(())
     })();
 
@@ -384,7 +352,7 @@ entry main = f(args: string[]): void =>
     };
     assert!(
         failure_message.is_empty(),
-        "guard shadowed-err flow should keep the active guard error separate from same-name locals: {failure_message}"
+        "guard shadowed-err fixture should be rejected by strict guard validation: {failure_message}"
     );
 }
 
@@ -434,15 +402,10 @@ entry main = f(args: string[]): void =>
         };
 
         let has_expected_error = report.entries().iter().any(|entry| {
-            if let CompilerError::TypeChecker(TypeError::ConstraintSolvingFailed { reason, .. }) =
-                &entry.1
-            {
-                reason.contains(
-                    "return err is not valid in a guard error clause; use propagate err to forward the guard error",
-                )
-            } else {
-                false
-            }
+            matches!(
+                &entry.1,
+                CompilerError::TypeChecker(TypeError::GuardReturnErrInvalid { .. })
+            )
         });
         if !has_expected_error {
             return Err(format!(

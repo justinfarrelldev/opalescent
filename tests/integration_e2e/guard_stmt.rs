@@ -1,5 +1,9 @@
 #![cfg(feature = "integration")]
-#![allow(clippy::match_same_arms, clippy::pattern_type_mismatch, reason = "integration test control-flow matches are intentionally explicit")]
+#![allow(
+    clippy::match_same_arms,
+    clippy::pattern_type_mismatch,
+    reason = "integration test control-flow matches are intentionally explicit"
+)]
 
 use super::*;
 
@@ -117,6 +121,42 @@ fn assert_constraint_reason_contains(
     }
 }
 
+fn assert_guard_variant(
+    project_name: &str,
+    compile_error: CompileError,
+    variant_matches: impl Fn(&TypeError) -> bool,
+) -> Result<(), String> {
+    match compile_error {
+        CompileError::Report { report, .. } => {
+            let has_expected_error = report.entries().iter().any(|entry| match &entry.1 {
+                CompilerError::TypeChecker(type_error) => variant_matches(type_error),
+                _ => false,
+            });
+
+            if has_expected_error {
+                Ok(())
+            } else {
+                Err(format!(
+                    "{project_name} should emit expected strict-guard type diagnostic, got: {:?}",
+                    report.entries()
+                ))
+            }
+        }
+        CompileError::Type(type_error) => {
+            if variant_matches(&type_error) {
+                Ok(())
+            } else {
+                Err(format!(
+                    "{project_name} should emit expected strict-guard type diagnostic, got: {type_error:?}"
+                ))
+            }
+        }
+        other => Err(format!(
+            "{project_name} should fail with a strict-guard type diagnostic, got: {other}"
+        )),
+    }
+}
+
 #[test]
 fn guard_stmt_typed_binding_project_compiles_links_and_runs() {
     let expected_stdout = read_expected_stdout("guard-stmt-typed-binding");
@@ -221,11 +261,9 @@ fn guard_stmt_only_propagate_project_emits_shorthand_guidance() {
         return;
     };
 
-    let verification = assert_constraint_reason_contains(
-        "guard-stmt-only-propagate",
-        compile_error,
-        "guard error clause must perform handling before propagating; replace this guard with shorthand propagate <call>() when no handling is needed",
-    );
+    let verification = assert_guard_variant("guard-stmt-only-propagate", compile_error, |error| {
+        matches!(error, TypeError::GuardShorthandRequired { .. })
+    });
     let failure_message = verification.err().unwrap_or_default();
     assert!(
         failure_message.is_empty(),
@@ -244,14 +282,130 @@ fn guard_stmt_return_err_banned_project_emits_return_err_diagnostic() {
         return;
     };
 
-    let verification = assert_constraint_reason_contains(
-        "guard-stmt-return-err-banned",
-        compile_error,
-        "return err is not valid in a guard error clause; use propagate err to forward the guard error",
-    );
+    let verification =
+        assert_guard_variant("guard-stmt-return-err-banned", compile_error, |error| {
+            matches!(error, TypeError::GuardReturnErrInvalid { .. })
+        });
     let failure_message = verification.err().unwrap_or_default();
     assert!(
         failure_message.is_empty(),
         "guard-stmt-return-err-banned should emit the exact return-err rejection diagnostic: {failure_message}"
+    );
+}
+
+#[test]
+fn guard_stmt_wrapper_valid_project_compiles_links_and_runs() {
+    let execution_result = run_guard_stmt_project("guard-stmt-wrapper-valid");
+    let failure_message = match execution_result {
+        Ok(stdout) => {
+            if !stdout.contains("WRAPPER_VALUE=42") || !stdout.contains("wrapper-valid-ok") {
+                format!(
+                    "guard-stmt-wrapper-valid should prove direct wrapper returns compile and run, got: '{stdout}'"
+                )
+            } else if stdout.contains("UNEXPECTED_WRAPPER_ERROR=") {
+                format!(
+                    "guard-stmt-wrapper-valid success path should not print unexpected error marker, got: '{stdout}'"
+                )
+            } else {
+                String::new()
+            }
+        }
+        Err(message) => message,
+    };
+
+    assert!(
+        failure_message.is_empty(),
+        "guard-stmt-wrapper-valid should compile and run with a direct wrapper source return: {failure_message}"
+    );
+}
+
+#[test]
+fn guard_stmt_wrapper_invalid_alias_project_emits_wrapper_source_diagnostic() {
+    let compile_error = compile_guard_stmt_project_failure("guard-stmt-wrapper-invalid-alias");
+    assert!(
+        compile_error.is_ok(),
+        "guard-stmt-wrapper-invalid-alias should produce a compile error"
+    );
+    let Ok(compile_error) = compile_error else {
+        return;
+    };
+
+    let verification =
+        assert_guard_variant("guard-stmt-wrapper-invalid-alias", compile_error, |error| {
+            matches!(error, TypeError::GuardWrapperSourceInvalid { .. })
+        });
+    let failure_message = verification.err().unwrap_or_default();
+    assert!(
+        failure_message.is_empty(),
+        "guard-stmt-wrapper-invalid-alias should emit the exact wrapper-source rejection diagnostic: {failure_message}"
+    );
+}
+
+#[test]
+fn guard_stmt_wrapper_invalid_shadowed_project_emits_wrapper_source_diagnostic() {
+    let compile_error = compile_guard_stmt_project_failure("guard-stmt-wrapper-invalid-shadowed");
+    assert!(
+        compile_error.is_ok(),
+        "guard-stmt-wrapper-invalid-shadowed should produce a compile error"
+    );
+    let Ok(compile_error) = compile_error else {
+        return;
+    };
+
+    let verification = assert_guard_variant(
+        "guard-stmt-wrapper-invalid-shadowed",
+        compile_error,
+        |error| matches!(error, TypeError::GuardWrapperSourceInvalid { .. }),
+    );
+    let failure_message = verification.err().unwrap_or_default();
+    assert!(
+        failure_message.is_empty(),
+        "guard-stmt-wrapper-invalid-shadowed should emit the exact wrapper-source rejection diagnostic: {failure_message}"
+    );
+}
+
+#[test]
+fn guard_stmt_wrapper_invalid_missing_source_project_emits_wrapper_source_diagnostic() {
+    let compile_error =
+        compile_guard_stmt_project_failure("guard-stmt-wrapper-invalid-missing-source");
+    assert!(
+        compile_error.is_ok(),
+        "guard-stmt-wrapper-invalid-missing-source should produce a compile error"
+    );
+    let Ok(compile_error) = compile_error else {
+        return;
+    };
+
+    let verification = assert_guard_variant(
+        "guard-stmt-wrapper-invalid-missing-source",
+        compile_error,
+        |error| matches!(error, TypeError::GuardWrapperSourceInvalid { .. }),
+    );
+    let failure_message = verification.err().unwrap_or_default();
+    assert!(
+        failure_message.is_empty(),
+        "guard-stmt-wrapper-invalid-missing-source should emit the exact wrapper-source rejection diagnostic: {failure_message}"
+    );
+}
+
+#[test]
+fn delete_downloads_project_compiles_and_runs_with_strict_terminal_handlers() {
+    let execution_result = run_guard_stmt_project("delete-downloads");
+    let failure_message = match execution_result {
+        Ok(stdout) => {
+            if !stdout.contains("LIST_ERR=") && !stdout.contains("removed_or_attempted=") {
+                format!(
+                    "delete-downloads should print LIST_ERR or removed_or_attempted marker after strict fixture fix, got: '{stdout}'"
+                )
+            } else {
+                String::new()
+            }
+        }
+        Err(message) => message,
+    };
+
+    assert!(
+        failure_message.is_empty(),
+        "delete-downloads project should compile and run with strict named-guard terminals: {failure_message}"
     );
 }

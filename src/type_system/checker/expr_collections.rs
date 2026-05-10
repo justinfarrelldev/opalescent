@@ -1,4 +1,8 @@
-#![allow(clippy::missing_docs_in_private_items, clippy::pattern_type_mismatch, reason = "private checker helpers and pattern matches are internal implementation details")]
+#![allow(
+    clippy::missing_docs_in_private_items,
+    clippy::pattern_type_mismatch,
+    reason = "private checker helpers and pattern matches are internal implementation details"
+)]
 //! Collection and interpolation expression helpers.
 
 extern crate alloc;

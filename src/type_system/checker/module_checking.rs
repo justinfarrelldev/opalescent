@@ -7,7 +7,6 @@ use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
-
 use alloc::{format, string::String};
 
 impl TypeChecker {
@@ -144,6 +143,7 @@ impl TypeChecker {
                         name,
                         resolved_import_name.as_str(),
                         &symbol_to_register.symbol_type,
+                        &symbol_to_register.core_type,
                     );
                     self.symbol_table.register(symbol_to_register);
                 }
@@ -204,6 +204,7 @@ impl TypeChecker {
         imported_name: &str,
         local_name: &str,
         symbol_type: &SymbolType,
+        imported_core_type: &CoreType,
     ) {
         if symbol_type != &SymbolType::Type {
             return;
@@ -218,11 +219,49 @@ impl TypeChecker {
         }
 
         let variant_prefix = format!("{imported_name}.");
+        let mut imported_variants: Vec<String> = Vec::new();
         for (owner, fields) in &interface.adt_fields {
             if let Some(variant_suffix) = owner.strip_prefix(variant_prefix.as_str()) {
                 let local_owner = format!("{local_name}.{variant_suffix}");
-                self.register_adt_fields(local_owner, fields.clone());
+                imported_variants.push(local_owner.clone());
+                self.register_adt_fields(local_owner.clone(), fields.clone());
+                self.symbol_table.register(SymbolInfo {
+                    name: local_owner,
+                    symbol_type: SymbolType::Constant,
+                    core_type: imported_core_type.clone(),
+                    visibility: Visibility::Private,
+                    source_location: interface.exports.get(imported_name).map_or(
+                        crate::token::Span::single(crate::token::Position::start()),
+                        |symbol| symbol.source_location,
+                    ),
+                    is_let_binding: false,
+                    is_mutable: false,
+                    read_count: 0,
+                    is_pure: false,
+                });
+
+                for field_name in fields.keys() {
+                    self.symbol_table.register(SymbolInfo {
+                        name: format!("{local_name}.{variant_suffix}.{field_name}"),
+                        symbol_type: SymbolType::Variable,
+                        core_type: fields.get(field_name).cloned().unwrap_or(CoreType::Unit),
+                        visibility: Visibility::Private,
+                        source_location: interface.exports.get(imported_name).map_or(
+                            crate::token::Span::single(crate::token::Position::start()),
+                            |symbol| symbol.source_location,
+                        ),
+                        is_let_binding: false,
+                        is_mutable: false,
+                        read_count: 0,
+                        is_pure: false,
+                    });
+                }
             }
+        }
+
+        if !imported_variants.is_empty() {
+            self.adt_variants
+                .insert(local_name.to_owned(), imported_variants);
         }
     }
 }

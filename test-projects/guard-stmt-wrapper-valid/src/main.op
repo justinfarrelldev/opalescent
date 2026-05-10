@@ -1,0 +1,11 @@
+import int32_to_string from standard
+import parse_with_wrapper from ./wrapper
+
+##
+  Description: Entry proves direct wrapper source returns compile and run
+##
+entry main = f(args: string[]): void =>
+    guard parse_with_wrapper('42') into value: int32 else print('UNEXPECTED_WRAPPER_ERROR')
+    print('WRAPPER_VALUE={int32_to_string(value)}')
+    print('wrapper-valid-ok')
+    return void

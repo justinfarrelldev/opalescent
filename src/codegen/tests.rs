@@ -1491,10 +1491,13 @@ import string_to_int64 from standard
 ##
     Description: Entry function validates imported string_to_int64 usage
 ##
+let parse_i64 = f(): int64 errors ParseError =>
+    return propagate string_to_int64('42')
+
+##
+    Description: Entry function keeps this import declaration test runnable
+##
 entry main = f(): void =>
-    guard string_to_int64('42') into n else _e =>
-        return void
-    print('n: {n}')
     return void
 ";
 
@@ -1523,11 +1526,15 @@ import take_input, string_to_int32 from standard
 ##
     Description: Entry validates multiple standard import declarations
 ##
+let parse_text = f(text: string): int32 errors ParseError =>
+    return propagate string_to_int32(text)
+
+##
+    Description: Entry function keeps this standard import declaration test runnable
+##
 entry main = f(): void =>
     let text = take_input()
-    guard string_to_int32(text) into value else _e =>
-        return void
-    print('value: {value}')
+    print(text)
     return void
 ";
 
@@ -1555,14 +1562,23 @@ entry main = f(): void =>
 #[test]
 fn test_guard_statement_compiles_to_valid_llvm_ir() {
     let source = "
+import string_to_int32 from standard
+
 ##
     Description: Entry function validates guard statement codegen path
 ##
+let guard_worker = f(): void errors ParseError =>
+    guard string_to_int32('5') into n else parse_err =>
+        print('UNEXPECTED_GUARD_ERROR={parse_err}')
+        propagate parse_err
+
+    print('guarded-number={n}')
+    return void
+
+##
+    Description: Entry function keeps the module runnable
+##
 entry main = f(): void =>
-    while false:
-        guard string_to_int32('5') into n else e =>
-            continue
-        print('number: {n}')
     return void
 ";
 
@@ -1600,12 +1616,16 @@ fn test_builtin_calls_emit_runtime_declarations_without_imports() {
 ##
     Description: Entry validates builtin runtime declarations without imports
 ##
+let parse_roll = f(raw: string): int32 errors ParseError =>
+    return propagate string_to_int32(raw)
+
+##
+    Description: Entry function keeps builtin declaration coverage runnable
+##
 entry main = f(): void =>
     let raw = take_input()
-    guard string_to_int32(raw) into parsed else _e =>
-        return void
     let roll = random_int32(1, 6)
-    print('parsed: {parsed}, roll: {roll}')
+    print('raw: {raw}, roll: {roll}')
     return void
 ";
 
@@ -2783,10 +2803,10 @@ import path_from, read_lines_sync from standard
 ##
     Description: Entry function validates guard-bound read_lines length lowering
 ##
-entry main = f(): void =>
+entry main = f(): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error =>
     guard read_lines_sync(path_from('/tmp/sample.txt')) into lines else err =>
         print(err)
-        return void
+        propagate err
     let len: int64 = lines.length
     return void
 ";
@@ -2936,11 +2956,17 @@ import bytes_from_hex from standard
 ##
     Description: Entry function guards bytes_from_hex to pin its struct return
 ##
-entry main = f(hex: string): void =>
+let decode_hex = f(hex: string): int32 errors HexDecodeError =>
     guard bytes_from_hex(hex) into buffer else err =>
         print(err)
-        return void
+        propagate err
     let len: int32 = buffer.length
+    return len
+
+##
+    Description: Entry function keeps bytes_from_hex declaration test runnable
+##
+entry main = f(hex: string): void =>
     return void
 ";
 
@@ -2968,12 +2994,18 @@ import bytes_new, bytes_slice from standard
 ##
     Description: Entry function guards bytes_slice to pin its struct return
 ##
-entry main = f(): void =>
+let slice_empty = f(): int32 errors SliceRangeError =>
     let buffer: Bytes = bytes_new()
     guard bytes_slice(buffer, 0, 0) into sub else err =>
         print(err)
-        return void
+        propagate err
     let len: int32 = sub.length
+    return len
+
+##
+    Description: Entry function keeps bytes_slice declaration test runnable
+##
+entry main = f(): void =>
     return void
 ";
 

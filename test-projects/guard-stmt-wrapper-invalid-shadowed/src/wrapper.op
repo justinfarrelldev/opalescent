@@ -1,0 +1,13 @@
+import string_to_int32 from standard
+import type ParseError, WrappedParseError from ./wrapper.types
+
+##
+  Description: Shadowed err bindings must be rejected for strict wrapper returns
+##
+public let parse_with_wrapper_shadowed = f(text: string): int32 errors WrappedParseError =>
+    guard string_to_int32(text) into value: int32 else err =>
+        let err: ParseError = ParseError.Invalid
+        return new WrappedParseError.Reading:
+            source: err
+            context: 'bad-input={text}'
+    return value

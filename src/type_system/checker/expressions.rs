@@ -1,4 +1,7 @@
-#![allow(clippy::pattern_type_mismatch, reason = "expression matcher patterns intentionally work on borrowed AST nodes")]
+#![allow(
+    clippy::pattern_type_mismatch,
+    reason = "expression matcher patterns intentionally work on borrowed AST nodes"
+)]
 //! Expression type checking for the Opalescent type system
 extern crate alloc;
 
@@ -491,7 +494,7 @@ impl TypeChecker {
                 .context
                 .active_guard_error_bindings
                 .last()
-                .is_some_and(|active_error_binding| active_error_binding == name)
+                .is_some_and(|active_error_binding| active_error_binding.name == name)
             {
                 if let Some(active_errors) = self.context.guard_error_stack.last() {
                     if let [single_error_type] = active_errors.as_slice() {

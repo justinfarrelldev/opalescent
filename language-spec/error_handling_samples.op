@@ -28,7 +28,7 @@ let parse_number_core = f(text: string): int32 errors ParseError =>
 let parse_number = f(text: string): int32 errors ParseError =>
     guard parse_number_core(text) else parse_error =>
         log_parse_failure(text)
-        return 0
+        propagate parse_error
     return 7
 
 ##
@@ -43,6 +43,7 @@ let read_line_from_disk = f(path: string): string errors IoError =>
 let load_number = f(path: string): int32 errors IoError, ParseError =>
     let content = propagate read_line_from_disk(path)
     guard parse_number(content) into value else parse_error =>
-        return 0
+        log_parse_failure(content)
+        propagate parse_error
 
     return value

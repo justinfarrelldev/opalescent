@@ -16,8 +16,9 @@ extern crate alloc;
 
 use super::control_flow::{GuardCheckRequest, GuardUsage};
 use super::helpers::coerce_literal_to_expected;
-use crate::ast::{AstNode, Expr, LabeledValue, LiteralValue, Stmt};
-use crate::type_system::checker::TypeChecker;
+use crate::ast::{AstNode, Expr, LabeledValue, Stmt};
+use crate::token::Span;
+use crate::type_system::checker::{ActiveGuardErrorBinding, TypeChecker};
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::type_mapping::ast_type_to_core_type;
@@ -37,23 +38,10 @@ enum GuardElseOutcome {
     ControlFlow,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct GuardElseValidation {
-    handled_bound_error: bool,
-    terminal_propagate_seen: bool,
-    handling_statement_count: usize,
-    referenced_active_error_binding: bool,
-}
-
-impl GuardElseValidation {
-    const fn with_handled_bound_error(handled_bound_error: bool) -> Self {
-        Self {
-            handled_bound_error,
-            terminal_propagate_seen: false,
-            handling_statement_count: 0,
-            referenced_active_error_binding: false,
-        }
-    }
+#[derive(Debug, Clone, PartialEq)]
+enum GuardReturnWrapperShape {
+    Valid { expr: Expr },
+    NotWrapper,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -141,7 +129,7 @@ impl TypeChecker {
         let pending_success_binding = (usage == GuardUsage::Statement
             && should_register_success_binding)
             .then_some(binding.name);
-        let else_outcome = self.type_check_guard_else_with_scope(GuardElseScopeRequest {
+        self.type_check_guard_else_with_scope(GuardElseScopeRequest {
             callee_error_types: callee_error_types.as_slice(),
             else_branch,
             error_binding,
@@ -150,8 +138,6 @@ impl TypeChecker {
             success_type: &success_type,
             expected_return,
         })?;
-
-        let _: GuardElseOutcome = else_outcome;
 
         if should_register_success_binding {
             let symbol_type = if binding.is_mutable {
@@ -201,9 +187,8 @@ impl TypeChecker {
                     });
                 }
                 let Some(return_type) = return_types.first() else {
-                    return Err(TypeError::ConstraintSolvingFailed {
-                        reason: "guard callee has no declared return type".to_owned(),
-                        span: TypeError::span_from_span(expr.span()),
+                    return Err(TypeError::GuardWrapperSourceInvalid {
+                        source_span: TypeError::span_from_span(expr.span()),
                     });
                 };
                 Ok((return_type.clone(), error_types))
@@ -261,7 +246,10 @@ impl TypeChecker {
             });
             self.context
                 .active_guard_error_bindings
-                .push(error_binding_name.to_owned());
+                .push(ActiveGuardErrorBinding {
+                    name: error_binding_name.to_owned(),
+                    source_location: else_branch.span(),
+                });
         }
 
         let else_result = self.type_check_guard_else_branch(
@@ -349,28 +337,7 @@ impl TypeChecker {
                         Ok(GuardElseOutcome::FallbackValue(fallback_type))
                     }
                     GuardUsage::Statement if error_binding.is_some() => {
-                        let validation = self.type_check_guard_error_clause_statement(
-                            else_branch,
-                            expected_return,
-                            true,
-                        )?;
-                        if validation.terminal_propagate_seen
-                            && validation.handling_statement_count == 0
-                        {
-                            return Err(TypeError::ConstraintSolvingFailed {
-                                reason: "guard error clause must perform handling before propagating; replace this guard with shorthand propagate <call>() when no handling is needed"
-                                    .to_owned(),
-                                span: TypeError::span_from_span(span),
-                            });
-                        }
-                        if !validation.handled_bound_error {
-                            return Err(TypeError::ConstraintSolvingFailed {
-                                reason:
-                                    "guard error clause must handle or propagate the bound error"
-                                        .to_owned(),
-                                span: TypeError::span_from_span(span),
-                            });
-                        }
+                        self.type_check_named_guard_error_clause(else_branch, expected_return)?;
                         Ok(GuardElseOutcome::ControlFlow)
                     }
                     GuardUsage::Statement => {
@@ -394,18 +361,11 @@ impl TypeChecker {
                 ..
             } => {
                 if usage == GuardUsage::Statement && error_binding.is_some() {
-                    let validation = self.type_check_guard_error_clause_statements(
+                    self.type_check_guard_error_clause_statements(
                         statements.as_slice(),
                         expected_return,
                         span,
                     )?;
-                    if !validation.handled_bound_error {
-                        return Err(TypeError::ConstraintSolvingFailed {
-                            reason: "guard error clause must handle or propagate the bound error"
-                                .to_owned(),
-                            span: TypeError::span_from_span(span),
-                        });
-                    }
                 } else {
                     self.type_check_statements(statements, expected_return)?;
                 }
@@ -413,24 +373,7 @@ impl TypeChecker {
             }
             ref other => {
                 if usage == GuardUsage::Statement && error_binding.is_some() {
-                    let validation =
-                        self.type_check_guard_error_clause_statement(other, expected_return, true)?;
-                    if validation.terminal_propagate_seen
-                        && validation.handling_statement_count == 0
-                    {
-                        return Err(TypeError::ConstraintSolvingFailed {
-                            reason: "guard error clause must perform handling before propagating; replace this guard with shorthand propagate <call>() when no handling is needed"
-                                .to_owned(),
-                            span: TypeError::span_from_span(other.span()),
-                        });
-                    }
-                    if !validation.handled_bound_error {
-                        return Err(TypeError::ConstraintSolvingFailed {
-                            reason: "guard error clause must handle or propagate the bound error"
-                                .to_owned(),
-                            span: TypeError::span_from_span(other.span()),
-                        });
-                    }
+                    self.type_check_named_guard_error_clause(other, expected_return)?;
                 } else {
                     self.type_check_stmt_with_return(other, expected_return)?;
                 }
@@ -443,73 +386,32 @@ impl TypeChecker {
         &mut self,
         statements: &[Stmt],
         expected_return: Option<&[CoreType]>,
-        clause_span: crate::token::Span,
-    ) -> Result<GuardElseValidation, TypeError> {
-        self.type_check_guard_error_clause_statements_with_terminal_mode(
-            statements,
-            expected_return,
-            clause_span,
-            true,
-        )
-    }
+        clause_span: Span,
+    ) -> Result<(), TypeError> {
+        let Some((terminal, prelude)) = statements.split_last() else {
+            return Err(TypeError::GuardErrorClauseMissingTerminal {
+                clause_span: TypeError::span_from_span(clause_span),
+            });
+        };
 
-    fn type_check_guard_error_clause_statements_with_terminal_mode(
-        &mut self,
-        statements: &[Stmt],
-        expected_return: Option<&[CoreType]>,
-        clause_span: crate::token::Span,
-        allow_terminal_propagate: bool,
-    ) -> Result<GuardElseValidation, TypeError> {
-        let mut validation = GuardElseValidation::with_handled_bound_error(false);
-
-        for (index, statement) in statements.iter().enumerate() {
-            let is_last = allow_terminal_propagate && (index + 1 == statements.len());
-            let statement_validation =
-                self.type_check_guard_error_clause_statement(statement, expected_return, is_last)?;
-
-            if statement_validation.terminal_propagate_seen {
-                if !is_last {
-                    return Err(TypeError::ConstraintSolvingFailed {
-                        reason: "propagate err is only valid as the final statement of a guard error clause"
-                            .to_owned(),
-                        span: TypeError::span_from_span(statement.span()),
-                    });
-                }
-                if validation.handling_statement_count == 0 {
-                    return Err(TypeError::ConstraintSolvingFailed {
-                        reason: "guard error clause must perform handling before propagating; replace this guard with shorthand propagate <call>() when no handling is needed"
-                            .to_owned(),
-                        span: TypeError::span_from_span(statement.span()),
-                    });
-                }
-                validation.handled_bound_error = true;
-                validation.terminal_propagate_seen = true;
-                validation.referenced_active_error_binding = true;
-            } else if statement_validation.handling_statement_count > 0 {
-                validation.handling_statement_count +=
-                    statement_validation.handling_statement_count;
-            }
-
-            if statement_validation.handled_bound_error {
-                validation.handled_bound_error = true;
-            }
-            if statement_validation.referenced_active_error_binding {
-                validation.referenced_active_error_binding = true;
-            }
+        let mut handled_bound_error = false;
+        for statement in prelude {
+            handled_bound_error |= self.stmt_references_active_guard_error_binding(statement);
+            self.type_check_guard_error_clause_prelude_statement(statement, expected_return)?;
         }
 
-        if validation.terminal_propagate_seen {
-            validation.handled_bound_error = true;
-        }
-
-        if !validation.handled_bound_error {
-            return Err(TypeError::ConstraintSolvingFailed {
-                reason: "guard error clause must handle or propagate the bound error".to_owned(),
-                span: TypeError::span_from_span(clause_span),
+        if prelude.is_empty() && matches!(terminal, Stmt::PropagateGuardError { .. }) {
+            return Err(TypeError::GuardShorthandRequired {
+                span: TypeError::span_from_span(terminal.span()),
             });
         }
 
-        Ok(validation)
+        self.type_check_guard_error_clause_terminal_statement(
+            terminal,
+            expected_return,
+            handled_bound_error,
+        )?;
+        Ok(())
     }
 
     pub(super) fn type_check_guard_error_clause_statement(
@@ -517,97 +419,194 @@ impl TypeChecker {
         statement: &Stmt,
         expected_return: Option<&[CoreType]>,
         allow_terminal_propagate: bool,
-    ) -> Result<GuardElseValidation, TypeError> {
-        match *statement {
-            Stmt::PropagateGuardError {
-                ref error_binding,
-                span,
-                ..
-            } => self.type_check_guard_error_propagate_terminal(
-                error_binding,
-                span,
-                allow_terminal_propagate,
+    ) -> Result<(), TypeError> {
+        if allow_terminal_propagate {
+            self.type_check_guard_error_clause_terminal_statement(statement, expected_return, false)
+        } else {
+            self.type_check_guard_error_clause_prelude_statement(statement, expected_return)?;
+            Ok(())
+        }
+    }
+
+    fn type_check_named_guard_error_clause(
+        &mut self,
+        clause: &Stmt,
+        expected_return: Option<&[CoreType]>,
+    ) -> Result<(), TypeError> {
+        match clause {
+            Stmt::Block {
+                statements, span, ..
+            } => self.type_check_guard_error_clause_statements(
+                statements.as_slice(),
+                expected_return,
+                *span,
             ),
-            Stmt::Return {
-                ref values, span, ..
+            Stmt::PropagateGuardError { span, .. } => Err(TypeError::GuardShorthandRequired {
+                span: TypeError::span_from_span(*span),
+            }),
+            other => {
+                self.type_check_guard_error_clause_terminal_statement(other, expected_return, false)
+            }
+        }
+    }
+
+    fn type_check_guard_error_clause_prelude_statement(
+        &mut self,
+        statement: &Stmt,
+        expected_return: Option<&[CoreType]>,
+    ) -> Result<(), TypeError> {
+        match statement {
+            Stmt::Block {
+                statements, span, ..
             } => {
+                self.symbol_table.enter_scope();
+                let nested_validation = self.type_check_guard_error_clause_statements(
+                    statements.as_slice(),
+                    expected_return,
+                    *span,
+                );
+                self.symbol_table.exit_scope();
+
+                if let Err(error) = nested_validation {
+                    match error {
+                        TypeError::GuardErrorClauseMissingTerminal { .. }
+                        | TypeError::GuardPropagateErrNotFinal { .. }
+                        | TypeError::GuardReturnErrInvalid { .. }
+                        | TypeError::GuardWrapperSourceInvalid { .. }
+                        | TypeError::GuardShorthandRequired { .. } => Ok(()),
+                        other => Err(other),
+                    }
+                } else if self.stmt_references_active_guard_error_binding(statement) {
+                    Ok(())
+                } else {
+                    Err(TypeError::GuardErrorClauseMissingTerminal {
+                        clause_span: TypeError::span_from_span(*span),
+                    })
+                }
+            }
+            Stmt::PropagateGuardError { span, .. } => Err(TypeError::GuardPropagateErrNotFinal {
+                propagate_span: TypeError::span_from_span(*span),
+            }),
+            Stmt::Return { values, span, .. } => {
                 if self.return_statement_forwards_active_guard_error(values.as_slice()) {
-                    return Err(TypeError::ConstraintSolvingFailed {
-                        reason: "return err is not valid in a guard error clause; use propagate err to forward the guard error"
-                            .to_owned(),
-                        span: TypeError::span_from_span(span),
+                    return Err(TypeError::GuardReturnErrInvalid {
+                        return_span: TypeError::span_from_span(*span),
                     });
                 }
-                self.type_check_stmt_with_return(statement, expected_return)?;
-                Ok(GuardElseValidation {
-                    handled_bound_error: true,
-                    terminal_propagate_seen: false,
-                    handling_statement_count: 1,
-                    referenced_active_error_binding: self
-                        .stmt_references_active_guard_error_binding(statement),
-                })
+                self.type_check_stmt_with_return(statement, expected_return)
             }
-            Stmt::Break { .. } | Stmt::Continue { .. } => {
-                self.type_check_stmt_with_return(statement, expected_return)?;
-                Ok(GuardElseValidation {
-                    handled_bound_error: true,
-                    terminal_propagate_seen: false,
-                    handling_statement_count: 1,
-                    referenced_active_error_binding: self
-                        .stmt_references_active_guard_error_binding(statement),
-                })
-            }
-            Stmt::Expression { ref expr, span, .. } => {
+            Stmt::Expression { expr, span, .. } => {
                 let handler_type = self.type_check_expr(expr)?;
                 if !self.types_compatible(&CoreType::Unit, &handler_type) {
                     return Err(TypeError::GuardElseIncompatibleError {
                         expected: CoreType::Unit.to_string(),
                         found: handler_type.to_string(),
-                        span: TypeError::span_from_span(span),
+                        span: TypeError::span_from_span(*span),
                     });
                 }
-                let referenced_active_error_binding =
-                    self.stmt_references_active_guard_error_binding(statement);
-                Ok(GuardElseValidation {
-                    handled_bound_error: referenced_active_error_binding
-                        || self.expression_counts_as_guard_error_handling(expr),
-                    terminal_propagate_seen: false,
-                    handling_statement_count: usize::from(!Self::expression_is_guard_error_noop(
-                        expr,
-                    )),
-                    referenced_active_error_binding,
-                })
+                Ok(())
             }
-            Stmt::Block {
-                ref statements,
+            _ => self.type_check_stmt_with_return(statement, expected_return),
+        }
+    }
+
+    fn type_check_guard_error_clause_terminal_statement(
+        &mut self,
+        statement: &Stmt,
+        expected_return: Option<&[CoreType]>,
+        handled_before_terminal: bool,
+    ) -> Result<(), TypeError> {
+        match statement {
+            Stmt::PropagateGuardError {
+                error_binding,
                 span,
                 ..
+            } => self.type_check_guard_error_propagate_terminal(error_binding, *span, true),
+            Stmt::Return { values, span, .. } => {
+                if self.return_statement_forwards_active_guard_error(values.as_slice()) {
+                    return Err(TypeError::GuardReturnErrInvalid {
+                        return_span: TypeError::span_from_span(*span),
+                    });
+                }
+                let wrapper_shape =
+                    self.classify_guard_error_wrapper_shape(values.as_slice(), *span)?;
+                match wrapper_shape {
+                    GuardReturnWrapperShape::Valid { expr } => {
+                        self.type_check_guard_error_wrapper_return(expr, *span)?;
+                        Ok(())
+                    }
+                    GuardReturnWrapperShape::NotWrapper => {
+                        self.type_check_stmt_with_return(statement, expected_return)?;
+                        let is_void_return = matches!(
+                            values.as_slice(),
+                            [LabeledValue {
+                                value: Expr::Literal {
+                                    value: crate::ast::LiteralValue::Void,
+                                    ..
+                                },
+                                ..
+                            }]
+                        );
+                        if handled_before_terminal
+                            || self.stmt_references_active_guard_error_binding(statement)
+                            || is_void_return
+                        {
+                            Ok(())
+                        } else {
+                            Err(TypeError::GuardErrorClauseMissingTerminal {
+                                clause_span: TypeError::span_from_span(*span),
+                            })
+                        }
+                    }
+                }
+            }
+            Stmt::Expression { expr, span, .. } => {
+                let handler_type = self.type_check_expr(expr)?;
+                if !self.types_compatible(&CoreType::Unit, &handler_type) {
+                    return Err(TypeError::GuardElseIncompatibleError {
+                        expected: CoreType::Unit.to_string(),
+                        found: handler_type.to_string(),
+                        span: TypeError::span_from_span(*span),
+                    });
+                }
+                if matches!(expr, Expr::Propagate { .. }) {
+                    return Err(TypeError::GuardShorthandRequired {
+                        span: TypeError::span_from_span(*span),
+                    });
+                }
+                if handled_before_terminal
+                    || self.stmt_references_active_guard_error_binding(statement)
+                {
+                    Ok(())
+                } else {
+                    Err(TypeError::GuardErrorClauseMissingTerminal {
+                        clause_span: TypeError::span_from_span(*span),
+                    })
+                }
+            }
+            Stmt::Block {
+                statements, span, ..
             } => {
                 self.symbol_table.enter_scope();
-                let nested_validation = self
-                    .type_check_guard_error_clause_statements_with_terminal_mode(
-                        statements.as_slice(),
-                        expected_return,
-                        span,
-                        false,
-                    );
+                let result = self.type_check_guard_error_clause_statements(
+                    statements.as_slice(),
+                    expected_return,
+                    *span,
+                );
                 self.symbol_table.exit_scope();
-                nested_validation.map(|validation| GuardElseValidation {
-                    handled_bound_error: validation.handled_bound_error,
-                    terminal_propagate_seen: false,
-                    handling_statement_count: 1,
-                    referenced_active_error_binding: validation.referenced_active_error_binding,
-                })
+                result
             }
             _ => {
                 self.type_check_stmt_with_return(statement, expected_return)?;
-                Ok(GuardElseValidation {
-                    handled_bound_error: true,
-                    terminal_propagate_seen: false,
-                    handling_statement_count: 1,
-                    referenced_active_error_binding: self
-                        .stmt_references_active_guard_error_binding(statement),
-                })
+                if handled_before_terminal
+                    || self.stmt_references_active_guard_error_binding(statement)
+                {
+                    Ok(())
+                } else {
+                    Err(TypeError::GuardErrorClauseMissingTerminal {
+                        clause_span: TypeError::span_from_span(statement.span()),
+                    })
+                }
             }
         }
     }
@@ -617,22 +616,16 @@ impl TypeChecker {
         error_binding: &str,
         span: crate::token::Span,
         allow_terminal_propagate: bool,
-    ) -> Result<GuardElseValidation, TypeError> {
+    ) -> Result<(), TypeError> {
         let Some(active_error_binding) = self.context.active_guard_error_bindings.last() else {
-            return Err(TypeError::ConstraintSolvingFailed {
-                reason:
-                    "propagate err is only valid as the final statement of a guard error clause"
-                        .to_owned(),
-                span: TypeError::span_from_span(span),
+            return Err(TypeError::GuardPropagateErrNotFinal {
+                propagate_span: TypeError::span_from_span(span),
             });
         };
 
-        if error_binding != active_error_binding || !allow_terminal_propagate {
-            return Err(TypeError::ConstraintSolvingFailed {
-                reason:
-                    "propagate err is only valid as the final statement of a guard error clause"
-                        .to_owned(),
-                span: TypeError::span_from_span(span),
+        if error_binding != active_error_binding.name || !allow_terminal_propagate {
+            return Err(TypeError::GuardPropagateErrNotFinal {
+                propagate_span: TypeError::span_from_span(span),
             });
         }
 
@@ -665,12 +658,7 @@ impl TypeChecker {
             });
         }
 
-        Ok(GuardElseValidation {
-            handled_bound_error: true,
-            terminal_propagate_seen: true,
-            handling_statement_count: 0,
-            referenced_active_error_binding: true,
-        })
+        Ok(())
     }
 
     fn return_statement_forwards_active_guard_error(&self, values: &[LabeledValue]) -> bool {
@@ -685,8 +673,116 @@ impl TypeChecker {
         let value = &values[0].value;
         matches!(
             value,
-            Expr::Identifier { name, .. } if name == active_error_binding
+            Expr::Identifier { name, .. } if name == &active_error_binding.name
         )
+    }
+
+    fn classify_guard_error_wrapper_shape(
+        &self,
+        values: &[LabeledValue],
+        span: Span,
+    ) -> Result<GuardReturnWrapperShape, TypeError> {
+        if values.len() != 1 {
+            return Ok(GuardReturnWrapperShape::NotWrapper);
+        }
+
+        let Some(active_error_binding) = self.context.active_guard_error_bindings.last() else {
+            return Err(TypeError::GuardWrapperSourceInvalid {
+                source_span: TypeError::span_from_span(span),
+            });
+        };
+
+        let value = &values[0].value;
+        self.classify_guard_error_wrapper_expr_shape(value, active_error_binding, span)
+    }
+
+    fn classify_guard_error_wrapper_expr_shape(
+        &self,
+        expr: &Expr,
+        active_binding: &ActiveGuardErrorBinding,
+        span: Span,
+    ) -> Result<GuardReturnWrapperShape, TypeError> {
+        match expr {
+            Expr::Constructor { fields, .. } => {
+                let mut source_field_seen = false;
+
+                for field in fields {
+                    if field.name == "source" {
+                        source_field_seen = true;
+                        if !self.wrapper_source_matches_active_guard_binding(
+                            &field.value,
+                            active_binding,
+                        ) {
+                            return Err(TypeError::GuardWrapperSourceInvalid {
+                                source_span: TypeError::span_from_span(field.span),
+                            });
+                        }
+                    }
+                }
+
+                if source_field_seen {
+                    Ok(GuardReturnWrapperShape::Valid { expr: expr.clone() })
+                } else {
+                    Err(TypeError::GuardWrapperSourceInvalid {
+                        source_span: TypeError::span_from_span(span),
+                    })
+                }
+            }
+            Expr::Parenthesized { expr: inner, .. } => {
+                self.classify_guard_error_wrapper_expr_shape(inner, active_binding, span)
+            }
+            _ => Ok(GuardReturnWrapperShape::NotWrapper),
+        }
+    }
+
+    fn type_check_guard_error_wrapper_return(
+        &mut self,
+        expr: Expr,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        let current_fn_error_types = match self.symbol_table().current_function_error_types() {
+            Some(&[]) | None => {
+                return Err(TypeError::PropagateOutsideErrorFunction {
+                    span: TypeError::span_from_span(span),
+                });
+            }
+            Some(errors) => errors.to_vec(),
+        };
+
+        let wrapper_type = self.type_check_expr(&expr)?;
+        if current_fn_error_types
+            .iter()
+            .any(|declared_error| self.types_compatible(declared_error, &wrapper_type))
+        {
+            Ok(())
+        } else {
+            Err(TypeError::PropagateErrorMismatch {
+                expected: Self::format_error_type_list(&current_fn_error_types),
+                found: wrapper_type.to_string(),
+                span: TypeError::span_from_span(
+                    self.symbol_table.current_function_span().unwrap_or(span),
+                ),
+                callee_span: TypeError::span_from_span(span),
+            })
+        }
+    }
+
+    fn wrapper_source_matches_active_guard_binding(
+        &self,
+        expr: &Expr,
+        active_binding: &ActiveGuardErrorBinding,
+    ) -> bool {
+        let Expr::Identifier { name, .. } = expr else {
+            return false;
+        };
+
+        if name != &active_binding.name {
+            return false;
+        }
+
+        self.symbol_table()
+            .lookup(name)
+            .is_some_and(|symbol| symbol.source_location == active_binding.source_location)
     }
 
     fn stmt_references_active_guard_error_binding(&self, statement: &Stmt) -> bool {
@@ -694,22 +790,7 @@ impl TypeChecker {
             return false;
         };
 
-        self.stmt_references_identifier(statement, active_error_binding)
-    }
-
-    fn expression_counts_as_guard_error_handling(&self, expr: &Expr) -> bool {
-        !Self::expression_is_guard_error_noop(expr)
-    }
-
-    fn expression_is_guard_error_noop(expr: &Expr) -> bool {
-        match expr {
-            Expr::Literal {
-                value: LiteralValue::Void,
-                ..
-            } => true,
-            Expr::Parenthesized { expr: inner, .. } => Self::expression_is_guard_error_noop(inner),
-            _ => false,
-        }
+        self.stmt_references_identifier(statement, &active_error_binding.name)
     }
 
     fn expr_references_identifier(&self, expr: &Expr, identifier: &str) -> bool {

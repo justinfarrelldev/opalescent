@@ -3,9 +3,7 @@
     clippy::multiple_inherent_impl,
     reason = "TypeChecker impl blocks intentionally split across submodules (checker/*.rs) for code organization - each submodule handles a specific aspect of type checking"
 )]
-
 extern crate alloc;
-
 use super::constraints::TypeConstraint;
 use super::environment::TypeEnvironment;
 use super::errors::{TypeError, Warning};
@@ -19,7 +17,6 @@ use crate::token::Span;
 use crate::type_system::arithmetic::ArithmeticMode;
 use alloc::{collections::BTreeMap, format, string::String, vec::Vec};
 use hot_reload::FunctionHotReloadMetadata;
-
 // Sub-modules
 /// Bytes stdlib built-in signature registration.
 mod bytes_builtins;
@@ -48,7 +45,6 @@ mod returns;
 mod size_specific_builtins;
 mod statements;
 mod unification;
-
 /// Labeling mode tracked for return statements within a function/lambda body.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ReturnLabelMode {
@@ -59,12 +55,18 @@ enum ReturnLabelMode {
     /// Return statements use a fixed ordered label set.
     Labeled(Vec<String>),
 }
-
 /// Ad-hoc context stacks that are pushed/popped as the type checker descends
 /// into nested language constructs (guards, propagate expressions, loops, function bodies).
 ///
 /// Grouping these together makes it clear which fields represent transient checking
 /// state versus persistent symbol-table / metadata state on [`TypeChecker`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ActiveGuardErrorBinding {
+    /// Name spelled in source for the active guard error binding.
+    name: String,
+    /// Declaration span of the binding registered for the active guard else scope.
+    source_location: Span,
+}
 #[derive(Default)]
 struct TypeCheckContext {
     /// Nesting depth of guard `else` handlers currently being type checked.
@@ -73,8 +75,8 @@ struct TypeCheckContext {
     guard_error_stack: Vec<Vec<CoreType>>,
     /// Stack of guard success bindings intentionally hidden while typing the active error clause.
     pending_guard_success_bindings: Vec<String>,
-    /// Stack of active guard error binding names currently in scope.
-    active_guard_error_bindings: Vec<String>,
+    /// Stack of active guard error binding metadata currently in scope.
+    active_guard_error_bindings: Vec<ActiveGuardErrorBinding>,
     /// Tracks whether calls are being checked from within a propagate expression.
     in_propagate_context: bool,
     /// Tracks whether calls are being checked as the subject expression of a guard.
@@ -84,7 +86,6 @@ struct TypeCheckContext {
     /// Stack of inferred break payload types for nested loop analysis.
     loop_break_type_stack: Vec<Option<Vec<CoreType>>>,
 }
-
 /// Core type checker responsible for validating and inferring types
 /// throughout the Opalescent type system
 pub struct TypeChecker {
@@ -121,7 +122,6 @@ pub struct TypeChecker {
     /// Stack tracking active function modifiers for the currently checked function/lambda.
     function_modifier_stack: Vec<Vec<FunctionModifier>>,
 }
-
 impl TypeChecker {
     /// Create a new type checker with a fresh environment
     pub fn new() -> Self {
@@ -149,7 +149,6 @@ impl TypeChecker {
         }
         checker
     }
-
     /// Create a type checker with a specific environment
     pub fn with_environment(environment: TypeEnvironment) -> Self {
         let mut checker = Self {
@@ -176,7 +175,6 @@ impl TypeChecker {
         }
         checker
     }
-
     /// Register field metadata for a nominal owner type.
     pub(super) fn register_adt_fields(
         &mut self,
@@ -185,19 +183,16 @@ impl TypeChecker {
     ) {
         self.adt_fields.insert(owner, fields);
     }
-
     /// Look up a registered field type for a nominal owner type.
     pub(super) fn adt_field_type(&self, owner: &str, field_name: &str) -> Option<&CoreType> {
         self.adt_fields
             .get(owner)
             .and_then(|fields| fields.get(field_name))
     }
-
     /// Return all field metadata for a nominal owner type when present.
     pub(super) fn adt_fields_for_owner(&self, owner: &str) -> Option<&BTreeMap<String, CoreType>> {
         self.adt_fields.get(owner)
     }
-
     /// Register all phase-2 standard-library built-in signatures.
     #[expect(
         clippy::too_many_lines,
@@ -206,7 +201,6 @@ impl TypeChecker {
     fn register_standard_builtins(&mut self) {
         let print_type_var = TypeVar::new(usize::MAX, "T".to_owned());
         let generic_print_param = CoreType::Variable(print_type_var.clone());
-
         let print_signature = CoreType::Function {
             generic_params: vec![GenericTypeParameter {
                 name: "T".to_owned(),
@@ -230,7 +224,6 @@ impl TypeChecker {
             read_count: 0,
             is_pure: false,
         });
-
         let take_input_signature = CoreType::Function {
             generic_params: Vec::new(),
             parameters: Vec::new(),
@@ -250,7 +243,6 @@ impl TypeChecker {
             read_count: 0,
             is_pure: false,
         });
-
         let string_to_int32_signature = CoreType::Function {
             generic_params: Vec::new(),
             parameters: vec![CoreType::String],
@@ -275,7 +267,6 @@ impl TypeChecker {
             read_count: 0,
             is_pure: false,
         });
-
         self.environment.register_type(
             "Option".to_owned(),
             CoreType::Generic {
@@ -284,7 +275,6 @@ impl TypeChecker {
             },
         );
         self.register_builtin_pair_type();
-
         let random_int32_signature = CoreType::Function {
             generic_params: Vec::new(),
             parameters: vec![CoreType::Int32, CoreType::Int32],
@@ -304,11 +294,9 @@ impl TypeChecker {
             read_count: 0,
             is_pure: false,
         });
-
         self.register_size_specific_builtins();
         self.register_bytes_builtins();
         self.register_fs_builtins();
-
         self.register_integer_intrinsics_for_type("int8", &CoreType::Int8);
         self.register_integer_intrinsics_for_type("int16", &CoreType::Int16);
         self.register_integer_intrinsics_for_type("int32", &CoreType::Int32);
@@ -319,7 +307,6 @@ impl TypeChecker {
         self.register_integer_intrinsics_for_type("uint64", &CoreType::UInt64);
         self.register_collection_intrinsics();
     }
-
     /// Register arithmetic intrinsics for a concrete integer type name.
     fn register_integer_intrinsics_for_type(&mut self, type_name: &str, integer_type: &CoreType) {
         self.register_integer_checked_intrinsic(type_name, "checked_add", integer_type);
@@ -337,7 +324,6 @@ impl TypeChecker {
         self.register_integer_same_type_intrinsic(type_name, "masked_bshr", integer_type);
         self.register_integer_same_type_intrinsic(type_name, "masked_bushr", integer_type);
     }
-
     /// Register a checked arithmetic intrinsic that returns `Option<T>`.
     fn register_integer_checked_intrinsic(
         &mut self,
@@ -355,7 +341,6 @@ impl TypeChecker {
             }],
             error_types: Vec::new(),
         };
-
         self.environment
             .register_builtin(qualified_name.clone(), signature.clone());
         self.symbol_table.register(SymbolInfo {
@@ -370,7 +355,6 @@ impl TypeChecker {
             is_pure: false,
         });
     }
-
     /// Register a same-type arithmetic intrinsic that returns `T`.
     fn register_integer_same_type_intrinsic(
         &mut self,
@@ -385,7 +369,6 @@ impl TypeChecker {
             return_types: vec![integer_type.clone()],
             error_types: Vec::new(),
         };
-
         self.environment
             .register_builtin(qualified_name.clone(), signature.clone());
         self.symbol_table.register(SymbolInfo {
@@ -400,12 +383,10 @@ impl TypeChecker {
             is_pure: false,
         });
     }
-
     /// Get a reference to the current environment
     pub const fn environment(&self) -> &TypeEnvironment {
         &self.environment
     }
-
     /// Get a mutable reference to the current environment
     #[expect(
         clippy::missing_const_for_fn,
@@ -414,17 +395,14 @@ impl TypeChecker {
     pub fn environment_mut(&mut self) -> &mut TypeEnvironment {
         &mut self.environment
     }
-
     /// Get a reference to the symbol table
     pub const fn symbol_table(&self) -> &SymbolTable {
         &self.symbol_table
     }
-
     /// Get a mutable reference to the symbol table
     pub const fn symbol_table_mut(&mut self) -> &mut SymbolTable {
         &mut self.symbol_table
     }
-
     /// Get all warnings collected so far.
     #[expect(
         clippy::missing_const_for_fn,
@@ -433,58 +411,47 @@ impl TypeChecker {
     pub fn warnings(&self) -> &[Warning] {
         &self.warnings
     }
-
     /// Clear all collected warnings.
     pub fn clear_warnings(&mut self) {
         self.warnings.clear();
     }
-
     /// Push a warning into the checker warning collection.
     pub fn push_warning(&mut self, warning: Warning) {
         self.warnings.push(warning);
     }
-
     /// Record arithmetic overflow semantics metadata for a typed expression.
     pub fn record_arithmetic_mode(&mut self, expr_id: usize, mode: ArithmeticMode) {
         self.arithmetic_modes.insert(expr_id, mode);
     }
-
     /// Query arithmetic overflow semantics metadata for an expression id.
     pub fn arithmetic_mode_for_expr(&self, expr_id: usize) -> Option<ArithmeticMode> {
         self.arithmetic_modes.get(&expr_id).copied()
     }
-
     /// Store folded integer constant metadata for an expression id.
     pub fn record_constant_integer_value(&mut self, expr_id: usize, value: i128) {
         self.constant_integer_values.insert(expr_id, value);
     }
-
     /// Query folded integer constant metadata for an expression id.
     pub fn constant_integer_for_expr(&self, expr_id: usize) -> Option<i128> {
         self.constant_integer_values.get(&expr_id).copied()
     }
-
     /// Clear folded integer constant metadata for one expression id.
     pub fn clear_constant_integer_value(&mut self, expr_id: usize) {
         self.constant_integer_values.remove(&expr_id);
     }
-
     /// Clear all per-expression arithmetic metadata caches.
     pub fn clear_expression_metadata(&mut self) {
         self.arithmetic_modes.clear();
         self.constant_integer_values.clear();
     }
-
     /// Register a symbol for ABI signature generation (Phase 6)
     pub fn register_symbol(&mut self, symbol: SymbolInfo) {
         self.symbol_table.register(symbol);
     }
-
     /// Add a type constraint for inference (Phase 2)
     pub fn add_constraint(&mut self, constraint: TypeConstraint) {
         self.constraints.push(constraint);
     }
-
     /// Get all collected constraints
     #[expect(
         clippy::missing_const_for_fn,
@@ -493,12 +460,10 @@ impl TypeChecker {
     pub fn constraints(&self) -> &[TypeConstraint] {
         &self.constraints
     }
-
     /// Clear all collected constraints
     pub fn clear_constraints(&mut self) {
         self.constraints.clear();
     }
-
     /// # Errors
     ///
     /// Returns `TypeError::ConstraintSolvingFailed` if constraints cannot be satisfied.
@@ -509,7 +474,6 @@ impl TypeChecker {
     pub fn solve_constraints(&mut self) -> Result<Substitution, TypeError> {
         let pending_constraints = core::mem::take(&mut self.constraints);
         let mut substitution = Substitution::empty();
-
         for constraint in pending_constraints {
             match constraint {
                 TypeConstraint::Equality {
@@ -566,7 +530,6 @@ impl TypeChecker {
                                 span: diagnostic_span,
                             });
                         }
-
                         for (i, (param_type, arg_type)) in
                             parameters.iter().zip(arguments.iter()).enumerate()
                         {
@@ -577,7 +540,6 @@ impl TypeChecker {
                                 self.unify(&param_applied, &arg_applied, None, arg_span)?;
                             substitution = substitution.compose(&param_subst);
                         }
-
                         if return_types.len() != 1 {
                             let diagnostic_span = callee_span
                                 .map_or_else(TypeError::unknown_span, TypeError::span_from_span);
@@ -587,7 +549,6 @@ impl TypeChecker {
                                 span: diagnostic_span,
                             });
                         }
-
                         if let Some(function_return_type) = return_types.first() {
                             let fn_return_applied = substitution.apply(function_return_type);
                             let return_type_applied = substitution.apply(&return_type);
@@ -610,12 +571,9 @@ impl TypeChecker {
                 }
             }
         }
-
         self.apply_substitution_to_visible_symbols(&substitution);
-
         Ok(substitution)
     }
-
     /// Rewrite visible symbol core types using solved substitutions.
     fn apply_substitution_to_visible_symbols(&mut self, substitution: &Substitution) {
         let visible_names = self.symbol_table.visible_symbol_names();
@@ -625,7 +583,6 @@ impl TypeChecker {
             }
         }
     }
-
     /// Resolve one `HasField` constraint from the current substitution state.
     fn solve_has_field_constraint(
         &self,
@@ -673,7 +630,6 @@ impl TypeChecker {
             })
         }
     }
-
     /// Generate a fresh type variable
     ///
     /// # Arguments
@@ -695,7 +651,6 @@ impl TypeChecker {
                 })?;
         Ok(CoreType::Variable(var))
     }
-
     /// Generate a fresh type variable with an auto-generated name
     ///
     /// # Arguments
@@ -708,7 +663,6 @@ impl TypeChecker {
     pub fn fresh_type_var_auto(&mut self, span: Span) -> Result<CoreType, TypeError> {
         self.fresh_type_var(format!("t{}", self.next_var_id), span)
     }
-
     /// Resolve error type names into nominal [`CoreType`]s using the type environment.
     ///
     /// This ensures that error declarations reference existing types and produces an
@@ -721,19 +675,23 @@ impl TypeChecker {
     ) -> Result<Vec<CoreType>, TypeError> {
         let mut resolved = Vec::with_capacity(error_names.len());
         for name in error_names {
-            match self.environment.lookup_type(name, span) {
-                Ok(core_type) => resolved.push(core_type.clone()),
-                Err(_) => {
-                    return Err(TypeError::UndeclaredErrorType {
-                        name: name.clone(),
-                        span: TypeError::span_from_span(span),
-                    });
+            if let Ok(core_type) = self.environment.lookup_type(name, span) {
+                resolved.push(core_type.clone());
+            } else {
+                if let Some(symbol) = self.symbol_table.lookup(name) {
+                    if symbol.symbol_type == SymbolType::Type {
+                        resolved.push(symbol.core_type.clone());
+                        continue;
+                    }
                 }
+                return Err(TypeError::UndeclaredErrorType {
+                    name: name.clone(),
+                    span: TypeError::span_from_span(span),
+                });
             }
         }
         Ok(resolved)
     }
-
     /// Type check a pattern match expression
     /// Ensures all patterns and arms are type compatible
     ///
@@ -759,7 +717,6 @@ impl TypeChecker {
                 });
             }
         }
-
         if let Some(first) = arm_types.first() {
             let first_type = &first.0;
             let first_span = first.1;
@@ -776,10 +733,8 @@ impl TypeChecker {
                 }
             }
         }
-
         Ok(())
     }
-
     /// Check if two core types are structurally compatible (including nested types)
     ///
     /// This method performs deep structural comparison for complex types like
@@ -809,15 +764,12 @@ impl TypeChecker {
             | (CoreType::Boolean, CoreType::Boolean)
             | (CoreType::String, CoreType::String)
             | (CoreType::Unit, CoreType::Unit) => true,
-
             // Type variables are compatible with themselves
             (CoreType::Variable(var1), CoreType::Variable(var2)) => var1.id == var2.id,
-
             // Arrays are compatible if their element types are compatible
             (CoreType::Array(left_elem), CoreType::Array(right_elem)) => {
                 self.types_compatible(left_elem.as_ref(), right_elem.as_ref())
             }
-
             // Functions are compatible if parameters and return types are compatible
             (
                 CoreType::Function {
@@ -859,7 +811,6 @@ impl TypeChecker {
                 }
                 true
             }
-
             // Generic types are compatible if names and type arguments match
             (
                 CoreType::Generic {
@@ -881,12 +832,10 @@ impl TypeChecker {
                 }
                 true
             }
-
             // Different types are not compatible
             _ => false,
         }
     }
-
     /// Validate a cast expression and classify it as safe or unsafe.
     ///
     /// See [`is_safe_cast`](super::checker::helpers::is_safe_cast) for detailed cast safety rules.
@@ -909,7 +858,6 @@ impl TypeChecker {
         }
         Ok(())
     }
-
     /// Validate a cast and collect warning diagnostics for non-fatal unsafe conversions.
     ///
     /// # Errors
@@ -922,9 +870,7 @@ impl TypeChecker {
         span: Span,
     ) -> Result<(), TypeError> {
         use super::checker::helpers::is_safe_cast;
-
         Self::validate_cast(from_type, to_type, span)?;
-
         if !is_safe_cast(from_type, to_type) {
             self.push_warning(Warning::UnsafeCast {
                 from_type: format!("{from_type}"),
@@ -933,10 +879,8 @@ impl TypeChecker {
                 suppression_annotation: None,
             });
         }
-
         Ok(())
     }
-
     /// Execute a closure within a fresh lexical scope, ensuring the scope is
     /// entered and exited even when the closure returns early.
     pub(super) fn within_new_scope<F, R>(&mut self, action: F) -> R
@@ -948,7 +892,6 @@ impl TypeChecker {
         self.symbol_table.exit_scope();
         result
     }
-
     /// Return whether current function context is marked `pure`.
     pub(super) fn current_function_is_pure(&self) -> bool {
         self.function_modifier_stack
@@ -959,18 +902,15 @@ impl TypeChecker {
                     .any(|modifier| *modifier == FunctionModifier::Pure)
             })
     }
-
     /// Enter a function/lambda modifier context.
     pub(super) fn enter_function_modifier_context(&mut self, modifiers: Vec<FunctionModifier>) {
         self.function_modifier_stack.push(modifiers);
     }
-
     /// Exit current function/lambda modifier context.
     pub(super) fn exit_function_modifier_context(&mut self) {
         self.function_modifier_stack.pop();
     }
 }
-
 impl From<AstTypeMappingError> for TypeError {
     fn from(value: AstTypeMappingError) -> Self {
         match value {
@@ -981,7 +921,6 @@ impl From<AstTypeMappingError> for TypeError {
         }
     }
 }
-
 impl Default for TypeChecker {
     fn default() -> Self {
         Self::new()

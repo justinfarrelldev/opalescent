@@ -1,0 +1,13 @@
+##
+  Description: Strict guard wrapper fixture error types
+##
+public type ParseError:
+    Invalid
+
+##
+  Description: Strict guard wrapper fixture contextual error
+##
+public type WrappedParseError:
+    Reading:
+        source: ParseError
+        context: string

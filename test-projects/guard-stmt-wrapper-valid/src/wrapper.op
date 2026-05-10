@@ -1,0 +1,12 @@
+import string_to_int32 from standard
+import type WrappedParseError from ./wrapper.types
+
+##
+  Description: Wrap a parse error directly from a strict named guard clause
+##
+public let parse_with_wrapper = f(text: string): int32 errors WrappedParseError =>
+    guard string_to_int32(text) into value: int32 else err =>
+        return new WrappedParseError.Reading:
+            source: err
+            context: 'bad-input={text}'
+    return value

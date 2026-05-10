@@ -1,4 +1,8 @@
-#![allow(clippy::pattern_type_mismatch, clippy::too_many_lines, reason = "large regression tests and borrowed-pattern checks are intentional here")]
+#![allow(
+    clippy::pattern_type_mismatch,
+    clippy::too_many_lines,
+    reason = "large regression tests and borrowed-pattern checks are intentional here"
+)]
 //! Tests for the type system
 
 extern crate alloc;
@@ -17,6 +21,7 @@ use crate::ast::{
     LambdaBody, LetBinding, LiteralValue, NodeId, Parameter, Program, Stmt, StringPart, Type,
     TypeDef, TypeParameter, Variant, Visibility as AstVisibility,
 };
+use crate::errors::renderer::render_diagnostic;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::token::{Position, Span};
@@ -246,13 +251,45 @@ fn make_let_decl(name: &str, annotation: Option<Type>, initializer: Expr, id: us
 }
 
 fn return_stmt(value: Expr, id: usize) -> Stmt {
-    Stmt::Return {
-        values: vec![LabeledValue {
+    return_stmt_values(
+        vec![LabeledValue {
             label: String::new(),
             span: test_span(),
             value,
             id: node_id(id.checked_add(10).unwrap_or(id)),
         }],
+        id,
+    )
+}
+
+fn return_stmt_values(values: Vec<LabeledValue>, id: usize) -> Stmt {
+    Stmt::Return {
+        values,
+        span: test_span(),
+        id: node_id(id),
+    }
+}
+
+fn labeled_value(label: &str, value: Expr, id: usize) -> LabeledValue {
+    LabeledValue {
+        label: label.to_owned(),
+        span: test_span(),
+        value,
+        id: node_id(id),
+    }
+}
+
+fn constructor_expr(callee: Expr, fields: Vec<(&str, Expr)>, id: usize) -> Expr {
+    Expr::Constructor {
+        callee: Box::new(callee),
+        fields: fields
+            .into_iter()
+            .map(|(name, value)| crate::ast::ConstructorField {
+                name: name.to_owned(),
+                value,
+                span: test_span(),
+            })
+            .collect(),
         span: test_span(),
         id: node_id(id),
     }
@@ -302,6 +339,30 @@ fn make_unit_type_decl(name: &str, id: usize) -> Decl {
                 name: "unit".to_owned(),
                 span: test_span(),
             },
+            span: test_span(),
+        },
+        visibility: AstVisibility::Private,
+        doc_comment: None,
+        span: test_span(),
+        id: node_id(id),
+        metadata: HotReloadMetadata::for_type_declaration(),
+    }
+}
+
+fn make_product_type_decl(name: &str, fields: Vec<(&str, Type)>, id: usize) -> Decl {
+    Decl::Type {
+        name: name.to_owned(),
+        generic_params: None,
+        generic_constraints: None,
+        type_def: TypeDef::Product {
+            fields: fields
+                .into_iter()
+                .map(|(field_name, type_annotation)| Field {
+                    name: field_name.to_owned(),
+                    type_annotation,
+                    span: test_span(),
+                })
+                .collect(),
             span: test_span(),
         },
         visibility: AstVisibility::Private,
@@ -2117,7 +2178,7 @@ fn test_guard_statement_success_binding_is_hidden_inside_else_clause() {
         entry main = f(): void =>
             guard string_to_int32('5') into value else err =>
                 let leaked: int32 = value
-                continue
+                return void
             return void
         ",
     );
@@ -2137,10 +2198,10 @@ fn test_guard_statement_success_binding_is_hidden_inside_else_clause() {
 fn test_guard_statement_binds_success_and_error_types() {
     let program = parse_program_from_source_with_spaces(
         "
-        entry main = f(): void =>
+        entry main = f(): void errors ParseError =>
             guard string_to_int32('5') into n else e =>
                 let err_value: ParseError = e
-                continue
+                propagate e
             let parsed: int32 = n
             return void
         ",
@@ -2158,10 +2219,10 @@ fn test_guard_statement_binds_success_and_error_types() {
 fn type_check_guard_shorthand_discards_success_binding() {
     let program = parse_program_from_source_with_spaces(
         "
-        entry main = f(): void =>
+        entry main = f(): void errors ParseError =>
             guard string_to_int32('5') else err =>
                 let err_value: ParseError = err
-                continue
+                propagate err
             return void
         ",
     );
@@ -2178,10 +2239,10 @@ fn type_check_guard_shorthand_discards_success_binding() {
 fn type_check_guard_shorthand_success_binding_not_in_scope() {
     let program = parse_program_from_source_with_spaces(
         "
-        entry main = f(): int32 =>
+        entry main = f(): int32 errors ParseError =>
             guard string_to_int32('5') else err =>
                 let err_value: ParseError = err
-                continue
+                propagate err
             return n
         ",
     );
@@ -2202,10 +2263,10 @@ fn type_check_guard_shorthand_success_binding_not_in_scope() {
 fn type_check_named_guard_binding_still_available_after_guard() {
     let program = parse_program_from_source_with_spaces(
         "
-        entry main = f(): int32 =>
+        entry main = f(): int32 errors ParseError =>
             guard string_to_int32('5') into n else err =>
                 let err_value: ParseError = err
-                continue
+                propagate err
             return n
         ",
     );
@@ -2222,10 +2283,10 @@ fn type_check_named_guard_binding_still_available_after_guard() {
 fn type_check_guard_into_underscore_still_valid() {
     let program = parse_program_from_source_with_spaces(
         "
-        entry main = f(): void =>
+        entry main = f(): void errors ParseError =>
             guard string_to_int32('5') into _ else err =>
                 let err_value: ParseError = err
-                continue
+                propagate err
             return void
         ",
     );
@@ -2242,10 +2303,10 @@ fn type_check_guard_into_underscore_still_valid() {
 fn type_check_guard_into_underscore_does_not_introduce_binding_after_guard() {
     let program = parse_program_from_source_with_spaces(
         "
-        entry main = f(): int32 =>
+        entry main = f(): int32 errors ParseError =>
             guard string_to_int32('5') into _ else err =>
                 let err_value: ParseError = err
-                continue
+                propagate err
             return _
         ",
     );
@@ -2330,59 +2391,100 @@ fn test_guard_statement_multi_error_binding_stays_contextual() {
 
 #[test]
 fn test_guard_statement_return_err_uses_dedicated_guard_diagnostic() {
-    let worker = make_function_decl_with_errors(
-        "worker",
-        Vec::new(),
-        Some(int_type("void")),
-        vec!["ParseError"],
-        Stmt::Block {
-            statements: vec![
-                Stmt::Guard {
-                    expression: Box::new(call_expr("string_to_int32", &["input"], 7_520_001)),
-                    success_binding: Some("value".to_owned()),
-                    success_binding_type: Some(int_type("int32")),
-                    success_binding_is_mutable: false,
-                    error_binding: "err".to_owned(),
-                    else_body: Box::new(Stmt::Block {
-                        statements: vec![return_stmt(identifier_expr("err", 7_520_002), 7_520_003)],
-                        span: test_span(),
-                        id: node_id(7_520_004),
-                    }),
-                    span: test_span(),
-                    id: node_id(7_520_005),
-                },
-                return_stmt(literal_expr(LiteralValue::Void, 7_520_006), 7_520_007),
-            ],
-            span: test_span(),
-            id: node_id(7_520_008),
-        },
-        7_520_009,
-    );
+    let error = TypeError::GuardReturnErrInvalid {
+        return_span: TypeError::span_from_span(test_span()),
+    };
 
-    let input_decl = make_let_decl(
-        "input",
-        Some(int_type("string")),
-        literal_expr(LiteralValue::String(String::from("5")), 7_520_010),
-        7_520_011,
+    assert_eq!(
+        error
+            .code()
+            .map(|diagnostic_code| diagnostic_code.to_string())
+            .as_deref(),
+        Some("opalescent::guard::return_err_invalid"),
+        "strict guard return-err diagnostic should expose the exact diagnostic code"
     );
-
-    let program = create_entry_program(vec![
-        make_unit_type_decl("ParseError", 7_520_000),
-        input_decl,
-        worker,
-    ]);
-
-    let mut checker = TypeChecker::new();
-    let errors = checker.type_check_program(&program).expect_err(
-        "return err in a guard error clause should fail with the dedicated Task 7 diagnostic",
-    );
-    let error_text = format!("{errors:?}");
     assert!(
-        error_text.contains(
-            "return err is not valid in a guard error clause; use propagate err to forward the guard error"
-        ),
-        "expected Task 7 guard-clause return err diagnostic, got: {error_text}"
+        error.help().is_some(),
+        "strict guard return-err diagnostic should expose help text"
     );
+    assert!(
+        error
+            .labels()
+            .expect("guard return-err diagnostic should have a labeled span")
+            .next()
+            .is_some(),
+        "strict guard return-err diagnostic should include at least one labeled span"
+    );
+    let rendered = render_diagnostic("test.op", "return err", &error);
+    assert!(
+        rendered.contains("opalescent::guard::return_err_invalid"),
+        "rendered strict guard diagnostic should include the diagnostic code"
+    );
+    assert!(
+        rendered.contains("`return err` is not allowed here") || rendered.contains("return err"),
+        "rendered strict guard diagnostic should include label text"
+    );
+}
+
+#[test]
+fn test_strict_guard_diagnostic_codes_and_labels() {
+    let diagnostics: Vec<(TypeError, &str)> = vec![
+        (
+            TypeError::GuardErrorClauseMissingTerminal {
+                clause_span: TypeError::span_from_span(test_span()),
+            },
+            "opalescent::guard::missing_terminal",
+        ),
+        (
+            TypeError::GuardPropagateErrNotFinal {
+                propagate_span: TypeError::span_from_span(test_span()),
+            },
+            "opalescent::guard::propagate_not_final",
+        ),
+        (
+            TypeError::GuardReturnErrInvalid {
+                return_span: TypeError::span_from_span(test_span()),
+            },
+            "opalescent::guard::return_err_invalid",
+        ),
+        (
+            TypeError::GuardWrapperSourceInvalid {
+                source_span: TypeError::span_from_span(test_span()),
+            },
+            "opalescent::guard::wrapper_source_invalid",
+        ),
+        (
+            TypeError::GuardShorthandRequired {
+                span: TypeError::span_from_span(test_span()),
+            },
+            "opalescent::guard::shorthand_required",
+        ),
+    ];
+
+    for (error, expected_code) in diagnostics {
+        assert_eq!(
+            error
+                .code()
+                .map(|diagnostic_code| diagnostic_code.to_string())
+                .as_deref(),
+            Some(expected_code),
+            "strict guard diagnostics should expose exact diagnostic codes"
+        );
+        assert!(
+            error
+                .labels()
+                .expect("strict guard diagnostics should have a labeled span")
+                .next()
+                .is_some(),
+            "strict guard diagnostics should include at least one labeled span"
+        );
+        let rendered = render_diagnostic("test.op", "guard call() else err => return err", &error);
+        assert!(
+            rendered.contains(expected_code)
+                || rendered.contains(expected_code.rsplit("::").next().unwrap()),
+            "rendered strict guard diagnostic should include its diagnostic code"
+        );
+    }
 }
 
 /// Guard used as an expression should reject else branches whose fallback type
@@ -3335,7 +3437,7 @@ fn test_guard_error_binding_is_not_available_after_guard() {
         entry main = f(): ParseError errors ParseError =>
             guard string_to_int32('5') into value else err =>
                 let current_error: ParseError = err
-                continue
+                propagate err
             return err
         ",
     );
@@ -3400,12 +3502,11 @@ fn test_guard_error_clause_return_err_is_rejected() {
     let errors = checker
         .type_check_program(&program)
         .expect_err("return err should be rejected in a guard error clause");
-    let error_text = format!("{errors:?}");
     assert!(
-        error_text.contains(
-            "return err is not valid in a guard error clause; use propagate err to forward the guard error"
-        ),
-        "expected return-err diagnostic, got: {error_text}"
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::GuardReturnErrInvalid { .. })),
+        "expected GuardReturnErrInvalid diagnostic, got: {errors:?}"
     );
 }
 
@@ -3468,11 +3569,11 @@ fn test_guard_error_clause_propagate_err_must_be_terminal() {
     let errors = checker
         .type_check_program(&program)
         .expect_err("propagate err should be terminal inside guard error clauses");
-    let error_text = format!("{errors:?}");
     assert!(
-        error_text
-            .contains("propagate err is only valid as the final statement of a guard error clause"),
-        "expected terminal-propagate diagnostic, got: {error_text}"
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::GuardPropagateErrNotFinal { .. })),
+        "expected GuardPropagateErrNotFinal diagnostic, got: {errors:?}"
     );
 }
 
@@ -3524,12 +3625,11 @@ fn test_guard_error_clause_only_propagate_is_rejected() {
     let errors = checker
         .type_check_program(&program)
         .expect_err("only-propagate guard error clauses should be rejected");
-    let error_text = format!("{errors:?}");
     assert!(
-        error_text.contains(
-            "guard error clause must perform handling before propagating; replace this guard with shorthand propagate <call>() when no handling is needed"
-        ),
-        "expected only-propagate diagnostic, got: {error_text}"
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::GuardShorthandRequired { .. })),
+        "expected GuardShorthandRequired diagnostic, got: {errors:?}"
     );
 }
 
@@ -3658,10 +3758,152 @@ fn test_guard_error_clause_must_handle_or_propagate_bound_error() {
     let errors = checker
         .type_check_program(&program)
         .expect_err("guard error clauses must handle or propagate the bound error");
-    let error_text = format!("{errors:?}");
     assert!(
-        error_text.contains("guard error clause must handle or propagate the bound error"),
-        "expected fallthrough diagnostic, got: {error_text}"
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::GuardErrorClauseMissingTerminal { .. })),
+        "expected GuardErrorClauseMissingTerminal diagnostic, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_guard_error_clause_rejects_success_fallback_return() {
+    let guard_stmt = Stmt::Guard {
+        expression: Box::new(call_expr("string_to_int32", &["input"], 7694)),
+        success_binding: Some("value".to_owned()),
+        success_binding_type: Some(int_type("int32")),
+        success_binding_is_mutable: false,
+        error_binding: "err".to_owned(),
+        else_body: Box::new(return_stmt(
+            literal_expr(LiteralValue::Integer(0), 7695),
+            7696,
+        )),
+        span: test_span(),
+        id: node_id(7697),
+    };
+
+    let program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7698),
+        make_function_decl_with_errors(
+            "string_to_int32",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(5), 7699), 7700),
+            7701,
+        ),
+        make_function_decl_with_errors(
+            "use_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    guard_stmt,
+                    return_stmt(identifier_expr("value", 7702), 7703),
+                ],
+                span: test_span(),
+                id: node_id(7704),
+            },
+            7705,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("fallback success return should not satisfy strict guard handling");
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::GuardErrorClauseMissingTerminal { .. })),
+        "expected GuardErrorClauseMissingTerminal diagnostic for fallback return, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_guard_error_clause_rejects_wrapper_return_with_aliased_source() {
+    let guard_stmt = Stmt::Guard {
+        expression: Box::new(call_expr("string_to_int32", &["input"], 7722)),
+        success_binding: Some("value".to_owned()),
+        success_binding_type: Some(int_type("int32")),
+        success_binding_is_mutable: false,
+        error_binding: "err".to_owned(),
+        else_body: Box::new(Stmt::Block {
+            statements: vec![
+                Stmt::Let {
+                    binding: LetBinding {
+                        name: "alias_err".to_owned(),
+                        type_annotation: Some(int_type("ParseError")),
+                        is_mutable: false,
+                        span: test_span(),
+                        id: node_id(7723),
+                    },
+                    initializer: Some(identifier_expr("err", 7724)),
+                    span: test_span(),
+                    id: node_id(7725),
+                },
+                return_stmt_values(
+                    vec![labeled_value(
+                        "wrapped",
+                        constructor_expr(
+                            identifier_expr("WrappedParseError", 7726),
+                            vec![("source", identifier_expr("alias_err", 7727))],
+                            7728,
+                        ),
+                        7729,
+                    )],
+                    7730,
+                ),
+            ],
+            span: test_span(),
+            id: node_id(7731),
+        }),
+        span: test_span(),
+        id: node_id(7732),
+    };
+
+    let program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7733),
+        make_product_type_decl(
+            "WrappedParseError",
+            vec![("source", int_type("ParseError"))],
+            7734,
+        ),
+        make_function_decl_with_errors(
+            "string_to_int32",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(5), 7735), 7736),
+            7737,
+        ),
+        make_function_decl_with_errors(
+            "use_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["WrappedParseError"],
+            Stmt::Block {
+                statements: vec![
+                    guard_stmt,
+                    return_stmt(identifier_expr("value", 7738), 7739),
+                ],
+                span: test_span(),
+                id: node_id(7740),
+            },
+            7741,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("aliased wrapper source should be rejected by strict guard validation");
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::GuardWrapperSourceInvalid { .. })),
+        "expected GuardWrapperSourceInvalid diagnostic for aliased source, got: {errors:?}"
     );
 }
 
@@ -7534,7 +7776,8 @@ fn test_guard_with_string_to_int32_type_checks() {
     const SOURCE: &str = "
 entry parse_user_number = f(input: string): int32 errors ParseError => {
 guard string_to_int32(input) into n else _e =>
-    return 0
+    let _handled: ParseError = _e
+    propagate _e
 return n
 }
 ";

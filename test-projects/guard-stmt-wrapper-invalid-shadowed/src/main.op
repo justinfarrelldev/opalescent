@@ -1,0 +1,8 @@
+import parse_with_wrapper_shadowed from ./wrapper
+
+##
+  Description: Entry exercises the shadowed-source compile-fail path
+##
+entry main = f(args: string[]): void =>
+    let _ = parse_with_wrapper_shadowed('oops')
+    return void
