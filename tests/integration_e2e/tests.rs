@@ -1,7 +1,22 @@
 #![cfg(feature = "integration")]
 
 use super::*;
+use self::fs_helpers::unique_probe_target_dir;
+use std::process::Stdio;
+use std::time::Duration;
 
+const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+fn run_binary_with_timeout(binary_path: &Path, context: &str) -> Result<std::process::Output, String> {
+    let child = std::process::Command::new(binary_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("{context} should execute: {error}"))?;
+
+    fs_helpers::wait_for_child_output_with_timeout(child, GENERATED_BINARY_TEST_TIMEOUT, context)
+}
 mod bytes_stdlib;
 mod compile_failures;
 mod fs_absolute_path_sync;
@@ -53,15 +68,15 @@ mod windows_wine;
 
 #[test]
 fn smoke_void_program_compiles_links_and_runs() {
-    let temp_dir = Path::new("test-projects/_smoke/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("smoke");
+    let prepare = prepare_dir(&temp_dir);
     assert!(prepare.is_ok(), "smoke temp directory should be created");
 
     let source = "##\n    Description: Entry point for the smoke test program run\n##\nentry main = f(): void => { return void }";
-    let binary_result = compile_program(
+    let binary_result = compile_program_for_tests(
         Path::new("test-projects/_smoke/src/main.op"),
         source,
-        temp_dir,
+        &temp_dir,
         &TargetTriple::host(),
     );
     assert!(
@@ -72,12 +87,12 @@ fn smoke_void_program_compiles_links_and_runs() {
         return;
     };
 
-    let output_result = std::process::Command::new(&binary_path).output();
+    let run_output_result = run_binary_with_timeout(&binary_path, "compiled smoke binary");
     assert!(
-        output_result.is_ok(),
+        run_output_result.is_ok(),
         "compiled smoke binary should execute"
     );
-    let Ok(run_output) = output_result else {
+    let Ok(run_output) = run_output_result else {
         return;
     };
 
@@ -90,14 +105,14 @@ fn smoke_void_program_compiles_links_and_runs() {
         "compiled smoke binary should not print anything"
     );
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(cleanup.is_ok(), "smoke temp directory should be removed");
 }
 
 #[test]
 fn emit_object_file_creates_valid_object() {
-    let temp_dir = Path::new("test-projects/_emit/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("emit");
+    let prepare = prepare_dir(&temp_dir);
     assert!(prepare.is_ok(), "emit temp directory should be created");
 
     let context = inkwell::context::Context::create();
@@ -133,14 +148,14 @@ fn emit_object_file_creates_valid_object() {
         "object file should be non-empty after emission"
     );
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(cleanup.is_ok(), "emit temp directory should be removed");
 }
 
 #[test]
 fn link_produces_executable() {
-    let temp_dir = Path::new("test-projects/_link/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("link");
+    let prepare = prepare_dir(&temp_dir);
     assert!(prepare.is_ok(), "link temp directory should be created");
 
     let context = inkwell::context::Context::create();
@@ -163,7 +178,7 @@ fn link_produces_executable() {
         "object emission should succeed before linking"
     );
 
-    let link_result = link_object_file(&object_path, &binary_path, &TargetTriple::host());
+    let link_result = link_object_file_for_tests(&object_path, &binary_path, &TargetTriple::host());
     assert!(
         link_result.is_ok(),
         "link step should produce an executable"
@@ -194,14 +209,14 @@ fn link_produces_executable() {
         );
     }
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(cleanup.is_ok(), "link temp directory should be removed");
 }
 
 #[test]
 fn hello_world_compiles_links_and_runs() {
-    let temp_dir = Path::new("test-projects/hello-world/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("hello-world");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "hello-world target directory should be created"
@@ -219,10 +234,10 @@ fn hello_world_compiles_links_and_runs() {
             }
         };
 
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         let binary_path = match binary_result {
@@ -234,15 +249,7 @@ fn hello_world_compiles_links_and_runs() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "hello-world compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "hello-world compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("Hello world") {
@@ -261,7 +268,7 @@ fn hello_world_compiles_links_and_runs() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "hello-world target directory should be removed"
@@ -279,8 +286,8 @@ fn hello_world_compiles_links_and_runs() {
 
 #[test]
 fn fib_recursive_compiles_links_and_runs() {
-    let temp_dir = Path::new("test-projects/fib-recursive/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("fib-recursive");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "fib-recursive target directory should be created"
@@ -298,10 +305,10 @@ fn fib_recursive_compiles_links_and_runs() {
             }
         };
 
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         let binary_path = match binary_result {
@@ -313,15 +320,7 @@ fn fib_recursive_compiles_links_and_runs() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "fib-recursive compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "fib-recursive compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("fib(10) = 55") {
@@ -340,7 +339,7 @@ fn fib_recursive_compiles_links_and_runs() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "fib-recursive target directory should be removed"
@@ -358,8 +357,8 @@ fn fib_recursive_compiles_links_and_runs() {
 
 #[test]
 fn fib_iterative_compiles_links_and_runs() {
-    let temp_dir = Path::new("test-projects/fib-iterative/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("fib-iterative");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "fib-iterative target directory should be created"
@@ -377,10 +376,10 @@ fn fib_iterative_compiles_links_and_runs() {
             }
         };
 
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         let binary_path = match binary_result {
@@ -392,15 +391,7 @@ fn fib_iterative_compiles_links_and_runs() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "fib-iterative compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "fib-iterative compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("fib(10) = 55") {
@@ -419,7 +410,7 @@ fn fib_iterative_compiles_links_and_runs() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "fib-iterative target directory should be removed"
@@ -437,8 +428,8 @@ fn fib_iterative_compiles_links_and_runs() {
 
 #[test]
 fn loop_expression_break_value_compiles_and_runs() {
-    let temp_dir = Path::new("test-projects/_loop_expr/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("loop-expr");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "loop-expr temp directory should be created"
@@ -458,10 +449,10 @@ entry main = f(args: string[]): void =>
 ";
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             Path::new("test-projects/_loop_expr/src/main.op"),
             source,
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         if binary_result.is_err() {
@@ -472,14 +463,7 @@ entry main = f(args: string[]): void =>
         }
         let binary_path = binary_result.expect("compile succeeded");
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        if output_result.is_err() {
-            return Err(format!(
-                "loop expression binary should execute: {:?}",
-                output_result.err()
-            ));
-        }
-        let run_output = output_result.expect("execution succeeded");
+        let run_output = run_binary_with_timeout(&binary_path, "loop expression binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("42") {
@@ -498,7 +482,7 @@ entry main = f(args: string[]): void =>
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "loop-expr target directory should be removed"

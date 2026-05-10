@@ -1,0 +1,67 @@
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1218 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+
+running 16 tests
+test tests::project_execution::array_bounds_trap_exits_nonzero ... array-bounds target dir: /tmp/opalescent-probe-target-array-bounds-78279-1778444429106839244
+ok
+test tests::project_execution::cast_safety_compiles_and_runs ... cast-safety target dir: /tmp/opalescent-probe-target-cast-safety-78279-1778444429576909059
+ok
+test tests::project_execution::entry_in_wrong_file_fails_with_entry_not_in_main_module ... ok
+test tests::project_execution::import_types_aliased_compiles_and_runs ... import-types-aliased target dir: /tmp/opalescent-probe-target-import-types-aliased-78279-1778444430070447936
+ok
+test tests::project_execution::import_types_basic_compiles_and_runs ... import-types-basic target dir: /tmp/opalescent-probe-target-import-types-basic-78279-1778444430635320058
+ok
+test tests::project_execution::import_types_multiple_compiles_and_runs ... import-types-multiple target dir: /tmp/opalescent-probe-target-import-types-multiple-78279-1778444431129840912
+ok
+test tests::project_execution::lambda_basic_compiles_and_returns_correct_value ... lambda-basic target dir: /tmp/opalescent-probe-target-lambda-basic-78279-1778444431594415692
+ok
+test tests::project_execution::multi_file_project_compiles_and_runs ... multi-file target dir: /tmp/opalescent-probe-target-multi-file-project-78279-1778444432057862182
+ok
+test tests::project_execution::overflow_trap_exits_nonzero ... overflow-trap target dir: /tmp/opalescent-probe-target-overflow-trap-78279-1778444432497186707
+ok
+test tests::project_execution::package_import_fails_with_not_supported ... ok
+test tests::project_execution::should_print_final_result_compiles_and_runs ... should-print-final-result target dir: /tmp/opalescent-probe-target-should-print-final-result-78279-1778444432961705142
+ok
+test tests::project_execution::string_interp_long_does_not_crash ... string-interp-long target dir: /tmp/opalescent-probe-target-string-interp-long-78279-1778444433428054775
+ok
+test tests::project_execution_rc::iterative_drop_compiles_and_runs ... iterative-drop target dir: /tmp/opalescent-probe-target-iterative-drop-78279-1778444433993345117
+ok
+test tests::project_execution_rc::rc_basic_compiles_and_runs ... rc-basic target dir: /tmp/opalescent-probe-target-rc-basic-78279-1778444434485902225
+ok
+test tests::project_execution_rc::rc_reuse_compiles_and_runs ... rc-reuse target dir: /tmp/opalescent-probe-target-rc-reuse-78279-1778444434974881176
+ok
+test tests::project_execution_rc::weak_ref_compiles_and_runs ... weak-ref target dir: /tmp/opalescent-probe-target-weak-ref-78279-1778444435438101215
+ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 114 filtered out; finished in 6.77s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+
+EXIT_CODE=0

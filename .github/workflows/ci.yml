@@ -27,8 +27,9 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
+      # Outer timeout guard only; internal subprocesses are bounded separately.
       - name: Run tests
-        run: cargo test --all-features
+        run: timeout 900 cargo test --all-features
 
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings

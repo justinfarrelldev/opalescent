@@ -1,12 +1,27 @@
 #![cfg(feature = "integration")]
 
 use opalescent::build_system::targets::TargetTriple;
-use opalescent::compiler::compile_program;
+use opalescent::compiler::{CompileRunPolicy, compile_program_with_run_policy};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::time::Duration;
 
+const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
+const INTERACTIVE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
+
+fn run_binary_with_timeout(binary_path: &Path, context: &str) -> Result<std::process::Output, String> {
+    let child = Command::new(binary_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("{context} should execute: {error}"))?;
+
+    opalescent::bounded_proc::wait_for_child_output_with_timeout(child, GENERATED_BINARY_TEST_TIMEOUT, context)
+        .map_err(|error| error.to_string())
+}
 fn prepare_dir(path: &Path) -> Result<PathBuf, std::io::Error> {
     if path.exists() {
         fs::remove_dir_all(path)?;
@@ -22,14 +37,41 @@ fn cleanup_dir(path: &Path) -> Result<(), std::io::Error> {
     Ok(())
 }
 
+fn unique_test_target_dir(label: &str) -> PathBuf {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+
+    std::env::temp_dir().join(format!(
+        "opalescent-integration-print-{label}-{}-{nanos}",
+        std::process::id()
+    ))
+}
+
+fn compile_program_for_tests(
+    source_path: &Path,
+    source: &str,
+    output_dir: &Path,
+    target: &TargetTriple,
+) -> Result<PathBuf, opalescent::compiler::CompileError> {
+    compile_program_with_run_policy(
+        source_path,
+        source,
+        output_dir,
+        target,
+        CompileRunPolicy::bounded_for_test_harness(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn print_types_compiles_links_and_runs() {
-        let temp_dir = Path::new("test-projects/print-types/target");
-        let prepare = prepare_dir(temp_dir);
+        let temp_dir = unique_test_target_dir("print-types");
+        let prepare = prepare_dir(&temp_dir);
         assert!(
             prepare.is_ok(),
             "print-types target directory should be created"
@@ -47,10 +89,10 @@ mod tests {
                 }
             };
 
-            let binary_result = compile_program(
+            let binary_result = compile_program_for_tests(
                 source_path,
                 source_str.as_str(),
-                temp_dir,
+                &temp_dir,
                 &TargetTriple::host(),
             );
             let binary_path = match binary_result {
@@ -62,15 +104,7 @@ mod tests {
                 }
             };
 
-            let output_result = Command::new(&binary_path).output();
-            let run_output = match output_result {
-                Ok(output) => output,
-                Err(error) => {
-                    return Err(format!(
-                        "print-types compiled binary should execute: {error}"
-                    ));
-                }
-            };
+            let run_output = run_binary_with_timeout(&binary_path, "print-types compiled binary")?;
 
             let stdout = String::from_utf8_lossy(&run_output.stdout);
 
@@ -105,7 +139,7 @@ mod tests {
             Ok(())
         })();
 
-        let cleanup = cleanup_dir(temp_dir);
+        let cleanup = cleanup_dir(&temp_dir);
         assert!(
             cleanup.is_ok(),
             "print-types target directory should be removed"
@@ -123,8 +157,8 @@ mod tests {
 
     #[test]
     fn should_print_final_result_outputs_sum() {
-        let temp_dir = Path::new("test-projects/should-print-final-result/target");
-        let prepare = prepare_dir(temp_dir);
+        let temp_dir = unique_test_target_dir("should-print-final-result");
+        let prepare = prepare_dir(&temp_dir);
         assert!(
             prepare.is_ok(),
             "should-print-final-result target directory should be created"
@@ -142,10 +176,10 @@ mod tests {
                 }
             };
 
-            let binary_result = compile_program(
+            let binary_result = compile_program_for_tests(
                 source_path,
                 source_str.as_str(),
-                temp_dir,
+                &temp_dir,
                 &TargetTriple::host(),
             );
             let binary_path = match binary_result {
@@ -185,15 +219,12 @@ mod tests {
                 );
             }
 
-            let output_result = child.wait_with_output();
-            let run_output = match output_result {
-                Ok(output) => output,
-                Err(error) => {
-                    return Err(format!(
-                        "should-print-final-result compiled binary should complete and produce output: {error}"
-                    ));
-                }
-            };
+            let run_output = opalescent::bounded_proc::wait_for_child_output_with_timeout(
+                child,
+                INTERACTIVE_TEST_TIMEOUT,
+                "should-print-final-result compiled binary",
+            )
+            .map_err(|error| error.to_string())?;
 
             let stdout = String::from_utf8_lossy(&run_output.stdout);
             if !stdout.contains('7') {
@@ -212,7 +243,7 @@ mod tests {
             Ok(())
         })();
 
-        let cleanup = cleanup_dir(temp_dir);
+        let cleanup = cleanup_dir(&temp_dir);
         assert!(
             cleanup.is_ok(),
             "should-print-final-result target directory should be removed"

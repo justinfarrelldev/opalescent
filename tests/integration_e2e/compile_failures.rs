@@ -1,11 +1,12 @@
 #![cfg(feature = "integration")]
 
 use super::*;
+use super::fs_helpers::unique_probe_target_dir;
 
 #[test]
 fn immutability_compile_error() {
-    let temp_dir = Path::new("test-projects/immutability/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("immutability-compile-error");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "immutability target directory should be created"
@@ -23,10 +24,10 @@ fn immutability_compile_error() {
             }
         };
 
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         if binary_result.is_ok() {
@@ -38,7 +39,7 @@ fn immutability_compile_error() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "immutability target directory should be removed"
@@ -56,8 +57,8 @@ fn immutability_compile_error() {
 
 #[test]
 fn no_doc_comments_fails_to_compile() {
-    let temp_dir = Path::new("test-projects/no-doc-comments/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("no-doc-comments");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "no-doc-comments target directory should be created"
@@ -75,10 +76,10 @@ fn no_doc_comments_fails_to_compile() {
             }
         };
 
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         let compile_error = match binary_result {
@@ -115,7 +116,7 @@ fn no_doc_comments_fails_to_compile() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "no-doc-comments target directory should be removed"
@@ -133,8 +134,8 @@ fn no_doc_comments_fails_to_compile() {
 
 #[test]
 fn multiple_entry_fails_to_compile() {
-    let temp_dir = Path::new("test-projects/multiple-entry/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("multiple-entry");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "multiple-entry target directory should be created"
@@ -152,10 +153,10 @@ fn multiple_entry_fails_to_compile() {
             }
         };
 
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         let compile_error = match binary_result {
@@ -188,7 +189,7 @@ fn multiple_entry_fails_to_compile() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "multiple-entry target directory should be removed"
@@ -216,7 +217,7 @@ fn type_declaration_in_regular_file_is_rejected() {
     };
 
     let project_dir = cwd_path.join("test-projects/type-in-regular-file-fail");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("type-in-regular-file-fail");
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -224,8 +225,7 @@ fn type_declaration_in_regular_file_is_rejected() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -286,7 +286,7 @@ fn value_declaration_in_types_file_is_rejected() {
     };
 
     let project_dir = cwd_path.join("test-projects/value-in-types-file-fail");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("value-in-types-file-fail");
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -295,7 +295,7 @@ fn value_declaration_in_types_file_is_rejected() {
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -356,7 +356,7 @@ fn ref_basic_fails_to_compile() {
     };
 
     let project_dir = cwd_path.join("test-projects/ref-basic");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("ref-basic");
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -365,7 +365,7 @@ fn ref_basic_fails_to_compile() {
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         if binary_result.is_ok() {
             return Err(
                 "ref-basic project should fail to compile, but compilation succeeded".to_owned(),
@@ -398,7 +398,7 @@ fn mutable_ref_fails_to_compile() {
     };
 
     let project_dir = cwd_path.join("test-projects/mutable-ref");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("mutable-ref");
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -407,7 +407,7 @@ fn mutable_ref_fails_to_compile() {
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         if binary_result.is_ok() {
             return Err(
                 "mutable-ref project should fail to compile, but compilation succeeded".to_owned(),
@@ -440,7 +440,7 @@ fn ambiguous_guard_if_project_fails_with_miette_help() {
     };
 
     let project_dir = cwd_path.join("test-projects/ambiguous-guard-if");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("ambiguous-guard-if");
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -459,12 +459,7 @@ fn ambiguous_guard_if_project_fails_with_miette_help() {
             }
         };
 
-        let binary_result = compile_program(
-            &source_path,
-            source_str.as_str(),
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(&source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
         let compile_failure = match binary_result {
             Ok(_path) => {
                 return Err(

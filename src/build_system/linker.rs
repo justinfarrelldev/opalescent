@@ -1,6 +1,8 @@
 //! Linker detection and selection based on target triple.
 
+use crate::bounded_proc::{RunPolicy, run_command};
 use crate::build_system::targets::{Platform, TargetTriple, TripleEnv};
+use std::time::Duration;
 
 /// Supported linker variants for different platforms and toolchains.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,22 +66,41 @@ fn needs_no_pie(target: &TargetTriple) -> bool {
     target.platform == Platform::Linux
 }
 
+/// Return the bounded subprocess policy used while probing for linker binaries.
+const fn safe_detection_policy() -> RunPolicy {
+    RunPolicy::Bounded {
+        timeout: Duration::from_secs(5),
+        grace: Duration::from_secs(2),
+        kill_group: true,
+    }
+}
+
+/// Resolve a linker binary path via `which`, returning `None` when unavailable.
+fn which_output(name: &str) -> Option<String> {
+    let mut command = std::process::Command::new("which");
+    command.arg(name);
+
+    let output = run_command(
+        &mut command,
+        safe_detection_policy(),
+        format!("detect linker path for {name}"),
+    )
+    .ok()?;
+
+    let path_str = String::from_utf8(output.stdout).ok()?.trim().to_owned();
+    if path_str.is_empty() {
+        None
+    } else {
+        Some(path_str)
+    }
+}
+
 /// Detect the MinGW-w64 cross-compiler in PATH.
 ///
 /// Returns the path to `x86_64-w64-mingw32-gcc` if found, or `None` if not installed.
 #[must_use]
 pub fn detect_mingw() -> Option<std::path::PathBuf> {
-    let output = std::process::Command::new("which")
-        .arg("x86_64-w64-mingw32-gcc")
-        .output()
-        .ok()?;
-    if output.status.success() {
-        let path_str = String::from_utf8(output.stdout).ok()?.trim().to_owned();
-        if !path_str.is_empty() {
-            return Some(std::path::PathBuf::from(path_str));
-        }
-    }
-    None
+    which_output("x86_64-w64-mingw32-gcc").map(std::path::PathBuf::from)
 }
 
 /// Windows CRT libraries required for Opalescent runtime when linking with MinGW.
@@ -281,11 +302,7 @@ impl LinkerCommand {
 
     /// Check if a binary exists in PATH.
     fn which_in_path(name: &str) -> bool {
-        std::process::Command::new("which")
-            .arg(name)
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        which_output(name).is_some()
     }
 }
 

@@ -114,17 +114,19 @@ int main(void) {
     fs::write(&harness_c, source)
         .map_err(|e| format!("task6 absolute_path_sync harness source should be written: {e}"))?;
 
-    let compile = Command::new("cc")
+    let mut compile_command = Command::new("cc");
+    compile_command
         .arg("-std=gnu11")
         .arg("-I.")
         .arg("runtime/opal_fs.c")
         .arg(&harness_c)
         .arg("-o")
-        .arg(&harness_bin)
-        .output()
-        .map_err(|e| {
-            format!("task6 absolute_path_sync harness compile command should execute: {e}")
-        })?;
+        .arg(&harness_bin);
+    let compile = run_command_output_with_timeout(
+        &mut compile_command,
+        std::time::Duration::from_secs(10),
+        "task6 absolute_path_sync harness compile command",
+    )?;
 
     if !compile.status.success() {
         let stderr = String::from_utf8_lossy(&compile.stderr);
@@ -148,9 +150,12 @@ fn run_harness() -> Result<String, String> {
 
     let harness_bin = build_harness(&temp_dir)?;
 
-    let output = Command::new(&harness_bin)
-        .output()
-        .map_err(|e| format!("task6 absolute_path_sync harness binary should execute: {e}"))?;
+    let output = run_binary_output_with_timeout(
+        &harness_bin,
+        std::time::Duration::from_secs(10),
+        "task6 absolute_path_sync harness binary",
+    )
+    .map_err(|e| format!("task6 absolute_path_sync harness binary should execute: {e}"))?;
 
     drop(fs::remove_file(&harness_bin));
     drop(fs::remove_file(
@@ -193,7 +198,7 @@ fn fs_absolute_path_sync_fixture_showcase() {
         let temp_dir = unique_probe_target_dir("absolute-path-sync-fixture");
 
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_absolute_path_sync fixture should compile into a binary: {}",
@@ -206,7 +211,7 @@ fn fs_absolute_path_sync_fixture_showcase() {
             return;
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
+        let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
         assert!(
             output_result.is_ok(),
             "_absolute_path_sync compiled binary should execute: {}",

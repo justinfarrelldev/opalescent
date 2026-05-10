@@ -1,14 +1,29 @@
 #![cfg(feature = "integration")]
 
 use super::*;
+use crate::tests::fs_helpers::unique_probe_target_dir;
+use std::process::Stdio;
 use std::time::Duration;
 
-const INTERACTIVE_TEST_TIMEOUT: Duration = Duration::from_secs(30);
+const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
+const INTERACTIVE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
+
+fn run_binary_with_timeout(binary_path: &Path, context: &str) -> Result<std::process::Output, String> {
+    let child = std::process::Command::new(binary_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("{context} should execute: {error}"))?;
+
+    super::fs_helpers::wait_for_child_output_with_timeout(child, GENERATED_BINARY_TEST_TIMEOUT, context)
+}
 
 #[test]
 fn overflow_trap_exits_nonzero() {
-    let temp_dir = Path::new("test-projects/overflow-trap/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("overflow-trap");
+    println!("overflow-trap target dir: {}", temp_dir.display());
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "overflow-trap target directory should be created"
@@ -26,12 +41,7 @@ fn overflow_trap_exits_nonzero() {
             }
         };
 
-        let binary_result = compile_program(
-            source_path,
-            source_str.as_str(),
-            temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -41,15 +51,7 @@ fn overflow_trap_exits_nonzero() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "overflow-trap compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "overflow-trap compiled binary")?;
 
         if run_output.status.success() {
             return Err(
@@ -60,7 +62,7 @@ fn overflow_trap_exits_nonzero() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "overflow-trap target directory should be removed"
@@ -78,8 +80,9 @@ fn overflow_trap_exits_nonzero() {
 
 #[test]
 fn lambda_basic_compiles_and_returns_correct_value() {
-    let temp_dir = Path::new("test-projects/lambda-basic/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("lambda-basic");
+    println!("lambda-basic target dir: {}", temp_dir.display());
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "lambda-basic target directory should be created"
@@ -97,12 +100,7 @@ fn lambda_basic_compiles_and_returns_correct_value() {
             }
         };
 
-        let binary_result = compile_program(
-            source_path,
-            source_str.as_str(),
-            temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -112,15 +110,7 @@ fn lambda_basic_compiles_and_returns_correct_value() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "lambda-basic compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "lambda-basic compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("3 + 4 = 7") {
@@ -139,7 +129,7 @@ fn lambda_basic_compiles_and_returns_correct_value() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "lambda-basic target directory should be removed"
@@ -157,8 +147,9 @@ fn lambda_basic_compiles_and_returns_correct_value() {
 
 #[test]
 fn array_bounds_trap_exits_nonzero() {
-    let temp_dir = Path::new("test-projects/array-bounds/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("array-bounds");
+    println!("array-bounds target dir: {}", temp_dir.display());
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "array-bounds target directory should be created"
@@ -176,12 +167,7 @@ fn array_bounds_trap_exits_nonzero() {
             }
         };
 
-        let binary_result = compile_program(
-            source_path,
-            source_str.as_str(),
-            temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -191,15 +177,7 @@ fn array_bounds_trap_exits_nonzero() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "array-bounds compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "array-bounds compiled binary")?;
 
         if run_output.status.success() {
             return Err(
@@ -210,7 +188,7 @@ fn array_bounds_trap_exits_nonzero() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "array-bounds target directory should be removed"
@@ -228,8 +206,9 @@ fn array_bounds_trap_exits_nonzero() {
 
 #[test]
 fn string_interp_long_does_not_crash() {
-    let temp_dir = Path::new("test-projects/string-interp-long/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("string-interp-long");
+    println!("string-interp-long target dir: {}", temp_dir.display());
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "string-interp-long target directory should be created"
@@ -247,12 +226,7 @@ fn string_interp_long_does_not_crash() {
             }
         };
 
-        let binary_result = compile_program(
-            source_path,
-            source_str.as_str(),
-            temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -262,15 +236,7 @@ fn string_interp_long_does_not_crash() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "string-interp-long compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "string-interp-long compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("Part1=") || !stdout.contains("Part2=") {
@@ -289,7 +255,7 @@ fn string_interp_long_does_not_crash() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "string-interp-long target directory should be removed"
@@ -307,8 +273,9 @@ fn string_interp_long_does_not_crash() {
 
 #[test]
 fn should_print_final_result_compiles_and_runs() {
-    let temp_dir = Path::new("test-projects/should-print-final-result/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("should-print-final-result");
+    println!("should-print-final-result target dir: {}", temp_dir.display());
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "should-print-final-result target directory should be created"
@@ -326,12 +293,7 @@ fn should_print_final_result_compiles_and_runs() {
             }
         };
 
-        let binary_result = compile_program(
-            source_path,
-            source_str.as_str(),
-            temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -393,7 +355,7 @@ fn should_print_final_result_compiles_and_runs() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "should-print-final-result target directory should be removed"
@@ -411,8 +373,9 @@ fn should_print_final_result_compiles_and_runs() {
 
 #[test]
 fn cast_safety_compiles_and_runs() {
-    let temp_dir = Path::new("test-projects/cast-safety/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("cast-safety");
+    println!("cast-safety target dir: {}", temp_dir.display());
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "cast-safety target directory should be created"
@@ -430,12 +393,7 @@ fn cast_safety_compiles_and_runs() {
             }
         };
 
-        let binary_result = compile_program(
-            source_path,
-            source_str.as_str(),
-            temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -445,15 +403,7 @@ fn cast_safety_compiles_and_runs() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "cast-safety compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "cast-safety compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("float64:") || !stdout.contains("float32:") {
@@ -472,7 +422,7 @@ fn cast_safety_compiles_and_runs() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "cast-safety target directory should be removed"
@@ -500,7 +450,8 @@ fn multi_file_project_compiles_and_runs() {
     };
 
     let project_dir = cwd_path.join("test-projects/multi-file");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("multi-file-project");
+    println!("multi-file target dir: {}", temp_dir.display());
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -508,8 +459,7 @@ fn multi_file_project_compiles_and_runs() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -519,15 +469,7 @@ fn multi_file_project_compiles_and_runs() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "multi-file compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "multi-file compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim() != "7" {
@@ -575,7 +517,7 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
 
     let project_dir = cwd_path.join("test-projects/_entry-wrong-file");
     let src_dir = project_dir.join("src");
-    let output_dir = project_dir.join("target");
+    let output_dir = unique_probe_target_dir("entry-wrong-file");
 
     let prepare = prepare_dir(&project_dir);
     assert!(
@@ -621,8 +563,7 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
             ));
         }
 
-        let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &output_dir, &TargetTriple::host());
+        let binary_result = compile_project_for_tests(&project_dir, &output_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -674,7 +615,7 @@ fn package_import_fails_with_not_supported() {
 
     let project_dir = cwd_path.join("test-projects/_package-import-not-supported");
     let src_dir = project_dir.join("src");
-    let output_dir = project_dir.join("target");
+    let output_dir = unique_probe_target_dir("package-import-not-supported");
 
     let prepare = prepare_dir(&project_dir);
     assert!(
@@ -710,8 +651,7 @@ fn package_import_fails_with_not_supported() {
             ));
         }
 
-        let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &output_dir, &TargetTriple::host());
+        let binary_result = compile_project_for_tests(&project_dir, &output_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -764,7 +704,8 @@ fn import_types_basic_compiles_and_runs() {
     };
 
     let project_dir = cwd_path.join("test-projects/import-types-basic");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("import-types-basic");
+    println!("import-types-basic target dir: {}", temp_dir.display());
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -772,8 +713,7 @@ fn import_types_basic_compiles_and_runs() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -783,15 +723,7 @@ fn import_types_basic_compiles_and_runs() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "import-types-basic compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "import-types-basic compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim_end() != "Alice is 30 years old" {
@@ -838,7 +770,8 @@ fn import_types_aliased_compiles_and_runs() {
     };
 
     let project_dir = cwd_path.join("test-projects/import-types-aliased");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("import-types-aliased");
+    println!("import-types-aliased target dir: {}", temp_dir.display());
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -846,8 +779,7 @@ fn import_types_aliased_compiles_and_runs() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -857,15 +789,7 @@ fn import_types_aliased_compiles_and_runs() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "import-types-aliased compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "import-types-aliased compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim_end() != "User 42: Bob" {
@@ -912,7 +836,8 @@ fn import_types_multiple_compiles_and_runs() {
     };
 
     let project_dir = cwd_path.join("test-projects/import-types-multiple");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("import-types-multiple");
+    println!("import-types-multiple target dir: {}", temp_dir.display());
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -920,8 +845,7 @@ fn import_types_multiple_compiles_and_runs() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -931,15 +855,7 @@ fn import_types_multiple_compiles_and_runs() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "import-types-multiple compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_with_timeout(&binary_path, "import-types-multiple compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim_end() != "Rect 10x20 at (0,0)" {

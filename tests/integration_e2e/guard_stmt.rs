@@ -6,25 +6,30 @@
 )]
 
 use super::*;
+use super::fs_helpers::unique_probe_target_dir;
+use std::time::Duration;
+
+const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 fn run_guard_stmt_project(project_name: &str) -> Result<String, String> {
     let cwd = std::env::current_dir().map_err(|error| {
         format!("current working directory should be readable for integration tests: {error}")
     })?;
     let project_dir = cwd.join(format!("test-projects/{project_name}"));
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir(&format!("guard-stmt-{project_name}"));
     prepare_dir(&temp_dir)
         .map_err(|error| format!("{project_name} target directory should be created: {error}"))?;
 
     let execution_result: Result<String, String> = (|| {
-        let binary_path =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host())
-                .map_err(|error| {
+        let binary_path = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host())
+            .map_err(|error| {
                 format!("{project_name} project should compile into a binary: {error}")
             })?;
-        let run_output = std::process::Command::new(&binary_path)
-            .output()
-            .map_err(|error| format!("{project_name} compiled binary should execute: {error}"))?;
+        let run_output = run_binary_output_with_timeout(
+            &binary_path,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            &format!("{project_name} compiled binary"),
+        )?;
         if !run_output.status.success() {
             return Err(format!(
                 "{project_name} binary should exit with status code 0, got: {:?}",
@@ -59,12 +64,12 @@ fn compile_guard_stmt_project_failure(project_name: &str) -> Result<CompileError
         format!("current working directory should be readable for integration tests: {error}")
     })?;
     let project_dir = cwd.join(format!("test-projects/{project_name}"));
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir(&format!("guard-stmt-compile-{project_name}"));
     prepare_dir(&temp_dir)
         .map_err(|error| format!("{project_name} target directory should be created: {error}"))?;
 
     let compile_result =
-        opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+        compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
     let cleanup_result = cleanup_dir(&temp_dir)
         .map_err(|error| format!("{project_name} target directory should be removed: {error}"));
 

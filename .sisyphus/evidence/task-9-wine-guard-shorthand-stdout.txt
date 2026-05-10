@@ -1,3 +1,4 @@
 EXIT=0
-SKIP: Wine limitation: fatal crash/dialog requires manual close (exit=5, stderr=wine: Unhandled page fault on write access to 000000014002A000 at address 000000014002955A (thread 0110), starting debugger...
-)
+EXPECTED_BUILD_FAILURE=guard-shorthand
+BUILD_ERROR=Build failed: error: compilation failed: type checking failed: `propagate` used outside a function that declares errors
+

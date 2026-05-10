@@ -9,6 +9,7 @@ extern crate alloc;
 mod compiler_helpers;
 
 use crate::ast::{Decl, Expr, NodeId, Program};
+use crate::bounded_proc::{RunError, RunPolicy, run_command};
 use crate::build_system::targets::{TargetTriple, executable_filename, object_file_extension};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
@@ -42,6 +43,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(not(windows))]
 fn missing_xwin_env_error() -> CompileError {
     CompileError::Linker {
+        phase: "link object files",
+        timed_out: false,
         stderr: String::from(
             "missing XWIN_CACHE or OPAL_XWIN_SYSROOT for Linux→MSVC cross-compilation (point to xwin splat directory)",
         ),
@@ -168,12 +171,80 @@ pub enum CompileError {
     /// Filesystem interaction failed while preparing outputs.
     #[error("io failed: {0}")]
     Io(std::io::Error),
-    /// Native linker process failed to produce an executable.
-    #[error("linker invocation failed: {stderr}")]
+    /// Native compiler or linker subprocess failed to produce the expected output.
+    #[error("{phase} failed: {stderr}")]
     Linker {
-        /// Captured stderr from the linker process.
+        /// Human-readable phase label for the subprocess that failed.
+        phase: &'static str,
+        /// Whether the subprocess failure was triggered by a timeout.
+        timed_out: bool,
+        /// Structured diagnostics captured from the subprocess runner.
         stderr: String,
     },
+}
+
+/// Explicit subprocess policies for native compile/link phases.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CompileRunPolicy {
+    /// Policy used when compiling the embedded C runtime for MSVC targets.
+    pub runtime_compile: RunPolicy,
+    /// Policy used when linking object files into the final executable.
+    pub link: RunPolicy,
+}
+
+impl CompileRunPolicy {
+    /// Preserve existing production behavior by waiting indefinitely.
+    #[must_use]
+    pub const fn unbounded() -> Self {
+        Self {
+            runtime_compile: RunPolicy::Unbounded,
+            link: RunPolicy::Unbounded,
+        }
+    }
+
+    /// Bounded policy intended for test/CI callers that need fail-fast diagnostics.
+    #[must_use]
+    pub const fn bounded_for_test_harness() -> Self {
+        Self {
+            runtime_compile: RunPolicy::Bounded {
+                timeout: std::time::Duration::from_secs(120),
+                grace: std::time::Duration::from_secs(2),
+                kill_group: true,
+            },
+            link: RunPolicy::Bounded {
+                timeout: std::time::Duration::from_secs(60),
+                grace: std::time::Duration::from_secs(2),
+                kill_group: true,
+            },
+        }
+    }
+}
+
+impl Default for CompileRunPolicy {
+    fn default() -> Self {
+        Self::unbounded()
+    }
+}
+
+/// Convert a bounded subprocess failure into the compiler's linker-phase error shape.
+fn linker_run_error(phase: &'static str, error: &RunError) -> CompileError {
+    let timed_out = error.failure().is_some_and(|failure| failure.timed_out);
+    CompileError::Linker {
+        phase,
+        timed_out,
+        stderr: error.to_string(),
+    }
+}
+
+/// Run a subprocess for a named compile or link phase and normalize failures.
+fn run_subprocess_for_phase(
+    command: &mut Command,
+    policy: RunPolicy,
+    phase: &'static str,
+) -> Result<(), CompileError> {
+    run_command(command, policy, phase)
+        .map(|_output| ())
+        .map_err(|error| linker_run_error(phase, &error))
 }
 
 /// Compile source text into an LLVM module using an explicit target triple.
@@ -360,9 +431,10 @@ pub fn emit_object_file(
 ///
 /// # Errors
 /// Returns `CompileError` if the C compiler fails or is not found.
-fn compile_runtime_c_to_obj(
+fn compile_runtime_c_to_obj_with_policy(
     runtime_c_path: &Path,
     include_dir: &Path,
+    policy: RunPolicy,
 ) -> Result<PathBuf, CompileError> {
     let obj_path = runtime_c_path.with_extension("obj");
 
@@ -392,16 +464,10 @@ fn compile_runtime_c_to_obj(
         }
     }
 
-    let output = cmd.output().map_err(CompileError::Io)?;
-    if output.status.success() {
-        return Ok(obj_path);
-    }
-
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-    Err(CompileError::Linker {
-        stderr: format!("failed to compile runtime C to .obj: {stderr}"),
-    })
+    run_subprocess_for_phase(&mut cmd, policy, "compile runtime c")?;
+    Ok(obj_path)
 }
+
 
 /// Build a platform-appropriate linker [`Command`] for the given object and output paths.
 ///
@@ -434,10 +500,11 @@ pub fn build_linker_command(
 ///
 /// # Errors
 /// Returns `CompileError` if the linker process fails or produces errors.
-pub fn link_object_files(
+pub fn link_object_files_with_policy(
     object_paths: &[PathBuf],
     output_path: &Path,
     target: &TargetTriple,
+    policy: CompileRunPolicy,
 ) -> Result<PathBuf, CompileError> {
     #[cfg(not(windows))]
     if target.is_windows_msvc()
@@ -451,7 +518,11 @@ pub fn link_object_files(
 
     // For MSVC targets, compile the runtime .c to .obj first
     let runtime_path = if target.is_windows_msvc() {
-        compile_runtime_c_to_obj(runtime_temp_file.path(), runtime_temp_file.include_dir())?
+        compile_runtime_c_to_obj_with_policy(
+            runtime_temp_file.path(),
+            runtime_temp_file.include_dir(),
+            policy.runtime_compile,
+        )?
     } else {
         runtime_temp_file.path().to_path_buf()
     };
@@ -464,25 +535,37 @@ pub fn link_object_files(
         runtime_temp_file.include_dir(),
     );
 
-    let output = command.output().map_err(CompileError::Io)?;
-    if output.status.success() {
-        return Ok(output_path.to_path_buf());
-    }
+    run_subprocess_for_phase(&mut command, policy.link, "link object files")?;
+    Ok(output_path.to_path_buf())
+}
 
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-    Err(CompileError::Linker { stderr })
+pub fn link_object_files(
+    object_paths: &[PathBuf],
+    output_path: &Path,
+    target: &TargetTriple,
+) -> Result<PathBuf, CompileError> {
+    link_object_files_with_policy(object_paths, output_path, target, CompileRunPolicy::default())
 }
 
 /// Link an object file into an executable binary.
 ///
 /// # Errors
 /// Returns `CompileError` if the linker process fails or produces errors.
+pub fn link_object_file_with_policy(
+    object_path: &Path,
+    output_path: &Path,
+    target: &TargetTriple,
+    policy: CompileRunPolicy,
+) -> Result<PathBuf, CompileError> {
+    link_object_files_with_policy(&[object_path.to_path_buf()], output_path, target, policy)
+}
+
 pub fn link_object_file(
     object_path: &Path,
     output_path: &Path,
     target: &TargetTriple,
 ) -> Result<PathBuf, CompileError> {
-    link_object_files(&[object_path.to_path_buf()], output_path, target)
+    link_object_file_with_policy(object_path, output_path, target, CompileRunPolicy::default())
 }
 
 /// Compile Opalescent source to a native binary.
@@ -491,11 +574,12 @@ pub fn link_object_file(
 ///
 /// # Errors
 /// Returns `CompileError` at any pipeline stage.
-pub fn compile_program(
+pub fn compile_program_with_run_policy(
     source_path: &Path,
     source: &str,
     output_dir: &Path,
     target: &TargetTriple,
+    run_policy: CompileRunPolicy,
 ) -> Result<PathBuf, CompileError> {
     std::fs::create_dir_all(output_dir).map_err(CompileError::Io)?;
 
@@ -524,7 +608,22 @@ pub fn compile_program(
     let binary_path = output_dir.join(binary_name);
 
     emit_object_file(&module, &object_path, target).map_err(CompileError::Codegen)?;
-    link_object_file(&object_path, &binary_path, target)
+    link_object_file_with_policy(&object_path, &binary_path, target, run_policy)
+}
+
+pub fn compile_program(
+    source_path: &Path,
+    source: &str,
+    output_dir: &Path,
+    target: &TargetTriple,
+) -> Result<PathBuf, CompileError> {
+    compile_program_with_run_policy(
+        source_path,
+        source,
+        output_dir,
+        target,
+        CompileRunPolicy::default(),
+    )
 }
 
 /// Compile Opalescent source to a native binary using the host target triple.
@@ -582,10 +681,11 @@ pub fn compile_program_host(
     clippy::needless_borrowed_reference,
     reason = "borrowed declaration matching avoids the repo's pattern-type-mismatch lint"
 )]
-pub fn compile_project(
+pub fn compile_project_with_run_policy(
     project_dir: &Path,
     output_dir: &Path,
     target: &TargetTriple,
+    run_policy: CompileRunPolicy,
 ) -> Result<PathBuf, CompileError> {
     std::fs::create_dir_all(output_dir).map_err(CompileError::Io)?;
 
@@ -773,7 +873,15 @@ pub fn compile_project(
 
     let binary_name = executable_filename("program", target);
     let binary_path = output_dir.join(binary_name);
-    link_object_files(&object_paths, &binary_path, target)
+    link_object_files_with_policy(&object_paths, &binary_path, target, run_policy)
+}
+
+pub fn compile_project(
+    project_dir: &Path,
+    output_dir: &Path,
+    target: &TargetTriple,
+) -> Result<PathBuf, CompileError> {
+    compile_project_with_run_policy(project_dir, output_dir, target, CompileRunPolicy::default())
 }
 
 #[cfg(test)]

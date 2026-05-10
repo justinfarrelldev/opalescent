@@ -1,0 +1,87 @@
+# F2 Code Quality Review — Freeze Hardening (`worktrees/test-harness-timeouts`)
+
+## Scope Reviewed
+Changed freeze-hardening surfaces inspected directly:
+- `.github/workflows/ci.yml`
+- `Cargo.toml`, `Cargo.lock`
+- `src/bounded_proc.rs`
+- `src/compiler.rs`, `src/compiler/tests.rs`
+- `src/build_system/linker.rs`
+- `src/lib.rs`
+- `tests/integration_e2e.rs`
+- migrated high-risk harness files in `tests/` and `tests/integration_e2e/` (including `project_execution.rs`, `project_execution_rc.rs`, `tests.rs`, `op_cat.rs`, `fs_delete_directory_recursive.rs`, `integration_print.rs`, `array_integration.rs`, `fmt_integration.rs`, `hot_reload_integration.rs`, and related `fs_*` files currently changed in this branch)
+
+Verification/tooling executed:
+- `git diff --stat` in both repo root and `worktrees/test-harness-timeouts`
+- `git diff --name-only` targeted to worktree
+- direct file inspection on bounded runner, compiler policy wiring, linker detection, and harness wrappers/callers
+- anti-pattern scan for raw `.output()`, `.status()`, `.wait_with_output()` in changed high-risk harness scope
+- call-site scan for bounded compile policy consumption (`compile_*_with_run_policy`, `CompileRunPolicy::bounded_for_test_harness`)
+- `lsp_diagnostics` over changed Rust and workflow YAML surfaces (no errors)
+
+---
+
+## Findings by Required Objective
+
+### 1) Bounded runner correctness
+PASS
+
+Evidence:
+- `src/bounded_proc.rs` provides shared runner API with explicit `RunPolicy::{Unbounded, Bounded{timeout, grace, kill_group}}`.
+- Concurrent draining is present (`spawn_reader_thread` for both stdout/stderr before wait path), preventing pipe deadlock under chatty children.
+- Structured diagnostics include command context, argv, cwd, duration, timeout/grace/kill_group, timed_out, exit, stdout, stderr (`RunFailure` + `Display`).
+- Bounded timeout cleanup and exit-flow handling are covered by targeted tests in `src/bounded_proc.rs` and phase diagnostics tests in `src/compiler/tests.rs`.
+
+### 2) Policy wiring is consumed by intended test-harness call paths
+PASS
+
+Evidence:
+- `tests/integration_e2e.rs` now defines canonical wrappers:
+  - `compile_program_for_tests(...) -> compile_program_with_run_policy(..., CompileRunPolicy::bounded_for_test_harness())`
+  - `compile_project_for_tests(...) -> compile_project_with_run_policy(..., CompileRunPolicy::bounded_for_test_harness())`
+  - `link_object_file_for_tests(...) -> link_object_file_with_policy(..., CompileRunPolicy::bounded_for_test_harness())`
+- Changed migrated harness files import `super::*` and call these wrappers (for example: `project_execution.rs`, `project_execution_rc.rs`, `tests.rs`, `op_cat.rs`, `fs_delete_directory_recursive.rs`, `guard_stmt.rs`, `guard_optional_binding.rs`, multiple `fs_*` modules), so bounded compile/link policy is now actually consumed where intended.
+- Additional migrated non-`integration_e2e` tests (e.g. `tests/integration_print.rs`) also compile through `compile_program_with_run_policy(...bounded_for_test_harness())`.
+
+### 3) No raw `.output()`, `.status()`, `.wait_with_output()` remain in migrated high-risk scope
+PASS
+
+Evidence:
+- Targeted scans over changed high-risk migrated harness files returned no remaining raw `.output()`, `.status()`, `.wait_with_output()` calls.
+- Process execution in migrated harness now routes through bounded helper paths (`wait_for_child_output_with_timeout` wrapper or direct bounded runner call).
+- Remaining raw process calls observed in `src/app.rs` and some unrelated non-migrated test internals are outside this freeze-hardening migration scope and are consistent with plan boundaries.
+
+### 4) Unix process-group cleanup + stdout/stderr drain behavior remains sound
+PASS
+
+Evidence:
+- Unix bounded path configures child process group (`process_group(0)`) when `kill_group` is enabled.
+- Timeout cleanup uses TERM → grace deadline polling → KILL sequence for process group; ESRCH is handled safely.
+- Dedicated test verifies no orphaned grandchild remains after timeout cleanup.
+- Pipe draining behavior is covered by test that emits large stdout/stderr before timeout and asserts captured output lengths.
+
+### 5) Diagnostics clarity
+PASS
+
+Evidence:
+- Compile/link subprocess errors are normalized via `linker_run_error` and preserve timed_out signal plus rich stderr payload.
+- Compiler tests assert phase-specific labels (`compile runtime c`, `link object files`) and retained stdout/stderr snippets.
+- CI workflow adds explicit outer timeout guard with comment clarifying defense-in-depth role.
+
+### 6) Migration quality and scope control (freeze-hardening only)
+PASS
+
+Evidence:
+- Work remains concentrated in subprocess hardening surfaces: bounded runner module, compiler/linker policy plumbing, integration harness migration, and CI timeout guard.
+- No unrelated type-system/language-semantics production changes are introduced by freeze-hardening files under review.
+- `lsp_diagnostics` reports zero errors on scanned Rust/YAML scope (hints only: cfg-inactive/unlinked-file informational noise).
+
+---
+
+## Blocking Issues
+None.
+
+## Conclusion
+The previous F2 rejection item (policy wiring consumption gap) is now remediated: bounded compile/link policy is wired into the shared integration harness compile wrappers and consumed by migrated call paths. Bounded runner implementation, cleanup semantics, migration quality in high-risk scope, and diagnostics clarity are all acceptable for freeze-hardening.
+
+VERDICT: APPROVE

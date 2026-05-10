@@ -24,6 +24,7 @@
 pub mod app;
 pub mod ast;
 pub mod benchmarks;
+pub mod bounded_proc;
 pub mod build_system;
 pub mod codegen;
 pub mod compiler;

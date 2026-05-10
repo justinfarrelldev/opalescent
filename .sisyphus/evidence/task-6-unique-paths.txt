@@ -1,0 +1,80 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 22.02s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-a78f5a55e4e32ce5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1218 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-3851ea484802c5ad)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-be9371b00ff8c799)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-84b03c5f67d4c8de)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+
+running 16 tests
+test tests::project_execution::array_bounds_trap_exits_nonzero ... array-bounds target dir: /tmp/opalescent-probe-target-array-bounds-86363-1778444879959871711
+ok
+test tests::project_execution::cast_safety_compiles_and_runs ... cast-safety target dir: /tmp/opalescent-probe-target-cast-safety-86363-1778444880770652631
+ok
+test tests::project_execution::entry_in_wrong_file_fails_with_entry_not_in_main_module ... ok
+test tests::project_execution::import_types_aliased_compiles_and_runs ... import-types-aliased target dir: /tmp/opalescent-probe-target-import-types-aliased-86363-1778444881261808757
+ok
+test tests::project_execution::import_types_basic_compiles_and_runs ... import-types-basic target dir: /tmp/opalescent-probe-target-import-types-basic-86363-1778444881700663782
+ok
+test tests::project_execution::import_types_multiple_compiles_and_runs ... import-types-multiple target dir: /tmp/opalescent-probe-target-import-types-multiple-86363-1778444882115014440
+ok
+test tests::project_execution::lambda_basic_compiles_and_returns_correct_value ... lambda-basic target dir: /tmp/opalescent-probe-target-lambda-basic-86363-1778444882579920070
+ok
+test tests::project_execution::multi_file_project_compiles_and_runs ... multi-file target dir: /tmp/opalescent-probe-target-multi-file-project-86363-1778444883017218319
+ok
+test tests::project_execution::overflow_trap_exits_nonzero ... overflow-trap target dir: /tmp/opalescent-probe-target-overflow-trap-86363-1778444883482010428
+ok
+test tests::project_execution::package_import_fails_with_not_supported ... ok
+test tests::project_execution::should_print_final_result_compiles_and_runs ... should-print-final-result target dir: /tmp/opalescent-probe-target-should-print-final-result-86363-1778444883974619538
+ok
+test tests::project_execution::string_interp_long_does_not_crash ... string-interp-long target dir: /tmp/opalescent-probe-target-string-interp-long-86363-1778444884414123902
+ok
+test tests::project_execution_rc::iterative_drop_compiles_and_runs ... iterative-drop target dir: /tmp/opalescent-probe-target-iterative-drop-86363-1778444884876496778
+ok
+test tests::project_execution_rc::rc_basic_compiles_and_runs ... rc-basic target dir: /tmp/opalescent-probe-target-rc-basic-86363-1778444885389995119
+ok
+test tests::project_execution_rc::rc_reuse_compiles_and_runs ... rc-reuse target dir: /tmp/opalescent-probe-target-rc-reuse-86363-1778444885877186078
+ok
+test tests::project_execution_rc::weak_ref_compiles_and_runs ... weak-ref target dir: /tmp/opalescent-probe-target-weak-ref-86363-1778444886390639676
+ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 114 filtered out; finished in 6.92s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-f306110fffdda8f2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+
+EXIT_CODE=0

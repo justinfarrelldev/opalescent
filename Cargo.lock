@@ -382,6 +382,7 @@ name = "opalescent"
 version = "0.1.0"
 dependencies = [
  "inkwell",
+ "libc",
  "libloading",
  "llvm-sys",
  "miette",

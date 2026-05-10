@@ -1,7 +1,9 @@
 #![cfg(feature = "integration")]
 
 use super::*;
-use crate::tests::fs_helpers::unique_probe_target_dir;
+use crate::tests::fs_helpers::{unique_probe_target_dir, wait_for_child_output_with_timeout};
+use std::process::{Command, Stdio};
+use std::time::Duration;
 
 fn write_op_cat_fixture(path: &std::path::Path, contents: &str) -> Result<(), String> {
     std::fs::write(path, contents)
@@ -28,12 +30,7 @@ fn op_cat_happy_path_prints_file_contents() {
         let valid_input = temp_dir.join("valid.txt");
         write_op_cat_fixture(&valid_input, "valid file contents\n")?;
 
-        let binary_result = compile_program(
-            &source_path,
-            source_str.as_str(),
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(&source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -43,15 +40,20 @@ fn op_cat_happy_path_prints_file_contents() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path)
+        let mut command = Command::new(&binary_path);
+        command
             .arg(valid_input.as_path())
-            .output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!("op-cat compiled binary should execute: {error}"));
-            }
-        };
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let child = command
+            .spawn()
+            .map_err(|error| format!("op-cat compiled binary should execute: {error}"))?;
+        let run_output = wait_for_child_output_with_timeout(
+            child,
+            Duration::from_secs(30),
+            "op-cat happy path",
+        )
+        .map_err(|error| format!("op-cat compiled binary should complete: {error}"))?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("valid file contents") {
@@ -104,12 +106,7 @@ fn op_cat_error_path_continues_to_next_arg() {
         let missing_input = temp_dir.join("missing.txt");
         write_op_cat_fixture(&valid_input, "valid file contents\n")?;
 
-        let binary_result = compile_program(
-            &source_path,
-            source_str.as_str(),
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(&source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -119,19 +116,24 @@ fn op_cat_error_path_continues_to_next_arg() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path)
+        let mut command = Command::new(&binary_path);
+        command
             .args([
                 valid_input.as_path(),
                 missing_input.as_path(),
                 valid_input.as_path(),
             ])
-            .output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!("op-cat compiled binary should execute: {error}"));
-            }
-        };
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let child = command
+            .spawn()
+            .map_err(|error| format!("op-cat compiled binary should execute: {error}"))?;
+        let run_output = wait_for_child_output_with_timeout(
+            child,
+            Duration::from_secs(30),
+            "op-cat error path",
+        )
+        .map_err(|error| format!("op-cat compiled binary should complete: {error}"))?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         let valid_occurrences = stdout.matches("valid file contents").count();

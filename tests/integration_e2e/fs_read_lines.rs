@@ -55,15 +55,19 @@ int main(int argc, char** argv) {
     fs::write(&harness_c, source)
         .map_err(|e| format!("t17 harness source should be written: {e}"))?;
 
-    let compile = Command::new("cc")
+    let mut compile_command = Command::new("cc");
+    compile_command
         .arg("-std=gnu11")
         .arg("-I.")
         .arg("runtime/opal_fs.c")
         .arg(&harness_c)
         .arg("-o")
-        .arg(&harness_bin)
-        .output()
-        .map_err(|e| format!("t17 harness compile command should execute: {e}"))?;
+        .arg(&harness_bin);
+    let compile = run_command_output_with_timeout(
+        &mut compile_command,
+        std::time::Duration::from_secs(10),
+        "t17 harness compile command",
+    )?;
 
     if !compile.status.success() {
         let stderr = String::from_utf8_lossy(&compile.stderr);
@@ -86,10 +90,13 @@ fn run_harness(path: &Path) -> Result<(i64, Vec<String>), String> {
 
     let harness_bin = build_harness(&temp_dir)?;
 
-    let output = Command::new(&harness_bin)
-        .arg(path)
-        .output()
-        .map_err(|e| format!("t17 harness binary should execute: {e}"))?;
+    let mut run_command = Command::new(&harness_bin);
+    run_command.arg(path);
+    let output = run_command_output_with_timeout(
+        &mut run_command,
+        std::time::Duration::from_secs(10),
+        "t17 harness binary",
+    )?;
 
     drop(fs::remove_file(&harness_bin));
     drop(fs::remove_file(temp_dir.join("read_lines_harness.c")));

@@ -1,5 +1,8 @@
 #![cfg(feature = "integration")]
 
+extern crate alloc;
+
+use alloc::string::ToString;
 use super::fs_helpers::{
     FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
 };
@@ -52,13 +55,13 @@ fn fs_append_log() {
         let temp_dir = unique_probe_target_dir("append-log-fixture");
 
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_fs_append_log fixture should compile into a binary: {}",
             binary_result.as_ref().err().map_or_else(
                 || String::from("unknown compile error"),
-                |error| format!("{error}")
+                ToString::to_string
             )
         );
         let Ok(binary_path) = binary_result else {
@@ -68,13 +71,13 @@ fn fs_append_log() {
         let fixture_log_path = std::env::temp_dir().join("opalescent-fs-append-log.txt");
         drop(fs::remove_file(&fixture_log_path));
 
-        let output_result = std::process::Command::new(&binary_path).output();
+        let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
         assert!(
             output_result.is_ok(),
             "_fs_append_log compiled binary should execute: {}",
             output_result.as_ref().err().map_or_else(
                 || String::from("unknown execution error"),
-                |error| format!("{error}")
+                alloc::string::ToString::to_string
             )
         );
         let Ok(run_output) = output_result else {
@@ -124,31 +127,26 @@ fn fs_append_log_monotonic() {
             let line = format!("monotonic-line-{}", idx + 1_usize);
             let source = build_single_append_source(&log_path, &line);
 
-            let binary_result = compile_program(
-                Path::new("test-projects/_fs_append_log/src/main.op"),
-                &source,
-                &temp_dir,
-                &TargetTriple::host(),
-            );
+            let binary_result = compile_program_for_tests(Path::new("test-projects/_fs_append_log/src/main.op"), &source, &temp_dir, &TargetTriple::host());
             assert!(
                 binary_result.is_ok(),
                 "monotonic append inline source should compile: {}",
                 binary_result.as_ref().err().map_or_else(
                     || String::from("unknown compile error"),
-                    |error| format!("{error}")
+                    alloc::string::ToString::to_string
                 )
             );
             let Ok(binary_path) = binary_result else {
                 return;
             };
 
-            let output_result = std::process::Command::new(&binary_path).output();
+            let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
             assert!(
                 output_result.is_ok(),
                 "monotonic append binary should execute: {}",
                 output_result.as_ref().err().map_or_else(
                     || String::from("unknown execution error"),
-                    |error| format!("{error}")
+                    alloc::string::ToString::to_string
                 )
             );
             let Ok(run_output) = output_result else {
@@ -169,7 +167,7 @@ fn fs_append_log_monotonic() {
                 idx + 1_usize,
                 metadata_result.as_ref().err().map_or_else(
                     || String::from("unknown metadata error"),
-                    |error| format!("{error}")
+                    alloc::string::ToString::to_string
                 )
             );
             let Ok(metadata) = metadata_result else {

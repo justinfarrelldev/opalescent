@@ -5,13 +5,17 @@
 )]
 
 use super::*;
+use super::fs_helpers::unique_probe_target_dir;
 use opalescent::errors::reporter::CompilerError;
 use opalescent::type_system::errors::TypeError;
+use std::time::Duration;
+
+const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[test]
 fn guard_shorthand_compiles_links_and_runs() {
-    let temp_dir = Path::new("test-projects/_guard_shorthand/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("guard-shorthand-inline");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "guard shorthand target directory should be created"
@@ -38,10 +42,10 @@ entry main = f(args: string[]): void =>
 ";
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             Path::new("test-projects/_guard_shorthand/src/main.op"),
             source,
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         let binary_path = match binary_result {
@@ -53,15 +57,11 @@ entry main = f(args: string[]): void =>
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "guard shorthand compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_output_with_timeout(
+            &binary_path,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "guard shorthand compiled binary",
+        )?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("GUARD_SHORTHAND_SUCCESS=ok") {
@@ -84,7 +84,7 @@ entry main = f(args: string[]): void =>
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "guard shorthand target directory should be removed"
@@ -102,8 +102,8 @@ entry main = f(args: string[]): void =>
 
 #[test]
 fn guard_named_binding_still_compiles_links_and_runs() {
-    let temp_dir = Path::new("test-projects/_guard_named_binding/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("guard-named-binding-inline");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "guard named-binding target directory should be created"
@@ -124,10 +124,10 @@ entry main = f(args: string[]): void errors ParseError =>
 ";
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             Path::new("test-projects/_guard_named_binding/src/main.op"),
             source,
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         let binary_path = match binary_result {
@@ -139,15 +139,11 @@ entry main = f(args: string[]): void errors ParseError =>
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "guard named-binding compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_output_with_timeout(
+            &binary_path,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "guard named-binding compiled binary",
+        )?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("VALUE=7") {
@@ -171,7 +167,7 @@ entry main = f(args: string[]): void errors ParseError =>
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "guard named-binding target directory should be removed"
@@ -189,8 +185,8 @@ entry main = f(args: string[]): void errors ParseError =>
 
 #[test]
 fn guard_error_clause_side_effect_then_propagate_err_compiles_links_and_runs() {
-    let temp_dir = Path::new("test-projects/_guard_propagate_err/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("guard-propagate-err-inline");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "guard propagate-err target directory should be created"
@@ -221,10 +217,10 @@ entry main = f(args: string[]): void errors ParseError =>
 ";
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             Path::new("test-projects/_guard_propagate_err/src/main.op"),
             source,
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         let binary_path = match binary_result {
@@ -236,15 +232,11 @@ entry main = f(args: string[]): void errors ParseError =>
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "guard propagate-err compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_output_with_timeout(
+            &binary_path,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "guard propagate-err compiled binary",
+        )?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         let expected_error_message = "invalid digit 'o' in input";
@@ -274,7 +266,7 @@ entry main = f(args: string[]): void errors ParseError =>
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "guard propagate-err target directory should be removed"
@@ -292,8 +284,8 @@ entry main = f(args: string[]): void errors ParseError =>
 
 #[test]
 fn guard_error_clause_shadowed_err_still_propagates_original_guard_error() {
-    let temp_dir = Path::new("test-projects/_guard_shadowed_err/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("guard-shadowed-err-inline");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "guard shadowed-err target directory should be created"
@@ -325,10 +317,10 @@ entry main = f(args: string[]): void errors ParseError =>
 ";
 
     let execution_result: Result<(), String> = (|| {
-        let compile_result = compile_program(
+        let compile_result = compile_program_for_tests(
             Path::new("test-projects/_guard_shadowed_err/src/main.op"),
             source,
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         if compile_result.is_ok() {
@@ -340,7 +332,7 @@ entry main = f(args: string[]): void errors ParseError =>
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "guard shadowed-err target directory should be removed"
@@ -358,8 +350,8 @@ entry main = f(args: string[]): void errors ParseError =>
 
 #[test]
 fn guard_error_clause_return_err_stays_rejected() {
-    let temp_dir = Path::new("test-projects/_guard_return_err_rejected/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("guard-return-err-rejected-inline");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "guard return-err rejection target directory should be created"
@@ -379,10 +371,10 @@ entry main = f(args: string[]): void =>
 ";
 
     let execution_result: Result<(), String> = (|| {
-        let compile_result = compile_program(
+        let compile_result = compile_program_for_tests(
             Path::new("test-projects/_guard_return_err_rejected/src/main.op"),
             source,
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         let compile_error = match compile_result {
@@ -417,7 +409,7 @@ entry main = f(args: string[]): void =>
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "guard return-err rejection target directory should be removed"

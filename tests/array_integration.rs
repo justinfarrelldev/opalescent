@@ -2,7 +2,8 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::Duration;
 use std::sync::{Mutex, OnceLock};
 
 fn binary_path() -> PathBuf {
@@ -33,16 +34,28 @@ fn array_test_lock() -> &'static Mutex<()> {
     LOCK.get_or_init(|| Mutex::new(()))
 }
 
+const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
+
 fn run_opal_source(source: &std::path::Path) -> std::process::Output {
     let _guard = array_test_lock()
         .lock()
         .expect("array integration lock should not be poisoned");
     let binary = binary_path();
-    Command::new(&binary)
+    let child = Command::new(&binary)
         .arg("run")
         .arg(source)
-        .output()
-        .expect("opalescent run command should spawn and complete")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("opalescent run command should spawn and complete");
+
+    opalescent::bounded_proc::wait_for_child_output_with_timeout(
+        child,
+        GENERATED_BINARY_TEST_TIMEOUT,
+        "array integration opalescent run command",
+    )
+    .expect("opalescent run command should complete")
 }
 
 fn run_opal_project(project: &str) -> std::process::Output {
@@ -74,11 +87,21 @@ fn run_opal_check(source: &std::path::Path) -> std::process::Output {
         .lock()
         .expect("array integration lock should not be poisoned");
     let binary = binary_path();
-    Command::new(&binary)
+    let child = Command::new(&binary)
         .arg("check")
         .arg(source)
-        .output()
-        .expect("opalescent check command should spawn and complete")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("opalescent check command should spawn and complete");
+
+    opalescent::bounded_proc::wait_for_child_output_with_timeout(
+        child,
+        GENERATED_BINARY_TEST_TIMEOUT,
+        "array integration opalescent check command",
+    )
+    .expect("opalescent check command should complete")
 }
 
 fn write_temp_project_source(project_name: &str, source: &str) -> tempfile::TempDir {

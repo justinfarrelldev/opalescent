@@ -21,7 +21,8 @@ mod tests {
     fn hot_reload_fs_loader_loads_and_unloads_shared_library() {
         use opalescent::hot_reload::loader::{FsModuleLoader, ModuleLoader};
         use std::fs;
-        use std::process::Command;
+        use std::process::{Command, Stdio};
+        use std::time::Duration;
 
         let temp_dir = std::env::temp_dir();
         let lib_path = temp_dir.join(format!(
@@ -33,14 +34,24 @@ mod tests {
         let c_source = "void module_entry(void) {}\n";
         fs::write(&c_path, c_source).expect("write C source");
 
-        let output = Command::new("cc")
+        let child = Command::new("cc")
             .arg("-shared")
             .arg("-fPIC")
             .arg("-o")
             .arg(&lib_path)
             .arg(&c_path)
-            .output()
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .expect("invoke cc");
+
+        let output = opalescent::bounded_proc::wait_for_child_output_with_timeout(
+            child,
+            Duration::from_secs(120),
+            "hot reload integration external C compiler",
+        )
+        .expect("invoke cc");
 
         drop(fs::remove_file(&c_path));
 

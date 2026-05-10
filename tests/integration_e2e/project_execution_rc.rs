@@ -1,6 +1,22 @@
 #![cfg(feature = "integration")]
 
 use super::*;
+use crate::tests::fs_helpers::{unique_probe_target_dir, wait_for_child_output_with_timeout};
+use std::process::Stdio;
+use std::time::Duration;
+
+const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+fn run_binary_with_timeout(binary_path: &Path, context: &str) -> Result<std::process::Output, String> {
+    let child = std::process::Command::new(binary_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("{context} should execute: {error}"))?;
+
+    wait_for_child_output_with_timeout(child, GENERATED_BINARY_TEST_TIMEOUT, context)
+}
 
 #[test]
 fn rc_basic_compiles_and_runs() {
@@ -14,7 +30,8 @@ fn rc_basic_compiles_and_runs() {
     };
 
     let project_dir = cwd_path.join("test-projects/rc-basic");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("rc-basic");
+    println!("rc-basic target dir: {}", temp_dir.display());
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -23,7 +40,7 @@ fn rc_basic_compiles_and_runs() {
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -33,9 +50,7 @@ fn rc_basic_compiles_and_runs() {
             }
         };
 
-        let run_output = std::process::Command::new(&binary_path)
-            .output()
-            .map_err(|error| format!("rc-basic compiled binary should execute: {error}"))?;
+        let run_output = run_binary_with_timeout(&binary_path, "rc-basic compiled binary")?;
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim() != "rc-basic: hello world" {
             return Err(format!(
@@ -75,7 +90,8 @@ fn rc_reuse_compiles_and_runs() {
     };
 
     let project_dir = cwd_path.join("test-projects/rc-reuse");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("rc-reuse");
+    println!("rc-reuse target dir: {}", temp_dir.display());
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -84,7 +100,7 @@ fn rc_reuse_compiles_and_runs() {
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -94,9 +110,7 @@ fn rc_reuse_compiles_and_runs() {
             }
         };
 
-        let run_output = std::process::Command::new(&binary_path)
-            .output()
-            .map_err(|error| format!("rc-reuse compiled binary should execute: {error}"))?;
+        let run_output = run_binary_with_timeout(&binary_path, "rc-reuse compiled binary")?;
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim() != "rc-reuse: first second" {
             return Err(format!(
@@ -136,7 +150,8 @@ fn iterative_drop_compiles_and_runs() {
     };
 
     let project_dir = cwd_path.join("test-projects/iterative-drop");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("iterative-drop");
+    println!("iterative-drop target dir: {}", temp_dir.display());
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -145,7 +160,7 @@ fn iterative_drop_compiles_and_runs() {
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -155,9 +170,7 @@ fn iterative_drop_compiles_and_runs() {
             }
         };
 
-        let run_output = std::process::Command::new(&binary_path)
-            .output()
-            .map_err(|error| format!("iterative-drop compiled binary should execute: {error}"))?;
+        let run_output = run_binary_with_timeout(&binary_path, "iterative-drop compiled binary")?;
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim() != "iterative-drop: done" {
             return Err(format!(
@@ -197,7 +210,8 @@ fn weak_ref_compiles_and_runs() {
     };
 
     let project_dir = cwd_path.join("test-projects/weak-ref");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("weak-ref");
+    println!("weak-ref target dir: {}", temp_dir.display());
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -206,7 +220,7 @@ fn weak_ref_compiles_and_runs() {
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -216,9 +230,7 @@ fn weak_ref_compiles_and_runs() {
             }
         };
 
-        let run_output = std::process::Command::new(&binary_path)
-            .output()
-            .map_err(|error| format!("weak-ref compiled binary should execute: {error}"))?;
+        let run_output = run_binary_with_timeout(&binary_path, "weak-ref compiled binary")?;
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim() != "weak-ref: ok" {
             return Err(format!(

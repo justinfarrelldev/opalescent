@@ -8,6 +8,10 @@
 //! that was promoted from the Rust stdlib into the Opalescent language.
 
 use super::*;
+use super::fs_helpers::unique_probe_target_dir;
+use std::time::Duration;
+
+const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Covered surface: `bytes_from_hex`, `Bytes.length`, `bytes_to_hex`,
 /// `bytes_concatenate`, and `bytes_slice` (both via `guard`).
@@ -18,8 +22,8 @@ use super::*;
 /// `Bytes` handle representation should surface as a failure here.
 #[test]
 fn bytes_hex_roundtrip_compiles_and_runs() {
-    let temp_dir = Path::new("test-projects/bytes-hex-roundtrip/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("bytes-hex-roundtrip");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "bytes-hex-roundtrip target directory should be created"
@@ -37,10 +41,10 @@ fn bytes_hex_roundtrip_compiles_and_runs() {
             }
         };
 
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         let binary_path = match binary_result {
@@ -52,15 +56,11 @@ fn bytes_hex_roundtrip_compiles_and_runs() {
             }
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
-        let run_output = match output_result {
-            Ok(output) => output,
-            Err(error) => {
-                return Err(format!(
-                    "bytes-hex-roundtrip compiled binary should execute: {error}"
-                ));
-            }
-        };
+        let run_output = run_binary_output_with_timeout(
+            &binary_path,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "bytes-hex-roundtrip compiled binary",
+        )?;
 
         if !run_output.status.success() {
             let stdout = String::from_utf8_lossy(&run_output.stdout);
@@ -90,7 +90,7 @@ fn bytes_hex_roundtrip_compiles_and_runs() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "bytes-hex-roundtrip target directory should be removed"

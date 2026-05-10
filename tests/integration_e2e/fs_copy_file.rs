@@ -43,12 +43,7 @@ fn compile_and_run_inline_program(
     source: &str,
     temp_dir: &Path,
 ) -> Result<std::process::Output, String> {
-    let binary_result = compile_program(
-        Path::new("test-projects/_t26_copy_file/src/main.op"),
-        source,
-        temp_dir,
-        &TargetTriple::host(),
-    );
+    let binary_result = compile_program_for_tests(Path::new("test-projects/_t26_copy_file/src/main.op"), source, temp_dir, &TargetTriple::host());
 
     let binary_path = match binary_result {
         Ok(path) => path,
@@ -59,8 +54,7 @@ fn compile_and_run_inline_program(
         }
     };
 
-    std::process::Command::new(&binary_path)
-        .output()
+    run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary")
         .map_err(|error| format!("t26 copy_file probe binary should execute: {error}"))
 }
 

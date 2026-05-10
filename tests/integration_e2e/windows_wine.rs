@@ -46,10 +46,14 @@ pub mod wine_harness {
     /// Verifies that wine, clang-cl, xwin sysroot, and LLVM are available.
     /// Returns `Ok(())` if all prerequisites are present, or `Err(reason)` if any are missing.
     pub fn check_prereqs() -> Result<(), String> {
-        let output = Command::new("bash")
-            .arg("scripts/verify-wine-prereqs.sh")
-            .output()
-            .map_err(|e| format!("Failed to run prereq check script: {e}"))?;
+        let mut prereq_command = Command::new("bash");
+        prereq_command.arg("scripts/verify-wine-prereqs.sh");
+        let output = crate::run_command_output_with_timeout(
+            &mut prereq_command,
+            Duration::from_secs(30),
+            "wine prereq check script",
+        )
+        .map_err(|e| format!("Failed to run prereq check script: {e}"))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stdout_trimmed = stdout.trim();
@@ -92,13 +96,18 @@ pub mod wine_harness {
             ));
         }
 
-        let output = Command::new(&opal_binary)
+        let mut build_command = Command::new(&opal_binary);
+        build_command
             .arg("build")
             .arg("--target")
             .arg(target)
-            .current_dir(&project_path)
-            .output()
-            .map_err(|e| format!("Failed to run opal build: {e}"))?;
+            .current_dir(&project_path);
+        let output = crate::run_command_output_with_timeout(
+            &mut build_command,
+            Duration::from_secs(120),
+            "opal windows build",
+        )
+        .map_err(|e| format!("Failed to run opal build: {e}"))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -248,12 +257,14 @@ pub mod wine_harness {
             return Ok(String::from("(workspace does not exist)"));
         }
 
-        let output = Command::new("ls")
-            .arg("-la")
-            .arg("-R")
-            .arg(root)
-            .output()
-            .map_err(|e| format!("Failed to snapshot workspace: {e}"))?;
+        let mut snapshot_command = Command::new("ls");
+        snapshot_command.arg("-la").arg("-R").arg(root);
+        let output = crate::run_command_output_with_timeout(
+            &mut snapshot_command,
+            Duration::from_secs(10),
+            "workspace snapshot",
+        )
+        .map_err(|e| format!("Failed to snapshot workspace: {e}"))?;
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     }
@@ -263,8 +274,9 @@ pub mod wine_harness {
 mod tests {
     use super::WineRun;
     use super::wine_harness::*;
+    use crate::compile_program_for_tests;
+    use crate::tests::fs_helpers::unique_probe_target_dir;
     use opalescent::build_system::targets::parse_target_triple;
-    use opalescent::compiler::compile_program;
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -302,11 +314,6 @@ mod tests {
         "MARKER:RENAMED_EXISTS_AFTER_DELETE=false",
         "MARKER:UNICODE_DIR_EXISTS_AFTER_DELETE=false",
         "MARKER:FINAL_STATUS=ok",
-    ];
-    const GUARD_SHORTHAND_EXPECTED_MARKERS: [&str; 3] = [
-        "GUARD_SHORTHAND_SUCCESS=ok",
-        "GUARD_SHORTHAND_ERROR=handled",
-        "GUARD_NAMED_BINDING=41",
     ];
 
     struct FileOpsFixturePaths {
@@ -475,29 +482,6 @@ mod tests {
         }
     }
 
-    fn assert_guard_shorthand_markers(run: &WineRun) {
-        for marker in GUARD_SHORTHAND_EXPECTED_MARKERS {
-            assert!(
-                run.stdout.contains(marker),
-                "wine_msvc_guard_shorthand stdout should contain marker '{marker}', stdout={:?}, stderr={:?}",
-                run.stdout,
-                run.stderr
-            );
-        }
-        assert!(
-            !run.stdout.contains("UNEXPECTED_SHORTHAND_SUCCESS_ERROR="),
-            "wine_msvc_guard_shorthand success path should not print unexpected shorthand error marker, stdout={:?}, stderr={:?}",
-            run.stdout,
-            run.stderr
-        );
-        assert!(
-            !run.stdout.contains("UNEXPECTED_NAMED_ERROR="),
-            "wine_msvc_guard_shorthand named-binding success path should not print unexpected named error marker, stdout={:?}, stderr={:?}",
-            run.stdout,
-            run.stderr
-        );
-    }
-
     fn assert_file_ops_summary(paths: &FileOpsFixturePaths) {
         let summary_text = fs::read_to_string(&paths.summary_path);
         assert!(
@@ -612,7 +596,7 @@ mod tests {
         }
 
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let temp_dir = manifest_dir.join("test-projects/_windows_symlink_metadata/target");
+        let temp_dir = unique_probe_target_dir("windows-symlink-metadata");
         let create_temp_dir_result = fs::create_dir_all(&temp_dir);
         assert!(
             create_temp_dir_result.is_ok(),
@@ -640,12 +624,7 @@ mod tests {
         let source = build_symlink_metadata_source(&link_path);
         let target = parse_target_triple(WINDOWS_MSVC_TARGET)
             .expect("wine_msvc_symlink_metadata should parse the Windows MSVC target triple");
-        let exe_path = match compile_program(
-            Path::new("test-projects/_windows_symlink_metadata/src/main.op"),
-            source.as_str(),
-            &temp_dir,
-            &target,
-        ) {
+        let exe_path = match compile_program_for_tests(Path::new("test-projects/_windows_symlink_metadata/src/main.op"), source.as_str(), &temp_dir, &target) {
             Ok(path) => path,
             Err(error) => {
                 let reason = format!(
@@ -805,50 +784,30 @@ mod tests {
             return;
         }
 
-        let exe_path_result = build_opal_project(GUARD_SHORTHAND_PROJECT, WINDOWS_MSVC_TARGET);
-        assert!(
-            exe_path_result.is_ok(),
-            "wine_msvc_guard_shorthand fixture should build for {WINDOWS_MSVC_TARGET} when prereqs are available: {:?}",
-            exe_path_result.as_ref().err()
-        );
-        let exe_path =
-            exe_path_result.expect("asserted Windows guard-shorthand fixture build succeeded");
+        let build_error = build_opal_project(GUARD_SHORTHAND_PROJECT, WINDOWS_MSVC_TARGET)
+            .expect_err(
+                "guard-shorthand fixture should fail strict validation for Windows/MSVC just like the host integration fixture",
+            );
 
-        let run_result = run_under_wine(&exe_path, &[]);
         assert!(
-            run_result.is_ok(),
-            "wine_msvc_guard_shorthand should execute under Wine after a successful build: {:?}",
-            run_result.as_ref().err()
+            build_error.contains("propagate` used outside a function that declares errors"),
+            "wine_msvc_guard_shorthand should fail with the strict guard validation error, got: {build_error}"
         );
-        let mut run = run_result.expect("asserted Wine guard-shorthand execution succeeded");
-        capture_workspace_snapshot(&mut run, &project_root.join("target"));
+
+        let run = WineRun {
+            stdout: format!(
+                "EXPECTED_BUILD_FAILURE=guard-shorthand\nBUILD_ERROR={build_error}\n"
+            ),
+            stderr: build_error,
+            exit_code: 0,
+            fs_dump: snapshot_workspace(&project_root.join("target")).unwrap_or_else(|error| {
+                format!("(workspace snapshot failed after expected build rejection: {error})")
+            }),
+        };
 
         assert!(
             capture_evidence(GUARD_SHORTHAND_TASK_NUM, GUARD_SHORTHAND_SLUG, &run).is_ok(),
-            "wine guard-shorthand execution path should write deterministic evidence"
+            "wine guard-shorthand expected-build-failure path should write deterministic evidence"
         );
-
-        if run.exit_code != 0_i32 && is_known_wine_host_limitation(&run.stderr) {
-            let reason = format!(
-                "Wine limitation: fatal crash/dialog requires manual close (exit={}, stderr={})",
-                run.exit_code, run.stderr
-            );
-            record_skip(
-                GUARD_SHORTHAND_TASK_NUM,
-                GUARD_SHORTHAND_SLUG,
-                GUARD_SHORTHAND_TEST_NAME,
-                reason.as_str(),
-                FATAL_WINE_SKIP_DUMP,
-            );
-            return;
-        }
-
-        assert_eq!(
-            run.exit_code, 0_i32,
-            "wine_msvc_guard_shorthand fixture should exit successfully, stderr={}",
-            run.stderr
-        );
-
-        assert_guard_shorthand_markers(&run);
     }
 }

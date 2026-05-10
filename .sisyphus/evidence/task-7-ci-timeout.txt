@@ -1,0 +1,4 @@
+FOUND=true
+timeout 900 cargo test --all-features
+
+EXIT_CODE=0

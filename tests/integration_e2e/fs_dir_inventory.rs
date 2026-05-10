@@ -1,5 +1,8 @@
 #![cfg(feature = "integration")]
 
+extern crate alloc;
+
+use alloc::string::ToString;
 use super::fs_helpers::{
     FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
 };
@@ -91,15 +94,19 @@ fn compile_list_harness(
     harness_c: &std::path::Path,
     harness_bin: &std::path::Path,
 ) -> Result<(), String> {
-    let compile = std::process::Command::new("cc")
+    let mut compile_command = std::process::Command::new("cc");
+    compile_command
         .arg("-std=gnu11")
         .arg(format!("-I{}", repo_root.display()))
         .arg(repo_root.join("runtime/opal_fs.c"))
         .arg(harness_c)
         .arg("-o")
-        .arg(harness_bin)
-        .output()
-        .map_err(|e| format!("fs_dir_inventory harness compile command should execute: {e}"))?;
+        .arg(harness_bin);
+    let compile = run_command_output_with_timeout(
+        &mut compile_command,
+        std::time::Duration::from_secs(10),
+        "fs_dir_inventory harness compile command",
+    )?;
 
     if !compile.status.success() {
         let stderr = String::from_utf8_lossy(&compile.stderr);
@@ -140,11 +147,15 @@ fn run_harness_list_sorted() -> Result<(), String> {
 
     compile_list_harness(&repo_root(), &harness_c, &harness_bin)?;
 
-    let run = std::process::Command::new(&harness_bin)
+    let mut run_command = std::process::Command::new(&harness_bin);
+    run_command
         .arg(inventory_dir.to_string_lossy().into_owned())
-        .current_dir(repo_root())
-        .output()
-        .map_err(|e| format!("fs_dir_inventory harness should execute: {e}"))?;
+        .current_dir(repo_root());
+    let run = run_command_output_with_timeout(
+        &mut run_command,
+        std::time::Duration::from_secs(10),
+        "fs_dir_inventory harness",
+    )?;
 
     drop(fs::remove_file(&harness_bin));
     drop(fs::remove_file(&harness_c));
@@ -189,28 +200,26 @@ fn fs_dir_inventory() {
         );
 
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_fs_dir_inventory fixture should compile into a binary: {}",
             binary_result.as_ref().err().map_or_else(
                 || String::from("unknown compile error"),
-                |error| format!("{error}")
+                ToString::to_string
             )
         );
         let Ok(binary_path) = binary_result else {
             return;
         };
 
-        let output_result = std::process::Command::new(&binary_path)
-            .current_dir(&project_dir)
-            .output();
+        let output_result = run_binary_in_dir_output_with_timeout(&binary_path, &project_dir, std::time::Duration::from_secs(10), "compiled binary");
         assert!(
             output_result.is_ok(),
             "_fs_dir_inventory compiled binary should execute: {}",
             output_result.as_ref().err().map_or_else(
                 || String::from("unknown execution error"),
-                |error| format!("{error}")
+                alloc::string::ToString::to_string
             )
         );
         let Ok(run_output) = output_result else {

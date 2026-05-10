@@ -1,6 +1,7 @@
 #![cfg(feature = "integration")]
 
 use super::*;
+use super::fs_helpers::unique_probe_target_dir;
 use std::time::Duration;
 
 const INTERACTIVE_TEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -12,8 +13,8 @@ const INTERACTIVE_TEST_TIMEOUT: Duration = Duration::from_secs(30);
     reason = "integration test covers full stdin/stdout quiz flow"
 )]
 fn simple_quiz_compiles_links_and_runs() {
-    let temp_dir = Path::new("test-projects/simple-quiz/target");
-    let prepare = prepare_dir(temp_dir);
+    let temp_dir = unique_probe_target_dir("simple-quiz");
+    let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
         "simple-quiz target directory should be created"
@@ -31,10 +32,10 @@ fn simple_quiz_compiles_links_and_runs() {
             }
         };
 
-        let binary_result = compile_program(
+        let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
-            temp_dir,
+            &temp_dir,
             &TargetTriple::host(),
         );
         let binary_path = match binary_result {
@@ -118,7 +119,7 @@ fn simple_quiz_compiles_links_and_runs() {
         Ok(())
     })();
 
-    let cleanup = cleanup_dir(temp_dir);
+    let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "simple-quiz target directory should be removed"

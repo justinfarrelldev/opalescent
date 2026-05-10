@@ -111,12 +111,7 @@ fn compile_and_run_inline_program(
     source: &str,
     temp_dir: &Path,
 ) -> Result<std::process::Output, String> {
-    let binary_result = compile_program(
-        Path::new("test-projects/_t26_delete_directory_recursive/src/main.op"),
-        source,
-        temp_dir,
-        &TargetTriple::host(),
-    );
+    let binary_result = compile_program_for_tests(Path::new("test-projects/_t26_delete_directory_recursive/src/main.op"), source, temp_dir, &TargetTriple::host());
 
     let binary_path = match binary_result {
         Ok(path) => path,
@@ -127,9 +122,18 @@ fn compile_and_run_inline_program(
         }
     };
 
-    std::process::Command::new(&binary_path)
-        .output()
-        .map_err(|error| format!("t26 recursive-delete probe binary should execute: {error}"))
+    let child = std::process::Command::new(&binary_path)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("t26 recursive-delete probe binary should execute: {error}"))?;
+
+    super::fs_helpers::wait_for_child_output_with_timeout(
+        child,
+        std::time::Duration::from_secs(30),
+        "t26 recursive-delete probe binary",
+    )
 }
 
 fn parse_bool_like(rest: &str) -> Option<bool> {

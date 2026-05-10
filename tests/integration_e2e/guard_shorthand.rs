@@ -1,6 +1,7 @@
 #![cfg(feature = "integration")]
 
 use super::*;
+use super::fs_helpers::unique_probe_target_dir;
 
 #[test]
 fn guard_shorthand_project_compiles_links_and_runs() {
@@ -14,7 +15,7 @@ fn guard_shorthand_project_compiles_links_and_runs() {
     };
 
     let project_dir = cwd_path.join("test-projects/guard-shorthand");
-    let temp_dir = project_dir.join("target");
+    let temp_dir = unique_probe_target_dir("guard-shorthand-project");
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -23,7 +24,7 @@ fn guard_shorthand_project_compiles_links_and_runs() {
 
     let execution_result: Result<(), String> = (|| {
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         if binary_result.is_ok() {
             return Err(
                 "guard-shorthand project should fail strict front-end validation in this fixture"

@@ -1,6 +1,7 @@
 use super::{
-    RUNTIME_SOURCE, build_linker_command, compile_program, compile_to_module,
-    compile_to_module_for_target, emit_object_file,
+    CompileError, CompileRunPolicy, RUNTIME_SOURCE, build_linker_command,
+    compile_runtime_c_to_obj_with_policy, compile_program, compile_to_module,
+    compile_to_module_for_target, emit_object_file, link_object_files_with_policy,
 };
 use crate::build_system::targets::parse_target_triple;
 use crate::compiler::compiler_helpers::{
@@ -9,8 +10,10 @@ use crate::compiler::compiler_helpers::{
 use crate::errors::reporter::CompilerError;
 use crate::type_system::checker::TypeChecker;
 use inkwell::context::Context;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::Mutex;
+use std::time::Duration;
 
 static ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
 
@@ -350,4 +353,158 @@ fn compile_program_respects_target_override() {
     // It will fail (no LLVM in unit test context), but the signature must compile
     drop(result);
     std::fs::remove_dir_all(&output_dir).ok();
+}
+
+#[cfg(unix)]
+fn bounded_compile_policy(timeout: Duration) -> CompileRunPolicy {
+    CompileRunPolicy {
+        runtime_compile: crate::bounded_proc::RunPolicy::Bounded {
+            timeout,
+            grace: Duration::from_millis(50),
+            kill_group: true,
+        },
+        link: crate::bounded_proc::RunPolicy::Bounded {
+            timeout,
+            grace: Duration::from_millis(50),
+            kill_group: true,
+        },
+    }
+}
+
+#[cfg(unix)]
+fn write_executable_script(path: &Path, body: &str) {
+    std::fs::write(path, body).expect("write script");
+    let mut permissions = std::fs::metadata(path)
+        .expect("script metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(path, permissions).expect("chmod script");
+}
+
+#[cfg(unix)]
+fn prepend_path(dir: &Path) -> Option<std::ffi::OsString> {
+    let original = std::env::var_os("PATH");
+    let mut segments = vec![dir.to_path_buf()];
+    if let Some(existing) = original.as_ref() {
+        segments.extend(std::env::split_paths(existing));
+    }
+    let updated = std::env::join_paths(segments).expect("join PATH");
+    // SAFETY: test-scoped PATH override guarded by ENV_TEST_LOCK.
+    unsafe {
+        std::env::set_var("PATH", &updated);
+    }
+    original
+}
+
+#[cfg(unix)]
+fn restore_path(original: Option<std::ffi::OsString>) {
+    // SAFETY: test-scoped PATH restoration guarded by ENV_TEST_LOCK.
+    unsafe {
+        if let Some(path) = original {
+            std::env::set_var("PATH", path);
+        } else {
+            std::env::remove_var("PATH");
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn runtime_compile_timeout_error_reports_compile_phase() {
+    let _guard = lock_env();
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let tool_dir = temp_dir.path().join("bin");
+    std::fs::create_dir_all(&tool_dir).expect("create tool dir");
+    let compiler_path = tool_dir.join("fake-clang-cl");
+    write_executable_script(
+        &compiler_path,
+        "#!/bin/sh\nprintf 'compile stdout before timeout\\n'\nprintf 'compile stderr before timeout\\n' >&2\nsleep 5\n",
+    );
+
+    let runtime_c_path = temp_dir.path().join("runtime.c");
+    let include_dir = temp_dir.path().join("include");
+    std::fs::create_dir_all(&include_dir).expect("create include dir");
+    std::fs::write(&runtime_c_path, "int main(void) { return 0; }\n").expect("write runtime");
+
+    // SAFETY: test-scoped compiler override guarded by ENV_TEST_LOCK.
+    unsafe {
+        std::env::set_var("OPAL_MSVC_CC", &compiler_path);
+    }
+    let result = compile_runtime_c_to_obj_with_policy(
+        &runtime_c_path,
+        &include_dir,
+        bounded_compile_policy(Duration::from_millis(100)).runtime_compile,
+    );
+    // SAFETY: test-scoped compiler cleanup guarded by ENV_TEST_LOCK.
+    unsafe {
+        std::env::remove_var("OPAL_MSVC_CC");
+    }
+
+    let error = result.expect_err("fake compiler should time out");
+    assert!(
+        matches!(error, CompileError::Linker { .. }),
+        "expected compile linker error"
+    );
+    let CompileError::Linker {
+        phase,
+        timed_out,
+        stderr,
+    } = error
+    else {
+        return;
+    };
+    assert_eq!(phase, "compile runtime c");
+    assert!(timed_out, "compile timeout should be marked timed_out");
+    assert!(stderr.contains("compile runtime c failed"));
+    assert!(stderr.contains("timed_out: true"));
+    assert!(stderr.contains("compile stdout before timeout"));
+    assert!(stderr.contains("compile stderr before timeout"));
+}
+
+#[cfg(unix)]
+#[test]
+fn linker_timeout_error_reports_link_phase() {
+    let _guard = lock_env();
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let tool_dir = temp_dir.path().join("bin");
+    std::fs::create_dir_all(&tool_dir).expect("create tool dir");
+    let cc_path = tool_dir.join("cc");
+    write_executable_script(
+        &cc_path,
+        "#!/bin/sh\nprintf 'link stdout before timeout\\n'\nprintf 'link stderr before timeout\\n' >&2\nsleep 5\n",
+    );
+
+    let original_path = prepend_path(&tool_dir);
+    let output_path = temp_dir.path().join("program");
+    let object_path = temp_dir.path().join("main.o");
+    std::fs::write(&object_path, []).expect("write placeholder object");
+
+    let target = parse_target_triple("x86_64-linux").expect("parse linux target");
+    let result = link_object_files_with_policy(
+        &[object_path],
+        &output_path,
+        &target,
+        bounded_compile_policy(Duration::from_millis(100)),
+    );
+    restore_path(original_path);
+
+    let error = result.expect_err("fake linker should time out");
+    assert!(
+        matches!(error, CompileError::Linker { .. }),
+        "expected linker error"
+    );
+    let CompileError::Linker {
+        phase,
+        timed_out,
+        stderr,
+    } = error
+    else {
+        return;
+    };
+    assert_eq!(phase, "link object files");
+    assert!(timed_out, "link timeout should be marked timed_out");
+    assert!(stderr.contains("link object files failed"));
+    assert!(stderr.contains("timed_out: true"));
+    assert!(stderr.contains("link stdout before timeout"));
+    assert!(stderr.contains("link stderr before timeout"));
 }

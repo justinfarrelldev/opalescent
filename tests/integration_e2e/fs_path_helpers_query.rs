@@ -33,7 +33,7 @@ fn fs_path_helpers_query_fixture_showcase() {
         let temp_dir = unique_probe_target_dir("path-helpers-query-fixture");
 
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_fs_path_helpers_query fixture should compile into a binary: {}",
@@ -46,7 +46,7 @@ fn fs_path_helpers_query_fixture_showcase() {
             return;
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
+        let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
         assert!(
             output_result.is_ok(),
             "_fs_path_helpers_query compiled binary should execute: {}",

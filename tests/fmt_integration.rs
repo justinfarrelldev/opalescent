@@ -2,7 +2,43 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+fn run_command_status_with_timeout(command: &mut Command, context: &str) -> std::process::ExitStatus {
+    let child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("opalescent fmt command should spawn and complete");
+
+    opalescent::bounded_proc::wait_for_child_output_with_timeout(
+        child,
+        GENERATED_BINARY_TEST_TIMEOUT,
+        context,
+    )
+    .expect("opalescent fmt command should complete")
+    .status
+}
+
+fn run_command_output_with_timeout(command: &mut Command, context: &str) -> std::process::Output {
+    let child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("opalescent fmt command should spawn and complete");
+
+    opalescent::bounded_proc::wait_for_child_output_with_timeout(
+        child,
+        GENERATED_BINARY_TEST_TIMEOUT,
+        context,
+    )
+    .expect("opalescent fmt command should complete")
+}
 
 fn binary_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -35,7 +71,14 @@ fn fmt_test_config(filename: &str) -> PathBuf {
 }
 
 fn temp_output_path(test_name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("opalescent-fmt-{test_name}"));
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let dir = std::env::temp_dir().join(format!(
+        "opalescent-fmt-{test_name}-{}-{nanos}",
+        std::process::id()
+    ));
     fs::create_dir_all(&dir).expect("test temp directory should be created");
     dir.join("output.op")
 }
@@ -55,13 +98,14 @@ mod tests {
         let expected = fmt_test_expected("input-spaces.expected.op");
         let output = temp_output_path("spaces-default");
 
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output spaces default config",
+        );
 
         assert!(
             status.success(),
@@ -90,13 +134,14 @@ mod tests {
         let expected = fmt_test_expected("input-tabs.expected.op");
         let output = temp_output_path("tabs-to-spaces");
 
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output tabs to spaces",
+        );
 
         assert!(
             status.success(),
@@ -126,15 +171,16 @@ mod tests {
         let config = fmt_test_config("opal-fmt-tabs.toml");
         let output = temp_output_path("tabs-to-tabs");
 
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--config")
-            .arg(&config)
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--config")
+                .arg(&config)
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output tabs to tabs",
+        );
 
         assert!(
             status.success(),
@@ -163,13 +209,14 @@ mod tests {
         let expected = fmt_test_expected("input-mixed.expected.op");
         let output = temp_output_path("mixed-to-spaces");
 
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output mixed to spaces",
+        );
 
         assert!(
             status.success(),
@@ -199,15 +246,16 @@ mod tests {
         let config = fmt_test_config("opal-fmt-tabs.toml");
         let output = temp_output_path("mixed-to-tabs");
 
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--config")
-            .arg(&config)
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--config")
+                .arg(&config)
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output mixed to tabs",
+        );
 
         assert!(
             status.success(),
@@ -236,13 +284,14 @@ mod tests {
         let expected = fmt_test_expected("input-clean-spaces.expected.op");
         let output = temp_output_path("idempotent-spaces");
 
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output idempotent spaces",
+        );
 
         assert!(
             status.success(),
@@ -272,15 +321,16 @@ mod tests {
         let config = fmt_test_config("opal-fmt-tabs.toml");
         let output = temp_output_path("idempotent-tabs");
 
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--config")
-            .arg(&config)
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--config")
+                .arg(&config)
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output idempotent tabs",
+        );
 
         assert!(
             status.success(),
@@ -310,15 +360,16 @@ mod tests {
         let config = fmt_test_config("opal-fmt-2spaces.toml");
         let output = temp_output_path("2space-indent");
 
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--config")
-            .arg(&config)
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--config")
+                .arg(&config)
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output two-space indent",
+        );
 
         assert!(
             status.success(),
@@ -346,14 +397,15 @@ mod tests {
         let input = fmt_test_src("input-spaces.op");
         let output = temp_output_path("mutual-exclusion");
 
-        let result = Command::new(&binary)
-            .arg("fmt")
-            .arg("--check")
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .output()
-            .expect("opalescent fmt command should spawn and complete");
+        let result = run_command_output_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--check")
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt check and output mutually exclusive",
+        );
 
         assert!(
             !result.status.success(),
@@ -386,13 +438,14 @@ mod tests {
 
         let before = fs::read_to_string(&input).expect("source file should be readable before fmt");
 
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output preserves source file",
+        );
 
         assert!(
             status.success(),
@@ -420,13 +473,14 @@ mod tests {
         let output = temp_output_path("fmt_output_preserves_comments_golden");
 
         let binary = binary_path();
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output preserves comments golden",
+        );
 
         assert!(
             status.success(),
@@ -454,13 +508,14 @@ mod tests {
         let output = temp_output_path("fmt_output_comments_idempotent");
 
         let binary = binary_path();
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--output")
-            .arg(&output)
-            .arg(&expected)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--output")
+                .arg(&output)
+                .arg(&expected),
+            "fmt output comments idempotent",
+        );
 
         assert!(
             status.success(),
@@ -489,13 +544,14 @@ mod tests {
         let output = temp_output_path("fmt_output_simple_quiz_golden");
 
         let binary = binary_path();
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--output")
-            .arg(&output)
-            .arg(&input)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output simple quiz golden",
+        );
 
         assert!(
             status.success(),
@@ -523,13 +579,14 @@ mod tests {
         let output = temp_output_path("fmt_output_simple_quiz_idempotent");
 
         let binary = binary_path();
-        let status = Command::new(&binary)
-            .arg("fmt")
-            .arg("--output")
-            .arg(&output)
-            .arg(&expected)
-            .status()
-            .expect("opalescent fmt command should spawn and complete");
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--output")
+                .arg(&output)
+                .arg(&expected),
+            "fmt output simple quiz idempotent",
+        );
 
         assert!(
             status.success(),

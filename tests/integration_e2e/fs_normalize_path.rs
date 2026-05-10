@@ -1,5 +1,8 @@
 #![cfg(feature = "integration")]
 
+extern crate alloc;
+
+use alloc::string::ToString;
 use super::fs_helpers::{
     FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
 };
@@ -7,7 +10,7 @@ use super::*;
 use serial_test::serial;
 
 fn stringify_error<E: core::fmt::Display>(error: E) -> String {
-    format!("{error}")
+    error.to_string()
 }
 
 #[cfg(feature = "integration")]
@@ -53,12 +56,7 @@ entry main = f(args: string[]): void =>
 
         let temp_dir = unique_probe_target_dir("normalize-canonical-matrix");
 
-        let binary_result = compile_program(
-            Path::new("test-projects/_fs_path_from/src/main.op"),
-            source,
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(Path::new("test-projects/_fs_path_from/src/main.op"), source, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "normalize matrix source should compile into a binary: {}",
@@ -71,16 +69,20 @@ entry main = f(args: string[]): void =>
             return;
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
+        let run_output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(30),
+            "normalize matrix compiled binary",
+        );
         assert!(
-            output_result.is_ok(),
+            run_output_result.is_ok(),
             "normalize matrix compiled binary should execute: {}",
-            output_result
+            run_output_result
                 .as_ref()
                 .err()
                 .map_or_else(|| String::from("unknown execution error"), stringify_error)
         );
-        let Ok(run_output) = output_result else {
+        let Ok(run_output) = run_output_result else {
             return;
         };
 
@@ -144,29 +146,33 @@ fn fs_normalize_path_fixture_showcase() {
         let temp_dir = unique_probe_target_dir("normalize-fixture-showcase");
 
         let binary_result =
-            opalescent::compiler::compile_project(&project_dir, &temp_dir, &TargetTriple::host());
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "_fs_normalize_path fixture should compile into a binary: {}",
             binary_result.as_ref().err().map_or_else(
                 || String::from("unknown compile error"),
-                |error| format!("{error}")
+                ToString::to_string
             )
         );
         let Ok(binary_path) = binary_result else {
             return;
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
+        let run_output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(30),
+            "_fs_normalize_path compiled binary",
+        );
         assert!(
-            output_result.is_ok(),
+            run_output_result.is_ok(),
             "_fs_normalize_path compiled binary should execute: {}",
-            output_result.as_ref().err().map_or_else(
+            run_output_result.as_ref().err().map_or_else(
                 || String::from("unknown execution error"),
-                |error| format!("{error}")
+                alloc::string::ToString::to_string
             )
         );
-        let Ok(run_output) = output_result else {
+        let Ok(run_output) = run_output_result else {
             return;
         };
 
@@ -229,12 +235,7 @@ entry main = f(args: string[]): void =>
 
         let temp_dir = unique_probe_target_dir("normalize-windows-roots");
 
-        let binary_result = compile_program(
-            Path::new("test-projects/_fs_path_from/src/main.op"),
-            source,
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(Path::new("test-projects/_fs_path_from/src/main.op"), source, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "normalize windows-root source should compile into a binary: {}",
@@ -247,16 +248,20 @@ entry main = f(args: string[]): void =>
             return;
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
+        let run_output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(30),
+            "normalize windows-root compiled binary",
+        );
         assert!(
-            output_result.is_ok(),
+            run_output_result.is_ok(),
             "normalize windows-root compiled binary should execute: {}",
-            output_result
+            run_output_result
                 .as_ref()
                 .err()
                 .map_or_else(|| String::from("unknown execution error"), stringify_error)
         );
-        let Ok(run_output) = output_result else {
+        let Ok(run_output) = run_output_result else {
             return;
         };
 
@@ -317,34 +322,33 @@ entry main = f(args: string[]): void =>
 
         let temp_dir = unique_probe_target_dir("normalize-root-escape");
 
-        let binary_result = compile_program(
-            Path::new("test-projects/_fs_path_from/src/main.op"),
-            source,
-            &temp_dir,
-            &TargetTriple::host(),
-        );
+        let binary_result = compile_program_for_tests(Path::new("test-projects/_fs_path_from/src/main.op"), source, &temp_dir, &TargetTriple::host());
         assert!(
             binary_result.is_ok(),
             "normalize root-escape source should compile into a binary: {}",
             binary_result.as_ref().err().map_or_else(
                 || String::from("unknown compile error"),
-                |error| format!("{error}")
+                alloc::string::ToString::to_string
             )
         );
         let Ok(binary_path) = binary_result else {
             return;
         };
 
-        let output_result = std::process::Command::new(&binary_path).output();
+        let run_output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(30),
+            "normalize root-escape compiled binary",
+        );
         assert!(
-            output_result.is_ok(),
+            run_output_result.is_ok(),
             "normalize root-escape compiled binary should execute: {}",
-            output_result.as_ref().err().map_or_else(
+            run_output_result.as_ref().err().map_or_else(
                 || String::from("unknown execution error"),
-                |error| format!("{error}")
+                alloc::string::ToString::to_string
             )
         );
-        let Ok(run_output) = output_result else {
+        let Ok(run_output) = run_output_result else {
             return;
         };
 

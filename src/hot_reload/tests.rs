@@ -22,8 +22,10 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
+use serial_test::serial;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 extern "C" fn noop_entry() {}
 
@@ -411,6 +413,25 @@ fn path_to_string(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
+#[cfg(unix)]
+static TEST_TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(unix)]
+fn unique_temp_library_dir(label: &str) -> PathBuf {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let unique = TEST_TEMP_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+
+    std::env::temp_dir().join(format!(
+        "opalescent_hot_reload_{label}_{}_{}_{}",
+        std::process::id(),
+        nanos,
+        unique
+    ))
+}
+
 #[test]
 fn change_classifier_marks_body_only_hash_change_as_hot_swappable() {
     let old_signature = generate_abi_signature(
@@ -781,13 +802,17 @@ fn compile_test_module(output_path: &std::path::Path) -> Result<(), Box<dyn std:
     let c_file = output_path.with_extension("c");
     fs::write(&c_file, c_source)?;
 
-    let output = Command::new("cc")
+    let output = Command::new("/usr/bin/cc")
         .arg("-shared")
         .arg("-fPIC")
         .arg("-o")
         .arg(output_path)
         .arg(&c_file)
         .output()?;
+
+    if !output_path.exists() {
+        return Err("shared library compilation finished without producing output file".into());
+    }
 
     if !output.status.success() {
         return Err(format!(
@@ -803,16 +828,13 @@ fn compile_test_module(output_path: &std::path::Path) -> Result<(), Box<dyn std:
 
 #[cfg(unix)]
 #[test]
+#[serial(hot_reload_fs)]
 fn fs_module_loader_loads_real_shared_library() {
     use crate::hot_reload::loader::FsModuleLoader;
 
-    let mut temp_dir = std::env::temp_dir();
-    temp_dir.push(format!(
-        "opalescent_hot_reload_test_module_{}.so",
-        std::process::id()
-    ));
-
-    drop(fs::remove_file(&temp_dir));
+    let temp_root = unique_temp_library_dir("test_module");
+    fs::create_dir_all(&temp_root).expect("create hot reload temp dir");
+    let temp_dir = temp_root.join("module.so");
 
     compile_test_module(&temp_dir).expect("compile test module");
 
@@ -865,21 +887,19 @@ fn fs_module_loader_loads_real_shared_library() {
         "unload should remove copied temp module path when platform permits"
     );
 
-    drop(fs::remove_file(&temp_dir));
+    drop(fs::remove_dir_all(&temp_root));
 }
 
 #[cfg(unix)]
 #[test]
+#[serial(hot_reload_fs)]
 fn fs_module_loader_repeated_loads_create_distinct_temp_copy_paths() {
     use crate::hot_reload::loader::FsModuleLoader;
 
-    let temp_dir = std::env::temp_dir();
-    let module_path = temp_dir.join(format!(
-        "opalescent_hot_reload_repeat_load_{}.so",
-        std::process::id()
-    ));
+    let temp_root = unique_temp_library_dir("repeat_load");
+    fs::create_dir_all(&temp_root).expect("create repeat-load temp dir");
+    let module_path = temp_root.join("module.so");
 
-    drop(fs::remove_file(&module_path));
     compile_test_module(&module_path).expect("compile repeat-load module");
 
     let module_name = module_path.to_string_lossy().to_string();
@@ -922,29 +942,24 @@ fn fs_module_loader_repeated_loads_create_distinct_temp_copy_paths() {
         "second unload should succeed: {second_unload:?}"
     );
 
-    drop(fs::remove_file(&module_path));
+    drop(fs::remove_dir_all(&temp_root));
 }
 
 #[cfg(unix)]
 #[test]
+#[serial(hot_reload_fs)]
 fn fs_module_loader_hot_swap_with_real_library_abi_compat() {
     use crate::hot_reload::loader::FsModuleLoader;
 
-    let temp_dir = std::env::temp_dir();
-    let module_v1 = temp_dir.join(format!(
-        "opalescent_hot_reload_test_v1_{}.so",
-        std::process::id()
-    ));
-    let module_v2 = temp_dir.join(format!(
-        "opalescent_hot_reload_test_v2_{}.so",
-        std::process::id()
-    ));
-
-    drop(fs::remove_file(&module_v1));
-    drop(fs::remove_file(&module_v2));
+    let temp_root_v1 = unique_temp_library_dir("hot_swap_v1");
+    let temp_root_v2 = unique_temp_library_dir("hot_swap_v2");
+    fs::create_dir_all(&temp_root_v1).expect("create v1 hot swap temp dir");
+    fs::create_dir_all(&temp_root_v2).expect("create v2 hot swap temp dir");
+    let module_v1 = temp_root_v1.join("module_v1.so");
+    let module_v2 = temp_root_v2.join("module_v2.so");
 
     compile_test_module(&module_v1).expect("compile v1 module");
-    compile_test_module(&module_v2).expect("compile v2 module");
+    assert!(module_v1.exists(), "compiled v1 module should exist at {module_v1:?}");
 
     let mut loader = FsModuleLoader::new();
     let mut host = HostProcess::new();
@@ -957,6 +972,9 @@ fn fs_module_loader_hot_swap_with_real_library_abi_compat() {
 
     let active_v1 = host.active_module();
     assert!(active_v1.is_some(), "host should have v1 as active module");
+
+    compile_test_module(&module_v2).expect("compile v2 module");
+    assert!(module_v2.exists(), "compiled v2 module should exist at {module_v2:?}");
 
     let swap_result = hot_swap_module(&mut host, &mut loader, &v2_name);
     assert!(
@@ -975,8 +993,8 @@ fn fs_module_loader_hot_swap_with_real_library_abi_compat() {
         "active module should be v2"
     );
 
-    drop(fs::remove_file(&module_v1));
-    drop(fs::remove_file(&module_v2));
+    drop(fs::remove_dir_all(&temp_root_v1));
+    drop(fs::remove_dir_all(&temp_root_v2));
 }
 
 #[test]
