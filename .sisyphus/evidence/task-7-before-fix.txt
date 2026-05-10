@@ -1,0 +1,24 @@
+# Task 7 Before-Fix Evidence
+
+## Focused strict failure check for delete-downloads (pre-edit state)
+Command run before fixture edit:
+
+`cargo test --features integration guard_stmt::delete_downloads_project_rejects_ignored_guard_error_alias -- --nocapture`
+
+Observed result (from pre-edit run):
+- `running 1 test`
+- `test tests::guard_stmt::delete_downloads_project_rejects_ignored_guard_error_alias ... ok`
+
+Interpretation:
+- This confirms `test-projects/delete-downloads` failed compilation under strict guard validation before the fixture fix, matching `TypeError::GuardErrorClauseMissingTerminal` assertion.
+
+## Strict counterpart fixture availability check
+Command:
+
+`if [ -d "test-projects/delete-downloads-strict" ]; then echo "present"; else echo "missing"; fi`
+
+Observed:
+- `missing`
+
+Blocker:
+- `test-projects/delete-downloads-strict` is not present in this workspace, so focused strict before-fix validation for that counterpart cannot be executed here.

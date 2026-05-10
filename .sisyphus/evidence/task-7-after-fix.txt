@@ -1,0 +1,38 @@
+# Task 7 After-Fix Evidence
+
+## Updated fixture
+- `test-projects/delete-downloads/src/main.op`
+  - Removed invalid `_ignored_*` guard alias handling.
+  - Ensured named guard error handlers terminate with strict-valid terminals (`propagate delete_err`, `propagate rmdir_err`) in helper function.
+  - Preserved runtime marker output behavior as closely as possible while satisfying strict rules.
+
+## Updated integration assertion
+- `tests/integration_e2e/guard_stmt.rs`
+  - Replaced compile-fail assertion test for `delete-downloads` with compile+run assertion:
+    - `delete_downloads_project_compiles_and_runs_with_strict_terminal_handlers`
+
+## Focused post-fix validation
+Command:
+
+`cargo test --features integration guard_stmt::delete_downloads_project_compiles_and_runs_with_strict_terminal_handlers -- --nocapture`
+
+Observed result:
+- `running 1 test`
+- `test tests::guard_stmt::delete_downloads_project_compiles_and_runs_with_strict_terminal_handlers ... ok`
+
+## CLI validation (release binary)
+Prerequisite command:
+
+`cargo build --release`
+
+Run command:
+
+`./target/release/opalescent run test-projects/delete-downloads/src/main.op`
+
+Observed output:
+- `target/program`
+- `removed_or_attempted=0`
+
+## Strict counterpart status
+- `test-projects/delete-downloads-strict` directory remains missing in this workspace.
+- Corresponding after-fix compile/run validation for that fixture cannot be executed in this environment.

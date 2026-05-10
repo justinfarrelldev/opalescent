@@ -1,0 +1,5 @@
+cargo fmt --all
+PASS
+
+cargo fmt --all -- --check
+PASS
