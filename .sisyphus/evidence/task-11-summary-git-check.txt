@@ -1,4 +1,5 @@
 git log --oneline -8
+dbbe9fe docs(evidence): capture task 11 post-commit git verification
 434559b docs(evidence): add strict-guard task 11 execution summary
 e14e6ed docs(guard): finalize task 11 closure notes and checklist
 acd71b7 docs(evidence): record strict-guard final clean-state snapshot
@@ -6,7 +7,6 @@ acd71b7 docs(evidence): record strict-guard final clean-state snapshot
 048bbe7 docs(evidence): capture strict-guard task 7-10 verification artifacts
 dabe59a docs(evidence): capture strict-guard task 3-6 verification artifacts
 77c5e53 docs(guard): record task 10 verification evidence and closure notes
-457e3d7 feat(guard): finalize strict terminal handler validation and wrapper coverage
 
 git status --porcelain
-?? .sisyphus/evidence/task-11-summary-git-check.txt
+
