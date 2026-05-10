@@ -1,0 +1,2 @@
+- Kept checker semantics unchanged in this task; the new strict-guard diagnostics are modeled at the TypeError surface and verified through direct diagnostic rendering tests.
+- Kept scope to strict guard validator plus directly-related guard tests/fixtures. For named else err => fixtures that only logged and returned void, chose compliance fixes (valid propagate terminal or compile-fail expectation) instead of weakening the new structural rule.
