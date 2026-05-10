@@ -1,0 +1,49 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-318f93a5d9546528)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1212 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-ca2e98ac77c3d204)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-fb5926c634f46b48)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-3d2595767f7967e9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-861d32cab9c71d81)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-e4da129dbd241e8b)
+
+running 6 tests
+test tests::guard_stmt::guard_stmt_propagate_err_project_rejects_non_terminal_outer_handler ... ok
+test tests::guard_stmt::delete_downloads_project_rejects_ignored_guard_error_alias ... ok
+test tests::guard_stmt::guard_stmt_return_err_banned_project_emits_return_err_diagnostic ... ok
+test tests::guard_stmt::guard_stmt_success_binding_leak_project_emits_scope_diagnostic ... ok
+test tests::guard_stmt::guard_stmt_only_propagate_project_emits_shorthand_guidance ... ok
+test tests::guard_stmt::guard_stmt_typed_binding_project_compiles_links_and_runs ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 120 filtered out; finished in 0.35s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-007082ff94c50273)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+

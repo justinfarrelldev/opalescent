@@ -1,0 +1,4 @@
+Representative miette coverage added for strict guard diagnostics:
+- focused unit assertions verify Diagnostic::code() exact values
+- focused unit assertions verify each diagnostic exposes at least one labeled span
+- return-err guard regression test asserts label text for the strict guard diagnostic

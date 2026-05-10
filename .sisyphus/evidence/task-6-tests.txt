@@ -1,0 +1,19 @@
+Task 6 verification summary:
+
+- `cargo test guard --lib` initially failed because one integration call site still referenced the deleted helper and two unit tests had stale locals; after fixes, it still reports 13 broader guard-related failures in existing tests.
+- `cargo test --features integration guard` reports the same broader guard-related failures after the migration.
+- `lsp_diagnostics` on `src/type_system/tests.rs` and `tests/integration_e2e/guard_stmt.rs` returned no errors after the edits.
+- Touched files: `src/type_system/tests.rs`, `tests/integration_e2e/guard_stmt.rs`.
+
+
+Actual command output (latest run):
+
+- `cargo test guard --lib -- --nocapture` -> 55 passed, 11 failed. Failures: `codegen::tests::test_guard_statement_compiles_to_valid_llvm_ir`, `codegen::tests::test_guard_bound_read_lines_length_emits_count_extract_and_runtime_call`, `type_system::test_integration::tests::test_guard_propagate_and_multiple_returns_integrate`, `type_system::tests::test_guard_error_binding_is_not_available_after_guard`, `type_system::tests::test_guard_statement_binds_success_and_error_types`, `type_system::tests::test_guard_with_string_to_int32_type_checks`, `type_system::tests::type_check_guard_into_underscore_does_not_introduce_binding_after_guard`, `type_system::tests::type_check_guard_into_underscore_still_valid`, `type_system::tests::type_check_guard_shorthand_discards_success_binding`, `type_system::tests::type_check_guard_shorthand_success_binding_not_in_scope`, `type_system::tests::type_check_named_guard_binding_still_available_after_guard`.
+- `cargo test --features integration guard -- --nocapture` -> same 11 failures.
+- `lsp_diagnostics` on `src/type_system/tests.rs` and `tests/integration_e2e/guard_stmt.rs` -> no diagnostics found.
+
+
+Latest command output summary:
+
+- `cargo test guard --lib -- --nocapture` -> `test result: ok. 66 passed; 0 failed; ...`
+- `cargo test --features integration guard -- --nocapture` -> `test result: ok. 15 passed; 0 failed; ...` for integration_e2e, with the remaining `fs_state_guard::manifest_diff` printout being a non-failure informational panic in the harness run.

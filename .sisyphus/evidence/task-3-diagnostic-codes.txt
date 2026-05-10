@@ -1,0 +1,6 @@
+Added dedicated strict-guard diagnostics with exact miette codes:
+- opalescent::guard::missing_terminal
+- opalescent::guard::propagate_not_final
+- opalescent::guard::return_err_invalid
+- opalescent::guard::wrapper_source_invalid
+- opalescent::guard::shorthand_required

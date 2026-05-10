@@ -1,0 +1,15 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-2e0f335919757aaa)
+
+running 8 tests
+test type_system::tests::test_guard_error_clause_only_propagate_is_rejected ... ok
+test type_system::tests::test_guard_error_clause_return_err_is_rejected ... ok
+test type_system::tests::test_guard_error_clause_side_effect_then_propagate_err_is_allowed ... ok
+test type_system::tests::test_guard_error_clause_rejects_success_fallback_return ... ok
+test type_system::tests::test_guard_error_clause_must_handle_or_propagate_bound_error ... ok
+test type_system::tests::test_guard_error_clause_propagate_err_must_be_terminal ... ok
+test type_system::tests::test_guard_error_clause_rejects_wrapper_return_with_aliased_source ... ok
+test type_system::tests::test_guard_error_clause_success_binding_does_not_leak_over_outer_shadowing ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 1204 filtered out; finished in 0.00s
+
