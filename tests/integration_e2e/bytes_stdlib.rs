@@ -7,8 +7,8 @@
 //! binary, and asserts the observable output covers every bytes built-in
 //! that was promoted from the Rust stdlib into the Opalescent language.
 
-use super::*;
 use super::fs_helpers::unique_probe_target_dir;
+use super::*;
 use std::time::Duration;
 
 const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);

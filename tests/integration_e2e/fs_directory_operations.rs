@@ -2,11 +2,11 @@
 
 extern crate alloc;
 
-use alloc::string::ToString;
 use super::fs_helpers::{
     FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
 };
 use super::*;
+use alloc::string::ToString;
 use serial_test::serial;
 
 #[cfg(feature = "integration")]
@@ -45,7 +45,11 @@ fn fs_directory_operations() {
             return;
         };
 
-        let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
+        let output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(10),
+            "compiled binary",
+        );
         assert!(
             output_result.is_ok(),
             "fs-directory-operations compiled binary should execute: {}",

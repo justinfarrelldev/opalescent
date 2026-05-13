@@ -7,7 +7,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 
-fn run_command_status_with_timeout(command: &mut Command, context: &str) -> std::process::ExitStatus {
+fn run_command_status_with_timeout(
+    command: &mut Command,
+    context: &str,
+) -> std::process::ExitStatus {
     let child = command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

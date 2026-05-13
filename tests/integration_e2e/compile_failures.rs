@@ -1,7 +1,7 @@
 #![cfg(feature = "integration")]
 
-use super::*;
 use super::fs_helpers::unique_probe_target_dir;
+use super::*;
 
 #[test]
 fn immutability_compile_error() {
@@ -225,7 +225,8 @@ fn type_declaration_in_regular_file_is_rejected() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
+        let binary_result =
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -459,7 +460,12 @@ fn ambiguous_guard_if_project_fails_with_miette_help() {
             }
         };
 
-        let binary_result = compile_program_for_tests(&source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            &source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         let compile_failure = match binary_result {
             Ok(_path) => {
                 return Err(

@@ -11,7 +11,10 @@ use std::time::Duration;
 const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 const INTERACTIVE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
 
-fn run_binary_with_timeout(binary_path: &Path, context: &str) -> Result<std::process::Output, String> {
+fn run_binary_with_timeout(
+    binary_path: &Path,
+    context: &str,
+) -> Result<std::process::Output, String> {
     let child = Command::new(binary_path)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -19,8 +22,12 @@ fn run_binary_with_timeout(binary_path: &Path, context: &str) -> Result<std::pro
         .spawn()
         .map_err(|error| format!("{context} should execute: {error}"))?;
 
-    opalescent::bounded_proc::wait_for_child_output_with_timeout(child, GENERATED_BINARY_TEST_TIMEOUT, context)
-        .map_err(|error| error.to_string())
+    opalescent::bounded_proc::wait_for_child_output_with_timeout(
+        child,
+        GENERATED_BINARY_TEST_TIMEOUT,
+        context,
+    )
+    .map_err(|error| error.to_string())
 }
 fn prepare_dir(path: &Path) -> Result<PathBuf, std::io::Error> {
     if path.exists() {

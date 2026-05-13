@@ -590,7 +590,8 @@ impl TypeChecker {
             } if self.guard_clause_is_error_alias_discard(
                 binding.name.as_str(),
                 initializer.as_ref(),
-            ) => {
+            ) =>
+            {
                 self.type_check_stmt_with_return(statement, expected_return)?;
                 Ok(())
             }

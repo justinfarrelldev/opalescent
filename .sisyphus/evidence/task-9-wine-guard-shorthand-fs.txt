@@ -1,4 +1,4 @@
-/home/justi/Projects/opalescent/worktrees/test-harness-timeouts/test-projects/guard-shorthand/target:
+/home/justi/Projects/opalescent/test-projects/guard-shorthand/target:
 total 8
-drwxr-xr-x 2 justi justi 4096 May 10 16:39 .
-drwxr-xr-x 4 justi justi 4096 May 10 16:39 ..
+drwxr-xr-x 2 justi justi 4096 May 13 16:43 .
+drwxr-xr-x 4 justi justi 4096 May 13 16:43 ..

@@ -111,7 +111,12 @@ fn compile_and_run_inline_program(
     source: &str,
     temp_dir: &Path,
 ) -> Result<std::process::Output, String> {
-    let binary_result = compile_program_for_tests(Path::new("test-projects/_t26_delete_directory_recursive/src/main.op"), source, temp_dir, &TargetTriple::host());
+    let binary_result = compile_program_for_tests(
+        Path::new("test-projects/_t26_delete_directory_recursive/src/main.op"),
+        source,
+        temp_dir,
+        &TargetTriple::host(),
+    );
 
     let binary_path = match binary_result {
         Ok(path) => path,

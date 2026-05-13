@@ -2,11 +2,11 @@
 
 extern crate alloc;
 
-use alloc::string::ToString;
 use super::fs_helpers::{
     FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
 };
 use super::*;
+use alloc::string::ToString;
 use serial_test::serial;
 
 fn stringify_error<E: core::fmt::Display>(error: E) -> String {
@@ -51,7 +51,12 @@ entry main = f(args: string[]): void =>
 
         let temp_dir = unique_probe_target_dir("path-from-empty-sentinel");
 
-        let binary_result = compile_program_for_tests(Path::new("test-projects/_fs_path_from/src/main.op"), source, &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            Path::new("test-projects/_fs_path_from/src/main.op"),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         assert!(
             binary_result.is_ok(),
             "path_from empty-sentinel source should compile into a binary: {}",

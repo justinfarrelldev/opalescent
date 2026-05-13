@@ -3,8 +3,8 @@
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::time::Duration;
 use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 
 fn binary_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

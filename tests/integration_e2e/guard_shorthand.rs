@@ -1,7 +1,7 @@
 #![cfg(feature = "integration")]
 
-use super::*;
 use super::fs_helpers::unique_probe_target_dir;
+use super::*;
 
 #[test]
 fn guard_shorthand_project_compiles_links_and_runs() {

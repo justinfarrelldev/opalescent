@@ -8,7 +8,10 @@ use std::time::Duration;
 const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 const INTERACTIVE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
 
-fn run_binary_with_timeout(binary_path: &Path, context: &str) -> Result<std::process::Output, String> {
+fn run_binary_with_timeout(
+    binary_path: &Path,
+    context: &str,
+) -> Result<std::process::Output, String> {
     let child = std::process::Command::new(binary_path)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -16,7 +19,11 @@ fn run_binary_with_timeout(binary_path: &Path, context: &str) -> Result<std::pro
         .spawn()
         .map_err(|error| format!("{context} should execute: {error}"))?;
 
-    super::fs_helpers::wait_for_child_output_with_timeout(child, GENERATED_BINARY_TEST_TIMEOUT, context)
+    super::fs_helpers::wait_for_child_output_with_timeout(
+        child,
+        GENERATED_BINARY_TEST_TIMEOUT,
+        context,
+    )
 }
 
 #[test]
@@ -41,7 +48,12 @@ fn overflow_trap_exits_nonzero() {
             }
         };
 
-        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -100,7 +112,12 @@ fn lambda_basic_compiles_and_returns_correct_value() {
             }
         };
 
-        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -167,7 +184,12 @@ fn array_bounds_trap_exits_nonzero() {
             }
         };
 
-        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -226,7 +248,12 @@ fn string_interp_long_does_not_crash() {
             }
         };
 
-        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -236,7 +263,8 @@ fn string_interp_long_does_not_crash() {
             }
         };
 
-        let run_output = run_binary_with_timeout(&binary_path, "string-interp-long compiled binary")?;
+        let run_output =
+            run_binary_with_timeout(&binary_path, "string-interp-long compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("Part1=") || !stdout.contains("Part2=") {
@@ -274,7 +302,10 @@ fn string_interp_long_does_not_crash() {
 #[test]
 fn should_print_final_result_compiles_and_runs() {
     let temp_dir = unique_probe_target_dir("should-print-final-result");
-    println!("should-print-final-result target dir: {}", temp_dir.display());
+    println!(
+        "should-print-final-result target dir: {}",
+        temp_dir.display()
+    );
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
@@ -293,7 +324,12 @@ fn should_print_final_result_compiles_and_runs() {
             }
         };
 
-        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -393,7 +429,12 @@ fn cast_safety_compiles_and_runs() {
             }
         };
 
-        let binary_result = compile_program_for_tests(source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -459,7 +500,8 @@ fn multi_file_project_compiles_and_runs() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
+        let binary_result =
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -563,7 +605,8 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
             ));
         }
 
-        let binary_result = compile_project_for_tests(&project_dir, &output_dir, &TargetTriple::host());
+        let binary_result =
+            compile_project_for_tests(&project_dir, &output_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -651,7 +694,8 @@ fn package_import_fails_with_not_supported() {
             ));
         }
 
-        let binary_result = compile_project_for_tests(&project_dir, &output_dir, &TargetTriple::host());
+        let binary_result =
+            compile_project_for_tests(&project_dir, &output_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
@@ -713,7 +757,8 @@ fn import_types_basic_compiles_and_runs() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
+        let binary_result =
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -723,7 +768,8 @@ fn import_types_basic_compiles_and_runs() {
             }
         };
 
-        let run_output = run_binary_with_timeout(&binary_path, "import-types-basic compiled binary")?;
+        let run_output =
+            run_binary_with_timeout(&binary_path, "import-types-basic compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim_end() != "Alice is 30 years old" {
@@ -779,7 +825,8 @@ fn import_types_aliased_compiles_and_runs() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
+        let binary_result =
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -789,7 +836,8 @@ fn import_types_aliased_compiles_and_runs() {
             }
         };
 
-        let run_output = run_binary_with_timeout(&binary_path, "import-types-aliased compiled binary")?;
+        let run_output =
+            run_binary_with_timeout(&binary_path, "import-types-aliased compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim_end() != "User 42: Bob" {
@@ -845,7 +893,8 @@ fn import_types_multiple_compiles_and_runs() {
     );
 
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
+        let binary_result =
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -855,7 +904,8 @@ fn import_types_multiple_compiles_and_runs() {
             }
         };
 
-        let run_output = run_binary_with_timeout(&binary_path, "import-types-multiple compiled binary")?;
+        let run_output =
+            run_binary_with_timeout(&binary_path, "import-types-multiple compiled binary")?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim_end() != "Rect 10x20 at (0,0)" {

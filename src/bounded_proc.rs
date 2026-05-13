@@ -289,29 +289,27 @@ fn wait_for_child_output_internal(
         kill_group: false,
     };
     let start = Instant::now();
-    let CommandMetadata {
-        context,
-        argv,
-        cwd,
-    } = metadata;
+    let CommandMetadata { context, argv, cwd } = metadata;
 
-    let (status, timed_out) = wait_for_exit(child, policy, start).map_err(|source| RunError::Io {
-        context: context.clone(),
-        stage: "waiting for child exit",
-        argv: argv.clone(),
-        cwd: cwd.clone(),
-        source,
-    })?;
-
-    let stdout = if let Some(mut pipe) = child.stdout.take() {
-        let mut buffer = Vec::new();
-        pipe.read_to_end(&mut buffer).map_err(|source| RunError::Io {
+    let (status, timed_out) =
+        wait_for_exit(child, policy, start).map_err(|source| RunError::Io {
             context: context.clone(),
-            stage: "reading stdout",
+            stage: "waiting for child exit",
             argv: argv.clone(),
             cwd: cwd.clone(),
             source,
         })?;
+
+    let stdout = if let Some(mut pipe) = child.stdout.take() {
+        let mut buffer = Vec::new();
+        pipe.read_to_end(&mut buffer)
+            .map_err(|source| RunError::Io {
+                context: context.clone(),
+                stage: "reading stdout",
+                argv: argv.clone(),
+                cwd: cwd.clone(),
+                source,
+            })?;
         buffer
     } else {
         Vec::new()
@@ -319,13 +317,14 @@ fn wait_for_child_output_internal(
 
     let stderr = if let Some(mut pipe) = child.stderr.take() {
         let mut buffer = Vec::new();
-        pipe.read_to_end(&mut buffer).map_err(|source| RunError::Io {
-            context: context.clone(),
-            stage: "reading stderr",
-            argv: argv.clone(),
-            cwd: cwd.clone(),
-            source,
-        })?;
+        pipe.read_to_end(&mut buffer)
+            .map_err(|source| RunError::Io {
+                context: context.clone(),
+                stage: "reading stderr",
+                argv: argv.clone(),
+                cwd: cwd.clone(),
+                source,
+            })?;
         buffer
     } else {
         Vec::new()
@@ -386,15 +385,14 @@ fn run_command_internal(
     let stderr_handle = spawn_reader_thread(child.stderr.take());
     let stdin_handle = spawn_stdin_writer(child.stdin.take(), input);
 
-    let (status, timed_out) = wait_for_exit(&mut child, policy, start).map_err(|source| {
-        RunError::Io {
+    let (status, timed_out) =
+        wait_for_exit(&mut child, policy, start).map_err(|source| RunError::Io {
             context: metadata.context.clone(),
             stage: "waiting for child exit",
             argv: metadata.argv.clone(),
             cwd: metadata.cwd.clone(),
             source,
-        }
-    })?;
+        })?;
 
     let stdout = join_reader_thread(stdout_handle, &metadata, "reading stdout")?;
     let stderr = join_reader_thread(stderr_handle, &metadata, "reading stderr")?;
@@ -687,7 +685,9 @@ mod tests {
         .expect_err("sleep should time out");
 
         let elapsed = start.elapsed();
-        let failure = error.failure().expect("timeout should yield execution failure");
+        let failure = error
+            .failure()
+            .expect("timeout should yield execution failure");
         assert!(failure.timed_out, "timeout should be reported explicitly");
         assert!(
             elapsed < Duration::from_secs(5),
@@ -706,7 +706,9 @@ mod tests {
         )
         .expect_err("chatty process should time out");
 
-        let failure = error.failure().expect("timeout should yield execution failure");
+        let failure = error
+            .failure()
+            .expect("timeout should yield execution failure");
         assert!(failure.timed_out, "timeout should be reported explicitly");
         assert_eq!(
             failure.stdout.len(),
@@ -745,7 +747,9 @@ mod tests {
         )
         .expect_err("shell waiting on sleep should time out");
 
-        let failure = error.failure().expect("timeout should yield execution failure");
+        let failure = error
+            .failure()
+            .expect("timeout should yield execution failure");
         assert!(failure.timed_out, "cleanup test should time out");
         let grandchild_pid = std::fs::read_to_string(&pid_file)
             .expect("child pid file should be written before timeout")

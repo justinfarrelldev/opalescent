@@ -468,7 +468,6 @@ fn compile_runtime_c_to_obj_with_policy(
     Ok(obj_path)
 }
 
-
 /// Build a platform-appropriate linker [`Command`] for the given object and output paths.
 ///
 /// Platform behaviour:
@@ -544,7 +543,12 @@ pub fn link_object_files(
     output_path: &Path,
     target: &TargetTriple,
 ) -> Result<PathBuf, CompileError> {
-    link_object_files_with_policy(object_paths, output_path, target, CompileRunPolicy::default())
+    link_object_files_with_policy(
+        object_paths,
+        output_path,
+        target,
+        CompileRunPolicy::default(),
+    )
 }
 
 /// Link an object file into an executable binary.
@@ -565,7 +569,12 @@ pub fn link_object_file(
     output_path: &Path,
     target: &TargetTriple,
 ) -> Result<PathBuf, CompileError> {
-    link_object_file_with_policy(object_path, output_path, target, CompileRunPolicy::default())
+    link_object_file_with_policy(
+        object_path,
+        output_path,
+        target,
+        CompileRunPolicy::default(),
+    )
 }
 
 /// Compile Opalescent source to a native binary.

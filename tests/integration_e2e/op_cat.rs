@@ -30,7 +30,12 @@ fn op_cat_happy_path_prints_file_contents() {
         let valid_input = temp_dir.join("valid.txt");
         write_op_cat_fixture(&valid_input, "valid file contents\n")?;
 
-        let binary_result = compile_program_for_tests(&source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            &source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -48,12 +53,9 @@ fn op_cat_happy_path_prints_file_contents() {
         let child = command
             .spawn()
             .map_err(|error| format!("op-cat compiled binary should execute: {error}"))?;
-        let run_output = wait_for_child_output_with_timeout(
-            child,
-            Duration::from_secs(30),
-            "op-cat happy path",
-        )
-        .map_err(|error| format!("op-cat compiled binary should complete: {error}"))?;
+        let run_output =
+            wait_for_child_output_with_timeout(child, Duration::from_secs(30), "op-cat happy path")
+                .map_err(|error| format!("op-cat compiled binary should complete: {error}"))?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("valid file contents") {
@@ -106,7 +108,12 @@ fn op_cat_error_path_continues_to_next_arg() {
         let missing_input = temp_dir.join("missing.txt");
         write_op_cat_fixture(&valid_input, "valid file contents\n")?;
 
-        let binary_result = compile_program_for_tests(&source_path, source_str.as_str(), &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            &source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         let binary_path = match binary_result {
             Ok(path) => path,
             Err(error) => {
@@ -128,12 +135,9 @@ fn op_cat_error_path_continues_to_next_arg() {
         let child = command
             .spawn()
             .map_err(|error| format!("op-cat compiled binary should execute: {error}"))?;
-        let run_output = wait_for_child_output_with_timeout(
-            child,
-            Duration::from_secs(30),
-            "op-cat error path",
-        )
-        .map_err(|error| format!("op-cat compiled binary should complete: {error}"))?;
+        let run_output =
+            wait_for_child_output_with_timeout(child, Duration::from_secs(30), "op-cat error path")
+                .map_err(|error| format!("op-cat compiled binary should complete: {error}"))?;
 
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         let valid_occurrences = stdout.matches("valid file contents").count();

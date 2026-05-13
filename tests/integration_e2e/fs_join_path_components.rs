@@ -2,11 +2,11 @@
 
 extern crate alloc;
 
-use alloc::string::ToString;
 use super::fs_helpers::{
     FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
 };
 use super::*;
+use alloc::string::ToString;
 use serial_test::serial;
 
 fn stringify_error<E: core::fmt::Display>(error: E) -> String {
@@ -39,7 +39,12 @@ entry main = f(args: string[]): void =>
 
         let temp_dir = unique_probe_target_dir("join-absolute-reset");
 
-        let binary_result = compile_program_for_tests(Path::new("test-projects/_fs_path_from/src/main.op"), source, &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            Path::new("test-projects/_fs_path_from/src/main.op"),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         assert!(
             binary_result.is_ok(),
             "join absolute-reset source should compile into a binary: {}",
@@ -52,7 +57,11 @@ entry main = f(args: string[]): void =>
             return;
         };
 
-        let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
+        let output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(10),
+            "compiled binary",
+        );
         assert!(
             output_result.is_ok(),
             "join absolute-reset compiled binary should execute: {}",
@@ -117,7 +126,11 @@ fn fs_join_path_components_fixture_showcase() {
             return;
         };
 
-        let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
+        let output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(10),
+            "compiled binary",
+        );
         assert!(
             output_result.is_ok(),
             "_fs_join_path_components compiled binary should execute: {}",
@@ -186,7 +199,12 @@ entry main = f(args: string[]): void =>
 
         let temp_dir = unique_probe_target_dir("join-windows-absolute-reset");
 
-        let binary_result = compile_program_for_tests(Path::new("test-projects/_fs_path_from/src/main.op"), source, &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            Path::new("test-projects/_fs_path_from/src/main.op"),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         assert!(
             binary_result.is_ok(),
             "join windows-absolute source should compile into a binary: {}",
@@ -199,7 +217,11 @@ entry main = f(args: string[]): void =>
             return;
         };
 
-        let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
+        let output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(10),
+            "compiled binary",
+        );
         assert!(
             output_result.is_ok(),
             "join windows-absolute compiled binary should execute: {}",
@@ -277,7 +299,12 @@ entry main = f(args: string[]): void =>
 
         let temp_dir = unique_probe_target_dir("join-canonical-matrix");
 
-        let binary_result = compile_program_for_tests(Path::new("test-projects/_fs_path_from/src/main.op"), source, &temp_dir, &TargetTriple::host());
+        let binary_result = compile_program_for_tests(
+            Path::new("test-projects/_fs_path_from/src/main.op"),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        );
         assert!(
             binary_result.is_ok(),
             "join matrix source should compile into a binary: {}",
@@ -290,7 +317,11 @@ entry main = f(args: string[]): void =>
             return;
         };
 
-        let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
+        let output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(10),
+            "compiled binary",
+        );
         assert!(
             output_result.is_ok(),
             "join matrix compiled binary should execute: {}",

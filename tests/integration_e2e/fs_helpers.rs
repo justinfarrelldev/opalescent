@@ -94,6 +94,5 @@ pub fn wait_for_child_output_with_timeout(
         .map_err(|error| error.to_string())
 }
 
-
 /// Type alias for `FsStateGuard` for convenience in test modules.
 pub type FsStateGuard = super::fs_state_guard::FsStateGuard;

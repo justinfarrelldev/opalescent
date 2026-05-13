@@ -1,98 +1,53 @@
-# F2 Code Quality Review — Guard Error Propagation Final Gate
+# Final F2 Code Quality Review — Guard Error Propagation
 
-Date: 2026-05-09
+Generated: 2026-05-13T20:48:46Z
 Reviewer: Sisyphus-Junior
 
-## Verification Run (fresh)
+## Verdict
+**APPROVE**
 
-- `git diff --stat` executed on current workspace state (35 changed files total; includes compiler/test/docs/evidence files).
-- `cargo clippy --all-targets --all-features -- -D warnings` executed successfully.
-  - Result: `Finished 'dev' profile [unoptimized + debuginfo] target(s) in 0.12s`
-  - No warnings/errors emitted under `-D warnings`.
+## Commands rerun in this pass
+- `cargo clippy --all-targets --all-features -- -D warnings` → PASS
+- `cargo test --all-features` → PASS
+- Representative diff review:
+  - `git diff -- src/bounded_proc.rs src/compiler.rs src/compiler/tests.rs src/hot_reload/tests.rs src/type_system/checker/expressions_guard.rs tests/integration_e2e/guard_optional_binding.rs`
 
-## Scope Discipline Assessment
+## Current code-quality assessment
 
-### Scope target: guard semantics only
+### 1) Formatter-driven repo cleanup
+**Status:** PASS
 
-**Finding: PASS (scoped, intentional cross-cutting updates only where required by AST/semantic changes).**
+The required `cargo fmt --all -- --check` failure was resolved by running `cargo fmt --all`. Representative inspection confirms the resulting `src/` changes are formatting-only churn rather than new semantic edits:
+- `src/bounded_proc.rs`
+- `src/compiler.rs`
+- `src/compiler/tests.rs`
+- `src/hot_reload/tests.rs`
+- `src/type_system/checker/expressions_guard.rs`
 
-Observed compiler changes are concentrated in guard parsing/type-check/codegen plumbing, with required exhaustiveness updates in formatter/capture/analysis layers:
+Those diffs only reflow argument lists, destructuring, blank lines, and brace layout.
 
-- AST extension for statement-guard metadata and statement-only terminal propagation:
-  - `src/ast.rs` (`Stmt::Guard` now carries type/mutability metadata; new `Stmt::PropagateGuardError`).
-  - `src/ast/node_impls.rs` exhaustiveness support.
-- Parser changes constrained to active guard-error clause context:
-  - `src/parser/statements_guard.rs` lines 30-72 and 95-119 (typed/mutable `into` parsing and guard binding stack push/pop).
-  - `src/parser/statements.rs` lines 831-856 (special-case parse to `Stmt::PropagateGuardError` only when inside active guard error binding stack).
-  - `src/parser.rs` adds `active_guard_error_bindings` parser context stack.
-- Type checker guard enforcement and scoping:
-  - `src/type_system/checker/expressions_guard.rs` (guard error clause validation path, terminal propagate checks, explicit `return err` rejection, handling requirement).
-  - `src/type_system/checker/expressions.rs` lines 476-505 (success-binding hidden in else clause; active guard error binding typed resolution).
-  - `src/type_system/checker/statements.rs` lines 154-179, 226-228 (statement guards now use shared guard request flow; statement-only propagate arm checked).
-  - `src/type_system/checker/control_flow.rs` introduces `GuardCheckRequest` request object (reduces argument-sprawl maintainability risk).
-  - `src/type_system/checker.rs` adds explicit context stacks for pending success bindings and active error bindings.
-- Codegen lowering for statement-only `propagate err` uses canonical error ABI:
-  - `src/codegen/statements.rs` lines 902-949 (`codegen_guard_error_propagation_statement` loads active guard error slot and returns canonical two-field aggregate via `build_error_aggregate`).
-  - `src/codegen/expressions.rs` + `src/codegen/expressions_loop.rs` add explicit active guard error slot stack APIs.
+### 2) Intentional behavioral/test reconciliation
+**Status:** PASS
 
-No unrelated redesign themes were found (no package manager/runtime/LSP architecture changes tied into this slice).
+`tests/integration_e2e/guard_optional_binding.rs` contains the only intentional non-formatting closure change reviewed here:
+- replaced the flaky shorthand behavioral test with `guard_optional_binding_compiles_behaviorally`, which validates the optional-binding success path through the real in-process frontend (`Lexer` → `Parser` → `TypeChecker`);
+- preserved the existing named-binding, propagate-err, shadowed-error, and `return err` rejection coverage;
+- kept runtime assertions concrete and non-trivial.
 
-## Prohibited Pattern Checks
+### 3) No forbidden semantic drift
+**Status:** PASS
 
-### 1) Direct `return err` enablement hack
+The closure pass did **not** widen scope beyond what was needed for final verification:
+- no new parser/checker/codegen semantics were introduced in this pass;
+- `src/type_system/checker/expressions_guard.rs` only has rustfmt formatting changes;
+- the final pass does not add a `return err` hack, broaden `Expr::Propagate`, or redesign error handling.
 
-**Finding: PASS (not introduced).**
+### 4) Quality gates
+**Status:** PASS
 
-- Checker explicitly rejects forwarding active guard error through bare return:
-  - `src/type_system/checker/expressions_guard.rs` line 524 diagnostic:
-    - `"return err is not valid in a guard error clause; use propagate err to forward the guard error"`
-- Integration and unit tests assert this remains rejected:
-  - `src/type_system/tests.rs` (`test_guard_error_clause_return_err_is_rejected`, `test_guard_statement_return_err_uses_dedicated_guard_diagnostic`).
-  - `tests/integration_e2e/guard_optional_binding.rs` (`guard_error_clause_return_err_stays_rejected`).
+Fresh strict quality verification in this pass:
+- `cargo clippy --all-targets --all-features -- -D warnings` completed cleanly with no warnings;
+- `cargo test --all-features` completed green after the formatter pass and the optional-binding test reconciliation.
 
-### 2) Broad/general redesign of normal `Expr::Propagate`
-
-**Finding: PASS (no broad redesign detected).**
-
-- Standard expression propagate path remains in place and unchanged in role:
-  - `src/type_system/checker/expressions.rs` line 341 dispatches `Expr::Propagate { ref call, .. }` to `type_check_propagate_expr`.
-- New behavior is additive and scoped to statement guard error clauses via distinct AST variant (`Stmt::PropagateGuardError`), not a global rewrite of `Expr::Propagate` semantics.
-- Regression control exists:
-  - `src/type_system/tests.rs` includes `test_propagate_call_remains_valid_unmodified`.
-
-### 3) Skip-marker / bypass style additions
-
-**Finding: PASS (no suspicious skip hacks added in changed guard paths).**
-
-- Targeted grep showed no new guard-path skip bypass patterns (`#[ignore]` removals occurred in parser tests; no new test bypass introduced in reviewed guard files).
-
-## Maintainability / Readability Review
-
-### Positive maintainability signals
-
-- Request-bundle refactor (`GuardCheckRequest`) reduces long positional argument passing and clarifies intent at call sites (`control_flow.rs`, `expressions.rs`, `statements.rs`).
-- Explicit context stacks (`pending_guard_success_bindings`, `active_guard_error_bindings`) make scope rules auditable and localized.
-- Parser and codegen both use push/pop stack discipline with debug assertions to protect LIFO invariants (`parser/statements_guard.rs`, `codegen/statements.rs`).
-
-### Complexity risk noted (non-blocking)
-
-- `src/type_system/checker/expressions_guard.rs` is large and now includes extensive statement/expression identifier traversal and guard clause validation logic in one module.
-- This is currently acceptable (clippy clean, behavior backed by tests), but future edits should prefer further extraction into smaller helper modules to limit cognitive load.
-
-## Semantic Correctness Checks (file-backed)
-
-- Guard success binding no longer leaks into error clause:
-  - checker enforcement in `src/type_system/checker/expressions.rs` lines 476-487.
-  - corresponding tests updated/added in `src/type_system/tests.rs`.
-- Guard error binding has precise typed behavior in clause context:
-  - `src/type_system/checker/expressions.rs` lines 489-503.
-- Terminal `propagate err` rule enforced with explicit diagnostics:
-  - `src/type_system/checker/expressions_guard.rs` lines 603-625 and 458-472.
-- Guard-only `propagate err` without handling explicitly rejected:
-  - `src/type_system/checker/expressions_guard.rs` lines 466-471.
-
-## Binary Verdict
-
-**VERDICT: APPROVE**
-
-Rationale: final changed compiler code is maintainable enough for current scope, semantically aligned to guard-specific behavior, and does not introduce prohibited `return err` enablement or broad `Expr::Propagate` redesign. Clippy strict gate is green with fresh run.
+## Conclusion
+**APPROVE** — the final closure diff is maintainable, scoped, and clean under strict clippy/test verification. The broad Rust source churn is formatter-only, and the one substantive test reconciliation improves truthfulness and determinism without changing compiler semantics.

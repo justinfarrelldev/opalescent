@@ -44,7 +44,11 @@ fn fs_markdown_roundtrip() {
             return;
         };
 
-        let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
+        let output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(10),
+            "compiled binary",
+        );
         assert!(
             output_result.is_ok(),
             "fs-markdown-roundtrip compiled binary should execute: {}",

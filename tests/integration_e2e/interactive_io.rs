@@ -1,7 +1,7 @@
 #![cfg(feature = "integration")]
 
-use super::*;
 use super::fs_helpers::unique_probe_target_dir;
+use super::*;
 use std::time::Duration;
 
 const INTERACTIVE_TEST_TIMEOUT: Duration = Duration::from_secs(30);

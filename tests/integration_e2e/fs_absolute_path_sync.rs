@@ -211,7 +211,11 @@ fn fs_absolute_path_sync_fixture_showcase() {
             return;
         };
 
-        let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
+        let output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(10),
+            "compiled binary",
+        );
         assert!(
             output_result.is_ok(),
             "_absolute_path_sync compiled binary should execute: {}",

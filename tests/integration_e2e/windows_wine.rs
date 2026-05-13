@@ -624,7 +624,12 @@ mod tests {
         let source = build_symlink_metadata_source(&link_path);
         let target = parse_target_triple(WINDOWS_MSVC_TARGET)
             .expect("wine_msvc_symlink_metadata should parse the Windows MSVC target triple");
-        let exe_path = match compile_program_for_tests(Path::new("test-projects/_windows_symlink_metadata/src/main.op"), source.as_str(), &temp_dir, &target) {
+        let exe_path = match compile_program_for_tests(
+            Path::new("test-projects/_windows_symlink_metadata/src/main.op"),
+            source.as_str(),
+            &temp_dir,
+            &target,
+        ) {
             Ok(path) => path,
             Err(error) => {
                 let reason = format!(
@@ -795,9 +800,7 @@ mod tests {
         );
 
         let run = WineRun {
-            stdout: format!(
-                "EXPECTED_BUILD_FAILURE=guard-shorthand\nBUILD_ERROR={build_error}\n"
-            ),
+            stdout: format!("EXPECTED_BUILD_FAILURE=guard-shorthand\nBUILD_ERROR={build_error}\n"),
             stderr: build_error,
             exit_code: 0,
             fs_dump: snapshot_workspace(&project_root.join("target")).unwrap_or_else(|error| {

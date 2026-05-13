@@ -959,7 +959,10 @@ fn fs_module_loader_hot_swap_with_real_library_abi_compat() {
     let module_v2 = temp_root_v2.join("module_v2.so");
 
     compile_test_module(&module_v1).expect("compile v1 module");
-    assert!(module_v1.exists(), "compiled v1 module should exist at {module_v1:?}");
+    assert!(
+        module_v1.exists(),
+        "compiled v1 module should exist at {module_v1:?}"
+    );
 
     let mut loader = FsModuleLoader::new();
     let mut host = HostProcess::new();
@@ -974,7 +977,10 @@ fn fs_module_loader_hot_swap_with_real_library_abi_compat() {
     assert!(active_v1.is_some(), "host should have v1 as active module");
 
     compile_test_module(&module_v2).expect("compile v2 module");
-    assert!(module_v2.exists(), "compiled v2 module should exist at {module_v2:?}");
+    assert!(
+        module_v2.exists(),
+        "compiled v2 module should exist at {module_v2:?}"
+    );
 
     let swap_result = hot_swap_module(&mut host, &mut loader, &v2_name);
     assert!(

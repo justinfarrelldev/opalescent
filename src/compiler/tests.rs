@@ -1,7 +1,7 @@
 use super::{
-    CompileError, CompileRunPolicy, RUNTIME_SOURCE, build_linker_command,
-    compile_runtime_c_to_obj_with_policy, compile_program, compile_to_module,
-    compile_to_module_for_target, emit_object_file, link_object_files_with_policy,
+    CompileError, CompileRunPolicy, RUNTIME_SOURCE, build_linker_command, compile_program,
+    compile_runtime_c_to_obj_with_policy, compile_to_module, compile_to_module_for_target,
+    emit_object_file, link_object_files_with_policy,
 };
 use crate::build_system::targets::parse_target_triple;
 use crate::compiler::compiler_helpers::{

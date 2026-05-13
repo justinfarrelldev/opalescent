@@ -2,11 +2,11 @@
 
 extern crate alloc;
 
-use alloc::string::ToString;
 use super::fs_helpers::{
     FsStateGuard, assert_workspace_empty, strip_crlf, unique_probe_target_dir,
 };
 use super::*;
+use alloc::string::ToString;
 use serial_test::serial;
 use std::path::Path;
 
@@ -71,7 +71,11 @@ fn fs_append_log() {
         let fixture_log_path = std::env::temp_dir().join("opalescent-fs-append-log.txt");
         drop(fs::remove_file(&fixture_log_path));
 
-        let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
+        let output_result = run_binary_output_with_timeout(
+            &binary_path,
+            std::time::Duration::from_secs(10),
+            "compiled binary",
+        );
         assert!(
             output_result.is_ok(),
             "_fs_append_log compiled binary should execute: {}",
@@ -127,7 +131,12 @@ fn fs_append_log_monotonic() {
             let line = format!("monotonic-line-{}", idx + 1_usize);
             let source = build_single_append_source(&log_path, &line);
 
-            let binary_result = compile_program_for_tests(Path::new("test-projects/_fs_append_log/src/main.op"), &source, &temp_dir, &TargetTriple::host());
+            let binary_result = compile_program_for_tests(
+                Path::new("test-projects/_fs_append_log/src/main.op"),
+                &source,
+                &temp_dir,
+                &TargetTriple::host(),
+            );
             assert!(
                 binary_result.is_ok(),
                 "monotonic append inline source should compile: {}",
@@ -140,7 +149,11 @@ fn fs_append_log_monotonic() {
                 return;
             };
 
-            let output_result = run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary");
+            let output_result = run_binary_output_with_timeout(
+                &binary_path,
+                std::time::Duration::from_secs(10),
+                "compiled binary",
+            );
             assert!(
                 output_result.is_ok(),
                 "monotonic append binary should execute: {}",

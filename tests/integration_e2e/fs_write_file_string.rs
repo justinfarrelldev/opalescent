@@ -41,7 +41,12 @@ fn compile_and_run_inline_program(
     source: &str,
     temp_dir: &Path,
 ) -> Result<std::process::Output, String> {
-    let binary_result = compile_program_for_tests(Path::new("test-projects/_t20_write_file_string/src/main.op"), source, temp_dir, &TargetTriple::host());
+    let binary_result = compile_program_for_tests(
+        Path::new("test-projects/_t20_write_file_string/src/main.op"),
+        source,
+        temp_dir,
+        &TargetTriple::host(),
+    );
 
     let binary_path = match binary_result {
         Ok(path) => path,
@@ -52,8 +57,12 @@ fn compile_and_run_inline_program(
         }
     };
 
-    run_binary_output_with_timeout(&binary_path, std::time::Duration::from_secs(10), "compiled binary")
-        .map_err(|error| format!("t20 write_text probe binary should execute: {error}"))
+    run_binary_output_with_timeout(
+        &binary_path,
+        std::time::Duration::from_secs(10),
+        "compiled binary",
+    )
+    .map_err(|error| format!("t20 write_text probe binary should execute: {error}"))
 }
 
 #[test]

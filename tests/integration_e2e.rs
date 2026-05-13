@@ -3,7 +3,8 @@
 use opalescent::build_system::targets::TargetTriple;
 use opalescent::compiler::{
     CompileError, CompileRunPolicy, compile_program_with_run_policy,
-    compile_project_with_run_policy, compile_to_module, emit_object_file, link_object_file_with_policy,
+    compile_project_with_run_policy, compile_to_module, emit_object_file,
+    link_object_file_with_policy,
 };
 use opalescent::errors::reporter::CompilerError;
 use opalescent::type_system::errors::TypeError;

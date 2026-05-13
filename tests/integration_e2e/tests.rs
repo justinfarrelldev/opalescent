@@ -1,13 +1,16 @@
 #![cfg(feature = "integration")]
 
-use super::*;
 use self::fs_helpers::unique_probe_target_dir;
+use super::*;
 use std::process::Stdio;
 use std::time::Duration;
 
 const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 
-fn run_binary_with_timeout(binary_path: &Path, context: &str) -> Result<std::process::Output, String> {
+fn run_binary_with_timeout(
+    binary_path: &Path,
+    context: &str,
+) -> Result<std::process::Output, String> {
     let child = std::process::Command::new(binary_path)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
