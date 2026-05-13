@@ -1,0 +1,10 @@
+import string_to_int32 from standard
+
+##
+  Description: Entry point proving print-only guard error clauses are rejected
+##
+entry main = f(args: string[]): void =>
+    guard string_to_int32('bad') else err =>
+        print('PRINT_ONLY_ERR={err}')
+    print('UNEXPECTED_SUCCESS')
+    return void

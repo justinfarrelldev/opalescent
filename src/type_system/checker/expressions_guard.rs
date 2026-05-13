@@ -388,15 +388,19 @@ impl TypeChecker {
         expected_return: Option<&[CoreType]>,
         clause_span: Span,
     ) -> Result<(), TypeError> {
-        let Some((terminal, prelude)) = statements.split_last() else {
+        let meaningful_len = statements
+            .iter()
+            .rposition(|statement| !matches!(statement, Stmt::Comment { .. }))
+            .map_or(0, |index| index + 1);
+        let meaningful_statements = &statements[..meaningful_len];
+
+        let Some((terminal, prelude)) = meaningful_statements.split_last() else {
             return Err(TypeError::GuardErrorClauseMissingTerminal {
                 clause_span: TypeError::span_from_span(clause_span),
             });
         };
 
-        let mut handled_bound_error = false;
         for statement in prelude {
-            handled_bound_error |= self.stmt_references_active_guard_error_binding(statement);
             self.type_check_guard_error_clause_prelude_statement(statement, expected_return)?;
         }
 
@@ -406,10 +410,13 @@ impl TypeChecker {
             });
         }
 
+        let allow_void_return_terminal = self
+            .guard_clause_allows_void_terminal_return(expected_return)
+            && self.guard_clause_prelude_has_non_alias_handling(prelude);
         self.type_check_guard_error_clause_terminal_statement(
             terminal,
             expected_return,
-            handled_bound_error,
+            allow_void_return_terminal,
         )?;
         Ok(())
     }
@@ -467,21 +474,16 @@ impl TypeChecker {
                 );
                 self.symbol_table.exit_scope();
 
-                if let Err(error) = nested_validation {
-                    match error {
+                match nested_validation {
+                    Err(
                         TypeError::GuardErrorClauseMissingTerminal { .. }
                         | TypeError::GuardPropagateErrNotFinal { .. }
                         | TypeError::GuardReturnErrInvalid { .. }
                         | TypeError::GuardWrapperSourceInvalid { .. }
-                        | TypeError::GuardShorthandRequired { .. } => Ok(()),
-                        other => Err(other),
-                    }
-                } else if self.stmt_references_active_guard_error_binding(statement) {
-                    Ok(())
-                } else {
-                    Err(TypeError::GuardErrorClauseMissingTerminal {
-                        clause_span: TypeError::span_from_span(*span),
-                    })
+                        | TypeError::GuardShorthandRequired { .. },
+                    )
+                    | Ok(()) => Ok(()),
+                    Err(other) => Err(other),
                 }
             }
             Stmt::PropagateGuardError { span, .. } => Err(TypeError::GuardPropagateErrNotFinal {
@@ -514,7 +516,7 @@ impl TypeChecker {
         &mut self,
         statement: &Stmt,
         expected_return: Option<&[CoreType]>,
-        handled_before_terminal: bool,
+        allow_void_return_terminal: bool,
     ) -> Result<(), TypeError> {
         match statement {
             Stmt::PropagateGuardError {
@@ -537,20 +539,7 @@ impl TypeChecker {
                     }
                     GuardReturnWrapperShape::NotWrapper => {
                         self.type_check_stmt_with_return(statement, expected_return)?;
-                        let is_void_return = matches!(
-                            values.as_slice(),
-                            [LabeledValue {
-                                value: Expr::Literal {
-                                    value: crate::ast::LiteralValue::Void,
-                                    ..
-                                },
-                                ..
-                            }]
-                        );
-                        if handled_before_terminal
-                            || self.stmt_references_active_guard_error_binding(statement)
-                            || is_void_return
-                        {
+                        if allow_void_return_terminal {
                             Ok(())
                         } else {
                             Err(TypeError::GuardErrorClauseMissingTerminal {
@@ -574,15 +563,9 @@ impl TypeChecker {
                         span: TypeError::span_from_span(*span),
                     });
                 }
-                if handled_before_terminal
-                    || self.stmt_references_active_guard_error_binding(statement)
-                {
-                    Ok(())
-                } else {
-                    Err(TypeError::GuardErrorClauseMissingTerminal {
-                        clause_span: TypeError::span_from_span(*span),
-                    })
-                }
+                Err(TypeError::GuardErrorClauseMissingTerminal {
+                    clause_span: TypeError::span_from_span(*span),
+                })
             }
             Stmt::Block {
                 statements, span, ..
@@ -596,17 +579,26 @@ impl TypeChecker {
                 self.symbol_table.exit_scope();
                 result
             }
+            Stmt::Continue { .. } | Stmt::Break { .. } => {
+                self.type_check_stmt_with_return(statement, expected_return)?;
+                Ok(())
+            }
+            Stmt::Let {
+                binding,
+                initializer,
+                ..
+            } if self.guard_clause_is_error_alias_discard(
+                binding.name.as_str(),
+                initializer.as_ref(),
+            ) => {
+                self.type_check_stmt_with_return(statement, expected_return)?;
+                Ok(())
+            }
             _ => {
                 self.type_check_stmt_with_return(statement, expected_return)?;
-                if handled_before_terminal
-                    || self.stmt_references_active_guard_error_binding(statement)
-                {
-                    Ok(())
-                } else {
-                    Err(TypeError::GuardErrorClauseMissingTerminal {
-                        clause_span: TypeError::span_from_span(statement.span()),
-                    })
-                }
+                Err(TypeError::GuardErrorClauseMissingTerminal {
+                    clause_span: TypeError::span_from_span(statement.span()),
+                })
             }
         }
     }
@@ -785,153 +777,50 @@ impl TypeChecker {
             .is_some_and(|symbol| symbol.source_location == active_binding.source_location)
     }
 
-    fn stmt_references_active_guard_error_binding(&self, statement: &Stmt) -> bool {
+    const fn guard_clause_allows_void_terminal_return(
+        &self,
+        expected_return: Option<&[CoreType]>,
+    ) -> bool {
+        matches!(expected_return, Some([CoreType::Unit]))
+    }
+
+    fn guard_clause_prelude_has_non_alias_handling(&self, prelude: &[Stmt]) -> bool {
+        prelude
+            .iter()
+            .any(Self::guard_clause_statement_counts_as_handling)
+    }
+
+    fn guard_clause_statement_counts_as_handling(statement: &Stmt) -> bool {
+        match statement {
+            Stmt::Let { .. } => false,
+            Stmt::Block { statements, .. } => statements
+                .iter()
+                .any(Self::guard_clause_statement_counts_as_handling),
+            Stmt::Expression { expr, .. } => {
+                !matches!(expr, Expr::Literal { .. } | Expr::Identifier { .. })
+            }
+            _ => true,
+        }
+    }
+
+    fn guard_clause_is_error_alias_discard(
+        &self,
+        binding_name: &str,
+        initializer: Option<&Expr>,
+    ) -> bool {
+        if !binding_name.starts_with('_') {
+            return false;
+        }
+
         let Some(active_error_binding) = self.context.active_guard_error_bindings.last() else {
             return false;
         };
 
-        self.stmt_references_identifier(statement, &active_error_binding.name)
-    }
+        let Some(Expr::Identifier { name, .. }) = initializer else {
+            return false;
+        };
 
-    fn expr_references_identifier(&self, expr: &Expr, identifier: &str) -> bool {
-        match expr {
-            Expr::Literal { .. } => false,
-            Expr::Identifier { name, .. } => name == identifier,
-            Expr::Binary { left, right, .. } => {
-                self.expr_references_identifier(left, identifier)
-                    || self.expr_references_identifier(right, identifier)
-            }
-            Expr::Unary { operand, .. }
-            | Expr::Parenthesized { expr: operand, .. }
-            | Expr::TypeOf { expr: operand, .. }
-            | Expr::Propagate { call: operand, .. } => {
-                self.expr_references_identifier(operand, identifier)
-            }
-            Expr::Call { callee, args, .. } => {
-                self.expr_references_identifier(callee, identifier)
-                    || args
-                        .iter()
-                        .any(|arg| self.expr_references_identifier(arg, identifier))
-            }
-            Expr::Constructor { callee, fields, .. } => {
-                self.expr_references_identifier(callee, identifier)
-                    || fields
-                        .iter()
-                        .any(|field| self.expr_references_identifier(&field.value, identifier))
-            }
-            Expr::Index { object, index, .. } => {
-                self.expr_references_identifier(object, identifier)
-                    || self.expr_references_identifier(index, identifier)
-            }
-            Expr::Member { object, .. } => self.expr_references_identifier(object, identifier),
-            Expr::Cast { expr, .. } => self.expr_references_identifier(expr, identifier),
-            Expr::StringInterpolation { parts, .. } => parts.iter().any(|part| match part {
-                crate::ast::StringPart::Literal(_) => false,
-                crate::ast::StringPart::Expression(expr) => {
-                    self.expr_references_identifier(expr, identifier)
-                }
-            }),
-            Expr::If {
-                condition,
-                then_branch,
-                else_branch,
-                ..
-            } => {
-                self.expr_references_identifier(condition, identifier)
-                    || self.stmt_references_identifier(then_branch, identifier)
-                    || else_branch
-                        .as_ref()
-                        .is_some_and(|branch| self.stmt_references_identifier(branch, identifier))
-            }
-            Expr::Array { elements, .. } => elements
-                .iter()
-                .any(|element| self.expr_references_identifier(element, identifier)),
-            Expr::Match {
-                scrutinee, arms, ..
-            } => {
-                self.expr_references_identifier(scrutinee, identifier)
-                    || arms.iter().any(|arm| {
-                        arm.guard
-                            .as_ref()
-                            .is_some_and(|guard| self.expr_references_identifier(guard, identifier))
-                            || self.expr_references_identifier(&arm.body, identifier)
-                    })
-            }
-            Expr::Loop { body, .. } => self.stmt_references_identifier(body, identifier),
-            Expr::Lambda {
-                body: crate::ast::LambdaBody::Expression(expr),
-                ..
-            } => self.expr_references_identifier(expr, identifier),
-            Expr::Lambda {
-                body: crate::ast::LambdaBody::Block(body),
-                ..
-            } => body
-                .iter()
-                .any(|statement| self.stmt_references_identifier(statement, identifier)),
-            Expr::Guard {
-                expr, else_branch, ..
-            } => {
-                self.expr_references_identifier(expr, identifier)
-                    || self.stmt_references_identifier(else_branch, identifier)
-            }
-        }
-    }
-
-    fn stmt_references_identifier(&self, statement: &Stmt, identifier: &str) -> bool {
-        match statement {
-            Stmt::Let { initializer, .. } => initializer
-                .as_ref()
-                .is_some_and(|expr| self.expr_references_identifier(expr, identifier)),
-            Stmt::LetDestructure { initializer, .. } => {
-                self.expr_references_identifier(initializer, identifier)
-            }
-            Stmt::Assignment { target, value, .. } => {
-                self.expr_references_identifier(target, identifier)
-                    || self.expr_references_identifier(value, identifier)
-            }
-            Stmt::Return { values, .. }
-            | Stmt::Break { values, .. }
-            | Stmt::Continue { values, .. } => values
-                .iter()
-                .any(|value| self.expr_references_identifier(&value.value, identifier)),
-            Stmt::Expression { expr, .. } => self.expr_references_identifier(expr, identifier),
-            Stmt::Block { statements, .. } => statements
-                .iter()
-                .any(|statement| self.stmt_references_identifier(statement, identifier)),
-            Stmt::If {
-                condition,
-                then_branch,
-                else_branch,
-                ..
-            } => {
-                self.expr_references_identifier(condition, identifier)
-                    || self.stmt_references_identifier(then_branch, identifier)
-                    || else_branch
-                        .as_ref()
-                        .is_some_and(|branch| self.stmt_references_identifier(branch, identifier))
-            }
-            Stmt::For { iterable, body, .. } => {
-                self.expr_references_identifier(iterable, identifier)
-                    || self.stmt_references_identifier(body, identifier)
-            }
-            Stmt::While {
-                condition, body, ..
-            } => {
-                self.expr_references_identifier(condition, identifier)
-                    || self.stmt_references_identifier(body, identifier)
-            }
-            Stmt::Guard {
-                expression,
-                else_body,
-                ..
-            } => {
-                self.expr_references_identifier(expression, identifier)
-                    || self.stmt_references_identifier(else_body, identifier)
-            }
-            Stmt::PropagateGuardError { error_binding, .. } => error_binding == identifier,
-            Stmt::Loop { body, .. } => self.stmt_references_identifier(body, identifier),
-            Stmt::Comment { .. } => false,
-        }
+        name == &active_error_binding.name
     }
 
     /// Determine whether all error types declared by the guard's callee are mutually compatible.

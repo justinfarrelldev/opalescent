@@ -1,4 +1,12 @@
-Representative miette coverage added for strict guard diagnostics:
-- focused unit assertions verify Diagnostic::code() exact values
-- focused unit assertions verify each diagnostic exposes at least one labeled span
-- return-err guard regression test asserts label text for the strict guard diagnostic
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.60s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-fd03e2071514addc)
+
+running 1 test
+test type_system::tests::test_guard_statement_return_err_uses_dedicated_guard_diagnostic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1217 filtered out; finished in 0.00s
+

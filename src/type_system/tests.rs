@@ -2428,40 +2428,50 @@ fn test_guard_statement_return_err_uses_dedicated_guard_diagnostic() {
 
 #[test]
 fn test_strict_guard_diagnostic_codes_and_labels() {
-    let diagnostics: Vec<(TypeError, &str)> = vec![
+    let diagnostics: Vec<(TypeError, &str, &str, &str)> = vec![
         (
             TypeError::GuardErrorClauseMissingTerminal {
                 clause_span: TypeError::span_from_span(test_span()),
             },
             "opalescent::guard::missing_terminal",
+            "End the guard clause with a terminal `return`, `propagate`, or equivalent error-handling expression",
+            "guard clause missing terminal expression",
         ),
         (
             TypeError::GuardPropagateErrNotFinal {
                 propagate_span: TypeError::span_from_span(test_span()),
             },
             "opalescent::guard::propagate_not_final",
+            "Add a final handler expression after `propagate`, or restructure the guard so the clause ends with an explicit result",
+            "`propagate` cannot end this guard handler",
         ),
         (
             TypeError::GuardReturnErrInvalid {
                 return_span: TypeError::span_from_span(test_span()),
             },
             "opalescent::guard::return_err_invalid",
+            "Use `propagate err` to forward the error, or return a concrete recovery value instead",
+            "`return err` is not allowed here",
         ),
         (
             TypeError::GuardWrapperSourceInvalid {
                 source_span: TypeError::span_from_span(test_span()),
             },
             "opalescent::guard::wrapper_source_invalid",
+            "Wrap a valid fallible expression or call in `guard` so the wrapper source can be type-checked",
+            "invalid guard wrapper source",
         ),
         (
             TypeError::GuardShorthandRequired {
                 span: TypeError::span_from_span(test_span()),
             },
             "opalescent::guard::shorthand_required",
+            "Provide the required shorthand guard form for this expression shape",
+            "guard shorthand required here",
         ),
     ];
 
-    for (error, expected_code) in diagnostics {
+    for (error, expected_code, expected_help, expected_label) in diagnostics {
         assert_eq!(
             error
                 .code()
@@ -2469,6 +2479,12 @@ fn test_strict_guard_diagnostic_codes_and_labels() {
                 .as_deref(),
             Some(expected_code),
             "strict guard diagnostics should expose exact diagnostic codes"
+        );
+        let help = error.help().map(|help| help.to_string());
+        assert_eq!(
+            help.as_deref(),
+            Some(expected_help),
+            "strict guard diagnostics should expose the expected help text"
         );
         assert!(
             error
@@ -2480,9 +2496,16 @@ fn test_strict_guard_diagnostic_codes_and_labels() {
         );
         let rendered = render_diagnostic("test.op", "guard call() else err => return err", &error);
         assert!(
-            rendered.contains(expected_code)
-                || rendered.contains(expected_code.rsplit("::").next().unwrap()),
+            rendered.contains(expected_code),
             "rendered strict guard diagnostic should include its diagnostic code"
+        );
+        assert!(
+            rendered.contains(expected_help),
+            "rendered strict guard diagnostic should include its help text"
+        );
+        assert!(
+            rendered.contains(expected_label),
+            "rendered strict guard diagnostic should include its label text"
         );
     }
 }

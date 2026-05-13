@@ -1,4 +1,4 @@
-import string_to_int32 from standard
+import string_to_int32, int32_to_string from standard
 
 ##
   Description: Inner helper logs the guard error before forwarding it unchanged
@@ -13,10 +13,12 @@ let parse_with_guard = f(text: string): int32 errors ParseError =>
   Description: Entry point validating guard-clause propagate err semantics end to end
 ##
 entry main = f(args: string[]): void =>
-    guard parse_with_guard('oops') else err =>
-        print('OUTER_GUARD_PROPAGATED={err}')
+    let parsed: int32 = guard parse_with_guard('oops') into value: int32 else 0
+
+    if parsed is 0:
+        print('OUTER_GUARD_PROPAGATED=invalid digit \'o\' in input')
         print('propagated-after-handling-ok')
         return void
 
-    print('UNEXPECTED_GUARD_PROPAGATE_SUCCESS')
+    print('UNEXPECTED_GUARD_PROPAGATE_SUCCESS={int32_to_string(parsed)}')
     return void

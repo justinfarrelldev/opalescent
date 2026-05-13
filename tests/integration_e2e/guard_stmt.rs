@@ -5,8 +5,8 @@
     reason = "integration test control-flow matches are intentionally explicit"
 )]
 
-use super::*;
 use super::fs_helpers::unique_probe_target_dir;
+use super::*;
 use std::time::Duration;
 
 const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -68,8 +68,7 @@ fn compile_guard_stmt_project_failure(project_name: &str) -> Result<CompileError
     prepare_dir(&temp_dir)
         .map_err(|error| format!("{project_name} target directory should be created: {error}"))?;
 
-    let compile_result =
-        compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
+    let compile_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
     let cleanup_result = cleanup_dir(&temp_dir)
         .map_err(|error| format!("{project_name} target directory should be removed: {error}"));
 
@@ -277,6 +276,48 @@ fn guard_stmt_only_propagate_project_emits_shorthand_guidance() {
 }
 
 #[test]
+fn guard_stmt_print_only_project_emits_missing_terminal_diagnostic() {
+    let compile_error = compile_guard_stmt_project_failure("guard-stmt-print-only");
+    assert!(
+        compile_error.is_ok(),
+        "guard-stmt-print-only should produce a compile error"
+    );
+    let Ok(compile_error) = compile_error else {
+        return;
+    };
+
+    let verification = assert_guard_variant("guard-stmt-print-only", compile_error, |error| {
+        matches!(error, TypeError::GuardErrorClauseMissingTerminal { .. })
+    });
+    let failure_message = verification.err().unwrap_or_default();
+    assert!(
+        failure_message.is_empty(),
+        "guard-stmt-print-only should emit the exact strict-terminal diagnostic: {failure_message}"
+    );
+}
+
+#[test]
+fn guard_stmt_ignored_alias_project_emits_missing_terminal_diagnostic() {
+    let compile_error = compile_guard_stmt_project_failure("guard-stmt-ignored-alias");
+    assert!(
+        compile_error.is_ok(),
+        "guard-stmt-ignored-alias should produce a compile error"
+    );
+    let Ok(compile_error) = compile_error else {
+        return;
+    };
+
+    let verification = assert_guard_variant("guard-stmt-ignored-alias", compile_error, |error| {
+        matches!(error, TypeError::GuardErrorClauseMissingTerminal { .. })
+    });
+    let failure_message = verification.err().unwrap_or_default();
+    assert!(
+        failure_message.is_empty(),
+        "guard-stmt-ignored-alias should emit the exact strict-terminal diagnostic: {failure_message}"
+    );
+}
+
+#[test]
 fn guard_stmt_return_err_banned_project_emits_return_err_diagnostic() {
     let compile_error = compile_guard_stmt_project_failure("guard-stmt-return-err-banned");
     assert!(
@@ -394,6 +435,41 @@ fn guard_stmt_wrapper_invalid_missing_source_project_emits_wrapper_source_diagno
 }
 
 #[test]
+fn guard_stmt_propagate_call_valid_project_compiles_links_and_runs() {
+    let expected_stdout = read_expected_stdout("guard-stmt-propagate-call-valid");
+    assert!(
+        expected_stdout.is_ok(),
+        "guard-stmt-propagate-call-valid expected stdout should be readable"
+    );
+    let Ok(expected_stdout) = expected_stdout else {
+        return;
+    };
+
+    let execution_result = run_guard_stmt_project("guard-stmt-propagate-call-valid");
+    let failure_message = match execution_result {
+        Ok(stdout) => {
+            if stdout != expected_stdout {
+                format!(
+                    "guard-stmt-propagate-call-valid stdout should match expected fixture exactly, got: '{stdout}'"
+                )
+            } else if stdout.contains("UNEXPECTED_GUARD_PROPAGATE_SUCCESS") {
+                format!(
+                    "guard-stmt-propagate-call-valid shorthand success path should not print unexpected markers, got: '{stdout}'"
+                )
+            } else {
+                String::new()
+            }
+        }
+        Err(message) => message,
+    };
+
+    assert!(
+        failure_message.is_empty(),
+        "guard-stmt-propagate-call-valid should compile and run with shorthand propagate-call support intact: {failure_message}"
+    );
+}
+
+#[test]
 fn delete_downloads_project_compiles_and_runs_with_strict_terminal_handlers() {
     let execution_result = run_guard_stmt_project("delete-downloads");
     let failure_message = match execution_result {
@@ -412,5 +488,27 @@ fn delete_downloads_project_compiles_and_runs_with_strict_terminal_handlers() {
     assert!(
         failure_message.is_empty(),
         "delete-downloads project should compile and run with strict named-guard terminals: {failure_message}"
+    );
+}
+
+#[test]
+fn delete_downloads_strict_project_compiles_and_runs_with_strict_terminal_handlers() {
+    let execution_result = run_guard_stmt_project("delete-downloads-strict");
+    let failure_message = match execution_result {
+        Ok(stdout) => {
+            if !stdout.contains("LIST_ERR=") && !stdout.contains("removed_or_attempted=") {
+                format!(
+                    "delete-downloads-strict should print LIST_ERR or removed_or_attempted marker after strict fixture fix, got: '{stdout}'"
+                )
+            } else {
+                String::new()
+            }
+        }
+        Err(message) => message,
+    };
+
+    assert!(
+        failure_message.is_empty(),
+        "delete-downloads-strict project should compile and run with strict named-guard terminals: {failure_message}"
     );
 }

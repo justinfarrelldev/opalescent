@@ -1,0 +1,141 @@
+$ cargo test --features integration guard_stmt_print_only_project_emits_missing_terminal_diagnostic -- --nocapture
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1218 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+
+running 1 test
+test tests::guard_stmt::guard_stmt_print_only_project_emits_missing_terminal_diagnostic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 132 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-a78f5a55e4e32ce5)
+     Running unittests src/main.rs (target/debug/deps/opalescent-3851ea484802c5ad)
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-be9371b00ff8c799)
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-84b03c5f67d4c8de)
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+     Running tests/integration_print.rs (target/debug/deps/integration_print-f306110fffdda8f2)
+[exit 0]
+
+$ cargo test --features integration guard_stmt_ignored_alias_project_emits_missing_terminal_diagnostic -- --nocapture
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1218 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+
+running 1 test
+test tests::guard_stmt::guard_stmt_ignored_alias_project_emits_missing_terminal_diagnostic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 132 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-a78f5a55e4e32ce5)
+     Running unittests src/main.rs (target/debug/deps/opalescent-3851ea484802c5ad)
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-be9371b00ff8c799)
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-84b03c5f67d4c8de)
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+     Running tests/integration_print.rs (target/debug/deps/integration_print-f306110fffdda8f2)
+[exit 0]
+
+$ cargo test --features integration guard_stmt_propagate_call_valid_project_compiles_links_and_runs -- --nocapture
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1218 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+
+running 1 test
+test tests::guard_stmt::guard_stmt_propagate_call_valid_project_compiles_links_and_runs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 132 filtered out; finished in 0.44s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-a78f5a55e4e32ce5)
+     Running unittests src/main.rs (target/debug/deps/opalescent-3851ea484802c5ad)
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-be9371b00ff8c799)
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-84b03c5f67d4c8de)
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+     Running tests/integration_print.rs (target/debug/deps/integration_print-f306110fffdda8f2)
+[exit 0]
+

@@ -1,0 +1,10 @@
+import string_to_int32 from standard
+
+##
+  Description: Entry point proving shorthand propagate-call remains valid
+##
+entry main = f(args: string[]): void errors ParseError =>
+    let maybe_value = propagate string_to_int32('12')
+    print('PROPAGATE_CALL_VALUE={maybe_value}')
+    print('propagate-call-valid-ok')
+    return void

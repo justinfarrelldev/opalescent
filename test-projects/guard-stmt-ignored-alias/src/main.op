@@ -1,0 +1,11 @@
+import string_to_int32 from standard
+
+##
+  Description: Entry point proving _ignored aliases are rejected in strict guard terminals
+##
+entry main = f(args: string[]): void =>
+    guard string_to_int32('bad') else err =>
+        let _ignored_parse_err = err
+        return void
+    print('UNEXPECTED_SUCCESS')
+    return void

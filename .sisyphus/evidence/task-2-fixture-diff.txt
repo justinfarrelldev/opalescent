@@ -1,0 +1,2 @@
+Command: git diff -- test-projects/delete-downloads test-projects/delete-downloads-strict
+Result: baseline fixtures are already strict-compliant in this workspace, so the diff is empty.

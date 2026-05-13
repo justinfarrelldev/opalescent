@@ -1,8 +1,15 @@
-- `cargo fmt --all -- --check` surfaced pre-existing formatting differences in several unrelated files (`control_flow.rs`, `expr_collections.rs`, `expressions.rs`, `module_checking.rs`, `statements.rs`, `errors.rs`, `type_system/tests.rs`, and some integration tests).
-- The guard refactor itself did not introduce diagnostics in `src/type_system/checker/expressions_guard.rs`.
-- The integration guard suite emitted a transient fixture panic message during execution, but Cargo still reported success for the full run.
+- 2026-05-12 Task 2: The delete-downloads fixture pair did not produce a failing red baseline in this workspace because the strict contract is already satisfied.
+- 2026-05-12 Task 2: The previous retry removed the required fixture directories; they were recreated here so the Task 2 tests can resolve cleanly.
+- 2026-05-12 Task 2: Evidence should explicitly note that baseline-green output is acceptable for this workspace.
+- 2026-05-12 Task 3: A combined `cargo test` invocation with two test names failed because Cargo accepts only one test name filter at a time; single-test invocations were used for evidence instead.
+- 2026-05-12 Remediation: focused strict tests now fail loudly because the current compiler baseline still compiles `guard-stmt-print-only` and `guard-stmt-ignored-alias`; this is no longer masked in `guard_stmt.rs`.
+- 2026-05-12 Remediation: the broader `cargo test --features integration guard -- --nocapture` inventory command still includes an unrelated `tests::fs_state_guard::manifest_diff` baseline failure, preserved verbatim in Task-1 evidence.
+- 2026-05-13 Remediation: `task-2-red-tests.txt` had stale historical content at first readback, so it was rewritten from the exact three focused commands required for this fix before final reporting.
+- 2026-05-13 Follow-up: re-adding the dropped delete-downloads test surfaced pre-existing fixture assumptions that no longer held after the strict checker fix; the resolution was fixture-only and did not require further compiler changes.
+- 2026-05-13 Scope follow-up: a raw git restore of the two fixture targets would have reintroduced a failing baseline under the current strict checker, so the revert had to be semantic-minimal rather than historical-literal.
 
-- Working tree still includes broad pre-existing evidence and planning artifacts under `.sisyphus/evidence` and `.sisyphus/plans`, so commit slicing must stage only strict-guard Task 10 scope.
-- `git status --porcelain` remains non-clean prior to commit batching by design; final clean-state evidence must be generated after all Task 10 commits.
-- Recent history includes a dual-subject commit line (`feat(delete-downloads)... feat(move-downloads)...`), so keep upcoming commit subjects singular and atomic.
-- Task 11 subagent attempts repeatedly failed due orchestration/session errors (`Bad Request`) and were completed manually in Atlas session.
+- 2026-05-13 01:42:57Z F3 manual QA gate: clean-tree prerequisite FAILED (workspace dirty). `cargo build` and `cargo test` passed, but gate BLOCKED by `cargo test --features integration` (first relevant error: `guard` clause missing a terminal error-handling expression across multiple fs/guard fixtures), `cargo fmt --all -- --check` (format diffs in integration_e2e files), and release fixture runs `./target/release/opalescent run test-projects/delete-downloads/src/main.op` + `...delete-downloads-strict...` (codegen error: for loop iterable `entries` is not an array). Focused strict compile-fail evidence PASS: `guard_stmt` suite plus direct release runs on `guard-stmt-print-only`/`guard-stmt-ignored-alias` emitted `opalescent::guard::missing_terminal`.
+
+- 2026-05-13 02:03:44Z Final-wave retry blocker resolved: release runtime failures for delete-downloads/delete-downloads-strict were caused by stale shorthand fixture form (`else print(...)`) that left `entries` unusable at codegen; rewriting to named strict handlers restored runtime behavior and required command PASS.
+- 2026-05-13 02:03:44Z LSP limitation: no `.op` language server is configured in this environment, so diagnostics for Opal fixtures cannot be produced via `lsp_diagnostics`; Rust checker file diagnostics remained clean.
+- 2026-05-13 02:15:23Z Remaining matrix blocker is `cargo fmt --all -- --check` only: it fails on broad pre-existing formatting drift in unrelated `tests/integration_e2e/*` files, outside strict-guard scope.

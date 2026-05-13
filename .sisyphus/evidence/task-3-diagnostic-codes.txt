@@ -1,6 +1,12 @@
-Added dedicated strict-guard diagnostics with exact miette codes:
-- opalescent::guard::missing_terminal
-- opalescent::guard::propagate_not_final
-- opalescent::guard::return_err_invalid
-- opalescent::guard::wrapper_source_invalid
-- opalescent::guard::shorthand_required
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.56s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-fd03e2071514addc)
+
+running 1 test
+test type_system::tests::test_strict_guard_diagnostic_codes_and_labels ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1217 filtered out; finished in 0.00s
+
