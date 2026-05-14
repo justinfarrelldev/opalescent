@@ -410,14 +410,7 @@ impl TypeChecker {
             });
         }
 
-        let allow_void_return_terminal = self
-            .guard_clause_allows_void_terminal_return(expected_return)
-            && self.guard_clause_prelude_has_non_alias_handling(prelude);
-        self.type_check_guard_error_clause_terminal_statement(
-            terminal,
-            expected_return,
-            allow_void_return_terminal,
-        )?;
+        self.type_check_guard_error_clause_terminal_statement(terminal, expected_return)?;
         Ok(())
     }
 
@@ -428,7 +421,7 @@ impl TypeChecker {
         allow_terminal_propagate: bool,
     ) -> Result<(), TypeError> {
         if allow_terminal_propagate {
-            self.type_check_guard_error_clause_terminal_statement(statement, expected_return, false)
+            self.type_check_guard_error_clause_terminal_statement(statement, expected_return)
         } else {
             self.type_check_guard_error_clause_prelude_statement(statement, expected_return)?;
             Ok(())
@@ -451,9 +444,7 @@ impl TypeChecker {
             Stmt::PropagateGuardError { span, .. } => Err(TypeError::GuardShorthandRequired {
                 span: TypeError::span_from_span(*span),
             }),
-            other => {
-                self.type_check_guard_error_clause_terminal_statement(other, expected_return, false)
-            }
+            other => self.type_check_guard_error_clause_terminal_statement(other, expected_return),
         }
     }
 
@@ -516,7 +507,6 @@ impl TypeChecker {
         &mut self,
         statement: &Stmt,
         expected_return: Option<&[CoreType]>,
-        allow_void_return_terminal: bool,
     ) -> Result<(), TypeError> {
         match statement {
             Stmt::PropagateGuardError {
@@ -539,13 +529,9 @@ impl TypeChecker {
                     }
                     GuardReturnWrapperShape::NotWrapper => {
                         self.type_check_stmt_with_return(statement, expected_return)?;
-                        if allow_void_return_terminal {
-                            Ok(())
-                        } else {
-                            Err(TypeError::GuardErrorClauseMissingTerminal {
-                                clause_span: TypeError::span_from_span(*span),
-                            })
-                        }
+                        Err(TypeError::GuardErrorClauseMissingTerminal {
+                            clause_span: TypeError::span_from_span(*span),
+                        })
                     }
                 }
             }
@@ -776,32 +762,6 @@ impl TypeChecker {
         self.symbol_table()
             .lookup(name)
             .is_some_and(|symbol| symbol.source_location == active_binding.source_location)
-    }
-
-    const fn guard_clause_allows_void_terminal_return(
-        &self,
-        expected_return: Option<&[CoreType]>,
-    ) -> bool {
-        matches!(expected_return, Some([CoreType::Unit]))
-    }
-
-    fn guard_clause_prelude_has_non_alias_handling(&self, prelude: &[Stmt]) -> bool {
-        prelude
-            .iter()
-            .any(Self::guard_clause_statement_counts_as_handling)
-    }
-
-    fn guard_clause_statement_counts_as_handling(statement: &Stmt) -> bool {
-        match statement {
-            Stmt::Let { .. } => false,
-            Stmt::Block { statements, .. } => statements
-                .iter()
-                .any(Self::guard_clause_statement_counts_as_handling),
-            Stmt::Expression { expr, .. } => {
-                !matches!(expr, Expr::Literal { .. } | Expr::Identifier { .. })
-            }
-            _ => true,
-        }
     }
 
     fn guard_clause_is_error_alias_discard(

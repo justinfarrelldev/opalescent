@@ -26,7 +26,7 @@ fn build_copy_error_source(source: &str, destination: &str) -> String {
     let escaped_destination = destination.replace('\\', "\\\\").replace('\'', "\\'");
 
     format!(
-        "import path_from, copy_file_sync from standard\n\n##\n  Description: T26 copy_file_sync error probe via guard.\n##\nentry main = f(args: string[]): void =>\n    guard copy_file_sync(path_from('{escaped_source}'), path_from('{escaped_destination}')) into ok else err =>\n        print(err)\n        return void\n\n    print('UNEXPECTED_SUCCESS')\n    return void\n"
+        "import path_from, copy_file_sync from standard\n\n##\n  Description: T26 copy_file_sync error probe via guard.\n##\nentry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, ReadFailureError, InvalidUtf8Error, OffsetOutOfRangeError, WriteFailureError, FilesystemFullError, CopyFailureError, DeleteFailureError, DirectoryNotFoundError, IsNotADirectoryError =>\n    guard copy_file_sync(path_from('{escaped_source}'), path_from('{escaped_destination}')) into ok else err =>\n        print(err)\n        propagate err\n\n    print('UNEXPECTED_SUCCESS')\n    return void\n"
     )
 }
 

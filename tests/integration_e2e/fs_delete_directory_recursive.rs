@@ -38,14 +38,6 @@ fn fs_recursive_delete_missing_path_error_from_op_source() {
         let source = build_recursive_delete_missing_path_source(&missing_dir.to_string_lossy());
         let run_output = compile_and_run_inline_program(&source, &temp_dir)?;
 
-        if !run_output.status.success() {
-            return Err(format!(
-                "recursive-delete missing-path probe should exit 0 because .op handles the error, status={:?}, stderr='{}'",
-                run_output.status.code(),
-                String::from_utf8_lossy(&run_output.stderr)
-            ));
-        }
-
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("ERR_PATH=") {
             return Err(format!(
@@ -78,7 +70,7 @@ fn fs_recursive_delete_missing_path_error_from_op_source() {
     };
     assert!(
         failure_message.is_empty(),
-        "fs_recursive_delete_missing_path_error_from_op_source should handle missing recursive-delete targets in .op and leave no residue: {failure_message}"
+        "fs_recursive_delete_missing_path_error_from_op_source should surface missing recursive-delete targets in .op and leave no residue: {failure_message}"
     );
 }
 
@@ -95,7 +87,7 @@ fn build_recursive_delete_missing_path_source(path: &str) -> String {
     let escaped_path = path.replace('\\', "\\\\").replace('\'', "\\'");
 
     format!(
-        "import path_from, delete_directory_recursive_sync from standard\n\n##\n  Description: T26 recursive delete missing-path error probe from inline .op source.\n##\nentry main = f(args: string[]): void =>\n    let target = path_from('{escaped_path}')\n    guard delete_directory_recursive_sync(target) into ignored else err =>\n        print('ERR_PATH={{err}}')\n        return void\n    print('UNEXPECTED_SUCCESS')\n    return void\n"
+        "import path_from, delete_directory_recursive_sync from standard\n\n##\n  Description: T26 recursive delete missing-path error probe from inline .op source.\n##\nentry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDeniedError, DeleteFailureError, IsNotADirectoryError, InvalidPathError =>\n    let target = path_from('{escaped_path}')\n    guard delete_directory_recursive_sync(target) into ignored else err =>\n        print('ERR_PATH={{err}}')\n        propagate err\n    print('UNEXPECTED_SUCCESS')\n    return void\n"
     )
 }
 
@@ -103,7 +95,7 @@ fn build_empty_directory_workflow_source(path: &str) -> String {
     let escaped_path = path.replace('\\', "\\\\").replace('\'', "\\'");
 
     format!(
-        "import path_from, list_directory_sync, join_path_components, is_directory_sync, delete_directory_recursive_sync, delete_file_sync from standard\n\n##\n  Description: T26 empty-directory workflow probe from inline .op source.\n##\nentry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError, DeleteFailureError, FileNotFoundError, IsADirectoryError =>\n    let base = path_from('{escaped_path}')\n\n    guard list_directory_sync(base) into entries else err =>\n        print('LIST_ERR={{err}}')\n        return void\n\n    for child_entry in entries:\n        let child = join_path_components(base, [child_entry])\n        guard is_directory_sync(child) into child_is_dir else err =>\n            print('STAT_ERR={{err}}')\n            return void\n\n        if child_is_dir:\n            guard delete_directory_recursive_sync(child) into _ else err =>\n                print('RMDIR_ERR={{err}}')\n                return void\n        else:\n            guard delete_file_sync(child) into _ else err =>\n                print('DEL_ERR={{err}}')\n                return void\n\n    guard list_directory_sync(base) into remaining else err =>\n        print('FINAL_LIST_ERR={{err}}')\n        return void\n\n    let remaining_len = remaining.length\n    print('remaining={{remaining_len}}')\n    return void\n"
+        "import path_from, list_directory_sync, join_path_components, is_directory_sync, delete_directory_recursive_sync, delete_file_sync from standard\n\n##\n  Description: T26 empty-directory workflow probe from inline .op source.\n##\nentry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError, DeleteFailureError, FileNotFoundError, IsADirectoryError =>\n    let base = path_from('{escaped_path}')\n\n    guard list_directory_sync(base) into entries else err =>\n        print('LIST_ERR={{err}}')\n        propagate err\n\n    for child_entry in entries:\n        let child = join_path_components(base, [child_entry])\n        guard is_directory_sync(child) into child_is_dir else err =>\n            print('STAT_ERR={{err}}')\n            propagate err\n\n        if child_is_dir:\n            guard delete_directory_recursive_sync(child) into _ else err =>\n                print('RMDIR_ERR={{err}}')\n                propagate err\n        else:\n            guard delete_file_sync(child) into _ else err =>\n                print('DEL_ERR={{err}}')\n                propagate err\n\n    guard list_directory_sync(base) into remaining else err =>\n        print('FINAL_LIST_ERR={{err}}')\n        propagate err\n\n    let remaining_len = remaining.length\n    print('remaining={{remaining_len}}')\n    return void\n"
     )
 }
 

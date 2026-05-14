@@ -19,7 +19,7 @@ fn build_read_bytes_error_source(path: &str) -> String {
     let escaped_path = path.replace('\\', "\\\\").replace('\'', "\\'");
 
     format!(
-        "import path_from, read_contents_sync, bytes_length, int32_to_string from standard\n\n##\n  Description: Integration probe that captures read_contents_sync errors via guard.\n##\nentry main = f(args: string[]): void =>\n    guard read_contents_sync(path_from('{escaped_path}')) into bytes else err =>\n        print(err)\n        return void\n\n    print('UNEXPECTED_SUCCESS')\n    print(int32_to_string(bytes_length(bytes)))\n    return void\n"
+        "import path_from, read_contents_sync, bytes_length, int32_to_string from standard\n\n##\n  Description: Integration probe that captures read_contents_sync errors via guard.\n##\nentry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, ReadFailureError, InvalidUtf8Error, OffsetOutOfRangeError, WriteFailureError, FilesystemFullError, CopyFailureError, DeleteFailureError, DirectoryNotFoundError, IsNotADirectoryError =>\n    guard read_contents_sync(path_from('{escaped_path}')) into bytes else err =>\n        print(err)\n        propagate err\n\n    print('UNEXPECTED_SUCCESS')\n    print(int32_to_string(bytes_length(bytes)))\n    return void\n"
     )
 }
 

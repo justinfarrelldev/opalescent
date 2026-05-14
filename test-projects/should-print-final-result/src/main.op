@@ -8,7 +8,7 @@ public let add = f(num1: int32, num2: int32): int32 =>
 ##
     Description: Reads two integers and prints their final sum result
 ##
-entry main = f(): void => 
+entry main = f(): void errors ParseError => 
     print('Enter num 1:')
     let num1 = take_input()
     print('Enter num 2:')
@@ -16,11 +16,11 @@ entry main = f(): void =>
 
     guard string_to_int32(num1) into num1_int else e => 
         print('An error occurred: {e}')
-        return void
+        propagate e
 
     guard string_to_int32(num2) into num2_int else e => 
         print('An error occurred: {e}')
-        return void
+        propagate e
 
     print(add(num1_int, num2_int))
 

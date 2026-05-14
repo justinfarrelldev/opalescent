@@ -126,7 +126,7 @@ fn build_remove_file_error_source(path: &str) -> String {
     let escaped_path = path.replace('\\', "\\\\").replace('\'', "\\'");
 
     format!(
-        "import path_from, delete_file_sync from standard\n\n##\n  Description: T25 delete_file error probe.\n##\nentry main = f(args: string[]): void =>\n    guard delete_file_sync(path_from('{escaped_path}')) into ok else err =>\n        print(err)\n        return void\n\n    print('UNEXPECTED_SUCCESS')\n    return void\n"
+        "import path_from, delete_file_sync from standard\n\n##\n  Description: T25 delete_file error probe.\n##\nentry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, ReadFailureError, InvalidUtf8Error, OffsetOutOfRangeError, WriteFailureError, FilesystemFullError, CopyFailureError, DeleteFailureError, DirectoryNotFoundError, IsNotADirectoryError =>\n    guard delete_file_sync(path_from('{escaped_path}')) into ok else err =>\n        print(err)\n        propagate err\n\n    print('UNEXPECTED_SUCCESS')\n    return void\n"
     )
 }
 
@@ -142,7 +142,7 @@ fn build_list_directory_error_source(path: &str) -> String {
     let escaped_path = path.replace('\\', "\\\\").replace('\'', "\\'");
 
     format!(
-        "import path_from, list_directory_sync from standard\n\n##\n  Description: T25 list_directory error probe.\n##\nentry main = f(args: string[]): void =>\n    guard list_directory_sync(path_from('{escaped_path}')) into listed else err =>\n        print(err)\n        return void\n\n    print('UNEXPECTED_SUCCESS count={{listed.length}}')\n    return void\n"
+        "import path_from, list_directory_sync from standard\n\n##\n  Description: T25 list_directory error probe.\n##\nentry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, ReadFailureError, InvalidUtf8Error, OffsetOutOfRangeError, WriteFailureError, FilesystemFullError, CopyFailureError, DeleteFailureError, DirectoryNotFoundError, IsNotADirectoryError =>\n    guard list_directory_sync(path_from('{escaped_path}')) into listed else err =>\n        print(err)\n        propagate err\n\n    print('UNEXPECTED_SUCCESS count={{listed.length}}')\n    return void\n"
     )
 }
 

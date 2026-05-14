@@ -14,11 +14,11 @@ entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedE
 
     guard read_lines_sync(path_from(log_path)) into lines else err =>
         print(err)
-        return void
+        propagate err
 
     guard read_text_sync(path_from(log_path)) into full_text else err =>
         print(err)
-        return void
+        propagate err
 
     if full_text is 'line-1\nline-2\nline-3\nline-4\nline-5\n':
         print('appended 5 lines; readback confirmed')

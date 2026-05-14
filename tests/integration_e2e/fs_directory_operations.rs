@@ -17,6 +17,13 @@ fn fs_directory_operations() {
         let _guard = FsStateGuard::new("test-projects/fs-directory-operations")
             .expect("fs-directory-operations guard should initialize and reset target/workspace");
 
+        let workspace_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("test-projects/fs-directory-operations/workspace");
+        let workspace_removed = std::fs::remove_dir_all(&workspace_path);
+        assert!(
+            workspace_removed.is_ok(),
+            "fs-directory-operations workspace directory should be removed before fixture run: {workspace_removed:?}"
+        );
         assert_workspace_empty("fs-directory-operations");
 
         let cwd = std::env::current_dir();
@@ -79,5 +86,12 @@ fn fs_directory_operations() {
         );
     }
 
+    let workspace_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("test-projects/fs-directory-operations/workspace");
+    let workspace_recreated = std::fs::create_dir_all(&workspace_path);
+    assert!(
+        workspace_recreated.is_ok(),
+        "fs-directory-operations workspace directory should be recreated after fixture run: {workspace_recreated:?}"
+    );
     assert_workspace_empty("fs-directory-operations");
 }

@@ -3790,6 +3790,76 @@ fn test_guard_error_clause_must_handle_or_propagate_bound_error() {
 }
 
 #[test]
+fn test_guard_error_clause_rejects_void_return_after_side_effect() {
+    let guard_stmt = Stmt::Guard {
+        expression: Box::new(call_expr("string_to_int32", &["input"], 7694)),
+        success_binding: Some("value".to_owned()),
+        success_binding_type: Some(int_type("int32")),
+        success_binding_is_mutable: false,
+        error_binding: "err".to_owned(),
+        else_body: Box::new(Stmt::Block {
+            statements: vec![
+                Stmt::Expression {
+                    expr: call_expr("record_error", &["err"], 7695),
+                    span: test_span(),
+                    id: node_id(7696),
+                },
+                return_stmt(literal_expr(LiteralValue::Void, 7697), 7698),
+            ],
+            span: test_span(),
+            id: node_id(7699),
+        }),
+        span: test_span(),
+        id: node_id(7700),
+    };
+
+    let program = create_entry_program(vec![
+        make_unit_type_decl("ParseError", 7701),
+        make_function_decl_with_errors(
+            "string_to_int32",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("int32")),
+            vec!["ParseError"],
+            return_stmt(literal_expr(LiteralValue::Integer(5), 7702), 7703),
+            7704,
+        ),
+        make_function_decl(
+            "record_error",
+            vec![make_parameter("error", int_type("ParseError"))],
+            Some(int_type("void")),
+            return_stmt(literal_expr(LiteralValue::Void, 7705), 7706),
+            7707,
+        ),
+        make_function_decl_with_errors(
+            "use_guard",
+            vec![make_parameter("input", int_type("string"))],
+            Some(int_type("void")),
+            vec!["ParseError"],
+            Stmt::Block {
+                statements: vec![
+                    guard_stmt,
+                    return_stmt(literal_expr(LiteralValue::Void, 7708), 7709),
+                ],
+                span: test_span(),
+                id: node_id(7710),
+            },
+            7711,
+        ),
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("return void should not satisfy strict named guard error handling");
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::GuardErrorClauseMissingTerminal { .. })),
+        "expected GuardErrorClauseMissingTerminal diagnostic for terminal return void, got: {errors:?}"
+    );
+}
+
+#[test]
 fn test_guard_error_clause_rejects_success_fallback_return() {
     let guard_stmt = Stmt::Guard {
         expression: Box::new(call_expr("string_to_int32", &["input"], 7694)),

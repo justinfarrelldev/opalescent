@@ -33,7 +33,7 @@ fn build_write_text_error_source(path: &str, text: &str) -> String {
     let escaped_text = text.replace('\\', "\\\\").replace('\'', "\\'");
 
     format!(
-        "import path_from, write_text_sync from standard\n\n##\n  Description: Integration probe that captures write_text_sync errors via guard.\n##\nentry main = f(args: string[]): void =>\n    guard write_text_sync(path_from('{escaped_path}'), '{escaped_text}') into ok else err =>\n        print(err)\n        return void\n\n    print('UNEXPECTED_SUCCESS')\n    return void\n"
+        "import path_from, write_text_sync from standard\n\n##\n  Description: Integration probe that captures write_text_sync errors via guard.\n##\nentry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, ReadFailureError, InvalidUtf8Error, OffsetOutOfRangeError, WriteFailureError, FilesystemFullError, CopyFailureError, DeleteFailureError, DirectoryNotFoundError, IsNotADirectoryError =>\n    guard write_text_sync(path_from('{escaped_path}'), '{escaped_text}') into ok else err =>\n        print(err)\n        propagate err\n\n    print('UNEXPECTED_SUCCESS')\n    return void\n"
     )
 }
 

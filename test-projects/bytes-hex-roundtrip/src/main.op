@@ -17,10 +17,10 @@ import bytes_from_hex, bytes_to_hex, bytes_concatenate, bytes_slice from standar
   3. Slices the concatenation back to the first half.
   4. Re-encodes the slice and prints it.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors HexDecodeError, SliceRangeError =>
     guard bytes_from_hex('deadbeef') into buffer else decode_error =>
         print('decode error: {decode_error}')
-        return void
+        propagate decode_error
 
     let original_length: int32 = buffer.length
     print('length: {original_length}')
@@ -34,7 +34,7 @@ entry main = f(args: string[]): void =>
 
     guard bytes_slice(doubled, 0, 4) into first_half else slice_error =>
         print('slice error: {slice_error}')
-        return void
+        propagate slice_error
 
     let hex_slice: string = bytes_to_hex(first_half)
     print('slice: {hex_slice}')

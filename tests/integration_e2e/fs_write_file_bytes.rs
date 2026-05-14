@@ -46,7 +46,7 @@ fn build_write_bytes_error_source(path: &str, payload_hex: &str) -> String {
     let escaped_path = path.replace('\\', "\\\\").replace('\'', "\\'");
 
     format!(
-        "import path_from, write_contents_sync, bytes_from_hex from standard\n\n##\n  Description: Integration probe that captures write_contents_sync errors via guard.\n##\nentry main = f(args: string[]): void errors HexDecodeError =>\n    let payload = propagate bytes_from_hex('{payload_hex}')\n    guard write_contents_sync(path_from('{escaped_path}'), payload) into ok else err =>\n        print(err)\n        return void\n\n    print('UNEXPECTED_SUCCESS')\n    return void\n"
+        "import path_from, write_contents_sync, bytes_from_hex from standard\n\n##\n  Description: Integration probe that captures write_contents_sync errors via guard.\n##\nentry main = f(args: string[]): void errors HexDecodeError, PermissionDeniedError, IsADirectoryError, WriteFailureError, InvalidPathError, FilesystemFullError =>\n    let payload = propagate bytes_from_hex('{payload_hex}')\n    guard write_contents_sync(path_from('{escaped_path}'), payload) into ok else err =>\n        print(err)\n        propagate err\n\n    print('UNEXPECTED_SUCCESS')\n    return void\n"
     )
 }
 

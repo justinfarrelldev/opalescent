@@ -18,7 +18,7 @@ let should_blockquote = f(index: int64): boolean =>
 ##
   Description: Runs a deterministic read-transform-write markdown roundtrip and reports exact byte count.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, WriteFailureError, FilesystemFullError =>
     let project_root = 'test-projects/fs-markdown-roundtrip/'
     let input_path = path_from('{project_root}fixtures/input.md')
     let expected_path = path_from('{project_root}fixtures/expected_output.md')
@@ -26,7 +26,7 @@ entry main = f(args: string[]): void =>
 
     guard read_lines_sync(input_path) into lines else err =>
         print(err)
-        return void
+        propagate err
 
     let mutable rendered = ''
     let mutable index: int64 = 0
@@ -40,15 +40,15 @@ entry main = f(args: string[]): void =>
 
     guard write_text_sync(output_path, rendered) else err =>
         print(err)
-        return void
+        propagate err
 
     guard read_text_sync(output_path) into actual else err =>
         print(err)
-        return void
+        propagate err
 
     guard read_text_sync(expected_path) into expected else err =>
         print(err)
-        return void
+        propagate err
 
     if actual is expected:
         print('roundtrip: ok ({int64_to_string(actual.length)} bytes match)')

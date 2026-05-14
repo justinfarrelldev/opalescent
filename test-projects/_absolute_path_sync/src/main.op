@@ -3,11 +3,11 @@ import path_from, absolute_path_sync, path_file_name, path_to_string from standa
 ##
   Description: Prints four absolute_path_sync edge-case resolution outcomes.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors InvalidPathError, PermissionDeniedError =>
     let existing_raw = './test-projects/_absolute_path_sync/src/main.op'
     guard absolute_path_sync(path_from(existing_raw)) into existing_abs else err =>
         print('{existing_raw}: error')
-        return void
+        propagate err
 
     if path_file_name(existing_abs) is 'main.op':
         print('{existing_raw} -> {path_to_string(existing_abs)}')
@@ -17,7 +17,7 @@ entry main = f(args: string[]): void =>
     let missing_raw = './test-projects/_absolute_path_sync/does_not_exist.txt'
     guard absolute_path_sync(path_from(missing_raw)) into missing_abs else err =>
         print('{missing_raw}: error')
-        return void
+        propagate err
 
     if path_file_name(missing_abs) is 'does_not_exist.txt':
         print('{missing_raw} -> {path_to_string(missing_abs)}')
@@ -27,7 +27,7 @@ entry main = f(args: string[]): void =>
     let dotdot_raw = './test-projects/_absolute_path_sync/src/../README.md'
     guard absolute_path_sync(path_from(dotdot_raw)) into dotdot_abs else err =>
         print('{dotdot_raw}: error')
-        return void
+        propagate err
 
     if path_file_name(dotdot_abs) is 'README.md':
         print('{dotdot_raw} -> {path_to_string(dotdot_abs)}')
@@ -37,7 +37,7 @@ entry main = f(args: string[]): void =>
     let absolute_raw = '/'
     guard absolute_path_sync(path_from(absolute_raw)) into absolute_abs else err =>
         print('{absolute_raw}: error')
-        return void
+        propagate err
 
     if path_file_name(absolute_abs) is '':
         print('{absolute_raw} -> {path_to_string(absolute_abs)}')

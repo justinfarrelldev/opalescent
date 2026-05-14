@@ -31,7 +31,7 @@ fn build_read_first_line_error_source(path: &str) -> String {
     let escaped_path = path.replace('\\', "\\\\").replace('\'', "\\'");
 
     format!(
-        "import path_from, read_first_line_sync from standard\n\n##\n  Description: Integration probe that captures read_first_line_sync errors via guard.\n##\nentry main = f(args: string[]): void =>\n    guard read_first_line_sync(path_from('{escaped_path}')) into line else err =>\n        print(err)\n        return void\n\n    print('UNEXPECTED_SUCCESS')\n    print(line)\n    return void\n"
+        "import path_from, read_first_line_sync from standard\n\n##\n  Description: Integration probe that captures read_first_line_sync errors via guard.\n##\nentry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, ReadFailureError, InvalidUtf8Error, OffsetOutOfRangeError, WriteFailureError, FilesystemFullError, CopyFailureError, DeleteFailureError, DirectoryNotFoundError, IsNotADirectoryError =>\n    guard read_first_line_sync(path_from('{escaped_path}')) into line else err =>\n        print(err)\n        propagate err\n\n    print('UNEXPECTED_SUCCESS')\n    print(line)\n    return void\n"
     )
 }
 

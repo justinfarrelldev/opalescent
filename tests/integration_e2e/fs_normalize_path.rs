@@ -315,14 +315,14 @@ fn normalize_root_escape_returns_empty() {
         assert_workspace_empty("_fs_path_from");
 
         let source = "
-import path_from, normalize_path, absolute_path_sync from standard
+import path_from, normalize_path, path_to_string from standard
 
 ##
   Description: Verifies root escape returns empty sentinel.
 ##
 entry main = f(args: string[]): void =>
     let normalized = normalize_path(path_from('/a/b/../../..'))
-    guard absolute_path_sync(normalized) into abs else err =>
+    if path_to_string(normalized) is '':
         print('root-escape=ok')
         return void
 
