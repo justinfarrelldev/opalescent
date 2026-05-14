@@ -318,6 +318,31 @@ fn guard_stmt_ignored_alias_project_emits_missing_terminal_diagnostic() {
 }
 
 #[test]
+fn guard_stmt_bare_fallible_append_project_emits_unhandled_call_diagnostic() {
+    let compile_error = compile_guard_stmt_project_failure("guard-stmt-bare-fallible-append");
+    assert!(
+        compile_error.is_ok(),
+        "guard-stmt-bare-fallible-append should produce a compile error"
+    );
+    let Ok(compile_error) = compile_error else {
+        return;
+    };
+
+    let verification =
+        assert_guard_variant("guard-stmt-bare-fallible-append", compile_error, |error| {
+            matches!(
+                error,
+                TypeError::UnhandledCallError { name, .. } if name == "append_text_sync"
+            )
+        });
+    let failure_message = verification.err().unwrap_or_default();
+    assert!(
+        failure_message.is_empty(),
+        "guard-stmt-bare-fallible-append should emit the bare fallible-call diagnostic: {failure_message}"
+    );
+}
+
+#[test]
 fn guard_stmt_return_err_banned_project_emits_return_err_diagnostic() {
     let compile_error = compile_guard_stmt_project_failure("guard-stmt-return-err-banned");
     assert!(

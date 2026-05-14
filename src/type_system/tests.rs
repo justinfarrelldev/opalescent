@@ -2216,6 +2216,82 @@ fn test_guard_statement_binds_success_and_error_types() {
 }
 
 #[test]
+fn guard_else_bare_fallible_unit_prelude_requires_handling() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        type CleanupError:
+            Failed
+
+        let cleanup = f(): void errors CleanupError =>
+            return void
+
+        entry main = f(): void errors ParseError, CleanupError =>
+            guard string_to_int32('5') into value: int32 else err =>
+                cleanup()
+                propagate err
+            return void
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("bare fallible cleanup call inside guard else should be rejected");
+    assert!(
+        errors.iter().any(
+            |error| matches!(error, TypeError::UnhandledCallError { name, .. } if name == "cleanup")
+        ),
+        "expected UnhandledCallError for cleanup, got: {errors:?}"
+    );
+}
+
+#[test]
+fn guard_else_bare_fallible_let_initializer_requires_handling() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        entry main = f(): void errors ParseError =>
+            guard string_to_int32('5') into value: int32 else err =>
+                let fallback: int32 = string_to_int32('0')
+                propagate err
+            return void
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("bare fallible let initializer inside guard else should be rejected");
+    assert!(
+        errors.iter().any(
+            |error| matches!(error, TypeError::UnhandledCallError { name, .. } if name == "string_to_int32")
+        ),
+        "expected UnhandledCallError for string_to_int32, got: {errors:?}"
+    );
+}
+
+#[test]
+fn expression_guard_bare_fallible_fallback_requires_handling() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        entry main = f(): int32 errors ParseError =>
+            let value: int32 = guard string_to_int32('5') into parsed: int32 else string_to_int32('0')
+            return value
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("bare fallible expression-guard fallback should be rejected");
+    assert!(
+        errors.iter().any(
+            |error| matches!(error, TypeError::UnhandledCallError { name, .. } if name == "string_to_int32")
+        ),
+        "expected UnhandledCallError for string_to_int32 fallback, got: {errors:?}"
+    );
+}
+
+#[test]
 fn type_check_guard_shorthand_discards_success_binding() {
     let program = parse_program_from_source_with_spaces(
         "

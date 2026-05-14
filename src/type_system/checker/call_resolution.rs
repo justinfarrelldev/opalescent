@@ -162,7 +162,6 @@ impl TypeChecker {
                 error_types,
             } => {
                 if !error_types.is_empty()
-                    && self.context.guard_else_depth == 0
                     && !self.context.in_propagate_context
                     && !self.context.in_guard_subject_context
                 {

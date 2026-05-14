@@ -1,0 +1,18 @@
+import append_text_sync, int32_to_string, path_from, string_to_int32 from standard
+
+##
+  Description: Parses text and wrongly ignores a fallible append inside the guard error clause.
+##
+let parse = f(text: string): int32 errors ParseError =>
+    guard string_to_int32(text) into value: int32 else err =>
+        append_text_sync(path_from('debug.log'), 'parse failed\n')
+        propagate err
+    return value
+
+##
+  Description: Entry point exercising the bare fallible guard handler fixture.
+##
+entry main = f(args: string[]): void =>
+    let parsed: int32 = guard parse('bad') into value: int32 else 0
+    print('UNEXPECTED_PARSED={int32_to_string(parsed)}')
+    return void
