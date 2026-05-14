@@ -1,0 +1,54 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-fd03e2071514addc)
+
+running 11 tests
+test type_system::tests::test_guard_error_clause_rejects_discard_only_then_propagate_err ... ok
+test type_system::tests::test_guard_error_clause_rejects_print_then_void_return ... ok
+test type_system::tests::test_guard_error_clause_rejects_alias_only_then_propagate_err ... ok
+test type_system::tests::test_guard_error_clause_rejects_success_fallback_return ... ok
+test type_system::tests::test_guard_error_clause_propagate_err_must_be_terminal ... ok
+test type_system::tests::test_guard_error_clause_rejects_wrapper_return_with_aliased_source ... ok
+test type_system::tests::test_guard_error_clause_return_err_is_rejected ... ok
+test type_system::tests::test_guard_error_clause_only_propagate_is_rejected ... ok
+test type_system::tests::test_guard_error_clause_must_handle_or_propagate_bound_error ... ok
+test type_system::tests::test_guard_error_clause_print_then_propagate_err_is_allowed ... ok
+test type_system::tests::test_guard_error_clause_success_binding_does_not_leak_over_outer_shadowing ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 1210 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-f1ec24fa2c934ffd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-bc8c0c365af43007)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-408e8a9e60a132f6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-0df8ad90de0c0240)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-b7aa6bf205b716c5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-0cfc93709568d09e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,19 @@
+# Task 7 anti-pattern scan
+
+Command: `grep -nE "assert!\(\s*true\s*\)|todo!\(|unimplemented!\(|panic!\(\"TODO" tests/integration_e2e`
+Result: no matches found
+
+Command: `grep -nE "assert!\(\s*true\s*\)|todo!\(|unimplemented!\(|panic!\(\"TODO" src/type_system/tests.rs`
+Result: no matches found
+
+Command: `grep -nE "#\[ignore\]|test\.skip\(|it\.skip\(|describe\.skip\(" src/type_system`
+Matches:
+- `src/type_system/test_integration.rs:14` (doc comment text mentioning `#[ignore]`, not an active attribute)
+- `src/type_system/test_integration_ecosystem.rs:4` (doc comment text mentioning `#[ignore]`, not an active attribute)
+
+Guard fixture coverage sanity:
+- `tests/integration_e2e/guard_stmt.rs` contains compile-fail assertions for:
+  - `guard-stmt-print-only`
+  - `guard-stmt-ignored-alias`
+  - `guard-stmt-only-propagate`
+  - `guard-stmt-return-err-banned`

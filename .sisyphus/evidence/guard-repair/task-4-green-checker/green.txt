@@ -1,0 +1,17 @@
+# Task 4 GREEN aggregate
+
+## build
+
+```text
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+```
+
+## guard integration
+
+Captured in: `guard-integration-green.txt`
+- Result: `test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 120 filtered out`
+
+## guard unit
+
+Captured in: `guard-unit-green.txt`
+- Result: `test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 1210 filtered out`

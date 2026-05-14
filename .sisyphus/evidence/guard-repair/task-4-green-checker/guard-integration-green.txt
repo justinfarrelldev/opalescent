@@ -1,0 +1,59 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-a78f5a55e4e32ce5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1221 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-3851ea484802c5ad)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-be9371b00ff8c799)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-84b03c5f67d4c8de)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+
+running 16 tests
+test tests::guard_stmt::guard_stmt_ignored_alias_project_emits_missing_terminal_diagnostic ... ok
+test tests::guard_stmt::delete_downloads_project_emits_missing_terminal_diagnostic ... ok
+test tests::guard_stmt::delete_downloads_legal_project_emits_missing_terminal_diagnostic ... ok
+test tests::guard_stmt::delete_downloads_strict_legal_project_emits_missing_terminal_diagnostic ... ok
+test tests::guard_stmt::guard_stmt_print_only_project_emits_missing_terminal_diagnostic ... ok
+test tests::guard_stmt::guard_stmt_return_err_banned_project_emits_return_err_diagnostic ... ok
+test tests::guard_stmt::guard_stmt_success_binding_leak_project_emits_scope_diagnostic ... ok
+test tests::guard_stmt::guard_stmt_only_propagate_project_emits_shorthand_guidance ... ok
+test tests::guard_stmt::delete_downloads_strict_project_emits_missing_terminal_diagnostic ... ok
+test tests::guard_stmt::guard_stmt_wrapper_invalid_shadowed_project_emits_wrapper_source_diagnostic ... ok
+test tests::guard_stmt::guard_stmt_wrapper_invalid_alias_project_emits_wrapper_source_diagnostic ... ok
+test tests::guard_stmt::guard_stmt_wrapper_invalid_missing_source_project_emits_wrapper_source_diagnostic ... ok
+test tests::guard_stmt::guard_stmt_propagate_call_valid_project_compiles_links_and_runs ... ok
+test tests::guard_stmt::guard_stmt_typed_binding_project_compiles_links_and_runs ... ok
+test tests::guard_stmt::guard_stmt_propagate_err_project_compiles_links_and_runs ... ok
+test tests::guard_stmt::guard_stmt_wrapper_valid_project_compiles_links_and_runs ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 120 filtered out; finished in 0.48s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-f306110fffdda8f2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+

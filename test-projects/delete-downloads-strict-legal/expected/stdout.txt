@@ -1,0 +1,2 @@
+STRICT_LEGAL_LIST_ERR=handled-before-propagate
+STRICT_LEGAL_PROPAGATED=outer-guard

@@ -1,0 +1,74 @@
+=== delete-downloads ===
+opalescent::guard::missing_terminal
+
+  × `guard` clause is missing a terminal error-handling expression
+    ╭─[src/main.op:11:9]
+10 │         print('LIST_ERR={err}')
+11 │         return void
+   ·         ─────┬─────
+   ·              ╰── guard clause missing terminal expression
+12 │ 
+    ╰────
+  help: End the guard clause with a terminal `return`, `propagate`, or equivalent error-handling expression
+
+error: aborting due to 1 previous error
+
+=== delete-downloads-strict ===
+opalescent::guard::missing_terminal
+
+  × `guard` clause is missing a terminal error-handling expression
+    ╭─[src/main.op:11:9]
+10 │         print('LIST_ERR={err}')
+11 │         return void
+   ·         ─────┬─────
+   ·              ╰── guard clause missing terminal expression
+12 │ 
+    ╰────
+  help: End the guard clause with a terminal `return`, `propagate`, or equivalent error-handling expression
+
+error: aborting due to 1 previous error
+
+=== guard-stmt-ignored-alias ===
+opalescent::guard::missing_terminal
+
+  × `guard` clause is missing a terminal error-handling expression
+    ╭─[test-projects/guard-stmt-ignored-alias/src/main.op:9:9]
+  8 │         let _ignored_parse_err = err
+  9 │         return void
+    ·         ─────┬─────
+    ·              ╰── guard clause missing terminal expression
+ 10 │     print('UNEXPECTED_SUCCESS')
+    ╰────
+  help: End the guard clause with a terminal `return`, `propagate`, or equivalent error-handling expression
+
+error: aborting due to 1 previous error
+
+=== guard-stmt-only-propagate ===
+opalescent::guard::shorthand_required
+
+  × `guard` shorthand is required in this context
+   ╭─[test-projects/guard-stmt-only-propagate/src/main.op:8:9]
+ 7 │     guard string_to_int32(text) into value: int32 else err =>
+ 8 │         propagate err
+   ·         ──────┬──────
+   ·               ╰── guard shorthand required here
+ 9 │     return value
+   ╰────
+  help: Provide the required shorthand guard form for this expression shape
+
+error: aborting due to 1 previous error
+
+=== guard-stmt-return-err-banned ===
+opalescent::guard::return_err_invalid
+
+  × `return err` is not valid in a guard error clause
+   ╭─[test-projects/guard-stmt-return-err-banned/src/main.op:8:9]
+ 7 │     guard string_to_int32('bad') into value: int32 else err =>
+ 8 │         return err
+   ·         ─────┬────
+   ·              ╰── `return err` is not allowed here
+ 9 │     print('UNEXPECTED_SUCCESS={value}')
+   ╰────
+  help: Use `propagate err` to forward the error, or return a concrete recovery value instead
+
+error: aborting due to 1 previous error

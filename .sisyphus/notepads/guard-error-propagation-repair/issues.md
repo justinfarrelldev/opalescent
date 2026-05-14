@@ -1,0 +1,3 @@
+- 2026-05-13 F4 audit issue: `.sisyphus/evidence/guard-repair/task-8-final-gate/git-status.txt` records a dirty tree, so evidence is not sealed per the repair plan.
+- 2026-05-13 F4 audit issue: wrapper-return support/coverage appears in the repair history (`457e3d7`) despite the repair plan narrowing wrapper drift to follow-up only.
+- 2026-05-13 (F3 QA): No QA mismatches detected; all required guard-related markers present in targeted and full-suite runs.

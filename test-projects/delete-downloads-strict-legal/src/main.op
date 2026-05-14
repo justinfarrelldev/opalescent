@@ -1,0 +1,24 @@
+import path_from, path_to_string, string_to_int32 from standard
+
+##
+  Description: Legal strict guard propagation fixture that logs a deterministic failure before forwarding it.
+##
+let count_download_entries = f(folder_raw: string): int32 errors ParseError =>
+    let folder = path_from(folder_raw)
+    guard string_to_int32(path_to_string(folder)) into entry_count: int32 else err =>
+        print('STRICT_LEGAL_LIST_ERR=handled-before-propagate')
+        propagate err
+    return entry_count
+
+##
+  Description: Entry point proving strict legal delete-download sibling preserves runtime coverage.
+##
+entry main = f(args: string[]): void =>
+    let counted: int32 = guard count_download_entries('C:\\Users\\justi\\Downloads') into value: int32 else 0
+
+    if counted is 0:
+        print('STRICT_LEGAL_PROPAGATED=outer-guard')
+        return void
+
+    print('UNEXPECTED_STRICT_LEGAL_DELETE_SUCCESS')
+    return void

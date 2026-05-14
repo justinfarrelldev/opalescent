@@ -1,0 +1,37 @@
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.28s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-fd03e2071514addc)
+
+running 11 tests
+test type_system::tests::test_guard_error_clause_propagate_err_must_be_terminal ... ok
+
+thread 'type_system::tests::test_guard_error_clause_rejects_print_then_void_return' panicked at src/type_system/tests.rs:3948:10:
+print followed by return void should be rejected: ()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test type_system::tests::test_guard_error_clause_rejects_success_fallback_return ... ok
+
+thread 'type_system::tests::test_guard_error_clause_rejects_alias_only_then_propagate_err' panicked at src/type_system/tests.rs:3799:10:
+alias-only guard handling should be rejected: ()
+test type_system::tests::test_guard_error_clause_rejects_print_then_void_return ... FAILED
+test type_system::tests::test_guard_error_clause_rejects_alias_only_then_propagate_err ... FAILED
+test type_system::tests::test_guard_error_clause_print_then_propagate_err_is_allowed ... ok
+test type_system::tests::test_guard_error_clause_only_propagate_is_rejected ... ok
+test type_system::tests::test_guard_error_clause_return_err_is_rejected ... ok
+test type_system::tests::test_guard_error_clause_rejects_wrapper_return_with_aliased_source ... 
+thread 'type_system::tests::test_guard_error_clause_rejects_discard_only_then_propagate_err' panicked at src/type_system/tests.rs:3876:10:
+discard-only guard handling should be rejected: ()
+ok
+test type_system::tests::test_guard_error_clause_must_handle_or_propagate_bound_error ... ok
+test type_system::tests::test_guard_error_clause_rejects_discard_only_then_propagate_err ... FAILED
+test type_system::tests::test_guard_error_clause_success_binding_does_not_leak_over_outer_shadowing ... ok
+
+failures:
+
+failures:
+    type_system::tests::test_guard_error_clause_rejects_alias_only_then_propagate_err
+    type_system::tests::test_guard_error_clause_rejects_discard_only_then_propagate_err
+    type_system::tests::test_guard_error_clause_rejects_print_then_void_return
+
+test result: FAILED. 8 passed; 3 failed; 0 ignored; 0 measured; 1210 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`
