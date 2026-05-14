@@ -1,0 +1,12 @@
+{
+  "chat.tools.terminal.autoApprove": {
+    "/^cd /home/justi/Projects/opalescent/test-projects/delete-downloads && opal build$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^cd /home/justi/Projects/opalescent/test-projects/delete-downloads && \\./target/program$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
+}
