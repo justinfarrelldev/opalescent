@@ -554,66 +554,68 @@ pub enum TypeError {
         span: SourceSpan,
     },
     /// `guard` was used but the clause cannot terminate with a handled error path.
-    #[error("`guard` clause is missing a terminal error-handling expression")]
+    #[error("named guard error clause does not handle the bound error")]
     #[diagnostic(
         code(opalescent::guard::missing_terminal),
         help(
-            "End the guard clause with a terminal `return`, `propagate`, or equivalent error-handling expression"
+            "A named `else err =>` clause must end by forwarding `err` with `propagate err`, or by returning an error wrapper whose `source` field is exactly `err`. Logging, cleanup, fallback values, and `return void` do not count as handling the error."
         )
     )]
     GuardErrorClauseMissingTerminal {
         /// Source span covering the non-terminal guard clause.
-        #[label("guard clause missing terminal expression")]
+        #[label("this clause exits without propagating or wrapping the bound error")]
         clause_span: SourceSpan,
     },
     /// `propagate` was used as the final guard-handler expression when the guard requires a non-final result.
-    #[error("`propagate` cannot be the final expression in this guard handler")]
+    #[error("`propagate err` must be the final statement of this guard error clause")]
     #[diagnostic(
         code(opalescent::guard::propagate_not_final),
         help(
-            "Add a final handler expression after `propagate`, or restructure the guard so the clause ends with an explicit result"
+            "Move `propagate err` to the end of the `else err =>` body, or use `let value = propagate fallible_call()` when you only want to forward a fallible call outside a guard handler."
         )
     )]
     GuardPropagateErrNotFinal {
         /// Source span covering the final propagate expression.
-        #[label("`propagate` cannot end this guard handler")]
+        #[label("this propagation is not the terminal action for the bound guard error")]
         propagate_span: SourceSpan,
     },
     /// `return err` is invalid in a strict guard error clause.
-    #[error("`return err` is not valid in a guard error clause")]
+    #[error("cannot return a bound guard error directly")]
     #[diagnostic(
         code(opalescent::guard::return_err_invalid),
         help(
-            "Use `propagate err` to forward the error, or return a concrete recovery value instead"
+            "Use `propagate err` to forward the exact bound error, or wrap it explicitly with `return new YourError.Variant: source: err` if the caller expects a higher-level error type."
         )
     )]
     GuardReturnErrInvalid {
         /// Source span of the invalid `return err` statement.
-        #[label("`return err` is not allowed here")]
+        #[label("returning `err` directly loses the required guard propagation shape")]
         return_span: SourceSpan,
     },
     /// Guard wrapper source expression is not a valid strict guard source.
-    #[error("`guard` wrapper source expression is invalid")]
+    #[error("guard error wrapper must use the bound error as its source")]
     #[diagnostic(
         code(opalescent::guard::wrapper_source_invalid),
         help(
-            "Wrap a valid fallible expression or call in `guard` so the wrapper source can be type-checked"
+            "When wrapping a guard error, write the source field as exactly `source: err`. Aliases, shadowed bindings, and unrelated expressions are rejected so the original error flow stays explicit."
         )
     )]
     GuardWrapperSourceInvalid {
         /// Source span of the invalid wrapped source expression.
-        #[label("invalid guard wrapper source")]
+        #[label("expected this wrapper source to be the active guard error binding")]
         source_span: SourceSpan,
     },
     /// Shorthand guard syntax requires an explicit binding or terminal clause in strict mode.
-    #[error("`guard` shorthand is required in this context")]
+    #[error("use shorthand propagation instead of a guard that only rethrows")]
     #[diagnostic(
         code(opalescent::guard::shorthand_required),
-        help("Provide the required shorthand guard form for this expression shape")
+        help(
+            "If the handler only forwards the fallible result, prefer `let value = propagate fallible_call()` over `guard ... else err => propagate err`. Use a named guard only when you add context before the terminal propagation or wrapper return."
+        )
     )]
     GuardShorthandRequired {
         /// Source span where shorthand guard syntax is required.
-        #[label("guard shorthand required here")]
+        #[label("this guard handler only rethrows; shorthand propagation is clearer")]
         span: SourceSpan,
     },
     /// Return statements in the same function use incompatible label shapes.

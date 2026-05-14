@@ -2421,57 +2421,67 @@ fn test_guard_statement_return_err_uses_dedicated_guard_diagnostic() {
         "rendered strict guard diagnostic should include the diagnostic code"
     );
     assert!(
-        rendered.contains("`return err` is not allowed here") || rendered.contains("return err"),
+        rendered.contains("returning `err` directly loses the required guard propagation shape"),
         "rendered strict guard diagnostic should include label text"
     );
 }
 
 #[test]
 fn test_strict_guard_diagnostic_codes_and_labels() {
-    let diagnostics: Vec<(TypeError, &str, &str, &str)> = vec![
+    let diagnostics: Vec<(TypeError, &str, &str, &str, &[&str])> = vec![
         (
             TypeError::GuardErrorClauseMissingTerminal {
                 clause_span: TypeError::span_from_span(test_span()),
             },
             "opalescent::guard::missing_terminal",
-            "End the guard clause with a terminal `return`, `propagate`, or equivalent error-handling expression",
-            "guard clause missing terminal expression",
+            "A named `else err =>` clause must end by forwarding `err` with `propagate err`, or by returning an error wrapper whose `source` field is exactly `err`. Logging, cleanup, fallback values, and `return void` do not count as handling the error.",
+            "this clause exits without propagating or wrapping the bound error",
+            &["propagate err", "source", "return void"],
         ),
         (
             TypeError::GuardPropagateErrNotFinal {
                 propagate_span: TypeError::span_from_span(test_span()),
             },
             "opalescent::guard::propagate_not_final",
-            "Add a final handler expression after `propagate`, or restructure the guard so the clause ends with an explicit result",
-            "`propagate` cannot end this guard handler",
+            "Move `propagate err` to the end of the `else err =>` body, or use `let value = propagate fallible_call()` when you only want to forward a fallible call outside a guard handler.",
+            "this propagation is not the terminal action for the bound guard error",
+            &["propagate err", "fallible_call", "guard handler"],
         ),
         (
             TypeError::GuardReturnErrInvalid {
                 return_span: TypeError::span_from_span(test_span()),
             },
             "opalescent::guard::return_err_invalid",
-            "Use `propagate err` to forward the error, or return a concrete recovery value instead",
-            "`return err` is not allowed here",
+            "Use `propagate err` to forward the exact bound error, or wrap it explicitly with `return new YourError.Variant: source: err` if the caller expects a higher-level error type.",
+            "returning `err` directly loses the required guard propagation shape",
+            &["propagate err", "YourError.Variant", "source"],
         ),
         (
             TypeError::GuardWrapperSourceInvalid {
                 source_span: TypeError::span_from_span(test_span()),
             },
             "opalescent::guard::wrapper_source_invalid",
-            "Wrap a valid fallible expression or call in `guard` so the wrapper source can be type-checked",
-            "invalid guard wrapper source",
+            "When wrapping a guard error, write the source field as exactly `source: err`. Aliases, shadowed bindings, and unrelated expressions are rejected so the original error flow stays explicit.",
+            "expected this wrapper source to be the active guard error binding",
+            &["source", "Aliases", "original error flow"],
         ),
         (
             TypeError::GuardShorthandRequired {
                 span: TypeError::span_from_span(test_span()),
             },
             "opalescent::guard::shorthand_required",
-            "Provide the required shorthand guard form for this expression shape",
-            "guard shorthand required here",
+            "If the handler only forwards the fallible result, prefer `let value = propagate fallible_call()` over `guard ... else err => propagate err`. Use a named guard only when you add context before the terminal propagation or wrapper return.",
+            "this guard handler only rethrows; shorthand propagation is clearer",
+            &[
+                "propagate fallible_call",
+                "guard ... else err",
+                "named guard",
+            ],
         ),
     ];
 
-    for (error, expected_code, expected_help, expected_label) in diagnostics {
+    for (error, expected_code, expected_help, expected_label, rendered_help_snippets) in diagnostics
+    {
         assert_eq!(
             error
                 .code()
@@ -2499,10 +2509,12 @@ fn test_strict_guard_diagnostic_codes_and_labels() {
             rendered.contains(expected_code),
             "rendered strict guard diagnostic should include its diagnostic code"
         );
-        assert!(
-            rendered.contains(expected_help),
-            "rendered strict guard diagnostic should include its help text"
-        );
+        for snippet in rendered_help_snippets {
+            assert!(
+                rendered.contains(snippet),
+                "rendered strict guard diagnostic should include help snippet `{snippet}`"
+            );
+        }
         assert!(
             rendered.contains(expected_label),
             "rendered strict guard diagnostic should include its label text"
