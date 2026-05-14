@@ -3,12 +3,13 @@ use super::{
     compile_runtime_c_to_obj_with_policy, compile_to_module, compile_to_module_for_target,
     emit_object_file, link_object_files_with_policy,
 };
-use crate::build_system::targets::parse_target_triple;
+use crate::build_system::targets::{TargetTriple, parse_target_triple};
 use crate::compiler::compiler_helpers::{
     compile_checked_program_to_module, parse_source_to_program,
 };
 use crate::errors::reporter::CompilerError;
 use crate::type_system::checker::TypeChecker;
+use crate::type_system::errors::TypeError;
 use inkwell::context::Context;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
@@ -327,6 +328,56 @@ fn runtime_source_includes_runtime_and_rc_symbols_exactly_once() {
     assert!(
         RUNTIME_SOURCE.contains("void opal_rc_drop_iterative(void *root_obj)"),
         "embedded runtime source should include opal_rc.c iterative drop implementation"
+    );
+}
+
+#[test]
+fn compile_project_type_errors_return_miette_report() {
+    let temp_dir = tempfile::tempdir().expect("create temp project");
+    let src_dir = temp_dir.path().join("src");
+    std::fs::create_dir_all(&src_dir).expect("create src dir");
+    std::fs::write(
+        temp_dir.path().join("opal.toml"),
+        "name = \"guard-diagnostic\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("write opal.toml");
+    let source = "import string_to_int32 from standard\n\n##\n  Description: Entry strict guard diagnostic sample\n##\nentry main = f(args: string[]): void =>\n    guard string_to_int32('bad') into value: int32 else err =>\n        return err\n    print('UNEXPECTED_SUCCESS={value}')\n    return void\n";
+    std::fs::write(src_dir.join("main.op"), source).expect("write main source");
+
+    let target = TargetTriple::host();
+    let result = super::compile_project_with_run_policy(
+        temp_dir.path(),
+        &temp_dir.path().join("target"),
+        &target,
+        CompileRunPolicy::default(),
+    );
+
+    assert!(
+        matches!(result, Err(CompileError::Report { .. })),
+        "project type errors should return a miette report, got {result:?}"
+    );
+    let Err(CompileError::Report {
+        report,
+        normalized_source,
+    }) = result
+    else {
+        unreachable!("result shape checked above")
+    };
+
+    assert_eq!(
+        normalized_source,
+        source.replace('\t', "    "),
+        "project report should preserve the failing module source for miette rendering"
+    );
+    assert!(
+        report.entries().iter().any(|entry| matches!(
+            entry,
+            &(
+                _,
+                CompilerError::TypeChecker(TypeError::GuardReturnErrInvalid { .. })
+            )
+        )),
+        "project report should retain the guard TypeError diagnostic"
     );
 }
 

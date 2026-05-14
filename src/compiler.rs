@@ -705,6 +705,7 @@ pub fn compile_project_with_run_policy(
         .map_err(CompileError::Type)?;
 
     let mut parsed_programs: BTreeMap<PathBuf, Program> = BTreeMap::new();
+    let mut module_sources: BTreeMap<PathBuf, String> = BTreeMap::new();
     for module_path in &discovered_module_paths {
         let module_source = module_loader
             .get_module_source(module_path)
@@ -720,6 +721,7 @@ pub fn compile_project_with_run_policy(
             });
         }
         parsed_programs.insert(module_path.clone(), program);
+        module_sources.insert(module_path.clone(), module_source);
     }
 
     let mut discovered_interfaces = BTreeMap::new();
@@ -753,8 +755,16 @@ pub fn compile_project_with_run_policy(
                     .collect()
             };
 
-            if let Some(first_error) = filtered_errors.into_iter().next() {
-                return Err(CompileError::Type(first_error));
+            if !filtered_errors.is_empty() {
+                let mut report = CompilationErrorReport::new();
+                report.extend_type_errors(filtered_errors);
+                let normalized_source = module_sources
+                    .get(first_module_path)
+                    .map_or_else(String::new, |source| source.replace('\t', "    "));
+                return Err(CompileError::Report {
+                    report,
+                    normalized_source,
+                });
             }
         }
 
@@ -828,8 +838,16 @@ pub fn compile_project_with_run_policy(
                     .collect()
             };
 
-            if let Some(first_error) = filtered_errors.into_iter().next() {
-                return Err(CompileError::Type(first_error));
+            if !filtered_errors.is_empty() {
+                let mut report = CompilationErrorReport::new();
+                report.extend_type_errors(filtered_errors);
+                let normalized_source = module_sources
+                    .get(module_path)
+                    .map_or_else(String::new, |source| source.replace('\t', "    "));
+                return Err(CompileError::Report {
+                    report,
+                    normalized_source,
+                });
             }
         }
 
