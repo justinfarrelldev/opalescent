@@ -1,3 +1,5 @@
+a0ca5fb docs(notes): append guard-repair evidence learnings
+dbfc963 docs(evidence): repair guard-repair verification artifacts
 6a41a60 chore(guard): finalize verification wave closure
 e9cc329 feat(guard): finalize strict handler fixtures and verification evidence
 13990c9 fix(test-harness): freeze-fix snapshot and lint unblock
@@ -26,5 +28,3 @@ a13c799 docs(readme): update Windows environment variable configuration and add 
 84a67f5 feat(windows): add new issues related to Windows file system operations
 a57c48b chore(sisyphus): sync tracker metadata and map evidence
 ea6a3b2 chore(array): commit remaining fixtures and evidence artifacts
-6409b81 fix(checker): enforce mutable array receiver for push/pop
-f3d066a feat(array): support double arrays
