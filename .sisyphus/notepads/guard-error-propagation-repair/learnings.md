@@ -1,3 +1,5 @@
 - 2026-05-13 F4 audit: `type_check_guard_error_clause_statements` now enforces the plan’s real-handling + final `propagate err` predicate via `guard_clause_prelude_has_real_handling` and `type_check_guard_error_propagate_terminal`.
 - 2026-05-13 F4 audit: ordinary shorthand `propagate <fallible_call>()` remained covered by `guard_stmt_propagate_call_valid_project_compiles_links_and_runs`.
 - 2026-05-13 (F3 QA): `cargo test --features integration guard_stmt -- --nocapture` and `cargo test --all-features` both passed; targeted guard diagnostics and legal sibling behavioral checks remain stable.
+- 2026-05-14 Evidence repair: Task 2 now has sealed `sha.txt` + `git-status.txt`; Task 4 has required `green.txt`; Task 6 diagnostics include alias/discard, only-propagate, and return-err rendered outputs.
+- 2026-05-14 Evidence repair: Task 7 no-skip and anti-pattern scans now contain concrete command outputs and explicit results.
