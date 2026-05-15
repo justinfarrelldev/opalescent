@@ -13,23 +13,23 @@ This proposal adds small terminal helpers that map to ANSI escape sequences wher
 ## Proposed API
 
 ```opal
-# terminal_clear_screen(): void
-# terminal_move_cursor(row: int32, column: int32): void
-# terminal_hide_cursor(): void
-# terminal_show_cursor(): void
+# terminal_clear_screen_sync(): void
+# terminal_move_cursor_sync(row: int32, column: int32): void
+# terminal_hide_cursor_sync(): void
+# terminal_show_cursor_sync(): void
 ```
 
 ## Syntax Design
 
 ```opal
-import terminal_clear_screen, terminal_move_cursor, terminal_hide_cursor, terminal_show_cursor from standard
+import terminal_clear_screen_sync, terminal_move_cursor_sync, terminal_hide_cursor_sync, terminal_show_cursor_sync from standard
 
 let draw_at_top = f(frame: string): void =>
-    terminal_hide_cursor()
-    terminal_move_cursor(1 as int32, 1 as int32)
-    terminal_clear_screen()
+    terminal_hide_cursor_sync()
+    terminal_move_cursor_sync(1 as int32, 1 as int32)
+    terminal_clear_screen_sync()
     print(frame)
-    terminal_show_cursor()
+    terminal_show_cursor_sync()
     return void
 ```
 

@@ -14,7 +14,7 @@ Animation needs a timing primitive. The simplest option is a blocking sleep func
 
 ## Recommendation
 
-Start with `sleep_ms(milliseconds: int32): void`. Add `FrameClock` later for smooth animation and deterministic examples.
+Start with `sleep_ms_sync(milliseconds: int32): void`. Add `FrameClock` later for smooth animation and deterministic examples.
 
 ## Research Notes
 

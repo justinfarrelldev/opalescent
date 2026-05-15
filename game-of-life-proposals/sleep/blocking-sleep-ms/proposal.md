@@ -2,7 +2,7 @@
 
 ## Overview
 
-This proposal adds a simple blocking `sleep_ms` function. It pauses the current thread for at least the requested duration.
+This proposal adds a simple blocking `sleep_ms_sync` function. It pauses the current thread for at least the requested duration.
 
 ## Assumes
 
@@ -13,19 +13,19 @@ This proposal adds a simple blocking `sleep_ms` function. It pauses the current 
 ## Proposed API
 
 ```opal
-# sleep_ms(milliseconds: int32): void
+# sleep_ms_sync(milliseconds: int32): void
 ```
 
 ## Syntax Design
 
 ```opal
-import sleep_ms from standard
+import sleep_ms_sync from standard
 
 let run_generations = f(count: int32): void =>
     let mutable generation: int32 = 0
     while generation < count:
         print('generation {generation}')
-        sleep_ms(100 as int32)
+        sleep_ms_sync(100 as int32)
         generation = generation + (1 as int32)
     return void
 ```

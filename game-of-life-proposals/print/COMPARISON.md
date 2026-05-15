@@ -14,7 +14,7 @@ Current `print` is line-oriented and works well for diagnostics, tests, and simp
 
 ## Recommendation
 
-Add `print_text` and `flush_output` first. Keep current `print` as newline-oriented because it is heavily used by fixtures. Add writer sinks after terminal capabilities and file output share a common design.
+Add `print_text` and `flush_standard_output_sync` first. Keep current `print` as newline-oriented because it is heavily used by fixtures. Add writer sinks after terminal capabilities and file output share a common design.
 
 ## Existing Syntax Anchor
 

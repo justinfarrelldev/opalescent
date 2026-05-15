@@ -10,19 +10,19 @@ Prior art includes C `fputs` and `fflush`, Rust `write!` plus `flush`, Python `p
 
 - Existing `print` remains newline-oriented.
 - `print_text` accepts only `string`; other values can use interpolation.
-- `flush_output` flushes stdout or the active process output sink.
+- `flush_standard_output_sync` flushes stdout or the active process output sink.
 
 ## Proposed API
 
 ```opal
 # print_text(value: string): void
-# flush_output(): void
+# flush_standard_output_sync(): void
 ```
 
 ## Syntax Design
 
 ```opal
-import print_text, flush_output from standard
+import print_text, flush_standard_output_sync from standard
 
 let print_row = f(row: int32[]): void =>
     let mutable column: int64 = 0
@@ -33,7 +33,7 @@ let print_row = f(row: int32[]): void =>
             print_text('.')
         column = column + 1
     print_text('\n')
-    flush_output()
+    flush_standard_output_sync()
     return void
 ```
 

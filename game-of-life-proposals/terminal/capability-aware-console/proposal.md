@@ -17,22 +17,22 @@ Prior art includes terminfo/ncurses, Rust terminal crates, Node TTY checks, and 
 ```opal
 # terminal_open_stdout(): Terminal
 # terminal_supports_ansi(terminal: Terminal): boolean
-# terminal_clear(terminal: Terminal): void
-# terminal_write(terminal: Terminal, text: string): void
-# terminal_flush(terminal: Terminal): void
+# terminal_clear_sync(terminal: Terminal): void
+# terminal_write_sync(terminal: Terminal, text: string): void
+# terminal_flush_sync(terminal: Terminal): void
 ```
 
 ## Syntax Design
 
 ```opal
-import terminal_open_stdout, terminal_supports_ansi, terminal_clear, terminal_write, terminal_flush from standard
+import terminal_open_stdout, terminal_supports_ansi, terminal_clear_sync, terminal_write_sync, terminal_flush_sync from standard
 
 let draw_frame = f(frame: string): void =>
     let terminal = terminal_open_stdout()
     if terminal_supports_ansi(terminal):
-        terminal_clear(terminal)
-    terminal_write(terminal, frame)
-    terminal_flush(terminal)
+        terminal_clear_sync(terminal)
+    terminal_write_sync(terminal, frame)
+    terminal_flush_sync(terminal)
     return void
 ```
 

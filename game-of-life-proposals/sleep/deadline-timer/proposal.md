@@ -16,18 +16,18 @@ This is lower-level than `FrameClock` but more flexible for simulations that sep
 
 ```opal
 # deadline_after_ms(milliseconds: int32): Deadline
-# deadline_wait(deadline: Deadline): void
+# deadline_wait_sync(deadline: Deadline): void
 ```
 
 ## Syntax Design
 
 ```opal
-import deadline_after_ms, deadline_wait from standard
+import deadline_after_ms, deadline_wait_sync from standard
 
 let draw_with_budget = f(board: int32[][]): void =>
     let next_frame = deadline_after_ms(100 as int32)
     print(render_board(board))
-    deadline_wait(next_frame)
+    deadline_wait_sync(next_frame)
     return void
 ```
 
@@ -39,7 +39,7 @@ let draw_with_budget = f(board: int32[][]): void =>
 
 ## Weaknesses
 
-1. Less beginner-friendly than `sleep_ms`.
+1. Less beginner-friendly than `sleep_ms_sync`.
 2. Requires a monotonic timestamp representation.
 3. More opportunities for misuse than a frame clock.
 

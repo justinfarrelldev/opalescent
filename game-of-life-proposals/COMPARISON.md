@@ -11,8 +11,8 @@ The proposals are intentionally standard-library shaped. They do not require new
 | Area | Best Immediate Option | Richer Option | Main Risk | Priority |
 | --- | --- | --- | --- | --- |
 | [String Building](string-building/) | `string_join` and interpolation accumulator | Mutable `StringBuilder` handle | Hidden allocation behavior | High |
-| [Print](print/) | `print_text` plus `flush_output` | Text writer sink | Cross-platform buffering details | High |
-| [Sleep](sleep/) | Blocking `sleep_ms` | Frame clock handle | Timer precision expectations | Medium |
+| [Print](print/) | `print_text` plus `flush_standard_output_sync` | Text writer sink | Cross-platform buffering details | High |
+| [Sleep](sleep/) | Blocking `sleep_ms_sync` | Frame clock handle | Timer precision expectations | Medium |
 | [Terminal](terminal/) | ANSI control functions | Screen buffer renderer | Windows console capabilities | High |
 | [File Loading](file-loading/) | Whole-file plain text loader | Line or RLE loaders | Error taxonomy and format drift | Medium |
 
@@ -28,9 +28,9 @@ The recommendations draw from three sources:
 
 ### Tier 1: Minimal Useful Game of Life
 
-- Add `print_text(value: string): void` and `flush_output(): void`.
-- Add `sleep_ms(milliseconds: int32): void`.
-- Add `terminal_clear_screen()` and `terminal_move_cursor(row: int32, column: int32)`.
+- Add `print_text(value: string): void` and `flush_standard_output_sync(): void`.
+- Add `sleep_ms_sync(milliseconds: int32): void`.
+- Add `terminal_clear_screen_sync()` and `terminal_move_cursor_sync(row: int32, column: int32)`.
 - Add `string_join(lines: string[], separator: string): string`.
 
 This gets a pleasant animated terminal Life with very little compiler work.

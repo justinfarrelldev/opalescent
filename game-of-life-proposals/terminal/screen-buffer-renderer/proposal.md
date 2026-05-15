@@ -15,14 +15,14 @@ This is the most ergonomic option for grid simulations because the application t
 ## Proposed API
 
 ```opal
-# terminal_draw_rows(rows: string[]): void
-# terminal_draw_rows_at(row: int32, column: int32, rows: string[]): void
+# terminal_draw_rows_sync(rows: string[]): void
+# terminal_draw_rows_at_sync(row: int32, column: int32, rows: string[]): void
 ```
 
 ## Syntax Design
 
 ```opal
-import terminal_draw_rows from standard
+import terminal_draw_rows_sync from standard
 
 let draw_board = f(board: int32[][]): void =>
     let mutable rows: string[] = []
@@ -30,7 +30,7 @@ let draw_board = f(board: int32[][]): void =>
     while row_index < board.length:
         rows.push(render_row(board[row_index]))
         row_index = row_index + 1
-    terminal_draw_rows(rows)
+    terminal_draw_rows_sync(rows)
     return void
 ```
 

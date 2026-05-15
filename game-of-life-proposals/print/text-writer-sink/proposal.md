@@ -16,20 +16,20 @@ Prior art includes Rust `Write`, Go `io.Writer`, Java `Writer`, and dependency-i
 
 ```opal
 # stdout_writer(): TextWriter
-# writer_write(writer: TextWriter, value: string): void
-# writer_flush(writer: TextWriter): void
+# writer_write_sync(writer: TextWriter, value: string): void
+# writer_flush_sync(writer: TextWriter): void
 ```
 
 ## Syntax Design
 
 ```opal
-import stdout_writer, writer_write, writer_flush from standard
+import stdout_writer, writer_write_sync, writer_flush_sync from standard
 
 let draw_frame = f(board: int32[][]): void =>
     let writer = stdout_writer()
     let frame = render_board(board)
-    writer_write(writer, frame)
-    writer_flush(writer)
+    writer_write_sync(writer, frame)
+    writer_flush_sync(writer)
     return void
 ```
 
