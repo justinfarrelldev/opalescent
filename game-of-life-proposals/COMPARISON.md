@@ -4,7 +4,7 @@
 
 These proposals cover the small standard-library and runtime additions that would make Conway's Game of Life pleasant to write in Opalescent. The current language already has enough core syntax for a terminal version: arrays, mutable locals, loops, guards, file reads, interpolation, and `print` are all exercised in `test-projects/` fixtures. The missing pieces are mostly ergonomic APIs around text building, output control, timing, terminal drawing, and pattern loading.
 
-The proposals are intentionally standard-library shaped. They do not require new grammar. All examples use existing Opalescent syntax: imports at the top, colon blocks, `guard ... else err =>`, mutable locals, arrays, `.push`, `.length`, and explicit `return void`.
+The proposals are intentionally standard-library shaped. They do not require new grammar. All examples use existing Opalescent syntax: imports at the top, colon blocks, `guard ... else err =>`, `propagate`, mutable locals, arrays, `.push`, `.length`, and explicit `return void`. Side-effecting host operations are fallible where the host can reject, interrupt, or fail them; the examples must not ignore those failures.
 
 ## Quick Comparison
 
@@ -28,9 +28,9 @@ The recommendations draw from three sources:
 
 ### Tier 1: Minimal Useful Game of Life
 
-- Add `print_text(value: string): void` and `flush_standard_output_sync(): void`.
-- Add `sleep_ms_sync(milliseconds: int32): void`.
-- Add `terminal_clear_screen_sync()` and `terminal_move_cursor_sync(row: int32, column: int32)`.
+- Add `print_text(value: string): void errors WriteFailureError, SinkClosedError` and `flush_standard_output_sync(): void errors FlushFailureError, SinkClosedError`.
+- Add `sleep_ms_sync(milliseconds: int32): void errors InvalidDurationError`.
+- Add `terminal_clear_screen_sync(): void errors UnsupportedTerminalError, OutputNotTerminalError, ControlWriteFailureError` and `terminal_move_cursor_sync(row: int32, column: int32): void errors UnsupportedTerminalError, OutputNotTerminalError, InvalidCursorPositionError, ControlWriteFailureError`.
 - Add `string_join(lines: string[], separator: string): string`.
 
 This gets a pleasant animated terminal Life with very little compiler work.
@@ -40,6 +40,7 @@ This gets a pleasant animated terminal Life with very little compiler work.
 - Add a `StringBuilder` handle or equivalent mutable text buffer.
 - Add a `FrameClock` helper for stable animation cadence.
 - Add a capability-aware terminal handle so Windows and redirected output are handled explicitly.
+- Keep output, terminal, and timing failures typed so programs must handle or propagate them.
 
 This makes larger boards and repeated rendering much cleaner.
 

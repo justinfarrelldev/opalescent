@@ -8,12 +8,16 @@ This proposal adds a simple blocking `sleep_ms_sync` function. It pauses the cur
 
 - Opalescent remains synchronous by default.
 - Millisecond precision is enough for terminal demos.
-- Negative durations are rejected at compile time when constant or trapped/reported at runtime otherwise.
+- Negative durations are rejected at compile time when constant or reported as typed errors at runtime otherwise.
+
+## Error Types
+
+- `InvalidDurationError`: emitted when the duration is negative or too large for the host timer.
 
 ## Proposed API
 
 ```opal
-# sleep_ms_sync(milliseconds: int32): void
+# sleep_ms_sync(milliseconds: int32): void errors InvalidDurationError
 ```
 
 ## Syntax Design
@@ -21,11 +25,11 @@ This proposal adds a simple blocking `sleep_ms_sync` function. It pauses the cur
 ```opal
 import sleep_ms_sync from standard
 
-let run_generations = f(count: int32): void =>
+let run_generations = f(count: int32): void errors InvalidDurationError =>
     let mutable generation: int32 = 0
     while generation < count:
         print('generation {generation}')
-        sleep_ms_sync(100 as int32)
+        propagate sleep_ms_sync(100 as int32)
         generation = generation + (1 as int32)
     return void
 ```
@@ -54,3 +58,4 @@ let run_generations = f(count: int32): void =>
 - No async/deferred semantics in the first version.
 - No busy-wait loop implementation.
 - No sub-millisecond promise.
+- No ignored invalid-duration failures.

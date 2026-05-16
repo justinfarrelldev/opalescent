@@ -2,7 +2,7 @@
 
 ## Overview
 
-A polished terminal Game of Life needs to clear the screen, move the cursor, and redraw in place. The design must work on Linux/macOS terminals, modern Windows consoles, and redirected output.
+A polished terminal Game of Life needs to clear the screen, move the cursor, and redraw in place. The design must work on Linux/macOS terminals, modern Windows consoles, and redirected output. Unsupported terminals and failed control writes should be flat typed errors such as `UnsupportedTerminalError` and `ControlWriteFailureError`, not silent no-ops.
 
 ## Summary Matrix
 
@@ -14,7 +14,7 @@ A polished terminal Game of Life needs to clear the screen, move the cursor, and
 
 ## Recommendation
 
-Start with direct terminal functions, but document that they are no-ops or return errors when output is not an interactive terminal. Move to a capability-aware console before adding richer UI features.
+Start with direct terminal functions that return flat terminal errors when output is not an interactive terminal or control writes fail. Move to a capability-aware console before adding richer UI features so programs can choose animation, scrolling output, or a clear failure path explicitly.
 
 ## Research Notes
 

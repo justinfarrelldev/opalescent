@@ -2,7 +2,7 @@
 
 ## Overview
 
-Animation needs a timing primitive. The simplest option is a blocking sleep function. More polished games need frame pacing that accounts for render time and timer precision.
+Animation needs a timing primitive. The simplest option is a blocking sleep function. More polished games need frame pacing that accounts for render time and timer precision. Invalid durations, invalid frame rates, and host timer failures should be flat typed errors.
 
 ## Summary Matrix
 
@@ -14,7 +14,7 @@ Animation needs a timing primitive. The simplest option is a blocking sleep func
 
 ## Recommendation
 
-Start with `sleep_ms_sync(milliseconds: int32): void`. Add `FrameClock` later for smooth animation and deterministic examples.
+Start with `sleep_ms_sync(milliseconds: int32): void errors InvalidDurationError`. Add `FrameClock` later for smooth animation and deterministic examples; its constructor should reject invalid frame rates and its wait operation should report `TimerUnavailableError` or `TimerWaitFailureError`.
 
 ## Research Notes
 

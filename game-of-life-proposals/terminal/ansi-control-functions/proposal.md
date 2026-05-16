@@ -7,29 +7,38 @@ This proposal adds small terminal helpers that map to ANSI escape sequences wher
 ## Assumes
 
 - Functions write to stdout or the active terminal output stream.
-- Unsupported terminals either return a typed error or degrade safely.
+- Unsupported terminals return a typed error; callers that want fallback behavior should use capability-aware terminal APIs.
 - Coordinates are 1-based, matching common ANSI cursor addressing.
+- Terminal control failures are reported as typed errors.
+
+## Error Types
+
+- `UnsupportedTerminalError`: emitted when the active terminal cannot support the requested control operation.
+- `OutputNotTerminalError`: emitted when output is redirected or otherwise not attached to a terminal.
+- `InvalidCursorPositionError`: emitted when row or column values are outside the supported terminal coordinate range.
+- `ControlWriteFailureError`: emitted when writing a terminal control sequence fails.
+
+Examples that also write frame text use `WriteFailureError`, `FlushFailureError`, and `SinkClosedError` from the output proposal.
 
 ## Proposed API
 
 ```opal
-# terminal_clear_screen_sync(): void
-# terminal_move_cursor_sync(row: int32, column: int32): void
-# terminal_hide_cursor_sync(): void
-# terminal_show_cursor_sync(): void
+# terminal_clear_screen_sync(): void errors UnsupportedTerminalError, OutputNotTerminalError, ControlWriteFailureError
+# terminal_move_cursor_sync(row: int32, column: int32): void errors UnsupportedTerminalError, OutputNotTerminalError, InvalidCursorPositionError, ControlWriteFailureError
+# terminal_hide_cursor_sync(): void errors UnsupportedTerminalError, OutputNotTerminalError, ControlWriteFailureError
+# terminal_show_cursor_sync(): void errors UnsupportedTerminalError, OutputNotTerminalError, ControlWriteFailureError
 ```
 
 ## Syntax Design
 
 ```opal
-import terminal_clear_screen_sync, terminal_move_cursor_sync, terminal_hide_cursor_sync, terminal_show_cursor_sync from standard
+import print_text, flush_standard_output_sync, terminal_clear_screen_sync, terminal_move_cursor_sync from standard
 
-let draw_at_top = f(frame: string): void =>
-    terminal_hide_cursor_sync()
-    terminal_move_cursor_sync(1 as int32, 1 as int32)
-    terminal_clear_screen_sync()
-    print(frame)
-    terminal_show_cursor_sync()
+let draw_at_top = f(frame: string): void errors UnsupportedTerminalError, OutputNotTerminalError, InvalidCursorPositionError, ControlWriteFailureError, WriteFailureError, FlushFailureError, SinkClosedError =>
+    propagate terminal_move_cursor_sync(1 as int32, 1 as int32)
+    propagate terminal_clear_screen_sync()
+    propagate print_text(frame)
+    propagate flush_standard_output_sync()
     return void
 ```
 
@@ -57,3 +66,4 @@ let draw_at_top = f(frame: string): void =>
 - No hard-coded POSIX-only behavior.
 - No failure to restore the cursor after runtime errors when avoidable.
 - No color API until basic control is stable.
+- No ignored terminal capability or control-write failures.

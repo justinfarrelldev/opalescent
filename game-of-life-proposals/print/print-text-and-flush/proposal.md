@@ -10,13 +10,20 @@ Prior art includes C `fputs` and `fflush`, Rust `write!` plus `flush`, Python `p
 
 - Existing `print` remains newline-oriented.
 - `print_text` accepts only `string`; other values can use interpolation.
+- `print_text` and `flush_standard_output_sync` report output failures as typed errors.
 - `flush_standard_output_sync` flushes stdout or the active process output sink.
+
+## Error Types
+
+- `WriteFailureError`: existing standard-library write failure error, reused for standard-output text writes.
+- `FlushFailureError`: emitted when flushing the standard output sink fails.
+- `SinkClosedError`: emitted when the standard output sink is no longer writable.
 
 ## Proposed API
 
 ```opal
-# print_text(value: string): void
-# flush_standard_output_sync(): void
+# print_text(value: string): void errors WriteFailureError, SinkClosedError
+# flush_standard_output_sync(): void errors FlushFailureError, SinkClosedError
 ```
 
 ## Syntax Design
@@ -24,16 +31,16 @@ Prior art includes C `fputs` and `fflush`, Rust `write!` plus `flush`, Python `p
 ```opal
 import print_text, flush_standard_output_sync from standard
 
-let print_row = f(row: int32[]): void =>
+let print_row = f(row: int32[]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
     let mutable column: int64 = 0
     while column < row.length:
         if row[column] is (1 as int32):
-            print_text('#')
+            propagate print_text('#')
         else:
-            print_text('.')
+            propagate print_text('.')
         column = column + 1
-    print_text('\n')
-    flush_standard_output_sync()
+    propagate print_text('\n')
+    propagate flush_standard_output_sync()
     return void
 ```
 
@@ -61,3 +68,4 @@ let print_row = f(row: int32[]): void =>
 - No change to existing `print` behavior.
 - No implicit flush after every `print_text` call.
 - No overloaded formatting mini-language in the first version.
+- No ignored output or flush failures.

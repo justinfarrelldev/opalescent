@@ -16,6 +16,10 @@ This proposal loads an entire pattern file into a string and parses it in one pa
 # parse_life_text(text: string): int32[][] errors PatternParseError
 ```
 
+## Error Types
+
+- `PatternParseError`: emitted when Life pattern text is malformed; diagnostics should include row and column information when available.
+
 ## Syntax Design
 
 ```opal

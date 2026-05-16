@@ -13,8 +13,12 @@ This proposal adds a Run Length Encoded Life pattern parser. RLE is the common i
 ## Proposed API
 
 ```opal
-# parse_life_rle(text: string): int32[][] errors RlePatternError
+# parse_life_rle(text: string): int32[][] errors PatternParseError
 ```
+
+## Error Types
+
+- `PatternParseError`: emitted when Life pattern text is malformed, including RLE header, run-count, or cell-token errors.
 
 ## Syntax Design
 
@@ -25,7 +29,7 @@ import parse_life_rle from standard
 ##
   Description: Loads an RLE Life seed and prints the parsed board height.
 ##
-entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, RlePatternError =>
+entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, PatternParseError =>
     guard read_text_sync(path_from('patterns/glider.rle')) into text else err =>
         print(err)
         propagate err
@@ -44,7 +48,7 @@ entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedE
 import path_from, read_text_sync from standard
 import parse_life_rle from standard
 
-let print_glider_height = f(): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, RlePatternError =>
+let print_glider_height = f(): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, PatternParseError =>
     guard read_text_sync(path_from('patterns/glider.rle')) into text else err =>
         print(err)
         propagate err

@@ -11,12 +11,19 @@ Prior art includes game-loop fixed timestep clocks, SDL frame delay helpers, and
 - `FrameClock` is an opaque standard-library handle.
 - The clock stores target frame duration and next deadline.
 - `frame_clock_wait_next_sync` blocks until the next frame slot.
+- Invalid frame rates and host timer failures are reported as typed errors.
+
+## Error Types
+
+- `InvalidFrameRateError`: emitted when frames per second is not positive or cannot be represented as a host frame duration.
+- `TimerUnavailableError`: emitted when monotonic time is unavailable.
+- `TimerWaitFailureError`: emitted when waiting for the next frame slot fails.
 
 ## Proposed API
 
 ```opal
-# frame_clock_new(frames_per_second: int32): FrameClock
-# frame_clock_wait_next_sync(clock: FrameClock): void
+# frame_clock_new(frames_per_second: int32): FrameClock errors InvalidFrameRateError
+# frame_clock_wait_next_sync(clock: FrameClock): void errors TimerUnavailableError, TimerWaitFailureError
 ```
 
 ## Syntax Design
@@ -24,12 +31,12 @@ Prior art includes game-loop fixed timestep clocks, SDL frame delay helpers, and
 ```opal
 import frame_clock_new, frame_clock_wait_next_sync from standard
 
-let animate = f(board: int32[][]): void =>
-    let clock = frame_clock_new(10 as int32)
+let animate = f(board: int32[][]): void errors InvalidFrameRateError, TimerUnavailableError, TimerWaitFailureError =>
+    let clock = propagate frame_clock_new(10 as int32)
     let mutable generation: int32 = 0
     while generation < (100 as int32):
         print('generation {generation}')
-        frame_clock_wait_next_sync(clock)
+        propagate frame_clock_wait_next_sync(clock)
         generation = generation + (1 as int32)
     return void
 ```
@@ -58,3 +65,4 @@ let animate = f(board: int32[][]): void =>
 - No wall-clock time for frame pacing.
 - No hidden global frame rate.
 - No skipped update policy in the first version; it only waits.
+- No ignored invalid-frame-rate or timer failures.

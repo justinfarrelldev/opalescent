@@ -11,12 +11,19 @@ This is lower-level than `FrameClock` but more flexible for simulations that sep
 - `Deadline` is an opaque standard-library handle or timestamp value.
 - Deadlines use monotonic time.
 - Waiting an already-expired deadline returns immediately.
+- Invalid durations and host timer failures are reported as typed errors.
+
+## Error Types
+
+- `InvalidDurationError`: emitted when the duration is negative or too large for the host timer.
+- `TimerUnavailableError`: emitted when monotonic time is unavailable.
+- `TimerWaitFailureError`: emitted when waiting for a deadline fails.
 
 ## Proposed API
 
 ```opal
-# deadline_after_ms(milliseconds: int32): Deadline
-# deadline_wait_sync(deadline: Deadline): void
+# deadline_after_ms(milliseconds: int32): Deadline errors InvalidDurationError
+# deadline_wait_sync(deadline: Deadline): void errors TimerUnavailableError, TimerWaitFailureError
 ```
 
 ## Syntax Design
@@ -24,10 +31,10 @@ This is lower-level than `FrameClock` but more flexible for simulations that sep
 ```opal
 import deadline_after_ms, deadline_wait_sync from standard
 
-let draw_with_budget = f(board: int32[][]): void =>
-    let next_frame = deadline_after_ms(100 as int32)
+let draw_with_budget = f(board: int32[][]): void errors InvalidDurationError, TimerUnavailableError, TimerWaitFailureError =>
+    let next_frame = propagate deadline_after_ms(100 as int32)
     print(render_board(board))
-    deadline_wait_sync(next_frame)
+    propagate deadline_wait_sync(next_frame)
     return void
 ```
 
@@ -54,3 +61,4 @@ let draw_with_budget = f(board: int32[][]): void =>
 - No date/time calendar semantics.
 - No wall-clock deadlines for animation.
 - No automatic retry or callback behavior.
+- No ignored invalid-duration or timer failures.

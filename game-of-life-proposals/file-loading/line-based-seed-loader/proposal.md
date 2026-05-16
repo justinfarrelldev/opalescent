@@ -16,6 +16,10 @@ This proposal loads a seed pattern as `string[]` with `read_lines_sync`, then pa
 # parse_life_lines(lines: string[]): int32[][] errors PatternParseError
 ```
 
+## Error Types
+
+- `PatternParseError`: emitted when Life pattern rows are malformed; diagnostics should include row and column information when available.
+
 ## Syntax Design
 
 ```opal

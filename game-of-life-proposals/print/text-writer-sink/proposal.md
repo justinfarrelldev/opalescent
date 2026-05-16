@@ -11,13 +11,20 @@ Prior art includes Rust `Write`, Go `io.Writer`, Java `Writer`, and dependency-i
 - `TextWriter` is an opaque standard-library handle.
 - The default stdout writer is available through `stdout_writer()`.
 - Writer functions are ordinary imported functions, not methods.
+- Writer operations report output failures as typed errors.
+
+## Error Types
+
+- `WriteFailureError`: existing standard-library write failure error, reused for writer text writes.
+- `FlushFailureError`: emitted when flushing a writer fails.
+- `SinkClosedError`: emitted when the writer sink is no longer writable.
 
 ## Proposed API
 
 ```opal
 # stdout_writer(): TextWriter
-# writer_write_sync(writer: TextWriter, value: string): void
-# writer_flush_sync(writer: TextWriter): void
+# writer_write_sync(writer: TextWriter, value: string): void errors WriteFailureError, SinkClosedError
+# writer_flush_sync(writer: TextWriter): void errors FlushFailureError, SinkClosedError
 ```
 
 ## Syntax Design
@@ -25,11 +32,11 @@ Prior art includes Rust `Write`, Go `io.Writer`, Java `Writer`, and dependency-i
 ```opal
 import stdout_writer, writer_write_sync, writer_flush_sync from standard
 
-let draw_frame = f(board: int32[][]): void =>
+let draw_frame = f(board: int32[][]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
     let writer = stdout_writer()
     let frame = render_board(board)
-    writer_write_sync(writer, frame)
-    writer_flush_sync(writer)
+    propagate writer_write_sync(writer, frame)
+    propagate writer_flush_sync(writer)
     return void
 ```
 
@@ -57,3 +64,4 @@ let draw_frame = f(board: int32[][]): void =>
 - No implicit global mutable writer hidden behind the handle.
 - No object method syntax until method-style stdlib APIs are settled.
 - No async writer surface in the first synchronous version.
+- No ignored write or flush failures.
