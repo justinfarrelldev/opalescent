@@ -78,6 +78,7 @@
 mod arithmetic;
 pub mod checker;
 mod constraints;
+pub mod propertyless_constructors;
 mod environment;
 pub mod errors;
 mod memory;

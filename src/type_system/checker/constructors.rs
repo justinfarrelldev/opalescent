@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::collections::BTreeSet;
 
+use crate::type_system::propertyless_constructors::lookup_propertyless_constructor;
 use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::{
     ast::{AstNode, ConstructorField, Expr, TypeDef},
@@ -83,7 +84,7 @@ impl TypeChecker {
         owner_name: &str,
         span: Span,
     ) -> Result<CoreType, TypeError> {
-        if owner_name == "Bytes" {
+        if lookup_propertyless_constructor(owner_name).is_some() {
             return Ok(CoreType::Generic {
                 name: owner_name.to_owned(),
                 type_args: Vec::new(),
@@ -91,7 +92,9 @@ impl TypeChecker {
         }
 
         Err(TypeError::InvalidOperation {
-            operation: "propertyless constructor syntax".to_owned(),
+            operation: format!(
+                "propertyless constructor is not registered for {owner_name}"
+            ),
             type_name: owner_name.to_owned(),
             span: TypeError::span_from_span(span),
         })

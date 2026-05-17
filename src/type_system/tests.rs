@@ -8178,7 +8178,7 @@ return length
 }
 
 #[test]
-fn new_bytes_typechecks_as_bytes() {
+fn propertyless_constructor_accepts_bytes() {
     const SOURCE: &str = "
 entry demo = f(): int32 => {
 let buffer: Bytes = new Bytes
@@ -8214,78 +8214,58 @@ return length
 }
 
 #[test]
-fn propertyless_new_person_rejected() {
+fn propertyless_constructor_rejects_stringbuilder() {
     const SOURCE: &str = "
-type Person:
-    name: string
-
+##
+  Description: Ensure unregistered propertyless constructors are rejected
+##
 entry demo = f(): int32 => {
-let person = new Person
+let builder = new StringBuilder
 return 0
 }
 ";
-    let rejection = reject_source(SOURCE, "new Person without fields must be rejected");
+    let rejection = reject_source(
+        SOURCE,
+        "new StringBuilder without fields must be rejected by type checking",
+    );
     assert!(
         matches!(
             rejection,
-            SourceRejection::Parse(ref errors)
-                if errors.iter().any(|error| matches!(
-                    error,
-                    ParseError::InvalidSyntax { message, .. }
-                        if message.contains("only supported for `Bytes`")
-                ))
+            SourceRejection::Type(ref errors)
+                if errors.iter().any(|error| {
+                    let message = error.to_string();
+                    message.contains("propertyless constructor is not registered for StringBuilder")
+                })
         ),
-        "expected parser rejection for bare new Person, got: {rejection:?}"
+        "expected type-check rejection for bare new StringBuilder, got: {rejection:?}"
     );
 }
 
 #[test]
-fn propertyless_new_variant_rejected() {
+fn propertyless_constructor_rejects_unknown_user_type() {
     const SOURCE: &str = "
-type Message:
-    Text:
-        body: string
+type MyEmptyType:
+    marker: int32
 
-entry demo = f(): int32 => {
-let message = new Message.Text
+let demo = f(): int32 => {
+let value = new MyEmptyType
 return 0
 }
 ";
-    let rejection = reject_source(SOURCE, "new Message.Text without fields must be rejected");
-    assert!(
-        matches!(
-            rejection,
-            SourceRejection::Parse(ref errors)
-                if errors.iter().any(|error| matches!(
-                    error,
-                    ParseError::InvalidSyntax { message, .. }
-                        if message.contains("only supported for `Bytes`")
-                ))
-        ),
-        "expected parser rejection for bare new Message.Text, got: {rejection:?}"
+    let rejection = reject_source(
+        SOURCE,
+        "new MyEmptyType without fields must be rejected by type checking",
     );
-}
-
-#[test]
-fn propertyless_new_lowercase_bytes_rejected() {
-    const SOURCE: &str = "
-entry demo = f(): int32 => {
-let buffer = new bytes
-return 0
-}
-";
-    let rejection = reject_source(SOURCE, "lowercase new bytes must be rejected");
     assert!(
         matches!(
             rejection,
-            SourceRejection::Parse(ref errors)
-                if errors.iter().any(|error| matches!(
-                    error,
-                    ParseError::InvalidSyntax { message, .. }
-                        if message.contains("only supported for `Bytes`")
-                ))
+            SourceRejection::Type(ref errors)
+                if errors.iter().any(|error| {
+                    let message = error.to_string();
+                    message.contains("propertyless constructor is not registered for MyEmptyType")
+                })
         ),
-        "expected parser rejection for lowercase new bytes, got: {rejection:?}"
+        "expected type-check rejection for bare new MyEmptyType, got: {rejection:?}"
     );
 }
 
