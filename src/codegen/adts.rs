@@ -5,6 +5,7 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::types::integer_literal_bits;
+use crate::type_system::propertyless_constructors::lookup_propertyless_constructor;
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
 use alloc::format;
@@ -37,22 +38,31 @@ pub fn codegen_constructor_expression<'context>(
     } = *expr
     {
         if let Expr::Identifier { ref name, .. } = *callee.as_ref() {
-            if name == "Bytes" && fields.is_empty() {
-                let runtime_function = crate::codegen::functions_stdlib::declare_stdlib_function(
-                    codegen_context,
-                    "bytes_new",
-                )
-                .ok_or_else(|| CodegenError::new(String::from("bytes_new declaration missing")))?;
-                let call_site =
-                    codegen_context
-                        .builder
-                        .build_call(runtime_function, &[], &env.next_name("bytes.new.call"))?;
-                let Some(bytes_value) = call_site.try_as_basic_value().basic() else {
-                    return Err(CodegenError::new(String::from(
-                        "bytes_new should return a Bytes pointer value",
-                    )));
-                };
-                return Ok(bytes_value);
+            if fields.is_empty() {
+                if let Some(entry) = lookup_propertyless_constructor(name.as_str()) {
+                    let runtime_function = crate::codegen::functions_stdlib::declare_stdlib_function(
+                        codegen_context,
+                        entry.runtime_function,
+                    )
+                    .ok_or_else(|| {
+                        CodegenError::new(format!(
+                            "{} declaration missing",
+                            entry.runtime_function
+                        ))
+                    })?;
+                    let call_site = codegen_context.builder.build_call(
+                        runtime_function,
+                        &[],
+                        &env.next_name("propertyless.constructor.call"),
+                    )?;
+                    let Some(propertyless_value) = call_site.try_as_basic_value().basic() else {
+                        return Err(CodegenError::new(format!(
+                            "{} should return a value",
+                            entry.runtime_function
+                        )));
+                    };
+                    return Ok(propertyless_value);
+                }
             }
         }
         if matches!(callee.as_ref(), &Expr::Member { .. }) {

@@ -10,6 +10,7 @@ use crate::ast::{Expr, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
+use crate::type_system::propertyless_constructors::lookup_propertyless_constructor;
 use crate::type_system::type_mapping::{AstTypeMappingError, ast_type_to_core_type};
 use crate::type_system::types::CoreType;
 
@@ -85,6 +86,23 @@ pub(super) fn infer_core_type_from_expr<'context>(
                 },
                 _ => CoreType::Int64,
             }
+        }
+        Expr::Constructor {
+            ref callee,
+            ref fields,
+            ..
+        } => {
+            if fields.is_empty() {
+                if let Expr::Identifier { ref name, .. } = **callee {
+                    if lookup_propertyless_constructor(name.as_str()).is_some() {
+                        return CoreType::Generic {
+                            name: name.clone(),
+                            type_args: alloc::vec::Vec::new(),
+                        };
+                    }
+                }
+            }
+            CoreType::Int64
         }
         _ => CoreType::Int64,
     }

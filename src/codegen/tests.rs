@@ -2592,10 +2592,10 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
 // -----------------------------------------------------------------------------
 
 #[test]
-fn new_bytes_codegen_calls_bytes_new() {
+fn codegen_explicit_new_bytes_lowers_to_bytes_new() {
     let source = "
 ##
-    Description: Entry function validates bare new Bytes lowering
+    Description: Entry function validates explicitly typed new Bytes lowering
 ##
 entry main = f(): void => {
     let buffer: Bytes = new Bytes
@@ -2607,7 +2607,7 @@ entry main = f(): void => {
     let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
-        "new Bytes should compile without codegen errors"
+        "explicit new Bytes should compile without codegen errors"
     );
     let Ok(module) = module_result else {
         return;
@@ -2615,11 +2615,76 @@ entry main = f(): void => {
     let ir = module.print_to_string().to_string();
     assert!(
         ir.contains("declare i8* @bytes_new()"),
-        "new Bytes should emit declare i8* @bytes_new(): {ir}"
+        "explicit new Bytes should emit declare i8* @bytes_new(): {ir}"
     );
     assert!(
         ir.contains("call i8* @bytes_new()"),
-        "new Bytes should lower to call i8* @bytes_new(): {ir}"
+        "explicit new Bytes should lower to call i8* @bytes_new(): {ir}"
+    );
+}
+
+#[test]
+fn codegen_inferred_new_bytes_lowers_to_bytes_new() {
+    let source = "
+##
+    Description: Entry function validates inferred new Bytes lowering
+##
+entry main = f(): void => {
+    let buffer = new Bytes
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "inferred new Bytes should compile without codegen errors"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @bytes_new()"),
+        "inferred new Bytes should emit declare i8* @bytes_new(): {ir}"
+    );
+    assert!(
+        ir.contains("call i8* @bytes_new()"),
+        "inferred new Bytes should lower to call i8* @bytes_new(): {ir}"
+    );
+}
+
+#[test]
+fn codegen_inferred_new_bytes_member_access_uses_bytes_type() {
+    let source = "
+##
+    Description: Entry function validates inferred new Bytes member access typing
+##
+entry main = f(): void => {
+    let buffer = new Bytes
+    let len: int32 = buffer.length
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "inferred new Bytes member access should compile without codegen errors"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i32 @bytes_length(i8*)"),
+        "inferred new Bytes member access should emit i32 bytes_length declaration: {ir}"
+    );
+    assert!(
+        ir.contains("call i32 @bytes_length(i8*"),
+        "inferred new Bytes member access should lower to i32 bytes_length call: {ir}"
     );
 }
 
