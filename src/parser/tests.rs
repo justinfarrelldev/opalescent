@@ -6018,7 +6018,7 @@ fn test_closure_block_body_captures() {
 /// produce an [`Expr::Constructor`] node whose callee is the identifier and
 /// whose fields preserve insertion order.
 #[test]
-fn test_new_expression_parses_product_constructor() {
+fn new_expression_with_fields_still_works() {
     let source = "\
 entry main = f(): void =>
     let alice = new Person:
@@ -6060,20 +6060,18 @@ entry main = f(): void =>
     assert_eq!(fields[1].name, "age");
 }
 
-/// Sum-type variant constructors use `Type.Variant` as the callee and parse
-/// into a constructor whose callee is an [`Expr::Member`] node.
+/// Bare member-qualified constructors use `Type.Variant` as the callee and
+/// parse into a constructor whose callee is an [`Expr::Member`] node.
 #[test]
-fn test_new_expression_parses_sum_variant_constructor() {
+fn new_expression_parses_module_qualified() {
     let source = "\
 entry main = f(): void =>
-    let msg = new Message.Text:
-        sender: 'alice'
-        body: 'hello'
+    let msg = new Module.MyOpaque
     return void
 ";
 
     let program = parse_program_from_string(source)
-        .expect("new-expression sum variant constructor should parse");
+        .expect("bare member-qualified constructor should parse");
     let Decl::Function { body, .. } = &program.declarations[0] else {
         panic!("Expected function declaration");
     };
@@ -6096,11 +6094,9 @@ entry main = f(): void =>
     let Expr::Identifier { name, .. } = object.as_ref() else {
         panic!("Expected identifier inside member, got: {object:?}");
     };
-    assert_eq!(name, "Message");
-    assert_eq!(member, "Text");
-    assert_eq!(fields.len(), 2);
-    assert_eq!(fields[0].name, "sender");
-    assert_eq!(fields[1].name, "body");
+    assert_eq!(name, "Module");
+    assert_eq!(member, "MyOpaque");
+    assert!(fields.is_empty(), "bare `new Module.MyOpaque` should have no fields: {fields:?}");
 }
 
 /// A `new Type:` without an indented field block is a parse error — the
@@ -6120,10 +6116,10 @@ entry main = f(): void =>
     );
 }
 
-/// `new Bytes` should parse as a zero-field constructor when assigned to an
+/// Bare `new Bytes` should parse as a zero-field constructor when assigned to an
 /// explicitly typed binding.
 #[test]
-fn bare_new_bytes_parses() {
+fn new_expression_parses_bare_bytes() {
     let source = "\
 entry main = f(): void =>
     let buffer: Bytes = new Bytes
@@ -6131,7 +6127,7 @@ entry main = f(): void =>
 ";
 
     let program = parse_program_from_string(source)
-        .expect("propertyless `new Bytes` should parse with explicit type annotation");
+        .expect("bare `new Bytes` should parse with explicit type annotation");
     let Decl::Function { body, .. } = &program.declarations[0] else {
         panic!("Expected function declaration");
     };
@@ -6146,10 +6142,7 @@ entry main = f(): void =>
     else {
         panic!("Expected let with initializer as first statement, got: {:?}", statements[0]);
     };
-    assert!(
-        binding.type_annotation.is_some(),
-        "expected explicit Bytes annotation"
-    );
+    assert!(binding.type_annotation.is_some(), "expected explicit Bytes annotation");
 
     let Expr::Constructor { callee, fields, .. } = init else {
         panic!("Expected Expr::Constructor, got: {init:?}");
@@ -6159,6 +6152,42 @@ entry main = f(): void =>
     };
     assert_eq!(name, "Bytes");
     assert!(fields.is_empty(), "bare `new Bytes` should have no fields: {fields:?}");
+}
+
+/// Bare `new MyEmptyType` should parse the same way as `new Bytes`: as a
+/// zero-field constructor with an identifier callee.
+#[test]
+fn new_expression_parses_bare_user_type() {
+    let source = "\
+entry main = f(): void =>
+    let value: MyEmptyType = new MyEmptyType
+    return void
+";
+
+    let program = parse_program_from_string(source)
+        .expect("bare `new MyEmptyType` should parse as an empty constructor");
+    let Decl::Function { body, .. } = &program.declarations[0] else {
+        panic!("Expected function declaration");
+    };
+    let Stmt::Block { statements, .. } = body else {
+        panic!("Expected function body block, got: {body:?}");
+    };
+    let Stmt::Let {
+        initializer: Some(init),
+        ..
+    } = &statements[0]
+    else {
+        panic!("Expected let with initializer as first statement, got: {:?}", statements[0]);
+    };
+
+    let Expr::Constructor { callee, fields, .. } = init else {
+        panic!("Expected Expr::Constructor, got: {init:?}");
+    };
+    let Expr::Identifier { name, .. } = callee.as_ref() else {
+        panic!("Expected identifier callee, got: {callee:?}");
+    };
+    assert_eq!(name, "MyEmptyType");
+    assert!(fields.is_empty(), "bare `new MyEmptyType` should have no fields: {fields:?}");
 }
 
 /// `new Bytes` should also parse when the binding type is inferred from the
@@ -6202,10 +6231,30 @@ entry main = f(): void =>
     assert!(fields.is_empty(), "bare `new Bytes` should have no fields: {fields:?}");
 }
 
-/// Propertyless `new Bytes` is a dedicated syntax form and must not be
-/// followed by call parentheses.
+/// Bare constructors allow at most one qualifier segment (`Type` or `Module.Type`).
 #[test]
-fn new_bytes_parens_rejected() {
+fn new_expression_rejects_deep_qualified_chain() {
+    let source = "\
+entry main = f(): void =>
+    let value = new A.B.C
+    return void
+";
+
+    let errors = parse_program_from_string(source)
+        .expect_err("deep constructor qualification should be rejected by the parser");
+    assert!(
+        errors.iter().any(|error| matches!(
+            error,
+            ParseError::InvalidSyntax { message, .. }
+                if message.contains("at most one qualifier")
+        )),
+        "expected deep constructor qualification syntax error, got: {errors:?}"
+    );
+}
+
+/// Propertyless bare constructors must not be followed by call parentheses.
+#[test]
+fn new_expression_rejects_call_postfix() {
     let source = "\
 entry main = f(): void =>
     let buffer: Bytes = new Bytes()
@@ -6213,19 +6262,18 @@ entry main = f(): void =>
 ";
 
     let errors = parse_program_from_string(source)
-        .expect_err("`new Bytes()` should be rejected by the parser");
+        .expect_err("bare constructor with `()` should be rejected by the parser");
     assert!(
         errors.iter().any(|error| matches!(
             error,
             ParseError::InvalidSyntax { message, .. }
                 if message.contains("must not be followed by `()`")
         )),
-        "expected `new Bytes()` diagnostic, got: {errors:?}"
+        "expected bare constructor syntax error, got: {errors:?}"
     );
 }
 
-/// `new Bytes:` must remain invalid because the propertyless Bytes syntax does
-/// not take a field block.
+/// Bare constructors must not be followed by a colon field block.
 #[test]
 fn empty_colon_new_bytes_rejected() {
     let source = "\
@@ -6236,14 +6284,14 @@ entry main = f(): void =>
 ";
 
     let errors = parse_program_from_string(source)
-        .expect_err("`new Bytes:` should be rejected by the parser");
+        .expect_err("bare constructor with `:` should be rejected by the parser");
     assert!(
         errors.iter().any(|error| matches!(
             error,
-            ParseError::InvalidSyntax { message, .. }
-                if message.contains("must not be followed by `:`")
+            ParseError::MissingToken { expected, .. }
+                if expected == "indent"
         )),
-        "expected `new Bytes:` diagnostic, got: {errors:?}"
+        "expected bare constructor syntax error, got: {errors:?}"
     );
 }
 
