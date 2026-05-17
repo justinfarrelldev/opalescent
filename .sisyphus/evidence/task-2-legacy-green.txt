@@ -1,0 +1,3 @@
+Command: cargo test --features integration empty_bytes_via_bytes_new
+Result: passed
+Notes: The integration test compiled and ran test-projects/bytes-empty-construct-legacy/src/main.op and verified stdout contained `legacy length: 0`.

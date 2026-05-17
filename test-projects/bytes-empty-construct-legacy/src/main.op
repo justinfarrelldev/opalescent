@@ -1,0 +1,16 @@
+##
+  Description: Verifies the legacy empty Bytes constructor still compiles and runs.
+
+  Expected stdout:
+    legacy length: 0
+##
+import bytes_new from standard
+
+##
+  Description: Entry point that constructs an empty Bytes buffer and prints its length.
+##
+entry main = f(args: string[]): void =>
+    let buffer: Bytes = bytes_new()
+    let length: int32 = buffer.length
+    print('legacy length: {length}')
+    return void

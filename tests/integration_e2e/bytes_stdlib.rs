@@ -106,3 +106,88 @@ fn bytes_hex_roundtrip_compiles_and_runs() {
          {failure_message}"
     );
 }
+
+/// Covered surface: the legacy `bytes_new()` constructor and `Bytes.length`.
+///
+/// The script constructs an empty buffer, prints its length, and should
+/// surface any regression in the legacy zero-argument Bytes initialization
+/// path.
+#[test]
+fn empty_bytes_via_bytes_new() {
+    let temp_dir = unique_probe_target_dir("bytes-empty-construct-legacy");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "bytes-empty-construct-legacy target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let source_path = Path::new("test-projects/bytes-empty-construct-legacy/src/main.op");
+        let source_result = fs::read_to_string(source_path);
+        let source_str = match source_result {
+            Ok(contents) => contents,
+            Err(error) => {
+                return Err(format!(
+                    "bytes-empty-construct-legacy source file should be readable: {error}"
+                ));
+            }
+        };
+
+        let binary_result = compile_program_for_tests(
+            source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        );
+        let binary_path = match binary_result {
+            Ok(path) => path,
+            Err(error) => {
+                return Err(format!(
+                    "bytes-empty-construct-legacy source should compile into a binary: {error}"
+                ));
+            }
+        };
+
+        let run_output = run_binary_output_with_timeout(
+            &binary_path,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "bytes-empty-construct-legacy compiled binary",
+        )?;
+
+        if !run_output.status.success() {
+            let stdout = String::from_utf8_lossy(&run_output.stdout);
+            let stderr = String::from_utf8_lossy(&run_output.stderr);
+            return Err(format!(
+                "bytes-empty-construct-legacy binary should exit cleanly but exited with status \
+                 {status:?}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+                status = run_output.status.code(),
+            ));
+        }
+
+        let stdout = String::from_utf8_lossy(&run_output.stdout).into_owned();
+        let expected_line = "legacy length: 0";
+        if !stdout.contains(expected_line) {
+            return Err(format!(
+                "bytes-empty-construct-legacy stdout should contain '{expected_line}', got:\n{stdout}"
+            ));
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "bytes-empty-construct-legacy target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "bytes-empty-construct-legacy should compile, run, and print the expected sequence: \
+         {failure_message}"
+    );
+}
