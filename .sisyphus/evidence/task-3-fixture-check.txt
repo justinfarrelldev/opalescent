@@ -1,0 +1,4 @@
+test-projects/bytes-empty-construct-new-syntax/src/main.op:5:    new syntax length: 0
+test-projects/bytes-empty-construct-new-syntax/src/main.op:12:    let buffer: Bytes = new Bytes
+test-projects/bytes-empty-construct-new-syntax/README.md:13:This will print `new syntax length: 0` to stdout.
+test-projects/bytes-empty-construct-new-syntax/expected/stdout.txt:1:new syntax length: 0

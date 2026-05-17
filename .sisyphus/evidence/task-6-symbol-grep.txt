@@ -1,0 +1,9 @@
+Command: rg -n 'bytes_new' runtime/opal_bytes.c runtime/opal_runtime.h src/codegen/functions_stdlib.rs
+Status: success
+
+Output:
+runtime/opal_bytes.c:92:OpalBytes *bytes_new(void) { return opal_bytes_allocate(0); }
+runtime/opal_runtime.h:77:OpalBytes* bytes_new(void);
+src/codegen/functions_stdlib.rs:206:        "bytes_new" => module.get_function("bytes_new").or_else(|| {
+src/codegen/functions_stdlib.rs:208:            Some(module.add_function("bytes_new", ft, None))
+src/codegen/functions_stdlib.rs:650:    "bytes_new",

@@ -1,0 +1,38 @@
+# Task 1: Hook discovery and baseline verification
+
+Timestamp: 2026-05-17
+
+## Git status before source/test changes
+```
+M .sisyphus/boulder.json
+?? .sisyphus/drafts/bytes-new-to-new-bytes.completed.md
+?? .sisyphus/notepads/bytes-new-to-new-bytes/
+?? .sisyphus/plans/bytes-new-to-new-bytes.md
+```
+
+## Pre-commit hook
+- `.git/hooks/pre-commit` exists: yes
+- `.git/hooks/pre-commit` executable: yes (`755`)
+- Hook contents: runs a sequence of gates before commit
+
+## What the hook runs
+1. Checks that `cargo-make` is installed
+2. Runs `./scripts/check-line-count.sh`
+3. Runs `cargo make lint`
+4. Runs `cargo make test`
+5. Runs `cargo make build`
+
+## Relevant Makefile.toml gates
+- `[tasks.test]` runs `cargo test`
+- `[tasks.lint]` runs `cargo clippy --all-targets --all-features -- -D warnings ...`
+- `[tasks.build-all]` fans out to `build-all-windows` and `build-all-linux`, which build multiple targets
+- `[tasks.wine-tests]` exists for Windows/wine integration tests
+
+## Baseline bytes integration test
+- Command: `cargo test --features integration bytes_hex_roundtrip_compiles_and_runs`
+- Result: passed
+- Evidence file: `.sisyphus/evidence/task-1-baseline-bytes.txt`
+
+## Notes
+- No source files, tests, hooks, or git config were modified.
+- The baseline bytes integration test is already green before Task 2 work starts.

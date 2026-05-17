@@ -19,3 +19,5 @@
 - 2026-05-17T00:00:00Z: Kept runtime ABI untouched (no changes to runtime/opal_bytes.c or runtime/opal_runtime.h) and captured green proof in `.sisyphus/evidence/task-7-new-syntax-green.txt` plus `.sisyphus/evidence/task-7-regression-gate.txt`; existing red evidence file timestamps remain earlier than Task 7 green artifacts.
 - Updated stdlib/prelude.op to prefer 'new Bytes' syntax while noting legacy compatibility for 'bytes_new()'.
 - Verified that existing proposals and doc examples already used 'new Bytes', ensuring consistency.
+- Final Wave outcomes: F1/F2/F3/F4 all approved after rerun-based verification; F3 exact-output validation must execute produced binaries directly (not `opal --run`) to avoid wrapper output noise.
+- Commit-quality gate nuance: `git show --check` can flag historical commit whitespace defects; a small follow-up commit can remediate tip cleanliness for final compliance evidence.
