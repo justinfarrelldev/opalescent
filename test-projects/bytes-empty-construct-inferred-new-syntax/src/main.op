@@ -1,0 +1,15 @@
+##
+  Description: Verifies inferred `new Bytes` constructor typing compiles and runs.
+
+  Expected stdout:
+    inferred syntax length: 0
+##
+
+##
+  Description: Entry point that constructs an empty Bytes buffer without an explicit annotation and prints its length.
+##
+entry main = f(args: string[]): void =>
+    let buffer = new Bytes
+    let length: int32 = buffer.length
+    print('inferred syntax length: {length}')
+    return void
