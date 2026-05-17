@@ -18,11 +18,13 @@
 # Arrays expose `.length`, which lowers to `array_length(values, len)` and returns int64.
 
 # Bytes: opaque, immutable byte buffer.
-# Construct one with bytes_new(), inspect its size via `buffer.length`, and
+# Construct one with `new Bytes`, inspect its size via `buffer.length`, and
 # combine or slice it via bytes_concatenate / bytes_slice. Encode and decode
 # lowercase hexadecimal strings with bytes_to_hex and bytes_from_hex.
 # Internally, the compiler lowers `buffer.length` to the runtime helper
 # `bytes_length(buffer)`.
+#
+# (Note: bytes_new() is supported for legacy compatibility).
 # bytes_new(): Bytes
 # bytes_to_hex(buffer: Bytes): string
 # bytes_from_hex(text: string): Bytes errors HexDecodeError

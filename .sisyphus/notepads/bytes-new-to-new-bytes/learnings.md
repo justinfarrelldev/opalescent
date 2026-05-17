@@ -17,3 +17,5 @@
 
 - 2026-05-17T00:00:00Z: Task 7 reconciliation confirmed `new Bytes` end-to-end support in parser/typechecker/codegen/formatter while preserving legacy `bytes_new()` behavior; full gates (`cargo test`, `cargo test --features integration`, pre-commit lint/test/build) passed after normalizing the local `C:\Users\justi\Downloads` fixture directory state for guard integration tests.
 - 2026-05-17T00:00:00Z: Kept runtime ABI untouched (no changes to runtime/opal_bytes.c or runtime/opal_runtime.h) and captured green proof in `.sisyphus/evidence/task-7-new-syntax-green.txt` plus `.sisyphus/evidence/task-7-regression-gate.txt`; existing red evidence file timestamps remain earlier than Task 7 green artifacts.
+- Updated stdlib/prelude.op to prefer 'new Bytes' syntax while noting legacy compatibility for 'bytes_new()'.
+- Verified that existing proposals and doc examples already used 'new Bytes', ensuring consistency.
