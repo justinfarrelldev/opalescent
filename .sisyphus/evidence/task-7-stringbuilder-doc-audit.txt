@@ -1,0 +1,45 @@
+./.sisyphus/evidence/task-3-typecheck-summary.txt:- `StringBuilder` remains unregistered and rejected.
+./.sisyphus/notepads/cleaner-propertyless-constructors/decisions.md:- Keep execution aligned to plan scope: `Bytes` only; no `StringBuilder` registration.
+./.sisyphus/notepads/cleaner-propertyless-constructors/learnings.md:- Negative semantic coverage now asserts explicit diagnostics for unregistered constructors (`StringBuilder`, `MyEmptyType`) instead of parser-layer rejection behavior.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:> - Type checker accepts only registered propertyless constructors and rejects `new StringBuilder` / user types clearly.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:- Explicitly out of scope: registering/enabling `new StringBuilder` or implementing StringBuilder runtime/API work.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:- Register exactly one constructor entry: `Bytes -> bytes_new`; `StringBuilder` must remain unregistered and rejected.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:Make propertyless opaque constructors a real compiler pattern instead of a `Bytes` parser exception, while preserving `Bytes` behavior and preventing accidental `StringBuilder` enablement.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:- `new StringBuilder` remains rejected by type checking.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:- Must not register `StringBuilder` or any second type.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  **What to do**: Create a single source of truth for propertyless constructor metadata in a neutral source module (preferred: `src/intrinsics/propertyless_constructors.rs`; if no `src/intrinsics` module exists, add `src/intrinsics.rs` plus submodule wiring in `src/lib.rs`/crate root as required by existing module style). Define metadata with these fields exactly: `type_name: &'static str`, `runtime_function_name: &'static str`, and helper lookup functions `lookup_propertyless_constructor(type_name: &str) -> Option<PropertylessConstructorIntrinsic>` plus `is_propertyless_constructor_type(type_name: &str) -> bool`. Register exactly one intrinsic: `Bytes -> bytes_new`. Add a focused unit test in the registry module proving `Bytes` resolves to `bytes_new` and `StringBuilder` returns `None`. Before editing consumers, enumerate existing string-based special cases for `Bytes` in non-test Rust sources using `ast_grep_search` or equivalent and record which occurrences are expected to be removed by later tasks versus intentionally remaining (e.g., Bytes builtin registration/runtime implementation).
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  **Must NOT do**: Do not add `StringBuilder` to the registry. Do not create separate type-checker and codegen tables. Do not change runtime functions or `Expr::Constructor`.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  - [ ] `cargo test --lib propertyless_constructor` includes/asserts `lookup_propertyless_constructor("StringBuilder").is_none()`.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  Scenario: StringBuilder remains unregistered
+./.sisyphus/plans/cleaner-propertyless-constructors.md:    Steps: Run the same registry test command and inspect the test named for StringBuilder rejection.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:    Expected: Command exits 0; StringBuilder lookup test passes with `None`.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  **Must NOT do**: Do not allow `StringBuilder`. Do not accept arbitrary user types. Do not introduce a second registry inside TypeEnvironment if Task 1 created a static shared registry; if TypeEnvironment storage is necessary, populate it only from the shared registry and document that the shared registry is canonical.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  - [ ] `cargo test --lib type_system::tests::propertyless_constructor_rejects_stringbuilder` exits 0 and asserts diagnostic contains `propertyless constructor is not registered for StringBuilder`.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  Scenario: StringBuilder is not accidentally enabled
+./.sisyphus/plans/cleaner-propertyless-constructors.md:    Expected: Command exits 0; diagnostic includes `propertyless constructor is not registered for StringBuilder`.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  **Must NOT do**: Do not change product/sum constructor lowering. Do not alter `bytes_new` ABI. Do not add codegen support for `StringBuilder`.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  **Must NOT do**: Do not remove legacy `bytes_new()` tests. Do not require external runtime changes. Do not use a `StringBuilder` fixture.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  **What to do**: Update only implementation-adjacent comments and existing Bytes/prelude documentation that mention `new Bytes` as a special parser exception. Keep public docs accurate: `new Bytes` is the preferred construction form and `bytes_new()` remains legacy compatibility. If `stdlib/prelude.op` already documents this correctly, leave it unchanged. Do not update broad language spec pages unless they currently state the old parser-special-case behavior. Add a brief code comment near the registry explaining how future opaque handles (e.g., StringBuilder) can be registered later without parser changes, but explicitly note that only `Bytes` is registered now.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  **Must NOT do**: Do not create new docs outside the touched plan/evidence/test fixture README unless necessary. Do not claim `new StringBuilder` works.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  - [ ] New/updated comments state `StringBuilder` is a future possible registry entry, not currently enabled.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:  Scenario: Docs do not advertise StringBuilder
+./.sisyphus/plans/cleaner-propertyless-constructors.md:    Steps: Search docs/comments for `new StringBuilder`.
+./.sisyphus/plans/cleaner-propertyless-constructors.md:    Expected: No public documentation claims `new StringBuilder` is supported.
+./game-of-life-proposals/string-building/COMPARISON.md:Start with `string_join(values, separator)` because it is small, pure, and useful beyond games. Add `StringBuilder` once performance matters for large terminal frames. Keep interpolation accumulation as the current fallback and as a teaching pattern.
+./game-of-life-proposals/string-building/string-builder-handle/proposal.md:Prior art includes Java `StringBuilder`, C# `StringBuilder`, Rust `String`, Swift `String` append APIs, and Go `strings.Builder`. For Opalescent, the important part is that the handle makes allocation and mutation visible without adding new syntax.
+./game-of-life-proposals/string-building/string-builder-handle/proposal.md:- `StringBuilder` is an opaque standard-library type.
+./game-of-life-proposals/string-building/string-builder-handle/proposal.md:# string_builder_new(): StringBuilder
+./game-of-life-proposals/string-building/string-builder-handle/proposal.md:# string_builder_push(builder: StringBuilder, text: string): void
+./game-of-life-proposals/string-building/string-builder-handle/proposal.md:# string_builder_finish(builder: StringBuilder): string
+./game-of-life-proposals/COMPARISON.md:| [String Building](string-building/) | `string_join` and interpolation accumulator | Mutable `StringBuilder` handle | Hidden allocation behavior | High |
+./game-of-life-proposals/COMPARISON.md:- Add a `StringBuilder` handle or equivalent mutable text buffer.
+./src/type_system/propertyless_constructors.rs:// FUTURE: Additional opaque handles or propertyless built-ins (e.g., StringBuilder)
+./src/type_system/propertyless_constructors.rs:    /// `StringBuilder` must not be registered as propertyless.
+./src/type_system/propertyless_constructors.rs:        let entry = lookup_propertyless_constructor("StringBuilder");
+./src/type_system/propertyless_constructors.rs:        assert!(entry.is_none(), "StringBuilder should not have a propertyless constructor entry");
+./src/type_system/propertyless_constructors.rs:            !is_propertyless_constructor_type("StringBuilder"),
+./src/type_system/propertyless_constructors.rs:            "StringBuilder should not be reported as propertyless"
+./src/type_system/tests.rs:let builder = new StringBuilder
+./src/type_system/tests.rs:        "new StringBuilder without fields must be rejected by type checking",
+./src/type_system/tests.rs:                    message.contains("propertyless constructor is not registered for StringBuilder")
+./src/type_system/tests.rs:        "expected type-check rejection for bare new StringBuilder, got: {rejection:?}"

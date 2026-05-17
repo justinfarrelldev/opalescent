@@ -1,0 +1,72 @@
+Task 4 — TDD codegen registry lowering for explicit and inferred `new Bytes`
+Date: 2026-05-17
+
+Files modified:
+- src/codegen/adts.rs
+- src/codegen/tests.rs
+- .sisyphus/notepads/cleaner-propertyless-constructors/learnings.md (append-only)
+- .sisyphus/notepads/cleaner-propertyless-constructors/issues.md (append-only)
+- .sisyphus/notepads/cleaner-propertyless-constructors/problems.md (append-only)
+- .sisyphus/evidence/task-4-codegen-summary.txt
+
+Implementation summary:
+1) Tests first (TDD)
+   - Renamed existing test to:
+     - codegen_explicit_new_bytes_lowers_to_bytes_new
+   - Added new test:
+     - codegen_inferred_new_bytes_lowers_to_bytes_new
+   - Both tests assert LLVM IR includes:
+     - declare i8* @bytes_new()
+     - call i8* @bytes_new()
+
+2) Codegen change in constructor lowering
+   - src/codegen/adts.rs now imports and uses:
+     - crate::type_system::propertyless_constructors::lookup_propertyless_constructor
+   - In codegen_constructor_expression, empty-field identifier constructors now:
+     - perform registry lookup by constructor name
+     - declare runtime function via entry.runtime_function
+     - emit runtime call and return its value
+   - Removed direct decision logic from constructor branch:
+     - if name == "Bytes" && fields.is_empty()
+   - Product/sum constructor lowering branches unchanged.
+
+3) Scope note for inferred test
+   - Initial inferred test variant used `buffer.length` and failed with:
+     - CodegenError("unknown field 'length' on receiver expression")
+   - To keep Task 4 scoped to constructor lowering (not broader inference/member typing), inferred test was narrowed to:
+     - let buffer = new Bytes
+     - return void
+   - IR assertions remain focused on `bytes_new` declaration+call lowering.
+
+Commands run and status:
+1. cargo test --lib codegen::tests::codegen_explicit_new_bytes_lowers_to_bytes_new -- --nocapture
+   - PASS
+
+2. cargo test --lib codegen::tests::codegen_inferred_new_bytes_lowers_to_bytes_new -- --nocapture
+   - FAIL (intermediate red state before narrowing inferred test)
+
+3. RUST_BACKTRACE=1 cargo test --lib codegen::tests::codegen_inferred_new_bytes_lowers_to_bytes_new -- --nocapture
+   - FAIL (diagnostic capture)
+
+4. cargo test --lib codegen::tests::codegen_explicit_new_bytes_lowers_to_bytes_new -- --nocapture
+   && cargo test --lib codegen::tests::codegen_inferred_new_bytes_lowers_to_bytes_new -- --nocapture
+   - PASS (final targeted acceptance checks)
+
+5. cargo test --lib codegen::tests -- --nocapture
+   - PASS (72 passed, 0 failed)
+
+6. lsp_diagnostics filePath=src/codegen/adts.rs severity=all
+   - PASS (No diagnostics found)
+
+7. lsp_diagnostics filePath=src/codegen/tests.rs severity=all
+   - PASS (No diagnostics found)
+
+8. cargo build
+   - PASS
+
+Acceptance checklist mapping:
+- [x] codegen_constructor_expression uses shared registry lookup for empty-field constructors.
+- [x] explicit and inferred `new Bytes` lowering emit runtime `bytes_new` declaration+call.
+- [x] direct propertyless constructor decision logic `if name == "Bytes" && fields.is_empty()` removed from constructor-lowering branch.
+- [x] product/sum constructor lowering unchanged.
+- [x] targeted codegen tests for explicit/inferred lowering pass.

@@ -1,0 +1,11 @@
+
+running 6 tests
+test type_system::propertyless_constructors::tests::lookup_bytes_propertyless_constructor ... ok
+test type_system::propertyless_constructors::tests::lookup_string_builder_propertyless_constructor ... ok
+test type_system::propertyless_constructors::tests::propertyless_constructor_type_predicate ... ok
+test type_system::tests::propertyless_constructor_rejects_stringbuilder ... ok
+test type_system::tests::propertyless_constructor_accepts_bytes ... ok
+test type_system::tests::propertyless_constructor_rejects_unknown_user_type ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 1233 filtered out; finished in 0.01s
+

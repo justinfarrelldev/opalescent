@@ -1,0 +1,8 @@
+
+running 3 tests
+test type_system::tests::propertyless_constructor_rejects_stringbuilder ... ok
+test type_system::tests::propertyless_constructor_rejects_unknown_user_type ... ok
+test type_system::tests::propertyless_constructor_accepts_bytes ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 1236 filtered out; finished in 0.00s
+
