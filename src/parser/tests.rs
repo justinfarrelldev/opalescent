@@ -6120,6 +6120,133 @@ entry main = f(): void =>
     );
 }
 
+/// `new Bytes` should parse as a zero-field constructor when assigned to an
+/// explicitly typed binding.
+#[test]
+fn bare_new_bytes_parses() {
+    let source = "\
+entry main = f(): void =>
+    let buffer: Bytes = new Bytes
+    return void
+";
+
+    let program = parse_program_from_string(source)
+        .expect("propertyless `new Bytes` should parse with explicit type annotation");
+    let Decl::Function { body, .. } = &program.declarations[0] else {
+        panic!("Expected function declaration");
+    };
+    let Stmt::Block { statements, .. } = body else {
+        panic!("Expected function body block, got: {body:?}");
+    };
+    let Stmt::Let {
+        binding,
+        initializer: Some(init),
+        ..
+    } = &statements[0]
+    else {
+        panic!("Expected let with initializer as first statement, got: {:?}", statements[0]);
+    };
+    assert!(
+        binding.type_annotation.is_some(),
+        "expected explicit Bytes annotation"
+    );
+
+    let Expr::Constructor { callee, fields, .. } = init else {
+        panic!("Expected Expr::Constructor, got: {init:?}");
+    };
+    let Expr::Identifier { name, .. } = callee.as_ref() else {
+        panic!("Expected identifier callee, got: {callee:?}");
+    };
+    assert_eq!(name, "Bytes");
+    assert!(fields.is_empty(), "bare `new Bytes` should have no fields: {fields:?}");
+}
+
+/// `new Bytes` should also parse when the binding type is inferred from the
+/// expression itself.
+#[test]
+fn bare_new_bytes_inferred_let_parses() {
+    let source = "\
+entry main = f(): void =>
+    let buffer = new Bytes
+    return void
+";
+
+    let program = parse_program_from_string(source)
+        .expect("propertyless `new Bytes` should parse without explicit type annotation");
+    let Decl::Function { body, .. } = &program.declarations[0] else {
+        panic!("Expected function declaration");
+    };
+    let Stmt::Block { statements, .. } = body else {
+        panic!("Expected function body block, got: {body:?}");
+    };
+    let Stmt::Let {
+        binding,
+        initializer: Some(init),
+        ..
+    } = &statements[0]
+    else {
+        panic!("Expected let with initializer as first statement, got: {:?}", statements[0]);
+    };
+    assert!(
+        binding.type_annotation.is_none(),
+        "expected inferred binding type"
+    );
+
+    let Expr::Constructor { callee, fields, .. } = init else {
+        panic!("Expected Expr::Constructor, got: {init:?}");
+    };
+    let Expr::Identifier { name, .. } = callee.as_ref() else {
+        panic!("Expected identifier callee, got: {callee:?}");
+    };
+    assert_eq!(name, "Bytes");
+    assert!(fields.is_empty(), "bare `new Bytes` should have no fields: {fields:?}");
+}
+
+/// Propertyless `new Bytes` is a dedicated syntax form and must not be
+/// followed by call parentheses.
+#[test]
+fn new_bytes_parens_rejected() {
+    let source = "\
+entry main = f(): void =>
+    let buffer: Bytes = new Bytes()
+    return void
+";
+
+    let errors = parse_program_from_string(source)
+        .expect_err("`new Bytes()` should be rejected by the parser");
+    assert!(
+        errors.iter().any(|error| matches!(
+            error,
+            ParseError::InvalidSyntax { message, .. }
+                if message.contains("must not be followed by `()`")
+        )),
+        "expected `new Bytes()` diagnostic, got: {errors:?}"
+    );
+}
+
+/// `new Bytes:` must remain invalid because the propertyless Bytes syntax does
+/// not take a field block.
+#[test]
+fn empty_colon_new_bytes_rejected() {
+    let source = "\
+entry main = f(): void =>
+    let buffer: Bytes = new Bytes:
+
+    return void
+";
+
+    let errors = parse_program_from_string(source)
+        .expect_err("`new Bytes:` should be rejected by the parser");
+    assert!(
+        errors.iter().any(|error| matches!(
+            error,
+            ParseError::InvalidSyntax { message, .. }
+                if message.contains("must not be followed by `:`")
+        )),
+        "expected `new Bytes:` diagnostic, got: {errors:?}"
+    );
+}
+
 /// The legacy `Type { field: value }` brace-constructor form is no longer a
 /// valid expression; parsing it must fail so authors are pushed to the
 /// canonical `new Type:` form.

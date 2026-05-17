@@ -1,0 +1,15 @@
+##
+  Description: Verifies the new Bytes constructor syntax still compiles and runs.
+
+  Expected stdout:
+    new syntax length: 0
+##
+
+##
+  Description: Entry point that constructs an empty Bytes buffer and prints its length.
+##
+entry main = f(args: string[]): void =>
+    let buffer: Bytes = new Bytes
+    let length: int32 = buffer.length
+    print('new syntax length: {length}')
+    return void

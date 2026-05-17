@@ -23,6 +23,10 @@ impl TypeChecker {
     ) -> Result<CoreType, TypeError> {
         match *callee {
             Expr::Identifier { ref name, .. } => {
+                if fields.is_empty() {
+                    return Self::type_check_propertyless_constructor(name, span);
+                }
+
                 let owner_type = self.type_check_constructor_fields(name, fields, span)?;
                 Ok(owner_type)
             }
@@ -47,6 +51,10 @@ impl TypeChecker {
                         });
                     }
 
+                    if fields.is_empty() {
+                        return Self::type_check_propertyless_constructor(&qualified_variant, span);
+                    }
+
                     let owner_type =
                         self.type_check_constructor_fields(&qualified_variant, fields, type_span)?;
                     Ok(owner_type)
@@ -68,6 +76,25 @@ impl TypeChecker {
                 })
             }
         }
+    }
+
+    /// Type check propertyless constructor expressions.
+    fn type_check_propertyless_constructor(
+        owner_name: &str,
+        span: Span,
+    ) -> Result<CoreType, TypeError> {
+        if owner_name == "Bytes" {
+            return Ok(CoreType::Generic {
+                name: owner_name.to_owned(),
+                type_args: Vec::new(),
+            });
+        }
+
+        Err(TypeError::InvalidOperation {
+            operation: "propertyless constructor syntax".to_owned(),
+            type_name: owner_name.to_owned(),
+            span: TypeError::span_from_span(span),
+        })
     }
 
     /// Validate constructor field set against the declared ADT field schema.

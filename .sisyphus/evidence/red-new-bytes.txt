@@ -1,0 +1,51 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-a78f5a55e4e32ce5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1223 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-3851ea484802c5ad)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-be9371b00ff8c799)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-84b03c5f67d4c8de)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+
+running 1 test
+test tests::bytes_stdlib::empty_bytes_via_new_bytes ... FAILED
+
+failures:
+
+---- tests::bytes_stdlib::empty_bytes_via_new_bytes stdout ----
+
+thread 'tests::bytes_stdlib::empty_bytes_via_new_bytes' panicked at tests/integration_e2e/bytes_stdlib.rs:273:5:
+bytes-empty-construct-new-syntax should compile, run, and print the expected sequence: bytes-empty-construct-new-syntax source should compile into a binary: front-end compilation failed
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::bytes_stdlib::empty_bytes_via_new_bytes
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 136 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test integration_e2e`

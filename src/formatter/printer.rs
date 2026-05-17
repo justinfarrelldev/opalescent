@@ -828,19 +828,15 @@ impl Formatter {
                 ..
             } => {
                 let callee_str = self.print_expr(callee, depth);
+                if fields.is_empty() {
+                    return format!("new {callee_str}");
+                }
+
                 // Fields always live in an indented block one level past the
                 // statement that owns the expression. Using `depth + 1` keeps
                 // nested constructors visually aligned with the surrounding
                 // block grammar (`let`, `return`, etc.).
                 let field_indent = self.config.indent_unit().repeat(depth.saturating_add(1));
-                if fields.is_empty() {
-                    // An empty constructor still needs a body; emit a single
-                    // `pass`-like sentinel line so re-parsing sees the Indent
-                    // block. We keep this simple — the field list is always
-                    // non-empty in practice because the type system rejects
-                    // missing fields, but the formatter should be total.
-                    return format!("new {callee_str}:\n{field_indent}");
-                }
                 let mut out = format!("new {callee_str}:");
                 for field in fields {
                     let value_str = self.print_expr(&field.value, depth.saturating_add(1));

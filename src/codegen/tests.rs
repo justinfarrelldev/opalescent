@@ -2592,7 +2592,39 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
 // -----------------------------------------------------------------------------
 
 #[test]
-fn test_import_bytes_new_emits_bytes_new_declaration() {
+fn new_bytes_codegen_calls_bytes_new() {
+    let source = "
+##
+    Description: Entry function validates bare new Bytes lowering
+##
+entry main = f(): void => {
+    let buffer: Bytes = new Bytes
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "new Bytes should compile without codegen errors"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @bytes_new()"),
+        "new Bytes should emit declare i8* @bytes_new(): {ir}"
+    );
+    assert!(
+        ir.contains("call i8* @bytes_new()"),
+        "new Bytes should lower to call i8* @bytes_new(): {ir}"
+    );
+}
+
+#[test]
+fn legacy_bytes_new_codegen_still_calls_bytes_new() {
     let source = "
 import bytes_new from standard
 
@@ -2618,6 +2650,10 @@ entry main = f(): void => {
     assert!(
         ir.contains("declare i8* @bytes_new()"),
         "import bytes_new from standard should emit declare i8* @bytes_new(): {ir}"
+    );
+    assert!(
+        ir.contains("call i8* @bytes_new()"),
+        "bytes_new() should continue lowering to call i8* @bytes_new(): {ir}"
     );
 }
 

@@ -36,6 +36,25 @@ pub fn codegen_constructor_expression<'context>(
         ..
     } = *expr
     {
+        if let Expr::Identifier { ref name, .. } = *callee.as_ref() {
+            if name == "Bytes" && fields.is_empty() {
+                let runtime_function = crate::codegen::functions_stdlib::declare_stdlib_function(
+                    codegen_context,
+                    "bytes_new",
+                )
+                .ok_or_else(|| CodegenError::new(String::from("bytes_new declaration missing")))?;
+                let call_site =
+                    codegen_context
+                        .builder
+                        .build_call(runtime_function, &[], &env.next_name("bytes.new.call"))?;
+                let Some(bytes_value) = call_site.try_as_basic_value().basic() else {
+                    return Err(CodegenError::new(String::from(
+                        "bytes_new should return a Bytes pointer value",
+                    )));
+                };
+                return Ok(bytes_value);
+            }
+        }
         if matches!(callee.as_ref(), &Expr::Member { .. }) {
             return codegen_sum_variant_constructor(codegen_context, env, fields.as_slice());
         }

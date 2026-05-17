@@ -23,6 +23,7 @@ use crate::ast::{
 };
 use crate::errors::renderer::render_diagnostic;
 use crate::lexer::Lexer;
+use crate::parser::errors::ParseError;
 use crate::parser::Parser;
 use crate::token::{Position, Span};
 use miette::Diagnostic;
@@ -139,6 +140,42 @@ fn parse_program_from_source(source: &str) -> Program {
 fn parse_program_from_source_with_spaces(source: &str) -> Program {
     let normalized = source.replace('\t', "    ");
     parse_program_from_source(&normalized)
+}
+
+#[derive(Debug)]
+enum SourceRejection {
+    Parse(Vec<ParseError>),
+    Type(Vec<TypeError>),
+}
+
+#[expect(
+    clippy::panic,
+    reason = "Test helper uses panic when a negative test unexpectedly succeeds"
+)]
+fn reject_source(source: &str, failure_message: &str) -> SourceRejection {
+    let source_with_docs = with_required_function_docs(source);
+    let lexer = Lexer::new(&source_with_docs);
+    let (tokens, lex_errors) = lexer.tokenize();
+    assert!(
+        lex_errors.is_empty(),
+        "source should tokenize without lex errors: {:?}",
+        lex_errors.errors
+    );
+
+    let parser = Parser::new(tokens);
+    let (program_opt, parse_errors) = parser.parse();
+    if !parse_errors.is_empty() {
+        return SourceRejection::Parse(parse_errors.errors);
+    }
+
+    let program =
+        program_opt.unwrap_or_else(|| panic!("parser returned no program for valid source"));
+    let mut checker = TypeChecker::new();
+    SourceRejection::Type(
+        checker
+            .type_check_program(&program)
+            .expect_err(failure_message),
+    )
 }
 
 fn literal_expr(value: LiteralValue, id: usize) -> Expr {
@@ -8137,6 +8174,118 @@ return length
     assert!(
         result.is_ok(),
         "bytes_new() should produce a Bytes value exposing .length: {result:?}"
+    );
+}
+
+#[test]
+fn new_bytes_typechecks_as_bytes() {
+    const SOURCE: &str = "
+entry demo = f(): int32 => {
+let buffer: Bytes = new Bytes
+let length: int32 = buffer.length
+return length
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "new Bytes should produce a Bytes value exposing .length: {result:?}"
+    );
+}
+
+#[test]
+fn new_bytes_inferred_let_typechecks_as_bytes() {
+    const SOURCE: &str = "
+entry demo = f(): int32 => {
+let buffer = new Bytes
+let length: int32 = buffer.length
+return length
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "inferred let binding for new Bytes should type check as Bytes: {result:?}"
+    );
+}
+
+#[test]
+fn propertyless_new_person_rejected() {
+    const SOURCE: &str = "
+type Person:
+    name: string
+
+entry demo = f(): int32 => {
+let person = new Person
+return 0
+}
+";
+    let rejection = reject_source(SOURCE, "new Person without fields must be rejected");
+    assert!(
+        matches!(
+            rejection,
+            SourceRejection::Parse(ref errors)
+                if errors.iter().any(|error| matches!(
+                    error,
+                    ParseError::InvalidSyntax { message, .. }
+                        if message.contains("only supported for `Bytes`")
+                ))
+        ),
+        "expected parser rejection for bare new Person, got: {rejection:?}"
+    );
+}
+
+#[test]
+fn propertyless_new_variant_rejected() {
+    const SOURCE: &str = "
+type Message:
+    Text:
+        body: string
+
+entry demo = f(): int32 => {
+let message = new Message.Text
+return 0
+}
+";
+    let rejection = reject_source(SOURCE, "new Message.Text without fields must be rejected");
+    assert!(
+        matches!(
+            rejection,
+            SourceRejection::Parse(ref errors)
+                if errors.iter().any(|error| matches!(
+                    error,
+                    ParseError::InvalidSyntax { message, .. }
+                        if message.contains("only supported for `Bytes`")
+                ))
+        ),
+        "expected parser rejection for bare new Message.Text, got: {rejection:?}"
+    );
+}
+
+#[test]
+fn propertyless_new_lowercase_bytes_rejected() {
+    const SOURCE: &str = "
+entry demo = f(): int32 => {
+let buffer = new bytes
+return 0
+}
+";
+    let rejection = reject_source(SOURCE, "lowercase new bytes must be rejected");
+    assert!(
+        matches!(
+            rejection,
+            SourceRejection::Parse(ref errors)
+                if errors.iter().any(|error| matches!(
+                    error,
+                    ParseError::InvalidSyntax { message, .. }
+                        if message.contains("only supported for `Bytes`")
+                ))
+        ),
+        "expected parser rejection for lowercase new bytes, got: {rejection:?}"
     );
 }
 

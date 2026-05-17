@@ -1575,6 +1575,50 @@ entry main = f(): void =>
         );
     }
 
+    /// Bare `new Bytes` should remain a propertyless constructor in formatted
+    /// output and must not rewrite unrelated legacy `bytes_new()` calls.
+    #[test]
+    fn fmt_new_bytes_roundtrip() {
+        let source = "\
+entry main = f(): void =>
+    let a: Bytes = new Bytes
+    let b: Bytes = bytes_new()
+    return void
+";
+        let fmt = Formatter::with_defaults();
+        let first_pass = fmt
+            .format_source(source)
+            .expect("`new Bytes` source should format");
+        let second_pass = fmt
+            .format_source(&first_pass)
+            .expect("formatted `new Bytes` source should reformat");
+        assert_eq!(
+            first_pass, second_pass,
+            "`new Bytes` formatting must be idempotent"
+        );
+        assert!(
+            first_pass.contains("let a: Bytes = new Bytes\n"),
+            "formatter should preserve bare `new Bytes`, got: {first_pass}"
+        );
+        assert!(
+            first_pass.contains("let b: Bytes = bytes_new()\n"),
+            "formatter must not rewrite legacy `bytes_new()` calls, got: {first_pass}"
+        );
+
+        let lexer = crate::lexer::Lexer::new(&first_pass);
+        let (tokens, lex_errors) = lexer.tokenize();
+        assert!(
+            lex_errors.errors.is_empty(),
+            "formatted output must lex cleanly, got: {lex_errors:?}"
+        );
+        let parser = crate::parser::Parser::new(tokens);
+        let (_program, parse_errors) = parser.parse();
+        assert!(
+            parse_errors.errors.is_empty(),
+            "formatted output must parse cleanly, got: {parse_errors:?}"
+        );
+    }
+
     /// Misaligned field lines inside a `new Type:` block must fail to parse
     /// entirely (unexpected dedent/indent), guaranteeing that `fmt --check`
     /// — which runs the formatter and diffs — bubbles the error up fast.
