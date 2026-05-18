@@ -21,7 +21,12 @@ pub fn declare_stdlib_function<'context>(
     codegen_context: &CodegenContext<'context>,
     name: &str,
 ) -> Option<FunctionValue<'context>> {
-    if !STDLIB_NAMES.contains(&name) {
+    #[cfg(test)]
+    let is_test_fallible_constructor = name == "test_frame_clock_new";
+    #[cfg(not(test))]
+    let is_test_fallible_constructor = false;
+
+    if !STDLIB_NAMES.contains(&name) && !is_test_fallible_constructor {
         return None;
     }
 
@@ -337,6 +342,11 @@ pub fn declare_stdlib_function<'context>(
         "frame_clock_new" => module.get_function("frame_clock_new").or_else(|| {
             let ft = pointer_error_result_type.fn_type(&[i32_type.into()], false);
             Some(module.add_function("frame_clock_new", ft, None))
+        }),
+        #[cfg(test)]
+        "test_frame_clock_new" => module.get_function("test_frame_clock_new").or_else(|| {
+            let ft = pointer_error_result_type.fn_type(&[i32_type.into()], false);
+            Some(module.add_function("test_frame_clock_new", ft, None))
         }),
         "frame_clock_wait_next_sync" => {
             module

@@ -348,128 +348,6 @@ impl TypeChecker {
         }
     }
 
-    /// Type-check a `propagate` expression.
-    ///
-    /// This function ensures that:
-    /// 1. The `propagate` expression is used inside a function that declares error types.
-    /// 2. The inner expression is a function call.
-    /// 3. The error types produced by the inner call are a subset of the error types
-    ///    declared by the enclosing function.
-    ///
-    /// # Errors
-    ///
-    /// - `PropagateOutsideErrorFunction`: If used outside a function declaring errors.
-    /// - `PropagateErrorMismatch`: If the propagated errors are not a subset of the
-    ///   enclosing function's declared errors.
-    fn type_check_propagate_expr(
-        &mut self,
-        call: &Expr,
-        span: Span,
-    ) -> Result<CoreType, TypeError> {
-        // 1. Ensure we are inside a function that can handle errors.
-        // Treat both "no current function" and "current function with zero declared errors"
-        // as outside-of-error-function contexts, since `propagate` would be meaningless.
-        let current_fn_error_types = match self.symbol_table().current_function_error_types() {
-            Some(&[]) | None => {
-                return Err(TypeError::PropagateOutsideErrorFunction {
-                    span: TypeError::span_from_span(span),
-                });
-            }
-            Some(errors) => errors.to_vec(), // Clone to release the borrow.
-        };
-
-        // 2. Ensure the inner expression is a function call and fetch its function type.
-        if let Expr::Call {
-            ref callee,
-            ref args,
-            ..
-        } = *call
-        {
-            let callee_type = self.type_check_expr(callee)?;
-            if let CoreType::Function {
-                parameters: _parameters,
-                return_types,
-                error_types: callee_error_types,
-                ..
-            } = callee_type
-            {
-                if callee_error_types.is_empty() {
-                    return Err(TypeError::PropagateOnNonErrorExpression {
-                        span: TypeError::span_from_span(span),
-                    });
-                }
-
-                // Validate the call arguments against the parameters (reuse call typing logic)
-                // We intentionally call the existing checker to enforce argument checks
-                let previous_propagate_context = self.context.in_propagate_context;
-                self.context.in_propagate_context = true;
-                let call_result = self.type_check_call_expr(
-                    callee,
-                    None,
-                    args.as_slice(),
-                    call.span(),
-                    call.node_id().0,
-                );
-                self.context.in_propagate_context = previous_propagate_context;
-                call_result?;
-
-                if let Some(active_errors) = self.context.guard_error_stack.last() {
-                    if !Self::guard_error_type_sets_match(
-                        active_errors.as_slice(),
-                        &callee_error_types,
-                    ) {
-                        return Err(TypeError::GuardChainedErrorMismatch {
-                            expected: Self::format_error_type_list(active_errors.as_slice()),
-                            found: Self::format_error_type_list(&callee_error_types),
-                            span: TypeError::span_from_span(span),
-                        });
-                    }
-                }
-
-                // 3. Check subset relation for error types declared by the enclosing function.
-                let is_subset = callee_error_types
-                    .iter()
-                    .all(|error_type| current_fn_error_types.contains(error_type));
-
-                if !is_subset {
-                    return Err(TypeError::PropagateErrorMismatch {
-                        expected: Self::format_error_type_list(&current_fn_error_types),
-                        found: Self::format_error_type_list(&callee_error_types),
-                        span: TypeError::span_from_span(
-                            self.symbol_table.current_function_span().unwrap_or(span),
-                        ),
-                        callee_span: TypeError::span_from_span(call.span()),
-                    });
-                }
-
-                // Propagate expression yields the success type of the inner call
-                if return_types.len() != 1 {
-                    return Err(TypeError::ArityMismatch {
-                        expected: 1,
-                        found: return_types.len(),
-                        span: TypeError::span_from_span(span),
-                    });
-                }
-                return_types
-                    .first()
-                    .cloned()
-                    .ok_or_else(|| TypeError::ConstraintSolvingFailed {
-                        reason: "propagate callee has no declared return type".to_owned(),
-                        span: TypeError::span_from_span(span),
-                    })
-            } else {
-                Err(TypeError::PropagateOnNonErrorExpression {
-                    span: TypeError::span_from_span(span),
-                })
-            }
-        } else {
-            // Parser should ensure this path is unreachable; defensively handle anyway.
-            Err(TypeError::PropagateOnNonErrorExpression {
-                span: TypeError::span_from_span(span),
-            })
-        }
-    }
-
     /// Resolve an identifier to its registered core type or emit a symbol error.
     fn resolve_identifier(&mut self, name: &str, span: Span) -> Result<CoreType, TypeError> {
         if let Some(info) = self.symbol_table_mut().lookup_mut(name) {
@@ -516,7 +394,7 @@ impl TypeChecker {
     }
 
     /// Suggest the closest visible symbol name for unresolved identifiers.
-    fn suggest_visible_identifier(&self, unresolved_name: &str) -> Option<String> {
+    pub(super) fn suggest_visible_identifier(&self, unresolved_name: &str) -> Option<String> {
         let visible = self.symbol_table().visible_symbol_names();
         closest_identifier_suggestion(unresolved_name, visible.as_slice()).and_then(|ranked| {
             (ranked.distance <= SUGGESTION_DISTANCE_THRESHOLD).then_some(ranked.suggestion)

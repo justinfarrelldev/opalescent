@@ -472,17 +472,32 @@ pub enum TypeError {
         /// The source span of the call being propagated.
         callee_span: SourceSpan,
     },
-    /// `propagate` was used on a call that does not declare any error types.
-    #[error("`propagate` used on a call that cannot produce errors")]
+    /// `propagate` was used on an expression that does not declare any error types.
+    #[error("`propagate` used on an expression that cannot produce errors")]
     #[diagnostic(
         code(opalescent::type_system::propagate_on_non_error_expression),
         help(
-            "Remove `propagate` or update the callee to declare the errors it can emit in its signature"
+            "Remove `propagate` or update the callee or constructor so it declares the errors it can emit"
         )
     )]
     PropagateOnNonErrorExpression {
         #[label("`propagate` used here")]
         /// The span covering the `propagate` expression.
+        span: SourceSpan,
+    },
+    /// `propagate` was used on a constructor that is not registered as fallible.
+    #[error("type '{type_name}' does not have a fallible constructor")]
+    #[diagnostic(
+        code(opalescent::type_system::propagate_non_fallible_constructor),
+        help(
+            "Use ordinary `new {type_name}:` without `propagate`, or register this constructor in the fallible constructor registry"
+        )
+    )]
+    PropagateOnNonFallibleConstructor {
+        /// Source-level constructor type name used with `propagate new`.
+        type_name: String,
+        #[label("this constructor is not registered as fallible")]
+        /// The span covering the constructor expression.
         span: SourceSpan,
     },
     /// A `guard` expression was used on an expression that does not return errors.

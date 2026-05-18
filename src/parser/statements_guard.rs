@@ -10,6 +10,10 @@ impl Parser {
     /// Syntax:
     /// - `guard <expr> into <success_binding> [: Type] [mutable] else <error_binding> => <indent-body>`
     /// - `guard <expr> else <error_binding> => <indent-body>`
+    #[expect(
+        clippy::too_many_lines,
+        reason = "guard parsing handles ambiguity recovery and both guard syntaxes in one path"
+    )]
     pub(super) fn parse_guard_statement(&mut self) -> ParseResult<Stmt> {
         let start_span = self.current_token().span;
         self.advance();
@@ -25,7 +29,21 @@ impl Parser {
             return Err(error);
         }
 
-        let expression = self.parse_expression()?;
+        let expression = match self.parse_expression() {
+            Ok(expression) => expression,
+            Err(parse_error) => {
+                let previous_token = self.previous_token();
+                if self.check(&TokenType::Else) || previous_token.token_type == TokenType::Else {
+                    let span = if self.check(&TokenType::Else) {
+                        ParseError::span_from_token(self.current_token())
+                    } else {
+                        ParseError::span_from_token(previous_token)
+                    };
+                    return Err(ParseError::GuardMissingElseClause { span });
+                }
+                return Err(parse_error);
+            }
+        };
 
         let (success_binding, success_binding_type, success_binding_is_mutable) =
             if self.check(&TokenType::Into) {

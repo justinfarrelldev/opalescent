@@ -1,10 +1,10 @@
-import frame_clock_new from standard
-
 ##
-  Description: Verifies frame_clock_new rejects zero fps.
+  Description: Verifies FrameClock constructor rejects zero fps.
 ##
 entry main = f(args: string[]): void errors InvalidFrameRateError =>
-    guard frame_clock_new(0) else err =>
+    guard new FrameClock:
+        frames_per_second: 0
+    else err =>
         print('fps=0:{err}')
         propagate err
 

@@ -29,6 +29,7 @@ mod declarations;
 mod expr_collections;
 mod expressions;
 mod expressions_guard;
+mod fallible_expressions;
 /// Filesystem stdlib built-in type registration.
 mod fs_builtins;
 /// Generic ADT and function instantiation metadata helpers.
@@ -73,6 +74,38 @@ struct ActiveGuardErrorBinding {
     /// Declaration span of the binding registered for the active guard else scope.
     source_location: Span,
 }
+
+/// High-level shape of a fallible expression accepted by `propagate` and `guard`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FallibleExpressionKind {
+    /// Ordinary function-call expression with declared error types.
+    Call,
+    /// Registered constructor expression resolved through the fallible constructor registry.
+    RegisteredConstructor,
+}
+
+/// Context controlling which diagnostic family fallible-expression classification should use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FallibleExpressionContext {
+    /// Classifying the subject of a `propagate` expression.
+    Propagate,
+    /// Classifying the subject of a `guard` expression.
+    Guard,
+}
+
+/// Shared metadata extracted from a fallible expression subject.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FallibleExpressionInfo {
+    /// Success type yielded when the expression does not error.
+    success_type: CoreType,
+    /// Error types produced by the expression.
+    error_types: Vec<CoreType>,
+    /// Whether the subject was call-shaped or a registered constructor.
+    expression_kind: FallibleExpressionKind,
+    /// Registry metadata for registered constructor expressions.
+    constructor_entry: Option<crate::type_system::fallible_constructors::FallibleConstructorEntry>,
+}
+
 #[derive(Default)]
 struct TypeCheckContext {
     /// Nesting depth of guard `else` handlers currently being type checked.

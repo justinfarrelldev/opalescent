@@ -238,15 +238,15 @@ impl Parser {
         }
     }
 
-    /// Parse a propagate expression: `propagate <call_expr>`
+    /// Parse a propagate expression: `propagate <call_or_constructor_expr>`
     fn parse_propagate_expression(&mut self, start_span: Span) -> ParseResult<Expr> {
         // consume 'propagate'
         self.advance();
 
-        // Parse the inner expression and validate it's a call
+        // Parse the inner expression and validate it's a call or constructor
         let inner = self.parse_expression()?;
         match inner {
-            Expr::Call { .. } => {
+            Expr::Call { .. } | Expr::Constructor { .. } => {
                 let end_span = inner.span();
                 let span = Span::new(start_span.start, end_span.end);
                 Ok(Expr::Propagate {

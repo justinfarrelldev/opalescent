@@ -80,6 +80,7 @@ pub mod checker;
 mod constraints;
 mod environment;
 pub mod errors;
+pub mod fallible_constructors;
 mod memory;
 /// Import/export resolver and module dependency graph implementation.
 mod module_resolver;

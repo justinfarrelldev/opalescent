@@ -1706,6 +1706,7 @@ fn test_codegen_propagate_and_guard_expressions_lower_error_flow() {
         &mut env,
         &call_expr(620, ident(621, "fallible"), vec![int_lit(622, 1)]),
         "ok_value",
+        None,
     );
     assert!(
         guard_result.is_ok(),
@@ -1716,6 +1717,7 @@ fn test_codegen_propagate_and_guard_expressions_lower_error_flow() {
         &codegen_context,
         &mut env,
         &call_expr(623, ident(624, "fallible"), vec![int_lit(625, 2)]),
+        None,
     );
     assert!(
         propagate_result.is_ok(),
@@ -2786,6 +2788,118 @@ entry main = f(): void => {
         ir.contains("declare { i8*, i8* } @sleep_ms_sync(i32)")
             || ir.contains("declare void @sleep_ms_sync({ i8*, i8* }* sret({ i8*, i8* }), i32)"),
         "sleep_ms_sync should declare with the two-field void error ABI: {ir}"
+    );
+}
+
+#[test]
+fn codegen_new_frameclock_uses_registered_runtime_symbol() {
+    let source = "
+import frame_clock_wait_next_sync from standard
+
+##
+    Description: Entry function should lower registered fallible constructors through frame_clock_new
+##
+let wait_ten_frames = f(): void errors InvalidFrameRateError =>
+    let clock = propagate new FrameClock:
+        frames_per_second: 30
+    return propagate frame_clock_wait_next_sync(clock)
+
+##
+    Description: Entry function keeps frame clock declaration test runnable
+##
+entry main = f(): void => {
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "registered fallible FrameClock constructors should compile for codegen lowering: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare { i8*, i8* } @frame_clock_new(i32)")
+            || ir.contains("declare void @frame_clock_new({ i8*, i8* }* sret({ i8*, i8* }), i32)"),
+        "registered fallible constructor lowering should reuse frame_clock_new: {ir}"
+    );
+}
+
+#[test]
+fn codegen_fallible_constructor_alias_name_uses_canonical_registry_entry() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "fallible_constructor_alias");
+    let _function = create_codegen_function(&codegen_context, "fallible_constructor_alias_fn");
+    let mut env = CodegenEnv::new(true);
+    env.imported_signatures.insert(
+        String::from("FrameClockAlias"),
+        CoreType::Generic {
+            name: String::from("FrameClock"),
+            type_args: vec![],
+        },
+    );
+
+    let constructor_expr = Expr::Constructor {
+        callee: Box::new(ident(9_701, "FrameClockAlias")),
+        fields: vec![crate::ast::ConstructorField {
+            name: String::from("frames_per_second"),
+            value: int_lit(9_702, 24),
+            span: test_span(),
+        }],
+        span: test_span(),
+        id: test_node_id(9_703),
+    };
+
+    let result = codegen_expression(&codegen_context, &mut env, &constructor_expr, None);
+    assert!(
+        result.is_ok(),
+        "imported alias should lower through the canonical frame_clock_new registry entry: {result:?}"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare { i8*, i8* } @frame_clock_new(i32)")
+            || ir.contains("declare void @frame_clock_new({ i8*, i8* }* sret({ i8*, i8* }), i32)"),
+        "canonical constructor lookup should reuse frame_clock_new: {ir}"
+    );
+}
+
+#[test]
+fn codegen_fallible_constructor_test_second_entry_uses_registry_path() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "fallible_constructor_second_entry");
+    let _function =
+        create_codegen_function(&codegen_context, "fallible_constructor_second_entry_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let constructor_expr = Expr::Constructor {
+        callee: Box::new(ident(9_701, "TestFrameClock")),
+        fields: vec![crate::ast::ConstructorField {
+            name: String::from("seed"),
+            value: int_lit(9_702, 11),
+            span: test_span(),
+        }],
+        span: test_span(),
+        id: test_node_id(9_703),
+    };
+
+    let result = codegen_expression(&codegen_context, &mut env, &constructor_expr, None);
+    assert!(
+        result.is_ok(),
+        "registered test fallible constructor should lower in codegen path: {result:?}"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare { i8*, i8* } @test_frame_clock_new(i32)")
+            || ir.contains(
+                "declare void @test_frame_clock_new({ i8*, i8* }* sret({ i8*, i8* }), i32)"
+            ),
+        "registered test constructor lowering should use test_frame_clock_new: {ir}"
     );
 }
 

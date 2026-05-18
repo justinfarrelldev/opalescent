@@ -395,6 +395,102 @@ fn test_parse_propagate_rejects_non_call() {
 }
 
 #[test]
+fn parse_propagate_accepts_new_constructor_expression() {
+    let expr = parse_expression_from_string("propagate new FrameClock:\n    frames_per_second: 10")
+        .expect(
+            "propagate should accept constructor expressions for registered fallible constructors",
+        );
+
+    match expr {
+        Expr::Propagate { call, .. } => match *call {
+            Expr::Constructor { callee, fields, .. } => {
+                let Expr::Identifier { name, .. } = callee.as_ref() else {
+                    panic!("expected constructor identifier callee, found: {callee:?}");
+                };
+                assert_eq!(name, "FrameClock");
+                assert_eq!(fields.len(), 1, "expected one constructor field");
+                assert_eq!(fields[0].name, "frames_per_second");
+                assert!(matches!(fields[0].value, Expr::Literal { .. }));
+            }
+            other => panic!("expected constructor expression, found: {other:?}"),
+        },
+        other => panic!("expected propagate expression, found: {other:?}"),
+    }
+}
+
+#[test]
+fn parse_statement_guard_accepts_new_constructor_with_aligned_else() {
+    let stmt = parse_statement_from_string(
+        "guard new FrameClock:\n    frames_per_second: 0\nelse err =>\n    return void",
+    )
+    .expect("guard should accept a constructor subject when else aligns with the guard");
+
+    match stmt {
+        Stmt::Guard {
+            expression,
+            error_binding,
+            else_body,
+            ..
+        } => {
+            let Expr::Constructor { callee, fields, .. } = expression.as_ref() else {
+                panic!("expected constructor guard subject, found: {expression:?}");
+            };
+            let Expr::Identifier { name, .. } = callee.as_ref() else {
+                panic!("expected constructor identifier callee, found: {callee:?}");
+            };
+            assert_eq!(name, "FrameClock");
+            assert_eq!(fields.len(), 1, "expected one constructor field");
+            assert_eq!(fields[0].name, "frames_per_second");
+            assert_eq!(error_binding, "err");
+            assert!(matches!(*else_body, Stmt::Block { .. }));
+        }
+        other => panic!("expected statement guard, found: {other:?}"),
+    }
+}
+
+#[test]
+fn parse_expression_guard_accepts_new_constructor_with_into_after_block() {
+    let expr = parse_expression_from_string(
+        "guard new FrameClock:\n    frames_per_second: 0\ninto frame_clock else handle_error()",
+    )
+    .expect("guard expression should accept constructor subject with into after constructor block");
+
+    match expr {
+        Expr::Guard {
+            expr,
+            binding_name,
+            else_branch,
+            ..
+        } => {
+            let Expr::Constructor { callee, fields, .. } = expr.as_ref() else {
+                panic!("expected constructor guard subject, found: {expr:?}");
+            };
+            let Expr::Identifier { name, .. } = callee.as_ref() else {
+                panic!("expected constructor identifier callee, found: {callee:?}");
+            };
+            assert_eq!(name, "FrameClock");
+            assert_eq!(fields.len(), 1, "expected one constructor field");
+            assert_eq!(fields[0].name, "frames_per_second");
+            assert_eq!(binding_name, "frame_clock");
+            assert!(matches!(*else_branch, Stmt::Expression { .. }));
+        }
+        other => panic!("expected guard expression, found: {other:?}"),
+    }
+}
+
+#[test]
+fn parse_statement_guard_rejects_misindented_constructor_else() {
+    let result = parse_statement_from_string(
+        "guard new FrameClock:\n    frames_per_second: 0\n    else err =>\n        return void",
+    );
+
+    assert!(
+        matches!(result, Err(ParseError::GuardMissingElseClause { .. })),
+        "misindented constructor else should still surface a missing aligned guard else, got: {result:?}"
+    );
+}
+
+#[test]
 fn test_parse_guard_missing_into_reports_guard_specific_error() {
     let result = parse_expression_from_string("guard read_line() value else 0");
     match result {

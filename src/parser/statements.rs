@@ -144,6 +144,7 @@ impl Parser {
     /// Expression form remains: `guard <expr> into <ok> [: T] [mutable] else <expr-or-block>`.
     fn is_guard_statement_form(&self) -> bool {
         let mut index = self.current.saturating_add(1);
+        let mut indent_depth = 0_usize;
 
         while let Some(current_token) = self.tokens.get(index) {
             match current_token.token_type {
@@ -161,7 +162,23 @@ impl Parser {
 
                     index = index.saturating_add(1);
                 }
-                TokenType::Newline | TokenType::EndOfFile => return false,
+                TokenType::Indent => {
+                    indent_depth = indent_depth.saturating_add(1);
+                    index = index.saturating_add(1);
+                }
+                TokenType::Dedent => {
+                    indent_depth = indent_depth.saturating_sub(1);
+                    index = index.saturating_add(1);
+                }
+                TokenType::Newline if indent_depth == 0 => {
+                    let next = self.tokens.get(index.saturating_add(1));
+                    if next.is_some_and(|next_token| next_token.token_type == TokenType::Indent) {
+                        index = index.saturating_add(1);
+                    } else {
+                        return false;
+                    }
+                }
+                TokenType::EndOfFile => return false,
                 _ => {
                     index = index.saturating_add(1);
                 }

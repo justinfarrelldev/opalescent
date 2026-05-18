@@ -155,7 +155,9 @@ pub fn codegen_expression<'context>(
             args.as_slice(),
             expected_type,
         ),
-        Expr::Constructor { .. } => codegen_constructor_expression(codegen_context, env, expr),
+        Expr::Constructor { .. } => {
+            codegen_constructor_expression(codegen_context, env, expr, expected_type)
+        }
         Expr::Match { .. } => codegen_match_expression(codegen_context, env, expr),
         Expr::Loop { .. } => Err(CodegenError::new(String::from(
             "loop expressions are lowered in statement context",
@@ -177,9 +179,15 @@ pub fn codegen_expression<'context>(
             ref expr,
             ref binding_name,
             ..
-        } => codegen_guard_expression(codegen_context, env, expr.as_ref(), binding_name.as_str()),
+        } => codegen_guard_expression(
+            codegen_context,
+            env,
+            expr.as_ref(),
+            binding_name.as_str(),
+            expected_type,
+        ),
         Expr::Propagate { ref call, .. } => {
-            codegen_propagate_expression(codegen_context, env, call.as_ref())
+            codegen_propagate_expression(codegen_context, env, call.as_ref(), expected_type)
         }
         Expr::StringInterpolation { ref parts, .. } => {
             codegen_string_interpolation(codegen_context, env, parts.as_slice())

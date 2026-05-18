@@ -1,4 +1,8 @@
 #![cfg(feature = "integration")]
+#![allow(
+    clippy::pattern_type_mismatch,
+    reason = "integration test assertions intentionally match borrowed error references"
+)]
 
 use super::fs_helpers::unique_probe_target_dir;
 use super::*;
@@ -151,67 +155,58 @@ fn sleep_ms_sync_50ms_timing() {
     );
 }
 
-#[test]
-fn frame_clock_rejects_invalid_fps() {
-    let temp_dir = unique_probe_target_dir("frame-clock-rejects-invalid-fps");
+fn run_frame_clock_rejects_invalid_fps_case(test_name: &str, project_name: &str, label: &str) {
+    let temp_dir = unique_probe_target_dir(test_name);
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
-        "frame-clock-rejects-invalid-fps target directory should be created"
+        "{test_name} target directory should be created"
     );
 
     let execution_result: Result<(), String> = (|| {
-        for (label, project_name) in [
-            ("fps=0", "frame-clock-rejects-zero-fps"),
-            ("fps=-1", "frame-clock-rejects-negative-fps"),
-        ] {
-            let source_path =
-                Path::new(&format!("test-projects/{project_name}/src/main.op")).to_path_buf();
-            let source_str = fs::read_to_string(&source_path).map_err(|error| {
-                format!("{project_name} source file should be readable: {error}")
-            })?;
+        let source_path =
+            Path::new(&format!("test-projects/{project_name}/src/main.op")).to_path_buf();
+        let source_str = fs::read_to_string(&source_path)
+            .map_err(|error| format!("{project_name} source file should be readable: {error}"))?;
 
-            let binary_path = compile_program_for_tests(
-                source_path.as_path(),
-                source_str.as_str(),
-                &temp_dir,
-                &TargetTriple::host(),
-            )
-            .map_err(|error| {
-                format!("{project_name} source should compile into a binary: {error}")
-            })?;
+        let binary_path = compile_program_for_tests(
+            source_path.as_path(),
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        )
+        .map_err(|error| format!("{project_name} source should compile into a binary: {error}"))?;
 
-            let run_output = run_binary_output_with_timeout(
-                &binary_path,
-                GENERATED_BINARY_TEST_TIMEOUT,
-                &format!("{project_name} compiled binary"),
-            )?;
+        let run_output = run_binary_output_with_timeout(
+            &binary_path,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            &format!("{project_name} compiled binary"),
+        )?;
 
-            let stdout = String::from_utf8_lossy(&run_output.stdout);
-            let stderr = String::from_utf8_lossy(&run_output.stderr);
-            let combined = format!("{stdout}\n{stderr}");
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        let stderr = String::from_utf8_lossy(&run_output.stderr);
+        let combined = format!("{stdout}\n{stderr}");
 
-            if combined.contains("UNEXPECTED_SUCCESS") {
-                return Err(format!(
-                    "{project_name} binary unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
-                    run_output.status.code(),
-                    stdout,
-                    stderr
-                ));
-            }
-            if !combined.contains("InvalidFrameRateError") {
-                return Err(format!(
-                    "{project_name} output should contain InvalidFrameRateError, status={:?}, stdout='{}', stderr='{}'",
-                    run_output.status.code(),
-                    stdout,
-                    stderr
-                ));
-            }
-            if !combined.contains(label) {
-                return Err(format!(
-                    "{project_name} output should contain {label}, got stdout='{stdout}', stderr='{stderr}'"
-                ));
-            }
+        if combined.contains("UNEXPECTED_SUCCESS") {
+            return Err(format!(
+                "{project_name} binary unexpectedly succeeded, status={:?}, stdout='{}', stderr='{}'",
+                run_output.status.code(),
+                stdout,
+                stderr
+            ));
+        }
+        if !combined.contains("InvalidFrameRateError") {
+            return Err(format!(
+                "{project_name} output should contain InvalidFrameRateError, status={:?}, stdout='{}', stderr='{}'",
+                run_output.status.code(),
+                stdout,
+                stderr
+            ));
+        }
+        if !combined.contains(label) {
+            return Err(format!(
+                "{project_name} output should contain {label}, got stdout='{stdout}', stderr='{stderr}'"
+            ));
         }
 
         Ok(())
@@ -220,7 +215,7 @@ fn frame_clock_rejects_invalid_fps() {
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
-        "frame-clock-rejects-invalid-fps target directory should be removed"
+        "{test_name} target directory should be removed"
     );
 
     let failure_message = match execution_result {
@@ -229,7 +224,31 @@ fn frame_clock_rejects_invalid_fps() {
     };
     assert!(
         failure_message.is_empty(),
-        "frame-clock-rejects-invalid-fps should compile, run, and report InvalidFrameRateError for 0 and -1: {failure_message}"
+        "{test_name} should compile, run, and report InvalidFrameRateError for {label}: {failure_message}"
+    );
+}
+
+#[test]
+fn frame_clock_rejects_zero_fps() {
+    run_frame_clock_rejects_invalid_fps_case(
+        "frame-clock-rejects-zero-fps",
+        "frame-clock-rejects-zero-fps",
+        "fps=0",
+    );
+}
+
+#[test]
+fn frame_clock_rejects_invalid_fps() {
+    frame_clock_rejects_zero_fps();
+    frame_clock_rejects_negative_fps();
+}
+
+#[test]
+fn frame_clock_rejects_negative_fps() {
+    run_frame_clock_rejects_invalid_fps_case(
+        "frame-clock-rejects-negative-fps",
+        "frame-clock-rejects-negative-fps",
+        "fps=-1",
     );
 }
 
@@ -305,5 +324,164 @@ fn frame_clock_30fps_ten_waits_timing() {
     assert!(
         failure_message.is_empty(),
         "frame-clock-30fps-ten-waits-timing should compile, run, and stay within timing bounds: {failure_message}"
+    );
+}
+
+fn assert_constructor_compile_failure_contains_type_error(
+    test_name: &str,
+    source: &str,
+    expected_label: &str,
+    predicate: impl Fn(&TypeError) -> bool,
+) {
+    let temp_dir = unique_probe_target_dir(test_name);
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "{test_name} target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let source_path = Path::new("test-projects/frame-clock-30fps-ten-waits-timing/src/main.op");
+        let compile_result =
+            compile_program_for_tests(source_path, source, &temp_dir, &TargetTriple::host());
+
+        let compile_error = match compile_result {
+            Ok(_) => {
+                return Err(format!(
+                    "{test_name} source should fail to compile, but compilation succeeded"
+                ));
+            }
+            Err(error) => error,
+        };
+
+        match compile_error {
+            CompileError::Report { report, .. } => {
+                let has_expected = report.entries().iter().any(|entry| match &entry.1 {
+                    CompilerError::TypeChecker(type_error) => predicate(type_error),
+                    _ => false,
+                });
+
+                if has_expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "{test_name} should emit {expected_label}, got diagnostics: {:?}",
+                        report.entries()
+                    ))
+                }
+            }
+            CompileError::Type(type_error) => {
+                if predicate(&type_error) {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "{test_name} should emit {expected_label}, got type error: {type_error:?}"
+                    ))
+                }
+            }
+            other => Err(format!(
+                "{test_name} should fail with a type-check diagnostic, got: {other}"
+            )),
+        }
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "{test_name} target directory should be removed"
+    );
+
+    let failure_message = execution_result.err().unwrap_or_default();
+    assert!(
+        failure_message.is_empty(),
+        "{test_name} should emit deterministic constructor diagnostic for {expected_label}: {failure_message}"
+    );
+}
+
+#[test]
+fn new_frameclock_missing_field() {
+    const SOURCE: &str = "##
+    Description: Entry function validating missing required FrameClock constructor field diagnostics
+##
+entry main = f(args: string[]): void errors InvalidFrameRateError =>
+    let clock = propagate new FrameClock
+    propagate frame_clock_wait_next_sync(clock)
+    return void
+";
+
+    assert_constructor_compile_failure_contains_type_error(
+        "new-frameclock-missing-field",
+        SOURCE,
+        "MissingField(frames_per_second)",
+        |type_error| {
+            matches!(
+                type_error,
+                TypeError::MissingField {
+                    type_name,
+                    field_name,
+                    ..
+                } if type_name == "FrameClock" && field_name == "frames_per_second"
+            )
+        },
+    );
+}
+
+#[test]
+fn new_frameclock_extra_field() {
+    const SOURCE: &str = "##
+    Description: Entry function validating extra FrameClock constructor field diagnostics
+##
+entry main = f(args: string[]): void errors InvalidFrameRateError =>
+    guard new FrameClock:
+        unsupported_field: 30
+    else err =>
+        propagate err
+    return void
+";
+
+    assert_constructor_compile_failure_contains_type_error(
+        "new-frameclock-extra-field",
+        SOURCE,
+        "MissingField(unsupported_field)",
+        |type_error| {
+            matches!(
+                type_error,
+                TypeError::MissingField {
+                    type_name,
+                    field_name,
+                    ..
+                } if type_name == "FrameClock" && field_name == "unsupported_field"
+            )
+        },
+    );
+}
+
+#[test]
+fn new_frameclock_wrong_type() {
+    const SOURCE: &str = "##
+    Description: Entry function validating FrameClock constructor field type diagnostics
+##
+entry main = f(args: string[]): void errors InvalidFrameRateError =>
+    guard new FrameClock:
+        frames_per_second: 'thirty'
+    else err =>
+        propagate err
+    return void
+";
+
+    assert_constructor_compile_failure_contains_type_error(
+        "new-frameclock-wrong-type",
+        SOURCE,
+        "FieldTypeMismatch(frames_per_second)",
+        |type_error| {
+            matches!(
+                type_error,
+                TypeError::FieldTypeMismatch {
+                    type_name,
+                    field_name,
+                    ..
+                } if type_name == "FrameClock" && field_name == "frames_per_second"
+            )
+        },
     );
 }

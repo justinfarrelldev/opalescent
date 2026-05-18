@@ -12,6 +12,7 @@ use super::checker::TypeChecker;
 use super::constraints::TypeConstraint;
 use super::environment::TypeEnvironment;
 use super::errors::{TypeError, Warning};
+use super::fallible_constructors::{CanonicalTypeIdentity, lookup_fallible_constructor};
 use super::substitution::Substitution;
 use super::symbol_table::{ScopeId, SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::type_mapping::ast_type_to_core_type;
@@ -8192,6 +8193,317 @@ return length
     assert!(
         result.is_ok(),
         "new Bytes should produce a Bytes value exposing .length: {result:?}"
+    );
+}
+
+#[test]
+fn fallible_constructor_registry_registers_frameclock() {
+    let entry = lookup_fallible_constructor(CanonicalTypeIdentity::new("FrameClock"))
+        .expect("FrameClock should be present in the fallible constructor registry");
+
+    assert_eq!(entry.canonical_result_type_name, "FrameClock");
+    assert_eq!(entry.runtime_symbol, "frame_clock_new");
+    assert_eq!(entry.required_fields.len(), 1);
+    assert_eq!(entry.required_fields[0].name, "frames_per_second");
+    assert_eq!(entry.required_fields[0].core_type, CoreType::Int32);
+    assert_eq!(
+        entry.success_type,
+        CoreType::Generic {
+            name: "FrameClock".to_owned(),
+            type_args: Vec::new(),
+        }
+    );
+    assert_eq!(
+        entry.error_types,
+        vec![CoreType::Generic {
+            name: "InvalidFrameRateError".to_owned(),
+            type_args: Vec::new(),
+        }]
+    );
+    assert_eq!(entry.lowering.runtime_symbol, "frame_clock_new");
+    assert_eq!(entry.lowering.error_field_index, 1);
+}
+
+#[test]
+fn fallible_constructor_registry_supports_test_second_entry() {
+    let entry = lookup_fallible_constructor(CanonicalTypeIdentity::new("TestFrameClock"))
+        .expect("test-only second entry should resolve through the same registry lookup API");
+
+    assert_eq!(entry.canonical_result_type_name, "TestFrameClock");
+    assert_eq!(entry.runtime_symbol, "test_frame_clock_new");
+    assert_eq!(entry.required_fields.len(), 1);
+    assert_eq!(entry.required_fields[0].name, "seed");
+    assert_eq!(entry.required_fields[0].core_type, CoreType::Int32);
+    assert_eq!(
+        entry.success_type,
+        CoreType::Generic {
+            name: "TestFrameClock".to_owned(),
+            type_args: Vec::new(),
+        }
+    );
+    assert_eq!(
+        entry.error_types,
+        vec![CoreType::Generic {
+            name: "TestFrameRateError".to_owned(),
+            type_args: Vec::new(),
+        }]
+    );
+    assert_eq!(entry.lowering.runtime_symbol, "test_frame_clock_new");
+    assert_eq!(entry.lowering.error_field_index, 1);
+}
+
+#[test]
+fn fallible_constructor_lookup_uses_resolved_canonical_type() {
+    let resolved_canonical_type = CoreType::Generic {
+        name: "FrameClock".to_owned(),
+        type_args: Vec::new(),
+    };
+    let resolved_identity = CanonicalTypeIdentity::from_core_type(&resolved_canonical_type)
+        .expect("resolved canonical nominal type should produce a lookup identity");
+
+    assert_eq!(
+        resolved_identity.name, "FrameClock",
+        "resolved identity should preserve canonical nominal type name"
+    );
+    assert!(
+        lookup_fallible_constructor(resolved_identity).is_some(),
+        "registry lookup should succeed for resolved canonical FrameClock identity"
+    );
+    assert!(
+        lookup_fallible_constructor(CanonicalTypeIdentity::new("ClockAlias")).is_none(),
+        "registry lookup must reject unresolved alias names"
+    );
+}
+
+#[test]
+fn ordinary_aliased_constructor_not_treated_as_fallible() {
+    let propagate_alias_constructor = Expr::Propagate {
+        call: Box::new(constructor_expr(
+            identifier_expr("AccountAlias", 8_261_100),
+            vec![("id", literal_expr(LiteralValue::Integer(42), 8_261_101))],
+            8_261_102,
+        )),
+        span: test_span(),
+        id: node_id(8_261_103),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 8_261_104),
+        make_product_type_decl("Account", vec![("id", int_type("int32"))], 8_261_105),
+        Decl::Type {
+            name: "AccountAlias".to_owned(),
+            generic_params: None,
+            generic_constraints: None,
+            type_def: TypeDef::Alias {
+                target_type: Type::Basic {
+                    name: "Account".to_owned(),
+                    span: test_span(),
+                },
+                span: test_span(),
+            },
+            visibility: AstVisibility::Private,
+            doc_comment: None,
+            span: test_span(),
+            id: node_id(8_261_106),
+            metadata: HotReloadMetadata::for_type_declaration(),
+        },
+        Decl::Function {
+            name: "main".to_owned(),
+            generic_params: None,
+            generic_constraints: None,
+            parameters: Vec::new(),
+            return_types: Some(vec![int_type("void")]),
+            error_types: vec!["ParseError".to_owned()],
+            body: Stmt::Block {
+                statements: vec![
+                    Stmt::Let {
+                        binding: LetBinding {
+                            name: "account".to_owned(),
+                            type_annotation: Some(Type::Basic {
+                                name: "AccountAlias".to_owned(),
+                                span: test_span(),
+                            }),
+                            is_mutable: false,
+                            span: test_span(),
+                            id: node_id(8_261_107),
+                        },
+                        initializer: Some(propagate_alias_constructor),
+                        span: test_span(),
+                        id: node_id(8_261_108),
+                    },
+                    return_stmt(literal_expr(LiteralValue::Void, 8_261_109), 8_261_110),
+                ],
+                span: test_span(),
+                id: node_id(8_261_111),
+            },
+            visibility: AstVisibility::Private,
+            is_entry: true,
+            modifiers: vec![],
+            doc_comment: Some(Documentation::from_raw(
+                "Description: Entry function proving ordinary constructor aliases remain non-fallible"
+                    .to_owned(),
+                test_span(),
+            )),
+            span: test_span(),
+            id: node_id(8_261_112),
+            metadata: HotReloadMetadata::for_function(),
+        },
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("propagate new AccountAlias should be rejected because Account is not in the fallible constructor registry");
+    assert!(
+        errors.iter().any(|error| {
+            matches!(
+                error,
+                TypeError::PropagateOnNonFallibleConstructor { type_name, .. }
+                    if type_name == "AccountAlias"
+            ) && error
+                .to_string()
+                .contains("does not have a fallible constructor")
+        }),
+        "expected non-fallible constructor diagnostic for ordinary alias target, got: {errors:?}"
+    );
+}
+
+#[test]
+fn propagate_new_frameclock_typechecks_via_registry() {
+    const SOURCE: &str = "
+entry main = f(): void errors InvalidFrameRateError =>
+    let clock: FrameClock = propagate new FrameClock:
+        frames_per_second: 10
+    return void
+";
+
+    let program = parse_program_from_source_with_spaces(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "propagate new FrameClock should type-check through the fallible constructor registry: {result:?}"
+    );
+}
+
+#[test]
+fn guard_new_frameclock_typechecks_via_registry() {
+    const SOURCE: &str = "
+entry main = f(): void errors InvalidFrameRateError =>
+    guard new FrameClock:
+        frames_per_second: 30
+    into clock else err =>
+        let typed_err: InvalidFrameRateError = err
+        propagate err
+    let stable_clock: FrameClock = clock
+    return void
+";
+
+    let program = parse_program_from_source_with_spaces(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "guard new FrameClock should type-check through the shared fallible constructor path: {result:?}"
+    );
+}
+
+#[test]
+fn propagate_new_nonfallible_constructor_reports_diagnostic() {
+    let propagate_account = Expr::Propagate {
+        call: Box::new(constructor_expr(
+            identifier_expr("Account", 8_270_100),
+            vec![("id", literal_expr(LiteralValue::Integer(42), 8_270_101))],
+            8_270_102,
+        )),
+        span: test_span(),
+        id: node_id(8_270_103),
+    };
+
+    let program = create_program(vec![
+        make_unit_type_decl("ParseError", 8_270_104),
+        make_product_type_decl("Account", vec![("id", int_type("int32"))], 8_270_105),
+        Decl::Function {
+            name: "main".to_owned(),
+            generic_params: None,
+            generic_constraints: None,
+            parameters: Vec::new(),
+            return_types: Some(vec![int_type("void")]),
+            error_types: vec!["ParseError".to_owned()],
+            body: Stmt::Block {
+                statements: vec![
+                    Stmt::Let {
+                        binding: LetBinding {
+                            name: "account".to_owned(),
+                            type_annotation: Some(Type::Basic {
+                                name: "Account".to_owned(),
+                                span: test_span(),
+                            }),
+                            is_mutable: false,
+                            span: test_span(),
+                            id: node_id(8_270_106),
+                        },
+                        initializer: Some(propagate_account),
+                        span: test_span(),
+                        id: node_id(8_270_107),
+                    },
+                    return_stmt(literal_expr(LiteralValue::Void, 8_270_108), 8_270_109),
+                ],
+                span: test_span(),
+                id: node_id(8_270_110),
+            },
+            visibility: AstVisibility::Private,
+            is_entry: true,
+            modifiers: vec![],
+            doc_comment: Some(Documentation::from_raw(
+                "Description: Entry function used to verify non-fallible constructor propagation diagnostics"
+                    .to_owned(),
+                test_span(),
+            )),
+            span: test_span(),
+            id: node_id(8_270_111),
+            metadata: HotReloadMetadata::for_function(),
+        },
+    ]);
+
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("propagate new Account should be rejected when the constructor is not registered as fallible");
+    assert!(
+        errors.iter().any(|error| {
+            matches!(
+                error,
+                TypeError::PropagateOnNonFallibleConstructor { type_name, .. }
+                    if type_name == "Account"
+            ) && error
+                .to_string()
+                .contains("does not have a fallible constructor")
+        }),
+        "expected non-fallible constructor diagnostic, got: {errors:?}"
+    );
+}
+
+#[test]
+fn propagate_new_constructor_error_mismatch_reports_existing_rule() {
+    const SOURCE: &str = "
+entry main = f(): void errors ParseError =>
+    let clock: FrameClock = propagate new FrameClock:
+        frames_per_second: 10
+    return void
+";
+
+    let rejection = reject_source(
+        SOURCE,
+        "propagate new FrameClock should still enforce enclosing-function error subset rules",
+    );
+    assert!(
+        matches!(
+            rejection,
+            SourceRejection::Type(ref errors)
+                if errors.iter().any(|error| matches!(error, TypeError::PropagateErrorMismatch { .. }))
+        ),
+        "expected PropagateErrorMismatch for constructor error mismatch, got: {rejection:?}"
     );
 }
 

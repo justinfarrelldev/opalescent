@@ -5,6 +5,9 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::types::integer_literal_bits;
+use crate::type_system::fallible_constructors::{
+    CanonicalTypeIdentity, FallibleConstructorEntry, lookup_fallible_constructor,
+};
 use crate::type_system::propertyless_constructors::lookup_propertyless_constructor;
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
@@ -30,6 +33,7 @@ pub fn codegen_constructor_expression<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     expr: &Expr,
+    expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     if let Expr::Constructor {
         ref callee,
@@ -38,6 +42,23 @@ pub fn codegen_constructor_expression<'context>(
     } = *expr
     {
         if let Expr::Identifier { ref name, .. } = *callee.as_ref() {
+            let canonical_entry = expected_type
+                .and_then(CanonicalTypeIdentity::from_core_type)
+                .and_then(lookup_fallible_constructor);
+            let imported_entry = env
+                .imported_signatures
+                .get(name.as_str())
+                .and_then(CanonicalTypeIdentity::from_core_type)
+                .and_then(lookup_fallible_constructor);
+            let fallback_entry = lookup_fallible_constructor(CanonicalTypeIdentity::new(name));
+            if let Some(entry) = canonical_entry.or(imported_entry).or(fallback_entry) {
+                return codegen_registered_fallible_constructor(
+                    codegen_context,
+                    env,
+                    fields.as_slice(),
+                    &entry,
+                );
+            }
             if fields.is_empty() {
                 if let Some(entry) = lookup_propertyless_constructor(name.as_str()) {
                     let runtime_function =
@@ -543,6 +564,56 @@ fn member_parts(expr: &Expr) -> Result<(String, String), CodegenError> {
     Err(CodegenError::new(String::from(
         "expected member expression",
     )))
+}
+
+#[doc = "Lower registered fallible constructors through runtime symbols and error ABI."]
+fn codegen_registered_fallible_constructor<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    fields: &[crate::ast::ConstructorField],
+    entry: &FallibleConstructorEntry,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let mut field_map = alloc::collections::BTreeMap::new();
+    for field in fields {
+        field_map.insert(field.name.as_str(), &field.value);
+    }
+
+    let mut ordered_args = Vec::with_capacity(entry.required_fields.len());
+    for required_field in &entry.required_fields {
+        let Some(field_expr) = field_map.get(required_field.name) else {
+            return Err(CodegenError::new(format!(
+                "missing required field '{}' for fallible constructor runtime call",
+                required_field.name
+            )));
+        };
+        let lowered_field_value = codegen_expression(
+            codegen_context,
+            env,
+            field_expr,
+            Some(&required_field.core_type),
+        )?;
+        ordered_args.push(lowered_field_value.into());
+    }
+
+    let runtime_function = crate::codegen::functions_stdlib::declare_stdlib_function(
+        codegen_context,
+        entry.runtime_symbol,
+    )
+    .ok_or_else(|| CodegenError::new(format!("{} declaration missing", entry.runtime_symbol)))?;
+
+    let call_site = codegen_context.builder.build_call(
+        runtime_function,
+        ordered_args.as_slice(),
+        &env.next_name("fallible.constructor.call"),
+    )?;
+    let Some(fallible_constructor_value) = call_site.try_as_basic_value().basic() else {
+        return Err(CodegenError::new(format!(
+            "{} should return an error-bearing aggregate",
+            entry.runtime_symbol
+        )));
+    };
+
+    Ok(fallible_constructor_value)
 }
 
 #[doc = "Lower sum variant constructors into tagged-union struct values."]

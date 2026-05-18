@@ -16,6 +16,7 @@ extern crate alloc;
 
 use super::control_flow::{GuardCheckRequest, GuardUsage};
 use super::helpers::coerce_literal_to_expected;
+use super::{FallibleExpressionContext, FallibleExpressionInfo};
 use crate::ast::{AstNode, Expr, LabeledValue, Stmt};
 use crate::token::Span;
 use crate::type_system::checker::{ActiveGuardErrorBinding, TypeChecker};
@@ -74,29 +75,11 @@ impl TypeChecker {
             usage,
             expected_return,
         } = request;
-        let (callee_expr, args, call_span) = match *expr {
-            Expr::Call {
-                ref callee,
-                ref args,
-                span: call_span,
-                ..
-            } => (callee.as_ref(), args.as_slice(), call_span),
-            _ => {
-                return Err(TypeError::GuardOnNonErrorExpression {
-                    span: TypeError::span_from_span(expr.span()),
-                });
-            }
-        };
-
-        let (success_type, callee_error_types) =
-            self.resolve_guard_callee_signature(expr, callee_expr)?;
-
-        let previous_guard_subject_context = self.context.in_guard_subject_context;
-        self.context.in_guard_subject_context = true;
-        let call_result =
-            self.type_check_call_expr(callee_expr, None, args, call_span, expr.node_id().0);
-        self.context.in_guard_subject_context = previous_guard_subject_context;
-        call_result?;
+        let FallibleExpressionInfo {
+            success_type,
+            error_types: callee_error_types,
+            ..
+        } = self.classify_fallible_expression(expr, FallibleExpressionContext::Guard)?;
 
         if let Some(annotated_type_ast) = binding.annotation {
             let annotated_type =
@@ -159,44 +142,6 @@ impl TypeChecker {
         }
 
         Ok(success_type)
-    }
-
-    /// Resolve and validate the guarded call signature, returning success and error types.
-    fn resolve_guard_callee_signature(
-        &mut self,
-        expr: &Expr,
-        callee_expr: &Expr,
-    ) -> Result<(CoreType, Vec<CoreType>), TypeError> {
-        let callee_type = self.type_check_expr(callee_expr)?;
-        match callee_type {
-            CoreType::Function {
-                return_types,
-                error_types,
-                ..
-            } => {
-                if error_types.is_empty() {
-                    return Err(TypeError::GuardOnNonErrorExpression {
-                        span: TypeError::span_from_span(expr.span()),
-                    });
-                }
-                if return_types.len() != 1 {
-                    return Err(TypeError::ArityMismatch {
-                        expected: 1,
-                        found: return_types.len(),
-                        span: TypeError::span_from_span(expr.span()),
-                    });
-                }
-                let Some(return_type) = return_types.first() else {
-                    return Err(TypeError::GuardWrapperSourceInvalid {
-                        source_span: TypeError::span_from_span(expr.span()),
-                    });
-                };
-                Ok((return_type.clone(), error_types))
-            }
-            _ => Err(TypeError::GuardOnNonErrorExpression {
-                span: TypeError::span_from_span(expr.span()),
-            }),
-        }
     }
 
     /// Type-check a guard else-branch inside an isolated scope and guard context.

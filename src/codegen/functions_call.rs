@@ -411,6 +411,7 @@ pub fn codegen_propagate_expression<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     call_expr: &Expr,
+    expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     env.set_pending_array_metadata(None);
     let value = if let Expr::Call {
@@ -425,10 +426,10 @@ pub fn codegen_propagate_expression<'context>(
             callee.as_ref(),
             None,
             args.as_slice(),
-            None,
+            expected_type,
         )?
     } else {
-        codegen_expression(codegen_context, env, call_expr, None)?
+        codegen_expression(codegen_context, env, call_expr, expected_type)?
     };
     if value.is_struct_value() {
         let struct_value = value.into_struct_value();
@@ -509,6 +510,7 @@ pub fn codegen_guard_expression<'context>(
     env: &mut CodegenEnv<'context>,
     guarded_expr: &Expr,
     binding_name: &str,
+    expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let value = if let Expr::Call {
         ref callee,
@@ -522,10 +524,10 @@ pub fn codegen_guard_expression<'context>(
             callee.as_ref(),
             None,
             args.as_slice(),
-            None,
+            expected_type,
         )?
     } else {
-        codegen_expression(codegen_context, env, guarded_expr, None)?
+        codegen_expression(codegen_context, env, guarded_expr, expected_type)?
     };
     if value.is_struct_value() {
         let struct_value = value.into_struct_value();

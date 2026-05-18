@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::collections::BTreeSet;
 
+use crate::type_system::fallible_constructors::FallibleConstructorEntry;
 use crate::type_system::propertyless_constructors::lookup_propertyless_constructor;
 use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::{
@@ -120,11 +121,87 @@ impl TypeChecker {
             .adt_generic_params_for(type_owner_name.as_str())
             .cloned()
             .unwrap_or_default();
+
         let mut fresh_instantiations: alloc::collections::BTreeMap<usize, CoreType> =
             alloc::collections::BTreeMap::new();
-        let mut inference_substitution = crate::type_system::substitution::Substitution::empty();
+        let inference_substitution = self.type_check_named_constructor_fields(
+            owner_name,
+            fields,
+            expected_fields
+                .iter()
+                .map(|(name, core_type)| (name.as_str(), core_type)),
+            span,
+            &mut fresh_instantiations,
+        )?;
 
+        self.finalize_generic_constructor_type(
+            type_owner_name.as_str(),
+            adt_generic_params.as_slice(),
+            span,
+            &mut fresh_instantiations,
+            &inference_substitution,
+        )
+    }
+
+    /// Validate constructor fields against a named field schema shared by ordinary and registered constructors.
+    pub(super) fn type_check_named_constructor_fields<'field_iter, I>(
+        &mut self,
+        owner_name: &str,
+        fields: &[ConstructorField],
+        expected_fields: I,
+        span: Span,
+        fresh_instantiations: &mut alloc::collections::BTreeMap<usize, CoreType>,
+    ) -> Result<crate::type_system::substitution::Substitution, TypeError>
+    where
+        I: IntoIterator<Item = (&'field_iter str, &'field_iter CoreType)>,
+    {
+        let expected_fields = expected_fields
+            .into_iter()
+            .map(|(field_name, core_type)| (field_name.to_owned(), core_type.clone()))
+            .collect::<alloc::collections::BTreeMap<_, _>>();
+
+        self.type_check_constructor_field_schema(
+            owner_name,
+            fields,
+            &expected_fields,
+            span,
+            fresh_instantiations,
+        )
+    }
+
+    /// Validate fields for a registered fallible constructor entry.
+    pub(super) fn type_check_registered_constructor_fields(
+        &mut self,
+        entry: &FallibleConstructorEntry,
+        fields: &[ConstructorField],
+        span: Span,
+    ) -> Result<crate::type_system::substitution::Substitution, TypeError> {
+        let mut fresh_instantiations: alloc::collections::BTreeMap<usize, CoreType> =
+            alloc::collections::BTreeMap::new();
+        self.type_check_named_constructor_fields(
+            entry.canonical_result_type_name,
+            fields,
+            entry
+                .required_fields
+                .iter()
+                .map(|field| (field.name, &field.core_type)),
+            span,
+            &mut fresh_instantiations,
+        )
+    }
+
+    /// Validate constructor fields against a named field schema and preserve inference behavior.
+    fn type_check_constructor_field_schema(
+        &mut self,
+        owner_name: &str,
+        fields: &[ConstructorField],
+        expected_fields: &alloc::collections::BTreeMap<String, CoreType>,
+        span: Span,
+        fresh_instantiations: &mut alloc::collections::BTreeMap<usize, CoreType>,
+    ) -> Result<crate::type_system::substitution::Substitution, TypeError> {
+        let mut inference_substitution = crate::type_system::substitution::Substitution::empty();
         let mut seen_fields: BTreeSet<String> = BTreeSet::new();
+
         for field in fields {
             if seen_fields.contains(&field.name) {
                 return Err(TypeError::DuplicateField {
@@ -143,7 +220,7 @@ impl TypeChecker {
             };
 
             let expected_field_instantiated =
-                self.instantiate_call_type(expected_type, &mut fresh_instantiations, field.span)?;
+                self.instantiate_call_type(expected_type, fresh_instantiations, field.span)?;
             let field_value_type = self.type_check_expr(&field.value)?;
             let expected_field_applied = inference_substitution.apply(&expected_field_instantiated);
             let reconciled_value = if self
@@ -165,15 +242,13 @@ impl TypeChecker {
                 });
             };
 
-            if !adt_generic_params.is_empty() {
-                let field_substitution = self.unify(
-                    &expected_field_applied,
-                    &reconciled_value,
-                    Some(field.span),
-                    Some(field.value.span()),
-                )?;
-                inference_substitution = inference_substitution.compose(&field_substitution);
-            }
+            let field_substitution = self.unify(
+                &expected_field_applied,
+                &reconciled_value,
+                Some(field.span),
+                Some(field.value.span()),
+            )?;
+            inference_substitution = inference_substitution.compose(&field_substitution);
 
             self.add_constraint(TypeConstraint::equality(
                 expected_field_instantiated,
@@ -193,13 +268,7 @@ impl TypeChecker {
             }
         }
 
-        self.finalize_generic_constructor_type(
-            type_owner_name.as_str(),
-            adt_generic_params.as_slice(),
-            span,
-            &mut fresh_instantiations,
-            &inference_substitution,
-        )
+        Ok(inference_substitution)
     }
 
     /// Finalize inferred generic constructor arguments and emit constraints.
