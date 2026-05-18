@@ -1,0 +1,9 @@
+import print_text_sync, flush_standard_output_sync from standard
+
+##
+  Description: Verifies print_text_sync writes stdout bytes without a newline and flushes on demand.
+##
+entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
+    propagate print_text_sync('abc')
+    propagate flush_standard_output_sync()
+    return void

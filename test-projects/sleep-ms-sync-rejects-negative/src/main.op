@@ -1,0 +1,12 @@
+import sleep_ms_sync from standard
+
+##
+  Description: Verifies sleep_ms_sync rejects negative millisecond durations.
+##
+entry main = f(args: string[]): void errors InvalidDurationError =>
+    guard sleep_ms_sync(-1) else err =>
+        print(err)
+        propagate err
+
+    print('UNEXPECTED_SUCCESS')
+    return void

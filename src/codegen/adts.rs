@@ -40,16 +40,17 @@ pub fn codegen_constructor_expression<'context>(
         if let Expr::Identifier { ref name, .. } = *callee.as_ref() {
             if fields.is_empty() {
                 if let Some(entry) = lookup_propertyless_constructor(name.as_str()) {
-                    let runtime_function = crate::codegen::functions_stdlib::declare_stdlib_function(
-                        codegen_context,
-                        entry.runtime_function,
-                    )
-                    .ok_or_else(|| {
-                        CodegenError::new(format!(
-                            "{} declaration missing",
-                            entry.runtime_function
-                        ))
-                    })?;
+                    let runtime_function =
+                        crate::codegen::functions_stdlib::declare_stdlib_function(
+                            codegen_context,
+                            entry.runtime_function,
+                        )
+                        .ok_or_else(|| {
+                            CodegenError::new(format!(
+                                "{} declaration missing",
+                                entry.runtime_function
+                            ))
+                        })?;
                     let call_site = codegen_context.builder.build_call(
                         runtime_function,
                         &[],

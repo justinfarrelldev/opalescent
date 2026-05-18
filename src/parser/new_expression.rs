@@ -130,8 +130,10 @@ impl Parser {
             self.skip_newlines_and_comments();
         }
 
-        self.consume(&TokenType::Dedent, "Expected dedent after indentation block")?;
+        self.consume(
+            &TokenType::Dedent,
+            "Expected dedent after indentation block",
+        )?;
         Ok(fields)
     }
 }
-

@@ -1,0 +1,17 @@
+import frame_clock_new from standard
+
+##
+  Description: Captures the InvalidFrameRateError text for one invalid frame rate.
+##
+let invalid_frame_rate_message = f(fps: int32): string =>
+    guard frame_clock_new(fps) else _e =>
+        return 'fps={fps}:InvalidFrameRateError'
+    return 'UNEXPECTED_SUCCESS fps={fps}'
+
+##
+  Description: Verifies frame_clock_new rejects zero and negative frame rates.
+##
+entry main = f(args: string[]): void =>
+    print(invalid_frame_rate_message(0))
+    print(invalid_frame_rate_message(-1))
+    return void

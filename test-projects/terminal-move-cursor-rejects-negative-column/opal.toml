@@ -1,0 +1,2 @@
+name = "terminal-move-cursor-rejects-negative-column"
+version = "1.0.0"

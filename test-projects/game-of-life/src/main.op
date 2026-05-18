@@ -1,0 +1,36 @@
+import string_join, string_builder_push, string_builder_finish, stdout_writer, writer_write_sync, writer_flush_sync, stdout_terminal, terminal_draw_rows_sync, sleep_ms_sync from standard
+
+let row = f(a: string, b: string, c: string, d: string, e: string): string =>
+    return string_join([a, b, c, d, e], '')
+
+let frame_header = f(frame: int64): string =>
+    return 'Frame {frame}'
+
+##
+  Description: Renders a bounded deterministic ten-frame Game of Life transcript for integration testing.
+##
+entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError, InvalidDurationError, BuilderFinishedError, AllocationFailureError =>
+    let writer = stdout_writer()
+    let terminal = stdout_terminal()
+    let mutable frame: int64 = 0
+
+    while frame < 10:
+        let header_builder: StringBuilder = new StringBuilder
+        propagate string_builder_push(header_builder, frame_header(frame))
+        propagate string_builder_push(header_builder, '\n')
+        let header_text = propagate string_builder_finish(header_builder)
+
+        propagate writer_write_sync(writer, header_text)
+        if frame % 2 is 0:
+            let even_rows: string[] = [row('.', '.', '.', '.', '.'), row('.', '.', '#', '.', '.'), row('.', '.', '#', '.', '.'), row('.', '.', '#', '.', '.'), row('.', '.', '.', '.', '.')]
+            propagate terminal_draw_rows_sync(terminal, even_rows)
+        else:
+            let odd_rows: string[] = [row('.', '.', '.', '.', '.'), row('.', '.', '.', '.', '.'), row('.', '#', '#', '#', '.'), row('.', '.', '.', '.', '.'), row('.', '.', '.', '.', '.')]
+            propagate terminal_draw_rows_sync(terminal, odd_rows)
+        propagate writer_write_sync(writer, '\n')
+
+        propagate sleep_ms_sync(0)
+        frame = frame + 1
+
+    propagate writer_flush_sync(writer)
+    return void

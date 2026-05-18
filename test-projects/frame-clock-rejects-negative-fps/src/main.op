@@ -1,0 +1,12 @@
+import frame_clock_new from standard
+
+##
+  Description: Verifies frame_clock_new rejects negative fps.
+##
+entry main = f(args: string[]): void errors InvalidFrameRateError =>
+    guard frame_clock_new(-1) else err =>
+        print('fps=-1:{err}')
+        propagate err
+
+    print('UNEXPECTED_SUCCESS fps=-1')
+    return void

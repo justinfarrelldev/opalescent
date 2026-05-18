@@ -1,0 +1,8 @@
+import string_join from standard
+
+##
+  Description: Verifies string_join joins a simple array with a separator.
+##
+entry main = f(args: string[]): void =>
+    print(string_join(['alpha', 'beta', 'gamma'], ','))
+    return void

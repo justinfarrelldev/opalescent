@@ -1,0 +1,8 @@
+import sleep_ms_sync from standard
+
+##
+  Description: Verifies sleep_ms_sync blocks for roughly 50 milliseconds.
+##
+entry main = f(args: string[]): void errors InvalidDurationError =>
+    propagate sleep_ms_sync(50)
+    return void

@@ -92,9 +92,7 @@ impl TypeChecker {
         }
 
         Err(TypeError::InvalidOperation {
-            operation: format!(
-                "propertyless constructor is not registered for {owner_name}"
-            ),
+            operation: format!("propertyless constructor is not registered for {owner_name}"),
             type_name: owner_name.to_owned(),
             span: TypeError::span_from_span(span),
         })

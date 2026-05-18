@@ -23,8 +23,8 @@ use crate::ast::{
 };
 use crate::errors::renderer::render_diagnostic;
 use crate::lexer::Lexer;
-use crate::parser::errors::ParseError;
 use crate::parser::Parser;
+use crate::parser::errors::ParseError;
 use crate::token::{Position, Span};
 use miette::Diagnostic;
 
@@ -8214,30 +8214,23 @@ return length
 }
 
 #[test]
-fn propertyless_constructor_rejects_stringbuilder() {
+fn propertyless_constructor_accepts_stringbuilder() {
     const SOURCE: &str = "
 ##
-  Description: Ensure unregistered propertyless constructors are rejected
+  Description: Ensure StringBuilder is accepted as a propertyless constructor
 ##
 entry demo = f(): int32 => {
-let builder = new StringBuilder
+let builder: StringBuilder = new StringBuilder
+let alias = builder
 return 0
 }
 ";
-    let rejection = reject_source(
-        SOURCE,
-        "new StringBuilder without fields must be rejected by type checking",
-    );
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
     assert!(
-        matches!(
-            rejection,
-            SourceRejection::Type(ref errors)
-                if errors.iter().any(|error| {
-                    let message = error.to_string();
-                    message.contains("propertyless constructor is not registered for StringBuilder")
-                })
-        ),
-        "expected type-check rejection for bare new StringBuilder, got: {rejection:?}"
+        result.is_ok(),
+        "new StringBuilder should type check successfully: {result:?}"
     );
 }
 

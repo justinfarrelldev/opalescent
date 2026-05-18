@@ -1,0 +1,9 @@
+import terminal_clear_screen_sync, flush_standard_output_sync from standard
+
+##
+  Description: Verifies terminal_clear_screen_sync emits the exact ANSI clear-screen bytes.
+##
+entry main = f(args: string[]): void errors TerminalWriteFailureError, FlushFailureError, SinkClosedError =>
+    propagate terminal_clear_screen_sync()
+    propagate flush_standard_output_sync()
+    return void

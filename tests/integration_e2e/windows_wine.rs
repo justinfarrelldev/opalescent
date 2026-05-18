@@ -795,7 +795,8 @@ mod tests {
             );
 
         assert!(
-            build_error.contains("propagate` used outside a function that declares errors"),
+            build_error.contains("opalescent::guard::missing_terminal")
+                && build_error.contains("named guard error clause does not handle the bound error"),
             "wine_msvc_guard_shorthand should fail with the strict guard validation error, got: {build_error}"
         );
 

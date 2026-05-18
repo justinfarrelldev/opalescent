@@ -14,15 +14,16 @@ pub struct PropertylessConstructorEntry {
 }
 
 /// Canonical propertyless constructor entries.
-pub const PROPERTYLESS_CONSTRUCTORS: [PropertylessConstructorEntry; 1] =
-    [PropertylessConstructorEntry {
+pub const PROPERTYLESS_CONSTRUCTORS: [PropertylessConstructorEntry; 2] = [
+    PropertylessConstructorEntry {
         type_name: "Bytes",
         runtime_function: "bytes_new",
-    }];
-
-// FUTURE: Additional opaque handles or propertyless built-ins (e.g., StringBuilder)
-// can be added to this registry. Currently, only `Bytes` is supported to match
-// the Opalescent standard library's dedicated binary data type.
+    },
+    PropertylessConstructorEntry {
+        type_name: "StringBuilder",
+        runtime_function: "string_builder_new",
+    },
+];
 
 /// Look up a propertyless constructor entry by type name.
 #[must_use]
@@ -51,14 +52,17 @@ mod tests {
         assert_eq!(entry.map(|entry| entry.runtime_function), Some("bytes_new"));
     }
 
-    /// `StringBuilder` must not be registered as propertyless.
+    /// `StringBuilder` must resolve to the `string_builder_new` runtime constructor.
     #[test]
     fn lookup_string_builder_propertyless_constructor() {
         let entry = lookup_propertyless_constructor("StringBuilder");
-        assert!(entry.is_none(), "StringBuilder should not have a propertyless constructor entry");
+        assert_eq!(
+            entry.map(|entry| entry.runtime_function),
+            Some("string_builder_new")
+        );
     }
 
-    /// The registry helper must report support only for `Bytes`.
+    /// The registry helper must report support for both `Bytes` and `StringBuilder`.
     #[test]
     fn propertyless_constructor_type_predicate() {
         assert!(
@@ -66,8 +70,8 @@ mod tests {
             "Bytes should be reported as propertyless"
         );
         assert!(
-            !is_propertyless_constructor_type("StringBuilder"),
-            "StringBuilder should not be reported as propertyless"
+            is_propertyless_constructor_type("StringBuilder"),
+            "StringBuilder should be reported as propertyless"
         );
     }
 }

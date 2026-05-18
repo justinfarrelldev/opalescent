@@ -1,0 +1,12 @@
+import terminal_move_cursor_sync from standard
+
+##
+  Description: Verifies terminal_move_cursor_sync rejects a negative row.
+##
+entry main = f(args: string[]): void errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError =>
+    guard terminal_move_cursor_sync(-1, 0) else err =>
+        print('row=-1:{err}')
+        propagate err
+
+    print('UNEXPECTED_SUCCESS row=-1')
+    return void

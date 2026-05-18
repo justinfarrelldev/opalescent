@@ -1,0 +1,13 @@
+import string_join from standard
+
+##
+  Description: Verifies string_join preserves empty and single-element behavior.
+##
+entry main = f(args: string[]): void =>
+    let empty_values: string[] = []
+    let single_values: string[] = ['solo']
+    let empty_joined = string_join(empty_values, ',')
+    let single_joined = string_join(single_values, ',')
+    print('empty:{empty_joined}')
+    print('single:{single_joined}')
+    return void

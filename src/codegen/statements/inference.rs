@@ -5,7 +5,7 @@
 )]
 extern crate alloc;
 
-use super::{known_runtime_return_type, llvm_return_type_to_core_type};
+use super::runtime_type_info::{known_runtime_return_type, llvm_return_type_to_core_type};
 use crate::ast::{Expr, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;

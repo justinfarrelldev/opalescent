@@ -44,6 +44,12 @@ mod ref_rules;
 mod returns;
 mod size_specific_builtins;
 mod statements;
+/// Stdout text stdlib built-in signature registration.
+mod stdout_text_builtins;
+/// String stdlib built-in signature registration.
+mod string_builtins;
+/// Time stdlib built-in signature registration.
+mod time_builtins;
 mod unification;
 /// Labeling mode tracked for return statements within a function/lambda body.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -296,6 +302,9 @@ impl TypeChecker {
         });
         self.register_size_specific_builtins();
         self.register_bytes_builtins();
+        self.register_string_builtins();
+        self.register_stdout_text_builtins();
+        self.register_time_builtins();
         self.register_fs_builtins();
         self.register_integer_intrinsics_for_type("int8", &CoreType::Int8);
         self.register_integer_intrinsics_for_type("int16", &CoreType::Int16);

@@ -181,6 +181,32 @@ pub(super) fn infer_guard_binding_core_type(
                     type_args: Vec::new(),
                 };
             }
+            if name == "frame_clock_new" {
+                return CoreType::Generic {
+                    name: String::from("FrameClock"),
+                    type_args: Vec::new(),
+                };
+            }
+            if name == "stdout_terminal" {
+                return CoreType::Generic {
+                    name: String::from("StdoutTerminal"),
+                    type_args: Vec::new(),
+                };
+            }
+            if name == "print_text_sync"
+                || name == "flush_standard_output_sync"
+                || name == "writer_write_sync"
+                || name == "writer_flush_sync"
+                || name == "sleep_ms_sync"
+                || name == "frame_clock_wait_next_sync"
+                || name == "terminal_clear_screen_on_sync"
+                || name == "terminal_move_cursor_on_sync"
+                || name == "terminal_draw_rows_sync"
+                || name == "terminal_clear_screen_sync"
+                || name == "terminal_move_cursor_sync"
+            {
+                return CoreType::Unit;
+            }
         }
     }
 

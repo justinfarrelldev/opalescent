@@ -1,0 +1,9 @@
+import terminal_move_cursor_sync, flush_standard_output_sync from standard
+
+##
+  Description: Verifies terminal_move_cursor_sync converts zero-based coordinates to ANSI bytes.
+##
+entry main = f(args: string[]): void errors TerminalWriteFailureError, InvalidCursorPositionError, FlushFailureError, SinkClosedError =>
+    propagate terminal_move_cursor_sync(0, 0)
+    propagate flush_standard_output_sync()
+    return void

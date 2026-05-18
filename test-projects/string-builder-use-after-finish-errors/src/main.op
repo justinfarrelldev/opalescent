@@ -1,0 +1,17 @@
+import string_builder_push, string_builder_finish from standard
+
+##
+  Description: Verifies StringBuilder reports BuilderFinishedError after finish without undefined behavior.
+##
+entry main = f(args: string[]): void errors BuilderFinishedError, AllocationFailureError =>
+    let builder: StringBuilder = new StringBuilder
+    propagate string_builder_push(builder, 'done')
+    let text = propagate string_builder_finish(builder)
+    print(text)
+
+    guard string_builder_push(builder, '!') else err =>
+        print('BuilderFinishedError:{err}')
+        propagate err
+
+    print('UNEXPECTED_SUCCESS')
+    return void

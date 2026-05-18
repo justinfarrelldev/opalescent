@@ -145,6 +145,15 @@ static inline ssize_t opal_getline(char **lineptr, size_t *n, FILE *stream) {
 #  include <share.h>
 #  include <sys/stat.h>
 #  include <wchar.h>
+#else
+#  include <dirent.h>
+#  include <sys/stat.h>
+#  include <sys/types.h>
+#  include <time.h>
+#  include <unistd.h>
+#endif
+
+#if OPAL_WINDOWS
 
 typedef wchar_t opal_wchar_t;
 
@@ -1106,6 +1115,67 @@ static inline int opal_create_temp_file(char* path_buf, size_t path_buf_size) {
     if (close(fd) != 0) {
         return -1;
     }
+    return 0;
+#endif
+}
+
+static inline int opal_monotonic_time_ms(int64_t* out_milliseconds) {
+    if (!out_milliseconds) {
+        errno = EINVAL;
+        return -1;
+    }
+
+#if OPAL_WINDOWS
+    static LARGE_INTEGER frequency;
+    static int frequency_initialized = 0;
+    LARGE_INTEGER counter;
+
+    if (!frequency_initialized) {
+        if (!QueryPerformanceFrequency(&frequency) || frequency.QuadPart <= 0) {
+            errno = EINVAL;
+            return -1;
+        }
+        frequency_initialized = 1;
+    }
+
+    if (!QueryPerformanceCounter(&counter)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    *out_milliseconds = (int64_t)((counter.QuadPart * 1000LL) / frequency.QuadPart);
+    return 0;
+#else
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        return -1;
+    }
+
+    *out_milliseconds = (int64_t)ts.tv_sec * 1000LL + (int64_t)(ts.tv_nsec / 1000000L);
+    return 0;
+#endif
+}
+
+static inline int opal_sleep_ms(int32_t milliseconds) {
+    if (milliseconds < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+
+#if OPAL_WINDOWS
+    Sleep((DWORD)milliseconds);
+    return 0;
+#else
+    struct timespec request;
+    request.tv_sec = milliseconds / 1000;
+    request.tv_nsec = (long)((milliseconds % 1000) * 1000000L);
+
+    while (nanosleep(&request, &request) != 0) {
+        if (errno != EINTR) {
+            return -1;
+        }
+    }
+
     return 0;
 #endif
 }

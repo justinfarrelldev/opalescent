@@ -1,0 +1,14 @@
+import frame_clock_new, frame_clock_wait_next_sync from standard
+
+##
+  Description: Verifies ten FrameClock waits at 30fps are paced monotonically.
+##
+entry main = f(args: string[]): void errors InvalidFrameRateError =>
+    let clock = propagate frame_clock_new(30)
+    let mutable count = 0
+
+    while count < 10:
+        propagate frame_clock_wait_next_sync(clock)
+        count = count + 1
+
+    return void

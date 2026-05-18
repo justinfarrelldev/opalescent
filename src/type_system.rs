@@ -78,12 +78,12 @@
 mod arithmetic;
 pub mod checker;
 mod constraints;
-pub mod propertyless_constructors;
 mod environment;
 pub mod errors;
 mod memory;
 /// Import/export resolver and module dependency graph implementation.
 mod module_resolver;
+pub mod propertyless_constructors;
 mod substitution;
 mod symbol_table;
 pub mod type_mapping;

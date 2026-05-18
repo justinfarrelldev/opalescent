@@ -2585,10 +2585,10 @@ fn test_codegen_function_pointer_is_not_comparison_emits_icmp() {
 // -----------------------------------------------------------------------------
 // Bytes stdlib codegen tests.
 //
-// Pin down the LLVM declarations emitted when importing the `bytes_*`
-// stdlib surface. The runtime representation of `Bytes` is an opaque heap
-// pointer (`i8*`); the two fallible operations return a `{ptr, err_ptr}`
-// struct identical in shape to the existing `string_to_intN` helpers.
+// Pin down the LLVM declarations emitted when importing the `Bytes` and
+// `StringBuilder` stdlib surface. The runtime representation of both opaque
+// handles is a heap pointer (`i8*`); fallible operations use `{value, err_ptr}`
+// structs identical in shape to the existing parse helpers.
 // -----------------------------------------------------------------------------
 
 #[test]
@@ -2652,6 +2652,315 @@ entry main = f(): void => {
     assert!(
         ir.contains("call i8* @bytes_new()"),
         "inferred new Bytes should lower to call i8* @bytes_new(): {ir}"
+    );
+}
+
+#[test]
+fn codegen_new_string_builder_and_helpers_emit_expected_abi_declarations() {
+    let source = "
+import string_builder_push, string_builder_finish from standard
+
+##
+    Description: Entry function validates StringBuilder propertyless constructor lowering
+##
+entry main = f(): void errors BuilderFinishedError, AllocationFailureError => {
+    let builder: StringBuilder = new StringBuilder
+    propagate string_builder_push(builder, 'abc')
+    let rendered = propagate string_builder_finish(builder)
+    print(rendered)
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "StringBuilder declarations should compile without errors: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @string_builder_new()"),
+        "new StringBuilder should emit declare i8* @string_builder_new(): {ir}"
+    );
+    assert!(
+        ir.contains("call i8* @string_builder_new()"),
+        "new StringBuilder should lower to call i8* @string_builder_new(): {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @string_builder_push(i8*, i8*)")
+            || ir.contains(
+                "declare void @string_builder_push({ i8*, i8* }* sret({ i8*, i8* }), i8*, i8*)"
+            ),
+        "string_builder_push should declare with the two-field void error ABI: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @string_builder_finish(i8*)")
+            || ir.contains(
+                "declare void @string_builder_finish({ i8*, i8* }* sret({ i8*, i8* }), i8*)"
+            ),
+        "string_builder_finish should declare with the two-field string error ABI: {ir}"
+    );
+}
+
+#[test]
+fn codegen_stdout_text_functions_emit_void_error_abi_declarations() {
+    let source = "
+import print_text_sync, flush_standard_output_sync from standard
+
+##
+    Description: Entry function guards stdout text APIs to pin void error ABI lowering
+##
+let write_stdout = f(): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
+    propagate print_text_sync('abc')
+    return propagate flush_standard_output_sync()
+
+##
+    Description: Entry function keeps stdout text declaration test runnable
+##
+entry main = f(): void => {
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "stdout text declarations should compile without errors: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare { i8*, i8* } @print_text_sync(i8*)")
+            || ir.contains("declare void @print_text_sync({ i8*, i8* }* sret({ i8*, i8* }), i8*)"),
+        "print_text_sync should declare with the two-field void error ABI: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @flush_standard_output_sync()")
+            || ir.contains(
+                "declare void @flush_standard_output_sync({ i8*, i8* }* sret({ i8*, i8* }) )"
+            )
+            || ir.contains(
+                "declare void @flush_standard_output_sync({ i8*, i8* }* sret({ i8*, i8* }))"
+            ),
+        "flush_standard_output_sync should declare with the two-field void error ABI: {ir}"
+    );
+}
+
+#[test]
+fn codegen_sleep_ms_sync_emits_void_error_abi_declaration() {
+    let source = "
+import sleep_ms_sync from standard
+
+##
+    Description: Entry function guards sleep_ms_sync to pin void error ABI lowering
+##
+let wait_once = f(): void errors InvalidDurationError =>
+    return propagate sleep_ms_sync(50)
+
+##
+    Description: Entry function keeps sleep_ms_sync declaration test runnable
+##
+entry main = f(): void => {
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "sleep_ms_sync declarations should compile without errors: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare { i8*, i8* } @sleep_ms_sync(i32)")
+            || ir.contains("declare void @sleep_ms_sync({ i8*, i8* }* sret({ i8*, i8* }), i32)"),
+        "sleep_ms_sync should declare with the two-field void error ABI: {ir}"
+    );
+}
+
+#[test]
+fn codegen_frame_clock_functions_emit_handle_and_void_error_abi_declarations() {
+    let source = "
+import frame_clock_new, frame_clock_wait_next_sync from standard
+
+##
+    Description: Entry function guards frame clock APIs to pin handle and error ABI lowering
+##
+let wait_ten_frames = f(): void errors InvalidFrameRateError =>
+    let clock = propagate frame_clock_new(30)
+    return propagate frame_clock_wait_next_sync(clock)
+
+##
+    Description: Entry function keeps frame clock declaration test runnable
+##
+entry main = f(): void => {
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "frame clock declarations should compile without errors: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare { i8*, i8* } @frame_clock_new(i32)")
+            || ir.contains("declare void @frame_clock_new({ i8*, i8* }* sret({ i8*, i8* }), i32)"),
+        "frame_clock_new should declare with the two-field pointer error ABI: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @frame_clock_wait_next_sync(i8*)")
+            || ir.contains(
+                "declare void @frame_clock_wait_next_sync({ i8*, i8* }* sret({ i8*, i8* }), i8*)"
+            ),
+        "frame_clock_wait_next_sync should declare with the two-field void error ABI: {ir}"
+    );
+}
+
+#[test]
+fn codegen_stdout_writer_functions_emit_handle_and_void_error_abi_declarations() {
+    let source = "
+import stdout_writer, writer_write_sync, writer_flush_sync from standard
+
+##
+    Description: Entry function guards stdout writer APIs to pin handle and error ABI lowering
+##
+let write_via_writer = f(): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
+    let writer = stdout_writer()
+    propagate writer_write_sync(writer, 'frame')
+    return propagate writer_flush_sync(writer)
+
+##
+    Description: Entry function keeps stdout writer declaration test runnable
+##
+entry main = f(): void => {
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "stdout writer declarations should compile without errors: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @stdout_writer()"),
+        "stdout_writer should declare as an opaque handle constructor: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @writer_write_sync(i8*, i8*)")
+            || ir.contains(
+                "declare void @writer_write_sync({ i8*, i8* }* sret({ i8*, i8* }), i8*, i8*)"
+            ),
+        "writer_write_sync should declare with the two-field void error ABI: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @writer_flush_sync(i8*)")
+            || ir
+                .contains("declare void @writer_flush_sync({ i8*, i8* }* sret({ i8*, i8* }), i8*)"),
+        "writer_flush_sync should declare with the two-field void error ABI: {ir}"
+    );
+}
+
+#[test]
+fn codegen_terminal_functions_emit_handle_boolean_and_void_error_abi_declarations() {
+    let source = "
+import stdout_terminal, terminal_supports_ansi, terminal_clear_screen_on_sync, terminal_move_cursor_on_sync, terminal_draw_rows_sync, terminal_clear_screen_sync, terminal_move_cursor_sync from standard
+
+##
+    Description: Entry function guards terminal APIs to pin handle, bool, and error ABI lowering
+##
+let draw_frame = f(): void errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError =>
+    let terminal = stdout_terminal()
+    let supports = terminal_supports_ansi(terminal)
+    if supports:
+        propagate terminal_clear_screen_on_sync(terminal)
+    propagate terminal_move_cursor_on_sync(terminal, 0, 0)
+    propagate terminal_draw_rows_sync(terminal, ['##', '..'])
+    propagate terminal_clear_screen_sync()
+    return propagate terminal_move_cursor_sync(0, 0)
+
+##
+    Description: Entry function keeps terminal declaration test runnable
+##
+entry main = f(): void => {
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "terminal declarations should compile without errors: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @stdout_terminal()"),
+        "stdout_terminal should declare as an opaque handle constructor: {ir}"
+    );
+    assert!(
+        ir.contains("declare i8 @terminal_supports_ansi(i8*)"),
+        "terminal_supports_ansi should declare as an i8-returning boolean helper: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @terminal_clear_screen_on_sync(i8*)")
+            || ir.contains(
+                "declare void @terminal_clear_screen_on_sync({ i8*, i8* }* sret({ i8*, i8* }), i8*)"
+            ),
+        "terminal_clear_screen_on_sync should declare with the two-field void error ABI: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @terminal_move_cursor_on_sync(i8*, i32, i32)")
+            || ir.contains(
+                "declare void @terminal_move_cursor_on_sync({ i8*, i8* }* sret({ i8*, i8* }), i8*, i32, i32)"
+            ),
+        "terminal_move_cursor_on_sync should declare with the two-field void error ABI: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @terminal_draw_rows_sync(i8*, i8**, i64)")
+            || ir.contains(
+                "declare void @terminal_draw_rows_sync({ i8*, i8* }* sret({ i8*, i8* }), i8*, i8**, i64)"
+            ),
+        "terminal_draw_rows_sync should declare with the array-accepting void error ABI: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @terminal_clear_screen_sync()")
+            || ir.contains(
+                "declare void @terminal_clear_screen_sync({ i8*, i8* }* sret({ i8*, i8* }))"
+            ),
+        "terminal_clear_screen_sync should declare with the two-field void error ABI: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @terminal_move_cursor_sync(i32, i32)")
+            || ir.contains(
+                "declare void @terminal_move_cursor_sync({ i8*, i8* }* sret({ i8*, i8* }), i32, i32)"
+            ),
+        "terminal_move_cursor_sync should declare with the two-field void error ABI: {ir}"
     );
 }
 

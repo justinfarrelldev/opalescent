@@ -36,7 +36,10 @@ typedef struct OpalBytes {
 #define OPAL_BYTES_TYPE_DEFINED 1
 #endif
 
+#ifndef OPAL_FS_VOID_RESULT_TYPE_DEFINED
 typedef struct { void*      value; const char* error; } FsVoidResult;
+#define OPAL_FS_VOID_RESULT_TYPE_DEFINED 1
+#endif
 typedef struct { OpalBytes* value; const char* error; } FsBytesResult;
 typedef struct { char*      value; const char* error; } FsStringResult;
 typedef struct { int8_t     value; const char* error; } FsBooleanResult;

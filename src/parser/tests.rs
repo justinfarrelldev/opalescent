@@ -6070,8 +6070,8 @@ entry main = f(): void =>
     return void
 ";
 
-    let program = parse_program_from_string(source)
-        .expect("bare member-qualified constructor should parse");
+    let program =
+        parse_program_from_string(source).expect("bare member-qualified constructor should parse");
     let Decl::Function { body, .. } = &program.declarations[0] else {
         panic!("Expected function declaration");
     };
@@ -6096,7 +6096,10 @@ entry main = f(): void =>
     };
     assert_eq!(name, "Module");
     assert_eq!(member, "MyOpaque");
-    assert!(fields.is_empty(), "bare `new Module.MyOpaque` should have no fields: {fields:?}");
+    assert!(
+        fields.is_empty(),
+        "bare `new Module.MyOpaque` should have no fields: {fields:?}"
+    );
 }
 
 /// A `new Type:` without an indented field block is a parse error — the
@@ -6140,9 +6143,15 @@ entry main = f(): void =>
         ..
     } = &statements[0]
     else {
-        panic!("Expected let with initializer as first statement, got: {:?}", statements[0]);
+        panic!(
+            "Expected let with initializer as first statement, got: {:?}",
+            statements[0]
+        );
     };
-    assert!(binding.type_annotation.is_some(), "expected explicit Bytes annotation");
+    assert!(
+        binding.type_annotation.is_some(),
+        "expected explicit Bytes annotation"
+    );
 
     let Expr::Constructor { callee, fields, .. } = init else {
         panic!("Expected Expr::Constructor, got: {init:?}");
@@ -6151,7 +6160,10 @@ entry main = f(): void =>
         panic!("Expected identifier callee, got: {callee:?}");
     };
     assert_eq!(name, "Bytes");
-    assert!(fields.is_empty(), "bare `new Bytes` should have no fields: {fields:?}");
+    assert!(
+        fields.is_empty(),
+        "bare `new Bytes` should have no fields: {fields:?}"
+    );
 }
 
 /// Bare `new MyEmptyType` should parse the same way as `new Bytes`: as a
@@ -6177,7 +6189,10 @@ entry main = f(): void =>
         ..
     } = &statements[0]
     else {
-        panic!("Expected let with initializer as first statement, got: {:?}", statements[0]);
+        panic!(
+            "Expected let with initializer as first statement, got: {:?}",
+            statements[0]
+        );
     };
 
     let Expr::Constructor { callee, fields, .. } = init else {
@@ -6187,7 +6202,10 @@ entry main = f(): void =>
         panic!("Expected identifier callee, got: {callee:?}");
     };
     assert_eq!(name, "MyEmptyType");
-    assert!(fields.is_empty(), "bare `new MyEmptyType` should have no fields: {fields:?}");
+    assert!(
+        fields.is_empty(),
+        "bare `new MyEmptyType` should have no fields: {fields:?}"
+    );
 }
 
 /// `new Bytes` should also parse when the binding type is inferred from the
@@ -6214,7 +6232,10 @@ entry main = f(): void =>
         ..
     } = &statements[0]
     else {
-        panic!("Expected let with initializer as first statement, got: {:?}", statements[0]);
+        panic!(
+            "Expected let with initializer as first statement, got: {:?}",
+            statements[0]
+        );
     };
     assert!(
         binding.type_annotation.is_none(),
@@ -6228,7 +6249,10 @@ entry main = f(): void =>
         panic!("Expected identifier callee, got: {callee:?}");
     };
     assert_eq!(name, "Bytes");
-    assert!(fields.is_empty(), "bare `new Bytes` should have no fields: {fields:?}");
+    assert!(
+        fields.is_empty(),
+        "bare `new Bytes` should have no fields: {fields:?}"
+    );
 }
 
 /// Bare constructors allow at most one qualifier segment (`Type` or `Module.Type`).

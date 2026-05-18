@@ -1,0 +1,14 @@
+import stdout_writer, writer_write_sync, writer_flush_sync, print_text_sync, flush_standard_output_sync from standard
+
+##
+  Description: Verifies StdoutWriter and print_text_sync interleave deterministically on shared stdout.
+##
+entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
+    let writer = stdout_writer()
+    propagate writer_write_sync(writer, 'A')
+    propagate print_text_sync('1')
+    propagate writer_write_sync(writer, 'B')
+    propagate print_text_sync('2')
+    propagate writer_flush_sync(writer)
+    propagate flush_standard_output_sync()
+    return void

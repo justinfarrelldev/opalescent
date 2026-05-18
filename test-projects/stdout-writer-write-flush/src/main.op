@@ -1,0 +1,10 @@
+import stdout_writer, writer_write_sync, writer_flush_sync from standard
+
+##
+  Description: Verifies StdoutWriter writes bytes to stdout and flushes explicitly.
+##
+entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
+    let writer = stdout_writer()
+    propagate writer_write_sync(writer, 'frame')
+    propagate writer_flush_sync(writer)
+    return void

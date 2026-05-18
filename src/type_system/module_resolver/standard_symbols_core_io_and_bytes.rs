@@ -4,6 +4,11 @@ use crate::type_system::symbol_table::SymbolType;
 use crate::type_system::types::{CoreType, GenericTypeParameter};
 use alloc::{string::String, vec::Vec};
 
+/// Extracted bytes/path/foundational-filesystem symbol registrations used by the standard module.
+#[path = "standard_symbols_core_io_and_bytes_foundational_filesystem.rs"]
+mod foundational_filesystem;
+use self::foundational_filesystem::standard_symbols_bytes_and_foundational_filesystem;
+
 /// Macro-wrapped symbol literal to keep the provider function concise for clippy.
 macro_rules! standard_symbols_core_io_and_bytes_vec {
     () => {
@@ -292,6 +297,367 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                 SymbolType::Function,
             ),
             (
+                String::from("string_join"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![
+                        CoreType::Array(alloc::boxed::Box::new(CoreType::String)),
+                        CoreType::String,
+                    ],
+                    return_types: vec![CoreType::String],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("string_builder_new"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: Vec::new(),
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("StringBuilder"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("string_builder_push"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![
+                        CoreType::Generic {
+                            name: String::from("StringBuilder"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::String,
+                    ],
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("BuilderFinishedError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("AllocationFailureError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("string_builder_finish"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("StringBuilder"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::String],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("BuilderFinishedError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("AllocationFailureError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("print_text_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::String],
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("WriteFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("SinkClosedError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("flush_standard_output_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: Vec::new(),
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("FlushFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("SinkClosedError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("stdout_writer"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: Vec::new(),
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("StdoutWriter"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("writer_write_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![
+                        CoreType::Generic {
+                            name: String::from("StdoutWriter"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::String,
+                    ],
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("WriteFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("SinkClosedError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("writer_flush_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("StdoutWriter"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("FlushFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("SinkClosedError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("stdout_terminal"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: Vec::new(),
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("StdoutTerminal"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("terminal_supports_ansi"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("StdoutTerminal"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::Boolean],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("terminal_clear_screen_on_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("StdoutTerminal"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("TerminalWriteFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("SinkClosedError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("terminal_move_cursor_on_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![
+                        CoreType::Generic {
+                            name: String::from("StdoutTerminal"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Int32,
+                        CoreType::Int32,
+                    ],
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("TerminalWriteFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("InvalidCursorPositionError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("SinkClosedError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("terminal_draw_rows_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![
+                        CoreType::Generic {
+                            name: String::from("StdoutTerminal"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Array(alloc::boxed::Box::new(CoreType::String)),
+                    ],
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("TerminalWriteFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("SinkClosedError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("terminal_clear_screen_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: Vec::new(),
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("TerminalWriteFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("SinkClosedError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("terminal_move_cursor_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Int32, CoreType::Int32],
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![
+                        CoreType::Generic {
+                            name: String::from("TerminalWriteFailureError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("InvalidCursorPositionError"),
+                            type_args: Vec::new(),
+                        },
+                        CoreType::Generic {
+                            name: String::from("SinkClosedError"),
+                            type_args: Vec::new(),
+                        },
+                    ],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("sleep_ms_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Int32],
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![CoreType::Generic {
+                        name: String::from("InvalidDurationError"),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("frame_clock_new"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Int32],
+                    return_types: vec![CoreType::Generic {
+                        name: String::from("FrameClock"),
+                        type_args: Vec::new(),
+                    }],
+                    error_types: vec![CoreType::Generic {
+                        name: String::from("InvalidFrameRateError"),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("frame_clock_wait_next_sync"),
+                CoreType::Function {
+                    generic_params: Vec::new(),
+                    parameters: vec![CoreType::Generic {
+                        name: String::from("FrameClock"),
+                        type_args: Vec::new(),
+                    }],
+                    return_types: vec![CoreType::Unit],
+                    error_types: vec![CoreType::Generic {
+                        name: String::from("InvalidFrameRateError"),
+                        type_args: Vec::new(),
+                    }],
+                },
+                SymbolType::Function,
+            ),
+            (
                 String::from("array_length"),
                 CoreType::Function {
                     generic_params: vec![GenericTypeParameter {
@@ -334,584 +700,101 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                 },
                 SymbolType::Function,
             ),
-            // `Bytes` stdlib surface. The opaque byte-buffer type is represented
-            // as a nominal `Generic { name: "Bytes", type_args: [] }` which
-            // lowers to `i8*` in codegen. The two fallible helpers surface
-            // language-level error types so `guard`/`propagate` bind string
-            // error messages for the user.
             (
-                String::from("bytes_new"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: Vec::new(),
-                    return_types: vec![CoreType::Generic {
-                        name: String::from("Bytes"),
-                        type_args: Vec::new(),
-                    }],
-                    error_types: Vec::new(),
+                String::from("StdoutWriter"),
+                CoreType::Generic {
+                    name: String::from("StdoutWriter"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
             (
-                String::from("bytes_length"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("Bytes"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::Int32],
-                    error_types: Vec::new(),
+                String::from("StdoutTerminal"),
+                CoreType::Generic {
+                    name: String::from("StdoutTerminal"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
             (
-                String::from("bytes_to_hex"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("Bytes"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::String],
-                    error_types: Vec::new(),
+                String::from("FlushFailureError"),
+                CoreType::Generic {
+                    name: String::from("FlushFailureError"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
             (
-                String::from("bytes_concatenate"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![
-                        CoreType::Generic {
-                            name: String::from("Bytes"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("Bytes"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                    return_types: vec![CoreType::Generic {
-                        name: String::from("Bytes"),
-                        type_args: Vec::new(),
-                    }],
-                    error_types: Vec::new(),
+                String::from("SinkClosedError"),
+                CoreType::Generic {
+                    name: String::from("SinkClosedError"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
             (
-                String::from("bytes_from_hex"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::String],
-                    return_types: vec![CoreType::Generic {
-                        name: String::from("Bytes"),
-                        type_args: Vec::new(),
-                    }],
-                    error_types: vec![CoreType::Generic {
-                        name: String::from("HexDecodeError"),
-                        type_args: Vec::new(),
-                    }],
+                String::from("TerminalWriteFailureError"),
+                CoreType::Generic {
+                    name: String::from("TerminalWriteFailureError"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
             (
-                String::from("bytes_slice"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![
-                        CoreType::Generic {
-                            name: String::from("Bytes"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Int32,
-                        CoreType::Int32,
-                    ],
-                    return_types: vec![CoreType::Generic {
-                        name: String::from("Bytes"),
-                        type_args: Vec::new(),
-                    }],
-                    error_types: vec![CoreType::Generic {
-                        name: String::from("SliceRangeError"),
-                        type_args: Vec::new(),
-                    }],
+                String::from("InvalidCursorPositionError"),
+                CoreType::Generic {
+                    name: String::from("InvalidCursorPositionError"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
             (
-                String::from("path_from"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::String],
-                    return_types: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    error_types: Vec::new(),
+                String::from("InvalidDurationError"),
+                CoreType::Generic {
+                    name: String::from("InvalidDurationError"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
             (
-                String::from("join_path_components"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![
-                        CoreType::Generic {
-                            name: String::from("FilesystemPath"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Array(alloc::boxed::Box::new(CoreType::String)),
-                    ],
-                    return_types: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    error_types: Vec::new(),
+                String::from("FrameClock"),
+                CoreType::Generic {
+                    name: String::from("FrameClock"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
             (
-                String::from("path_parent_directory"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    error_types: Vec::new(),
+                String::from("StringBuilder"),
+                CoreType::Generic {
+                    name: String::from("StringBuilder"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
             (
-                String::from("path_file_name"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::String],
-                    error_types: Vec::new(),
+                String::from("BuilderFinishedError"),
+                CoreType::Generic {
+                    name: String::from("BuilderFinishedError"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
             (
-                String::from("path_file_extension"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::String],
-                    error_types: Vec::new(),
+                String::from("AllocationFailureError"),
+                CoreType::Generic {
+                    name: String::from("AllocationFailureError"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
             (
-                String::from("normalize_path"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    error_types: Vec::new(),
+                String::from("InvalidFrameRateError"),
+                CoreType::Generic {
+                    name: String::from("InvalidFrameRateError"),
+                    type_args: Vec::new(),
                 },
-                SymbolType::Function,
-            ),
-            (
-                String::from("path_to_string"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::String],
-                    error_types: Vec::new(),
-                },
-                SymbolType::Function,
-            ),
-            (
-                String::from("absolute_path_sync"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    error_types: vec![
-                        CoreType::Generic {
-                            name: String::from("InvalidPathError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("PermissionDeniedError"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                },
-                SymbolType::Function,
-            ),
-            (
-                String::from("read_contents_sync"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::Generic {
-                        name: String::from("Bytes"),
-                        type_args: Vec::new(),
-                    }],
-                    error_types: vec![
-                        CoreType::Generic {
-                            name: String::from("FileNotFoundError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("PermissionDeniedError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("ReadFailureError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("IsADirectoryError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("InvalidPathError"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                },
-                SymbolType::Function,
-            ),
-            (
-                String::from("read_text_sync"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::String],
-                    error_types: vec![
-                        CoreType::Generic {
-                            name: String::from("FileNotFoundError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("PermissionDeniedError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("ReadFailureError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("IsADirectoryError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("InvalidPathError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("InvalidUtf8Error"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                },
-                SymbolType::Function,
-            ),
-            (
-                String::from("read_first_line_sync"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::String],
-                    error_types: vec![
-                        CoreType::Generic {
-                            name: String::from("FileNotFoundError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("PermissionDeniedError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("IsADirectoryError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("InvalidUtf8Error"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("OffsetOutOfRangeError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("ReadFailureError"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                },
-                SymbolType::Function,
-            ),
-            (
-                String::from("read_lines_sync"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![CoreType::Generic {
-                        name: String::from("FilesystemPath"),
-                        type_args: Vec::new(),
-                    }],
-                    return_types: vec![CoreType::Array(alloc::boxed::Box::new(CoreType::String))],
-                    error_types: vec![
-                        CoreType::Generic {
-                            name: String::from("FileNotFoundError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("PermissionDeniedError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("ReadFailureError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("IsADirectoryError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("InvalidPathError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("InvalidUtf8Error"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                },
-                SymbolType::Function,
-            ),
-            (
-                String::from("read_bytes_at_offset_sync"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![
-                        CoreType::Generic {
-                            name: String::from("FilesystemPath"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Int64,
-                        CoreType::Int64,
-                    ],
-                    return_types: vec![CoreType::Generic {
-                        name: String::from("Bytes"),
-                        type_args: Vec::new(),
-                    }],
-                    error_types: vec![
-                        CoreType::Generic {
-                            name: String::from("FileNotFoundError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("PermissionDeniedError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("ReadFailureError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("OffsetOutOfRangeError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("InvalidPathError"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                },
-                SymbolType::Function,
-            ),
-            (
-                String::from("write_contents_sync"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![
-                        CoreType::Generic {
-                            name: String::from("FilesystemPath"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("Bytes"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                    return_types: vec![CoreType::Unit],
-                    error_types: vec![
-                        CoreType::Generic {
-                            name: String::from("PermissionDeniedError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("WriteFailureError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("IsADirectoryError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("InvalidPathError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("FilesystemFullError"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                },
-                SymbolType::Function,
-            ),
-            (
-                String::from("write_text_sync"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![
-                        CoreType::Generic {
-                            name: String::from("FilesystemPath"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::String,
-                    ],
-                    return_types: vec![CoreType::Unit],
-                    error_types: vec![
-                        CoreType::Generic {
-                            name: String::from("PermissionDeniedError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("WriteFailureError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("IsADirectoryError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("InvalidPathError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("FilesystemFullError"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                },
-                SymbolType::Function,
-            ),
-            (
-                String::from("write_contents_atomic_sync"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![
-                        CoreType::Generic {
-                            name: String::from("FilesystemPath"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("Bytes"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                    return_types: vec![CoreType::Unit],
-                    error_types: vec![
-                        CoreType::Generic {
-                            name: String::from("PermissionDeniedError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("WriteFailureError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("IsADirectoryError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("InvalidPathError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("FilesystemFullError"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                },
-                SymbolType::Function,
-            ),
-            (
-                String::from("write_text_atomic_sync"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![
-                        CoreType::Generic {
-                            name: String::from("FilesystemPath"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::String,
-                    ],
-                    return_types: vec![CoreType::Unit],
-                    error_types: vec![
-                        CoreType::Generic {
-                            name: String::from("PermissionDeniedError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("WriteFailureError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("IsADirectoryError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("InvalidPathError"),
-                            type_args: Vec::new(),
-                        },
-                        CoreType::Generic {
-                            name: String::from("FilesystemFullError"),
-                            type_args: Vec::new(),
-                        },
-                    ],
-                },
-                SymbolType::Function,
+                SymbolType::Type,
             ),
         ]
     };
@@ -919,5 +802,7 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
 
 /// Core runtime, conversion, bytes, and foundational file-I/O builtins.
 pub(super) fn standard_symbols_core_io_and_bytes() -> Vec<(String, CoreType, SymbolType)> {
-    standard_symbols_core_io_and_bytes_vec!()
+    let mut symbols = standard_symbols_core_io_and_bytes_vec!();
+    symbols.extend(standard_symbols_bytes_and_foundational_filesystem());
+    symbols
 }

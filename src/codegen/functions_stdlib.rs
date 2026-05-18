@@ -41,9 +41,10 @@ pub fn declare_stdlib_function<'context>(
     let parse_result_i64_type = ctx.struct_type(&[i64_type.into(), i8_ptr.into()], false);
     let parse_result_f32_type = ctx.struct_type(&[f32_type.into(), i8_ptr.into()], false);
     let parse_result_f64_type = ctx.struct_type(&[f64_type.into(), i8_ptr.into()], false);
-    // Bytes fallible operations mirror the `{value_ptr, error_cstr}` shape
+    // Two-field fallible operations mirror the `{value_ptr, error_cstr}` shape
     // used by `string_to_intN`, letting `guard`/`propagate` lower identically.
-    let bytes_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+    let pointer_error_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+    let void_error_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
     let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
     let fs_boolean_result_type = ctx.struct_type(&[i8_type.into(), i8_ptr.into()], false);
     let fs_metadata_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
@@ -194,6 +195,161 @@ pub fn declare_stdlib_function<'context>(
             let ft = i64_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("string_length", ft, None))
         }),
+        "string_join" => module.get_function("string_join").or_else(|| {
+            let ft = i8_ptr.fn_type(
+                &[
+                    i8_ptr.ptr_type(AddressSpace::default()).into(),
+                    i64_type.into(),
+                    i8_ptr.into(),
+                ],
+                false,
+            );
+            Some(module.add_function("string_join", ft, None))
+        }),
+        "string_builder_new" => module.get_function("string_builder_new").or_else(|| {
+            let ft = i8_ptr.fn_type(&[], false);
+            Some(module.add_function("string_builder_new", ft, None))
+        }),
+        "string_builder_push" => module.get_function("string_builder_push").or_else(|| {
+            Some(declare_fs_result_function(
+                codegen_context,
+                "string_builder_push",
+                void_error_result_type,
+                &[i8_ptr.into(), i8_ptr.into()],
+            ))
+        }),
+        "string_builder_finish" => module.get_function("string_builder_finish").or_else(|| {
+            let ft = pointer_error_result_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("string_builder_finish", ft, None))
+        }),
+        "print_text_sync" => module.get_function("print_text_sync").or_else(|| {
+            Some(declare_fs_result_function(
+                codegen_context,
+                "print_text_sync",
+                void_error_result_type,
+                &[i8_ptr.into()],
+            ))
+        }),
+        "flush_standard_output_sync" => {
+            module
+                .get_function("flush_standard_output_sync")
+                .or_else(|| {
+                    Some(declare_fs_result_function(
+                        codegen_context,
+                        "flush_standard_output_sync",
+                        void_error_result_type,
+                        &[],
+                    ))
+                })
+        }
+        "stdout_writer" => module.get_function("stdout_writer").or_else(|| {
+            let ft = i8_ptr.fn_type(&[], false);
+            Some(module.add_function("stdout_writer", ft, None))
+        }),
+        "writer_write_sync" => module.get_function("writer_write_sync").or_else(|| {
+            Some(declare_fs_result_function(
+                codegen_context,
+                "writer_write_sync",
+                void_error_result_type,
+                &[i8_ptr.into(), i8_ptr.into()],
+            ))
+        }),
+        "writer_flush_sync" => module.get_function("writer_flush_sync").or_else(|| {
+            Some(declare_fs_result_function(
+                codegen_context,
+                "writer_flush_sync",
+                void_error_result_type,
+                &[i8_ptr.into()],
+            ))
+        }),
+        "stdout_terminal" => module.get_function("stdout_terminal").or_else(|| {
+            let ft = i8_ptr.fn_type(&[], false);
+            Some(module.add_function("stdout_terminal", ft, None))
+        }),
+        "terminal_supports_ansi" => module.get_function("terminal_supports_ansi").or_else(|| {
+            let ft = i8_type.fn_type(&[i8_ptr.into()], false);
+            Some(module.add_function("terminal_supports_ansi", ft, None))
+        }),
+        "terminal_clear_screen_on_sync" => module
+            .get_function("terminal_clear_screen_on_sync")
+            .or_else(|| {
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "terminal_clear_screen_on_sync",
+                    void_error_result_type,
+                    &[i8_ptr.into()],
+                ))
+            }),
+        "terminal_move_cursor_on_sync" => module
+            .get_function("terminal_move_cursor_on_sync")
+            .or_else(|| {
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "terminal_move_cursor_on_sync",
+                    void_error_result_type,
+                    &[i8_ptr.into(), i32_type.into(), i32_type.into()],
+                ))
+            }),
+        "terminal_draw_rows_sync" => module.get_function("terminal_draw_rows_sync").or_else(|| {
+            Some(declare_fs_result_function(
+                codegen_context,
+                "terminal_draw_rows_sync",
+                void_error_result_type,
+                &[
+                    i8_ptr.into(),
+                    i8_ptr.ptr_type(AddressSpace::default()).into(),
+                    i64_type.into(),
+                ],
+            ))
+        }),
+        "terminal_clear_screen_sync" => {
+            module
+                .get_function("terminal_clear_screen_sync")
+                .or_else(|| {
+                    Some(declare_fs_result_function(
+                        codegen_context,
+                        "terminal_clear_screen_sync",
+                        void_error_result_type,
+                        &[],
+                    ))
+                })
+        }
+        "terminal_move_cursor_sync" => {
+            module
+                .get_function("terminal_move_cursor_sync")
+                .or_else(|| {
+                    Some(declare_fs_result_function(
+                        codegen_context,
+                        "terminal_move_cursor_sync",
+                        void_error_result_type,
+                        &[i32_type.into(), i32_type.into()],
+                    ))
+                })
+        }
+        "sleep_ms_sync" => module.get_function("sleep_ms_sync").or_else(|| {
+            Some(declare_fs_result_function(
+                codegen_context,
+                "sleep_ms_sync",
+                void_error_result_type,
+                &[i32_type.into()],
+            ))
+        }),
+        "frame_clock_new" => module.get_function("frame_clock_new").or_else(|| {
+            let ft = pointer_error_result_type.fn_type(&[i32_type.into()], false);
+            Some(module.add_function("frame_clock_new", ft, None))
+        }),
+        "frame_clock_wait_next_sync" => {
+            module
+                .get_function("frame_clock_wait_next_sync")
+                .or_else(|| {
+                    Some(declare_fs_result_function(
+                        codegen_context,
+                        "frame_clock_wait_next_sync",
+                        void_error_result_type,
+                        &[i8_ptr.into()],
+                    ))
+                })
+        }
         "array_length" => module.get_function("array_length").or_else(|| {
             let ft = i64_type.fn_type(&[i8_ptr.into(), i64_type.into()], false);
             Some(module.add_function("array_length", ft, None))
@@ -220,11 +376,11 @@ pub fn declare_stdlib_function<'context>(
             Some(module.add_function("bytes_concatenate", ft, None))
         }),
         "bytes_from_hex" => module.get_function("bytes_from_hex").or_else(|| {
-            let ft = bytes_result_type.fn_type(&[i8_ptr.into()], false);
+            let ft = pointer_error_result_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("bytes_from_hex", ft, None))
         }),
         "bytes_slice" => module.get_function("bytes_slice").or_else(|| {
-            let ft = bytes_result_type
+            let ft = pointer_error_result_type
                 .fn_type(&[i8_ptr.into(), i32_type.into(), i32_type.into()], false);
             Some(module.add_function("bytes_slice", ft, None))
         }),
@@ -644,6 +800,25 @@ pub const STDLIB_NAMES: &[&str] = &[
     "float64_to_string",
     "bool_to_string",
     "string_length",
+    "string_join",
+    "string_builder_new",
+    "string_builder_push",
+    "string_builder_finish",
+    "print_text_sync",
+    "flush_standard_output_sync",
+    "stdout_writer",
+    "writer_write_sync",
+    "writer_flush_sync",
+    "stdout_terminal",
+    "terminal_supports_ansi",
+    "terminal_clear_screen_on_sync",
+    "terminal_move_cursor_on_sync",
+    "terminal_draw_rows_sync",
+    "terminal_clear_screen_sync",
+    "terminal_move_cursor_sync",
+    "sleep_ms_sync",
+    "frame_clock_new",
+    "frame_clock_wait_next_sync",
     "array_length",
     "opal_array_bounds_error",
     "opal_runtime_error",
@@ -699,8 +874,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            89,
-            "stdlib registry should have 89 names"
+            108,
+            "stdlib registry should have 108 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),

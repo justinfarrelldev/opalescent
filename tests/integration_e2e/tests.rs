@@ -49,6 +49,7 @@ mod fs_write_text_atomic;
 // tree. Re-enable each `mod` line when the corresponding `.rs` file is added.
 mod fs_markdown_roundtrip;
 mod fs_path_manipulation;
+mod game_of_life;
 mod guard_optional_binding;
 mod guard_shorthand;
 mod guard_stmt;
@@ -65,6 +66,12 @@ mod interactive_io;
 mod op_cat;
 mod project_execution;
 mod project_execution_rc;
+mod stdout_text_stdlib;
+mod stdout_writer_stdlib;
+mod string_builder_stdlib;
+mod string_join_stdlib;
+mod terminal_stdlib;
+mod time_stdlib;
 
 #[cfg(feature = "windows-wine")]
 mod windows_wine;
