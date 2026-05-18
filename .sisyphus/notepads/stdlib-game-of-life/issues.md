@@ -1,0 +1,1 @@
+- 2026-05-18T12:40:00Z The only remaining clippy hit in `tests/integration_e2e/game_of_life.rs` was a default numeric fallback on the frame loop bounds; explicit `i32` literals removed it without changing the bounded 10-frame behavior.
