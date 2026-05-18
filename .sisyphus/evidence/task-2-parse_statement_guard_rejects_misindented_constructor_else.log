@@ -1,0 +1,25 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.76s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-fd03e2071514addc)
+
+running 1 test
+test parser::tests::parse_statement_guard_rejects_misindented_constructor_else ... FAILED
+
+failures:
+
+---- parser::tests::parse_statement_guard_rejects_misindented_constructor_else stdout ----
+
+thread 'parser::tests::parse_statement_guard_rejects_misindented_constructor_else' panicked at src/parser/tests.rs:487:5:
+misindented constructor else should still surface a missing aligned guard else, got: Err(UnexpectedToken { expected: "field name", found: "keyword 'else'", span: SourceSpan { offset: SourceOffset(51), length: 4 } })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    parser::tests::parse_statement_guard_rejects_misindented_constructor_else
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1252 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

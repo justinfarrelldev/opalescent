@@ -1,0 +1,4 @@
+ M .sisyphus/boulder.json
+?? .sisyphus/evidence/task-1-baseline-status.txt
+?? .sisyphus/notepads/frameclock-constructor-syntax/
+?? .sisyphus/plans/frameclock-constructor-syntax.md

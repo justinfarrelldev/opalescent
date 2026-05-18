@@ -1,0 +1,7 @@
+feat(language): generalize fallible constructor expressions
+Implement registry-backed constructor classification so propagate/guard can treat constructors as fallible expressions, migrate FrameClock to the new propagate new / guard new syntax, keep the runtime ABI stable, and add alias regression coverage plus end-to-end timing and rejection tests.
+
+Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+

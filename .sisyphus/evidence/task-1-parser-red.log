@@ -1,0 +1,21 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-fd03e2071514addc)
+
+running 1 test
+test parser::tests::parse_propagate_accepts_new_constructor_expression ... FAILED
+
+failures:
+
+---- parser::tests::parse_propagate_accepts_new_constructor_expression stdout ----
+
+thread 'parser::tests::parse_propagate_accepts_new_constructor_expression' panicked at src/parser/tests.rs:402:6:
+propagate should accept constructor expressions for registered fallible constructors: InvalidSyntax { message: "'propagate' must be followed by a function call expression", span: SourceSpan { offset: SourceOffset(51), length: 0 } }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    parser::tests::parse_propagate_accepts_new_constructor_expression
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1251 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
