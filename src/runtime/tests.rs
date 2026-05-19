@@ -11,10 +11,13 @@ use crate::runtime::stdlib::{
 };
 use crate::runtime::strings::{string_compare, string_concat, string_equals, string_length};
 use alloc::collections::VecDeque;
+use alloc::format;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
+use std::fs;
+use std::process::Command;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct MockAllocator;
@@ -359,5 +362,162 @@ fn weak_reference_upgrade_fails_after_strong_values_drop() {
     assert!(
         weak.upgrade_string().is_none(),
         "weak references should not keep values alive after strong owners drop"
+    );
+}
+
+fn compile_and_run_array_rc_c_test(test_name: &str, source: &str) {
+    let temp_dir = tempfile::tempdir().expect("create temp dir for C runtime test");
+    let source_path = temp_dir.path().join(format!("{test_name}.c"));
+    let binary_path = temp_dir.path().join(test_name);
+
+    fs::write(&source_path, source).expect("write C runtime test source");
+
+    let compile_output = Command::new("gcc")
+        .args([
+            "-std=c11",
+            "-D_POSIX_C_SOURCE=200809L",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            source_path.to_str().expect("utf-8 source path"),
+            "runtime/opal_rc.c",
+            "-Iruntime",
+            "-o",
+            binary_path.to_str().expect("utf-8 binary path"),
+        ])
+        .output();
+
+    let compiled = match compile_output {
+        Ok(output) => output,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("gcc not found, skipping {test_name}");
+            return;
+        }
+        Err(error) => panic!("failed to invoke gcc for {test_name}: {error}"),
+    };
+
+    assert!(
+        compiled.status.success(),
+        "gcc failed for {test_name}:\n{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+
+    let run_output = Command::new(&binary_path)
+        .output()
+        .unwrap_or_else(|error| panic!("failed to run compiled test {test_name}: {error}"));
+
+    assert!(
+        run_output.status.success(),
+        "compiled C test {test_name} failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&run_output.stdout),
+        String::from_utf8_lossy(&run_output.stderr)
+    );
+}
+
+#[test]
+fn opal_array_rc_alloc_empty_and_roundtrip_metadata() {
+    compile_and_run_array_rc_c_test(
+        "opal_array_rc_alloc_empty_and_roundtrip_metadata",
+        r#"
+#include "opal_rc.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(void) {
+    int *data = NULL;
+    void *array = opal_array_alloc(sizeof(int), _Alignof(int), 0, 0, NULL);
+    if (array == NULL) {
+        fprintf(stderr, "array allocation returned null\n");
+        return 1;
+    }
+    if (opal_array_len(array) != 0) {
+        fprintf(stderr, "expected len 0, got %zu\n", opal_array_len(array));
+        return 2;
+    }
+    if (opal_array_cap(array) != 0) {
+        fprintf(stderr, "expected cap 0, got %zu\n", opal_array_cap(array));
+        return 3;
+    }
+
+    opal_array_set_len(array, 0);
+    opal_array_set_cap(array, 4);
+    if (opal_array_len(array) != 0 || opal_array_cap(array) != 4) {
+        fprintf(stderr, "metadata roundtrip failed\n");
+        return 4;
+    }
+
+    data = (int *)opal_array_data(array, _Alignof(int));
+    if (data == NULL) {
+        fprintf(stderr, "data pointer returned null\n");
+        return 5;
+    }
+
+    opal_rc_dec(array);
+    return 0;
+}
+"#,
+    );
+}
+
+#[test]
+fn opal_array_rc_non_empty_layout_and_data_pointer_math_hold() {
+    compile_and_run_array_rc_c_test(
+        "opal_array_rc_non_empty_layout_and_data_pointer_math_hold",
+        r#"
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "opal_rc.h"
+
+typedef struct WideAlignedValue {
+    long double value;
+} WideAlignedValue;
+
+int main(void) {
+    unsigned char *array_bytes = NULL;
+    WideAlignedValue *elems = NULL;
+    size_t offset = 0;
+    void *array = opal_array_alloc(sizeof(WideAlignedValue), _Alignof(WideAlignedValue), 2, 5, NULL);
+    if (array == NULL) {
+        fprintf(stderr, "array allocation returned null\n");
+        return 1;
+    }
+    if (opal_array_len(array) != 2) {
+        fprintf(stderr, "expected len 2, got %zu\n", opal_array_len(array));
+        return 2;
+    }
+    if (opal_array_cap(array) != 5) {
+        fprintf(stderr, "expected cap 5, got %zu\n", opal_array_cap(array));
+        return 3;
+    }
+
+    array_bytes = (unsigned char *)array;
+    elems = (WideAlignedValue *)opal_array_data(array, _Alignof(WideAlignedValue));
+    offset = opal_array_data_offset(array, _Alignof(WideAlignedValue));
+    if (((uintptr_t)elems % _Alignof(WideAlignedValue)) != 0) {
+        fprintf(stderr, "element pointer alignment mismatch\n");
+        return 4;
+    }
+    if ((size_t)(void *)((unsigned char *)elems - array_bytes) != offset) {
+        fprintf(stderr, "data offset mismatch\n");
+        return 5;
+    }
+    if ((const void *)elems != opal_array_data_const(array, _Alignof(WideAlignedValue))) {
+        fprintf(stderr, "const/non-const data pointer mismatch\n");
+        return 6;
+    }
+
+    elems[0].value = 3.5;
+    elems[1].value = 7.25;
+    if (elems[0].value != 3.5 || elems[1].value != 7.25) {
+        fprintf(stderr, "element writes were not preserved\n");
+        return 7;
+    }
+
+    opal_rc_dec(array);
+    return 0;
+}
+"#,
     );
 }

@@ -13,41 +13,9 @@
  *   only when both refcount == 0 AND weak_count == 0.
  */
 
-#include "opal_portability.h"
+#include "opal_rc.h"
 #include <stddef.h>
-
-/* RC object header — precedes every heap-allocated RC object in memory */
-typedef struct OpalRcHeader {
-    size_t refcount;
-    size_t weak_count;
-    void (*drop_children_fn)(void *obj, void **stack, size_t *stack_top, size_t *stack_cap);
-} OpalRcHeader;
-
-/* Weak reference — holds a pointer to the header (not the payload) */
-typedef struct OpalWeakRef {
-    OpalRcHeader *header;
-} OpalWeakRef;
-
-/* RC header field offsets (bytes from header start) — for codegen use */
-#define OPAL_RC_REFCOUNT_OFFSET    offsetof(OpalRcHeader, refcount)
-#define OPAL_RC_WEAK_COUNT_OFFSET  offsetof(OpalRcHeader, weak_count)
-#define OPAL_RC_DROP_FN_OFFSET     offsetof(OpalRcHeader, drop_children_fn)
-#define OPAL_RC_HEADER_SIZE        sizeof(OpalRcHeader)
-
-OPAL_STATIC_ASSERT(OPAL_RC_REFCOUNT_OFFSET == 0, "refcount offset must be 0");
-OPAL_STATIC_ASSERT(OPAL_RC_WEAK_COUNT_OFFSET == 8, "weak_count offset must be 8");
-OPAL_STATIC_ASSERT(OPAL_RC_DROP_FN_OFFSET == 16, "drop_children_fn offset must be 16");
-OPAL_STATIC_ASSERT(OPAL_RC_HEADER_SIZE == 24, "OpalRcHeader size must be 24");
-
-/* Forward declarations of all public functions */
-void *opal_rc_alloc(size_t payload_size, void (*drop_children_fn)(void *, void **, size_t *, size_t *));
-void opal_rc_reuse(void *obj, void (*new_drop_fn)(void *, void **, size_t *, size_t *), size_t payload_size);
-void opal_rc_inc(void *obj);
-void opal_rc_dec(void *obj);
-void opal_rc_drop_iterative(void *obj);
-OpalWeakRef *opal_weak_alloc(void *strong_obj);
-void *opal_weak_upgrade(OpalWeakRef *weak);
-void opal_weak_dec(OpalWeakRef *weak);
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -66,12 +34,49 @@ static OpalRcHeader *obj_to_header(void *obj) {
     return ((OpalRcHeader *)obj) - 1;
 }
 
+static size_t opal_array_normalize_align(size_t elem_align) {
+    return elem_align == 0 ? (size_t)1 : elem_align;
+}
+
+static uintptr_t opal_array_align_address_up(uintptr_t value, size_t alignment) {
+    size_t align = opal_array_normalize_align(alignment);
+    uintptr_t remainder = value % (uintptr_t)align;
+    if (remainder == 0) {
+        return value;
+    }
+    return value + ((uintptr_t)align - remainder);
+}
+
+static int opal_size_add_overflow(size_t left, size_t right, size_t *out) {
+    if (left > (SIZE_MAX - right)) {
+        return 1;
+    }
+    *out = left + right;
+    return 0;
+}
+
+static int opal_size_mul_overflow(size_t left, size_t right, size_t *out) {
+    if (left != 0 && right > (SIZE_MAX / left)) {
+        return 1;
+    }
+    *out = left * right;
+    return 0;
+}
+
+static OpalArrayPayloadHeader *opal_array_header(void *array) {
+    return (OpalArrayPayloadHeader *)array;
+}
+
+static const OpalArrayPayloadHeader *opal_array_header_const(const void *array) {
+    return (const OpalArrayPayloadHeader *)array;
+}
+
 /* -------------------------------------------------------------------------
  * Public API
  * ---------------------------------------------------------------------- */
 
 void *opal_rc_alloc(size_t payload_size,
-                    void (*drop_children_fn)(void *, void **, size_t *, size_t *)) {
+                    void (*drop_children_fn)(void *, void ***, size_t *, size_t *)) {
     /* Allocate header + payload in one contiguous block */
     OpalRcHeader *header = (OpalRcHeader *)malloc(sizeof(OpalRcHeader) + payload_size);
     if (!header) return NULL;
@@ -88,7 +93,7 @@ void *opal_rc_alloc(size_t payload_size,
 }
 
 void opal_rc_reuse(void *obj,
-                   void (*new_drop_fn)(void *, void **, size_t *, size_t *),
+                   void (*new_drop_fn)(void *, void ***, size_t *, size_t *),
                    size_t payload_size) {
     if (!obj) return;
 
@@ -116,6 +121,33 @@ void opal_rc_dec(void *obj) {
     }
 }
 
+void opal_rc_drop_child(void *obj,
+                        void ***stack,
+                        size_t *stack_top,
+                        size_t *stack_cap) {
+    if (!obj) return;
+
+    OpalRcHeader *header = obj_to_header(obj);
+    if (header->refcount == 0) return;
+
+    header->refcount--;
+    if (header->refcount != 0) {
+        return;
+    }
+
+    if (*stack_top == *stack_cap) {
+        size_t new_cap = *stack_cap + OPAL_DROP_STACK_INIT;
+        void **new_stack = (void **)realloc(*stack, new_cap * sizeof(void *));
+        if (!new_stack) {
+            return;
+        }
+        *stack = new_stack;
+        *stack_cap = new_cap;
+    }
+
+    (*stack)[(*stack_top)++] = obj;
+}
+
 void opal_rc_drop_iterative(void *root_obj) {
     if (!root_obj) return;
 
@@ -139,32 +171,7 @@ void opal_rc_drop_iterative(void *root_obj) {
         void *obj = stack[--stack_top];
         OpalRcHeader *header = obj_to_header(obj);
 
-        /* Enqueue children onto the work-list before freeing this object.
-         * drop_children_fn is responsible for calling opal_rc_dec on each
-         * child, which will push them onto the stack if their refcount hits 0.
-         * However, since we're doing iterative drop, we use a different
-         * approach: drop_children_fn pushes child payload pointers directly
-         * onto our stack (without calling opal_rc_dec recursively). */
         if (header->drop_children_fn) {
-            /* Ensure enough capacity for children before calling */
-            /* We pass stack by pointer so drop_children_fn can grow it */
-            /* But our stack is a local variable — we need to handle realloc.
-             * Solution: pass &stack (void***) — but the fn signature uses void**.
-             * Compromise: pre-grow the stack to a safe size, or use a wrapper. */
-            /* For the iterative drop, drop_children_fn receives the stack array
-             * pointer by value. If it needs to grow, it must realloc and update
-             * stack_top/stack_cap. Since it can't update our local `stack` pointer,
-             * we use a context struct approach via a thread-local or pass by ref.
-             *
-             * Practical solution: pass a pointer to our local stack variable
-             * by casting. The fn signature is:
-             *   void fn(void* obj, void** stack, size_t* top, size_t* cap)
-             * where `stack` is the array itself (not a pointer to the array).
-             * This means drop_children_fn cannot realloc the stack.
-             *
-             * To handle this safely: pre-grow the stack before calling fn.
-             * We don't know how many children there are, so we grow by a fixed
-             * amount (OPAL_DROP_STACK_INIT) as a heuristic. */
             if (stack_top + OPAL_DROP_STACK_INIT > stack_cap) {
                 size_t new_cap = stack_cap + OPAL_DROP_STACK_INIT;
                 void **new_stack = (void **)realloc(stack, new_cap * sizeof(void *));
@@ -172,23 +179,89 @@ void opal_rc_drop_iterative(void *root_obj) {
                     stack = new_stack;
                     stack_cap = new_cap;
                 }
-                /* If realloc fails, proceed with current capacity — may miss some children */
             }
-            header->drop_children_fn(obj, stack, &stack_top, &stack_cap);
+            header->drop_children_fn(obj, &stack, &stack_top, &stack_cap);
         }
 
-        /* Free the object: either free the whole block (header+payload) if no
-         * weak refs remain, or just mark refcount=0 and leave header alive
-         * for weak ref upgrade checks. */
         if (header->weak_count == 0) {
-            free(header); /* frees header + payload together */
+            free(header);
         }
-        /* If weak_count > 0, the header stays alive until opal_weak_dec
-         * brings weak_count to 0. The payload is logically dropped (refcount=0)
-         * but the header memory persists for weak upgrade checks. */
     }
 
     free(stack);
+}
+
+size_t opal_array_data_offset(const void *array, size_t elem_align) {
+    uintptr_t payload_addr = (uintptr_t)array;
+    uintptr_t payload_end = payload_addr + (uintptr_t)sizeof(OpalArrayPayloadHeader);
+    uintptr_t aligned_data = opal_array_align_address_up(payload_end, elem_align);
+    return (size_t)(aligned_data - payload_addr);
+}
+
+void *opal_array_alloc(size_t elem_size,
+                       size_t elem_align,
+                       size_t len,
+                       size_t cap,
+                       void (*drop_children_fn)(void *, void ***, size_t *, size_t *)) {
+    size_t normalized_align = opal_array_normalize_align(elem_align);
+    size_t max_padding = normalized_align - (size_t)1;
+    size_t header_bytes = 0;
+    size_t capacity = cap < len ? len : cap;
+    size_t element_bytes = 0;
+    size_t payload_size = 0;
+    void *array = NULL;
+    OpalArrayPayloadHeader *header = NULL;
+
+    if (opal_size_add_overflow(sizeof(OpalArrayPayloadHeader), max_padding, &header_bytes)) {
+        return NULL;
+    }
+    if (opal_size_mul_overflow(elem_size, capacity, &element_bytes)) {
+        return NULL;
+    }
+    if (opal_size_add_overflow(header_bytes, element_bytes, &payload_size)) {
+        return NULL;
+    }
+
+    array = opal_rc_alloc(payload_size, drop_children_fn);
+    if (!array) {
+        return NULL;
+    }
+
+    header = opal_array_header(array);
+    header->len = len;
+    header->cap = capacity;
+
+    return array;
+}
+
+size_t opal_array_len(const void *array) {
+    if (!array) return 0;
+    return opal_array_header_const(array)->len;
+}
+
+size_t opal_array_cap(const void *array) {
+    if (!array) return 0;
+    return opal_array_header_const(array)->cap;
+}
+
+void opal_array_set_len(void *array, size_t len) {
+    if (!array) return;
+    opal_array_header(array)->len = len;
+}
+
+void opal_array_set_cap(void *array, size_t cap) {
+    if (!array) return;
+    opal_array_header(array)->cap = cap;
+}
+
+void *opal_array_data(void *array, size_t elem_align) {
+    if (!array) return NULL;
+    return (void *)((unsigned char *)array + opal_array_data_offset(array, elem_align));
+}
+
+const void *opal_array_data_const(const void *array, size_t elem_align) {
+    if (!array) return NULL;
+    return (const void *)((const unsigned char *)array + opal_array_data_offset(array, elem_align));
 }
 
 OpalWeakRef *opal_weak_alloc(void *strong_obj) {
@@ -207,13 +280,11 @@ OpalWeakRef *opal_weak_alloc(void *strong_obj) {
 void *opal_weak_upgrade(OpalWeakRef *weak) {
     if (!weak || !weak->header) return NULL;
 
-    /* Object is alive if refcount > 0 */
     if (weak->header->refcount > 0) {
-        /* Return payload pointer (header + 1) */
         return (void *)(weak->header + 1);
     }
 
-    return NULL; /* Object has been dropped */
+    return NULL;
 }
 
 void opal_weak_dec(OpalWeakRef *weak) {
@@ -224,7 +295,6 @@ void opal_weak_dec(OpalWeakRef *weak) {
         if (header->weak_count > 0) {
             header->weak_count--;
         }
-        /* If both counts are 0, the header was kept alive for weak refs — free it now */
         if (header->refcount == 0 && header->weak_count == 0) {
             free(header);
         }

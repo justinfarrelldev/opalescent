@@ -8,12 +8,12 @@
  *   header ptr                 obj ptr (returned to user)
  *
  * Header fields:
- *   refcount        (size_t, offset 0)  — strong reference count
- *   weak_count      (size_t, offset 8)  — weak reference count
+ *   refcount         (size_t, offset 0)  — strong reference count
+ *   weak_count       (size_t, offset 8)  — weak reference count
  *   drop_children_fn (fn ptr, offset 16) — enqueues child RC objects onto work-list
  *
  * The header immediately precedes the payload in memory. The user-visible
- * pointer points to the payload (header - 1). This keeps the ABI stable:
+ * pointer points to the payload (header + 1). This keeps the ABI stable:
  * adding fields to the header does not change the payload pointer.
  *
  * Weak references:
@@ -42,14 +42,20 @@ typedef struct OpalRcHeader {
      * drop_children_fn — called during iterative drop to enqueue child RC
      * objects onto the work-list. Signature:
      *   obj:       pointer to the payload (header + 1)
-     *   stack:     pointer to the work-list stack array (may be reallocated)
+     *   stack:     pointer to the work-list stack array pointer (may be reallocated)
      *   stack_top: current top index (in/out)
      *   stack_cap: current capacity (in/out)
      * The function should push each child RC payload pointer onto the stack.
      * Pass NULL if the object has no RC children.
      */
-    void (*drop_children_fn)(void *obj, void **stack, size_t *stack_top, size_t *stack_cap);
+    void (*drop_children_fn)(void *obj, void ***stack, size_t *stack_top, size_t *stack_cap);
 } OpalRcHeader;
+
+/* RC-backed array payload header — lives inside the payload region */
+typedef struct OpalArrayPayloadHeader {
+    size_t len;
+    size_t cap;
+} OpalArrayPayloadHeader;
 
 /* Weak reference — holds a pointer to the header (not the payload) */
 typedef struct OpalWeakRef {
@@ -62,10 +68,18 @@ typedef struct OpalWeakRef {
 #define OPAL_RC_DROP_FN_OFFSET     offsetof(OpalRcHeader, drop_children_fn)
 #define OPAL_RC_HEADER_SIZE        sizeof(OpalRcHeader)
 
+/* Array payload field offsets (bytes from payload start) — for codegen use */
+#define OPAL_ARRAY_LEN_OFFSET      offsetof(OpalArrayPayloadHeader, len)
+#define OPAL_ARRAY_CAP_OFFSET      offsetof(OpalArrayPayloadHeader, cap)
+#define OPAL_ARRAY_HEADER_SIZE     sizeof(OpalArrayPayloadHeader)
+
 OPAL_STATIC_ASSERT(OPAL_RC_REFCOUNT_OFFSET == 0, "refcount offset must be 0");
 OPAL_STATIC_ASSERT(OPAL_RC_WEAK_COUNT_OFFSET == 8, "weak_count offset must be 8");
 OPAL_STATIC_ASSERT(OPAL_RC_DROP_FN_OFFSET == 16, "drop_children_fn offset must be 16");
 OPAL_STATIC_ASSERT(OPAL_RC_HEADER_SIZE == 24, "OpalRcHeader size must be 24");
+OPAL_STATIC_ASSERT(OPAL_ARRAY_LEN_OFFSET == 0, "array len offset must be 0");
+OPAL_STATIC_ASSERT(OPAL_ARRAY_CAP_OFFSET == 8, "array cap offset must be 8");
+OPAL_STATIC_ASSERT(OPAL_ARRAY_HEADER_SIZE == 16, "OpalArrayPayloadHeader size must be 16");
 
 /**
  * opal_rc_alloc — allocate a new RC object with refcount=1, weak_count=0.
@@ -75,7 +89,7 @@ OPAL_STATIC_ASSERT(OPAL_RC_HEADER_SIZE == 24, "OpalRcHeader size must be 24");
  * @return pointer to the payload (NOT the header); NULL on allocation failure
  */
 void *opal_rc_alloc(size_t payload_size,
-                    void (*drop_children_fn)(void *, void **, size_t *, size_t *));
+                    void (*drop_children_fn)(void *, void ***, size_t *, size_t *));
 
 /**
  * opal_rc_reuse — reset an RC object for reuse by a new allocation.
@@ -92,7 +106,7 @@ void *opal_rc_alloc(size_t payload_size,
  * @param payload_size     payload size in bytes to clear
  */
 void opal_rc_reuse(void *obj,
-                   void (*new_drop_fn)(void *, void **, size_t *, size_t *),
+                   void (*new_drop_fn)(void *, void ***, size_t *, size_t *),
                    size_t payload_size);
 
 /**
@@ -120,6 +134,73 @@ void opal_rc_dec(void *obj);
 void opal_rc_drop_iterative(void *obj);
 
 /**
+ * opal_array_data_offset — compute the aligned byte offset of array element
+ * storage from the beginning of the payload.
+ *
+ * The offset depends on the payload address because the enclosing RC header is
+ * 24 bytes wide; callers must use the runtime helper rather than assuming a
+ * compile-time constant for wide-alignment element types.
+ *
+ * @param array       pointer to array payload header
+ * @param elem_align  required element alignment in bytes (0 treated as 1)
+ * @return aligned byte offset from array payload pointer to first element
+ */
+size_t opal_array_data_offset(const void *array, size_t elem_align);
+
+/**
+ * opal_array_alloc — allocate an RC-backed array payload using opal_rc_alloc.
+ *
+ * The returned pointer is the start of the array payload header. The payload
+ * bytes begin with `len` and `cap`, followed by aligned element storage.
+ *
+ * @param elem_size         element size in bytes
+ * @param elem_align        required element alignment in bytes (0 treated as 1)
+ * @param len               initial logical length
+ * @param cap               initial capacity
+ * @param drop_children_fn  array-specific RC child drop callback (may be NULL)
+ * @return pointer to array payload header; NULL on allocation failure/overflow
+ */
+void *opal_array_alloc(size_t elem_size,
+                       size_t elem_align,
+                       size_t len,
+                       size_t cap,
+                       void (*drop_children_fn)(void *, void ***, size_t *, size_t *));
+
+/**
+ * opal_array_len — read the logical length from an array payload.
+ */
+size_t opal_array_len(const void *array);
+
+/**
+ * opal_array_cap — read the capacity from an array payload.
+ */
+size_t opal_array_cap(const void *array);
+
+/**
+ * opal_array_set_len — write the logical length field of an array payload.
+ */
+void opal_array_set_len(void *array, size_t len);
+
+/**
+ * opal_array_set_cap — write the capacity field of an array payload.
+ */
+void opal_array_set_cap(void *array, size_t cap);
+
+/**
+ * opal_array_data — get a pointer to the first array element.
+ *
+ * @param array       pointer to array payload header
+ * @param elem_align  required element alignment in bytes (0 treated as 1)
+ * @return pointer to first element storage byte
+ */
+void *opal_array_data(void *array, size_t elem_align);
+
+/**
+ * opal_array_data_const — const-qualified variant of opal_array_data.
+ */
+const void *opal_array_data_const(const void *array, size_t elem_align);
+
+/**
  * opal_weak_alloc — create a weak reference to an existing RC object.
  * Increments the weak_count of the target object's header.
  *
@@ -138,6 +219,17 @@ OpalWeakRef *opal_weak_alloc(void *strong_obj);
  * @return payload pointer if alive, NULL if dead
  */
 void *opal_weak_upgrade(OpalWeakRef *weak);
+
+/**
+ * opal_rc_drop_child — decrement a child reference during iterative drop.
+ *
+ * When the child strong count reaches zero, its payload is pushed onto the
+ * caller's iterative-drop work-list instead of recursing.
+ */
+void opal_rc_drop_child(void *obj,
+                        void ***stack,
+                        size_t *stack_top,
+                        size_t *stack_cap);
 
 /**
  * opal_weak_dec — release a weak reference.
