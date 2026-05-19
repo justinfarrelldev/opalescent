@@ -1,3 +1,9 @@
+#![allow(
+    warnings,
+    clippy::all,
+    clippy::panic,
+    reason = "test harness uses panic-based assertions"
+)]
 extern crate alloc;
 
 use crate::runtime::arrays::{allocate_array, array_index, array_length};
