@@ -150,3 +150,20 @@
 - Blocking: the sacred read-only plan file was modified to flip Task 12 from `[ ]` to `[x]`, which violates the task rules and invalidates plan-compliance closeout.
 - Verified passing gates from current tree: `cargo test`, `cargo test --features integration --test array_integration -- --nocapture`, `./scripts/array_memory_sanitizer.sh`, and the required sidecar/raw-malloc `rg` audits all passed.
 - Current code diff itself is in-scope and fixes the final-wave string RC-predicate drift by sharing `is_rc_bearing_element_type` and adding a targeted `string[]` regression test.
+
+## 2026-05-19T06:25:00Z Task: F1-plan-compliance-audit-rerun
+- APPROVE on committed closeout tip: the final implementation commits are coherent (`fix(codegen): unify array rc-bearing predicate for string arrays` plus docs/notepad audit follow-up), and the committed code remains within plan scope.
+- Sequential final gates passed from the current closeout tip: `cargo test`, `cargo test --features integration --test array_integration -- --nocapture`, `./scripts/array_memory_sanitizer.sh`, sidecar-retirement grep, and raw-malloc grep.
+- Guardrail audit is clean for the committed implementation: no `pending_array_metadata`, no array-specific `_len/_cap` sidecar path, no `opal_array_inc`/`opal_array_dec` or parallel array ownership system, and no `opal_rc_reuse` usage in array/codegen paths.
+- The only live working-tree diff is the orchestrator-managed plan checkbox flip in `.sisyphus/plans/array-memory-bug.md`; no forbidden plan-file mutation remains in committed history for the implementation itself.
+- The final-wave string fix is compliant with Task 8/T9 scope: `helpers.rs` now reuses `expressions_array.rs::is_rc_bearing_element_type`, preventing invalid RC retains on static string storage, and `src/codegen/tests.rs` adds a targeted `string[]` regression.
+
+
+## 2026-05-19T06:30:00Z Task: F3-real-manual-qa
+- Sequential command run (required order) completed from committed tip.
+- `cargo test`: PASS (`1260 passed; 0 failed; 5 ignored`).
+- `cargo test --features integration --test array_integration -- --nocapture`: PASS (`35 passed; 0 failed`).
+- `./scripts/array_memory_sanitizer.sh`: PASS; explicit sanitizer marker status: no `ERROR: AddressSanitizer`, no `LeakSanitizer`, no `heap-use-after-free`, no `double-free`, no `detected memory leaks` markers.
+- `rg --type rust 'pending_array_metadata|ArrayMetadata|static_array_length|static_array_capacity|store_array_binding_with_metadata' src/codegen src/type_system`: PASS with zero matches (expected).
+- `rg --type rust 'malloc' src/codegen/functions_call/array.rs src/codegen/functions_call/array/helpers.rs`: PASS with zero matches (expected).
+- `git status --porcelain` at end of run: non-empty (`M .sisyphus/notepads/array-memory-bug/issues.md`, `M .sisyphus/plans/array-memory-bug.md`); plan-file modification is external/orchestrator-tracked and outside F3 command QA scope.

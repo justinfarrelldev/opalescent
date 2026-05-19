@@ -186,3 +186,12 @@
 - New regression test is meaningful (checks payload allocation still occurs while forbidding RC child-drop/inc hooks for `string[]` literal lowering). It is somewhat IR-string-coupled by design, but acceptable and targeted for this compiler layer.
 - Quality gate checks for this review passed: anti-pattern scan found no newly introduced TODO/FIXME/HACK/unwrap/expect in changed hunks, and LSP diagnostics reported no issues on all three changed Rust files.
 - F2 verdict: APPROVE (no blocking code-quality changes required for this diff).
+
+
+## 2026-05-19T06:45:00Z Task: F4-scope-fidelity-check
+- Scope-fidelity review against `.sisyphus/plans/array-memory-bug.md` confirms the closeout implementation stays within the pinned boundaries: no migration feature flag/dual-path switch, no sidecar ownership system, no unique-owner fast-path behavior in array codegen paths, and indexed assignment remains identifier-backed only.
+- Prohibited sidecar symbols remain absent in source (`pending_array_metadata`, `ArrayMetadata`, `static_array_length`, `static_array_capacity`, `store_array_binding_with_metadata` grep checks are clean).
+- Requested ergonomics remain present in active lowering: `append`, `array_filled`, `reserve`, and `clear` are still dispatched via array intrinsics (`src/codegen/functions_call/array/intrinsics.rs`) and typechecker/module symbol plumbing remains intact.
+- The recent string RC-policy fix is in-scope (Task 8/Final-wave correctness hardening): it centralizes the RC-bearing predicate and prevents helper-path drift without adding new language/runtime surface area.
+- Scope risk noted (process, not feature): current working tree includes orchestrator-tracked modifications under `.sisyphus/plans/array-memory-bug.md` and notepad files, but this does not indicate implementation scope creep in `src/`.
+- F4 verdict: APPROVE.

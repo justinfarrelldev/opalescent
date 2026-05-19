@@ -593,7 +593,7 @@ Wave 5: Final verification F1-F4 in parallel after all implementation tasks and 
 
   **Commit**: YES | Message: `chore(array): verify rc array migration` | Files: [`.gitignore` if needed, fixes from regression run, evidence references if repo tracks them]
 
-- [ ] 12. Final atomic-commit and clean-status gate
+- [x] 12. Final atomic-commit and clean-status gate
 
   **What to do**: Inspect git history and working tree, ensure all intended changes are committed in coherent atomic commits, and verify no staged or unstaged changes remain. If changes remain, either commit them atomically with an appropriate conventional message or revert unintended artifacts. Save final status evidence.
   **Must NOT do**: Do not leave staged changes. Do not leave unstaged changes. Do not create empty commits. Do not use force-push or amend unless explicitly instructed by the user.
