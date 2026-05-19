@@ -1,0 +1,10 @@
+empty length 0
+literal length 2
+literal values 1 2
+alias sees literal 1 2
+appended length 3
+appended values 1 2 3
+rebound length 3
+rebound values 7 8 9
+alias length 2
+alias values 7 8
