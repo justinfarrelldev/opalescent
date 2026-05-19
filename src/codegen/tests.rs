@@ -2242,6 +2242,37 @@ fn test_codegen_cast_function_type_error_message() {
 }
 
 #[test]
+fn test_string_array_literal_does_not_emit_rc_child_hooks() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "string_array_literal_test");
+    let _function = create_codegen_function(&codegen_context, "string_array_literal_fn");
+    let mut env = CodegenEnv::new(false);
+
+    let array_expr = Expr::Array {
+        elements: vec![string_lit(9_090, "a"), string_lit(9_091, "b")],
+        span: test_span(),
+        id: test_node_id(9_092),
+    };
+    let result = codegen_expression(
+        &codegen_context,
+        &mut env,
+        &array_expr,
+        Some(&CoreType::Array(Box::new(CoreType::String))),
+    );
+    assert!(result.is_ok(), "string array literal should codegen");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("@opal_array_alloc"),
+        "string array literal should still allocate payload-backed array storage: {ir}"
+    );
+    assert!(
+        !ir.contains("@opal_array_drop_children") && !ir.contains("@opal_rc_inc"),
+        "string array literal should not emit RC child-drop or retain hooks for static i8* string storage: {ir}"
+    );
+}
+
+#[test]
 fn test_codegen_identifier_backed_indexed_assignment_emits_array_clone_and_rebind() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "assign_indexed_array_test");

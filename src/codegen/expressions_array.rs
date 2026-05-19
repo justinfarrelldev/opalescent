@@ -910,7 +910,7 @@ fn release_rc_value_if_needed<'context>(
     emitter.emit_dec(value.into_pointer_value())
 }
 
-const fn is_rc_bearing_element_type(element_core_type: &CoreType) -> bool {
+pub(crate) const fn is_rc_bearing_element_type(element_core_type: &CoreType) -> bool {
     matches!(element_core_type, CoreType::Array(_) | CoreType::Generic { .. })
 }
 

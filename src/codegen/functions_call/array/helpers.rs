@@ -13,8 +13,9 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding};
 use crate::codegen::expressions_array::{
-    allocate_array_payload, load_array_capacity_from_value, load_array_data_ptr_for_element_type,
-    load_array_length_from_value, load_array_payload_ptr_from_binding,
+    allocate_array_payload, is_rc_bearing_element_type, load_array_capacity_from_value,
+    load_array_data_ptr_for_element_type, load_array_length_from_value,
+    load_array_payload_ptr_from_binding,
 };
 use super::super::ast_type_to_core_type_for_signature;
 use crate::type_system::types::CoreType;
@@ -124,10 +125,6 @@ pub(super) fn retain_rc_element_if_needed<'context>(
         &env.next_name(format!("{name_prefix}.retain").as_str()),
     )?;
     Ok(())
-}
-
-const fn is_rc_bearing_element_type(element_core_type: &CoreType) -> bool {
-    matches!(element_core_type, &CoreType::String | &CoreType::Array(_) | &CoreType::Generic { .. })
 }
 
 fn declare_or_get_opal_rc_inc<'context>(
