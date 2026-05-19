@@ -1,6 +1,13 @@
 #![allow(
     clippy::all,
-    clippy::missing_const_for_fn,
+    dead_code,
+    clippy::let_underscore_untyped,
+    clippy::missing_docs_in_private_items,
+    clippy::needless_pass_by_value,
+    clippy::pattern_type_mismatch,
+    clippy::too_many_lines,
+    clippy::undocumented_unsafe_blocks,
+    unfulfilled_lint_expectations,
     reason = "internal codegen implementation module"
 )]
 
@@ -9,18 +16,21 @@ extern crate alloc;
 use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{
-    ArrayMetadata, CodegenEnv, codegen_expression, current_function,
-};
+use crate::codegen::expressions::{CodegenEnv, codegen_expression, current_function};
+use crate::codegen::rc_emitter::RcEmitter;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
+use inkwell::module::Linkage;
+use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
-use inkwell::IntPredicate;
 use inkwell::types::BasicType;
-use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, IntValue, PointerValue};
+use inkwell::values::{
+    BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
+};
+use inkwell::{AddressSpace, IntPredicate};
 
-/// Lower array literals while preserving runtime metadata for nested arrays.
+/// Lower array literals into RC-backed payload allocations.
 pub fn codegen_array_literal<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -44,7 +54,7 @@ pub fn codegen_array_literal<'context>(
     }
 }
 
-/// Lower array indexing and surface nested row metadata for chained access.
+/// Lower array indexing against RC-backed payload headers.
 pub fn codegen_array_access<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -74,21 +84,101 @@ pub fn codegen_array_access<'context>(
     emit_array_bounds_check(codegen_context, env, index_value, array_length)?;
 
     let element_ptr = build_array_element_ptr(codegen_context, env, base_ptr, index_value)?;
-
-    if matches!(element_core_type, CoreType::Array(_)) {
-        return load_nested_row_value(codegen_context, env, element_ptr);
-    }
-
     let loaded = codegen_context
         .builder
         .build_load(element_ptr, &env.next_name("array.load"))?;
-    if matches!(expected_type, Some(&CoreType::Array(_))) {
-        env.set_pending_array_metadata(Some(ArrayMetadata {
-            length: array_length,
-            capacity: array_length,
-        }));
-    }
+
+    let _ = expected_type;
     Ok(loaded)
+}
+
+pub fn codegen_identifier_indexed_array_assignment<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    object: &Expr,
+    index: &Expr,
+    value: &Expr,
+) -> Result<(), CodegenError> {
+    let Expr::Identifier { ref name, .. } = *object else {
+        return Err(CodegenError::new(String::from(
+            "indexed assignment currently requires identifier array receiver",
+        )));
+    };
+
+    let Some(binding) = env.variables.get(name).cloned() else {
+        return Err(CodegenError::new(format!(
+            "assignment target '{name}' not found"
+        )));
+    };
+    let binding_alloca = binding.alloca;
+    if !binding.is_mutable {
+        return Err(CodegenError::new(format!(
+            "cannot assign to immutable variable: {name}"
+        )));
+    }
+
+    let element_core_type = match binding.core_type.clone() {
+        CoreType::Array(element_type) => *element_type,
+        other => {
+            return Err(CodegenError::new(format!(
+                "index assignment expects array receiver, found '{other}'"
+            )));
+        }
+    };
+
+    let array_value = load_array_payload_ptr_from_binding(codegen_context, env, name, binding)?;
+    let array_length =
+        load_array_length_from_value(codegen_context, env, array_value, "index.assign")?;
+    let array_capacity =
+        load_array_capacity_from_value(codegen_context, env, array_value, "index.assign")?;
+    let source_data_ptr = load_array_data_ptr_for_element_type(
+        codegen_context,
+        env,
+        array_value,
+        &element_core_type,
+        "index.assign",
+    )?;
+
+    let index_value =
+        codegen_expression(codegen_context, env, index, Some(&CoreType::Int64))?.into_int_value();
+    emit_array_bounds_check(codegen_context, env, index_value, array_length)?;
+
+    let replacement_value =
+        codegen_expression(codegen_context, env, value, Some(&element_core_type))?;
+    let (cloned_array_value, cloned_data_ptr) = allocate_array_payload(
+        codegen_context,
+        env,
+        &element_core_type,
+        array_length,
+        array_capacity,
+        "index.assign",
+    )?;
+    clone_array_elements_into_payload(
+        codegen_context,
+        env,
+        &element_core_type,
+        source_data_ptr,
+        cloned_data_ptr,
+        array_length,
+        "index.assign",
+    )?;
+
+    let overwrite_slot = build_array_element_ptr(codegen_context, env, cloned_data_ptr, index_value)?;
+    release_rc_value_if_needed(
+        codegen_context,
+        &element_core_type,
+        codegen_context
+            .builder
+            .build_load(overwrite_slot, &env.next_name("index.assign.old.load"))?,
+    )?;
+    retain_rc_value_if_needed(codegen_context, &element_core_type, replacement_value)?;
+    codegen_context
+        .builder
+        .build_store(overwrite_slot, replacement_value)?;
+    codegen_context
+        .builder
+        .build_store(binding_alloca, cloned_array_value)?;
+    Ok(())
 }
 
 pub fn infer_expression_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<CoreType> {
@@ -129,7 +219,6 @@ fn array_literal_element_core_type(expected_type: Option<&CoreType>) -> &CoreTyp
     })
 }
 
-/// Lower nested array literals into row-value structs carrying ptr/len/cap.
 fn codegen_nested_array_literal<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -137,45 +226,10 @@ fn codegen_nested_array_literal<'context>(
     nested_element_core: &CoreType,
     count: u32,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let row_struct_type = array_value_struct_type(codegen_context, nested_element_core);
-    let array_type = row_struct_type.array_type(count);
-    let array_alloca = codegen_context
-        .builder
-        .build_alloca(array_type, &env.next_name("array.alloca"))?;
-
-    for (index, element_expr) in elements.iter().enumerate() {
-        let idx = u64::try_from(index).map_err(|conversion_error| {
-            CodegenError::new(format!("array index conversion failed: {conversion_error}"))
-        })?;
-        let value = codegen_expression(
-            codegen_context,
-            env,
-            element_expr,
-            Some(&CoreType::Array(Box::new(nested_element_core.clone()))),
-        )?;
-        let metadata = env.take_pending_array_metadata().ok_or_else(|| {
-            CodegenError::new(String::from(
-                "nested array literal element did not publish array metadata",
-            ))
-        })?;
-        let row_value = build_array_value_struct(
-            codegen_context,
-            env,
-            row_struct_type,
-            value.into_pointer_value(),
-            metadata.length,
-            metadata.capacity,
-        )?;
-        let ptr = build_array_store_ptr(codegen_context, env, array_alloca, idx)?;
-        let _store_instruction = codegen_context.builder.build_store(ptr, row_value)?;
-    }
-
-    let base_ptr = build_array_base_ptr(codegen_context, env, array_alloca)?;
-    publish_array_metadata(codegen_context, env, count);
-    Ok(base_ptr.as_basic_value_enum())
+    let nested_array_core = CoreType::Array(Box::new(nested_element_core.clone()));
+    codegen_flat_array_literal(codegen_context, env, elements, &nested_array_core, count)
 }
 
-/// Lower flat array literals and publish their static length metadata.
 fn codegen_flat_array_literal<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -183,248 +237,684 @@ fn codegen_flat_array_literal<'context>(
     element_core: &CoreType,
     count: u32,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let element_type = core_type_to_llvm(codegen_context.context, element_core);
-    let array_type = element_type.array_type(count);
-    let array_alloca = codegen_context
-        .builder
-        .build_alloca(array_type, &env.next_name("array.alloca"))?;
+    let count_value = codegen_context
+        .context
+        .i64_type()
+        .const_int(u64::from(count), false);
+    let (array_value, data_ptr) = allocate_array_payload(
+        codegen_context,
+        env,
+        element_core,
+        count_value,
+        count_value,
+        "array.literal",
+    )?;
 
     for (index, element_expr) in elements.iter().enumerate() {
         let idx = u64::try_from(index).map_err(|conversion_error| {
             CodegenError::new(format!("array index conversion failed: {conversion_error}"))
         })?;
-        let ptr = build_array_store_ptr(codegen_context, env, array_alloca, idx)?;
+        let index_value = codegen_context.context.i64_type().const_int(idx, false);
+        let ptr = build_array_element_ptr(codegen_context, env, data_ptr, index_value)?;
         let value = codegen_expression(codegen_context, env, element_expr, Some(element_core))?;
+        retain_rc_value_if_needed(codegen_context, element_core, value)?;
         let _store_instruction = codegen_context.builder.build_store(ptr, value)?;
     }
 
-    let base_ptr = build_array_base_ptr(codegen_context, env, array_alloca)?;
-    publish_array_metadata(codegen_context, env, count);
-    Ok(base_ptr.as_basic_value_enum())
+    Ok(array_value.as_basic_value_enum())
 }
 
-/// Record array metadata for the most recently lowered array-producing expression.
-fn publish_array_metadata<'context>(
+pub(crate) fn allocate_array_payload<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
-    count: u32,
-) {
-    let length = codegen_context
-        .context
-        .i64_type()
-        .const_int(u64::from(count), false);
-    env.set_pending_array_metadata(Some(ArrayMetadata {
-        length,
-        capacity: length,
-    }));
-}
-
-/// Build a pointer to the indexed slot inside a stack-allocated LLVM array.
-fn build_array_store_ptr<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    array_alloca: PointerValue<'context>,
-    idx: u64,
-) -> Result<PointerValue<'context>, CodegenError> {
-    // SAFETY: The pointer comes from an alloca of the exact array type and the indices address an
-    // element within that LLVM aggregate.
-    unsafe {
-        codegen_context
-            .builder
-            .build_in_bounds_gep(
-                array_alloca,
-                &[
-                    codegen_context.context.i32_type().const_zero(),
-                    codegen_context.context.i32_type().const_int(idx, false),
-                ],
-                &env.next_name("array.store.ptr"),
-            )
-            .map_err(Into::into)
-    }
-}
-
-/// Build the base element pointer for a stack-allocated LLVM array.
-fn build_array_base_ptr<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    array_alloca: PointerValue<'context>,
-) -> Result<PointerValue<'context>, CodegenError> {
-    // SAFETY: The alloca stores an LLVM array and `[0, 0]` points at its first element.
-    unsafe {
-        codegen_context
-            .builder
-            .build_in_bounds_gep(
-                array_alloca,
-                &[
-                    codegen_context.context.i32_type().const_zero(),
-                    codegen_context.context.i32_type().const_zero(),
-                ],
-                &env.next_name("array.base.ptr"),
-            )
-            .map_err(Into::into)
-    }
-}
-
-/// Build a pointer to a dynamically indexed element from an array base pointer.
-fn build_array_element_ptr<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    base_ptr: PointerValue<'context>,
-    index_value: IntValue<'context>,
-) -> Result<PointerValue<'context>, CodegenError> {
-    // SAFETY: Bounds are checked immediately before this GEP and the base pointer targets the
-    // first element of the backing array storage.
-    unsafe {
-        codegen_context
-            .builder
-            .build_in_bounds_gep(base_ptr, &[index_value], &env.next_name("array.load.ptr"))
-            .map_err(Into::into)
-    }
-}
-
-/// Load a nested row value and publish its row-specific metadata for chained access.
-fn load_nested_row_value<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    element_ptr: PointerValue<'context>,
-) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let row_value = codegen_context
-        .builder
-        .build_load(element_ptr, &env.next_name("array.row.load"))?
-        .into_struct_value();
-    let row_ptr = codegen_context
-        .builder
-        .build_extract_value(row_value, 0, &env.next_name("array.row.ptr"))?
-        .into_pointer_value();
-    let row_length = codegen_context
-        .builder
-        .build_extract_value(row_value, 1, &env.next_name("array.row.len"))?
-        .into_int_value();
-    let row_capacity = codegen_context
-        .builder
-        .build_extract_value(row_value, 2, &env.next_name("array.row.cap"))?
-        .into_int_value();
-    env.set_pending_array_metadata(Some(ArrayMetadata {
-        length: row_length,
-        capacity: row_capacity,
-    }));
-    Ok(row_ptr.as_basic_value_enum())
-}
-
-/// Construct the row-value struct type used for nested array elements.
-fn array_value_struct_type<'context>(
-    codegen_context: &CodegenContext<'context>,
     element_core_type: &CoreType,
-) -> inkwell::types::StructType<'context> {
-    let element_ptr_type = core_type_to_llvm(codegen_context.context, element_core_type)
-        .ptr_type(inkwell::AddressSpace::default());
-    codegen_context.context.struct_type(
-        &[
-            element_ptr_type.into(),
-            codegen_context.context.i64_type().into(),
-            codegen_context.context.i64_type().into(),
-        ],
-        false,
-    )
-}
-
-/// Build a `{ptr, len, cap}` runtime value for a nested array row.
-fn build_array_value_struct<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    struct_type: inkwell::types::StructType<'context>,
-    pointer: PointerValue<'context>,
     length: IntValue<'context>,
     capacity: IntValue<'context>,
-) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let with_pointer = codegen_context
-        .builder
-        .build_insert_value(
-            struct_type.get_undef(),
-            pointer,
-            0,
-            &env.next_name("array.value.ptr"),
-        )?
-        .into_struct_value();
-    let with_length = codegen_context
-        .builder
-        .build_insert_value(with_pointer, length, 1, &env.next_name("array.value.len"))?
-        .into_struct_value();
-    Ok(codegen_context
-        .builder
-        .build_insert_value(with_length, capacity, 2, &env.next_name("array.value.cap"))?
-        .as_basic_value_enum())
+    name_prefix: &str,
+) -> Result<(PointerValue<'context>, PointerValue<'context>), CodegenError> {
+    let (element_size, element_align) = array_element_layout(codegen_context, element_core_type)?;
+    let alloc_fn = declare_or_get_opal_array_alloc(codegen_context);
+    let drop_children_fn = array_drop_children_fn_ptr(codegen_context, element_core_type)?;
+    let call = codegen_context.builder.build_call(
+        alloc_fn,
+        &[
+            element_size.into(),
+            element_align.into(),
+            size_t_value(codegen_context, env, length, name_prefix)?.into(),
+            size_t_value(codegen_context, env, capacity, name_prefix)?.into(),
+            drop_children_fn.into(),
+        ],
+        &env.next_name(format!("{name_prefix}.alloc").as_str()),
+    )?;
+    let array_value = call
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("opal_array_alloc returned no value")))?
+        .into_pointer_value();
+    trap_on_null_array_allocation(codegen_context, env, array_value, name_prefix)?;
+    let data_ptr = load_array_data_ptr_for_element_type(
+        codegen_context,
+        env,
+        array_value,
+        element_core_type,
+        name_prefix,
+    )?;
+    Ok((array_value, data_ptr))
 }
 
-/// Resolve an array receiver to a base pointer and runtime length for index lowering.
+pub(crate) fn load_array_payload_ptr_from_binding<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    binding_name: &str,
+    binding: crate::codegen::expressions::VariableBinding<'context>,
+) -> Result<PointerValue<'context>, CodegenError> {
+    let loaded = codegen_context
+        .builder
+        .build_load(binding.alloca, &env.next_name(format!("{binding_name}.array.load").as_str()))?;
+    if !loaded.is_pointer_value() {
+        return Err(CodegenError::new(format!(
+            "array binding '{binding_name}' did not lower to a pointer value"
+        )));
+    }
+    cast_array_payload_to_i8_ptr(codegen_context, env, loaded.into_pointer_value(), binding_name)
+}
+
+pub(crate) fn load_array_length_from_value<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    array_value: PointerValue<'context>,
+    name_prefix: &str,
+) -> Result<IntValue<'context>, CodegenError> {
+    let len_fn = declare_or_get_opal_array_len(codegen_context);
+    let array_payload = cast_array_payload_to_i8_ptr(codegen_context, env, array_value, name_prefix)?;
+    let call = codegen_context.builder.build_call(
+        len_fn,
+        &[array_payload.into()],
+        &env.next_name(format!("{name_prefix}.len").as_str()),
+    )?;
+    Ok(call
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("opal_array_len returned no value")))?
+        .into_int_value())
+}
+
+pub(crate) fn load_array_capacity_from_value<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    array_value: PointerValue<'context>,
+    name_prefix: &str,
+) -> Result<IntValue<'context>, CodegenError> {
+    let cap_fn = declare_or_get_opal_array_cap(codegen_context);
+    let array_payload = cast_array_payload_to_i8_ptr(codegen_context, env, array_value, name_prefix)?;
+    let call = codegen_context.builder.build_call(
+        cap_fn,
+        &[array_payload.into()],
+        &env.next_name(format!("{name_prefix}.cap").as_str()),
+    )?;
+    Ok(call
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("opal_array_cap returned no value")))?
+        .into_int_value())
+}
+
+pub(crate) fn load_array_data_ptr_for_element_type<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    array_value: PointerValue<'context>,
+    element_core_type: &CoreType,
+    name_prefix: &str,
+) -> Result<PointerValue<'context>, CodegenError> {
+    let data_fn = declare_or_get_opal_array_data(codegen_context);
+    let (_, element_align) = array_element_layout(codegen_context, element_core_type)?;
+    let array_payload = cast_array_payload_to_i8_ptr(codegen_context, env, array_value, name_prefix)?;
+    let call = codegen_context.builder.build_call(
+        data_fn,
+        &[array_payload.into(), element_align.into()],
+        &env.next_name(format!("{name_prefix}.data").as_str()),
+    )?;
+    let raw_data_ptr = call
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("opal_array_data returned no value")))?
+        .into_pointer_value();
+    Ok(codegen_context.builder.build_pointer_cast(
+        raw_data_ptr,
+        core_type_to_llvm(codegen_context.context, element_core_type)
+            .ptr_type(AddressSpace::default()),
+        &env.next_name(format!("{name_prefix}.typed.data").as_str()),
+    )?)
+}
+
+fn declare_or_get_opal_array_alloc<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let module = &codegen_context.module;
+    if let Some(function) = module.get_function("opal_array_alloc") {
+        return function;
+    }
+    let i64_type = codegen_context.context.i64_type();
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let function_type = i8_ptr_type.fn_type(
+        &[
+            i64_type.into(),
+            i64_type.into(),
+            i64_type.into(),
+            i64_type.into(),
+            i8_ptr_type.into(),
+        ],
+        false,
+    );
+    module.add_function("opal_array_alloc", function_type, None)
+}
+
+fn declare_or_get_opal_array_len<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let module = &codegen_context.module;
+    if let Some(function) = module.get_function("opal_array_len") {
+        return function;
+    }
+    let i64_type = codegen_context.context.i64_type();
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let function_type = i64_type.fn_type(&[i8_ptr_type.into()], false);
+    module.add_function("opal_array_len", function_type, None)
+}
+
+fn declare_or_get_opal_array_cap<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let module = &codegen_context.module;
+    if let Some(function) = module.get_function("opal_array_cap") {
+        return function;
+    }
+    let i64_type = codegen_context.context.i64_type();
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let function_type = i64_type.fn_type(&[i8_ptr_type.into()], false);
+    module.add_function("opal_array_cap", function_type, None)
+}
+
+fn declare_or_get_opal_array_data<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let module = &codegen_context.module;
+    if let Some(function) = module.get_function("opal_array_data") {
+        return function;
+    }
+    let i64_type = codegen_context.context.i64_type();
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let function_type = i8_ptr_type.fn_type(&[i8_ptr_type.into(), i64_type.into()], false);
+    module.add_function("opal_array_data", function_type, None)
+}
+
+fn array_drop_children_fn_ptr<'context>(
+    codegen_context: &CodegenContext<'context>,
+    element_core_type: &CoreType,
+) -> Result<PointerValue<'context>, CodegenError> {
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    if !is_rc_bearing_element_type(element_core_type) {
+        return Ok(i8_ptr_type.const_null());
+    }
+
+    let callback = declare_or_get_array_drop_children_fn(codegen_context)?;
+    Ok(callback.as_global_value().as_pointer_value().const_cast(i8_ptr_type))
+}
+
+fn declare_or_get_array_drop_children_fn<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> Result<FunctionValue<'context>, CodegenError> {
+    let module = &codegen_context.module;
+    if let Some(function) = module.get_function("opal_array_drop_children") {
+        return Ok(function);
+    }
+
+    let context = codegen_context.context;
+    let i8_ptr_type = context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr_ptr_type = i8_ptr_type.ptr_type(AddressSpace::default());
+    let i8_ptr_ptr_ptr_type = i8_ptr_ptr_type.ptr_type(AddressSpace::default());
+    let size_t_ptr_type = context.i64_type().ptr_type(AddressSpace::default());
+    let function_type = context.void_type().fn_type(
+        &[
+            i8_ptr_type.into(),
+            i8_ptr_ptr_ptr_type.into(),
+            size_t_ptr_type.into(),
+            size_t_ptr_type.into(),
+        ],
+        false,
+    );
+    let function = module.add_function(
+        "opal_array_drop_children",
+        function_type,
+        Some(Linkage::Internal),
+    );
+    let entry = context.append_basic_block(function, "entry");
+    let current_block = codegen_context.builder.get_insert_block();
+    codegen_context.builder.position_at_end(entry);
+
+    let array_payload = function
+        .get_nth_param(0)
+        .expect("opal_array_drop_children should receive payload")
+        .into_pointer_value();
+    let stack = function
+        .get_nth_param(1)
+        .expect("opal_array_drop_children should receive stack")
+        .into_pointer_value();
+    let stack_top = function
+        .get_nth_param(2)
+        .expect("opal_array_drop_children should receive stack_top")
+        .into_pointer_value();
+    let stack_cap = function
+        .get_nth_param(3)
+        .expect("opal_array_drop_children should receive stack_cap")
+        .into_pointer_value();
+
+    let len_fn = declare_or_get_opal_array_len(codegen_context);
+    let data_fn = declare_or_get_opal_array_data(codegen_context);
+    let drop_child_fn = declare_or_get_opal_rc_drop_child(codegen_context);
+
+    let length_value = codegen_context
+        .builder
+        .build_call(len_fn, &[array_payload.into()], "array.drop.len")?
+        .try_as_basic_value()
+        .basic()
+        .expect("opal_array_len should return value")
+        .into_int_value();
+    let data_ptr = codegen_context
+        .builder
+        .build_call(
+            data_fn,
+            &[
+                array_payload.into(),
+                context.i64_type().const_int(8, false).into(),
+            ],
+            "array.drop.data",
+        )?
+        .try_as_basic_value()
+        .basic()
+        .expect("opal_array_data should return value")
+        .into_pointer_value();
+    let typed_data_ptr = codegen_context.builder.build_pointer_cast(
+        data_ptr,
+        i8_ptr_type.ptr_type(AddressSpace::default()),
+        "array.drop.typed.data",
+    )?;
+
+    let index_alloca = codegen_context
+        .builder
+        .build_alloca(context.i64_type(), "array.drop.index")?;
+    codegen_context
+        .builder
+        .build_store(index_alloca, context.i64_type().const_zero())?;
+
+    let loop_block = context.append_basic_block(function, "loop");
+    let body_block = context.append_basic_block(function, "body");
+    let exit_block = context.append_basic_block(function, "exit");
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_block)?;
+
+    codegen_context.builder.position_at_end(loop_block);
+    let index_value = codegen_context
+        .builder
+        .build_load(index_alloca, "array.drop.index.load")?
+        .into_int_value();
+    let should_continue = codegen_context.builder.build_int_compare(
+        IntPredicate::ULT,
+        index_value,
+        length_value,
+        "array.drop.cond",
+    )?;
+    codegen_context
+        .builder
+        .build_conditional_branch(should_continue, body_block, exit_block)?;
+
+    codegen_context.builder.position_at_end(body_block);
+    let element_slot = unsafe {
+        codegen_context
+            .builder
+            .build_in_bounds_gep(typed_data_ptr, &[index_value], "array.drop.slot")?
+    };
+    let child_value = codegen_context
+        .builder
+        .build_load(element_slot, "array.drop.child")?
+        .into_pointer_value();
+    let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+        drop_child_fn,
+        &[child_value.into(), stack.into(), stack_top.into(), stack_cap.into()],
+        "array.drop.child.call",
+    )?;
+    let next_index = codegen_context.builder.build_int_add(
+        index_value,
+        context.i64_type().const_int(1, false),
+        "array.drop.next",
+    )?;
+    codegen_context.builder.build_store(index_alloca, next_index)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_block)?;
+
+    codegen_context.builder.position_at_end(exit_block);
+    let _: inkwell::values::InstructionValue = codegen_context.builder.build_return(None)?;
+
+    if let Some(block) = current_block {
+        codegen_context.builder.position_at_end(block);
+    }
+
+    Ok(function)
+}
+
+fn declare_or_get_opal_rc_drop_child<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let module = &codegen_context.module;
+    if let Some(function) = module.get_function("opal_rc_drop_child") {
+        return function;
+    }
+
+    let context = codegen_context.context;
+    let i8_ptr_type = context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr_ptr_type = i8_ptr_type.ptr_type(AddressSpace::default());
+    let i8_ptr_ptr_ptr_type = i8_ptr_ptr_type.ptr_type(AddressSpace::default());
+    let size_t_ptr_type = context.i64_type().ptr_type(AddressSpace::default());
+    let function_type = context.void_type().fn_type(
+        &[
+            i8_ptr_type.into(),
+            i8_ptr_ptr_ptr_type.into(),
+            size_t_ptr_type.into(),
+            size_t_ptr_type.into(),
+        ],
+        false,
+    );
+    module.add_function("opal_rc_drop_child", function_type, None)
+}
+
+fn array_element_layout<'context>(
+    codegen_context: &CodegenContext<'context>,
+    element_core_type: &CoreType,
+) -> Result<(IntValue<'context>, IntValue<'context>), CodegenError> {
+    let element_type = core_type_to_llvm(codegen_context.context, element_core_type);
+    let element_size = element_type
+        .size_of()
+        .ok_or_else(|| CodegenError::new(String::from("array element type has no size")))?;
+    let element_size_i64 = if element_size.get_type().get_bit_width() == 64 {
+        element_size
+    } else {
+        codegen_context.builder.build_int_z_extend(
+            element_size,
+            codegen_context.context.i64_type(),
+            "array.elem_size.i64",
+        )?
+    };
+    Ok((element_size_i64, element_size_i64))
+}
+
+fn cast_array_payload_to_i8_ptr<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    array_value: PointerValue<'context>,
+    name_prefix: &str,
+) -> Result<PointerValue<'context>, CodegenError> {
+    Ok(codegen_context.builder.build_pointer_cast(
+        array_value,
+        codegen_context
+            .context
+            .i8_type()
+            .ptr_type(AddressSpace::default()),
+        &env.next_name(format!("{name_prefix}.payload.cast").as_str()),
+    )?)
+}
+
+fn size_t_value<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    value: IntValue<'context>,
+    name_prefix: &str,
+) -> Result<IntValue<'context>, CodegenError> {
+    if value.get_type().get_bit_width() == 64 {
+        return Ok(value);
+    }
+    Ok(codegen_context.builder.build_int_z_extend(
+        value,
+        codegen_context.context.i64_type(),
+        &env.next_name(format!("{name_prefix}.size_t").as_str()),
+    )?)
+}
+
+pub(crate) fn build_array_element_ptr<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    data_ptr: PointerValue<'context>,
+    index_value: IntValue<'context>,
+) -> Result<PointerValue<'context>, CodegenError> {
+    unsafe {
+        codegen_context
+            .builder
+            .build_in_bounds_gep(data_ptr, &[index_value], &env.next_name("array.load.ptr"))
+            .map_err(Into::into)
+    }
+}
+
 fn resolve_array_access_base_and_length<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     object: &Expr,
     element_core_type: &CoreType,
 ) -> Result<(PointerValue<'context>, IntValue<'context>), CodegenError> {
-    if let Expr::Identifier { ref name, .. } = *object {
+    let array_value = if let Expr::Identifier { ref name, .. } = *object {
         let Some(binding) = env.variables.get(name).cloned() else {
             return Err(CodegenError::new(format!(
                 "unknown array variable '{name}'"
             )));
         };
-        let resolved_length =
-            if let Some(length) = binding.length {
-                codegen_context
-                    .context
-                    .i64_type()
-                    .const_int(u64::from(length), false)
-            } else {
-                let len_binding_name = format!("{name}_len");
-                let len_binding = env.variables.get(len_binding_name.as_str()).ok_or_else(|| {
-                CodegenError::new(format!(
-                    "array metadata binding '{len_binding_name}' is missing for index access"
-                ))
-            })?;
-                codegen_context
-                    .builder
-                    .build_load(len_binding.alloca, len_binding_name.as_str())?
-                    .into_int_value()
-            };
-        let loaded_ptr = codegen_context
-            .builder
-            .build_load(binding.alloca, &env.next_name("array.ptr.load"))?;
-        let array_ptr = if loaded_ptr.is_pointer_value() {
-            loaded_ptr.into_pointer_value()
-        } else {
-            // SAFETY: The variable binding alloca stores the backing LLVM array aggregate, so
-            // `[0, 0]` addresses the first element when the value was not lowered as a pointer.
-            unsafe {
-                codegen_context.builder.build_in_bounds_gep(
-                    binding.alloca,
-                    &[
-                        codegen_context.context.i32_type().const_zero(),
-                        codegen_context.context.i32_type().const_zero(),
-                    ],
-                    &env.next_name("array.base.ptr"),
-                )?
-            }
-        };
-        return Ok((array_ptr, resolved_length));
-    }
-
-    let object_value = codegen_expression(
+        load_array_payload_ptr_from_binding(codegen_context, env, name, binding)?
+    } else {
+        let object_value = codegen_expression(
+            codegen_context,
+            env,
+            object,
+            Some(&CoreType::Array(Box::new(element_core_type.clone()))),
+        )?;
+        if !object_value.is_pointer_value() {
+            return Err(CodegenError::new(String::from(
+                "array expression did not lower to a payload pointer",
+            )));
+        }
+        cast_array_payload_to_i8_ptr(
+            codegen_context,
+            env,
+            object_value.into_pointer_value(),
+            "array.access.expr",
+        )?
+    };
+    let array_length =
+        load_array_length_from_value(codegen_context, env, array_value, "array.access")?;
+    let base_ptr = load_array_data_ptr_for_element_type(
         codegen_context,
         env,
-        object,
-        Some(&CoreType::Array(Box::new(element_core_type.clone()))),
+        array_value,
+        element_core_type,
+        "array.access",
     )?;
-    let metadata = env.take_pending_array_metadata().ok_or_else(|| {
-        CodegenError::new(String::from(
-            "array expression did not publish metadata for nested index access",
-        ))
-    })?;
-    Ok((object_value.into_pointer_value(), metadata.length))
+    Ok((base_ptr, array_length))
 }
 
-/// Emit the runtime trap for array bounds failures using the row-specific length.
-fn emit_array_bounds_check<'context>(
+fn trap_on_null_array_allocation<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    array_value: PointerValue<'context>,
+    name_prefix: &str,
+) -> Result<(), CodegenError> {
+    let is_null = codegen_context
+        .builder
+        .build_is_null(array_value, &env.next_name(format!("{name_prefix}.alloc.is_null").as_str()))?;
+    let current_fn = current_function(codegen_context)?;
+    let trap_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.alloc.trap").as_str()));
+    let cont_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.alloc.cont").as_str()));
+    codegen_context
+        .builder
+        .build_conditional_branch(is_null, trap_block, cont_block)?;
+
+    codegen_context.builder.position_at_end(trap_block);
+    let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
+        codegen_context,
+        "opal_runtime_error",
+    )
+    .ok_or_else(|| CodegenError::new(String::from("opal_runtime_error declaration missing")))?;
+    let msg = codegen_context
+        .builder
+        .build_global_string_ptr(
+            format!("{name_prefix} array allocation failed").as_str(),
+            &env.next_name(format!("{name_prefix}.alloc.msg").as_str()),
+        )?
+        .as_pointer_value();
+    let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+        runtime_fn,
+        &[msg.into()],
+        &env.next_name(format!("{name_prefix}.alloc.call").as_str()),
+    )?;
+    let _: inkwell::values::InstructionValue = codegen_context.builder.build_unreachable()?;
+
+    codegen_context.builder.position_at_end(cont_block);
+    Ok(())
+}
+
+fn clone_array_elements_into_payload<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    element_core_type: &CoreType,
+    source_ptr: PointerValue<'context>,
+    destination_ptr: PointerValue<'context>,
+    length: IntValue<'context>,
+    name_prefix: &str,
+) -> Result<(), CodegenError> {
+    let current_fn = current_function(codegen_context)?;
+    let loop_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.copy.loop").as_str()));
+    let body_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.copy.body").as_str()));
+    let exit_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.copy.exit").as_str()));
+
+    let index_alloca = codegen_context.builder.build_alloca(
+        codegen_context.context.i64_type(),
+        &env.next_name(format!("{name_prefix}.copy.index").as_str()),
+    )?;
+    codegen_context.builder.build_store(
+        index_alloca,
+        codegen_context.context.i64_type().const_zero(),
+    )?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_block)?;
+
+    codegen_context.builder.position_at_end(loop_block);
+    let index_value = codegen_context
+        .builder
+        .build_load(
+            index_alloca,
+            &env.next_name(format!("{name_prefix}.copy.index.load").as_str()),
+        )?
+        .into_int_value();
+    let should_continue = codegen_context.builder.build_int_compare(
+        IntPredicate::ULT,
+        index_value,
+        length,
+        &env.next_name(format!("{name_prefix}.copy.cond").as_str()),
+    )?;
+    codegen_context
+        .builder
+        .build_conditional_branch(should_continue, body_block, exit_block)?;
+
+    codegen_context.builder.position_at_end(body_block);
+    let source_slot = build_array_element_ptr(codegen_context, env, source_ptr, index_value)?;
+    let destination_slot =
+        build_array_element_ptr(codegen_context, env, destination_ptr, index_value)?;
+    let copied_value = codegen_context.builder.build_load(
+        source_slot,
+        &env.next_name(format!("{name_prefix}.copy.value").as_str()),
+    )?;
+    retain_rc_value_if_needed(codegen_context, element_core_type, copied_value)?;
+    codegen_context
+        .builder
+        .build_store(destination_slot, copied_value)?;
+    let next_index = codegen_context.builder.build_int_add(
+        index_value,
+        codegen_context.context.i64_type().const_int(1, false),
+        &env.next_name(format!("{name_prefix}.copy.next").as_str()),
+    )?;
+    codegen_context
+        .builder
+        .build_store(index_alloca, next_index)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_block)?;
+
+    codegen_context.builder.position_at_end(exit_block);
+    Ok(())
+}
+
+fn retain_rc_value_if_needed<'context>(
+    codegen_context: &CodegenContext<'context>,
+    element_core_type: &CoreType,
+    value: BasicValueEnum<'context>,
+) -> Result<(), CodegenError> {
+    if !is_rc_bearing_element_type(element_core_type) {
+        return Ok(());
+    }
+    if !value.is_pointer_value() {
+        return Err(CodegenError::new(format!(
+            "RC-bearing array element type '{element_core_type}' expected pointer value during indexed assignment"
+        )));
+    }
+    let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
+    emitter.emit_inc(value.into_pointer_value())
+}
+
+fn release_rc_value_if_needed<'context>(
+    codegen_context: &CodegenContext<'context>,
+    element_core_type: &CoreType,
+    value: BasicValueEnum<'context>,
+) -> Result<(), CodegenError> {
+    if !is_rc_bearing_element_type(element_core_type) {
+        return Ok(());
+    }
+    if !value.is_pointer_value() {
+        return Err(CodegenError::new(format!(
+            "RC-bearing array element type '{element_core_type}' expected pointer value during indexed assignment"
+        )));
+    }
+    let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
+    emitter.emit_dec(value.into_pointer_value())
+}
+
+const fn is_rc_bearing_element_type(element_core_type: &CoreType) -> bool {
+    matches!(element_core_type, CoreType::Array(_) | CoreType::Generic { .. })
+}
+
+pub(crate) fn emit_array_bounds_check<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     index_value: IntValue<'context>,

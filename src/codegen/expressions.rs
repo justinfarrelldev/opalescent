@@ -40,12 +40,6 @@ use self::expressions_cast_helpers::{
 };
 use crate::codegen::error::CodegenError;
 
-#[derive(Debug, Clone, Copy)]
-pub struct ArrayMetadata<'context> {
-    pub length: IntValue<'context>,
-    pub capacity: IntValue<'context>,
-}
-
 #[derive(Debug, Clone)]
 pub struct VariableBinding<'context> {
     pub alloca: PointerValue<'context>,
@@ -72,7 +66,6 @@ pub struct CodegenEnv<'context> {
     pub variable_field_aliases: BTreeMap<String, BTreeMap<String, String>>,
     pub emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue<'context>>,
     pub loop_stack: Vec<LoopContext<'context>>,
-    pub pending_array_metadata: Option<ArrayMetadata<'context>>,
     pub active_guard_error_slots: Vec<PointerValue<'context>>,
     pub debug_mode: bool,
     pub temp_counter: usize,
@@ -89,7 +82,6 @@ impl<'context> CodegenEnv<'context> {
             variable_field_aliases: BTreeMap::new(),
             emitted_specializations: BTreeMap::new(),
             loop_stack: Vec::new(),
-            pending_array_metadata: None,
             active_guard_error_slots: Vec::new(),
             debug_mode,
             temp_counter: 0,
@@ -109,7 +101,6 @@ pub fn codegen_expression<'context>(
     expr: &Expr,
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    env.set_pending_array_metadata(None);
     match *expr {
         Expr::Literal { ref value, .. } => {
             codegen_literal(codegen_context, env, value, expected_type)

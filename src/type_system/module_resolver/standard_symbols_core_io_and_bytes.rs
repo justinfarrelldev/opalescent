@@ -701,6 +701,76 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                 SymbolType::Function,
             ),
             (
+                String::from("array_filled"),
+                CoreType::Function {
+                    generic_params: vec![GenericTypeParameter {
+                        name: "T".to_owned(),
+                        type_var: crate::type_system::types::TypeVar::new(9_003, "T".to_owned()),
+                        constraints: Vec::new(),
+                    }],
+                    parameters: vec![
+                        CoreType::Int64,
+                        CoreType::Variable(crate::type_system::types::TypeVar::new(
+                            9_003,
+                            "T".to_owned(),
+                        )),
+                    ],
+                    return_types: vec![CoreType::Array(alloc::boxed::Box::new(
+                        CoreType::Variable(crate::type_system::types::TypeVar::new(
+                            9_003,
+                            "T".to_owned(),
+                        )),
+                    ))],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("reserve"),
+                CoreType::Function {
+                    generic_params: vec![GenericTypeParameter {
+                        name: "T".to_owned(),
+                        type_var: crate::type_system::types::TypeVar::new(9_004, "T".to_owned()),
+                        constraints: Vec::new(),
+                    }],
+                    parameters: vec![
+                        CoreType::Array(alloc::boxed::Box::new(CoreType::Variable(
+                            crate::type_system::types::TypeVar::new(9_004, "T".to_owned()),
+                        ))),
+                        CoreType::Int64,
+                    ],
+                    return_types: vec![CoreType::Array(alloc::boxed::Box::new(
+                        CoreType::Variable(crate::type_system::types::TypeVar::new(
+                            9_004,
+                            "T".to_owned(),
+                        )),
+                    ))],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
+                String::from("clear"),
+                CoreType::Function {
+                    generic_params: vec![GenericTypeParameter {
+                        name: "T".to_owned(),
+                        type_var: crate::type_system::types::TypeVar::new(9_005, "T".to_owned()),
+                        constraints: Vec::new(),
+                    }],
+                    parameters: vec![CoreType::Array(alloc::boxed::Box::new(CoreType::Variable(
+                        crate::type_system::types::TypeVar::new(9_005, "T".to_owned()),
+                    )))],
+                    return_types: vec![CoreType::Array(alloc::boxed::Box::new(
+                        CoreType::Variable(crate::type_system::types::TypeVar::new(
+                            9_005,
+                            "T".to_owned(),
+                        )),
+                    ))],
+                    error_types: Vec::new(),
+                },
+                SymbolType::Function,
+            ),
+            (
                 String::from("StdoutWriter"),
                 CoreType::Generic {
                     name: String::from("StdoutWriter"),

@@ -223,7 +223,31 @@ mod tests {
     }
 
     #[test]
-    fn array_push_on_immutable_receiver_fails_at_compile_time() {
+    fn array_push_cow_alias() {
+        let temp_dir = write_temp_project_source(
+            "array-push-cow-alias",
+            "##\n  Description: Verifies push uses alias-preserving COW rebinding.\n##\nentry main = f(args: string[]): void =>\n    let base: int32[] = [1 as int32, 2 as int32]\n    let mutable grown = base\n    grown.push(3 as int32)\n    print('base length {base.length}')\n    print('base values {base[0]} {base[1]}')\n    print('grown length {grown.length}')\n    print('grown values {grown[0]} {grown[1]} {grown[2]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "push COW alias fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "base length 2\nbase values 1 2\ngrown length 3\ngrown values 1 2 3\n",
+            "push COW alias output should preserve the alias and rebind only the mutable receiver"
+        );
+    }
+
+    #[test]
+    fn array_push_immutable_rejected() {
         let temp_dir = write_temp_project_source(
             "array-push-immutable",
             "##\n  Description: Verifies immutable array push is rejected at compile time.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = [1 as int32]\n    xs.push(1 as int32)\n    return void\n",
@@ -240,6 +264,11 @@ mod tests {
             stderr.contains("mutable") && stderr.contains("push"),
             "immutable push diagnostic should mention mutable receiver and push, stderr: {stderr}"
         );
+    }
+
+    #[test]
+    fn array_push_on_immutable_receiver_fails_at_compile_time() {
+        array_push_immutable_rejected();
     }
 
     #[test]
@@ -263,6 +292,87 @@ mod tests {
     }
 
     #[test]
+    fn array_index_assignment() {
+        let temp_dir = write_temp_project_source(
+            "array-index-assignment",
+            "##\n  Description: Verifies identifier-backed indexed assignment lowers via COW rebinding.\n##\nentry main = f(args: string[]): void =>\n    let mutable xs: int32[] = [1 as int32, 2 as int32, 3 as int32]\n    xs[1] = 9 as int32\n    print('length {xs.length}')\n    print('values {xs[0]} {xs[1]} {xs[2]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "indexed assignment fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(actual, "length 3\nvalues 1 9 3\n");
+    }
+
+    #[test]
+    fn array_index_assignment_cow_alias() {
+        let temp_dir = write_temp_project_source(
+            "array-index-assignment-cow-alias",
+            "##\n  Description: Verifies indexed assignment only rebinds the mutable identifier.\n##\nentry main = f(args: string[]): void =>\n    let base: int32[] = [1 as int32, 2 as int32, 3 as int32]\n    let mutable xs = base\n    xs[1] = 9 as int32\n    xs[0] = 7 as int32\n    print('base length {base.length}')\n    print('base values {base[0]} {base[1]} {base[2]}')\n    print('xs length {xs.length}')\n    print('xs values {xs[0]} {xs[1]} {xs[2]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "indexed assignment COW alias fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "base length 3\nbase values 1 2 3\nxs length 3\nxs values 7 9 3\n"
+        );
+    }
+
+    #[test]
+    fn array_index_assignment_rc_nested_row_rebind() {
+        let temp_dir = write_temp_project_source(
+            "array-index-assignment-rc-nested-row-rebind",
+            "##\n  Description: Verifies indexed assignment handles RC-backed nested array elements via COW rebinding.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [1 as int32, 2 as int32]\n    let right: int32[] = [8 as int32, 9 as int32]\n    let base: int32[][] = [left, left]\n    let mutable xs = base\n    xs[1] = right\n    print('base left {base[0][0]} {base[0][1]}')\n    print('base right {base[1][0]} {base[1][1]}')\n    print('xs left {xs[0][0]} {xs[0][1]}')\n    print('xs right {xs[1][0]} {xs[1][1]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "indexed assignment nested-row fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "base left 1 2\nbase right 1 2\nxs left 1 2\nxs right 8 9\n"
+        );
+    }
+
+    #[test]
+    fn array_index_assignment_unsupported_target_rejected() {
+        let temp_dir = write_temp_project_source(
+            "array-index-assignment-unsupported-target",
+            "##\n  Description: Verifies non-identifier indexed assignment targets are rejected.\n##\nentry main = f(args: string[]): void =>\n    let mutable rows: int32[][] = [[1 as int32, 2 as int32], [3 as int32, 4 as int32]]\n    rows[0][0] = 7 as int32\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            !output.status.success(),
+            "unsupported indexed-assignment target should fail during compile/run"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("indexed assignment currently requires identifier array receiver"),
+            "unsupported target diagnostic should mention identifier-only indexed assignment, stderr: {stderr}"
+        );
+    }
+
+    #[test]
     fn array_append_type_mismatch_fails_at_check_time() {
         let temp_dir = write_temp_project_source(
             "array-append-type-mismatch",
@@ -281,6 +391,156 @@ mod tests {
                     && stderr.contains("incompatible")),
             "append type mismatch diagnostic should mention incompatible element types, stderr: {stderr}"
         );
+    }
+
+    #[test]
+    fn array_filled() {
+        let temp_dir = write_temp_project_source(
+            "array-filled",
+            "import array_filled from standard\n\n##\n  Description: Verifies array_filled allocates len=cap=length and repeats values.\n##\nentry main = f(args: string[]): void =>\n    let values: int32[] = array_filled(3 as int64, 7 as int32)\n    print('length {values.length}')\n    print('values {values[0]} {values[1]} {values[2]}')\n    let row: int32[] = [9 as int32]\n    let nested: int32[][] = array_filled(2 as int64, row)\n    print('nested length {nested.length}')\n    print('nested values {nested[0][0]} {nested[1][0]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "array_filled fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "length 3\nvalues 7 7 7\nnested length 2\nnested values 9 9\n"
+        );
+    }
+
+    #[test]
+    fn array_reserve() {
+        let temp_dir = write_temp_project_source(
+            "array-reserve",
+            "import reserve from standard\n\n##\n  Description: Verifies reserve is functional and preserves source aliases.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = [1 as int32, 2 as int32]\n    let reserved: int32[] = reserve(xs, 10 as int64)\n    print('xs length {xs.length}')\n    print('xs values {xs[0]} {xs[1]}')\n    print('reserved length {reserved.length}')\n    print('reserved values {reserved[0]} {reserved[1]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "array_reserve fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "xs length 2\nxs values 1 2\nreserved length 2\nreserved values 1 2\n"
+        );
+    }
+
+    #[test]
+    fn array_clear() {
+        let temp_dir = write_temp_project_source(
+            "array-clear",
+            "import clear from standard\n\n##\n  Description: Verifies clear returns fresh len=0 array and keeps source unchanged.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = [4 as int32, 5 as int32, 6 as int32]\n    let emptied: int32[] = clear(xs)\n    print('xs length {xs.length}')\n    print('xs values {xs[0]} {xs[1]} {xs[2]}')\n    print('emptied length {emptied.length}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "array_clear fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(actual, "xs length 3\nxs values 4 5 6\nemptied length 0\n");
+    }
+
+    #[test]
+    fn array_rc_elements() {
+        let temp_dir = write_temp_project_source(
+            "array-rc-elements",
+            "import append, array_filled, reserve, clear from standard\n\n##\n  Description: Verifies RC-bearing nested-array elements survive literal, append, push, array_filled, reserve, and clear paths.\n##\nentry main = f(args: string[]): void =>\n    let row: int32[] = [7 as int32]\n    let literal: int32[][] = [row]\n    let appended: int32[][] = append(literal, row)\n    let mutable pushed: int32[][] = literal\n    pushed.push(row)\n    let filled: int32[][] = array_filled(2 as int64, row)\n    let reserved: int32[][] = reserve(appended, 6 as int64)\n    let cleared: int32[][] = clear(reserved)\n    print('literal {literal.length} {literal[0][0]}')\n    print('appended {appended.length} {appended[0][0]} {appended[1][0]}')\n    print('pushed {pushed.length} {pushed[0][0]} {pushed[1][0]}')\n    print('filled {filled.length} {filled[0][0]} {filled[1][0]}')\n    print('reserved {reserved.length} {reserved[0][0]} {reserved[1][0]}')\n    print('cleared {cleared.length}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "array_rc_elements fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "literal 1 7\nappended 2 7 7\npushed 2 7 7\nfilled 2 7 7\nreserved 2 7 7\ncleared 0\n"
+        );
+    }
+
+    #[test]
+    fn array_memory_churn_sanitizer_fixture() {
+        let temp_dir = write_temp_project_source(
+            "array-memory-churn-sanitizer-fixture",
+            "import append, array_filled, reserve, clear from standard\n\n##\n  Description: Exercises RC array churn paths for sanitizer coverage: append, push, indexed overwrite, nested arrays, array_filled, reserve, and clear.\n##\nentry main = f(args: string[]): void =>\n    let row_a: int32[] = [1 as int32]\n    let row_b: int32[] = [9 as int32]\n    let base: int32[][] = [row_a, row_a]\n    let appended: int32[][] = append(base, row_b)\n    let mutable pushed: int32[][] = appended\n    pushed.push(row_a)\n    pushed[1] = row_b\n    let filled: int32[][] = array_filled(2 as int64, row_a)\n    let reserved: int32[][] = reserve(pushed, 8 as int64)\n    let cleared: int32[][] = clear(reserved)\n    print('base {base.length} {base[0][0]} {base[1][0]}')\n    print('appended {appended.length} {appended[0][0]} {appended[1][0]} {appended[2][0]}')\n    print('pushed {pushed.length} {pushed[0][0]} {pushed[1][0]} {pushed[2][0]} {pushed[3][0]}')\n    print('filled {filled.length} {filled[0][0]} {filled[1][0]}')\n    print('reserved {reserved.length} {reserved[0][0]} {reserved[1][0]} {reserved[2][0]} {reserved[3][0]}')\n    print('cleared {cleared.length}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "array memory churn sanitizer fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "base 2 1 1\nappended 3 1 1 9\npushed 4 1 9 9 1\nfilled 2 1 1\nreserved 4 1 9 9 1\ncleared 0\n"
+        );
+    }
+
+    #[test]
+    fn array_nested_rc_drop() {
+        let temp_dir = write_temp_project_source(
+            "array-nested-rc-drop",
+            "##\n  Description: Verifies nested RC-backed child arrays survive until parent-array drop at program exit.\n##\nentry main = f(args: string[]): void =>\n    let child_a: int32[] = [1 as int32, 2 as int32]\n    let child_b: int32[] = [3 as int32, 4 as int32]\n    let rows: int32[][] = [child_a, child_b]\n    print('rows {rows.length} {rows[0][0]} {rows[1][1]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "array_nested_rc_drop fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(actual, "rows 2 1 4\n");
+    }
+
+    #[test]
+    fn array_index_assignment_rc_elements() {
+        let temp_dir = write_temp_project_source(
+            "array-index-assignment-rc-elements",
+            "##\n  Description: Verifies identifier-backed indexed assignment preserves RC-bearing nested arrays across overwrite.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [1 as int32]\n    let middle: int32[] = [2 as int32]\n    let right: int32[] = [3 as int32]\n    let mutable rows: int32[][] = [left, middle]\n    rows[1] = right\n    print('rows {rows.length} {rows[0][0]} {rows[1][0]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "array_index_assignment_rc_elements fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(actual, "rows 2 1 3\n");
     }
 
     #[test]

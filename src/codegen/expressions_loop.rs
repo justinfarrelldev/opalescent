@@ -3,7 +3,7 @@
     clippy::missing_const_for_fn,
     reason = "internal codegen implementation module"
 )]
-use crate::codegen::expressions::{ArrayMetadata, CodegenEnv, LoopContext};
+use crate::codegen::expressions::{CodegenEnv, LoopContext};
 use inkwell::values::PointerValue;
 
 impl<'context> CodegenEnv<'context> {
@@ -31,15 +31,6 @@ impl<'context> CodegenEnv<'context> {
         result
     }
 
-    /// Record runtime array metadata extracted from the current array-producing expression.
-    pub fn set_pending_array_metadata(&mut self, metadata: Option<ArrayMetadata<'context>>) {
-        self.pending_array_metadata = metadata;
-    }
-
-    /// Consume any runtime array metadata left by the immediately preceding expression lowering.
-    pub fn take_pending_array_metadata(&mut self) -> Option<ArrayMetadata<'context>> {
-        self.pending_array_metadata.take()
-    }
 
     /// Push the active guard error slot for a guard else-scope.
     pub fn push_active_guard_error_slot(&mut self, error_slot: PointerValue<'context>) {

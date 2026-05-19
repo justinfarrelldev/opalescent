@@ -20,7 +20,7 @@ pub fn core_type_to_llvm<'context>(
         CoreType::Float32 => context.f32_type().into(),
         CoreType::Float64 => context.f64_type().into(),
         CoreType::Boolean => context.bool_type().into(),
-        CoreType::String | CoreType::Variable(_) | CoreType::Function { .. } => context
+        CoreType::String | CoreType::Variable(_) | CoreType::Function { .. } | CoreType::Array(_) => context
             .i8_type()
             .ptr_type(AddressSpace::default())
             .as_basic_type_enum(),
@@ -45,9 +45,6 @@ pub fn core_type_to_llvm<'context>(
                     .as_basic_type_enum()
             }
         }
-        CoreType::Array(ref element_type) => core_type_to_llvm(context, element_type)
-            .array_type(0)
-            .as_basic_type_enum(),
         CoreType::Unit => context.struct_type(&[], false).as_basic_type_enum(),
     }
 }

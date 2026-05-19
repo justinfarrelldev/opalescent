@@ -79,14 +79,7 @@ pub fn codegen_function_declaration<'context>(
         name.clone()
     };
 
-    let mut lowered_parameter_core_types = Vec::new();
-    for core_type in &parameter_core_types {
-        lowered_parameter_core_types.push(core_type.clone());
-        if matches!(*core_type, CoreType::Array(_)) {
-            lowered_parameter_core_types.push(CoreType::Int64);
-        }
-    }
-    let parameter_types = lowered_parameter_core_types
+    let parameter_types = parameter_core_types
         .iter()
         .map(|core_type| match core_type {
             CoreType::Array(element_type) => {
@@ -127,11 +120,10 @@ pub fn codegen_function_declaration<'context>(
         .append_basic_block(function, "entry");
     codegen_context.builder.position_at_end(entry);
 
-    let mut lowered_parameter_index = 0_usize;
     for (index, parameter) in parameters.iter().enumerate() {
         let Some(param_value) =
             function
-                .get_nth_param(u32::try_from(lowered_parameter_index).map_err(
+                .get_nth_param(u32::try_from(index).map_err(
                     |conversion_error| CodegenError::new(format!("{conversion_error}")),
                 )?)
         else {
@@ -143,68 +135,16 @@ pub fn codegen_function_declaration<'context>(
             .builder
             .build_alloca(param_value.get_type(), parameter.name.as_str())?;
         let _store = codegen_context.builder.build_store(alloca, param_value)?;
-        let length = None;
-
-        if matches!(parameter_core_types[index], CoreType::Array(_)) {
-            let len_binding_name = format!("{}_len", parameter.name);
-            let len_parameter_index = lowered_parameter_index.saturating_add(1);
-            let Some(len_param_value) = function.get_nth_param(
-                u32::try_from(len_parameter_index)
-                    .map_err(|conversion_error| CodegenError::new(format!("{conversion_error}")))?,
-            ) else {
-                return Err(CodegenError::new(format!(
-                    "missing function array length parameter for '{}'",
-                    parameter.name
-                )));
-            };
-            let len_alloca = codegen_context
-                .builder
-                .build_alloca(len_param_value.get_type(), len_binding_name.as_str())?;
-            let _store_len = codegen_context
-                .builder
-                .build_store(len_alloca, len_param_value)?;
-            env.variables.insert(
-                len_binding_name,
-                VariableBinding {
-                    alloca: len_alloca,
-                    core_type: CoreType::Int64,
-                    length: None,
-                    capacity: None,
-                    is_mutable: false,
-                },
-            );
-            let cap_binding_name = format!("{}_cap", parameter.name);
-            let cap_alloca = codegen_context
-                .builder
-                .build_alloca(len_param_value.get_type(), cap_binding_name.as_str())?;
-            let _store_cap = codegen_context
-                .builder
-                .build_store(cap_alloca, len_param_value)?;
-            env.variables.insert(
-                cap_binding_name,
-                VariableBinding {
-                    alloca: cap_alloca,
-                    core_type: CoreType::Int64,
-                    length: None,
-                    capacity: None,
-                    is_mutable: false,
-                },
-            );
-            lowered_parameter_index = lowered_parameter_index.saturating_add(1);
-        }
-
         env.variables.insert(
             parameter.name.clone(),
             VariableBinding {
                 alloca,
                 core_type: parameter_core_types[index].clone(),
-                length,
-                capacity: length,
+                length: None,
+                capacity: None,
                 is_mutable: false,
             },
         );
-
-        lowered_parameter_index = lowered_parameter_index.saturating_add(1);
     }
 
     codegen_statement(codegen_context, env, body)?;
@@ -251,7 +191,9 @@ pub fn codegen_import_declaration<'context>(
                 ..
             } => {
                 let local_name = alias.as_ref().unwrap_or(name).clone();
-                if name == "append" && source == "standard" {
+                if source == "standard"
+                    && matches!(name.as_str(), "append" | "array_filled" | "reserve" | "clear")
+                {
                     env.imported_functions.insert(local_name, name.clone());
                     continue;
                 }

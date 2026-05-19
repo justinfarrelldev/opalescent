@@ -242,7 +242,7 @@ fn test_core_type_mapping_covers_all_variants() {
         (CoreType::Float64, "double"),
         (CoreType::Boolean, "i1"),
         (CoreType::String, "i8*"),
-        (CoreType::Array(Box::new(CoreType::Int32)), "[0 x i32]"),
+        (CoreType::Array(Box::new(CoreType::Int32)), "i8*"),
         (CoreType::Unit, "{}"),
         (CoreType::Variable(type_variable), "i8*"),
         (
@@ -2242,6 +2242,65 @@ fn test_codegen_cast_function_type_error_message() {
 }
 
 #[test]
+fn test_codegen_identifier_backed_indexed_assignment_emits_array_clone_and_rebind() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "assign_indexed_array_test");
+    let _function = create_codegen_function(&codegen_context, "assign_indexed_array_fn");
+    let mut env = CodegenEnv::new(false);
+
+    let array_let = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("xs"),
+            type_annotation: Some(Type::Array {
+                element_type: Box::new(Type::Basic {
+                    name: String::from("int64"),
+                    span: test_span(),
+                }),
+                span: test_span(),
+            }),
+            is_mutable: true,
+            span: test_span(),
+            id: test_node_id(9_120),
+        },
+        initializer: Some(Expr::Array {
+            elements: vec![int_lit(9_121, 1), int_lit(9_122, 2), int_lit(9_123, 3)],
+            span: test_span(),
+            id: test_node_id(9_124),
+        }),
+        span: test_span(),
+        id: test_node_id(9_125),
+    };
+    assert!(
+        codegen_statement(&codegen_context, &mut env, &array_let).is_ok(),
+        "mutable array let should codegen"
+    );
+
+    let stmt = Stmt::Assignment {
+        target: Expr::Index {
+            object: Box::new(ident(9_126, "xs")),
+            index: Box::new(int_lit(9_127, 1)),
+            span: test_span(),
+            id: test_node_id(9_128),
+        },
+        value: int_lit(9_129, 9),
+        span: test_span(),
+        id: test_node_id(9_130),
+    };
+    let result = codegen_statement(&codegen_context, &mut env, &stmt);
+    assert!(result.is_ok(), "identifier-backed index assignment should codegen");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("@opal_array_alloc") && ir.contains("@opal_array_len") && ir.contains("@opal_array_cap"),
+        "indexed assignment should allocate a cloned payload and read payload len/cap: {ir}"
+    );
+    assert!(
+        ir.contains("@opal_array_data") && ir.contains("@opal_array_bounds_error"),
+        "indexed assignment should read payload data and emit bounds checks: {ir}"
+    );
+}
+
+#[test]
 fn test_codegen_assignment_non_identifier_target_error_message() {
     // Verify that assigning to a non-identifier produces the correct error (no "task 22").
     let context = Context::create();
@@ -2263,8 +2322,8 @@ fn test_codegen_assignment_non_identifier_target_error_message() {
     );
     let err_msg = result.unwrap_err().to_string();
     assert!(
-        err_msg.contains("assignment target must be an identifier"),
-        "error should say 'assignment target must be an identifier', got: {err_msg}"
+        err_msg.contains("assignment target must be an identifier or identifier-backed index expression"),
+        "error should mention identifier-only supported assignment targets, got: {err_msg}"
     );
     assert!(
         !err_msg.contains("task 22"),
@@ -3268,8 +3327,12 @@ entry main = f(): void => {
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("store i64 3, i64* %len"),
-        "array literal .length should still fold to the tracked compile-time length without runtime calls: {ir}"
+        ir.contains("declare i64 @opal_array_len(i8*)"),
+        "array .length lowering should declare opal_array_len for payload-header length reads: {ir}"
+    );
+    assert!(
+        ir.contains("call i64 @opal_array_len(i8* %values.array.load."),
+        "array literal .length should lower to an opal_array_len payload-header read: {ir}"
     );
 }
 
@@ -3355,12 +3418,12 @@ entry main = f(): void errors FileNotFoundError, PermissionDeniedError, ReadFail
         "guard-bound read_lines lowering should extract from the string-array result struct: {ir}"
     );
     assert!(
-        ir.contains("store i64 %guard.len"),
-        "guard-bound read_lines lowering should store the extracted count into a _len binding: {ir}"
+        ir.contains("store i64 %lines.len."),
+        "guard-bound read_lines lowering should store the computed array length into the local len binding: {ir}"
     );
     assert!(
-        ir.contains("load i64, i64* %lines_len"),
-        "guard-bound read_lines .length should load the tracked _len binding: {ir}"
+        ir.contains("call i64 @opal_array_len(i8* %lines.payload.cast."),
+        "guard-bound read_lines .length should lower to opal_array_len over the payload pointer: {ir}"
     );
 }
 

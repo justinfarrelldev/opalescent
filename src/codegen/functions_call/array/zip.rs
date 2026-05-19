@@ -6,14 +6,15 @@
 )]
 extern crate alloc;
 
-use super::current_function;
+use super::super::current_function;
 use super::helpers::{
-    allocate_array_buffer, resolve_array_identifier_binding, validate_array_operation_metadata,
+    allocate_array_with_capacity, resolve_array_identifier_binding, set_array_payload_length,
+    validate_array_operation_metadata,
 };
 use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{ArrayMetadata, CodegenEnv};
+use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::format;
@@ -104,12 +105,6 @@ pub(super) fn codegen_array_zip_call<'context>(
         .build_alloca(result_pointer_type, &env.next_name("zip.result.ptr"))?;
 
     let current_function = current_function(codegen_context)?;
-    let empty_block = codegen_context
-        .context
-        .append_basic_block(current_function, &env.next_name("zip.empty"));
-    let non_empty_block = codegen_context
-        .context
-        .append_basic_block(current_function, &env.next_name("zip.non_empty"));
     let loop_block = codegen_context
         .context
         .append_basic_block(current_function, &env.next_name("zip.loop"));
@@ -119,30 +114,16 @@ pub(super) fn codegen_array_zip_call<'context>(
     let exit_block = codegen_context
         .context
         .append_basic_block(current_function, &env.next_name("zip.exit"));
-    let is_empty = codegen_context.builder.build_int_compare(
-        inkwell::IntPredicate::EQ,
+    let (result_array, result_data_ptr) = allocate_array_with_capacity(
+        codegen_context,
+        env,
+        "zip",
+        &pair_core_type,
         zipped_length,
-        codegen_context.context.i64_type().const_zero(),
-        &env.next_name("zip.is_empty"),
     )?;
     codegen_context
         .builder
-        .build_conditional_branch(is_empty, empty_block, non_empty_block)?;
-
-    codegen_context.builder.position_at_end(empty_block);
-    codegen_context
-        .builder
-        .build_store(result_alloca, result_pointer_type.const_null())?;
-    codegen_context
-        .builder
-        .build_unconditional_branch(exit_block)?;
-
-    codegen_context.builder.position_at_end(non_empty_block);
-    let result_ptr =
-        allocate_array_buffer(codegen_context, env, "zip", &pair_core_type, zipped_length)?;
-    codegen_context
-        .builder
-        .build_store(result_alloca, result_ptr)?;
+        .build_store(result_alloca, result_array)?;
     let index_alloca = codegen_context.builder.build_alloca(
         codegen_context.context.i64_type(),
         &env.next_name("zip.index"),
@@ -209,14 +190,10 @@ pub(super) fn codegen_array_zip_call<'context>(
             &env.next_name("zip.pair.second"),
         )?
         .into_struct_value();
-    let destination_ptr = codegen_context
-        .builder
-        .build_load(result_alloca, &env.next_name("zip.result.load"))?
-        .into_pointer_value();
     // SAFETY: the destination buffer is allocated with `zipped_length` slots, and the loop guard keeps the write index in bounds.
     let destination_slot = unsafe {
         codegen_context.builder.build_in_bounds_gep(
-            destination_ptr,
+            result_data_ptr,
             &[index_value],
             &env.next_name("zip.dst"),
         )?
@@ -237,12 +214,9 @@ pub(super) fn codegen_array_zip_call<'context>(
         .build_unconditional_branch(loop_block)?;
 
     codegen_context.builder.position_at_end(exit_block);
+    set_array_payload_length(codegen_context, env, result_array, zipped_length, "zip")?;
     let final_result_ptr = codegen_context
         .builder
         .build_load(result_alloca, &env.next_name("zip.result.final"))?;
-    env.set_pending_array_metadata(Some(ArrayMetadata {
-        length: zipped_length,
-        capacity: zipped_length,
-    }));
     Ok(final_result_ptr)
 }

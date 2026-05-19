@@ -221,44 +221,25 @@ pub fn codegen_loop_statement<'context>(
                         )));
                     };
 
-                    let loaded_iterable = codegen_context
-                        .builder
-                        .build_load(binding.alloca, env.next_name("for.iterable.ptr").as_str())?;
-                    let array_ptr = if loaded_iterable.is_pointer_value() {
-                        loaded_iterable.into_pointer_value()
-                    } else {
-                        // SAFETY: `binding.alloca` points to a stack-allocated array aggregate.
-                        // The [0, 0] GEP computes the pointer to the first element.
-                        unsafe {
-                            codegen_context.builder.build_in_bounds_gep(
-                                binding.alloca,
-                                &[
-                                    codegen_context.context.i32_type().const_zero(),
-                                    codegen_context.context.i32_type().const_zero(),
-                                ],
-                                env.next_name("for.iterable.base").as_str(),
-                            )?
-                        }
-                    };
-
-                    let array_length = if let Some(length) = binding.length {
-                        codegen_context
-                            .context
-                            .i64_type()
-                            .const_int(u64::from(length), false)
-                    } else {
-                        let len_binding_name = format!("{name}_len");
-                        let Some(length_binding) = env.variables.get(len_binding_name.as_str())
-                        else {
-                            return Err(CodegenError::new(format!(
-                                "array length binding '{len_binding_name}' missing for for loop iterable '{name}'"
-                            )));
-                        };
-                        codegen_context
-                            .builder
-                            .build_load(length_binding.alloca, len_binding_name.as_str())?
-                            .into_int_value()
-                    };
+                    let array_value = crate::codegen::expressions_array::load_array_payload_ptr_from_binding(
+                        codegen_context,
+                        env,
+                        name,
+                        binding.clone(),
+                    )?;
+                    let array_ptr = crate::codegen::expressions_array::load_array_data_ptr_for_element_type(
+                        codegen_context,
+                        env,
+                        array_value,
+                        element_core_type.as_ref(),
+                        "for.iterable",
+                    )?;
+                    let array_length = crate::codegen::expressions_array::load_array_length_from_value(
+                        codegen_context,
+                        env,
+                        array_value,
+                        "for.iterable",
+                    )?;
 
                     (array_ptr, array_length, element_core_type.as_ref().clone())
                 }

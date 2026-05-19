@@ -16,7 +16,8 @@ use crate::codegen::control_flow::{
 };
 use crate::codegen::error::CodegenError;
 use crate::codegen::error_abi::build_error_aggregate;
-use crate::codegen::expressions::{ArrayMetadata, CodegenEnv, VariableBinding, codegen_expression};
+use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
+use crate::codegen::expressions_array::codegen_identifier_indexed_array_assignment;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::string::String;
@@ -170,65 +171,16 @@ fn codegen_let_statement<'context>(
             .build_alloca(alloca_type, binding.name.as_str())?
     };
 
-    let array_length = initializer.and_then(|initializer_expr| {
-        if let Expr::Array { ref elements, .. } = *initializer_expr {
-            u32::try_from(elements.len()).ok()
-        } else {
-            None
-        }
-    });
-    let array_capacity = array_length;
-    let pending_array_metadata =
-        if array_length.is_none() && matches!(declared_type, CoreType::Array(_)) {
-            env.take_pending_array_metadata()
-        } else {
-            env.set_pending_array_metadata(None);
-            None
-        };
-
     env.variables.insert(
         binding.name.clone(),
         VariableBinding {
             alloca,
             core_type: declared_type,
-            length: array_length,
-            capacity: array_capacity,
+            length: None,
+            capacity: None,
             is_mutable: binding.is_mutable,
         },
     );
-    if let Some(ArrayMetadata { length, capacity }) = pending_array_metadata {
-        let len_binding_name = format!("{}_len", binding.name);
-        let len_alloca = codegen_context
-            .builder
-            .build_alloca(length.get_type(), len_binding_name.as_str())?;
-        let _store_len = codegen_context.builder.build_store(len_alloca, length)?;
-        env.variables.insert(
-            len_binding_name,
-            VariableBinding {
-                alloca: len_alloca,
-                core_type: CoreType::Int64,
-                length: None,
-                capacity: None,
-                is_mutable: false,
-            },
-        );
-
-        let cap_binding_name = format!("{}_cap", binding.name);
-        let cap_alloca = codegen_context
-            .builder
-            .build_alloca(capacity.get_type(), cap_binding_name.as_str())?;
-        let _store_cap = codegen_context.builder.build_store(cap_alloca, capacity)?;
-        env.variables.insert(
-            cap_binding_name,
-            VariableBinding {
-                alloca: cap_alloca,
-                core_type: CoreType::Int64,
-                length: None,
-                capacity: None,
-                is_mutable: false,
-            },
-        );
-    }
     if let Some(&Expr::Constructor { .. }) = initializer {
         if let Some(field_indices) = initializer.and_then(product_field_indices_from_constructor) {
             env.variable_field_indices
@@ -380,54 +332,42 @@ fn codegen_assignment<'context>(
     target: &Expr,
     value: &Expr,
 ) -> Result<(), CodegenError> {
-    if let Expr::Identifier { ref name, .. } = *target {
-        let Some(binding_snapshot) = env.variables.get(name) else {
-            return Err(CodegenError::new(format!(
-                "assignment target '{name}' not found"
-            )));
-        };
-        if !binding_snapshot.is_mutable {
-            return Err(CodegenError::new(format!(
-                "cannot assign to immutable variable: {name}"
-            )));
-        }
-        let binding_alloca = binding_snapshot.alloca;
-        let binding_type = binding_snapshot.core_type.clone();
+    match *target {
+        Expr::Identifier { ref name, .. } => {
+            let Some(binding_snapshot) = env.variables.get(name) else {
+                return Err(CodegenError::new(format!(
+                    "assignment target '{name}' not found"
+                )));
+            };
+            if !binding_snapshot.is_mutable {
+                return Err(CodegenError::new(format!(
+                    "cannot assign to immutable variable: {name}"
+                )));
+            }
+            let binding_alloca = binding_snapshot.alloca;
+            let binding_type = binding_snapshot.core_type.clone();
 
-        let rhs_value = codegen_expression(codegen_context, env, value, Some(&binding_type))?;
-        let pending_array_metadata = if matches!(binding_type, CoreType::Array(_)) {
-            env.take_pending_array_metadata()
-        } else {
-            env.set_pending_array_metadata(None);
-            None
-        };
-        let _store_instruction = codegen_context
-            .builder
-            .build_store(binding_alloca, rhs_value)?;
-        if let Some(ArrayMetadata { length, capacity }) = pending_array_metadata {
-            let len_binding_name = format!("{name}_len");
-            if let Some(len_binding) = env.variables.get(len_binding_name.as_str()) {
-                let _store_len = codegen_context
-                    .builder
-                    .build_store(len_binding.alloca, length)?;
-            }
-            let cap_binding_name = format!("{name}_cap");
-            if let Some(cap_binding) = env.variables.get(cap_binding_name.as_str()) {
-                let _store_cap = codegen_context
-                    .builder
-                    .build_store(cap_binding.alloca, capacity)?;
-            }
-            if let Some(binding) = env.variables.get_mut(name.as_str()) {
-                binding.length = None;
-                binding.capacity = None;
-            }
+            let rhs_value = codegen_expression(codegen_context, env, value, Some(&binding_type))?;
+            let _store_instruction = codegen_context
+                .builder
+                .build_store(binding_alloca, rhs_value)?;
+            Ok(())
         }
-        return Ok(());
+        Expr::Index {
+            ref object,
+            ref index,
+            ..
+        } => codegen_identifier_indexed_array_assignment(
+            codegen_context,
+            env,
+            object.as_ref(),
+            index.as_ref(),
+            value,
+        ),
+        _ => Err(CodegenError::new(String::from(
+            "assignment target must be an identifier or identifier-backed index expression",
+        ))),
     }
-
-    Err(CodegenError::new(String::from(
-        "assignment target must be an identifier",
-    )))
 }
 
 /// Lower a guard statement by evaluating and binding the success value.
@@ -475,32 +415,6 @@ fn codegen_guard_statement<'context>(
                 } else {
                     None
                 };
-                let len_binding_name = format!("{success_binding_name}_len");
-                let cap_binding_name = format!("{success_binding_name}_cap");
-                let metadata_allocas = if success_binding.is_some()
-                    && matches!(success_core_type, CoreType::Array(_))
-                    && field_count >= 3
-                {
-                    let length_alloca = codegen_context.builder.build_alloca(
-                        codegen_context.context.i64_type(),
-                        len_binding_name.as_str(),
-                    )?;
-                    let _length_init = codegen_context.builder.build_store(
-                        length_alloca,
-                        codegen_context.context.i64_type().const_zero(),
-                    )?;
-                    let capacity_alloca = codegen_context.builder.build_alloca(
-                        codegen_context.context.i64_type(),
-                        cap_binding_name.as_str(),
-                    )?;
-                    let _capacity_init = codegen_context.builder.build_store(
-                        capacity_alloca,
-                        codegen_context.context.i64_type().const_zero(),
-                    )?;
-                    Some((length_alloca, capacity_alloca))
-                } else {
-                    None
-                };
 
                 let current_fn = current_function(codegen_context)?;
                 let success_block = codegen_context
@@ -528,28 +442,6 @@ fn codegen_guard_statement<'context>(
                     let _store_ok = codegen_context
                         .builder
                         .build_store(success_slot, success_value)?;
-                }
-                if let Some((length_alloca, capacity_alloca)) = metadata_allocas {
-                    let length_value = codegen_context.builder.build_extract_value(
-                        struct_value,
-                        1,
-                        env.next_name("guard.len").as_str(),
-                    )?;
-                    let _store_len = codegen_context
-                        .builder
-                        .build_store(length_alloca, length_value)?;
-                    let capacity_value = if field_count >= 4 {
-                        codegen_context.builder.build_extract_value(
-                            struct_value,
-                            2,
-                            env.next_name("guard.cap").as_str(),
-                        )?
-                    } else {
-                        length_value
-                    };
-                    let _store_cap = codegen_context
-                        .builder
-                        .build_store(capacity_alloca, capacity_value)?;
                 }
                 if let Some(block) = codegen_context.builder.get_insert_block() {
                     if block.get_terminator().is_none() {
@@ -602,28 +494,6 @@ fn codegen_guard_statement<'context>(
 
                 codegen_context.builder.position_at_end(merge_block);
                 if success_binding.is_some() {
-                    if let Some((len_alloca, cap_alloca)) = metadata_allocas {
-                        env.variables.insert(
-                            len_binding_name,
-                            VariableBinding {
-                                alloca: len_alloca,
-                                core_type: CoreType::Int64,
-                                length: None,
-                                capacity: None,
-                                is_mutable: false,
-                            },
-                        );
-                        env.variables.insert(
-                            cap_binding_name,
-                            VariableBinding {
-                                alloca: cap_alloca,
-                                core_type: CoreType::Int64,
-                                length: None,
-                                capacity: None,
-                                is_mutable: false,
-                            },
-                        );
-                    }
                     let Some(success_slot) = success_alloca else {
                         return Err(CodegenError::new(String::from(
                             "guard success binding slot missing in bound guard path",

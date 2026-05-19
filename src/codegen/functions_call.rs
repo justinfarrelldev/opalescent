@@ -9,7 +9,7 @@ extern crate alloc;
 use crate::ast::{Expr, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{ArrayMetadata, CodegenEnv, VariableBinding, codegen_expression};
+use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::monomorphization::ensure_monomorphized_function_declaration;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
@@ -17,7 +17,7 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::AddressSpace;
-use inkwell::types::{BasicMetadataTypeEnum, BasicType};
+use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
 
 #[path = "functions_call/array.rs"]
@@ -27,7 +27,7 @@ mod array;
 mod functions_call_helpers;
 #[path = "functions_call/tail.rs"]
 mod tail;
-use self::array::{codegen_append_call, codegen_array_member_call, is_append_intrinsic_name};
+use self::array::{codegen_array_intrinsic_call, codegen_array_member_call, is_array_intrinsic_name};
 use self::functions_call_helpers::{
     caller_returns_error_aggregate, current_function, emit_function_default_return,
     infer_guard_binding_core_type, uses_aggregate_result_dispatch,
@@ -65,7 +65,7 @@ pub fn emit_c_main_wrapper<'context>(
 #[doc = "Lower a function call expression."]
 #[expect(
     clippy::too_many_lines,
-    reason = "Function call requires complex argument binding and array length handling"
+    reason = "Function call requires complex argument binding"
 )]
 pub fn codegen_call_expression<'context>(
     codegen_context: &CodegenContext<'context>,
@@ -76,11 +76,27 @@ pub fn codegen_call_expression<'context>(
     _expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     if let Expr::Identifier { ref name, .. } = *callee {
-        let imported_name = env.imported_functions.get(name).map(String::as_str);
-        if is_append_intrinsic_name(name.as_str())
-            || imported_name.is_some_and(is_append_intrinsic_name)
-        {
-            return codegen_append_call(codegen_context, env, args);
+        let imported_name = env.imported_functions.get(name).cloned();
+        let direct_intrinsic = is_array_intrinsic_name(name.as_str());
+        let imported_intrinsic = imported_name
+            .as_deref()
+            .is_some_and(is_array_intrinsic_name);
+        if direct_intrinsic || imported_intrinsic {
+            let intrinsic_name = if direct_intrinsic {
+                name.clone()
+            } else {
+                imported_name.ok_or_else(|| {
+                    CodegenError::new(format!(
+                        "missing imported intrinsic mapping for '{name}'"
+                    ))
+                })?
+            };
+            return codegen_array_intrinsic_call(
+                codegen_context,
+                env,
+                intrinsic_name.as_str(),
+                args,
+            );
         }
     }
     if let Expr::Member {
@@ -115,49 +131,6 @@ pub fn codegen_call_expression<'context>(
             first_lowered_arg = Some(lowered);
         }
         lowered_args.push(lowered.into());
-
-        let maybe_length = match *arg {
-            Expr::Identifier { ref name, .. } => env.variables.get(name).and_then(|binding| {
-                if !matches!(binding.core_type, CoreType::Array(_)) {
-                    return None;
-                }
-
-                if let Some(length) = binding.length {
-                    return Some(
-                        codegen_context
-                            .context
-                            .i64_type()
-                            .const_int(u64::from(length), false)
-                            .as_basic_value_enum()
-                            .into(),
-                    );
-                }
-
-                let len_binding_name = format!("{name}_len");
-                env.variables
-                    .get(len_binding_name.as_str())
-                    .and_then(|len_binding| {
-                        codegen_context
-                            .builder
-                            .build_load(len_binding.alloca, len_binding_name.as_str())
-                            .ok()
-                            .map(Into::into)
-                    })
-            }),
-            Expr::Array { ref elements, .. } => u64::try_from(elements.len()).ok().map(|length| {
-                codegen_context
-                    .context
-                    .i64_type()
-                    .const_int(length, false)
-                    .as_basic_value_enum()
-                    .into()
-            }),
-            _ => None,
-        };
-
-        if let Some(length) = maybe_length {
-            lowered_args.push(length);
-        }
     }
 
     if let Expr::Lambda {
@@ -413,7 +386,6 @@ pub fn codegen_propagate_expression<'context>(
     call_expr: &Expr,
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    env.set_pending_array_metadata(None);
     let value = if let Expr::Call {
         ref callee,
         ref args,
@@ -477,30 +449,9 @@ pub fn codegen_propagate_expression<'context>(
                 .builder
                 .build_extract_value(struct_value, 0, env.next_name("propagate.ok").as_str())
                 .map_err(CodegenError::from)?;
-            if field_count >= 3 {
-                let length_value = codegen_context.builder.build_extract_value(
-                    struct_value,
-                    1,
-                    env.next_name("propagate.len").as_str(),
-                )?;
-                let capacity_value = if field_count >= 4 {
-                    codegen_context.builder.build_extract_value(
-                        struct_value,
-                        2,
-                        env.next_name("propagate.cap").as_str(),
-                    )?
-                } else {
-                    length_value
-                };
-                env.set_pending_array_metadata(Some(ArrayMetadata {
-                    length: length_value.into_int_value(),
-                    capacity: capacity_value.into_int_value(),
-                }));
-            }
             return Ok(success_value);
         }
     }
-    env.set_pending_array_metadata(None);
     Ok(value)
 }
 
@@ -545,57 +496,6 @@ pub fn codegen_guard_expression<'context>(
             let _store = codegen_context.builder.build_store(alloca, success_value)?;
             let binding_core_type =
                 infer_guard_binding_core_type(env, guarded_expr, success_value.get_type());
-            if matches!(binding_core_type, CoreType::Array(_)) && field_count >= 3 {
-                let length_value = codegen_context.builder.build_extract_value(
-                    struct_value,
-                    1,
-                    env.next_name("guard.bind.len").as_str(),
-                )?;
-                let len_binding_name = format!("{binding_name}_len");
-                let len_alloca = codegen_context
-                    .builder
-                    .build_alloca(length_value.get_type(), len_binding_name.as_str())?;
-                let _store_len = codegen_context
-                    .builder
-                    .build_store(len_alloca, length_value)?;
-                env.variables.insert(
-                    len_binding_name,
-                    VariableBinding {
-                        alloca: len_alloca,
-                        core_type: CoreType::Int64,
-                        length: None,
-                        capacity: None,
-                        is_mutable: false,
-                    },
-                );
-
-                let capacity_value = if field_count >= 4 {
-                    codegen_context.builder.build_extract_value(
-                        struct_value,
-                        2,
-                        env.next_name("guard.bind.cap").as_str(),
-                    )?
-                } else {
-                    length_value
-                };
-                let cap_binding_name = format!("{binding_name}_cap");
-                let cap_alloca = codegen_context
-                    .builder
-                    .build_alloca(capacity_value.get_type(), cap_binding_name.as_str())?;
-                let _store_cap = codegen_context
-                    .builder
-                    .build_store(cap_alloca, capacity_value)?;
-                env.variables.insert(
-                    cap_binding_name,
-                    VariableBinding {
-                        alloca: cap_alloca,
-                        core_type: CoreType::Int64,
-                        length: None,
-                        capacity: None,
-                        is_mutable: false,
-                    },
-                );
-            }
             env.variables.insert(
                 binding_name.to_owned(),
                 VariableBinding {
@@ -630,13 +530,13 @@ fn resolve_callee_function<'context>(
         Expr::Identifier { ref name, .. } => {
             let is_stdlib_name = crate::codegen::functions_stdlib::STDLIB_NAMES
                 .contains(&name.as_str())
-                || is_append_intrinsic_name(name.as_str());
+                || is_array_intrinsic_name(name.as_str());
             let base_function = if let Some(imported_runtime_name) =
                 env.imported_functions.get(name)
             {
-                if is_append_intrinsic_name(imported_runtime_name.as_str()) {
-                    return Err(CodegenError::new(String::from(
-                        "append is compiler-lowered and does not resolve to a standalone runtime symbol",
+                if is_array_intrinsic_name(imported_runtime_name.as_str()) {
+                    return Err(CodegenError::new(format!(
+                        "{imported_runtime_name} is compiler-lowered and does not resolve to a standalone runtime symbol",
                     )));
                 }
                 codegen_context
@@ -710,22 +610,7 @@ fn resolve_callee_function<'context>(
                 .collect::<Result<Vec<_>, _>>()?;
             let metadata_params = parameter_types
                 .iter()
-                .flat_map(|core_type| {
-                    let mut lowered = Vec::with_capacity(2);
-                    match core_type {
-                        CoreType::Array(element_type) => {
-                            lowered.push(
-                                core_type_to_llvm(codegen_context.context, element_type)
-                                    .ptr_type(AddressSpace::default())
-                                    .into(),
-                            );
-                            lowered.push(codegen_context.context.i64_type().into());
-                        }
-                        _ => lowered
-                            .push(core_type_to_llvm(codegen_context.context, core_type).into()),
-                    }
-                    lowered
-                })
+                .map(|core_type| core_type_to_llvm(codegen_context.context, core_type).into())
                 .collect::<Vec<BasicMetadataTypeEnum<'context>>>();
             let error_core_types = error_types
                 .iter()
@@ -754,9 +639,8 @@ fn resolve_callee_function<'context>(
             let args: Vec<_> = function.get_params().into_iter().collect();
             let mut shadowed_bindings: Vec<(String, Option<VariableBinding<'context>>)> =
                 Vec::new();
-            let mut lowered_index = 0_usize;
             for (i, param) in params.iter().enumerate() {
-                let param_value = args[lowered_index];
+                let param_value = args[i];
                 let alloca = codegen_context
                     .builder
                     .build_alloca(param_value.get_type(), &param.name)?;
@@ -772,29 +656,6 @@ fn resolve_callee_function<'context>(
                     },
                 );
                 shadowed_bindings.push((param.name.clone(), previous_binding));
-                if matches!(parameter_types[i], CoreType::Array(_)) {
-                    let len_param_value = args[lowered_index + 1];
-                    let len_binding_name = format!("{}_len", param.name);
-                    let len_alloca = codegen_context
-                        .builder
-                        .build_alloca(len_param_value.get_type(), len_binding_name.as_str())?;
-                    codegen_context
-                        .builder
-                        .build_store(len_alloca, len_param_value)?;
-                    let previous_length_binding = env.variables.insert(
-                        len_binding_name.clone(),
-                        VariableBinding {
-                            alloca: len_alloca,
-                            core_type: CoreType::Int64,
-                            length: None,
-                            capacity: None,
-                            is_mutable: false,
-                        },
-                    );
-                    shadowed_bindings.push((len_binding_name, previous_length_binding));
-                    lowered_index += 1;
-                }
-                lowered_index += 1;
             }
 
             // Bind captured variables to allocas

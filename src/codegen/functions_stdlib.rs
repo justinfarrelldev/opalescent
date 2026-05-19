@@ -857,6 +857,9 @@ pub const STDLIB_NAMES: &[&str] = &[
     "write_text_atomic_sync",
     "append_contents_sync",
     "append_text_sync",
+    "array_filled",
+    "reserve",
+    "clear",
     "write_bytes_at_offset_sync",
     "create_file_sync",
     "delete_file_sync",
@@ -884,8 +887,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            108,
-            "stdlib registry should have 108 names"
+            111,
+            "stdlib registry should have 111 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),

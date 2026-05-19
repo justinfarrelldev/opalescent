@@ -1,24 +1,27 @@
 #![allow(
     clippy::all,
-    clippy::similar_names,
     clippy::missing_docs_in_private_items,
+    clippy::missing_const_for_fn,
+    clippy::pattern_type_mismatch,
     reason = "internal codegen implementation module"
 )]
 extern crate alloc;
 
-use super::current_function;
+use super::super::current_function;
 use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{ArrayMetadata, CodegenEnv, VariableBinding};
-use crate::codegen::functions_call::ast_type_to_core_type_for_signature;
-use crate::codegen::types::core_type_to_llvm;
+use crate::codegen::expressions::{CodegenEnv, VariableBinding};
+use crate::codegen::expressions_array::{
+    allocate_array_payload, load_array_capacity_from_value, load_array_data_ptr_for_element_type,
+    load_array_length_from_value, load_array_payload_ptr_from_binding,
+};
+use super::super::ast_type_to_core_type_for_signature;
 use crate::type_system::types::CoreType;
+use inkwell::AddressSpace;
+use inkwell::values::{BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue};
 use alloc::format;
 use alloc::string::String;
-use inkwell::AddressSpace;
-use inkwell::types::BasicType;
-use inkwell::values::{BasicValue, FunctionValue, IntValue, PointerValue};
 
 pub(super) fn infer_array_callback_return_core_type(
     env: &CodegenEnv<'_>,
@@ -60,12 +63,11 @@ pub(super) fn infer_map_callback_return_core_type(
     infer_array_callback_return_core_type(env, callback)
 }
 
-pub(super) fn store_array_binding_with_metadata<'context>(
+pub(super) fn store_array_binding<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     binding_name: &str,
     array_value: PointerValue<'context>,
-    metadata: ArrayMetadata<'context>,
     operation: &str,
 ) -> Result<(), CodegenError> {
     let Some(binding_snapshot) = env.variables.get(binding_name).cloned() else {
@@ -83,60 +85,68 @@ pub(super) fn store_array_binding_with_metadata<'context>(
         .builder
         .build_store(binding_snapshot.alloca, array_value)?;
 
-    let len_binding_name = format!("{binding_name}_len");
-    if let Some(len_binding) = env.variables.get(len_binding_name.as_str()).cloned() {
-        codegen_context
-            .builder
-            .build_store(len_binding.alloca, metadata.length)?;
-    } else {
-        let len_alloca = codegen_context
-            .builder
-            .build_alloca(metadata.length.get_type(), len_binding_name.as_str())?;
-        codegen_context
-            .builder
-            .build_store(len_alloca, metadata.length)?;
-        env.variables.insert(
-            len_binding_name,
-            VariableBinding {
-                alloca: len_alloca,
-                core_type: CoreType::Int64,
-                length: None,
-                capacity: None,
-                is_mutable: false,
-            },
-        );
-    }
-
-    let cap_binding_name = format!("{binding_name}_cap");
-    if let Some(cap_binding) = env.variables.get(cap_binding_name.as_str()).cloned() {
-        codegen_context
-            .builder
-            .build_store(cap_binding.alloca, metadata.capacity)?;
-    } else {
-        let cap_alloca = codegen_context
-            .builder
-            .build_alloca(metadata.capacity.get_type(), cap_binding_name.as_str())?;
-        codegen_context
-            .builder
-            .build_store(cap_alloca, metadata.capacity)?;
-        env.variables.insert(
-            cap_binding_name,
-            VariableBinding {
-                alloca: cap_alloca,
-                core_type: CoreType::Int64,
-                length: None,
-                capacity: None,
-                is_mutable: false,
-            },
-        );
-    }
-
     if let Some(binding) = env.variables.get_mut(binding_name) {
         binding.length = None;
         binding.capacity = None;
     }
-    env.set_pending_array_metadata(None);
     Ok(())
+}
+
+pub(super) fn retain_rc_element_if_needed<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    element_core_type: &CoreType,
+    value: inkwell::values::BasicValueEnum<'context>,
+    name_prefix: &str,
+) -> Result<(), CodegenError> {
+    if !is_rc_bearing_element_type(element_core_type) {
+        return Ok(());
+    }
+    if !value.is_pointer_value() {
+        return Err(CodegenError::new(format!(
+            "{name_prefix} expected pointer value for RC-bearing element type '{element_core_type}'"
+        )));
+    }
+
+    let retain_fn = declare_or_get_opal_rc_inc(codegen_context);
+    let casted = codegen_context.builder.build_pointer_cast(
+        value.into_pointer_value(),
+        codegen_context
+            .context
+            .i8_type()
+            .ptr_type(AddressSpace::default()),
+        &env.next_name(format!("{name_prefix}.retain.cast").as_str()),
+    )?;
+    let args: [BasicMetadataValueEnum<'context>; 1] = [casted.into()];
+    let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+        retain_fn,
+        &args,
+        &env.next_name(format!("{name_prefix}.retain").as_str()),
+    )?;
+    Ok(())
+}
+
+const fn is_rc_bearing_element_type(element_core_type: &CoreType) -> bool {
+    matches!(element_core_type, &CoreType::String | &CoreType::Array(_) | &CoreType::Generic { .. })
+}
+
+fn declare_or_get_opal_rc_inc<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let module = &codegen_context.module;
+    if let Some(function) = module.get_function("opal_rc_inc") {
+        return function;
+    }
+
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let function_type = codegen_context
+        .context
+        .void_type()
+        .fn_type(&[i8_ptr_type.into()], false);
+    module.add_function("opal_rc_inc", function_type, None)
 }
 
 pub(super) fn resolve_array_identifier_binding<'context>(
@@ -170,30 +180,26 @@ pub(super) fn resolve_array_identifier_binding<'context>(
         )));
     }
 
-    let loaded_ptr = codegen_context
-        .builder
-        .build_load(binding.alloca, &env.next_name("append.array.load"))?;
-    let base_ptr = if loaded_ptr.is_pointer_value() {
-        loaded_ptr.into_pointer_value()
-    } else {
-        // SAFETY: this fallback addresses the first field of the stack slot that stores the array value,
-        // which is the array pointer when LLVM lowers the binding as an aggregate.
-        unsafe {
-            codegen_context.builder.build_in_bounds_gep(
-                binding.alloca,
-                &[
-                    codegen_context.context.i32_type().const_zero(),
-                    codegen_context.context.i32_type().const_zero(),
-                ],
-                &env.next_name("append.array.base"),
-            )?
+    let array_value = load_array_payload_ptr_from_binding(codegen_context, env, name, binding.clone())?;
+    let element_core_type = match binding.core_type {
+        CoreType::Array(ref element_type) => element_type.as_ref().clone(),
+        _ => {
+            return Err(CodegenError::new(format!(
+                "{operation} expects array receiver '{name}' to have an array type"
+            )));
         }
     };
+    let base_ptr = load_array_data_ptr_for_element_type(
+        codegen_context,
+        env,
+        array_value,
+        &element_core_type,
+        operation,
+    )?;
 
-    let length_value =
-        resolve_array_metadata_value(codegen_context, env, name, &binding, true, operation)?;
+    let length_value = load_array_length_from_value(codegen_context, env, array_value, operation)?;
     let capacity_value =
-        resolve_array_metadata_value(codegen_context, env, name, &binding, false, operation)?;
+        load_array_capacity_from_value(codegen_context, env, array_value, operation)?;
     Ok((
         name.clone(),
         binding,
@@ -201,44 +207,6 @@ pub(super) fn resolve_array_identifier_binding<'context>(
         length_value,
         capacity_value,
     ))
-}
-
-fn resolve_array_metadata_value<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    name: &str,
-    binding: &VariableBinding<'context>,
-    resolve_length: bool,
-    operation: &str,
-) -> Result<IntValue<'context>, CodegenError> {
-    let known_value = if resolve_length {
-        binding.length
-    } else {
-        binding.capacity
-    };
-    if let Some(value) = known_value {
-        return Ok(codegen_context
-            .context
-            .i64_type()
-            .const_int(u64::from(value), false));
-    }
-
-    let suffix = if resolve_length { "len" } else { "cap" };
-    let binding_name = format!("{name}_{suffix}");
-    if let Some(metadata_binding) = env.variables.get(binding_name.as_str()) {
-        return Ok(codegen_context
-            .builder
-            .build_load(metadata_binding.alloca, binding_name.as_str())?
-            .into_int_value());
-    }
-
-    if !resolve_length {
-        return resolve_array_metadata_value(codegen_context, env, name, binding, true, operation);
-    }
-
-    Err(CodegenError::new(format!(
-        "array metadata binding '{binding_name}' is missing for {operation} lowering"
-    )))
 }
 
 pub(super) fn validate_array_operation_metadata<'context>(
@@ -405,110 +373,72 @@ pub(super) fn compute_next_array_capacity<'context>(
         .into_int_value())
 }
 
-pub(super) fn allocate_array_buffer<'context>(
+pub(super) fn allocate_array_with_capacity<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     operation: &str,
     element_core_type: &CoreType,
     capacity: IntValue<'context>,
-) -> Result<PointerValue<'context>, CodegenError> {
-    let zero_capacity = codegen_context.builder.build_int_compare(
-        inkwell::IntPredicate::EQ,
-        capacity,
+) -> Result<(PointerValue<'context>, PointerValue<'context>), CodegenError> {
+    allocate_array_payload(
+        codegen_context,
+        env,
+        element_core_type,
         codegen_context.context.i64_type().const_zero(),
-        &env.next_name("append.cap.zero"),
-    )?;
-    let zero_capacity_message =
-        format!("{operation} requires positive array capacity for allocation");
-    trap_on_invalid_array_state(
-        codegen_context,
-        env,
-        zero_capacity,
-        zero_capacity_message.as_str(),
-        "append.cap.zero",
-    )?;
-
-    let element_type = core_type_to_llvm(codegen_context.context, element_core_type);
-    let element_size = element_type
-        .size_of()
-        .ok_or_else(|| CodegenError::new(String::from("append element type has no size")))?;
-    let element_size_i64 = if element_size.get_type().get_bit_width() == 64 {
-        element_size
-    } else {
-        codegen_context.builder.build_int_z_extend(
-            element_size,
-            codegen_context.context.i64_type(),
-            &env.next_name("append.elem_size.i64"),
-        )?
-    };
-    let total_bytes = codegen_context.builder.build_int_mul(
         capacity,
-        element_size_i64,
-        &env.next_name("append.bytes"),
-    )?;
-    let reconstructed_element_size = codegen_context.builder.build_int_unsigned_div(
-        total_bytes,
-        capacity,
-        &env.next_name("append.bytes.reconstructed_size"),
-    )?;
-    let allocation_overflow = codegen_context.builder.build_int_compare(
-        inkwell::IntPredicate::NE,
-        reconstructed_element_size,
-        element_size_i64,
-        &env.next_name("append.bytes.overflow"),
-    )?;
-    let allocation_overflow_message = format!("{operation} array allocation size overflow");
-    trap_on_invalid_array_state(
-        codegen_context,
-        env,
-        allocation_overflow,
-        allocation_overflow_message.as_str(),
-        "append.bytes.overflow",
-    )?;
+        operation,
+    )
+}
 
-    let malloc_fn = ensure_malloc_function(codegen_context);
-    let allocation = codegen_context.builder.build_call(
-        malloc_fn,
-        &[total_bytes.as_basic_value_enum().into()],
-        &env.next_name("append.malloc"),
+pub(super) fn set_array_payload_length<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    array_value: PointerValue<'context>,
+    length: IntValue<'context>,
+    operation: &str,
+) -> Result<(), CodegenError> {
+    let set_len_fn = declare_or_get_opal_array_set_len(codegen_context);
+    let payload_ptr = codegen_context.builder.build_pointer_cast(
+        array_value,
+        codegen_context
+            .context
+            .i8_type()
+            .ptr_type(AddressSpace::default()),
+        &env.next_name(format!("{operation}.set_len.cast").as_str()),
     )?;
-    let raw_ptr = allocation
-        .try_as_basic_value()
-        .basic()
-        .ok_or_else(|| CodegenError::new(String::from("append malloc returned void")))?
-        .into_pointer_value();
-    let non_zero_bytes = codegen_context.builder.build_int_compare(
-        inkwell::IntPredicate::NE,
-        total_bytes,
-        codegen_context.context.i64_type().const_zero(),
-        &env.next_name("append.bytes.non_zero"),
+    let args: [BasicMetadataValueEnum<'context>; 2] = [payload_ptr.into(), length.into()];
+    let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+        set_len_fn,
+        &args,
+        &env.next_name(format!("{operation}.set_len").as_str()),
     )?;
-    let allocation_is_null = codegen_context
-        .builder
-        .build_is_null(raw_ptr, &env.next_name("append.malloc.is_null"))?;
-    let allocation_failed = codegen_context.builder.build_and(
-        non_zero_bytes,
-        allocation_is_null,
-        &env.next_name("append.malloc.failed"),
-    )?;
-    let allocation_failed_message = format!("{operation} array allocation failed");
-    trap_on_invalid_array_state(
-        codegen_context,
-        env,
-        allocation_failed,
-        allocation_failed_message.as_str(),
-        "append.malloc.failed",
-    )?;
-    Ok(codegen_context.builder.build_pointer_cast(
-        raw_ptr,
-        element_type.ptr_type(AddressSpace::default()),
-        &env.next_name("append.ptr"),
-    )?)
+    Ok(())
+}
+
+fn declare_or_get_opal_array_set_len<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let module = &codegen_context.module;
+    if let Some(function) = module.get_function("opal_array_set_len") {
+        return function;
+    }
+
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let i64_type = codegen_context.context.i64_type();
+    let function_type = codegen_context
+        .context
+        .void_type()
+        .fn_type(&[i8_ptr_type.into(), i64_type.into()], false);
+    module.add_function("opal_array_set_len", function_type, None)
 }
 
 pub(super) fn copy_existing_array_elements<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
+    element_core_type: &CoreType,
     source_ptr: PointerValue<'context>,
     destination_ptr: PointerValue<'context>,
     length: IntValue<'context>,
@@ -571,6 +501,7 @@ pub(super) fn copy_existing_array_elements<'context>(
     let copied_value = codegen_context
         .builder
         .build_load(source_slot, &env.next_name("append.copy.value"))?;
+    retain_rc_element_if_needed(codegen_context, env, element_core_type, copied_value, "append.copy")?;
     codegen_context
         .builder
         .build_store(destination_slot, copied_value)?;
@@ -590,21 +521,3 @@ pub(super) fn copy_existing_array_elements<'context>(
     Ok(())
 }
 
-fn ensure_malloc_function<'context>(
-    codegen_context: &CodegenContext<'context>,
-) -> FunctionValue<'context> {
-    let i8_ptr_type = codegen_context
-        .context
-        .i8_type()
-        .ptr_type(AddressSpace::default());
-    let i64_type = codegen_context.context.i64_type();
-    codegen_context.module.get_function("malloc").map_or_else(
-        || {
-            let malloc_type = i8_ptr_type.fn_type(&[i64_type.into()], false);
-            codegen_context
-                .module
-                .add_function("malloc", malloc_type, None)
-        },
-        |existing| existing,
-    )
-}

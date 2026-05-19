@@ -39,6 +39,14 @@ impl CoreType {
             }
         }
     }
+
+    /// Returns the inner element type if this core type is an array.
+    pub fn array_element_type(&self) -> Option<&Self> {
+        match *self {
+            Self::Array(ref element_type) => Some(element_type.as_ref()),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]

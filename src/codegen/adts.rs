@@ -4,6 +4,9 @@ use crate::ast::{Expr, Pattern};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
+use crate::codegen::expressions_array::{
+    load_array_length_from_value, load_array_payload_ptr_from_binding,
+};
 use crate::codegen::types::integer_literal_bits;
 use crate::type_system::fallible_constructors::{
     CanonicalTypeIdentity, FallibleConstructorEntry, lookup_fallible_constructor,
@@ -14,7 +17,6 @@ use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use inkwell::values::IntValue;
 use inkwell::values::{BasicValue, BasicValueEnum};
 
 #[doc = "Instantiate a concrete ADT symbol name for generic arguments."]
@@ -170,18 +172,16 @@ pub fn codegen_field_access_expression<'context>(
         ))
     })?;
     if matches!(object_core_type, CoreType::Array(_)) && member.as_str() == "length" {
-        codegen_expression(
+        let array_value = codegen_expression(
             codegen_context,
             env,
             object.as_ref(),
             Some(&object_core_type),
-        )?;
-        let metadata = env.take_pending_array_metadata().ok_or_else(|| {
-            CodegenError::new(String::from(
-                "array expression did not publish metadata for intrinsic .length access",
-            ))
-        })?;
-        return Ok(metadata.length.as_basic_value_enum());
+        )?
+        .into_pointer_value();
+        let length_value =
+            load_array_length_from_value(codegen_context, env, array_value, "array.length.expr")?;
+        return Ok(length_value.as_basic_value_enum());
     }
     let object_value = codegen_expression(codegen_context, env, object.as_ref(), None)?;
     let field_index = product_field_index_for_core_type(&object_core_type, member.as_str())
@@ -258,40 +258,16 @@ fn codegen_intrinsic_member_access<'context>(
     }
 
     if matches!(binding.core_type, CoreType::Array(_)) && member_name == "length" {
+        let array_value =
+            load_array_payload_ptr_from_binding(codegen_context, env, receiver_name, binding.clone())?;
         let length_value =
-            resolve_array_length_value(codegen_context, env, receiver_name, binding)?;
+            load_array_length_from_value(codegen_context, env, array_value, receiver_name)?;
         return Ok(Some(length_value.as_basic_value_enum()));
     }
 
     Ok(None)
 }
 
-#[doc = "Resolve the runtime-tracked length value for dynamic array `.length` access."]
-fn resolve_array_length_value<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &CodegenEnv<'context>,
-    receiver_name: &str,
-    binding: &VariableBinding<'context>,
-) -> Result<IntValue<'context>, CodegenError> {
-    if let Some(length) = binding.length {
-        return Ok(codegen_context
-            .context
-            .i64_type()
-            .const_int(u64::from(length), false));
-    }
-
-    let len_binding_name = format!("{receiver_name}_len");
-    let Some(len_binding) = env.variables.get(len_binding_name.as_str()) else {
-        return Err(CodegenError::new(String::from(
-            "array length binding is missing for intrinsic .length access",
-        )));
-    };
-
-    Ok(codegen_context
-        .builder
-        .build_load(len_binding.alloca, len_binding_name.as_str())?
-        .into_int_value())
-}
 
 #[doc = "Lower match expressions to switch-based control flow."]
 #[expect(

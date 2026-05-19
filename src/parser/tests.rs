@@ -3088,14 +3088,17 @@ fn test_assignment_statements() {
         unreachable!("Expected assignment statement, got {simple_expr:?}");
     }
 
-    // TODO: Add tests for array index and member access assignments
-    // when those expression types are fully implemented
-    /*
-    // Test assignment to array index
     let array_assignment = parse_statement_from_string("arr[0] = 10").unwrap();
     if let Stmt::Assignment { target, value, .. } = array_assignment {
-        if let Expr::Index { .. } = target {
-            // Correct target type
+        if let Expr::Index { object, index, .. } = target {
+            assert!(matches!(*object, Expr::Identifier { ref name, .. } if name == "arr"));
+            assert!(matches!(
+                *index,
+                Expr::Literal {
+                    value: LiteralValue::Integer(0),
+                    ..
+                }
+            ));
         } else {
             unreachable!("Expected index expression in assignment target");
         }
@@ -3111,28 +3114,6 @@ fn test_assignment_statements() {
     } else {
         unreachable!("Expected assignment statement");
     }
-
-    // Test assignment to member access
-    let member_assignment = parse_statement_from_string("obj.field = 'value'").unwrap();
-    if let Stmt::Assignment { target, value, .. } = member_assignment {
-        if let Expr::Member { .. } = target {
-            // Correct target type
-        } else {
-            unreachable!("Expected member expression in assignment target");
-        }
-        if let Expr::Literal {
-            value: LiteralValue::String(s),
-            ..
-        } = value
-        {
-            assert_eq!(s, "value");
-        } else {
-            unreachable!("Expected string literal in assignment value");
-        }
-    } else {
-        unreachable!("Expected assignment statement");
-    }
-    */
 }
 
 #[test]

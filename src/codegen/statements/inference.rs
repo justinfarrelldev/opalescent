@@ -133,11 +133,17 @@ fn infer_call_return_type<'context>(
         return None;
     };
 
-    if name == "append" {
+    if name == "append" || name == "reserve" || name == "clear" {
         return args.first().and_then(|array_expr| {
             let array_type = infer_core_type_from_expr(codegen_context, env, array_expr);
             matches!(array_type, CoreType::Array(_)).then_some(array_type)
         });
+    }
+    if name == "array_filled" {
+        return args
+            .get(1)
+            .map(|element_expr| infer_core_type_from_expr(codegen_context, env, element_expr))
+            .map(|element_type| CoreType::Array(alloc::boxed::Box::new(element_type)));
     }
 
     if let Some(imported_signature) = env.imported_signatures.get(name) {
