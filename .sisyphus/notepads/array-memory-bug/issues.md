@@ -70,3 +70,71 @@
 ## 2026-05-19 Task 12 closeout
 - The only remaining cleanup risk is leaving restored task-context files or warning-only edits uncommitted, which breaks the final porcelain-empty gate.
 - Keep the final verification order exactly as specified: status, log, then `cargo test`.
+
+## 2026-05-19T00:00:00Z Task: 3-literal-payload-migration
+- The required integration filter commands currently exit 0 while selecting zero tests in this repo state (`array_rc_layout` and `array_bounds` both report `0 tests`), so command success was verified exactly as requested but not backed by matching named integration cases.
+- Mid-migration compile failures came from helper signature drift (`allocate_array_buffer` now returns both payload pointer and typed data pointer), with follow-up fixes needed in `array/zip.rs` and dynamic array length argument lowering in `functions_call.rs`.
+
+## 2026-05-19T04:08:15Z Task: 4-migrate-append-functional-rc
+- Initial Task 4 run failed `cargo test --features integration --test array_integration array_append -- --nocapture` with runtime bounds trap (`index 0 is out of bounds for length 0`) because append result payload length remained zero after copy/store.
+- Resolved by adding runtime header update call (`opal_array_set_len` through helper `set_array_payload_length`) in append and pop lowering after copy/store operations.
+- The required filter commands `array_append_purity` and `array_append_rc_elements` execute successfully but select 0 tests in current `tests/array_integration.rs`; this remains a fixture-selection gap rather than a codegen failure.
+
+## 2026-05-19T00:00:00Z Task: 5-push-unconditional-cow-rebinding (targeted verification refresh)
+- Existing code path already satisfied unconditional COW push semantics; the main gap was missing filterable integration test names requested by Task 5 acceptance commands.
+- Added focused tests instead of changing codegen/typechecker logic to avoid scope creep and preserve already-correct mutable-only receiver enforcement.
+
+## 2026-05-19T04:16:05Z Task: 5-push-unconditional-cow-rebinding (execution refresh)
+- No implementation blocker encountered; Task 5 behavior was already present before this execution pass.
+- Selector note: `array_rc_layout` currently reports zero selected tests in this repo state (`running 0 tests`), so command evidence must be reported verbatim to avoid false failure interpretation.
+
+## 2026-05-19T04:20:03Z Task: 5-regression-fix-codegen-length-tests
+- Regression root cause was stale unit-test expectation text (`store i64 3, i64* %len` and `load i64, i64* %lines_len`) after migration to payload-header-backed length reads; implementation behavior was already correct.
+- No codegen behavior change was required; only test assertions were updated to avoid false negatives against valid IR.
+
+## 2026-05-19T04:28:03Z Task: 6-indexed-assignment-cow
+- The first negative integration fixture failed before reaching codegen because the temporary constructor syntax was invalid for this parser; I replaced it with a nested-index target (`rows[0][0] = ...`) so the test exercises the intended identifier-only codegen rejection path.
+- `cargo test indexed_assignment -- --nocapture` initially selected only the new codegen unit test, so I aligned the unit-test name with the required selector to avoid a misleading zero-test acceptance result.
+
+## 2026-05-19T00:00:00Z Task: 7-array-ergonomics-cow-refresh
+- First compile/test run failed with Rust borrow checker error in `codegen_call_expression` because `env.imported_functions` was immutably borrowed while passing `&mut env`; fixed by cloning the imported intrinsic name before the mutable codegen call.
+- First `array_filled` runtime assertion produced `7 0 7` due to element-type inference defaulting integer literals to `int64`; fixed by honoring explicit cast target types (`Expr::Cast`) when inferring `array_filled` element type.
+- A misapplied edit temporarily inserted new intrinsic names into a `functions_stdlib` declaration branch; corrected by moving names strictly into `STDLIB_NAMES`.
+
+## 2026-05-19T04:48:11Z Task: 8-rc-element-coverage
+- Task 8 still cannot use `string[]` as runtime ownership evidence because current string literals lower to static pointers (`build_global_string_ptr`) rather than RC payload allocations; calling `opal_rc_inc`/`opal_rc_dec` on those values remains invalid in this codebase.
+- To keep Task 8 scope narrow and executable, the new regression selectors use nested arrays (`int32[][]`) as the safe RC-bearing element type while preserving the code-side retain/release logic for all RC-bearing array element categories.
+
+## 2026-05-19T04:38:20Z Task: 6-indexed-assignment-cow (review follow-up)
+- Oracle review flagged missing old-receiver decref, but applying it directly caused the required alias-preserving integration case to fail (`base` observed the clone writes) because identifier alias bindings do not currently retain on assignment. This is a cross-task ownership-model issue, not a safe local Task 6 fix.
+- The successful local hardening that remained was narrowing the indexed-assignment RC-bearing predicate away from `string` and validating a real RC-backed element case with nested arrays.
+
+## 2026-05-19T04:56:20Z Task: 9-retire-sidecar-metadata (follow-up execution)
+- First post-refactor integration run failed in , , and  because these paths still loaded typed destination pointers from old sidecar-style pointer allocas rather than using the payload data pointer returned by .
+- Fixed by writing map/filter/zip results directly through payload data pointers and explicitly restoring payload header lengths via  for each operation.
+- A temporary path argument mistake ( path passed as a space-joined string) caused non-code IO errors during audit collection; rerunning audits with separate directory invocations resolved it with clean zero-match evidence.
+
+## 2026-05-19T04:56:20Z Task: 9-retire-sidecar-metadata (follow-up correction)
+- First post-refactor integration run failed in `array_map`, `array_filter`, and `array_zip` because these paths still loaded typed destination pointers from sidecar-era pointer allocas instead of using payload data pointers from `allocate_array_with_capacity`.
+- Fixed by writing map/filter/zip loop outputs through payload data pointers and restoring payload-header lengths with `set_array_payload_length`.
+- Audit collection transiently failed due to a malformed combined grep path argument; rerunning the required audit commands with separate paths returned clean zero-match results.
+
+## 2026-05-19T05:02:14Z Task: 10-sanitizer-array-memory-regression (revalidation)
+- Initial sanitizer invocation failed with `Permission denied` because `scripts/array_memory_sanitizer.sh` lacked executable mode in this workspace state.
+- Resolved by setting execute permission (`chmod +x scripts/array_memory_sanitizer.sh`) and rerunning successfully; no sanitizer error markers were reported.
+
+## 2026-05-19T05:06:50Z Task: 11-regression-and-artifact-hygiene (current run)
+- Initial cargo test gate failed due to stale IR assertion in src/codegen/tests.rs expecting store i64 %guard.len after payload-header length migration.
+- Correct implementation IR used %lines.len.* and opal_array_len; fixed by updating only that test expectation, then reran full Task 11 sequence successfully in order.
+- git status --porcelain remains non-clean because of existing in-flight branch modifications; no unexpected generated artifacts from sanitizer/build/test runs were introduced by this Task 11 run.
+
+## 2026-05-19T05:10:25Z Task: 11-regression-and-artifact-hygiene (verification rerun)
+- No blocking gate failures reproduced in this rerun; all required Task 11 commands exited successfully in strict sequential order.
+- `git status --porcelain` is still non-empty due to existing in-progress tracked branch deltas, not newly generated sanitizer/build artifacts from this run.
+- No `.gitignore` hygiene issue surfaced in this rerun (no broad ignore additions required).
+
+
+## 2026-05-19T05:14:21.076601Z Task: 12-closeout
+- The main closeout risk is accidentally leaving one or more of the already-modified array files unstaged, which would fail the final empty-porcelain gate.
+- Another risk is mixing unrelated concerns into one commit; the existing diff spans runtime/codegen/tests/docs/sanitizer, so the commit split must stay by concern.
+- Final verification must be run after the commits land, not before, so the clean-state check reflects the committed tip.

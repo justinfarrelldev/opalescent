@@ -15,11 +15,20 @@ TMP_DIR="$(mktemp -d /tmp/opal-array-sanitizer.XXXXXX)"
 LOG_FILE="${TMP_DIR}/array_memory_sanitizer.log"
 CC_WRAPPER="${TMP_DIR}/cc"
 LSAN_SUPPRESSIONS_FILE="${TMP_DIR}/lsan.supp"
+CHURN_SELECTOR="array_memory_churn_sanitizer_fixture"
 
 cleanup() {
   rm -rf "${TMP_DIR}"
 }
 trap cleanup EXIT
+
+assert_churn_selector_present() {
+  local test_file="${ROOT_DIR}/tests/array_integration.rs"
+  if ! grep -Fq "fn ${CHURN_SELECTOR}()" "${test_file}"; then
+    echo "FAIL: expected churn selector '${CHURN_SELECTOR}' not found in ${test_file}." >&2
+    return 1
+  fi
+}
 
 run_valgrind_fallback() {
   if ! command -v valgrind >/dev/null 2>&1; then
@@ -68,6 +77,8 @@ EOF
     cargo test --features integration --test array_integration -- --nocapture
   ) 2>&1 | tee "${LOG_FILE}"
 }
+
+assert_churn_selector_present
 
 if command -v clang >/dev/null 2>&1; then
   run_asan

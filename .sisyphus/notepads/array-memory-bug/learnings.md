@@ -44,7 +44,7 @@
 - Verified alias-preserving push semantics in integration coverage: receiver rebinding updates only the mutable identifier binding, while aliases keep their previous payload pointer and length/capacity view.
 
 ## 2026-05-19T02:00:00Z Task: 6-indexed-assignment-cow
-- Added identifier-backed indexed assignment lowering in `src/codegen/statements.rs` + `src/codegen/expressions_array.rs`: only `xs[i] = value` is accepted, and it always allocates a fresh RC payload, copies the old payload contents, overwrites the selected slot, and rebinds only the mutable identifier.
+- Added identifier-backed indexed assignment lowering in `src/codegen/statements.rs` + `src/codegen/expressions_array.rs`: only `xs[i] = value` is accepted, and it always allocates a fresh RC payload, copies the old payload contents, overwrites the selected slot, and rebinds only the mutable identifier binding.
 - The rebinding path explicitly marks the result as `ArrayStorageKind::Payload`, which preserves the post-T3 storage-provenance invariant and avoids reintroducing the old bug where payload headers were mistaken for element buffers.
 - For RC-bearing overwrite handling in this migrated path, copied nested-array elements are retained into the new payload, the copied-out overwritten slot is released, and the incoming replacement value is retained before storing so alias-preserving COW does not leak the replaced child payload.
 - Added integration coverage for happy-path indexed assignment, alias-preserving COW semantics, and unsupported nested-index targets; also re-enabled a directly related parser assertion for `arr[0] = 10` so the required filtered unit test command exercises a real indexed-assignment parse case.
@@ -91,3 +91,84 @@
 ## 2026-05-19 Task 12 closeout
 - Final clean-state gate should stage the restored task-context bundle atomically and keep the repo clean after `cargo test`.
 - Sequential verification remains important because the array integration harness and sanitizer script share build artifacts.
+
+## 2026-05-19T00:00:00Z Task: 3-literal-payload-migration
+- Reworked `src/codegen/expressions_array.rs` so array literals allocate through `opal_array_alloc`, nested array rows are stored as payload pointers, and index/bounds reads use `opal_array_len` plus `opal_array_data` instead of stack-array lowering.
+- Switched `CoreType::Array` LLVM lowering to a single pointer value (`i8*`), which removed the old aggregate fallback that kept array literals and identifier bindings on the stack.
+- Updated minimal Task 3-dependent call sites (`adts.rs`, `control_flow.rs`, `functions_call.rs`, array helper paths) so `.length`, `for` iteration, append/push/pop/map/filter/zip metadata reads all come from the payload header path needed to keep the required literal/RC layout flows compiling.
+
+## 2026-05-19T04:08:15Z Task: 4-migrate-append-functional-rc
+- Updated `src/codegen/functions_call/array/helpers.rs` so append-copy paths retain RC-bearing element values (`retain_rc_element_if_needed`) before storing into the new payload buffer.
+- Updated `src/codegen/functions_call/array.rs` append path to retain RC-bearing appended elements before store, keeping append functional while preserving child payload liveness for RC-bearing element arrays.
+- Fixed payload-header correctness by setting result payload length after append/pop allocation+copy via `set_array_payload_length`, which unblocked `array_append_runs` (previously trapped with `index 0 is out of bounds for length 0`).
+- Verified append continues to allocate fresh payload storage via `allocate_array_buffer -> allocate_array_payload (opal_array_alloc path)` and does not mutate input array storage.
+- Required filtered integration commands for `array_append_purity` and `array_append_rc_elements` currently match 0 tests in this repo; outcomes were recorded verbatim and nearest existing append fixture `array_append` passed.
+
+## 2026-05-19T00:00:00Z Task: 5-push-unconditional-cow-rebinding (targeted verification refresh)
+- `.push(value)` lowering remains unconditional COW rebinding: `codegen_array_push_call` routes through `lower_array_append_operation`, allocates a fresh RC payload, copies prior elements with RC-retain handling, appends the new value, then stores only into the mutable receiver binding.
+- Added explicit integration test selector `array_push_cow_alias` in `tests/array_integration.rs` to lock alias-preserving semantics (`base` stays `[1,2]` while mutable alias becomes `[1,2,3]`).
+- Added explicit integration test selector `array_push_immutable_rejected` in `tests/array_integration.rs` so the required immutable-receiver rejection command maps directly to a single filtered test.
+
+## 2026-05-19T04:16:05Z Task: 5-push-unconditional-cow-rebinding (execution refresh)
+- Re-verified the existing `.push(value)` lowering path in `src/codegen/functions_call/array.rs`: `codegen_array_push_call` delegates to `lower_array_append_operation`, which allocates a fresh RC payload, copies elements with RC-retain handling, appends the new value, then rebinds only the mutable receiver via `store_array_binding_with_metadata`.
+- Confirmed required Task 5 integration selectors already exist and pass in `tests/array_integration.rs`: `array_push_cow_alias`, `array_push_immutable_rejected`, and push void-value misuse coverage.
+- No code changes were required for Task 5 in the current branch state; required verification commands passed/returned expected outputs.
+
+## 2026-05-19T04:20:03Z Task: 5-regression-fix-codegen-length-tests
+- Fixed two failing unit tests in `src/codegen/tests.rs` by updating IR assertions from legacy sidecar-length expectations to current payload-header lowering via `opal_array_len`.
+- `test_array_length_member_emits_i64_return` now asserts `declare i64 @opal_array_len(i8*)` and a call using `%values.array.load.*`, matching RC payload-backed array length lowering.
+- `test_guard_bound_read_lines_length_emits_count_extract_and_runtime_call` now asserts the `.length` path calls `opal_array_len` on `%lines.payload.cast.*` after guard success extraction, preserving guard extraction checks while aligning with runtime length source of truth.
+- Verified `array_push` integration selector still passes unchanged, confirming Task 5 push semantics remain intact.
+
+## 2026-05-19T04:28:03Z Task: 6-indexed-assignment-cow
+- Added identifier-backed indexed assignment lowering in `src/codegen/statements.rs` and `src/codegen/expressions_array.rs`: `xs[i] = value` now clones the RC payload unconditionally, copies all elements into a fresh payload, overwrites the selected slot, and rebinds only the mutable identifier binding.
+- Bounds checks now reuse payload-header length reads (`opal_array_len`) on the migrated indexed-assignment path, so the clone/write uses the payload as the single source of truth for len/cap/data.
+- RC-bearing overwrite semantics are explicit in the new path: copied elements are retained into the cloned payload, the cloned overwritten slot is released before replacement, and the incoming replacement value is retained before store to preserve alias-safe COW behavior.
+- Added focused coverage for parser acceptance (`arr[0] = 10`), codegen IR shape, happy-path integration behavior, alias-preserving COW semantics, and identifier-only negative coverage for unsupported nested indexed targets.
+
+## 2026-05-19T00:00:00Z Task: 7-array-ergonomics-cow-refresh
+- Added compiler-lowered array intrinsic dispatch for `array_filled`, `reserve`, and `clear` in `src/codegen/functions_call.rs`/`src/codegen/functions_call/array.rs`, including import alias routing from `standard` so these names never resolve to runtime symbols.
+- `array_filled(length, value)` now allocates an RC payload with `len=cap=length`, fills each slot in a counted loop, and calls RC retain once per inserted slot when the element type is RC-bearing.
+- `reserve(xs, capacity)` now returns a fresh payload with `len=xs.len` and `cap=max(xs.cap, capacity)` via select-based max, copies elements with retain-on-copy semantics, and leaves `xs` unchanged.
+- `clear(xs)` now returns a fresh payload with `len=0` and `cap=xs.cap` without mutating aliases, preserving functional COW behavior.
+- Added selector-focused integration tests `array_filled`, `array_reserve`, and `array_clear` to ensure required filtered commands run real tests instead of selecting zero tests.
+
+## 2026-05-19T04:48:11Z Task: 8-rc-element-coverage
+- `src/codegen/expressions_array.rs` now retains RC-bearing values during array literal construction, so nested-array literals take their own strong references instead of relying on borrowed child payload pointers.
+- `allocate_array_payload` now passes an internal `opal_array_drop_children` callback for RC-bearing element arrays, so array drop walks live child payload pointers via `opal_rc_drop_child` and releases nested arrays on parent-array teardown.
+- Added selector-backed integration coverage in `tests/array_integration.rs` for `array_rc_elements`, `array_nested_rc_drop`, and `array_index_assignment_rc_elements`, using nested arrays as the executable RC-bearing fixture type across literal/copy/overwrite/drop paths.
+
+## 2026-05-19T04:38:20Z Task: 6-indexed-assignment-cow (review follow-up)
+- Review surfaced two useful follow-ups: avoid treating `string` elements as RC payloads in the Task 6 helper, and add a true RC-backed element regression. I kept the RC-bearing classification fix for this path and added nested-array integration coverage (`int32[][]`) plus repeated mutable rebinding coverage.
+- I also tested a receiver-level `opal_rc_dec` on rebinding, but reverted it after it broke the plan-mandated alias behavior (`let mutable xs = base`) because current identifier alias binds are still shallow pointer copies. Any receiver-drop optimization/fix must be coordinated with broader alias-retain semantics, not landed locally in Task 6.
+
+## 2026-05-19T04:56:20Z Task: 9-retire-sidecar-metadata (follow-up execution)
+- Removed remaining sidecar metadata structures and carriers from codegen (`ArrayMetadata`, `pending_array_metadata`, and associated setter/taker methods) so array lowering no longer depends on out-of-band metadata state.
+- Removed legacy `_len/_cap` array sidecar binding creation in guard/function/lambda parameter lowering; array metadata now resolves only from payload header intrinsics (`opal_array_len`, `opal_array_cap`, `opal_array_data`).
+- Retired raw `allocate_array_buffer` helper naming/path and switched all array call sites (append/map/filter/zip/reserve/clear/pop) to payload-capacity allocation semantics via `allocate_array_with_capacity`.
+- Preserved runtime behavior by setting payload-header length explicitly for map/filter/zip outputs after loop writes (`set_array_payload_length`), which kept integration outputs correct while eliminating sidecar fallbacks.
+
+## 2026-05-19T05:02:14Z Task: 10-sanitizer-array-memory-regression (revalidation)
+- Added explicit selector-backed churn regression fixture `array_memory_churn_sanitizer_fixture` in `tests/array_integration.rs` covering append, push, indexed overwrite, nested arrays, `array_filled`, `reserve`, and `clear` with deterministic stdout assertion.
+- Hardened `scripts/array_memory_sanitizer.sh` with `assert_churn_selector_present` so sanitizer automation fails fast if the required churn selector is removed or renamed.
+- Re-verified sequentially: `cargo test --features integration --test array_integration -- --nocapture` passed (`35 passed`), then sanitizer script passed under ASAN+LSAN with marker scanning and temp-dir cleanup trap.
+- Artifact hygiene check after sanitizer run showed no unexpected generated sanitizer logs/directories in the repo; script artifacts remained confined to `/tmp/opal-array-sanitizer.*` and were cleaned by trap.
+
+## 2026-05-19T05:06:50Z Task: 11-regression-and-artifact-hygiene (current run)
+- Executed Task 11 gates strictly sequentially: cargo test, cargo test --features integration --test array_integration -- --nocapture, ./scripts/array_memory_sanitizer.sh, required sidecar rg audit, then git status --porcelain.
+- One regression surfaced first: codegen test for guard-bound read_lines length expected stale IR token store i64 %guard.len, while current lowering emits %lines.len.* via opal_array_len for lines.length.
+- Applied minimal fix in src/codegen/tests.rs to assert store i64 %lines.len. and updated assertion message text; runtime/codegen behavior unchanged.
+- After fix, full gates passed: cargo test (1259 passed, 0 failed, 5 ignored), array integration (35 passed, 0 failed), sanitizer PASS with no markers, sidecar audit with zero matches.
+- Artifact hygiene remained clean relative to branch baseline; no new sanitizer/build artifact leakage and no .gitignore change required.
+
+## 2026-05-19T05:10:25Z Task: 11-regression-and-artifact-hygiene (verification rerun)
+- Re-executed the required Task 11 gate sequence in strict order with no parallelism: `cargo test` -> `cargo test --features integration --test array_integration -- --nocapture` -> `./scripts/array_memory_sanitizer.sh` -> sidecar/raw-malloc `rg` audits -> `git status --porcelain`.
+- All regression gates passed without additional fixes: cargo test (`1259 passed; 0 failed; 5 ignored`), array integration (`35 passed; 0 failed`), sanitizer script PASS with explicit no-marker confirmation.
+- Both required audits stayed clean (zero matches for retired sidecar identifiers and zero matches for raw `malloc` in array lowering helpers).
+- Artifact hygiene remained stable: no new sanitizer/build artifact leakage and no `.gitignore` adjustments were needed for this Task 11 rerun.
+
+
+## 2026-05-19T05:14:21.076601Z Task: 12-closeout
+- Final closeout goal is to keep the atomic commits focused on the already-completed array work, then verify a clean porcelain state and a green `cargo test` from the committed tip.
+- The repo history style is conventional semantic English (`feat:`, `test:`, `docs:`), so the closeout commits should stay in that format.
+- No new feature work is needed for Task 12; the remaining work is packaging the current tracked deltas into coherent commits and then verifying the gate commands.
