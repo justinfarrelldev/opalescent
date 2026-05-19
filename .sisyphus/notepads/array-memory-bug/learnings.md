@@ -172,3 +172,17 @@
 - Final closeout goal is to keep the atomic commits focused on the already-completed array work, then verify a clean porcelain state and a green `cargo test` from the committed tip.
 - The repo history style is conventional semantic English (`feat:`, `test:`, `docs:`), so the closeout commits should stay in that format.
 - No new feature work is needed for Task 12; the remaining work is packaging the current tracked deltas into coherent commits and then verifying the gate commands.
+
+## 2026-05-19T05:19:00Z Task: final-wave-string-rc-policy
+- Unified array RC-bearing element policy by making `src/codegen/functions_call/array/helpers.rs` reuse `src/codegen/expressions_array.rs::is_rc_bearing_element_type`, removing the helper-only `CoreType::String` special case.
+- This matches current runtime/string lowering semantics: string literals and literal-only interpolation lower to static/global `i8*`, while interpolation temporaries use `malloc/free`; they are not RC payload allocations and must not receive `opal_rc_inc`/drop-child handling in array copy/fill/append paths.
+- Added focused unit coverage in `src/codegen/tests.rs` to assert `string[]` literal lowering still allocates array payload storage but does not emit `opal_array_drop_children` or `opal_rc_inc` hooks.
+- Verification passed sequentially: `cargo test --features integration --test array_integration -- --nocapture` (35 passed), `./scripts/array_memory_sanitizer.sh` PASS, `cargo test` PASS (1260 passed, 0 failed, 5 ignored).
+
+## 2026-05-19T06:00:00Z Task: F2-code-quality-review
+- Reviewed current diff scope in `src/codegen/expressions_array.rs`, `src/codegen/functions_call/array/helpers.rs`, and `src/codegen/tests.rs` for maintainability and ownership consistency.
+- Ownership/RC policy is now materially safer: `helpers.rs` reuses `expressions_array.rs::is_rc_bearing_element_type` (shared predicate), which removes prior classifier drift risk and prevents helper-only `String` RC behavior from silently diverging again.
+- Visibility choice (`pub(crate)` on `is_rc_bearing_element_type`) is minimal and justified because the symbol is used by a single sibling module path and remains crate-internal.
+- New regression test is meaningful (checks payload allocation still occurs while forbidding RC child-drop/inc hooks for `string[]` literal lowering). It is somewhat IR-string-coupled by design, but acceptable and targeted for this compiler layer.
+- Quality gate checks for this review passed: anti-pattern scan found no newly introduced TODO/FIXME/HACK/unwrap/expect in changed hunks, and LSP diagnostics reported no issues on all three changed Rust files.
+- F2 verdict: APPROVE (no blocking code-quality changes required for this diff).

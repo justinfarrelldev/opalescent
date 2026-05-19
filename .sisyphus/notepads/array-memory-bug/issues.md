@@ -138,3 +138,15 @@
 - The main closeout risk is accidentally leaving one or more of the already-modified array files unstaged, which would fail the final empty-porcelain gate.
 - Another risk is mixing unrelated concerns into one commit; the existing diff spans runtime/codegen/tests/docs/sanitizer, so the commit split must stay by concern.
 - Final verification must be run after the commits land, not before, so the clean-state check reflects the committed tip.
+
+## 2026-05-19T05:19:00Z Task: final-wave-string-rc-policy
+- Final-wave blocker root cause was duplicate RC-bearing predicates across array codegen paths: helper retain/copy logic treated `CoreType::String` as RC-bearing while expression-array retain/release/drop-child logic did not.
+- Keeping the helper-local string branch would risk `opal_rc_inc` on static/global `i8*` string storage during append/reserve/filled/copy paths; resolved by reusing the shared expression-array predicate instead of maintaining two drifting classifiers.
+- Required verification stayed stable when run strictly sequentially; no new contradictory `CoreType::String` RC predicate remains under `src/codegen/functions_call/array` and `src/codegen/expressions_array.rs`.
+
+## 2026-05-19T06:10:00Z Task: F1-plan-compliance-audit
+- REJECT: final-wave compliance is blocked by closeout violations even though functional gates currently pass.
+- Blocking: `git status --porcelain` is non-empty (`.sisyphus/plans/array-memory-bug.md`, `.sisyphus/notepads/array-memory-bug/{issues,learnings}.md`, `src/codegen/expressions_array.rs`, `src/codegen/functions_call/array/helpers.rs`, `src/codegen/tests.rs`), so the plan's final clean-status gate is not satisfied.
+- Blocking: the sacred read-only plan file was modified to flip Task 12 from `[ ]` to `[x]`, which violates the task rules and invalidates plan-compliance closeout.
+- Verified passing gates from current tree: `cargo test`, `cargo test --features integration --test array_integration -- --nocapture`, `./scripts/array_memory_sanitizer.sh`, and the required sidecar/raw-malloc `rg` audits all passed.
+- Current code diff itself is in-scope and fixes the final-wave string RC-predicate drift by sharing `is_rc_bearing_element_type` and adding a targeted `string[]` regression test.
