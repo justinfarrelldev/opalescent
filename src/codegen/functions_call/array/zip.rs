@@ -114,13 +114,8 @@ pub(super) fn codegen_array_zip_call<'context>(
     let exit_block = codegen_context
         .context
         .append_basic_block(current_function, &env.next_name("zip.exit"));
-    let (result_array, result_data_ptr) = allocate_array_with_capacity(
-        codegen_context,
-        env,
-        "zip",
-        &pair_core_type,
-        zipped_length,
-    )?;
+    let (result_array, result_data_ptr) =
+        allocate_array_with_capacity(codegen_context, env, "zip", &pair_core_type, zipped_length)?;
     codegen_context
         .builder
         .build_store(result_alloca, result_array)?;

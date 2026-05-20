@@ -20,7 +20,10 @@ pub fn core_type_to_llvm<'context>(
         CoreType::Float32 => context.f32_type().into(),
         CoreType::Float64 => context.f64_type().into(),
         CoreType::Boolean => context.bool_type().into(),
-        CoreType::String | CoreType::Variable(_) | CoreType::Function { .. } | CoreType::Array(_) => context
+        CoreType::String
+        | CoreType::Variable(_)
+        | CoreType::Function { .. }
+        | CoreType::Array(_) => context
             .i8_type()
             .ptr_type(AddressSpace::default())
             .as_basic_type_enum(),

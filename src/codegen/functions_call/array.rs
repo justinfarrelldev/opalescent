@@ -7,10 +7,10 @@
 
 #[path = "array/helpers.rs"]
 mod helpers;
-#[path = "array/zip.rs"]
-mod zip;
 #[path = "array/intrinsics.rs"]
 mod intrinsics;
+#[path = "array/zip.rs"]
+mod zip;
 
 use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
@@ -40,4 +40,3 @@ pub(super) fn codegen_array_member_call<'context>(
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     intrinsics::codegen_array_member_call(codegen_context, env, receiver, member, args)
 }
-

@@ -110,6 +110,28 @@ void opal_rc_reuse(void *obj,
                    size_t payload_size);
 
 /**
+ * opal_rc_is_unique — report whether an RC object has exactly one strong owner.
+ *
+ * This predicate ignores weak references. It is suitable for semantic
+ * uniqueness checks, but not for storage/header reuse decisions.
+ *
+ * @param obj  payload pointer (as returned by opal_rc_alloc)
+ * @return non-zero when refcount == 1, otherwise 0
+ */
+int opal_rc_is_unique(const void *obj);
+
+/**
+ * opal_rc_is_reuse_eligible — report whether an RC object may be safely reused.
+ *
+ * Reuse eligibility is stricter than strong uniqueness: callers must not reuse
+ * or move an allocation while weak references still observe its header.
+ *
+ * @param obj  payload pointer (as returned by opal_rc_alloc)
+ * @return non-zero when refcount == 1 && weak_count == 0, otherwise 0
+ */
+int opal_rc_is_reuse_eligible(const void *obj);
+
+/**
  * opal_rc_inc — increment the strong reference count of an RC object.
  *
  * @param obj  payload pointer (as returned by opal_rc_alloc)
@@ -132,6 +154,24 @@ void opal_rc_dec(void *obj);
  * @param obj  payload pointer of the object to drop
  */
 void opal_rc_drop_iterative(void *obj);
+
+/**
+ * opal_runtime_reset_heap_accounting — reset runtime heap allocation counters.
+ *
+ * This measurement tracks only Opalescent RC/array heap bytes allocated via
+ * `opal_rc_alloc`, excluding process RSS and internal bookkeeping overhead.
+ */
+void opal_runtime_reset_heap_accounting(void);
+
+/**
+ * opal_runtime_live_heap_bytes — current live Opalescent RC/array heap bytes.
+ */
+size_t opal_runtime_live_heap_bytes(void);
+
+/**
+ * opal_runtime_peak_heap_bytes — peak live Opalescent RC/array heap bytes.
+ */
+size_t opal_runtime_peak_heap_bytes(void);
 
 /**
  * opal_array_data_offset — compute the aligned byte offset of array element
@@ -219,6 +259,14 @@ OpalWeakRef *opal_weak_alloc(void *strong_obj);
  * @return payload pointer if alive, NULL if dead
  */
 void *opal_weak_upgrade(OpalWeakRef *weak);
+
+#if defined(OPAL_ENABLE_INTERNAL_TESTING)
+/**
+ * Test-only helpers exposing raw strong/weak counts for runtime ABI checks.
+ */
+size_t opal_rc_strong_count_for_test(const void *obj);
+size_t opal_rc_weak_count_for_test(const void *obj);
+#endif
 
 /**
  * opal_rc_drop_child — decrement a child reference during iterative drop.

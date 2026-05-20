@@ -7,8 +7,10 @@
 )]
 extern crate alloc;
 
+use super::super::ast_type_to_core_type_for_signature;
 use super::super::current_function;
 use crate::ast::Expr;
+use crate::codegen::binding_store::store_binding_overwrite_rc_safe;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding};
@@ -17,12 +19,12 @@ use crate::codegen::expressions_array::{
     load_array_data_ptr_for_element_type, load_array_length_from_value,
     load_array_payload_ptr_from_binding,
 };
-use super::super::ast_type_to_core_type_for_signature;
+use crate::codegen::rc_emitter::RcEmitter;
 use crate::type_system::types::CoreType;
-use inkwell::AddressSpace;
-use inkwell::values::{BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue};
 use alloc::format;
 use alloc::string::String;
+use inkwell::AddressSpace;
+use inkwell::values::{BasicMetadataValueEnum, BasicValue, FunctionValue, IntValue, PointerValue};
 
 pub(super) fn infer_array_callback_return_core_type(
     env: &CodegenEnv<'_>,
@@ -82,15 +84,14 @@ pub(super) fn store_array_binding<'context>(
         )));
     }
 
-    codegen_context
-        .builder
-        .build_store(binding_snapshot.alloca, array_value)?;
-
-    if let Some(binding) = env.variables.get_mut(binding_name) {
-        binding.length = None;
-        binding.capacity = None;
-    }
-    Ok(())
+    let _ = binding_snapshot;
+    store_binding_overwrite_rc_safe(
+        codegen_context,
+        env,
+        binding_name,
+        array_value.as_basic_value_enum(),
+        operation,
+    )
 }
 
 pub(super) fn retain_rc_element_if_needed<'context>(
@@ -177,7 +178,8 @@ pub(super) fn resolve_array_identifier_binding<'context>(
         )));
     }
 
-    let array_value = load_array_payload_ptr_from_binding(codegen_context, env, name, binding.clone())?;
+    let array_value =
+        load_array_payload_ptr_from_binding(codegen_context, env, name, binding.clone())?;
     let element_core_type = match binding.core_type {
         CoreType::Array(ref element_type) => element_type.as_ref().clone(),
         _ => {
@@ -204,6 +206,30 @@ pub(super) fn resolve_array_identifier_binding<'context>(
         length_value,
         capacity_value,
     ))
+}
+
+#[allow(
+    dead_code,
+    reason = "Task 3 establishes the helper ABI before Task 4+ consumes it"
+)]
+pub(super) fn rc_object_is_unique<'context>(
+    codegen_context: &CodegenContext<'context>,
+    obj: PointerValue<'context>,
+) -> Result<IntValue<'context>, CodegenError> {
+    let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
+    emitter.emit_is_unique(obj)
+}
+
+#[allow(
+    dead_code,
+    reason = "Task 3 establishes the helper ABI before Task 4+ consumes it"
+)]
+pub(super) fn rc_object_is_reuse_eligible<'context>(
+    codegen_context: &CodegenContext<'context>,
+    obj: PointerValue<'context>,
+) -> Result<IntValue<'context>, CodegenError> {
+    let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
+    emitter.emit_is_reuse_eligible(obj)
 }
 
 pub(super) fn validate_array_operation_metadata<'context>(
@@ -498,7 +524,13 @@ pub(super) fn copy_existing_array_elements<'context>(
     let copied_value = codegen_context
         .builder
         .build_load(source_slot, &env.next_name("append.copy.value"))?;
-    retain_rc_element_if_needed(codegen_context, env, element_core_type, copied_value, "append.copy")?;
+    retain_rc_element_if_needed(
+        codegen_context,
+        env,
+        element_core_type,
+        copied_value,
+        "append.copy",
+    )?;
     codegen_context
         .builder
         .build_store(destination_slot, copied_value)?;
@@ -518,3 +550,62 @@ pub(super) fn copy_existing_array_elements<'context>(
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::{rc_object_is_reuse_eligible, rc_object_is_unique};
+    use crate::codegen::context::CodegenContext;
+    use inkwell::AddressSpace;
+    use inkwell::context::Context;
+
+    fn create_test_function<'context>(
+        codegen_context: &CodegenContext<'context>,
+        name: &str,
+    ) -> inkwell::values::FunctionValue<'context> {
+        let function = codegen_context.module.add_function(
+            name,
+            codegen_context.context.void_type().fn_type(&[], false),
+            None,
+        );
+        let entry = codegen_context
+            .context
+            .append_basic_block(function, "entry");
+        codegen_context.builder.position_at_end(entry);
+        function
+    }
+
+    #[test]
+    fn array_helper_wrappers_emit_rc_uniqueness_predicates() {
+        let context = Context::create();
+        let codegen_context = CodegenContext::new(&context, "array_helper_predicates_test");
+        let _function = create_test_function(&codegen_context, "array_helper_predicates_fn");
+
+        let i8_ptr_type = context.i8_type().ptr_type(AddressSpace::default());
+        let pointer_alloca = codegen_context
+            .builder
+            .build_alloca(i8_ptr_type, "array_obj")
+            .expect("array helper predicate test should allocate rc object storage");
+        let pointer_value = codegen_context
+            .builder
+            .build_load(pointer_alloca, "array_obj.load")
+            .expect("array helper predicate test should load rc object storage")
+            .into_pointer_value();
+
+        let unique_result = rc_object_is_unique(&codegen_context, pointer_value);
+        assert!(
+            unique_result.is_ok(),
+            "array helper uniqueness wrapper should emit successfully"
+        );
+        let reuse_result = rc_object_is_reuse_eligible(&codegen_context, pointer_value);
+        assert!(
+            reuse_result.is_ok(),
+            "array helper reuse wrapper should emit successfully"
+        );
+
+        let ir = codegen_context.module.print_to_string().to_string();
+        assert!(
+            ir.contains("call i32 @opal_rc_is_unique")
+                && ir.contains("call i32 @opal_rc_is_reuse_eligible"),
+            "array helper wrappers should lower to both runtime predicate calls: {ir}"
+        );
+    }
+}

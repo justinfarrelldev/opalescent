@@ -34,7 +34,12 @@ fn array_test_lock() -> &'static Mutex<()> {
     LOCK.get_or_init(|| Mutex::new(()))
 }
 
-const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
+fn generated_binary_test_timeout() -> Duration {
+    if std::env::var_os("ASAN_OPTIONS").is_some() || std::env::var_os("LSAN_OPTIONS").is_some() {
+        return Duration::from_secs(120);
+    }
+    Duration::from_secs(30)
+}
 
 fn run_opal_source(source: &std::path::Path) -> std::process::Output {
     let _guard = array_test_lock()
@@ -52,7 +57,7 @@ fn run_opal_source(source: &std::path::Path) -> std::process::Output {
 
     opalescent::bounded_proc::wait_for_child_output_with_timeout(
         child,
-        GENERATED_BINARY_TEST_TIMEOUT,
+        generated_binary_test_timeout(),
         "array integration opalescent run command",
     )
     .expect("opalescent run command should complete")
@@ -98,14 +103,26 @@ fn run_opal_check(source: &std::path::Path) -> std::process::Output {
 
     opalescent::bounded_proc::wait_for_child_output_with_timeout(
         child,
-        GENERATED_BINARY_TEST_TIMEOUT,
+        generated_binary_test_timeout(),
         "array integration opalescent check command",
     )
     .expect("opalescent check command should complete")
 }
 
+fn temp_fixture_root() -> PathBuf {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(".sisyphus")
+        .join("tmp")
+        .join("array-integration-fixtures");
+    fs::create_dir_all(&root).expect("array integration temp fixture root should exist");
+    root
+}
+
 fn write_temp_project_source(project_name: &str, source: &str) -> tempfile::TempDir {
-    let temp_dir = tempfile::tempdir().expect("tempdir for temporary array fixture");
+    let temp_dir = tempfile::Builder::new()
+        .prefix(project_name)
+        .tempdir_in(temp_fixture_root())
+        .expect("tempdir for temporary array fixture");
     let project_root = temp_dir.path();
     fs::create_dir_all(project_root.join("src"))
         .expect("temporary fixture should create src directory");
@@ -131,6 +148,50 @@ mod tests {
     #[test]
     fn array_append_runs() {
         assert_stdout("array-append", &read_expected_stdout("array-append"));
+    }
+
+    #[test]
+    fn array_append_unique_input_pure() {
+        let temp_dir = write_temp_project_source(
+            "array-append-unique-input-pure",
+            "import append from standard\n\n##\n  Description: Verifies append returns a new array without mutating a unique receiver.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = [1 as int32, 2 as int32]\n    let grown = append(xs, 3 as int32)\n    print('xs length {xs.length}')\n    print('xs values {xs[0]} {xs[1]}')\n    print('grown length {grown.length}')\n    print('grown values {grown[0]} {grown[1]} {grown[2]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "unique append fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "xs length 2\nxs values 1 2\ngrown length 3\ngrown values 1 2 3\n"
+        );
+    }
+
+    #[test]
+    fn array_append_shared_input_pure() {
+        let temp_dir = write_temp_project_source(
+            "array-append-shared-input-pure",
+            "import append from standard\n\n##\n  Description: Verifies append leaves all shared aliases unchanged.\n##\nentry main = f(args: string[]): void =>\n    let base: int32[] = [4 as int32, 5 as int32]\n    let shared = base\n    let grown = append(base, 6 as int32)\n    print('base length {base.length}')\n    print('base values {base[0]} {base[1]}')\n    print('shared length {shared.length}')\n    print('shared values {shared[0]} {shared[1]}')\n    print('grown length {grown.length}')\n    print('grown values {grown[0]} {grown[1]} {grown[2]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "shared append fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "base length 2\nbase values 4 5\nshared length 2\nshared values 4 5\ngrown length 3\ngrown values 4 5 6\n"
+        );
     }
 
     #[test]
@@ -240,8 +301,7 @@ mod tests {
             .strip_prefix("target/program\n")
             .unwrap_or_else(|| raw_stdout.as_ref());
         assert_eq!(
-            actual,
-            "base length 2\nbase values 1 2\ngrown length 3\ngrown values 1 2 3\n",
+            actual, "base length 2\nbase values 1 2\ngrown length 3\ngrown values 1 2 3\n",
             "push COW alias output should preserve the alias and rebind only the mutable receiver"
         );
     }
@@ -292,10 +352,10 @@ mod tests {
     }
 
     #[test]
-    fn array_index_assignment() {
+    fn array_index_assignment_unique_in_place() {
         let temp_dir = write_temp_project_source(
-            "array-index-assignment",
-            "##\n  Description: Verifies identifier-backed indexed assignment lowers via COW rebinding.\n##\nentry main = f(args: string[]): void =>\n    let mutable xs: int32[] = [1 as int32, 2 as int32, 3 as int32]\n    xs[1] = 9 as int32\n    print('length {xs.length}')\n    print('values {xs[0]} {xs[1]} {xs[2]}')\n    return void\n",
+            "array-index-assignment-unique-in-place",
+            "##\n  Description: Verifies identifier-backed indexed assignment mutates in-place when the receiver is uniquely owned.\n##\nentry main = f(args: string[]): void =>\n    let mutable xs: int32[] = [1 as int32, 2 as int32, 3 as int32]\n    xs[1] = 9 as int32\n    print('length {xs.length}')\n    print('values {xs[0]} {xs[1]} {xs[2]}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -355,10 +415,171 @@ mod tests {
     }
 
     #[test]
+    fn array_self_assignment_rc_safe() {
+        let temp_dir = write_temp_project_source(
+            "array-self-assignment-rc-safe",
+            "##\n  Description: Verifies self-assignment keeps RC-bearing array binding stable and value-preserving.\n##\nentry main = f(args: string[]): void =>\n    let row: int32[] = [4 as int32]\n    let mutable rows: int32[][] = [row]\n    rows = rows\n    print('rows length {rows.length}')\n    print('rows first {rows[0][0]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "self-assignment fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(actual, "rows length 1\nrows first 4\n");
+    }
+
+    #[test]
+    fn array_rebind_releases_old_preserves_alias() {
+        let temp_dir = write_temp_project_source(
+            "array-rebind-releases-old-preserves-alias",
+            "##\n  Description: Verifies rebinding a mutable array variable releases old binding while preserving aliases.\n##\nentry main = f(args: string[]): void =>\n    let base: int32[] = [1 as int32, 2 as int32]\n    let mutable xs = base\n    let replacement: int32[] = [7 as int32, 8 as int32, 9 as int32]\n    xs = replacement\n    print('base length {base.length}')\n    print('base values {base[0]} {base[1]}')\n    print('xs length {xs.length}')\n    print('xs values {xs[0]} {xs[1]} {xs[2]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "rebind alias fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "base length 2\nbase values 1 2\nxs length 3\nxs values 7 8 9\n"
+        );
+    }
+
+    #[test]
+    fn array_param_local_alias_mutation_rc_safe() {
+        let temp_dir = write_temp_project_source(
+            "array-param-local-alias-mutation-rc-safe",
+            "##\n  Description: Verifies function parameter/local array alias mutation uses COW rebinding and preserves caller aliases.\n##\n##\n  Description: Mutates a local alias of the parameter and prints local values.\n##\nlet grow_once = f(source: int32[]): void =>\n    let mutable local = source\n    local.push(3 as int32)\n    print('local length {local.length}')\n    print('local values {local[0]} {local[1]} {local[2]}')\n    return void\n\n##\n  Description: Calls grow_once then prints the original array alias.\n##\nentry main = f(args: string[]): void =>\n    let base: int32[] = [1 as int32, 2 as int32]\n    grow_once(base)\n    print('base length {base.length}')\n    print('base values {base[0]} {base[1]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "parameter/local alias mutation fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "local length 3\nlocal values 1 2 3\nbase length 2\nbase values 1 2\n"
+        );
+    }
+
+    #[test]
+    fn array_nested_read_returns_correct_jagged_value() {
+        let temp_dir = write_temp_project_source(
+            "array-nested-read-returns-correct-jagged-value",
+            "##\n  Description: Verifies jagged nested array reads load the selected row before loading the selected cell.\n##\nentry main = f(args: string[]): void =>\n    let rows: int32[][] = [[1 as int32], [4 as int32, 5 as int32, 6 as int32], [9 as int32, 8 as int32]]\n    print('row1col2 {rows[1][2]}')\n    print('row2col0 {rows[2][0]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "nested read fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(actual, "row1col2 6\nrow2col0 9\n");
+    }
+
+    #[test]
+    fn array_nested_assignment_unique_row() {
+        let temp_dir = write_temp_project_source(
+            "array-nested-assignment-unique-row",
+            "##\n  Description: Verifies nested indexed assignment mutates a unique outer array and unique inner row in place.\n##\nentry main = f(args: string[]): void =>\n    let mutable rows: int32[][] = [[1 as int32, 2 as int32], [3 as int32, 4 as int32, 5 as int32]]\n    rows[1][1] = 9 as int32\n    print('row0 {rows[0][0]} {rows[0][1]}')\n    print('row1 {rows[1][0]} {rows[1][1]} {rows[1][2]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "nested unique-row assignment fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(actual, "row0 1 2\nrow1 3 9 5\n");
+    }
+
+    #[test]
+    fn array_nested_assignment_shared_inner_row_cow() {
+        let temp_dir = write_temp_project_source(
+            "array-nested-assignment-shared-inner-row-cow",
+            "##\n  Description: Verifies nested indexed assignment clones the inner row before writing when the row is shared inside a unique outer array.\n##\nentry main = f(args: string[]): void =>\n    let shared: int32[] = [1 as int32, 2 as int32, 3 as int32]\n    let mutable rows: int32[][] = [shared, shared]\n    rows[1][1] = 9 as int32\n    print('row0 {rows[0][0]} {rows[0][1]} {rows[0][2]}')\n    print('row1 {rows[1][0]} {rows[1][1]} {rows[1][2]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "nested shared-inner-row assignment fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(actual, "row0 1 2 3\nrow1 1 9 3\n");
+    }
+
+    #[test]
+    fn array_nested_assignment_shared_outer_unique_inner_row_cow() {
+        let temp_dir = write_temp_project_source(
+            "array-nested-assignment-shared-outer-unique-inner-row-cow",
+            "##\n  Description: Verifies nested indexed assignment clones through the outer array when the outer array is shared even if the selected inner row is unique.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [1 as int32, 2 as int32]\n    let right: int32[] = [7 as int32, 8 as int32]\n    let base: int32[][] = [left, right]\n    let mutable rows = base\n    rows[1][0] = 5 as int32\n    print('base row1 {base[1][0]} {base[1][1]}')\n    print('rows row1 {rows[1][0]} {rows[1][1]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "nested shared-outer assignment fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(actual, "base row1 7 8\nrows row1 5 8\n");
+    }
+
+    #[test]
+    fn array_nested_assignment_shared_outer_and_inner_cow() {
+        let temp_dir = write_temp_project_source(
+            "array-nested-assignment-shared-outer-and-inner-cow",
+            "##\n  Description: Verifies nested indexed assignment preserves aliases when both the outer array and selected inner row are shared.\n##\nentry main = f(args: string[]): void =>\n    let shared: int32[] = [1 as int32, 2 as int32]\n    let base: int32[][] = [shared, shared]\n    let mutable rows = base\n    rows[1][0] = 6 as int32\n    print('base row0 {base[0][0]} {base[0][1]}')\n    print('base row1 {base[1][0]} {base[1][1]}')\n    print('rows row0 {rows[0][0]} {rows[0][1]}')\n    print('rows row1 {rows[1][0]} {rows[1][1]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "nested shared-outer-and-inner assignment fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "base row0 1 2\nbase row1 1 2\nrows row0 1 2\nrows row1 6 2\n"
+        );
+    }
+
+    #[test]
     fn array_index_assignment_unsupported_target_rejected() {
         let temp_dir = write_temp_project_source(
             "array-index-assignment-unsupported-target",
-            "##\n  Description: Verifies non-identifier indexed assignment targets are rejected.\n##\nentry main = f(args: string[]): void =>\n    let mutable rows: int32[][] = [[1 as int32, 2 as int32], [3 as int32, 4 as int32]]\n    rows[0][0] = 7 as int32\n    return void\n",
+            "##\n  Description: Verifies non-identifier indexed assignment targets are rejected.\n##\nentry main = f(args: string[]): void =>\n    [[1 as int32, 2 as int32], [3 as int32, 4 as int32]][0 as int32][0 as int32] = 7 as int32\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -506,6 +727,28 @@ mod tests {
     }
 
     #[test]
+    fn array_game_of_life_churn_sanitizer_fixture() {
+        let temp_dir = write_temp_project_source(
+            "array-game-of-life-churn-sanitizer-fixture",
+            "##\n  Description: Exercises Game-of-Life-style two-board churn with indexed updates and board swapping for sanitizer coverage.\n##\nentry main = f(args: string[]): void =>\n    let mutable board: int32[] = [0 as int32, 1 as int32, 0 as int32, 0 as int32, 0 as int32, 1 as int32, 1 as int32, 1 as int32, 1 as int32]\n    let mutable next: int32[] = [0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32]\n    let mutable tick: int32 = 0 as int32\n    while tick < (10 as int32):\n        next[0] = board[2]\n        next[1] = board[1]\n        next[2] = board[0]\n        next[3] = board[5]\n        next[4] = board[4]\n        next[5] = board[3]\n        next[6] = board[8]\n        next[7] = board[7]\n        next[8] = board[6]\n        let swap = board\n        board = next\n        next = swap\n        tick = tick + (1 as int32)\n    print('board {board[0]} {board[1]} {board[2]}')\n    print('board {board[3]} {board[4]} {board[5]}')\n    print('board {board[6]} {board[7]} {board[8]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "array Game-of-Life churn sanitizer fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual, "board 0 1 0\nboard 0 0 1\nboard 1 1 1\n",
+            "Game-of-Life churn fixture should preserve original board after even mirror swaps"
+        );
+    }
+
+    #[test]
     fn array_nested_rc_drop() {
         let temp_dir = write_temp_project_source(
             "array-nested-rc-drop",
@@ -541,6 +784,73 @@ mod tests {
             .strip_prefix("target/program\n")
             .unwrap_or_else(|| raw_stdout.as_ref());
         assert_eq!(actual, "rows 2 1 3\n");
+    }
+
+    #[test]
+    fn array_push_unique_reuses_capacity() {
+        let temp_dir = write_temp_project_source(
+            "array-push-unique-reuses-capacity",
+            "import reserve from standard\n\n##\n  Description: Verifies unique push can consume reserved capacity without changing values.\n##\nentry main = f(args: string[]): void =>\n    let mutable xs: int32[] = [1 as int32, 2 as int32]\n    xs = reserve(xs, 8 as int64)\n    xs.push(3 as int32)\n    xs.push(4 as int32)\n    print('length {xs.length}')\n    print('values {xs[0]} {xs[1]} {xs[2]} {xs[3]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "unique push reserve fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual, "length 4\nvalues 1 2 3 4\n",
+            "unique push reserve fixture should append in order"
+        );
+    }
+
+    #[test]
+    fn array_pop_rc_element_ownership_transfer() {
+        let temp_dir = write_temp_project_source(
+            "array-pop-rc-element-ownership-transfer",
+            "##\n  Description: Verifies popped RC-bearing row remains valid after receiver rebind and clear.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [7 as int32]\n    let right: int32[] = [9 as int32]\n    let mutable rows: int32[][] = [left, right]\n    let popped: int32[] = rows.pop()\n    rows = []\n    print('rows length {rows.length}')\n    print('popped length {popped.length}')\n    print('popped value {popped[0]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "pop RC ownership fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual, "rows length 0\npopped length 1\npopped value 9\n",
+            "popped RC-bearing element should stay alive after receiver mutation"
+        );
+    }
+
+    #[test]
+    fn array_reserve_noop_when_within_capacity() {
+        let temp_dir = write_temp_project_source(
+            "array-reserve-noop-when-within-capacity",
+            "import reserve from standard\n\n##\n  Description: Verifies reserve with <= current capacity keeps logical contents unchanged.\n##\nentry main = f(args: string[]): void =>\n    let mutable xs: int32[] = [1 as int32, 2 as int32]\n    xs = reserve(xs, 8 as int64)\n    let same_cap: int32[] = reserve(xs, 8 as int64)\n    let lower_cap: int32[] = reserve(xs, 0 as int64)\n    print('xs length {xs.length}')\n    print('same length {same_cap.length}')\n    print('lower length {lower_cap.length}')\n    print('same values {same_cap[0]} {same_cap[1]}')\n    print('lower values {lower_cap[0]} {lower_cap[1]}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "reserve noop fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "xs length 2\nsame length 2\nlower length 2\nsame values 1 2\nlower values 1 2\n",
+            "reserve noop fixture should preserve values for requested <= cap"
+        );
     }
 
     #[test]

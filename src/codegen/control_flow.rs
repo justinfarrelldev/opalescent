@@ -221,25 +221,28 @@ pub fn codegen_loop_statement<'context>(
                         )));
                     };
 
-                    let array_value = crate::codegen::expressions_array::load_array_payload_ptr_from_binding(
-                        codegen_context,
-                        env,
-                        name,
-                        binding.clone(),
-                    )?;
-                    let array_ptr = crate::codegen::expressions_array::load_array_data_ptr_for_element_type(
-                        codegen_context,
-                        env,
-                        array_value,
-                        element_core_type.as_ref(),
-                        "for.iterable",
-                    )?;
-                    let array_length = crate::codegen::expressions_array::load_array_length_from_value(
-                        codegen_context,
-                        env,
-                        array_value,
-                        "for.iterable",
-                    )?;
+                    let array_value =
+                        crate::codegen::expressions_array::load_array_payload_ptr_from_binding(
+                            codegen_context,
+                            env,
+                            name,
+                            binding.clone(),
+                        )?;
+                    let array_ptr =
+                        crate::codegen::expressions_array::load_array_data_ptr_for_element_type(
+                            codegen_context,
+                            env,
+                            array_value,
+                            element_core_type.as_ref(),
+                            "for.iterable",
+                        )?;
+                    let array_length =
+                        crate::codegen::expressions_array::load_array_length_from_value(
+                            codegen_context,
+                            env,
+                            array_value,
+                            "for.iterable",
+                        )?;
 
                     (array_ptr, array_length, element_core_type.as_ref().clone())
                 }

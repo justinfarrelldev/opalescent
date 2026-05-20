@@ -27,8 +27,10 @@ use crate::module_loader::validate_module_file_role;
 use crate::parser::Parser;
 use crate::testing::runner::{TestCommand, TestSuite};
 use std::fs;
+use std::io::ErrorKind;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, ExitStatus};
+use std::time::Duration;
 
 use crate::benchmarks::compile_time::{bench_parse, bench_typecheck};
 use crate::benchmarks::suite::BenchmarkSuite;
@@ -219,6 +221,39 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
     Ok(())
 }
 
+fn execute_compiled_binary(binary_path: &Path, program_args: &[&str]) -> Result<ExitStatus, i32> {
+    const ETXTBSY_RETRY_ATTEMPTS: usize = 5;
+    const ETXTBSY_RETRY_DELAY: Duration = Duration::from_millis(50);
+
+    for attempt in 0..ETXTBSY_RETRY_ATTEMPTS {
+        match Command::new(binary_path).args(program_args).status() {
+            Ok(status) => return Ok(status),
+            Err(error)
+                if error.kind() == ErrorKind::ExecutableFileBusy
+                    || error.raw_os_error() == Some(26) =>
+            {
+                if attempt + 1 == ETXTBSY_RETRY_ATTEMPTS {
+                    eprintln!(
+                        "error: failed to execute '{}': {error}",
+                        binary_path.display()
+                    );
+                    return Err(1);
+                }
+                std::thread::sleep(ETXTBSY_RETRY_DELAY);
+            }
+            Err(error) => {
+                eprintln!(
+                    "error: failed to execute '{}': {error}",
+                    binary_path.display()
+                );
+                return Err(1);
+            }
+        }
+    }
+
+    Err(1)
+}
+
 /// Compile source at `source_path` and execute it, forwarding `program_args` to the binary.
 fn compile_and_run(
     source_path: &str,
@@ -251,16 +286,7 @@ fn compile_and_run(
 
     println!("{}", binary_path.display());
 
-    let status = match Command::new(&binary_path).args(program_args).status() {
-        Ok(s) => s,
-        Err(error) => {
-            eprintln!(
-                "error: failed to execute '{}': {error}",
-                binary_path.display()
-            );
-            return Err(1);
-        }
-    };
+    let status = execute_compiled_binary(&binary_path, program_args)?;
     let code = status.code().unwrap_or(1_i32);
     if code == 0 { Ok(()) } else { Err(code) }
 }
@@ -315,16 +341,7 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
 
     println!("{}", binary_path.display());
 
-    let status = match Command::new(&binary_path).args(&program_args).status() {
-        Ok(state) => state,
-        Err(error) => {
-            eprintln!(
-                "error: failed to execute '{}': {error}",
-                binary_path.display()
-            );
-            return Err(1);
-        }
-    };
+    let status = execute_compiled_binary(&binary_path, &program_args)?;
     let code = status.code().unwrap_or(1_i32);
     if code == 0 { Ok(()) } else { Err(code) }
 }

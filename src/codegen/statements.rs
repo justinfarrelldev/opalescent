@@ -9,6 +9,7 @@ extern crate alloc;
 
 use crate::ast::{Expr, LabeledValue, LetBinding, Stmt};
 use crate::codegen::adts::product_field_indices_from_constructor;
+use crate::codegen::binding_store::{initialize_binding_value, store_binding_overwrite_rc_safe};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::{
     codegen_if_statement, codegen_loop_expression_into_slots, codegen_loop_statement,
@@ -17,12 +18,14 @@ use crate::codegen::control_flow::{
 use crate::codegen::error::CodegenError;
 use crate::codegen::error_abi::build_error_aggregate;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
-use crate::codegen::expressions_array::codegen_identifier_indexed_array_assignment;
+use crate::codegen::expressions_array::{
+    codegen_identifier_indexed_array_assignment, materialize_runtime_array_from_raw_elements,
+};
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::vec::Vec;
-use inkwell::values::FunctionValue;
+use inkwell::values::{BasicValue, FunctionValue};
 
 #[path = "statements/inference.rs"]
 #[doc = "Expression and annotation type inference helpers for statement lowering."]
@@ -157,13 +160,9 @@ fn codegen_let_statement<'context>(
     };
 
     let alloca = if let Some(initializer_value) = lowered_initializer {
-        let alloca = codegen_context
+        codegen_context
             .builder
-            .build_alloca(initializer_value.get_type(), binding.name.as_str())?;
-        let _store_instruction = codegen_context
-            .builder
-            .build_store(alloca, initializer_value)?;
-        alloca
+            .build_alloca(initializer_value.get_type(), binding.name.as_str())?
     } else {
         let alloca_type = core_type_to_llvm(codegen_context.context, &declared_type);
         codegen_context
@@ -181,6 +180,17 @@ fn codegen_let_statement<'context>(
             is_mutable: binding.is_mutable,
         },
     );
+    if let (Some(initializer_expr), Some(initializer_value)) = (initializer, lowered_initializer) {
+        let retain_new_value = matches!(*initializer_expr, Expr::Identifier { .. });
+        initialize_binding_value(
+            codegen_context,
+            env,
+            binding.name.as_str(),
+            initializer_value,
+            "let.init",
+            retain_new_value,
+        )?;
+    }
     if let Some(&Expr::Constructor { .. }) = initializer {
         if let Some(field_indices) = initializer.and_then(product_field_indices_from_constructor) {
             env.variable_field_indices
@@ -348,10 +358,14 @@ fn codegen_assignment<'context>(
             let binding_type = binding_snapshot.core_type.clone();
 
             let rhs_value = codegen_expression(codegen_context, env, value, Some(&binding_type))?;
-            let _store_instruction = codegen_context
-                .builder
-                .build_store(binding_alloca, rhs_value)?;
-            Ok(())
+            let _ = binding_alloca;
+            store_binding_overwrite_rc_safe(
+                codegen_context,
+                env,
+                name.as_str(),
+                rhs_value,
+                "assign",
+            )
         }
         Expr::Index {
             ref object,
@@ -403,14 +417,40 @@ fn codegen_guard_statement<'context>(
                 )?;
                 let success_core_type =
                     infer_guard_success_core_type(env, expression, success_value.get_type());
+                let normalized_success_value = if field_count >= 3 {
+                    if let CoreType::Array(ref element_core_type) = success_core_type {
+                        if success_value.is_pointer_value() {
+                            let length_value = codegen_context.builder.build_extract_value(
+                                struct_value,
+                                1,
+                                env.next_name("guard.len").as_str(),
+                            )?;
+                            let runtime_array = materialize_runtime_array_from_raw_elements(
+                                codegen_context,
+                                env,
+                                success_value.into_pointer_value(),
+                                length_value.into_int_value(),
+                                element_core_type.as_ref(),
+                                "guard.array",
+                            )?;
+                            runtime_array.as_basic_value_enum()
+                        } else {
+                            success_value
+                        }
+                    } else {
+                        success_value
+                    }
+                } else {
+                    success_value
+                };
                 let success_binding_name = success_binding.unwrap_or("");
                 let success_alloca = if success_binding.is_some() {
                     let alloca = codegen_context
                         .builder
-                        .build_alloca(success_value.get_type(), success_binding_name)?;
+                        .build_alloca(normalized_success_value.get_type(), success_binding_name)?;
                     let _success_init = codegen_context
                         .builder
-                        .build_store(alloca, success_value.get_type().const_zero())?;
+                        .build_store(alloca, normalized_success_value.get_type().const_zero())?;
                     Some(alloca)
                 } else {
                     None
@@ -441,7 +481,7 @@ fn codegen_guard_statement<'context>(
                 if let Some(success_slot) = success_alloca {
                     let _store_ok = codegen_context
                         .builder
-                        .build_store(success_slot, success_value)?;
+                        .build_store(success_slot, normalized_success_value)?;
                 }
                 if let Some(block) = codegen_context.builder.get_insert_block() {
                     if block.get_terminator().is_none() {
@@ -537,7 +577,6 @@ fn codegen_guard_statement<'context>(
 
     Ok(())
 }
-
 
 /// Fetch current LLVM function from builder insertion block.
 fn codegen_guard_error_propagation_statement<'context>(

@@ -1,102 +1,128 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/cleaner-propertyless-constructors.md",
-  "started_at": "2026-05-17T21:53:50.369Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/array-cow-rc-game-of-life.md",
+  "started_at": "2026-05-19T23:13:00.546Z",
   "session_ids": [
-    "ses_1c8245a59ffeng11ZSGXQVBVpP",
-    "ses_1c81052d9ffeXLQ5B1f4QkoEpQ",
-    "ses_1c81051b0ffeO0dGVIChHnTs2N",
-    "ses_1c8105141ffet94DRVFNUNbLRU"
+    "ses_1bdb84d75ffeuqJChiShCT9LB5",
+    "ses_1bca207e6ffe0my3Ehz4WQKSOJ",
+    "ses_1bca20445ffebbvfpurE4E6nvC",
+    "ses_1bca2030affeJ0kznSt9FmZj6A"
   ],
   "session_origins": {
-    "ses_1c8245a59ffeng11ZSGXQVBVpP": "direct",
-    "ses_1c81052d9ffeXLQ5B1f4QkoEpQ": "appended",
-    "ses_1c81051b0ffeO0dGVIChHnTs2N": "appended",
-    "ses_1c8105141ffet94DRVFNUNbLRU": "appended"
+    "ses_1bdb84d75ffeuqJChiShCT9LB5": "direct",
+    "ses_1bca207e6ffe0my3Ehz4WQKSOJ": "appended",
+    "ses_1bca20445ffebbvfpurE4E6nvC": "appended",
+    "ses_1bca2030affeJ0kznSt9FmZj6A": "appended"
   },
-  "plan_name": "cleaner-propertyless-constructors",
+  "plan_name": "array-cow-rc-game-of-life",
   "agent": "atlas",
-  "last_resumed_at": "2026-05-17T21:53:50.354Z",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Add shared propertyless constructor registry and audit existing special cases",
-      "session_id": "ses_1c80e383fffeYuU6kXgIXGKgeS",
+      "task_title": "Lock memory methodology and baseline Game of Life probe",
+      "session_id": "ses_1bd7b388effeZFjY8Drkd1LBDV",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-05-17T22:00:32.355Z"
+      "category": "deep",
+      "updated_at": "2026-05-19T23:22:58.899Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "TDD parser generalization: bare `new TypeName` parses without semantic name checks",
-      "session_id": "ses_1c808c872ffeWiI1cy4z9Ag7D3",
+      "task_title": "Implement RC-safe overwrite/rebinding contract for RC-bearing locals",
+      "session_id": "ses_1bd71709dffey6fSbid1i9I1Cd",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-05-17T22:08:22.633Z"
+      "category": "unspecified-high",
+      "updated_at": "2026-05-19T23:33:43.395Z"
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "TDD type checker registry integration and semantic rejection",
-      "session_id": "ses_1c8032427ffeheY6N5uEDfLfBD",
+      "task_title": "Add runtime uniqueness, reuse eligibility, and array helper ABI",
+      "session_id": "ses_1bd65c9f8ffeLfF5HooImHiRig",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-17T22:12:31.433Z"
+      "category": "deep",
+      "updated_at": "2026-05-20T00:07:44.032Z"
     },
     "todo:4": {
       "task_key": "todo:4",
       "task_label": "4",
-      "task_title": "TDD codegen registry lowering for explicit and inferred `new Bytes`",
-      "session_id": "ses_1c7ff9cc6ffeDwPDhpA5B2wByc",
+      "task_title": "Implement uniqueness-aware indexed assignment fast path",
+      "session_id": "ses_1bd279bfbffeFM1j6qi4yeNdUV",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-05-17T22:16:41.833Z"
+      "updated_at": "2026-05-20T00:48:13.420Z"
     },
     "todo:5": {
       "task_key": "todo:5",
       "task_label": "5",
-      "task_title": "TDD constructor expression inference fix for `let buffer = new Bytes`",
-      "session_id": "ses_1c7fbb654ffedxhCGWmLlWxDIW",
+      "task_title": "Implement chained multidimensional reads and writes with nested COW",
+      "session_id": "ses_1bd245ea0ffe10nrBqTOKPSUlo",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-17T22:20:08.250Z"
+      "category": "deep",
+      "updated_at": "2026-05-20T00:57:40.043Z"
     },
     "todo:6": {
       "task_key": "todo:6",
       "task_label": "6",
-      "task_title": "Add inferred `new Bytes` e2e fixture and preserve legacy/new explicit behavior",
-      "session_id": "ses_1c7f8c0f2ffeWgBlgIsI44j9rX",
+      "task_title": "Make `.push`, `.pop`, `clear`, and `reserve` uniqueness-aware",
+      "session_id": "ses_1bd1bc9b5ffep5arpgVBDDi7GW",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-05-17T22:23:52.065Z"
+      "updated_at": "2026-05-20T01:12:22.068Z"
     },
     "todo:7": {
       "task_key": "todo:7",
       "task_label": "7",
-      "task_title": "Update comments/docs for preferred construction without expanding scope",
-      "session_id": "ses_1c7f4e9cbffe9J2ClihX9UjrfN",
+      "task_title": "Preserve and harden pure `append` semantics",
+      "session_id": "ses_1bd0335d8ffejFVWBLG99o75Ss",
       "agent": "Sisyphus-Junior",
-      "category": "writing",
-      "updated_at": "2026-05-17T22:29:10.281Z"
+      "category": "quick",
+      "updated_at": "2026-05-20T01:26:50.940Z"
     },
     "todo:8": {
       "task_key": "todo:8",
       "task_label": "8",
-      "task_title": "Final source audit, targeted test suite, and full-suite gate",
-      "session_id": "ses_1c7f074d5ffeP7emFCtIk42OCQ",
+      "task_title": "Enforce 100x100 Game of Life memory target",
+      "session_id": "ses_1bcff8000ffeHaSFLZKGu4pVON",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-05-17T22:31:41.537Z"
+      "category": "deep",
+      "updated_at": "2026-05-20T01:32:01.347Z"
     },
-    "final-wave:f1": {
-      "task_key": "final-wave:f1",
-      "task_label": "F1",
-      "task_title": "Plan Compliance Audit — oracle",
-      "session_id": "ses_1c7ea66d0ffe8BzN88ntySLuFH",
+    "todo:9": {
+      "task_key": "todo:9",
+      "task_label": "9",
+      "task_title": "Integrate leak and sanitizer coverage for new array paths",
+      "session_id": "ses_1bcfc3d42ffezNRncYRzrdnsNe",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-05-17T22:39:45.733Z"
+      "updated_at": "2026-05-20T01:42:25.352Z"
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "Conditional limited Perceus/last-use reuse escalation",
+      "session_id": "ses_1bcf27d7cffeT3bbob6kADmuQe",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-05-20T01:44:47.318Z"
+    },
+    "todo:11": {
+      "task_key": "todo:11",
+      "task_label": "11",
+      "task_title": "Run full local verification and consolidate evidence",
+      "session_id": "ses_1bcf0d0acffeO57wWzrsUXKrwG",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-05-20T01:56:31.801Z"
+    },
+    "todo:12": {
+      "task_key": "todo:12",
+      "task_label": "12",
+      "task_title": "Commit all changes and leave git status clean after verifier PASS",
+      "session_id": "ses_1bca2030affeJ0kznSt9FmZj6A",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-05-20T03:21:10.339Z"
     }
   }
 }

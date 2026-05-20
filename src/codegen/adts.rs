@@ -258,8 +258,12 @@ fn codegen_intrinsic_member_access<'context>(
     }
 
     if matches!(binding.core_type, CoreType::Array(_)) && member_name == "length" {
-        let array_value =
-            load_array_payload_ptr_from_binding(codegen_context, env, receiver_name, binding.clone())?;
+        let array_value = load_array_payload_ptr_from_binding(
+            codegen_context,
+            env,
+            receiver_name,
+            binding.clone(),
+        )?;
         let length_value =
             load_array_length_from_value(codegen_context, env, array_value, receiver_name)?;
         return Ok(Some(length_value.as_basic_value_enum()));
@@ -267,7 +271,6 @@ fn codegen_intrinsic_member_access<'context>(
 
     Ok(None)
 }
-
 
 #[doc = "Lower match expressions to switch-based control flow."]
 #[expect(

@@ -22,6 +22,14 @@
 /* Initial capacity of the iterative drop work-list stack */
 #define OPAL_DROP_STACK_INIT 64
 
+typedef struct OpalRcTrackedAllocation {
+    size_t tracked_bytes;
+    OpalRcHeader header;
+} OpalRcTrackedAllocation;
+
+static size_t opal_runtime_live_bytes = 0;
+static size_t opal_runtime_peak_bytes = 0;
+
 /* -------------------------------------------------------------------------
  * Internal helpers
  * ---------------------------------------------------------------------- */
@@ -32,6 +40,37 @@
  */
 static OpalRcHeader *obj_to_header(void *obj) {
     return ((OpalRcHeader *)obj) - 1;
+}
+
+static const OpalRcHeader *obj_to_header_const(const void *obj) {
+    return ((const OpalRcHeader *)obj) - 1;
+}
+
+static OpalRcTrackedAllocation *header_to_allocation(OpalRcHeader *header) {
+    return (OpalRcTrackedAllocation *)((unsigned char *)header - offsetof(OpalRcTrackedAllocation, header));
+}
+
+static const OpalRcTrackedAllocation *header_to_allocation_const(const OpalRcHeader *header) {
+    return (const OpalRcTrackedAllocation *)((const unsigned char *)header - offsetof(OpalRcTrackedAllocation, header));
+}
+
+static size_t header_tracked_bytes(const OpalRcHeader *header) {
+    return header_to_allocation_const(header)->tracked_bytes;
+}
+
+static void opal_runtime_account_alloc(size_t tracked_bytes) {
+    opal_runtime_live_bytes += tracked_bytes;
+    if (opal_runtime_live_bytes > opal_runtime_peak_bytes) {
+        opal_runtime_peak_bytes = opal_runtime_live_bytes;
+    }
+}
+
+static void opal_runtime_account_free(size_t tracked_bytes) {
+    if (tracked_bytes >= opal_runtime_live_bytes) {
+        opal_runtime_live_bytes = 0;
+        return;
+    }
+    opal_runtime_live_bytes -= tracked_bytes;
 }
 
 static size_t opal_array_normalize_align(size_t elem_align) {
@@ -77,17 +116,32 @@ static const OpalArrayPayloadHeader *opal_array_header_const(const void *array) 
 
 void *opal_rc_alloc(size_t payload_size,
                     void (*drop_children_fn)(void *, void ***, size_t *, size_t *)) {
-    /* Allocate header + payload in one contiguous block */
-    OpalRcHeader *header = (OpalRcHeader *)malloc(sizeof(OpalRcHeader) + payload_size);
-    if (!header) return NULL;
+    size_t allocation_size = 0;
+    size_t tracked_bytes = 0;
+    OpalRcTrackedAllocation *allocation = NULL;
+    OpalRcHeader *header = NULL;
+    void *payload = NULL;
 
+    if (opal_size_add_overflow(sizeof(OpalRcTrackedAllocation), payload_size, &allocation_size)) {
+        return NULL;
+    }
+    if (opal_size_add_overflow(sizeof(OpalRcHeader), payload_size, &tracked_bytes)) {
+        return NULL;
+    }
+
+    allocation = (OpalRcTrackedAllocation *)malloc(allocation_size);
+    if (!allocation) return NULL;
+
+    allocation->tracked_bytes = tracked_bytes;
+    header = &allocation->header;
     header->refcount = 1;
     header->weak_count = 0;
     header->drop_children_fn = drop_children_fn;
 
     /* Zero-initialize the payload */
-    void *payload = (void *)(header + 1);
+    payload = (void *)(header + 1);
     memset(payload, 0, payload_size);
+    opal_runtime_account_alloc(tracked_bytes);
 
     return payload;
 }
@@ -103,6 +157,20 @@ void opal_rc_reuse(void *obj,
     header->drop_children_fn = new_drop_fn;
 
     memset(obj, 0, payload_size);
+}
+
+int opal_rc_is_unique(const void *obj) {
+    if (!obj) return 0;
+
+    const OpalRcHeader *header = obj_to_header_const(obj);
+    return header->refcount == 1 ? 1 : 0;
+}
+
+int opal_rc_is_reuse_eligible(const void *obj) {
+    if (!obj) return 0;
+
+    const OpalRcHeader *header = obj_to_header_const(obj);
+    return (header->refcount == 1 && header->weak_count == 0) ? 1 : 0;
 }
 
 void opal_rc_inc(void *obj) {
@@ -148,6 +216,19 @@ void opal_rc_drop_child(void *obj,
     (*stack)[(*stack_top)++] = obj;
 }
 
+void opal_runtime_reset_heap_accounting(void) {
+    opal_runtime_live_bytes = 0;
+    opal_runtime_peak_bytes = 0;
+}
+
+size_t opal_runtime_live_heap_bytes(void) {
+    return opal_runtime_live_bytes;
+}
+
+size_t opal_runtime_peak_heap_bytes(void) {
+    return opal_runtime_peak_bytes;
+}
+
 void opal_rc_drop_iterative(void *root_obj) {
     if (!root_obj) return;
 
@@ -159,7 +240,8 @@ void opal_rc_drop_iterative(void *root_obj) {
         /* Allocation failure: best-effort free of root only */
         OpalRcHeader *h = obj_to_header(root_obj);
         if (h->weak_count == 0) {
-            free(h);
+            opal_runtime_account_free(header_tracked_bytes(h));
+            free(header_to_allocation(h));
         }
         return;
     }
@@ -184,7 +266,8 @@ void opal_rc_drop_iterative(void *root_obj) {
         }
 
         if (header->weak_count == 0) {
-            free(header);
+            opal_runtime_account_free(header_tracked_bytes(header));
+            free(header_to_allocation(header));
         }
     }
 
@@ -287,6 +370,18 @@ void *opal_weak_upgrade(OpalWeakRef *weak) {
     return NULL;
 }
 
+#if defined(OPAL_ENABLE_INTERNAL_TESTING)
+size_t opal_rc_strong_count_for_test(const void *obj) {
+    if (!obj) return 0;
+    return obj_to_header_const(obj)->refcount;
+}
+
+size_t opal_rc_weak_count_for_test(const void *obj) {
+    if (!obj) return 0;
+    return obj_to_header_const(obj)->weak_count;
+}
+#endif
+
 void opal_weak_dec(OpalWeakRef *weak) {
     if (!weak) return;
 
@@ -296,7 +391,8 @@ void opal_weak_dec(OpalWeakRef *weak) {
             header->weak_count--;
         }
         if (header->refcount == 0 && header->weak_count == 0) {
-            free(header);
+            opal_runtime_account_free(header_tracked_bytes(header));
+            free(header_to_allocation(header));
         }
     }
 

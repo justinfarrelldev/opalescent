@@ -4,6 +4,7 @@
 
 #[doc = "ADT constructor, field-access, and match lowering support."]
 pub mod adts;
+pub mod binding_store;
 pub mod context;
 pub mod control_flow;
 pub mod error;

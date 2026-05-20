@@ -31,7 +31,6 @@ impl<'context> CodegenEnv<'context> {
         result
     }
 
-
     /// Push the active guard error slot for a guard else-scope.
     pub fn push_active_guard_error_slot(&mut self, error_slot: PointerValue<'context>) {
         self.active_guard_error_slots.push(error_slot);

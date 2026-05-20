@@ -616,8 +616,8 @@ macro_rules! foundational_file_write_symbols_vec {
 }
 
 /// Bytes plus foundational filesystem/path symbols extracted from the standard resolver table.
-pub(super) fn standard_symbols_bytes_and_foundational_filesystem(
-) -> Vec<(String, CoreType, SymbolType)> {
+pub(super) fn standard_symbols_bytes_and_foundational_filesystem()
+-> Vec<(String, CoreType, SymbolType)> {
     let mut symbols = bytes_symbols();
     symbols.extend(foundational_path_symbols());
     symbols.extend(foundational_file_read_symbols());

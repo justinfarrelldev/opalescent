@@ -1,120 +1,120 @@
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace:
 total 20
-drwxr-xr-x 4 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 5 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 2 justi justi 4096 May 18 06:36 dir with spaces
--rw-r--r-- 1 justi justi   81 May 18 06:36 final-summary.txt
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-0-long-name
+drwxr-xr-x 4 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 5 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 2 justi justi 4096 May 19 23:10 dir with spaces
+-rw-r--r-- 1 justi justi   81 May 19 23:10 final-summary.txt
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-0-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/dir with spaces:
 total 8
-drwxr-xr-x 2 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 4 justi justi 4096 May 18 06:36 ..
+drwxr-xr-x 2 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 4 justi justi 4096 May 19 23:10 ..
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 4 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-1-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 4 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-1-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-2-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-2-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-3-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-3-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-4-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-4-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-5-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-5-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-6-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-6-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-7-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-7-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name/segment-7-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-8-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-8-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name/segment-7-long-name/segment-8-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-9-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-9-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name/segment-7-long-name/segment-8-long-name/segment-9-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-10-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-10-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name/segment-7-long-name/segment-8-long-name/segment-9-long-name/segment-10-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-11-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-11-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name/segment-7-long-name/segment-8-long-name/segment-9-long-name/segment-10-long-name/segment-11-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-12-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-12-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name/segment-7-long-name/segment-8-long-name/segment-9-long-name/segment-10-long-name/segment-11-long-name/segment-12-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-13-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-13-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name/segment-7-long-name/segment-8-long-name/segment-9-long-name/segment-10-long-name/segment-11-long-name/segment-12-long-name/segment-13-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-14-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-14-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name/segment-7-long-name/segment-8-long-name/segment-9-long-name/segment-10-long-name/segment-11-long-name/segment-12-long-name/segment-13-long-name/segment-14-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-15-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-15-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name/segment-7-long-name/segment-8-long-name/segment-9-long-name/segment-10-long-name/segment-11-long-name/segment-12-long-name/segment-13-long-name/segment-14-long-name/segment-15-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 segment-16-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 segment-16-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name/segment-7-long-name/segment-8-long-name/segment-9-long-name/segment-10-long-name/segment-11-long-name/segment-12-long-name/segment-13-long-name/segment-14-long-name/segment-15-long-name/segment-16-long-name:
 total 12
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
-drwxr-xr-x 2 justi justi 4096 May 18 06:36 segment-17-long-name
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+drwxr-xr-x 2 justi justi 4096 May 19 23:10 segment-17-long-name
 
 /home/justi/Projects/opalescent/test-projects/windows-file-ops/workspace/segment-0-long-name/segment-1-long-name/segment-2-long-name/segment-3-long-name/segment-4-long-name/segment-5-long-name/segment-6-long-name/segment-7-long-name/segment-8-long-name/segment-9-long-name/segment-10-long-name/segment-11-long-name/segment-12-long-name/segment-13-long-name/segment-14-long-name/segment-15-long-name/segment-16-long-name/segment-17-long-name:
 total 12
-drwxr-xr-x 2 justi justi 4096 May 18 06:36 .
-drwxr-xr-x 3 justi justi 4096 May 18 06:36 ..
--rw-r--r-- 1 justi justi   13 May 18 06:36 deep-file-name-that-keeps-the-path-over-two-hundred-sixty-characters.txt
+drwxr-xr-x 2 justi justi 4096 May 19 23:10 .
+drwxr-xr-x 3 justi justi 4096 May 19 23:10 ..
+-rw-r--r-- 1 justi justi   13 May 19 23:10 deep-file-name-that-keeps-the-path-over-two-hundred-sixty-characters.txt

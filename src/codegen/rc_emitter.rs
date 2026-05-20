@@ -56,6 +56,42 @@ impl<'builder, 'context> RcEmitter<'builder, 'context> {
         Ok(())
     }
 
+    /// Emits a strong-uniqueness predicate call.
+    pub fn emit_is_unique(
+        &self,
+        ptr_value: PointerValue<'context>,
+    ) -> Result<IntValue<'context>, CodegenError> {
+        let function = self.declare_or_get_boolean_predicate("opal_rc_is_unique");
+        let casted = self.cast_to_i8_ptr(ptr_value, "rc.is_unique.cast")?;
+        let args: [BasicMetadataValueEnum<'context>; 1] = [casted.into()];
+        let call_site = self.builder.build_call(function, &args, "rc.is_unique")?;
+        let returned = call_site.try_as_basic_value().basic().ok_or_else(|| {
+            CodegenError::new(alloc::string::String::from(
+                "opal_rc_is_unique returned no value",
+            ))
+        })?;
+        Ok(returned.into_int_value())
+    }
+
+    /// Emits a reuse-eligibility predicate call.
+    pub fn emit_is_reuse_eligible(
+        &self,
+        ptr_value: PointerValue<'context>,
+    ) -> Result<IntValue<'context>, CodegenError> {
+        let function = self.declare_or_get_boolean_predicate("opal_rc_is_reuse_eligible");
+        let casted = self.cast_to_i8_ptr(ptr_value, "rc.is_reuse_eligible.cast")?;
+        let args: [BasicMetadataValueEnum<'context>; 1] = [casted.into()];
+        let call_site = self
+            .builder
+            .build_call(function, &args, "rc.is_reuse_eligible")?;
+        let returned = call_site.try_as_basic_value().basic().ok_or_else(|| {
+            CodegenError::new(alloc::string::String::from(
+                "opal_rc_is_reuse_eligible returned no value",
+            ))
+        })?;
+        Ok(returned.into_int_value())
+    }
+
     /// Create a weak reference from a strong RC payload pointer.
     pub fn emit_weak_alloc(
         &self,
@@ -166,6 +202,22 @@ impl<'builder, 'context> RcEmitter<'builder, 'context> {
         let fn_type = i8_ptr.fn_type(&[i64_type.into(), i8_ptr.into()], false);
         self.module
             .add_function("opal_rc_alloc", fn_type, Some(Linkage::External))
+    }
+
+    /// Declare or get an `int`-returning RC predicate function.
+    fn declare_or_get_boolean_predicate(
+        &self,
+        name: &str,
+    ) -> inkwell::values::FunctionValue<'context> {
+        if let Some(existing) = self.module.get_function(name) {
+            return existing;
+        }
+
+        let ctx = self.module.get_context();
+        let i8_ptr = ctx.i8_type().ptr_type(AddressSpace::default());
+        let fn_type = ctx.i32_type().fn_type(&[i8_ptr.into()], false);
+        self.module
+            .add_function(name, fn_type, Some(Linkage::External))
     }
 
     /// Declare or get the `opal_weak_alloc` function.

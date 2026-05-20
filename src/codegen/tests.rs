@@ -27,6 +27,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
+use inkwell::AddressSpace;
 use inkwell::context::Context;
 use inkwell::types::AnyType;
 use inkwell::values::AnyValue;
@@ -2318,16 +2319,70 @@ fn test_codegen_identifier_backed_indexed_assignment_emits_array_clone_and_rebin
         id: test_node_id(9_130),
     };
     let result = codegen_statement(&codegen_context, &mut env, &stmt);
-    assert!(result.is_ok(), "identifier-backed index assignment should codegen");
+    assert!(
+        result.is_ok(),
+        "identifier-backed index assignment should codegen"
+    );
 
     let ir = codegen_context.module.print_to_string().to_string();
     assert!(
-        ir.contains("@opal_array_alloc") && ir.contains("@opal_array_len") && ir.contains("@opal_array_cap"),
+        ir.contains("@opal_array_alloc")
+            && ir.contains("@opal_array_len")
+            && ir.contains("@opal_array_cap"),
         "indexed assignment should allocate a cloned payload and read payload len/cap: {ir}"
     );
     assert!(
         ir.contains("@opal_array_data") && ir.contains("@opal_array_bounds_error"),
         "indexed assignment should read payload data and emit bounds checks: {ir}"
+    );
+}
+
+#[test]
+fn test_rc_emitter_uniqueness_predicates_declare_runtime_helpers_once() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "rc_predicates_test");
+    let _function = create_codegen_function(&codegen_context, "rc_predicates_fn");
+
+    let i8_ptr_type = context.i8_type().ptr_type(AddressSpace::default());
+    let pointer_alloca = codegen_context
+        .builder
+        .build_alloca(i8_ptr_type, "rc_obj")
+        .expect("predicate test should allocate rc object storage");
+    let pointer_value = codegen_context
+        .builder
+        .build_load(pointer_alloca, "rc_obj.load")
+        .expect("predicate test should load rc object storage")
+        .into_pointer_value();
+    let emitter = crate::codegen::rc_emitter::RcEmitter::new(
+        &codegen_context.builder,
+        &codegen_context.module,
+    );
+
+    let unique_result = emitter.emit_is_unique(pointer_value);
+    assert!(
+        unique_result.is_ok(),
+        "unique predicate emission should succeed"
+    );
+    let reuse_result = emitter.emit_is_reuse_eligible(pointer_value);
+    assert!(
+        reuse_result.is_ok(),
+        "reuse-eligibility predicate emission should succeed"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("@opal_rc_is_unique") && ir.contains("@opal_rc_is_reuse_eligible"),
+        "RC predicate emission should declare both runtime helpers: {ir}"
+    );
+    assert_eq!(
+        ir.matches("@opal_rc_is_unique").count(),
+        2,
+        "unique helper should appear once as declaration and once as call site in IR: {ir}"
+    );
+    assert_eq!(
+        ir.matches("@opal_rc_is_reuse_eligible").count(),
+        2,
+        "reuse helper should appear once as declaration and once as call site in IR: {ir}"
     );
 }
 
@@ -2353,7 +2408,9 @@ fn test_codegen_assignment_non_identifier_target_error_message() {
     );
     let err_msg = result.unwrap_err().to_string();
     assert!(
-        err_msg.contains("assignment target must be an identifier or identifier-backed index expression"),
+        err_msg.contains(
+            "assignment target must be an identifier or identifier-backed index expression"
+        ),
         "error should mention identifier-only supported assignment targets, got: {err_msg}"
     );
     assert!(
@@ -3453,7 +3510,8 @@ entry main = f(): void errors FileNotFoundError, PermissionDeniedError, ReadFail
         "guard-bound read_lines lowering should store the computed array length into the local len binding: {ir}"
     );
     assert!(
-        ir.contains("call i64 @opal_array_len(i8* %lines.payload.cast."),
+        ir.contains("call i64 @opal_array_len(i8* %lines.payload.cast.")
+            || ir.contains("call i64 @opal_array_len(i8* %lines.array.load."),
         "guard-bound read_lines .length should lower to opal_array_len over the payload pointer: {ir}"
     );
 }

@@ -6,6 +6,7 @@
 extern crate alloc;
 
 use crate::ast::{Decl, ImportItem, Visibility};
+use crate::codegen::binding_store::initialize_binding_value;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding};
@@ -81,14 +82,7 @@ pub fn codegen_function_declaration<'context>(
 
     let parameter_types = parameter_core_types
         .iter()
-        .map(|core_type| match core_type {
-            CoreType::Array(element_type) => {
-                core_type_to_llvm(codegen_context.context, element_type)
-                    .ptr_type(AddressSpace::default())
-                    .into()
-            }
-            _ => core_type_to_llvm(codegen_context.context, core_type).into(),
-        })
+        .map(|core_type| core_type_to_llvm(codegen_context.context, core_type).into())
         .collect::<Vec<BasicMetadataTypeEnum<'context>>>();
     let function_type = build_function_type(
         codegen_context,
@@ -123,9 +117,9 @@ pub fn codegen_function_declaration<'context>(
     for (index, parameter) in parameters.iter().enumerate() {
         let Some(param_value) =
             function
-                .get_nth_param(u32::try_from(index).map_err(
-                    |conversion_error| CodegenError::new(format!("{conversion_error}")),
-                )?)
+                .get_nth_param(u32::try_from(index).map_err(|conversion_error| {
+                    CodegenError::new(format!("{conversion_error}"))
+                })?)
         else {
             return Err(CodegenError::new(String::from(
                 "missing function parameter",
@@ -134,7 +128,6 @@ pub fn codegen_function_declaration<'context>(
         let alloca = codegen_context
             .builder
             .build_alloca(param_value.get_type(), parameter.name.as_str())?;
-        let _store = codegen_context.builder.build_store(alloca, param_value)?;
         env.variables.insert(
             parameter.name.clone(),
             VariableBinding {
@@ -145,6 +138,14 @@ pub fn codegen_function_declaration<'context>(
                 is_mutable: false,
             },
         );
+        initialize_binding_value(
+            codegen_context,
+            env,
+            parameter.name.as_str(),
+            param_value,
+            "function.param.init",
+            false,
+        )?;
     }
 
     codegen_statement(codegen_context, env, body)?;
@@ -192,7 +193,10 @@ pub fn codegen_import_declaration<'context>(
             } => {
                 let local_name = alias.as_ref().unwrap_or(name).clone();
                 if source == "standard"
-                    && matches!(name.as_str(), "append" | "array_filled" | "reserve" | "clear")
+                    && matches!(
+                        name.as_str(),
+                        "append" | "array_filled" | "reserve" | "clear"
+                    )
                 {
                     env.imported_functions.insert(local_name, name.clone());
                     continue;

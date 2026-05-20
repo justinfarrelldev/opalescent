@@ -8,12 +8,14 @@
 
 extern crate alloc;
 
-use super::{FallibleExpressionContext, FallibleExpressionInfo, FallibleExpressionKind, TypeChecker};
+use super::{
+    FallibleExpressionContext, FallibleExpressionInfo, FallibleExpressionKind, TypeChecker,
+};
 use crate::ast::{AstNode, Expr, Type};
 use crate::token::Span;
 use crate::type_system::errors::TypeError;
 use crate::type_system::fallible_constructors::{
-    lookup_fallible_constructor, CanonicalTypeIdentity,
+    CanonicalTypeIdentity, lookup_fallible_constructor,
 };
 use crate::type_system::types::CoreType;
 use alloc::{format, string::String};
@@ -155,18 +157,20 @@ impl TypeChecker {
             FallibleExpressionContext::Propagate => self.context.in_propagate_context = true,
             FallibleExpressionContext::Guard => self.context.in_guard_subject_context = true,
         }
-        let call_result = self.type_check_call_expr(callee, generic_args, args, span, expr.node_id().0);
+        let call_result =
+            self.type_check_call_expr(callee, generic_args, args, span, expr.node_id().0);
         self.context.in_propagate_context = previous_propagate_context;
         self.context.in_guard_subject_context = previous_guard_subject_context;
         call_result?;
 
-        let success_type = return_types
-            .first()
-            .cloned()
-            .ok_or_else(|| TypeError::ConstraintSolvingFailed {
-                reason: "fallible call has no declared return type".to_owned(),
-                span: TypeError::span_from_span(expr.span()),
-            })?;
+        let success_type =
+            return_types
+                .first()
+                .cloned()
+                .ok_or_else(|| TypeError::ConstraintSolvingFailed {
+                    reason: "fallible call has no declared return type".to_owned(),
+                    span: TypeError::span_from_span(expr.span()),
+                })?;
 
         Ok(FallibleExpressionInfo {
             success_type,
@@ -185,7 +189,8 @@ impl TypeChecker {
         context: FallibleExpressionContext,
     ) -> Result<FallibleExpressionInfo, TypeError> {
         let resolved_constructor_type = self.resolve_constructor_target_type(callee, span)?;
-        let Some(identity) = CanonicalTypeIdentity::from_core_type(&resolved_constructor_type) else {
+        let Some(identity) = CanonicalTypeIdentity::from_core_type(&resolved_constructor_type)
+        else {
             return Err(Self::non_error_expression_type_error(context, span));
         };
 
@@ -247,7 +252,11 @@ impl TypeChecker {
         callee_span: Span,
     ) -> Result<CoreType, TypeError> {
         match callee {
-            Expr::Identifier { name, span: name_span, .. } => {
+            Expr::Identifier {
+                name,
+                span: name_span,
+                ..
+            } => {
                 if let Ok(core_type) = self.environment().lookup_type(name, *name_span) {
                     return Ok(core_type.clone());
                 }

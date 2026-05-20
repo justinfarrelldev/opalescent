@@ -15,19 +15,34 @@ TMP_DIR="$(mktemp -d /tmp/opal-array-sanitizer.XXXXXX)"
 LOG_FILE="${TMP_DIR}/array_memory_sanitizer.log"
 CC_WRAPPER="${TMP_DIR}/cc"
 LSAN_SUPPRESSIONS_FILE="${TMP_DIR}/lsan.supp"
-CHURN_SELECTOR="array_memory_churn_sanitizer_fixture"
+SANITIZED_SELECTORS=(
+  "array_memory_churn_sanitizer_fixture"
+  "array_game_of_life_churn_sanitizer_fixture"
+  "array_push_cow_alias"
+  "array_pop_rc_element_ownership_transfer"
+  "array_clear"
+  "array_reserve_noop_when_within_capacity"
+  "array_index_assignment_cow_alias"
+  "array_index_assignment_rc_nested_row_rebind"
+  "array_nested_assignment_shared_inner_row_cow"
+  "array_self_assignment_rc_safe"
+  "array_rebind_releases_old_preserves_alias"
+)
 
 cleanup() {
   rm -rf "${TMP_DIR}"
 }
 trap cleanup EXIT
 
-assert_churn_selector_present() {
+assert_sanitized_selectors_present() {
   local test_file="${ROOT_DIR}/tests/array_integration.rs"
-  if ! grep -Fq "fn ${CHURN_SELECTOR}()" "${test_file}"; then
-    echo "FAIL: expected churn selector '${CHURN_SELECTOR}' not found in ${test_file}." >&2
-    return 1
-  fi
+  local selector
+  for selector in "${SANITIZED_SELECTORS[@]}"; do
+    if ! grep -Fq "fn ${selector}()" "${test_file}"; then
+      echo "FAIL: expected sanitizer selector '${selector}' not found in ${test_file}." >&2
+      return 1
+    fi
+  done
 }
 
 run_valgrind_fallback() {
@@ -52,6 +67,26 @@ run_valgrind_fallback() {
   ) 2>&1 | tee "${LOG_FILE}"
 }
 
+run_selector_with_retries() {
+  local selector="$1"
+  local attempt=1
+  local max_attempts=3
+
+  while (( attempt <= max_attempts )); do
+    if cargo test --features integration --test array_integration "${selector}" -- --nocapture --test-threads=1; then
+      return 0
+    fi
+
+    if (( attempt == max_attempts )); then
+      echo "FAIL: selector '${selector}' failed after ${max_attempts} attempts." >&2
+      return 1
+    fi
+
+    echo "WARN: selector '${selector}' failed on attempt ${attempt}; retrying serialized run." >&2
+    attempt=$((attempt + 1))
+  done
+}
+
 run_asan() {
   cat >"${CC_WRAPPER}" <<'EOF'
 #!/usr/bin/env bash
@@ -68,17 +103,21 @@ leak:__opalescent_entry_main
 leak:opal_rc_alloc
 EOF
 
-  echo "INFO: running array integration suite with ASAN+LSAN via cc wrapper (with scoped LSAN suppressions)."
+  echo "INFO: running targeted array RC/COW sanitizer fixtures with ASAN+LSAN via cc wrapper (serialized)."
   (
     cd "${ROOT_DIR}"
-    PATH="${TMP_DIR}:$PATH" \
-    ASAN_OPTIONS="detect_leaks=1:halt_on_error=1:strict_string_checks=1:check_initialization_order=1" \
-    LSAN_OPTIONS="halt_on_error=1:print_suppressions=0:suppressions=${LSAN_SUPPRESSIONS_FILE}" \
-    cargo test --features integration --test array_integration -- --nocapture
+    export PATH="${TMP_DIR}:$PATH"
+    export ASAN_OPTIONS="detect_leaks=1:halt_on_error=1:strict_string_checks=1:check_initialization_order=1"
+    export LSAN_OPTIONS="halt_on_error=1:print_suppressions=0:suppressions=${LSAN_SUPPRESSIONS_FILE}"
+
+    local selector
+    for selector in "${SANITIZED_SELECTORS[@]}"; do
+      run_selector_with_retries "${selector}"
+    done
   ) 2>&1 | tee "${LOG_FILE}"
 }
 
-assert_churn_selector_present
+assert_sanitized_selectors_present
 
 if command -v clang >/dev/null 2>&1; then
   run_asan

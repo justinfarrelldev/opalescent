@@ -382,6 +382,7 @@ fn compile_and_run_array_rc_c_test(test_name: &str, source: &str) {
         .args([
             "-std=c11",
             "-D_POSIX_C_SOURCE=200809L",
+            "-DOPAL_ENABLE_INTERNAL_TESTING",
             "-Wall",
             "-Wextra",
             "-Werror",
@@ -522,6 +523,160 @@ int main(void) {
     }
 
     opal_rc_dec(array);
+    return 0;
+}
+"#,
+    );
+}
+
+#[test]
+fn opal_runtime_heap_accounting_tracks_array_liveness() {
+    compile_and_run_array_rc_c_test(
+        "opal_runtime_heap_accounting_tracks_array_liveness",
+        r#"
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "opal_rc.h"
+
+int main(void) {
+    size_t live_after_alloc = 0;
+    size_t peak_after_alloc = 0;
+    void *array = NULL;
+
+    opal_runtime_reset_heap_accounting();
+    if (opal_runtime_live_heap_bytes() != 0 || opal_runtime_peak_heap_bytes() != 0) {
+        fprintf(stderr, "heap accounting did not reset to zero\n");
+        return 1;
+    }
+
+    array = opal_array_alloc(sizeof(int32_t), _Alignof(int32_t), 4, 4, NULL);
+    if (array == NULL) {
+        fprintf(stderr, "array allocation returned null\n");
+        return 2;
+    }
+
+    live_after_alloc = opal_runtime_live_heap_bytes();
+    peak_after_alloc = opal_runtime_peak_heap_bytes();
+    if (live_after_alloc == 0) {
+        fprintf(stderr, "live heap bytes stayed at zero after allocation\n");
+        return 3;
+    }
+    if (peak_after_alloc < live_after_alloc) {
+        fprintf(stderr, "peak heap bytes should be at least live heap bytes\n");
+        return 4;
+    }
+
+    opal_rc_dec(array);
+    if (opal_runtime_live_heap_bytes() != 0) {
+        fprintf(stderr, "live heap bytes should return to zero after drop\n");
+        return 5;
+    }
+    if (opal_runtime_peak_heap_bytes() != peak_after_alloc) {
+        fprintf(stderr, "peak heap bytes should preserve the allocation high-water mark\n");
+        return 6;
+    }
+
+    return 0;
+}
+"#,
+    );
+}
+
+#[test]
+fn rc_uniqueness_strong_only() {
+    compile_and_run_array_rc_c_test(
+        "rc_uniqueness_strong_only",
+        r#"
+#include <stdio.h>
+#include <stdlib.h>
+#include "opal_rc.h"
+
+int main(void) {
+    void *obj = opal_rc_alloc(sizeof(int), NULL);
+    if (obj == NULL) {
+        fprintf(stderr, "allocation returned null\n");
+        return 1;
+    }
+    if (!opal_rc_is_unique(obj)) {
+        fprintf(stderr, "fresh allocation should report unique\n");
+        return 2;
+    }
+    if (!opal_rc_is_reuse_eligible(obj)) {
+        fprintf(stderr, "fresh allocation should be reuse eligible\n");
+        return 3;
+    }
+    if (opal_rc_strong_count_for_test(obj) != 1) {
+        fprintf(stderr, "expected strong count 1, got %zu\n", opal_rc_strong_count_for_test(obj));
+        return 4;
+    }
+    if (opal_rc_weak_count_for_test(obj) != 0) {
+        fprintf(stderr, "expected weak count 0, got %zu\n", opal_rc_weak_count_for_test(obj));
+        return 5;
+    }
+
+    opal_rc_dec(obj);
+    return 0;
+}
+"#,
+    );
+}
+
+#[test]
+fn rc_uniqueness_weak_blocks_reuse() {
+    compile_and_run_array_rc_c_test(
+        "rc_uniqueness_weak_blocks_reuse",
+        r#"
+#include <stdio.h>
+#include <stdlib.h>
+#include "opal_rc.h"
+
+int main(void) {
+    void *obj = opal_rc_alloc(sizeof(int), NULL);
+    OpalWeakRef *weak = NULL;
+    if (obj == NULL) {
+        fprintf(stderr, "allocation returned null\n");
+        return 1;
+    }
+
+    weak = opal_weak_alloc(obj);
+    if (weak == NULL) {
+        fprintf(stderr, "weak allocation returned null\n");
+        opal_rc_dec(obj);
+        return 2;
+    }
+    if (!opal_rc_is_unique(obj)) {
+        fprintf(stderr, "weak refs should not affect strong uniqueness\n");
+        opal_weak_dec(weak);
+        opal_rc_dec(obj);
+        return 3;
+    }
+    if (opal_rc_is_reuse_eligible(obj)) {
+        fprintf(stderr, "weak refs must block reuse eligibility\n");
+        opal_weak_dec(weak);
+        opal_rc_dec(obj);
+        return 4;
+    }
+    if (opal_rc_strong_count_for_test(obj) != 1) {
+        fprintf(stderr, "expected strong count 1, got %zu\n", opal_rc_strong_count_for_test(obj));
+        opal_weak_dec(weak);
+        opal_rc_dec(obj);
+        return 5;
+    }
+    if (opal_rc_weak_count_for_test(obj) != 1) {
+        fprintf(stderr, "expected weak count 1, got %zu\n", opal_rc_weak_count_for_test(obj));
+        opal_weak_dec(weak);
+        opal_rc_dec(obj);
+        return 6;
+    }
+
+    opal_rc_dec(obj);
+    if (opal_weak_upgrade(weak) != NULL) {
+        fprintf(stderr, "weak upgrade should fail after strong drop\n");
+        opal_weak_dec(weak);
+        return 7;
+    }
+    opal_weak_dec(weak);
     return 0;
 }
 "#,

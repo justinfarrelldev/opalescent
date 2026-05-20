@@ -10,6 +10,10 @@ use crate::ast::{Expr, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
+use crate::codegen::expressions_array::{
+    load_array_data_ptr_for_element_type, load_array_length_from_value,
+    materialize_runtime_array_from_raw_elements,
+};
 use crate::codegen::monomorphization::ensure_monomorphized_function_declaration;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
@@ -18,7 +22,9 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::AddressSpace;
 use inkwell::types::BasicMetadataTypeEnum;
-use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue};
+use inkwell::values::{
+    BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
+};
 
 #[path = "functions_call/array.rs"]
 mod array;
@@ -27,7 +33,9 @@ mod array;
 mod functions_call_helpers;
 #[path = "functions_call/tail.rs"]
 mod tail;
-use self::array::{codegen_array_intrinsic_call, codegen_array_member_call, is_array_intrinsic_name};
+use self::array::{
+    codegen_array_intrinsic_call, codegen_array_member_call, is_array_intrinsic_name,
+};
 use self::functions_call_helpers::{
     caller_returns_error_aggregate, current_function, emit_function_default_return,
     infer_guard_binding_core_type, uses_aggregate_result_dispatch,
@@ -62,6 +70,150 @@ pub fn emit_c_main_wrapper<'context>(
     tail::emit_c_main_wrapper(codegen_context, entry_function)
 }
 
+fn extract_error_abi_success_value<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    value: BasicValueEnum<'context>,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    if !value.is_struct_value() {
+        return Ok(value);
+    }
+    let struct_value = value.into_struct_value();
+    let field_count = struct_value.get_type().count_fields();
+    if field_count < 2 {
+        return Ok(value);
+    }
+
+    codegen_context
+        .builder
+        .build_extract_value(struct_value, 0, env.next_name("call.success").as_str())
+        .map_err(CodegenError::from)
+}
+
+fn lower_string_array_argument<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    argument: BasicValueEnum<'context>,
+) -> Result<(PointerValue<'context>, IntValue<'context>), CodegenError> {
+    if argument.is_struct_value() {
+        let struct_value = argument.into_struct_value();
+        let field_count = struct_value.get_type().count_fields();
+        if field_count >= 3 {
+            let raw_data = codegen_context
+                .builder
+                .build_extract_value(struct_value, 0, env.next_name("call.arg.raw").as_str())?
+                .into_pointer_value();
+            let length_value = codegen_context
+                .builder
+                .build_extract_value(struct_value, 1, env.next_name("call.arg.len").as_str())?
+                .into_int_value();
+            let array_payload = materialize_runtime_array_from_raw_elements(
+                codegen_context,
+                env,
+                raw_data,
+                length_value,
+                &CoreType::String,
+                "call.arg.materialized",
+            )?;
+            let data_ptr = load_array_data_ptr_for_element_type(
+                codegen_context,
+                env,
+                array_payload,
+                &CoreType::String,
+                "call.arg.materialized",
+            )?;
+            return Ok((data_ptr, length_value));
+        }
+    }
+
+    let argument_value = extract_error_abi_success_value(codegen_context, env, argument)?;
+    if !argument_value.is_pointer_value() {
+        return Err(CodegenError::new(String::from(
+            "string[] argument should lower to pointer value",
+        )));
+    }
+
+    let array_payload = argument_value.into_pointer_value();
+    let length_value =
+        load_array_length_from_value(codegen_context, env, array_payload, "call.arg")?;
+    let data_ptr = load_array_data_ptr_for_element_type(
+        codegen_context,
+        env,
+        array_payload,
+        &CoreType::String,
+        "call.arg",
+    )?;
+    Ok((data_ptr, length_value))
+}
+
+fn maybe_lower_specialized_string_array_call<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    callee: &Expr,
+    args: &[Expr],
+    lowered_args: &mut Vec<BasicMetadataValueEnum<'context>>,
+) -> Result<(), CodegenError> {
+    let Expr::Identifier { name, .. } = callee else {
+        return Ok(());
+    };
+
+    let runtime_name = env
+        .imported_functions
+        .get(name)
+        .cloned()
+        .unwrap_or_else(|| name.clone());
+    if runtime_name != "string_join"
+        && runtime_name != "join_path_components"
+        && runtime_name != "terminal_draw_rows_sync"
+    {
+        return Ok(());
+    }
+
+    if runtime_name == "terminal_draw_rows_sync" {
+        if args.len() < 2 {
+            return Ok(());
+        }
+        let rows_argument = codegen_expression(codegen_context, env, &args[1], None)?;
+        let (rows_ptr, rows_count) =
+            lower_string_array_argument(codegen_context, env, rows_argument)?;
+        lowered_args.clear();
+        let terminal_value = codegen_expression(codegen_context, env, &args[0], None)?;
+        lowered_args.push(terminal_value.into());
+        lowered_args.push(rows_ptr.into());
+        lowered_args.push(rows_count.into());
+        return Ok(());
+    }
+
+    if args.len() < 2 {
+        return Ok(());
+    }
+
+    if runtime_name == "join_path_components" {
+        let base_argument = codegen_expression(codegen_context, env, &args[0], None)?;
+        let components_argument = codegen_expression(codegen_context, env, &args[1], None)?;
+        let (components_ptr, components_count) =
+            lower_string_array_argument(codegen_context, env, components_argument)?;
+
+        lowered_args.clear();
+        lowered_args.push(base_argument.into());
+        lowered_args.push(components_ptr.into());
+        lowered_args.push(components_count.into());
+        return Ok(());
+    }
+
+    let array_argument = codegen_expression(codegen_context, env, &args[0], None)?;
+    let separator_argument = codegen_expression(codegen_context, env, &args[1], None)?;
+
+    let (array_ptr, length_value) =
+        lower_string_array_argument(codegen_context, env, array_argument)?;
+
+    lowered_args.clear();
+    lowered_args.push(array_ptr.into());
+    lowered_args.push(length_value.into());
+    lowered_args.push(separator_argument.into());
+    Ok(())
+}
+
 #[doc = "Lower a function call expression."]
 #[expect(
     clippy::too_many_lines,
@@ -86,9 +238,7 @@ pub fn codegen_call_expression<'context>(
                 name.clone()
             } else {
                 imported_name.ok_or_else(|| {
-                    CodegenError::new(format!(
-                        "missing imported intrinsic mapping for '{name}'"
-                    ))
+                    CodegenError::new(format!("missing imported intrinsic mapping for '{name}'"))
                 })?
             };
             return codegen_array_intrinsic_call(
@@ -132,6 +282,13 @@ pub fn codegen_call_expression<'context>(
         }
         lowered_args.push(lowered.into());
     }
+    maybe_lower_specialized_string_array_call(
+        codegen_context,
+        env,
+        callee,
+        args,
+        &mut lowered_args,
+    )?;
 
     if let Expr::Lambda {
         ref captured_variables,
@@ -449,6 +606,30 @@ pub fn codegen_propagate_expression<'context>(
                 .builder
                 .build_extract_value(struct_value, 0, env.next_name("propagate.ok").as_str())
                 .map_err(CodegenError::from)?;
+            if field_count >= 3 {
+                if let Some(CoreType::Array(element_core_type)) = expected_type {
+                    if success_value.is_pointer_value() {
+                        let length_value = codegen_context
+                            .builder
+                            .build_extract_value(
+                                struct_value,
+                                1,
+                                env.next_name("propagate.len").as_str(),
+                            )
+                            .map_err(CodegenError::from)?
+                            .into_int_value();
+                        let runtime_array = materialize_runtime_array_from_raw_elements(
+                            codegen_context,
+                            env,
+                            success_value.into_pointer_value(),
+                            length_value,
+                            element_core_type.as_ref(),
+                            "propagate.array",
+                        )?;
+                        return Ok(runtime_array.as_basic_value_enum());
+                    }
+                }
+            }
             return Ok(success_value);
         }
     }

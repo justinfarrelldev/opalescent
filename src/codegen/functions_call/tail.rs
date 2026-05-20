@@ -13,10 +13,12 @@ use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::type_mapping::{AstTypeMappingError, ast_type_to_core_type};
 use crate::type_system::types::CoreType;
+use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::AddressSpace;
+use inkwell::IntPredicate;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::{BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue};
 
@@ -174,29 +176,208 @@ pub fn ast_type_to_core_type_for_signature(ast_type: &Type) -> Result<CoreType, 
     })
 }
 
+fn declare_or_get_opal_array_alloc<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let i64_type = codegen_context.context.i64_type();
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    if let Some(function) = codegen_context.module.get_function("opal_array_alloc") {
+        return function;
+    }
+    let function_type = i8_ptr_type.fn_type(
+        &[
+            i64_type.into(),
+            i64_type.into(),
+            i64_type.into(),
+            i64_type.into(),
+            i8_ptr_type.into(),
+        ],
+        false,
+    );
+    codegen_context
+        .module
+        .add_function("opal_array_alloc", function_type, None)
+}
+
+fn declare_or_get_opal_array_data<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    let i64_type = codegen_context.context.i64_type();
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    if let Some(function) = codegen_context.module.get_function("opal_array_data") {
+        return function;
+    }
+    let function_type = i8_ptr_type.fn_type(&[i8_ptr_type.into(), i64_type.into()], false);
+    codegen_context
+        .module
+        .add_function("opal_array_data", function_type, None)
+}
+
+fn build_entry_string_array_arg<'context>(
+    codegen_context: &CodegenContext<'context>,
+    c_main: FunctionValue<'context>,
+    argc_param: IntValue<'context>,
+    argv_param: PointerValue<'context>,
+) -> Result<PointerValue<'context>, CodegenError> {
+    let i64_type = codegen_context.context.i64_type();
+    let i8_ptr_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let i8_ptr_ptr_type = i8_ptr_type.ptr_type(AddressSpace::default());
+
+    let argc_i64 =
+        codegen_context
+            .builder
+            .build_int_z_extend(argc_param, i64_type, "entry.args.argc.i64")?;
+
+    let alloc_fn = declare_or_get_opal_array_alloc(codegen_context);
+    let alloc_call = codegen_context.builder.build_call(
+        alloc_fn,
+        &[
+            i64_type.const_int(8, false).into(),
+            i64_type.const_int(8, false).into(),
+            argc_i64.into(),
+            argc_i64.into(),
+            i8_ptr_type.const_null().into(),
+        ],
+        "entry.args.alloc",
+    )?;
+    let array_payload = alloc_call
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("opal_array_alloc returned no value")))?
+        .into_pointer_value();
+
+    let data_fn = declare_or_get_opal_array_data(codegen_context);
+    let data_call = codegen_context.builder.build_call(
+        data_fn,
+        &[array_payload.into(), i64_type.const_int(8, false).into()],
+        "entry.args.data.raw",
+    )?;
+    let data_raw = data_call
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("opal_array_data returned no value")))?
+        .into_pointer_value();
+    let data_ptr =
+        codegen_context
+            .builder
+            .build_pointer_cast(data_raw, i8_ptr_ptr_type, "entry.args.data")?;
+
+    let index_alloca = codegen_context
+        .builder
+        .build_alloca(i64_type, "entry.args.i")?;
+    codegen_context
+        .builder
+        .build_store(index_alloca, i64_type.const_zero())?;
+
+    let loop_block = codegen_context
+        .context
+        .append_basic_block(c_main, "entry.args.loop");
+    let body_block = codegen_context
+        .context
+        .append_basic_block(c_main, "entry.args.body");
+    let done_block = codegen_context
+        .context
+        .append_basic_block(c_main, "entry.args.done");
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_block)?;
+
+    codegen_context.builder.position_at_end(loop_block);
+    let index_value = codegen_context
+        .builder
+        .build_load(index_alloca, "entry.args.i.load")?
+        .into_int_value();
+    let has_next = codegen_context.builder.build_int_compare(
+        IntPredicate::ULT,
+        index_value,
+        argc_i64,
+        "entry.args.has_next",
+    )?;
+    codegen_context
+        .builder
+        .build_conditional_branch(has_next, body_block, done_block)?;
+
+    codegen_context.builder.position_at_end(body_block);
+    let argv_slot = unsafe {
+        codegen_context.builder.build_in_bounds_gep(
+            argv_param,
+            &[index_value],
+            "entry.args.argv.slot",
+        )?
+    };
+    let argv_value = codegen_context
+        .builder
+        .build_load(argv_slot, "entry.args.argv.value")?
+        .into_pointer_value();
+    let data_slot = unsafe {
+        codegen_context.builder.build_in_bounds_gep(
+            data_ptr,
+            &[index_value],
+            "entry.args.data.slot",
+        )?
+    };
+    codegen_context.builder.build_store(data_slot, argv_value)?;
+
+    let next_index = codegen_context.builder.build_int_add(
+        index_value,
+        i64_type.const_int(1, false),
+        "entry.args.next",
+    )?;
+    codegen_context
+        .builder
+        .build_store(index_alloca, next_index)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(loop_block)?;
+
+    codegen_context.builder.position_at_end(done_block);
+    Ok(array_payload)
+}
+
 fn build_entry_call_args<'context>(
     codegen_context: &CodegenContext<'context>,
+    c_main: FunctionValue<'context>,
     entry_function: FunctionValue<'context>,
+    entry_param_core_types: &[CoreType],
     argc_param: IntValue<'context>,
     argv_param: PointerValue<'context>,
 ) -> Result<Vec<BasicMetadataValueEnum<'context>>, CodegenError> {
     let parameter_types = entry_function.get_type().get_param_types();
     let mut call_args: Vec<BasicMetadataValueEnum<'context>> =
         Vec::with_capacity(parameter_types.len());
-    let mut argv_forwarded = false;
 
-    for parameter_type in parameter_types {
+    let entry_args_array = if parameter_types.len() == 1
+        && entry_param_core_types.len() == 1
+        && matches!(entry_param_core_types[0], CoreType::Array(_))
+        && matches!(parameter_types[0], BasicMetadataTypeEnum::PointerType(_))
+    {
+        Some(build_entry_string_array_arg(
+            codegen_context,
+            c_main,
+            argc_param,
+            argv_param,
+        )?)
+    } else {
+        None
+    };
+
+    for (index, parameter_type) in parameter_types.iter().enumerate() {
         let argument = match parameter_type {
-            BasicMetadataTypeEnum::PointerType(pointer_type) if !argv_forwarded => {
-                argv_forwarded = true;
-                argv_param.const_cast(pointer_type).into()
-            }
-            BasicMetadataTypeEnum::IntType(int_type)
-                if argv_forwarded && int_type.get_bit_width() == 64 =>
+            BasicMetadataTypeEnum::PointerType(pointer_type)
+                if index == 0 && entry_args_array.is_some() =>
             {
-                codegen_context
-                    .builder
-                    .build_int_z_extend(argc_param, int_type, "entry.argc.i64")?
+                entry_args_array
+                    .expect("entry args array should exist")
+                    .const_cast(*pointer_type)
                     .into()
             }
             BasicMetadataTypeEnum::FloatType(float_type) => float_type.const_zero().into(),
@@ -326,7 +507,29 @@ pub fn emit_c_main_wrapper<'context>(
         .expect("main must have argv param")
         .into_pointer_value();
 
-    let call_args = build_entry_call_args(codegen_context, entry_function, argc_param, argv_param)?;
+    let mut entry_param_core_types = Vec::new();
+    for parameter in entry_function.get_params() {
+        let parameter_type = parameter.get_type();
+        let core_type = if parameter_type.is_pointer_type() {
+            CoreType::Array(Box::new(CoreType::String))
+        } else if parameter_type.is_int_type()
+            && parameter_type.into_int_type().get_bit_width() == 64
+        {
+            CoreType::Int64
+        } else {
+            CoreType::Unit
+        };
+        entry_param_core_types.push(core_type);
+    }
+
+    let call_args = build_entry_call_args(
+        codegen_context,
+        c_main,
+        entry_function,
+        &entry_param_core_types,
+        argc_param,
+        argv_param,
+    )?;
     let runtime_init_function = declare_runtime_init_function(codegen_context);
     let _runtime_init_call =
         codegen_context
