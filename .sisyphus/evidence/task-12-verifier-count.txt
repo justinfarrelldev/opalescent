@@ -1,3 +1,1 @@
-.sisyphus/verification/verifier-1.md:1
-.sisyphus/verification/verifier-2.md:1
-.sisyphus/verification/verifier-3.md:1
+3

@@ -561,7 +561,7 @@ Wave 6: Task 11 (full local verification), F1-F3 final verifiers in parallel, th
 
   **Commit**: NO | Message: n/a | Files: evidence staged later by Task 12
 
-- [ ] 12. Commit all changes and leave git status clean after verifier PASS
+- [x] 12. Commit all changes and leave git status clean after verifier PASS
 
   **What to do**: After F1-F3 all produce `STATUS: PASS`, inspect `git status --porcelain`, `.gitignore`, and `git diff` to ensure no ignored/generated junk is staged. Stage all intended tracked and untracked changes, including `.sisyphus/plans/array-cow-rc-game-of-life.md`, `.sisyphus/evidence/*`, and `.sisyphus/verification/verifier-*.md`. Commit as a single semantic commit with message `fix(array): add rc-safe cow reuse for game of life memory`. Verify clean status after commit.
   **Must NOT do**: Do not commit before all 3 verifier files pass. Do not commit `target/` or unrelated local/IDE files. Do not force-push. Do not skip hooks.
