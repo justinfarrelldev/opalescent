@@ -28,6 +28,10 @@ SANITIZED_SELECTORS=(
   "array_self_assignment_rc_safe"
   "array_rebind_releases_old_preserves_alias"
 )
+MEMORY_VERIFICATION_TESTS=(
+  "memory_model_counters"
+  "rc_counter_negative_fixture"
+)
 
 cleanup() {
   rm -rf "${TMP_DIR}"
@@ -117,6 +121,25 @@ EOF
   ) 2>&1 | tee "${LOG_FILE}"
 }
 
+run_memory_verification_test() {
+  local test_name="$1"
+
+  echo "INFO: running mandatory memory verification test '${test_name}'."
+  (
+    cd "${ROOT_DIR}"
+    cargo test --features integration --test integration_e2e "${test_name}" -- --nocapture --test-threads=1
+  )
+}
+
+run_memory_verification_hooks() {
+  echo "INFO: running mandatory T2 memory verification hooks."
+
+  local test_name
+  for test_name in "${MEMORY_VERIFICATION_TESTS[@]}"; do
+    run_memory_verification_test "${test_name}"
+  done
+}
+
 assert_sanitized_selectors_present
 
 if command -v clang >/dev/null 2>&1; then
@@ -131,5 +154,7 @@ for marker in "${SANITIZER_MARKERS[@]}"; do
     exit 1
   fi
 done
+
+run_memory_verification_hooks
 
 echo "PASS: array memory sanitizer regression completed with no sanitizer error markers."

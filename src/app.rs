@@ -221,6 +221,7 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
     Ok(())
 }
 
+/// Execute a compiled binary and retry transient ETXTBSY launch failures.
 fn execute_compiled_binary(binary_path: &Path, program_args: &[&str]) -> Result<ExitStatus, i32> {
     const ETXTBSY_RETRY_ATTEMPTS: usize = 5;
     const ETXTBSY_RETRY_DELAY: Duration = Duration::from_millis(50);
@@ -230,9 +231,9 @@ fn execute_compiled_binary(binary_path: &Path, program_args: &[&str]) -> Result<
             Ok(status) => return Ok(status),
             Err(error)
                 if error.kind() == ErrorKind::ExecutableFileBusy
-                    || error.raw_os_error() == Some(26) =>
+                    || error.raw_os_error() == Some(26_i32) =>
             {
-                if attempt + 1 == ETXTBSY_RETRY_ATTEMPTS {
+                if attempt == ETXTBSY_RETRY_ATTEMPTS.saturating_sub(1) {
                     eprintln!(
                         "error: failed to execute '{}': {error}",
                         binary_path.display()

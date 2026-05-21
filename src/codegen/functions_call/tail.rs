@@ -219,6 +219,10 @@ fn declare_or_get_opal_array_data<'context>(
         .add_function("opal_array_data", function_type, None)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "entry argv materialization requires explicit loop/lifetime control"
+)]
 fn build_entry_string_array_arg<'context>(
     codegen_context: &CodegenContext<'context>,
     c_main: FunctionValue<'context>,
@@ -307,6 +311,7 @@ fn build_entry_string_array_arg<'context>(
         .build_conditional_branch(has_next, body_block, done_block)?;
 
     codegen_context.builder.position_at_end(body_block);
+    // SAFETY: `index_value < argc_i64` from loop guard, so argv index is in bounds.
     let argv_slot = unsafe {
         codegen_context.builder.build_in_bounds_gep(
             argv_param,
@@ -318,6 +323,7 @@ fn build_entry_string_array_arg<'context>(
         .builder
         .build_load(argv_slot, "entry.args.argv.value")?
         .into_pointer_value();
+    // SAFETY: destination array is allocated with `argc_i64` length/capacity; index stays in bounds.
     let data_slot = unsafe {
         codegen_context.builder.build_in_bounds_gep(
             data_ptr,
@@ -355,29 +361,26 @@ fn build_entry_call_args<'context>(
     let mut call_args: Vec<BasicMetadataValueEnum<'context>> =
         Vec::with_capacity(parameter_types.len());
 
-    let entry_args_array = if parameter_types.len() == 1
+    let entry_args_array = (parameter_types.len() == 1
         && entry_param_core_types.len() == 1
         && matches!(entry_param_core_types[0], CoreType::Array(_))
-        && matches!(parameter_types[0], BasicMetadataTypeEnum::PointerType(_))
-    {
-        Some(build_entry_string_array_arg(
-            codegen_context,
-            c_main,
-            argc_param,
-            argv_param,
-        )?)
-    } else {
-        None
-    };
+        && matches!(parameter_types[0], BasicMetadataTypeEnum::PointerType(_)))
+    .then(|| build_entry_string_array_arg(
+        codegen_context,
+        c_main,
+        argc_param,
+        argv_param,
+    ))
+    .transpose()?;
 
     for (index, parameter_type) in parameter_types.iter().enumerate() {
-        let argument = match parameter_type {
+        let argument = match *parameter_type {
             BasicMetadataTypeEnum::PointerType(pointer_type)
                 if index == 0 && entry_args_array.is_some() =>
             {
                 entry_args_array
                     .expect("entry args array should exist")
-                    .const_cast(*pointer_type)
+                    .const_cast(pointer_type)
                     .into()
             }
             BasicMetadataTypeEnum::FloatType(float_type) => float_type.const_zero().into(),

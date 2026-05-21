@@ -22,6 +22,7 @@
  */
 
 #include "opal_portability.h"
+#include "opal_rc.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -51,12 +52,14 @@ static OpalBytes *opal_bytes_allocate(size_t length) {
     return NULL;
   }
   header->length = length;
+  opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_BYTES);
   if (length == 0) {
     header->data = NULL;
     return header;
   }
   header->data = (uint8_t *)malloc(length);
   if (header->data == NULL) {
+    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_BYTES);
     free(header);
     opal_runtime_error("out of memory: failed to allocate Bytes buffer");
     return NULL;
@@ -183,6 +186,7 @@ char *bytes_to_hex(OpalBytes *bytes) {
     opal_runtime_error("out of memory: failed to allocate hex encoding buffer");
     return NULL;
   }
+  opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
   for (size_t index = 0; index < bytes->length; ++index) {
     uint8_t byte = bytes->data[index];
     buffer[(index * 2) + 0] =
@@ -215,6 +219,7 @@ BytesResult bytes_from_hex(const char *hex) {
     uint8_t low_nibble = 0;
     if (!opal_bytes_hex_char_to_nibble(hex[pair_index * 2], &high_nibble)) {
       free(decoded->data);
+      opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_BYTES);
       free(decoded);
       result.error =
           "bytes_from_hex encountered an invalid hexadecimal character";
@@ -223,6 +228,7 @@ BytesResult bytes_from_hex(const char *hex) {
     if (!opal_bytes_hex_char_to_nibble(hex[(pair_index * 2) + 1],
                                        &low_nibble)) {
       free(decoded->data);
+      opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_BYTES);
       free(decoded);
       result.error =
           "bytes_from_hex encountered an invalid hexadecimal character";

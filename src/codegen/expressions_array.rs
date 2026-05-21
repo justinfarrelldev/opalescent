@@ -19,6 +19,7 @@ use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, codegen_expression, current_function};
 use crate::codegen::rc_emitter::RcEmitter;
 use crate::codegen::types::core_type_to_llvm;
+use crate::type_system::heap_class::{HeapClass, classify_core_type};
 use crate::type_system::types::CoreType;
 use alloc::boxed::Box;
 use alloc::format;
@@ -88,7 +89,7 @@ pub fn codegen_array_access<'context>(
         .builder
         .build_load(element_ptr, &env.next_name("array.load"))?;
 
-    let _ = expected_type;
+    let _: Option<&CoreType> = expected_type;
     Ok(loaded)
 }
 
@@ -325,19 +326,19 @@ fn codegen_indexed_array_assignment_for_array_value<'context>(
     codegen_context.builder.position_at_end(unique_block);
     let overwrite_slot =
         build_array_element_ptr(codegen_context, env, source_data_ptr, index_value)?;
-    let overwritten_value = if is_rc_bearing_element_type(element_core_type) {
-        Some(codegen_context.builder.build_load(
-            overwrite_slot,
-            &env.next_name(format!("{name_prefix}.unique.old.load").as_str()),
-        )?)
-    } else {
-        None
-    };
+    let overwritten_value_unique = is_rc_bearing_element_type(element_core_type)
+        .then(|| {
+            codegen_context.builder.build_load(
+                overwrite_slot,
+                &env.next_name(format!("{name_prefix}.unique.old.load").as_str()),
+            )
+        })
+        .transpose()?;
     retain_rc_value_if_needed(codegen_context, element_core_type, replacement_value)?;
     codegen_context
         .builder
         .build_store(overwrite_slot, replacement_value)?;
-    if let Some(overwritten_value) = overwritten_value {
+    if let Some(overwritten_value) = overwritten_value_unique {
         release_rc_value_if_needed(codegen_context, element_core_type, overwritten_value)?;
     }
     codegen_context
@@ -366,21 +367,21 @@ fn codegen_indexed_array_assignment_for_array_value<'context>(
         name_prefix,
     )?;
 
-    let overwrite_slot =
+    let shared_overwrite_slot =
         build_array_element_ptr(codegen_context, env, cloned_data_ptr, index_value)?;
-    let overwritten_value = if is_rc_bearing_element_type(element_core_type) {
-        Some(codegen_context.builder.build_load(
-            overwrite_slot,
-            &env.next_name(format!("{name_prefix}.shared.old.load").as_str()),
-        )?)
-    } else {
-        None
-    };
+    let overwritten_value_shared = is_rc_bearing_element_type(element_core_type)
+        .then(|| {
+            codegen_context.builder.build_load(
+                shared_overwrite_slot,
+                &env.next_name(format!("{name_prefix}.shared.old.load").as_str()),
+            )
+        })
+        .transpose()?;
     retain_rc_value_if_needed(codegen_context, element_core_type, replacement_value)?;
     codegen_context
         .builder
-        .build_store(overwrite_slot, replacement_value)?;
-    if let Some(overwritten_value) = overwritten_value {
+        .build_store(shared_overwrite_slot, replacement_value)?;
+    if let Some(overwritten_value) = overwritten_value_shared {
         release_rc_value_if_needed(codegen_context, element_core_type, overwritten_value)?;
     }
     if let Some(binding_alloca) = binding_alloca {
@@ -1282,14 +1283,40 @@ fn release_rc_value_if_needed<'context>(
     emitter.emit_dec(value.into_pointer_value())
 }
 
-pub(crate) const fn is_rc_bearing_element_type(element_core_type: &CoreType) -> bool {
-    matches!(
-        element_core_type,
-        CoreType::Array(_) | CoreType::Generic { .. }
-    )
+fn array_element_heap_class(element_core_type: &CoreType) -> HeapClass {
+    match classify_core_type(element_core_type) {
+        HeapClass::InlineValue if matches!(element_core_type, CoreType::Generic { .. }) => {
+            HeapClass::ReferenceCounted
+        }
+        heap_class => heap_class,
+    }
 }
 
-pub(crate) fn emit_array_bounds_check<'context>(
+pub(crate) fn is_rc_bearing_element_type(element_core_type: &CoreType) -> bool {
+    match array_element_heap_class(element_core_type) {
+        HeapClass::ReferenceCounted => matches!(element_core_type, CoreType::Array(_)),
+        HeapClass::CallerOwned | HeapClass::RuntimeManaged => true,
+        HeapClass::InlineValue => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate alloc;
+
+    use super::{classify_core_type, is_rc_bearing_element_type, HeapClass};
+    use crate::type_system::types::CoreType;
+    use self::alloc::boxed::Box;
+
+    #[test]
+    fn heap_class_array_children_preserves_string_representation_semantics() {
+        assert_eq!(classify_core_type(&CoreType::String), HeapClass::ReferenceCounted);
+        assert!(!is_rc_bearing_element_type(&CoreType::String));
+        assert!(is_rc_bearing_element_type(&CoreType::Array(Box::new(CoreType::String))));
+    }
+}
+
+fn emit_array_bounds_check<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     index_value: IntValue<'context>,

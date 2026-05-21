@@ -92,6 +92,10 @@ pub(super) fn codegen_append_call<'context>(
     Ok(result_ptr.as_basic_value_enum())
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "array intrinsic lowering keeps loop/control-flow in one place"
+)]
 fn codegen_array_filled_call<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -211,6 +215,10 @@ fn codegen_array_filled_call<'context>(
     Ok(result_array.as_basic_value_enum())
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "reserve lowering needs full unique/shared control-flow branch graph"
+)]
 fn codegen_array_reserve_call<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -277,7 +285,7 @@ fn codegen_array_reserve_call<'context>(
         &env.next_name("reserve.capacity.requested_not_greater"),
     )?;
 
-    if let Expr::Identifier { name, .. } = &args[0] {
+    if let &Expr::Identifier { ref name, .. } = &args[0] {
         if array_binding.is_mutable {
             let unique_and_greater = {
                 let unique = rc_predicate_is_true(
@@ -451,6 +459,10 @@ fn codegen_array_reserve_call<'context>(
     )?)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "clear lowering needs full unique/shared control-flow branch graph"
+)]
 fn codegen_array_clear_call<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -488,7 +500,7 @@ fn codegen_array_clear_call<'context>(
         }
     };
 
-    if let Expr::Identifier { name, .. } = &args[0] {
+    if let &Expr::Identifier { ref name, .. } = &args[0] {
         if array_binding.is_mutable {
             let is_unique = rc_predicate_is_true(
                 codegen_context,
@@ -676,6 +688,7 @@ fn lower_array_append_operation<'context>(
     // `append` stays logically pure here: it always allocates/copies and never mutates the receiver in place.
     // Compile-time last-use/destructive reuse, if we ever need it, is deferred to Task 10.
     // SAFETY: the copy step allocated `next_length` capacity and `array_length` is the append slot.
+    // SAFETY: `length_value < capacity_value` in this branch (`has_capacity`), so write index is in bounds.
     let appended_slot = unsafe {
         codegen_context.builder.build_in_bounds_gep(
             result_ptr,
@@ -697,6 +710,10 @@ fn lower_array_append_operation<'context>(
     Ok(result_array)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "push lowering has unique fast-path, grow-path, and shared fallback"
+)]
 fn codegen_array_push_call<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -829,6 +846,7 @@ fn codegen_array_push_call<'context>(
     )?;
 
     codegen_context.builder.position_at_end(unique_fast_block);
+    // SAFETY: `length_value < capacity_value` in this branch (`has_capacity`), so write index is in bounds.
     let appended_slot = unsafe {
         codegen_context.builder.build_in_bounds_gep(
             base_ptr,
@@ -883,6 +901,7 @@ fn codegen_array_push_call<'context>(
         grown_ptr,
         length_value,
     )?;
+    // SAFETY: grown buffer is allocated for `next_length`, so `length_value` write index is valid.
     let grown_slot = unsafe {
         codegen_context.builder.build_in_bounds_gep(
             grown_ptr,
@@ -932,6 +951,7 @@ fn codegen_array_push_call<'context>(
         fallback_ptr,
         length_value,
     )?;
+    // SAFETY: fallback buffer is allocated for `next_length`, so `length_value` write index is valid.
     let fallback_slot = unsafe {
         codegen_context.builder.build_in_bounds_gep(
             fallback_ptr,
@@ -969,6 +989,10 @@ fn codegen_array_push_call<'context>(
         .as_basic_value_enum())
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "pop lowering combines empty trap, unique fast path, and shared clone path"
+)]
 fn codegen_array_pop_call<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -1059,6 +1083,7 @@ fn codegen_array_pop_call<'context>(
         codegen_context.context.i64_type().const_int(1, false),
         &env.next_name("pop.len"),
     )?;
+    // SAFETY: `next_length = length - 1` after non-empty guard, so index is within previous live range.
     let popped_slot = unsafe {
         codegen_context.builder.build_in_bounds_gep(
             base_ptr,
@@ -1236,6 +1261,7 @@ fn release_array_live_elements_if_needed<'context>(
         .build_conditional_branch(should_continue, body_block, exit_block)?;
 
     codegen_context.builder.position_at_end(body_block);
+    // SAFETY: loop guard ensures `index_value < live_length`, so per-element slot index is in bounds.
     let slot_ptr = unsafe {
         codegen_context.builder.build_in_bounds_gep(
             base_ptr,
@@ -1265,6 +1291,10 @@ fn release_array_live_elements_if_needed<'context>(
     Ok(())
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "map lowering keeps callback invocation and output write loop together"
+)]
 fn codegen_array_map_call<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -1434,6 +1464,10 @@ fn codegen_array_map_call<'context>(
     Ok(result_array.as_basic_value_enum())
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "filter lowering requires nested keep/skip/write-index control flow"
+)]
 fn codegen_array_filter_call<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -1656,6 +1690,10 @@ fn codegen_array_filter_call<'context>(
     Ok(result_array.as_basic_value_enum())
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "reduce lowering keeps accumulator loop and callback invocation localized"
+)]
 fn codegen_array_reduce_call<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,

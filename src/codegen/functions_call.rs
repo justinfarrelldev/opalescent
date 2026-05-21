@@ -153,13 +153,13 @@ fn maybe_lower_specialized_string_array_call<'context>(
     args: &[Expr],
     lowered_args: &mut Vec<BasicMetadataValueEnum<'context>>,
 ) -> Result<(), CodegenError> {
-    let Expr::Identifier { name, .. } = callee else {
+    let &Expr::Identifier { ref name, .. } = callee else {
         return Ok(());
     };
 
     let runtime_name = env
         .imported_functions
-        .get(name)
+        .get(name.as_str())
         .cloned()
         .unwrap_or_else(|| name.clone());
     if runtime_name != "string_join"
@@ -607,7 +607,7 @@ pub fn codegen_propagate_expression<'context>(
                 .build_extract_value(struct_value, 0, env.next_name("propagate.ok").as_str())
                 .map_err(CodegenError::from)?;
             if field_count >= 3 {
-                if let Some(CoreType::Array(element_core_type)) = expected_type {
+                if let Some(&CoreType::Array(ref element_core_type)) = expected_type {
                     if success_value.is_pointer_value() {
                         let length_value = codegen_context
                             .builder

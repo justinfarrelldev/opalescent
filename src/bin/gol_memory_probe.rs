@@ -1,12 +1,17 @@
+//! Game-of-Life heap-accounting probe harness compiler/runner.
+
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Peak live-heap-bytes threshold enforced by this probe run.
 const PEAK_LIVE_BYTES_LIMIT: usize = 102_400;
+/// Allowed max spread between steady-state min/max live heap bytes.
 const STEADY_STATE_SPREAD_LIMIT: usize = 1_024;
 
+/// C harness template compiled and executed to sample runtime heap usage.
 const HARNESS_TEMPLATE: &str = r#"#include "opal_rc.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -195,25 +200,31 @@ int main(void) {
 }
 "#;
 
+/// Parsed CLI configuration for the memory probe harness.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct ProbeArgs {
+    /// Square board side length in cells.
     size: usize,
+    /// Number of simulation ticks to execute.
     ticks: usize,
+    /// Whether to print per-tick live-heap samples.
     report_per_tick: bool,
 }
 
-fn main() {
+fn main() -> std::process::ExitCode {
     match run() {
-        Ok(()) => {}
+        Ok(()) => std::process::ExitCode::SUCCESS,
         Err(message) => {
             eprintln!("error: {message}");
-            std::process::exit(1);
+            std::process::ExitCode::from(1)
         }
     }
 }
 
+/// Generate, compile, and execute the probe harness for requested settings.
 fn run() -> Result<(), String> {
-    let args = parse_args(env::args().skip(1).collect())?;
+    let collected_args: Vec<String> = env::args().skip(1).collect();
+    let args = parse_args(collected_args.as_slice())?;
     let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let output_dir = make_probe_output_dir(&workspace_root)?;
     let source_path = output_dir.join("gol_memory_probe_harness.c");
@@ -261,7 +272,8 @@ fn run() -> Result<(), String> {
     }
 }
 
-fn parse_args(args: Vec<String>) -> Result<ProbeArgs, String> {
+/// Parse probe CLI flags into [`ProbeArgs`].
+fn parse_args(args: &[String]) -> Result<ProbeArgs, String> {
     let mut size: Option<usize> = None;
     let mut ticks: Option<usize> = None;
     let mut report_per_tick = false;
@@ -270,22 +282,24 @@ fn parse_args(args: Vec<String>) -> Result<ProbeArgs, String> {
     while index < args.len() {
         match args[index].as_str() {
             "--size" => {
+                let value_index = index.saturating_add(1);
                 let value = args
-                    .get(index + 1)
+                    .get(value_index)
                     .ok_or_else(|| String::from("missing value for --size"))?;
                 size = Some(parse_positive_usize("size", value)?);
-                index += 2;
+                index = index.saturating_add(2);
             }
             "--ticks" => {
+                let value_index = index.saturating_add(1);
                 let value = args
-                    .get(index + 1)
+                    .get(value_index)
                     .ok_or_else(|| String::from("missing value for --ticks"))?;
                 ticks = Some(parse_positive_usize("ticks", value)?);
-                index += 2;
+                index = index.saturating_add(2);
             }
             "--report-per-tick" => {
                 report_per_tick = true;
-                index += 1;
+                index = index.saturating_add(1);
             }
             flag => {
                 return Err(format!("unknown argument: {flag}"));
@@ -302,16 +316,18 @@ fn parse_args(args: Vec<String>) -> Result<ProbeArgs, String> {
     })
 }
 
+/// Parse a strictly-positive usize argument with contextual error text.
 fn parse_positive_usize(name: &str, value: &str) -> Result<usize, String> {
     let parsed = value
         .parse::<usize>()
-        .map_err(|_| format!("{name} must be a positive integer"))?;
+        .map_err(|parse_error| format!("{name} must be a positive integer: {parse_error}"))?;
     if parsed == 0 {
         return Err(format!("{name} must be positive"));
     }
     Ok(parsed)
 }
 
+/// Create a unique output directory for generated probe artifacts.
 fn make_probe_output_dir(workspace_root: &Path) -> Result<PathBuf, String> {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -330,6 +346,7 @@ fn make_probe_output_dir(workspace_root: &Path) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+/// Compile the generated C harness against the runtime C sources.
 fn compile_c_harness(
     workspace_root: &Path,
     source_path: &Path,
@@ -372,14 +389,14 @@ mod tests {
 
     #[test]
     fn parse_args_accepts_required_probe_flags() {
-        let parsed = parse_args(vec![
+        let args = vec![
             String::from("--size"),
             String::from("100"),
             String::from("--ticks"),
             String::from("10"),
             String::from("--report-per-tick"),
-        ])
-        .expect("probe args should parse");
+        ];
+        let parsed = parse_args(args.as_slice()).expect("probe args should parse");
 
         assert_eq!(
             parsed,
@@ -393,13 +410,13 @@ mod tests {
 
     #[test]
     fn parse_args_rejects_zero_size_cleanly() {
-        let error = parse_args(vec![
+        let args = vec![
             String::from("--size"),
             String::from("0"),
             String::from("--ticks"),
             String::from("10"),
-        ])
-        .expect_err("zero size should be rejected");
+        ];
+        let error = parse_args(args.as_slice()).expect_err("zero size should be rejected");
 
         assert_eq!(error, String::from("size must be positive"));
     }

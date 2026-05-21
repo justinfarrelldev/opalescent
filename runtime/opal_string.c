@@ -1,4 +1,5 @@
 #include "opal_portability.h"
+#include "opal_rc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +10,7 @@ char* int8_to_string(int8_t value) {
     int len = snprintf(NULL, 0, "%d", (int)value);
     char* buf = (char*)malloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%d", (int)value);
     return buf;
 }
@@ -17,6 +19,7 @@ char* int16_to_string(int16_t value) {
     int len = snprintf(NULL, 0, "%d", (int)value);
     char* buf = (char*)malloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%d", (int)value);
     return buf;
 }
@@ -25,6 +28,7 @@ char* int32_to_string(int32_t value) {
     int len = snprintf(NULL, 0, "%d", value);
     char* buf = (char*)malloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%d", value);
     return buf;
 }
@@ -33,6 +37,7 @@ char* int64_to_string(int64_t value) {
     int len = snprintf(NULL, 0, "%" PRId64, value);
     char* buf = (char*)malloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%" PRId64, value);
     return buf;
 }
@@ -41,6 +46,7 @@ char* uint8_to_string(uint8_t value) {
     int len = snprintf(NULL, 0, "%u", (unsigned)value);
     char* buf = (char*)malloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%u", (unsigned)value);
     return buf;
 }
@@ -49,6 +55,7 @@ char* uint16_to_string(uint16_t value) {
     int len = snprintf(NULL, 0, "%u", (unsigned)value);
     char* buf = (char*)malloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%u", (unsigned)value);
     return buf;
 }
@@ -57,6 +64,7 @@ char* uint32_to_string(uint32_t value) {
     int len = snprintf(NULL, 0, "%u", value);
     char* buf = (char*)malloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%u", value);
     return buf;
 }
@@ -65,6 +73,7 @@ char* uint64_to_string(uint64_t value) {
     int len = snprintf(NULL, 0, "%" PRIu64, value);
     char* buf = (char*)malloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%" PRIu64, value);
     return buf;
 }
@@ -73,6 +82,7 @@ char* float32_to_string(float value) {
     int len = snprintf(NULL, 0, "%g", (double)value);
     char* buf = (char*)malloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%g", (double)value);
     return buf;
 }
@@ -81,6 +91,7 @@ char* float64_to_string(double value) {
     int len = snprintf(NULL, 0, "%g", value);
     char* buf = (char*)malloc(len + 1);
     if (!buf) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     snprintf(buf, len + 1, "%g", value);
     return buf;
 }
@@ -106,6 +117,7 @@ static int OPAL_STRING_BUILDERS_CLEANUP_REGISTERED = 0;
 static char* opal_string_duplicate_or_die(const char* source) {
     char* copy = opal_strdup(source ? source : "");
     if (!copy) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     return copy;
 }
 
@@ -114,8 +126,12 @@ static void opal_string_builder_cleanup_all(void) {
     while (node) {
         OpalStringBuilderNode* next = node->next;
         if (node->builder) {
-            free(node->builder->buffer);
-            node->builder->buffer = NULL;
+            if (node->builder->buffer) {
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
+                free(node->builder->buffer);
+                node->builder->buffer = NULL;
+            }
+            opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_BUILDERS);
             free(node->builder);
         }
         free(node);
@@ -209,6 +225,7 @@ char* string_join(const char** values, int64_t count, const char* separator) {
 
     char* result = (char*)malloc(total_length + 1u);
     if (!result) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
 
     size_t offset = 0;
     for (int64_t index = 0; index < count; index++) {
@@ -228,6 +245,7 @@ char* string_join(const char** values, int64_t count, const char* separator) {
 OpalStringBuilder* string_builder_new(void) {
     OpalStringBuilder* builder = (OpalStringBuilder*)calloc(1u, sizeof(OpalStringBuilder));
     if (!builder) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_BUILDERS);
     builder->buffer = opal_string_duplicate_or_die("");
     builder->capacity = 1u;
     builder->length = 0u;
@@ -261,8 +279,11 @@ StringBuilderStringResult string_builder_finish(OpalStringBuilder* builder) {
 
     char* result = opal_string_duplicate_or_die(builder->buffer ? builder->buffer : "");
     builder->finished = 1;
-    free(builder->buffer);
-    builder->buffer = NULL;
+    if (builder->buffer) {
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
+        free(builder->buffer);
+        builder->buffer = NULL;
+    }
     builder->length = 0u;
     builder->capacity = 0u;
     return (StringBuilderStringResult){ result, NULL };

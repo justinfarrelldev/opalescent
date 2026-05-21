@@ -81,6 +81,7 @@ mod constraints;
 mod environment;
 pub mod errors;
 pub mod fallible_constructors;
+pub mod heap_class;
 mod memory;
 /// Import/export resolver and module dependency graph implementation.
 mod module_resolver;

@@ -14,6 +14,7 @@
 #ifndef OPAL_FS_ERRORS_H
 #define OPAL_FS_ERRORS_H
 
+#include "opal_rc.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -55,6 +56,7 @@ static inline char* opal_fs_format_err(const char* prefix, const char* detail) {
     
     char* result = (char*)malloc(total_len);
     if (!result) return NULL;
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_ERROR_PAYLOADS);
     
     snprintf(result, total_len, "%s: %s", prefix, detail);
     return result;

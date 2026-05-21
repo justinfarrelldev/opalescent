@@ -26,9 +26,10 @@ impl<'core_type> CanonicalTypeIdentity<'core_type> {
     #[must_use]
     pub fn from_core_type(core_type: &'core_type CoreType) -> Option<Self> {
         match core_type {
-            CoreType::Generic { name, type_args } if type_args.is_empty() => {
-                Some(Self::new(name.as_str()))
-            }
+            &CoreType::Generic {
+                ref name,
+                ref type_args,
+            } if type_args.is_empty() => Some(Self::new(name.as_str())),
             _ => None,
         }
     }

@@ -354,11 +354,9 @@ fn codegen_assignment<'context>(
                     "cannot assign to immutable variable: {name}"
                 )));
             }
-            let binding_alloca = binding_snapshot.alloca;
             let binding_type = binding_snapshot.core_type.clone();
 
             let rhs_value = codegen_expression(codegen_context, env, value, Some(&binding_type))?;
-            let _ = binding_alloca;
             store_binding_overwrite_rc_safe(
                 codegen_context,
                 env,

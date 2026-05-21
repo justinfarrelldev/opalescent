@@ -84,7 +84,6 @@ pub(super) fn store_array_binding<'context>(
         )));
     }
 
-    let _ = binding_snapshot;
     store_binding_overwrite_rc_safe(
         codegen_context,
         env,
@@ -208,10 +207,6 @@ pub(super) fn resolve_array_identifier_binding<'context>(
     ))
 }
 
-#[allow(
-    dead_code,
-    reason = "Task 3 establishes the helper ABI before Task 4+ consumes it"
-)]
 pub(super) fn rc_object_is_unique<'context>(
     codegen_context: &CodegenContext<'context>,
     obj: PointerValue<'context>,
@@ -220,10 +215,6 @@ pub(super) fn rc_object_is_unique<'context>(
     emitter.emit_is_unique(obj)
 }
 
-#[allow(
-    dead_code,
-    reason = "Task 3 establishes the helper ABI before Task 4+ consumes it"
-)]
 pub(super) fn rc_object_is_reuse_eligible<'context>(
     codegen_context: &CodegenContext<'context>,
     obj: PointerValue<'context>,

@@ -28,6 +28,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if !defined(OPAL_RC_DEBUG_NOTES_IMPLEMENTED) && (defined(__GNUC__) || defined(__clang__))
+__attribute__((weak)) void opal_rc_debug_note_alloc(OpalRcDebugCounterKind kind) {
+    (void)kind;
+}
+
+__attribute__((weak)) void opal_rc_debug_note_free(OpalRcDebugCounterKind kind) {
+    (void)kind;
+}
+#endif
+
 #ifndef OPAL_BYTES_TYPE_DEFINED
 typedef struct OpalBytes {
     size_t length;
@@ -65,7 +75,11 @@ typedef struct { void*      value; const char* error; } FsPermissionsResult;
 /* Windows directory iteration shims are defined in opal_portability.h. */
 
 static char* safe_strdup(const char* value) {
-    return opal_strdup(value ? value : "");
+    char* copy = opal_strdup(value ? value : "");
+    if (copy) {
+        opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    }
+    return copy;
 }
 
 static char* errno_to_fs_error(int err, const char* op_prefix);
@@ -185,6 +199,7 @@ static char* opal_strdup_slice(const char* start, size_t length) {
     if (!copy) {
         return NULL;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
     if (length > 0) {
         memcpy(copy, start, length);
     }
@@ -215,6 +230,7 @@ static char* opal_strdup_root_preserving_style(const char* path, const opal_path
         if (!value) {
             return NULL;
         }
+        opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
 
         size_t position = 0;
         value[position++] = sep;
@@ -293,6 +309,7 @@ static size_t opal_append_normalized_root(char* output, const char* path, const 
 static void free_path_segments(char** segments, int64_t count) {
     if (!segments) return;
     for (int64_t i = 0; i < count; i++) {
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
         free(segments[i]);
     }
 }
@@ -300,6 +317,7 @@ static void free_path_segments(char** segments, int64_t count) {
 static void free_string_array_elements(char** values, size_t count) {
     if (!values) return;
     for (size_t i = 0; i < count; i++) {
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
         free(values[i]);
     }
 }
@@ -404,12 +422,14 @@ static FsVoidResult write_contents_atomic_bytes_sync(const char* path, const uin
         r.error = fs_out_of_memory_error("WriteFailureError", "WriteFailureError: out of memory");
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
 
     memcpy(tmp_path, path, path_len);
     memcpy(tmp_path + path_len, suffix, suffix_len + 1);
 
     if (opal_create_temp_file(tmp_path, path_len + suffix_len + 1) != 0) {
         if (strcmp(tmp_path, path) == 0) {
+            opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
             free(tmp_path);
             r.error = opal_fs_format_err("WriteFailureError", "temporary path collision");
             if (!r.error) {
@@ -418,6 +438,7 @@ static FsVoidResult write_contents_atomic_bytes_sync(const char* path, const uin
             return r;
         }
         int temp_errno = errno ? errno : EIO;
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
         free(tmp_path);
         r.error = errno_to_fs_error(temp_errno, "WriteFailureError");
         return r;
@@ -425,6 +446,7 @@ static FsVoidResult write_contents_atomic_bytes_sync(const char* path, const uin
 
     if (fs_write_via_mode(tmp_path, bytes, length, "wb", "WriteFailureError", &r) != 0) {
         opal_unlink(tmp_path);
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
         free(tmp_path);
         return r;
     }
@@ -432,11 +454,13 @@ static FsVoidResult write_contents_atomic_bytes_sync(const char* path, const uin
     if (opal_replace_path(tmp_path, path) != 0) {
         int rename_errno = errno ? errno : EIO;
         opal_unlink(tmp_path);
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
         free(tmp_path);
         r.error = errno_to_fs_error(rename_errno, "WriteFailureError");
         return r;
     }
 
+    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
     free(tmp_path);
     return r;
 }
@@ -491,6 +515,7 @@ static int remove_directory_recursive_inner(const char* path, FsVoidResult* out)
             out->error = fs_out_of_memory_error("DeleteFailureError", "DeleteFailureError: out of memory");
             return -1;
         }
+        opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
 
         memcpy(child_path, path, path_len);
         size_t child_len = path_len;
@@ -502,6 +527,7 @@ static int remove_directory_recursive_inner(const char* path, FsVoidResult* out)
         struct opal_stat_result child_stat;
         if (opal_stat_nofollow(child_path, &child_stat) != 0) {
             int stat_errno = errno;
+            opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
             free(child_path);
             opal_closedir(dir);
             out->error = errno_to_fs_error(stat_errno, "DeleteFailureError");
@@ -510,12 +536,14 @@ static int remove_directory_recursive_inner(const char* path, FsVoidResult* out)
 
         if (child_stat.is_directory && !child_stat.is_symlink) {
             if (remove_directory_recursive_inner(child_path, out) != 0) {
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
                 free(child_path);
                 opal_closedir(dir);
                 return -1;
             }
         } else if (opal_unlink(child_path) != 0) {
             int unlink_errno = errno;
+            opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
             free(child_path);
             opal_closedir(dir);
             out->error = errno_to_fs_error(unlink_errno, "DeleteFailureError");
@@ -900,12 +928,14 @@ FsBytesResult read_contents_sync(const char* path) {
         }
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
 
     size_t length = 0;
     for (;;) {
         if (length == capacity) {
             size_t new_capacity = capacity <= (SIZE_MAX / 2) ? capacity * 2 : SIZE_MAX;
             if (new_capacity <= capacity) {
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
                 free(buffer);
                 fclose(file);
                 r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "file too large");
@@ -917,6 +947,7 @@ FsBytesResult read_contents_sync(const char* path) {
 
             unsigned char* grown = (unsigned char*)realloc(buffer, new_capacity);
             if (!grown) {
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
                 free(buffer);
                 fclose(file);
                 r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "out of memory");
@@ -935,6 +966,7 @@ FsBytesResult read_contents_sync(const char* path) {
         if (read_now == 0) {
             if (ferror(file)) {
                 int read_errno = errno ? errno : EIO;
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
                 free(buffer);
                 fclose(file);
                 r.error = errno_to_fs_error(read_errno, OPAL_FS_ERR_IO);
@@ -946,6 +978,7 @@ FsBytesResult read_contents_sync(const char* path) {
 
     if (fclose(file) != 0) {
         int close_errno = errno ? errno : EIO;
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
         free(buffer);
         r.error = errno_to_fs_error(close_errno, OPAL_FS_ERR_IO);
         return r;
@@ -953,6 +986,7 @@ FsBytesResult read_contents_sync(const char* path) {
 
     OpalBytes* bytes = (OpalBytes*)malloc(sizeof(OpalBytes));
     if (!bytes) {
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
         free(buffer);
         r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "out of memory");
         if (!r.error) {
@@ -960,12 +994,15 @@ FsBytesResult read_contents_sync(const char* path) {
         }
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_BYTES);
 
     bytes->length = length;
     if (length == 0) {
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
         free(buffer);
         bytes->data = NULL;
     } else {
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
         bytes->data = buffer;
     }
 
@@ -1165,12 +1202,14 @@ FsStringResult read_text_sync(const char* path) {
         }
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
 
     size_t length = 0;
     for (;;) {
         if (length == capacity) {
             size_t new_capacity = capacity <= (SIZE_MAX / 2) ? capacity * 2 : SIZE_MAX;
             if (new_capacity <= capacity || new_capacity > SIZE_MAX - 1) {
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
                 free(buffer);
                 fclose(file);
                 r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "file too large");
@@ -1182,6 +1221,7 @@ FsStringResult read_text_sync(const char* path) {
 
             char* grown = (char*)realloc(buffer, new_capacity + 1);
             if (!grown) {
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
                 free(buffer);
                 fclose(file);
                 r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "out of memory");
@@ -1200,6 +1240,7 @@ FsStringResult read_text_sync(const char* path) {
         if (read_now == 0) {
             if (ferror(file)) {
                 int read_errno = errno ? errno : EIO;
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
                 free(buffer);
                 fclose(file);
                 r.error = errno_to_fs_error(read_errno, OPAL_FS_ERR_IO);
@@ -1211,6 +1252,7 @@ FsStringResult read_text_sync(const char* path) {
 
     if (fclose(file) != 0) {
         int close_errno = errno ? errno : EIO;
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(buffer);
         r.error = errno_to_fs_error(close_errno, OPAL_FS_ERR_IO);
         return r;
@@ -1222,6 +1264,7 @@ FsStringResult read_text_sync(const char* path) {
     if (!opal_validate_utf8((const unsigned char*)buffer, length, &invalid_offset)) {
         char detail[32];
         snprintf(detail, sizeof(detail), "%zu", invalid_offset);
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(buffer);
         r.error = opal_fs_format_err(OPAL_FS_ERR_INVALID_UTF8, detail);
         if (!r.error) {
@@ -1277,6 +1320,7 @@ FsStringResult read_first_line_sync(const char* path) {
         }
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
 
     size_t length = 0;
     int saw_newline = 0;
@@ -1284,12 +1328,14 @@ FsStringResult read_first_line_sync(const char* path) {
     if (first_char == EOF) {
         if (ferror(file)) {
             int read_errno = errno ? errno : EIO;
+            opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
             free(buffer);
             fclose(file);
             r.error = errno_to_fs_error(read_errno, OPAL_FS_ERR_IO);
             return r;
         }
 
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(buffer);
         if (fclose(file) != 0) {
             int close_errno = errno ? errno : EIO;
@@ -1314,6 +1360,7 @@ FsStringResult read_first_line_sync(const char* path) {
         if (length == capacity) {
             size_t doubled = capacity * 2;
             if (doubled > 16 * 1024 * 1024) {
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
                 free(buffer);
                 fclose(file);
                 r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "first line exceeds 16MB limit");
@@ -1325,6 +1372,7 @@ FsStringResult read_first_line_sync(const char* path) {
 
             char* grown = (char*)realloc(buffer, doubled + 1);
             if (!grown) {
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
                 free(buffer);
                 fclose(file);
                 r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "out of memory");
@@ -1343,6 +1391,7 @@ FsStringResult read_first_line_sync(const char* path) {
 
     if (!saw_newline && current == EOF && ferror(file)) {
         int read_errno = errno ? errno : EIO;
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(buffer);
         fclose(file);
         r.error = errno_to_fs_error(read_errno, OPAL_FS_ERR_IO);
@@ -1351,6 +1400,7 @@ FsStringResult read_first_line_sync(const char* path) {
 
     if (fclose(file) != 0) {
         int close_errno = errno ? errno : EIO;
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(buffer);
         r.error = errno_to_fs_error(close_errno, OPAL_FS_ERR_IO);
         return r;
@@ -1366,6 +1416,7 @@ FsStringResult read_first_line_sync(const char* path) {
     if (!opal_validate_utf8((const unsigned char*)buffer, length, &invalid_offset)) {
         char detail[32];
         snprintf(detail, sizeof(detail), "%zu", invalid_offset);
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(buffer);
         r.error = opal_fs_format_err(OPAL_FS_ERR_INVALID_UTF8, detail);
         if (!r.error) {
@@ -1422,12 +1473,14 @@ FsStringArrayResult read_lines_sync(const char* path) {
         }
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
 
     size_t length = 0;
     for (;;) {
         if (length == capacity) {
             size_t new_capacity = capacity <= (SIZE_MAX / 2) ? capacity * 2 : SIZE_MAX;
             if (new_capacity <= capacity || new_capacity > SIZE_MAX - 1) {
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
                 free(buffer);
                 fclose(file);
                 r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "file too large");
@@ -1439,6 +1492,7 @@ FsStringArrayResult read_lines_sync(const char* path) {
 
             char* grown = (char*)realloc(buffer, new_capacity + 1);
             if (!grown) {
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
                 free(buffer);
                 fclose(file);
                 r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "out of memory");
@@ -1457,6 +1511,7 @@ FsStringArrayResult read_lines_sync(const char* path) {
         if (read_now == 0) {
             if (ferror(file)) {
                 int read_errno = errno ? errno : EIO;
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
                 free(buffer);
                 fclose(file);
                 r.error = errno_to_fs_error(read_errno, OPAL_FS_ERR_IO);
@@ -1468,6 +1523,7 @@ FsStringArrayResult read_lines_sync(const char* path) {
 
     if (fclose(file) != 0) {
         int close_errno = errno ? errno : EIO;
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(buffer);
         r.error = errno_to_fs_error(close_errno, OPAL_FS_ERR_IO);
         return r;
@@ -1479,6 +1535,7 @@ FsStringArrayResult read_lines_sync(const char* path) {
     if (!opal_validate_utf8((const unsigned char*)buffer, length, &invalid_offset)) {
         char detail[32];
         snprintf(detail, sizeof(detail), "%zu", invalid_offset);
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(buffer);
         r.error = opal_fs_format_err(OPAL_FS_ERR_INVALID_UTF8, detail);
         if (!r.error) {
@@ -1489,6 +1546,7 @@ FsStringArrayResult read_lines_sync(const char* path) {
 
     char* normalized = (char*)malloc(length + 1);
     if (!normalized) {
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(buffer);
         r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "out of memory");
         if (!r.error) {
@@ -1505,9 +1563,12 @@ FsStringArrayResult read_lines_sync(const char* path) {
         normalized[normalized_len++] = buffer[i];
     }
     normalized[normalized_len] = '\0';
+    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
     free(buffer);
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
 
     if (normalized_len == 0) {
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(normalized);
         return r;
     }
@@ -1525,11 +1586,13 @@ FsStringArrayResult read_lines_sync(const char* path) {
     }
 
     if (line_count == 0) {
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(normalized);
         return r;
     }
 
     if (line_count > (size_t)INT64_MAX) {
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(normalized);
         r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "too many lines");
         if (!r.error) {
@@ -1540,6 +1603,7 @@ FsStringArrayResult read_lines_sync(const char* path) {
 
     char** lines = (char**)calloc(line_count, sizeof(char*));
     if (!lines) {
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
         free(normalized);
         r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "out of memory");
         if (!r.error) {
@@ -1547,6 +1611,7 @@ FsStringArrayResult read_lines_sync(const char* path) {
         }
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
 
     size_t line_index = 0;
     size_t start = 0;
@@ -1564,7 +1629,9 @@ FsStringArrayResult read_lines_sync(const char* path) {
         char* line = (char*)malloc(line_len + 1);
         if (!line) {
             free_string_array_elements(lines, line_index);
+            opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
             free(lines);
+            opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
             free(normalized);
             r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "out of memory");
             if (!r.error) {
@@ -1572,6 +1639,7 @@ FsStringArrayResult read_lines_sync(const char* path) {
             }
             return r;
         }
+        opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
 
         if (line_len > 0) {
             memcpy(line, normalized + start, line_len);
@@ -1582,6 +1650,7 @@ FsStringArrayResult read_lines_sync(const char* path) {
         start = i + 1;
     }
 
+    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
     free(normalized);
     r.value = lines;
     r.count = (int64_t)line_index;
@@ -1650,12 +1719,14 @@ FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_
         r.error = fs_out_of_memory_error(OPAL_FS_ERR_IO, "ReadFailureError: out of memory");
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_BYTES);
 
     bytes->length = (size_t)length;
     bytes->data = NULL;
     if (length > 0) {
         bytes->data = (uint8_t*)malloc((size_t)length);
         if (!bytes->data) {
+            opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_BYTES);
             free(bytes);
             fclose(file);
             r.error = fs_out_of_memory_error(OPAL_FS_ERR_IO, "ReadFailureError: out of memory");
@@ -1669,12 +1740,14 @@ FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_
                 if (ferror(file)) {
                     int read_errno = errno ? errno : EIO;
                     free(bytes->data);
+                    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_BYTES);
                     free(bytes);
                     fclose(file);
                     r.error = errno_to_fs_error(read_errno, OPAL_FS_ERR_IO);
                     return r;
                 }
                 free(bytes->data);
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_BYTES);
                 free(bytes);
                 fclose(file);
                 r.error = fs_offset_out_of_range_error("requested range exceeds file length");
@@ -1687,6 +1760,7 @@ FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_
     if (fclose(file) != 0) {
         int close_errno = errno ? errno : EIO;
         free(bytes->data);
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_BYTES);
         free(bytes);
         r.error = errno_to_fs_error(close_errno, OPAL_FS_ERR_IO);
         return r;
@@ -2165,6 +2239,7 @@ FsMetadataResult read_metadata_sync(const char* path) {
         }
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_METADATA_PERMISSIONS);
 
     metadata->size_bytes = stat_result.size;
     metadata->modified_unix_seconds = stat_result.modified_time;
@@ -2205,6 +2280,7 @@ FsMetadataResult read_metadata_nofollow_sync(const char* path) {
         r.error = fs_out_of_memory_error(OPAL_FS_ERR_METADATA_UNAVAILABLE, "MetadataUnavailableError: out of memory");
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_METADATA_PERMISSIONS);
 
     metadata->size_bytes = stat_result.size;
     metadata->modified_unix_seconds = stat_result.modified_time;
@@ -2424,6 +2500,7 @@ FsPathArrayResult list_directory_sync(const char* path) {
         r.error = errno_to_fs_error(saved_errno, OPAL_FS_ERR_IO);
         return r;
     }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
 
     for (;;) {
         errno = 0;
@@ -2432,6 +2509,7 @@ FsPathArrayResult list_directory_sync(const char* path) {
             if (errno != 0) {
                 int read_errno = errno;
                 free_string_array_elements(entries, count);
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
                 free(entries);
                 opal_closedir(dir);
                 r.error = errno_to_fs_error(read_errno, OPAL_FS_ERR_IO);
@@ -2448,6 +2526,7 @@ FsPathArrayResult list_directory_sync(const char* path) {
             size_t new_capacity = capacity * 2;
             if (new_capacity <= capacity) {
                 free_string_array_elements(entries, count);
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
                 free(entries);
                 opal_closedir(dir);
                 r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "directory entry overflow");
@@ -2461,6 +2540,7 @@ FsPathArrayResult list_directory_sync(const char* path) {
             if (!grown) {
                 int alloc_errno = errno ? errno : ENOMEM;
                 free_string_array_elements(entries, count);
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
                 free(entries);
                 opal_closedir(dir);
                 r.error = errno_to_fs_error(alloc_errno, OPAL_FS_ERR_IO);
@@ -2486,6 +2566,7 @@ FsPathArrayResult list_directory_sync(const char* path) {
     if (opal_closedir(dir) != 0) {
         int close_errno = errno ? errno : EIO;
         free_string_array_elements(entries, count);
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
         free(entries);
         r.error = errno_to_fs_error(close_errno, OPAL_FS_ERR_IO);
         return r;
@@ -2497,6 +2578,7 @@ FsPathArrayResult list_directory_sync(const char* path) {
 
     if (count > (size_t)INT64_MAX) {
         free_string_array_elements(entries, count);
+        opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
         free(entries);
         r.error = opal_fs_format_err(OPAL_FS_ERR_IO, "directory entry overflow");
         if (!r.error) {

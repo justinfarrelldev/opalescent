@@ -7,6 +7,7 @@ extern crate alloc;
 
 use crate::ast::{Parameter, Type};
 use crate::ast::{PassingMode, Stmt};
+use crate::type_system::heap_class::{HeapClass, classify_core_type};
 use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
@@ -80,6 +81,10 @@ struct PathState {
     last_use: Option<usize>,
 }
 
+fn is_reference_counted_core_type(core_type: &CoreType) -> bool {
+    matches!(classify_core_type(core_type), HeapClass::ReferenceCounted)
+}
+
 impl RcAnalysis {
     /// Analyze a function statement list and produce an RC insertion plan.
     #[must_use]
@@ -97,7 +102,7 @@ impl RcAnalysis {
         let scope_end_index = stmts.len() - 1;
 
         for (variable, variable_type) in var_types {
-            if !variable_type.needs_rc() {
+            if !is_reference_counted_core_type(variable_type) {
                 continue;
             }
 

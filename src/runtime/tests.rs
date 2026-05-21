@@ -682,3 +682,92 @@ int main(void) {
 "#,
     );
 }
+
+#[test]
+fn rc_debug_counter_registry_tracks_categories_with_test_only_hooks() {
+    compile_and_run_array_rc_c_test(
+        "rc_debug_counter_registry_tracks_categories_with_test_only_hooks",
+        r#"
+#include <stdio.h>
+#include <stdlib.h>
+#include "opal_rc.h"
+
+int main(void) {
+    void *string_obj = NULL;
+    void *child_array = NULL;
+    void *array_obj = NULL;
+
+    opal_rc_debug_reset_counters_for_test();
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_BYTES);
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_BUILDERS);
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_METADATA_PERMISSIONS);
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_ERROR_PAYLOADS);
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
+
+    string_obj = opal_rc_alloc_tracked(sizeof(int), NULL, OPAL_RC_DEBUG_COUNTER_STRINGS);
+    child_array = opal_rc_alloc_tracked(sizeof(int), NULL, OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS);
+    array_obj = opal_array_alloc(sizeof(int), _Alignof(int), 1, 1, NULL);
+    if (string_obj == NULL || child_array == NULL || array_obj == NULL) {
+        fprintf(stderr, "tracked allocations returned null\n");
+        return 1;
+    }
+
+    if (opal_rc_debug_alloc_count_for_test(OPAL_RC_DEBUG_COUNTER_STRINGS) != 2) {
+        fprintf(stderr, "expected 2 string allocs\n");
+        return 2;
+    }
+    if (opal_rc_debug_alloc_count_for_test(OPAL_RC_DEBUG_COUNTER_ARRAYS) != 1) {
+        fprintf(stderr, "expected 1 array alloc\n");
+        return 3;
+    }
+    if (opal_rc_debug_alloc_count_for_test(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS) != 2) {
+        fprintf(stderr, "expected 2 rc child array allocs\n");
+        return 4;
+    }
+    if (opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_BYTES) != 1 ||
+        opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_BUILDERS) != 1 ||
+        opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS) != 1 ||
+        opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_METADATA_PERMISSIONS) != 1 ||
+        opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_ERROR_PAYLOADS) != 1) {
+        fprintf(stderr, "expected singleton live counts for manual categories\n");
+        return 5;
+    }
+
+    opal_rc_dec(string_obj);
+    opal_rc_dec(child_array);
+    opal_rc_dec(array_obj);
+    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_BYTES);
+    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_BUILDERS);
+    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS);
+    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_METADATA_PERMISSIONS);
+    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_ERROR_PAYLOADS);
+
+    if (opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_STRINGS) != 1) {
+        fprintf(stderr, "expected one live string after manual note\n");
+        return 6;
+    }
+    if (opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_ARRAYS) != 0 ||
+        opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS) != 1 ||
+        opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_BYTES) != 0 ||
+        opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_BUILDERS) != 0 ||
+        opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS) != 0 ||
+        opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_METADATA_PERMISSIONS) != 0 ||
+        opal_rc_debug_live_count_for_test(OPAL_RC_DEBUG_COUNTER_ERROR_PAYLOADS) != 0) {
+        fprintf(stderr, "unexpected live counter values after frees\n");
+        return 7;
+    }
+
+    if (opal_rc_debug_free_count_for_test(OPAL_RC_DEBUG_COUNTER_STRINGS) != 1 ||
+        opal_rc_debug_free_count_for_test(OPAL_RC_DEBUG_COUNTER_ARRAYS) != 1 ||
+        opal_rc_debug_free_count_for_test(OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS) != 1) {
+        fprintf(stderr, "tracked free counts did not update\n");
+        return 8;
+    }
+
+    return 0;
+}
+"#,
+    );
+}

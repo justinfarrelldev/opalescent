@@ -62,6 +62,19 @@ typedef struct OpalWeakRef {
     OpalRcHeader *header;
 } OpalWeakRef;
 
+typedef enum OpalRcDebugCounterKind {
+    OPAL_RC_DEBUG_COUNTER_NONE = 0,
+    OPAL_RC_DEBUG_COUNTER_STRINGS,
+    OPAL_RC_DEBUG_COUNTER_ARRAYS,
+    OPAL_RC_DEBUG_COUNTER_BYTES,
+    OPAL_RC_DEBUG_COUNTER_BUILDERS,
+    OPAL_RC_DEBUG_COUNTER_FILESYSTEM_OBJECTS,
+    OPAL_RC_DEBUG_COUNTER_METADATA_PERMISSIONS,
+    OPAL_RC_DEBUG_COUNTER_ERROR_PAYLOADS,
+    OPAL_RC_DEBUG_COUNTER_RC_CHILD_ARRAYS,
+    OPAL_RC_DEBUG_COUNTER_KIND_COUNT
+} OpalRcDebugCounterKind;
+
 /* RC header field offsets (bytes from header start) — for codegen use */
 #define OPAL_RC_REFCOUNT_OFFSET    offsetof(OpalRcHeader, refcount)
 #define OPAL_RC_WEAK_COUNT_OFFSET  offsetof(OpalRcHeader, weak_count)
@@ -90,6 +103,16 @@ OPAL_STATIC_ASSERT(OPAL_ARRAY_HEADER_SIZE == 16, "OpalArrayPayloadHeader size mu
  */
 void *opal_rc_alloc(size_t payload_size,
                     void (*drop_children_fn)(void *, void ***, size_t *, size_t *));
+
+/**
+ * opal_rc_alloc_tracked — allocate an RC object and tag it for debug counters.
+ *
+ * Runtime internals use this for surface-specific accounting while preserving
+ * the stable payload ABI.
+ */
+void *opal_rc_alloc_tracked(size_t payload_size,
+                            void (*drop_children_fn)(void *, void ***, size_t *, size_t *),
+                            OpalRcDebugCounterKind counter_kind);
 
 /**
  * opal_rc_reuse — reset an RC object for reuse by a new allocation.
@@ -172,6 +195,12 @@ size_t opal_runtime_live_heap_bytes(void);
  * opal_runtime_peak_heap_bytes — peak live Opalescent RC/array heap bytes.
  */
 size_t opal_runtime_peak_heap_bytes(void);
+
+/**
+ * Debug-only surface counter registry hooks for runtime internals.
+ */
+void opal_rc_debug_note_alloc(OpalRcDebugCounterKind kind);
+void opal_rc_debug_note_free(OpalRcDebugCounterKind kind);
 
 /**
  * opal_array_data_offset — compute the aligned byte offset of array element
@@ -262,10 +291,15 @@ void *opal_weak_upgrade(OpalWeakRef *weak);
 
 #if defined(OPAL_ENABLE_INTERNAL_TESTING)
 /**
- * Test-only helpers exposing raw strong/weak counts for runtime ABI checks.
+ * Test-only helpers exposing raw strong/weak counts and debug counters for
+ * runtime ABI checks.
  */
 size_t opal_rc_strong_count_for_test(const void *obj);
 size_t opal_rc_weak_count_for_test(const void *obj);
+void opal_rc_debug_reset_counters_for_test(void);
+size_t opal_rc_debug_live_count_for_test(OpalRcDebugCounterKind kind);
+size_t opal_rc_debug_alloc_count_for_test(OpalRcDebugCounterKind kind);
+size_t opal_rc_debug_free_count_for_test(OpalRcDebugCounterKind kind);
 #endif
 
 /**
