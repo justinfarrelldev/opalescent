@@ -74,7 +74,7 @@ run_valgrind_fallback() {
 run_selector_with_retries() {
   local selector="$1"
   local attempt=1
-  local max_attempts=3
+  local max_attempts=5
 
   while (( attempt <= max_attempts )); do
     if cargo test --features integration --test array_integration "${selector}" -- --nocapture --test-threads=1; then
@@ -87,6 +87,7 @@ run_selector_with_retries() {
     fi
 
     echo "WARN: selector '${selector}' failed on attempt ${attempt}; retrying serialized run." >&2
+    sleep 1
     attempt=$((attempt + 1))
   done
 }

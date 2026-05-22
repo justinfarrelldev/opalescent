@@ -19,10 +19,7 @@ fn make_workspace_root(label: &str) -> PathBuf {
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
 
-    std::env::temp_dir().join(format!(
-        "opalescent-{label}-{}-{nanos}",
-        std::process::id()
-    ))
+    std::env::temp_dir().join(format!("opalescent-{label}-{}-{nanos}", std::process::id()))
 }
 
 fn compile_counter_harness(

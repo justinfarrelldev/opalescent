@@ -44,12 +44,11 @@ pub fn classify_nominal_type(type_name: &str) -> Option<HeapClass> {
 /// Classify a resolved [`CoreType`] into the canonical heap/ownership category.
 #[must_use]
 pub fn classify_core_type(core_type: &CoreType) -> HeapClass {
-    match core_type {
-        &CoreType::String | &CoreType::Array(_) => HeapClass::ReferenceCounted,
-        &CoreType::Generic {
-            ref name,
-            ref type_args,
-        } if type_args.is_empty() => classify_nominal_type(name).unwrap_or(HeapClass::InlineValue),
+    match *core_type {
+        CoreType::String | CoreType::Array(_) => HeapClass::ReferenceCounted,
+        CoreType::Generic { ref name, ref type_args } if type_args.is_empty() => {
+            classify_nominal_type(name.as_str()).unwrap_or(HeapClass::InlineValue)
+        }
         _ => HeapClass::InlineValue,
     }
 }
@@ -58,11 +57,11 @@ pub fn classify_core_type(core_type: &CoreType) -> HeapClass {
 mod tests {
     extern crate alloc;
 
-    use super::{classify_core_type, classify_nominal_type, HeapClass};
-    use crate::type_system::types::CoreType;
     use self::alloc::boxed::Box;
     use self::alloc::string::String;
     use self::alloc::vec::Vec;
+    use super::{HeapClass, classify_core_type, classify_nominal_type};
+    use crate::type_system::types::CoreType;
 
     fn nominal(name: &str) -> CoreType {
         CoreType::Generic {
@@ -73,7 +72,10 @@ mod tests {
 
     #[test]
     fn classifies_reference_counted_core_surfaces() {
-        assert_eq!(classify_core_type(&CoreType::String), HeapClass::ReferenceCounted);
+        assert_eq!(
+            classify_core_type(&CoreType::String),
+            HeapClass::ReferenceCounted
+        );
         assert_eq!(
             classify_core_type(&CoreType::Array(Box::new(CoreType::Int32))),
             HeapClass::ReferenceCounted
@@ -82,7 +84,10 @@ mod tests {
 
     #[test]
     fn test_heap_class_classifies_string_and_array_children() {
-        assert_eq!(classify_core_type(&CoreType::String), HeapClass::ReferenceCounted);
+        assert_eq!(
+            classify_core_type(&CoreType::String),
+            HeapClass::ReferenceCounted
+        );
         assert_eq!(
             classify_core_type(&CoreType::Array(Box::new(CoreType::String))),
             HeapClass::ReferenceCounted
@@ -92,8 +97,14 @@ mod tests {
     #[test]
     fn classifies_caller_owned_nominal_surfaces() {
         for type_name in ["Bytes", "FilesystemPath", "FileMetadata", "FilePermissions"] {
-            assert_eq!(classify_nominal_type(type_name), Some(HeapClass::CallerOwned));
-            assert_eq!(classify_core_type(&nominal(type_name)), HeapClass::CallerOwned);
+            assert_eq!(
+                classify_nominal_type(type_name),
+                Some(HeapClass::CallerOwned)
+            );
+            assert_eq!(
+                classify_core_type(&nominal(type_name)),
+                HeapClass::CallerOwned
+            );
         }
     }
 
@@ -104,7 +115,10 @@ mod tests {
                 classify_nominal_type(type_name),
                 Some(HeapClass::RuntimeManaged)
             );
-            assert_eq!(classify_core_type(&nominal(type_name)), HeapClass::RuntimeManaged);
+            assert_eq!(
+                classify_core_type(&nominal(type_name)),
+                HeapClass::RuntimeManaged
+            );
         }
     }
 

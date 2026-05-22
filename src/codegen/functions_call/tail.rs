@@ -365,12 +365,7 @@ fn build_entry_call_args<'context>(
         && entry_param_core_types.len() == 1
         && matches!(entry_param_core_types[0], CoreType::Array(_))
         && matches!(parameter_types[0], BasicMetadataTypeEnum::PointerType(_)))
-    .then(|| build_entry_string_array_arg(
-        codegen_context,
-        c_main,
-        argc_param,
-        argv_param,
-    ))
+    .then(|| build_entry_string_array_arg(codegen_context, c_main, argc_param, argv_param))
     .transpose()?;
 
     for (index, parameter_type) in parameter_types.iter().enumerate() {

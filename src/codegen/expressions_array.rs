@@ -1304,15 +1304,20 @@ pub(crate) fn is_rc_bearing_element_type(element_core_type: &CoreType) -> bool {
 mod tests {
     extern crate alloc;
 
-    use super::{classify_core_type, is_rc_bearing_element_type, HeapClass};
-    use crate::type_system::types::CoreType;
     use self::alloc::boxed::Box;
+    use super::{HeapClass, classify_core_type, is_rc_bearing_element_type};
+    use crate::type_system::types::CoreType;
 
     #[test]
     fn heap_class_array_children_preserves_string_representation_semantics() {
-        assert_eq!(classify_core_type(&CoreType::String), HeapClass::ReferenceCounted);
+        assert_eq!(
+            classify_core_type(&CoreType::String),
+            HeapClass::ReferenceCounted
+        );
         assert!(!is_rc_bearing_element_type(&CoreType::String));
-        assert!(is_rc_bearing_element_type(&CoreType::Array(Box::new(CoreType::String))));
+        assert!(is_rc_bearing_element_type(&CoreType::Array(Box::new(
+            CoreType::String
+        ))));
     }
 }
 

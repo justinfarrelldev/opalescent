@@ -1,0 +1,39 @@
+Task 4 reference classification (gol_memory_probe / PEAK_LIVE_BYTES_LIMIT / STEADY_STATE_SPREAD_LIMIT)
+Date: 2026-05-21
+
+Scope scanned:
+- .github
+- scripts
+- Cargo.toml
+- Makefile.toml
+- README.md
+- ARRAY_FEATURES.md
+- .sisyphus
+
+Classification summary:
+1) Active production/script/CI/root-doc references: NONE
+   - No matches were found under .github/, scripts/, Cargo.toml, Makefile.toml, README.md, or ARRAY_FEATURES.md in the captured cleanup scan.
+
+2) Active-plan/evidence self-reference in .sisyphus: PRESENT (allowed)
+   - .sisyphus/plans/remove-gol-hardcoding.md (current task plan text and acceptance criteria)
+   - .sisyphus/plans/array-cow-rc-game-of-life.md (historical plan instructions)
+   - .sisyphus/evidence/task-4-reference-cleanup-scan.txt (this task’s captured scan output, including recursive references)
+
+3) Historical non-gating references in .sisyphus: PRESENT (allowed)
+   - Historical evidence logs:
+     - .sisyphus/evidence/task-1-baseline-*.txt
+     - .sisyphus/evidence/task-1-forbidden-surface.txt
+     - .sisyphus/evidence/task-8-gol-memory.txt
+     - .sisyphus/evidence/task-8-gol-stability.txt
+   - Historical verifier notes:
+     - .sisyphus/verification/verifier-2.md
+     - .sisyphus/verification/verifier-3.md
+   - Historical notepads from prior plans:
+     - .sisyphus/notepads/array-cow-rc-game-of-life/learnings.md
+     - .sisyphus/notepads/complete-memory-model-migration-before-game-of-life/learnings.md
+     - .sisyphus/notepads/complete-memory-model-migration-before-game-of-life/issues.md
+     - .sisyphus/notepads/remove-gol-hardcoding/learnings.md
+
+Conclusion:
+- No active production-path gating references remain.
+- Remaining hits are plan/evidence/notepad historical artifacts inside .sisyphus and are non-gating for runtime/compiler/CI execution paths.

@@ -15,8 +15,8 @@ fn repo_root() -> PathBuf {
 fn compile_negative_counter_harness(temp_dir: &Path) -> Result<PathBuf, String> {
     let repo_root = repo_root();
     let harness_bin = temp_dir.join("rc_counter_negative_fixture_harness");
-    let fixture_path = repo_root
-        .join("tests/integration_e2e/fixtures/rc_counter_negative_fixture.c");
+    let fixture_path =
+        repo_root.join("tests/integration_e2e/fixtures/rc_counter_negative_fixture.c");
 
     let mut compile_command = Command::new("cc");
     compile_command

@@ -54,12 +54,14 @@ pub(crate) fn store_binding_overwrite_rc_safe<'context>(
     };
 
     let rc_bearing_binding = is_rc_bearing_binding_core_type(&binding_snapshot.core_type);
-    let old_value = rc_bearing_binding.then(|| {
-        codegen_context.builder.build_load(
-            binding_snapshot.alloca,
-            &env.next_name(format!("{operation}.old.load").as_str()),
-        )
-    }).transpose()?;
+    let old_value = rc_bearing_binding
+        .then(|| {
+            codegen_context.builder.build_load(
+                binding_snapshot.alloca,
+                &env.next_name(format!("{operation}.old.load").as_str()),
+            )
+        })
+        .transpose()?;
 
     retain_new_binding_value_if_needed(codegen_context, &binding_snapshot.core_type, value)?;
     codegen_context

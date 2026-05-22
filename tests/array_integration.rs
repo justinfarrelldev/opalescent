@@ -41,12 +41,21 @@ fn generated_binary_test_timeout() -> Duration {
     Duration::from_secs(30)
 }
 
+fn project_root_for_source(source: &std::path::Path) -> PathBuf {
+    source
+        .ancestors()
+        .find(|candidate| candidate.join("opal.toml").is_file())
+        .map_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")), std::path::Path::to_path_buf)
+}
+
 fn run_opal_source(source: &std::path::Path) -> std::process::Output {
     let _guard = array_test_lock()
         .lock()
         .expect("array integration lock should not be poisoned");
     let binary = binary_path();
+    let project_root = project_root_for_source(source);
     let child = Command::new(&binary)
+        .current_dir(project_root)
         .arg("run")
         .arg(source)
         .stdin(Stdio::null())

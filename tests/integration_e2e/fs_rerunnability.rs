@@ -57,6 +57,8 @@ fn fs_rerunnability() {
         .arg("1")
         .arg("--features")
         .arg("integration")
+        .arg("--test")
+        .arg("integration_e2e")
         .arg("fs_")
         .arg("--")
         .arg("--skip")
@@ -186,6 +188,11 @@ fn collect_files(repo_root: &Path, dir: &Path, out: &mut Vec<PathBuf>) -> io::Re
         }
 
         if file_type.is_dir() {
+            if name.as_os_str() == OsStr::new("target")
+                || name.as_os_str() == OsStr::new("workspace")
+            {
+                continue;
+            }
             collect_files(repo_root, &path, out)?;
             continue;
         }

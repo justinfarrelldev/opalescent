@@ -1,4 +1,4 @@
-import path_from, read_lines_sync, read_text_sync, write_text_sync, int64_to_string from standard
+import path_from, read_lines_sync, read_text_sync, write_text_sync, int64_to_string, string_join from standard
 
 let should_blockquote = f(index: int64): boolean =>
     if index is 2 or index is 3:
@@ -28,15 +28,17 @@ entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedE
         print(err)
         propagate err
 
-    let mutable rendered = ''
+    let mutable rendered_lines: string[] = []
     let mutable index: int64 = 0
     while index < lines.length:
         let line = lines[index]
         if should_blockquote(index):
-            rendered = '{rendered}> {line}\n'
+            rendered_lines.push('> {line}\n')
         else:
-            rendered = '{rendered}{line}\n'
+            rendered_lines.push('{line}\n')
         index = index + 1
+
+    let rendered = string_join(rendered_lines, '')
 
     guard write_text_sync(output_path, rendered) else err =>
         print(err)

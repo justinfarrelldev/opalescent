@@ -1,0 +1,3 @@
+Reverted `.sisyphus/boulder.json` to HEAD state.
+Verification: `git diff --name-status` no longer lists `.sisyphus/boulder.json`.
+Intentional delta left untouched: `src/bin/gol_memory_probe.rs` deletion.
