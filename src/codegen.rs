@@ -30,6 +30,7 @@ pub mod monomorphization;
 pub mod optimization;
 #[doc = "RC runtime call emission for reference counting operations."]
 pub mod rc_emitter;
+pub mod scope_tracker;
 /// Statement lowering for LLVM backend.
 pub mod statements;
 pub mod types;

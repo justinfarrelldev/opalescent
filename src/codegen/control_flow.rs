@@ -8,6 +8,7 @@
 extern crate alloc;
 
 use crate::ast::{Expr, LabeledValue, Stmt};
+use crate::codegen::binding_store::initialize_binding_value;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::error_abi::{
@@ -15,7 +16,11 @@ use crate::codegen::error_abi::{
     build_void_success_aggregate, intern_variant_name,
 };
 use crate::codegen::expressions::{CodegenEnv, LoopContext, VariableBinding, codegen_expression};
-use crate::codegen::statements::codegen_statement;
+use crate::codegen::scope_tracker::{
+    cleanup_return_scopes_preserving_codegen_env,
+    cleanup_scopes_to_depth_with_malloc_string_release,
+};
+use crate::codegen::statements::{codegen_statement, unwind_scope_without_cleanup};
 use crate::type_system::types::CoreType;
 use alloc::boxed::Box;
 use alloc::format;
@@ -51,25 +56,47 @@ pub fn codegen_if_statement<'context>(
             .build_conditional_branch(condition_int, then_block, else_block)?;
 
     codegen_context.builder.position_at_end(then_block);
+    let _then_scope_depth = env.enter_scope();
     codegen_statement(codegen_context, env, then_branch)?;
     if let Some(current_block) = codegen_context.builder.get_insert_block() {
         if current_block.get_terminator().is_none() {
+            cleanup_scopes_to_depth_with_malloc_string_release(
+                codegen_context,
+                env,
+                env.current_scope_depth().saturating_sub(1),
+                &[],
+            )?;
             let _jump_merge = codegen_context
                 .builder
                 .build_unconditional_branch(merge_block)?;
+        } else {
+            unwind_scope_without_cleanup(env);
         }
+    } else {
+        unwind_scope_without_cleanup(env);
     }
 
     codegen_context.builder.position_at_end(else_block);
+    let _else_scope_depth = env.enter_scope();
     if let Some(stmt) = else_branch {
         codegen_statement(codegen_context, env, stmt)?;
     }
     if let Some(current_block) = codegen_context.builder.get_insert_block() {
         if current_block.get_terminator().is_none() {
+            cleanup_scopes_to_depth_with_malloc_string_release(
+                codegen_context,
+                env,
+                env.current_scope_depth().saturating_sub(1),
+                &[],
+            )?;
             let _jump_merge = codegen_context
                 .builder
                 .build_unconditional_branch(merge_block)?;
+        } else {
+            unwind_scope_without_cleanup(env);
         }
+    } else {
+        unwind_scope_without_cleanup(env);
     }
 
     codegen_context.builder.position_at_end(merge_block);
@@ -103,18 +130,28 @@ pub fn codegen_if_expression<'context>(
             .build_conditional_branch(condition_int, then_block, else_block)?;
 
     codegen_context.builder.position_at_end(then_block);
+    let _then_scope_depth = env.enter_scope();
     let then_value = statement_to_value(codegen_context, env, then_branch)?;
     let then_end = codegen_context
         .builder
         .get_insert_block()
         .ok_or_else(|| CodegenError::new(String::from("if expression then block missing")))?;
     if then_end.get_terminator().is_none() {
+        cleanup_scopes_to_depth_with_malloc_string_release(
+            codegen_context,
+            env,
+            env.current_scope_depth().saturating_sub(1),
+            &[],
+        )?;
         let _jump_merge = codegen_context
             .builder
             .build_unconditional_branch(merge_block)?;
+    } else {
+        unwind_scope_without_cleanup(env);
     }
 
     codegen_context.builder.position_at_end(else_block);
+    let _else_scope_depth = env.enter_scope();
     let else_value = if let Some(stmt) = else_branch {
         statement_to_value(codegen_context, env, stmt)?
     } else {
@@ -129,9 +166,17 @@ pub fn codegen_if_expression<'context>(
         .get_insert_block()
         .ok_or_else(|| CodegenError::new(String::from("if expression else block missing")))?;
     if else_end.get_terminator().is_none() {
+        cleanup_scopes_to_depth_with_malloc_string_release(
+            codegen_context,
+            env,
+            env.current_scope_depth().saturating_sub(1),
+            &[],
+        )?;
         let _jump_merge = codegen_context
             .builder
             .build_unconditional_branch(merge_block)?;
+    } else {
+        unwind_scope_without_cleanup(env);
     }
 
     codegen_context.builder.position_at_end(merge_block);
@@ -181,17 +226,25 @@ pub fn codegen_loop_statement<'context>(
                 exit,
             )?;
             codegen_context.builder.position_at_end(loop_body);
+            let loop_scope_depth = env.current_scope_depth();
             emit_loop_body_with_targets(
                 codegen_context,
                 env,
                 body.as_ref(),
                 header,
                 exit,
+                loop_scope_depth,
                 &[],
                 &[],
             )?;
             if let Some(current_block) = codegen_context.builder.get_insert_block() {
                 if current_block.get_terminator().is_none() {
+                    cleanup_scopes_to_depth_with_malloc_string_release(
+                        codegen_context,
+                        env,
+                        loop_scope_depth,
+                        &[],
+                    )?;
                     let _back = codegen_context.builder.build_unconditional_branch(header)?;
                 }
             }
@@ -333,6 +386,8 @@ pub fn codegen_loop_statement<'context>(
                 .build_conditional_branch(in_bounds, loop_body, exit)?;
 
             codegen_context.builder.position_at_end(loop_body);
+            let loop_scope_depth = env.current_scope_depth();
+            let _iteration_scope_depth = env.enter_scope();
 
             // SAFETY: iterable_ptr points to contiguous array elements and current_index is
             // guarded by `current_index < iterable_length` in loop header.
@@ -349,20 +404,28 @@ pub fn codegen_loop_statement<'context>(
             let iteration_alloca = codegen_context
                 .builder
                 .build_alloca(element_value.get_type(), variable.as_str())?;
-            let _store_iteration_value = codegen_context
-                .builder
-                .build_store(iteration_alloca, element_value)?;
 
             let previous_binding = env.variables.insert(
                 variable.clone(),
                 VariableBinding {
                     alloca: iteration_alloca,
-                    core_type: element_core_type,
+                    core_type: element_core_type.clone(),
                     length: None,
                     capacity: None,
                     is_mutable: false,
                 },
             );
+            let iteration_binding_requires_cleanup =
+                crate::codegen::expressions_array::requires_rc_runtime_hooks(&element_core_type);
+            env.register_scope_binding(variable.as_str());
+            initialize_binding_value(
+                codegen_context,
+                env,
+                variable.as_str(),
+                element_value,
+                "for.iter.init",
+                iteration_binding_requires_cleanup,
+            )?;
 
             emit_loop_body_with_targets(
                 codegen_context,
@@ -370,10 +433,22 @@ pub fn codegen_loop_statement<'context>(
                 body.as_ref(),
                 increment,
                 exit,
+                env.current_scope_depth(),
                 &[],
                 &[],
             )?;
 
+            let iteration_cleanup_skips = if iteration_binding_requires_cleanup {
+                Vec::new()
+            } else {
+                vec![variable.clone()]
+            };
+            cleanup_scopes_to_depth_with_malloc_string_release(
+                codegen_context,
+                env,
+                loop_scope_depth,
+                iteration_cleanup_skips.as_slice(),
+            )?;
             if let Some(previous) = previous_binding {
                 env.variables.insert(variable.clone(), previous);
             } else {
@@ -438,17 +513,25 @@ pub fn codegen_loop_expression_into_slots<'context>(
         .build_unconditional_branch(loop_body)?;
 
     codegen_context.builder.position_at_end(loop_body);
+    let loop_scope_depth = env.current_scope_depth();
     emit_loop_body_with_targets(
         codegen_context,
         env,
         body,
         loop_header,
         exit,
+        loop_scope_depth,
         break_slots,
         break_labels,
     )?;
     if let Some(current_block) = codegen_context.builder.get_insert_block() {
         if current_block.get_terminator().is_none() {
+            cleanup_scopes_to_depth_with_malloc_string_release(
+                codegen_context,
+                env,
+                loop_scope_depth,
+                &[],
+            )?;
             let _back = codegen_context
                 .builder
                 .build_unconditional_branch(loop_header)?;
@@ -473,17 +556,24 @@ pub fn codegen_return_statement<'context>(
             error_return_type,
         );
     }
-
+    let transferred_names = collect_transferred_return_identifier_names(values);
     if values.is_empty() {
+        cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
         let _ret = codegen_context.builder.build_return(None)?;
         return Ok(());
     }
     if values.len() == 1 {
         let value = codegen_expression(codegen_context, env, &values[0].value, None)?;
         if value.is_struct_value() && value.into_struct_value().get_type().count_fields() == 0 {
+            cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
             let _ret = codegen_context.builder.build_return(None)?;
             return Ok(());
         }
+        cleanup_return_scopes_preserving_codegen_env(
+            codegen_context,
+            env,
+            transferred_names.as_slice(),
+        )?;
         let _ret = codegen_context.builder.build_return(Some(&value))?;
         return Ok(());
     }
@@ -512,6 +602,11 @@ pub fn codegen_return_statement<'context>(
             )?
             .into_struct_value();
     }
+    cleanup_return_scopes_preserving_codegen_env(
+        codegen_context,
+        env,
+        transferred_names.as_slice(),
+    )?;
     let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
     Ok(())
 }
@@ -524,6 +619,7 @@ fn codegen_error_aware_return_statement<'context>(
 ) -> Result<(), CodegenError> {
     if values.is_empty() {
         let aggregate = build_void_success_aggregate(codegen_context)?;
+        cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
         let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
         return Ok(());
     }
@@ -533,7 +629,6 @@ fn codegen_error_aware_return_statement<'context>(
             "errors-bearing functions returning multiple values are not yet supported",
         )));
     }
-
     let labeled_value = &values[0];
     if labeled_value.label == "err" {
         let variant_name = extract_error_variant_name(&labeled_value.value)?;
@@ -550,6 +645,7 @@ fn codegen_error_aware_return_statement<'context>(
         } else {
             build_error_aggregate(codegen_context, success_field_type, error_ptr)?
         };
+        cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
         let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
         return Ok(());
     }
@@ -571,21 +667,39 @@ fn codegen_error_aware_return_statement<'context>(
             } else {
                 build_error_aggregate(codegen_context, success_field_type, error_ptr)?
             };
+            cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
             let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
             return Ok(());
         }
     }
 
+    let transferred_names = collect_transferred_return_identifier_names(values);
     let value = codegen_expression(codegen_context, env, &labeled_value.value, None)?;
     if value.is_struct_value() && value.into_struct_value().get_type().count_fields() == 0 {
         let aggregate = build_void_success_aggregate(codegen_context)?;
+        cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
         let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
         return Ok(());
     }
-
     let aggregate = build_success_aggregate(codegen_context, value)?;
+    cleanup_return_scopes_preserving_codegen_env(
+        codegen_context,
+        env,
+        transferred_names.as_slice(),
+    )?;
     let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
     Ok(())
+}
+
+fn collect_transferred_return_identifier_names(values: &[LabeledValue]) -> Vec<String> {
+    values
+        .iter()
+        .filter(|value| value.label != "err")
+        .filter_map(|value| match &value.value {
+            Expr::Identifier { name, .. } => Some(name.clone()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
 }
 
 fn current_error_return_type<'context>(
@@ -712,6 +826,7 @@ fn emit_loop_body_with_targets<'context>(
     stmt: &Stmt,
     continue_target: inkwell::basic_block::BasicBlock<'context>,
     break_target: inkwell::basic_block::BasicBlock<'context>,
+    scope_depth: usize,
     break_slots: &[PointerValue<'context>],
     break_labels: &[alloc::string::String],
 ) -> Result<(), CodegenError> {
@@ -720,6 +835,7 @@ fn emit_loop_body_with_targets<'context>(
         break_target,
         break_slots: break_slots.to_vec(),
         break_labels: break_labels.to_vec(),
+        scope_depth,
     });
 
     let result = codegen_statement(codegen_context, env, stmt);

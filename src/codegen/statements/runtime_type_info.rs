@@ -45,7 +45,8 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "path_file_name"
         | "path_file_extension"
         | "read_text_sync"
-        | "read_first_line_sync" => Some(CoreType::String),
+        | "read_first_line_sync"
+        | "string_builder_finish" => Some(CoreType::String),
         "random_int8" => Some(CoreType::Int8),
         "random_int16" => Some(CoreType::Int16),
         "random_int32" | "bytes_length" => Some(CoreType::Int32),

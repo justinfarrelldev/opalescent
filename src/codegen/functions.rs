@@ -74,6 +74,10 @@ pub fn codegen_function_declaration<'context>(
             type_args: Vec::new(),
         })
         .collect::<Vec<_>>();
+    let function_returns_owned_string = !is_entry
+        && error_core_types.is_empty()
+        && returns.len() == 1
+        && returns.first() == Some(&CoreType::String);
     let function_name = if is_entry {
         format!("__opalescent_entry_{name}")
     } else {
@@ -100,6 +104,9 @@ pub fn codegen_function_declaration<'context>(
         function_type,
         function_linkage,
     );
+    if function_returns_owned_string {
+        env.owned_string_functions.insert(name.clone(), true);
+    }
 
     if (is_entry || matches!(*visibility, Visibility::Public))
         && codegen_context.target.platform == crate::build_system::targets::Platform::Windows

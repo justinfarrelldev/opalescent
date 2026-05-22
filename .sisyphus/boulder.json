@@ -1,128 +1,95 @@
 {
-  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/array-cow-rc-game-of-life.md",
-  "started_at": "2026-05-19T23:13:00.546Z",
+  "active_plan": "/home/justi/Projects/opalescent/.sisyphus/plans/rc-scope-leak-cleanup.md",
+  "started_at": "2026-05-22T02:00:45.071Z",
   "session_ids": [
-    "ses_1bdb84d75ffeuqJChiShCT9LB5",
-    "ses_1bca207e6ffe0my3Ehz4WQKSOJ",
-    "ses_1bca20445ffebbvfpurE4E6nvC",
-    "ses_1bca2030affeJ0kznSt9FmZj6A"
+    "ses_1b2caab79ffea1Yu15asaJmubW",
+    "ses_1b21b82fbffeV5SsO6eKEr76p3",
+    "ses_1b21b7df8ffe1es3EG37Y4QxRD",
+    "ses_1b21b763bffebj92fyHD9qgkVT",
+    "ses_1b21b750bffesnqBqqCSk6ryDj",
+    "ses_1b21b74d0ffeNXfR1I87OM7psd"
   ],
   "session_origins": {
-    "ses_1bdb84d75ffeuqJChiShCT9LB5": "direct",
-    "ses_1bca207e6ffe0my3Ehz4WQKSOJ": "appended",
-    "ses_1bca20445ffebbvfpurE4E6nvC": "appended",
-    "ses_1bca2030affeJ0kznSt9FmZj6A": "appended"
+    "ses_1b2caab79ffea1Yu15asaJmubW": "direct",
+    "ses_1b21b82fbffeV5SsO6eKEr76p3": "appended",
+    "ses_1b21b7df8ffe1es3EG37Y4QxRD": "appended",
+    "ses_1b21b763bffebj92fyHD9qgkVT": "appended",
+    "ses_1b21b750bffesnqBqqCSk6ryDj": "appended",
+    "ses_1b21b74d0ffeNXfR1I87OM7psd": "appended"
   },
-  "plan_name": "array-cow-rc-game-of-life",
+  "plan_name": "rc-scope-leak-cleanup",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Lock memory methodology and baseline Game of Life probe",
-      "session_id": "ses_1bd7b388effeZFjY8Drkd1LBDV",
+      "task_title": "Add red integration tests for scope leak counters",
+      "session_id": "ses_1b2946eb5ffe6sR931BbarSc1e",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-19T23:22:58.899Z"
+      "category": "unspecified-high",
+      "updated_at": "2026-05-22T02:10:08.128Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "Implement RC-safe overwrite/rebinding contract for RC-bearing locals",
-      "session_id": "ses_1bd71709dffey6fSbid1i9I1Cd",
+      "task_title": "Add scope tracking infrastructure to `CodegenEnv`",
+      "session_id": "ses_1b28c2547ffeKoXYfqPtDlPrJ2",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-19T23:33:43.395Z"
+      "category": "deep",
+      "updated_at": "2026-05-22T02:14:46.042Z"
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "Add runtime uniqueness, reuse eligibility, and array helper ABI",
-      "session_id": "ses_1bd65c9f8ffeLfF5HooImHiRig",
+      "task_title": "Wire block, let, destructure, guard, and if/else scope cleanup",
+      "session_id": "ses_1b28736f7ffepkFndjoLGEuZdr",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-05-20T00:07:44.032Z"
+      "updated_at": "2026-05-22T02:24:12.385Z"
     },
     "todo:4": {
       "task_key": "todo:4",
       "task_label": "4",
-      "task_title": "Implement uniqueness-aware indexed assignment fast path",
-      "session_id": "ses_1bd279bfbffeFM1j6qi4yeNdUV",
+      "task_title": "Wire loop, for-iteration, break, and continue cleanup",
+      "session_id": "ses_1b27506ebffe3xsJvbt5iBNfrB",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-20T00:48:13.420Z"
+      "category": "deep",
+      "updated_at": "2026-05-22T03:00:08.890Z"
     },
     "todo:5": {
       "task_key": "todo:5",
       "task_label": "5",
-      "task_title": "Implement chained multidimensional reads and writes with nested COW",
-      "session_id": "ses_1bd245ea0ffe10nrBqTOKPSUlo",
+      "task_title": "Wire return and guard-propagation cleanup with ownership transfer",
+      "session_id": "ses_1b25a7aa5ffedz9pL7TGicuamQ",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-05-20T00:57:40.043Z"
+      "updated_at": "2026-05-22T03:10:02.413Z"
     },
     "todo:6": {
       "task_key": "todo:6",
       "task_label": "6",
-      "task_title": "Make `.push`, `.pop`, `clear`, and `reserve` uniqueness-aware",
-      "session_id": "ses_1bd1bc9b5ffep5arpgVBDDi7GW",
+      "task_title": "Fix string elements in array RC classification",
+      "session_id": "ses_1b2561352ffemVl7drBMrbsxtX",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-05-20T01:12:22.068Z"
+      "updated_at": "2026-05-22T03:19:56.551Z"
     },
     "todo:7": {
       "task_key": "todo:7",
       "task_label": "7",
-      "task_title": "Preserve and harden pure `append` semantics",
-      "session_id": "ses_1bd0335d8ffejFVWBLG99o75Ss",
+      "task_title": "Refactor binding decrement helper and split files if line count requires",
+      "session_id": "ses_1b24213e4ffesCgOtpSlgGMqh8",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-05-20T01:26:50.940Z"
+      "updated_at": "2026-05-22T03:35:46.589Z"
     },
-    "todo:8": {
-      "task_key": "todo:8",
-      "task_label": "8",
-      "task_title": "Enforce 100x100 Game of Life memory target",
-      "session_id": "ses_1bcff8000ffeHaSFLZKGu4pVON",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-20T01:32:01.347Z"
-    },
-    "todo:9": {
-      "task_key": "todo:9",
-      "task_label": "9",
-      "task_title": "Integrate leak and sanitizer coverage for new array paths",
-      "session_id": "ses_1bcfc3d42ffezNRncYRzrdnsNe",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-20T01:42:25.352Z"
-    },
-    "todo:10": {
-      "task_key": "todo:10",
-      "task_label": "10",
-      "task_title": "Conditional limited Perceus/last-use reuse escalation",
-      "session_id": "ses_1bcf27d7cffeT3bbob6kADmuQe",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-05-20T01:44:47.318Z"
-    },
-    "todo:11": {
-      "task_key": "todo:11",
-      "task_label": "11",
-      "task_title": "Run full local verification and consolidate evidence",
-      "session_id": "ses_1bcf0d0acffeO57wWzrsUXKrwG",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-20T01:56:31.801Z"
-    },
-    "todo:12": {
-      "task_key": "todo:12",
-      "task_label": "12",
-      "task_title": "Commit all changes and leave git status clean after verifier PASS",
-      "session_id": "ses_1bca2030affeJ0kznSt9FmZj6A",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-20T03:21:10.339Z"
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "Plan Compliance Audit — oracle",
+      "session_id": "ses_1b208f83affeko3qoqUhGj1khR",
+      "agent": "oracle",
+      "updated_at": "2026-05-22T04:40:50.162Z"
     }
   }
 }

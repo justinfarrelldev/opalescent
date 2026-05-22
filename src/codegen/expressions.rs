@@ -55,6 +55,7 @@ pub struct LoopContext<'context> {
     pub break_target: inkwell::basic_block::BasicBlock<'context>,
     pub break_slots: Vec<PointerValue<'context>>,
     pub break_labels: Vec<String>,
+    pub scope_depth: usize,
 }
 
 pub struct CodegenEnv<'context> {
@@ -62,9 +63,17 @@ pub struct CodegenEnv<'context> {
     pub imported_functions: BTreeMap<String, String>,
     /// Type signatures for imported symbols keyed by import-visible symbol name.
     pub imported_signatures: BTreeMap<String, CoreType>,
+    /// Function names proven to return caller-owned malloc strings.
+    pub owned_string_functions: BTreeMap<String, bool>,
     pub variable_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
     pub variable_field_aliases: BTreeMap<String, BTreeMap<String, String>>,
     pub emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue<'context>>,
+    /// Lexical ownership scopes for bindings inserted into `variables`.
+    ///
+    /// Every lexical `let`, destructure, or guard binding inserted into `variables` must also be
+    /// registered here via `register_scope_binding`, unless the entry is explicitly a
+    /// function/global/non-owned binding that should not participate in scope-exit cleanup.
+    pub scope_stack: Vec<Vec<String>>,
     pub loop_stack: Vec<LoopContext<'context>>,
     pub active_guard_error_slots: Vec<PointerValue<'context>>,
     pub debug_mode: bool,
@@ -78,9 +87,11 @@ impl<'context> CodegenEnv<'context> {
             variables: BTreeMap::new(),
             imported_functions: BTreeMap::new(),
             imported_signatures: BTreeMap::new(),
+            owned_string_functions: BTreeMap::new(),
             variable_field_indices: BTreeMap::new(),
             variable_field_aliases: BTreeMap::new(),
             emitted_specializations: BTreeMap::new(),
+            scope_stack: Vec::new(),
             loop_stack: Vec::new(),
             active_guard_error_slots: Vec::new(),
             debug_mode,
@@ -93,6 +104,7 @@ impl<'context> CodegenEnv<'context> {
         self.temp_counter = self.temp_counter.saturating_add(1);
         format!("{base}.{index}")
     }
+
 }
 
 pub fn codegen_expression<'context>(

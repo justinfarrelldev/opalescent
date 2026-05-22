@@ -1,0 +1,12 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.02s
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+
+running 1 test
+test tests::scope_leak_counters::scope_leak_early_return ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 168 filtered out; finished in 0.90s
+

@@ -21,8 +21,16 @@ use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expressio
 use crate::codegen::expressions_array::{
     codegen_identifier_indexed_array_assignment, materialize_runtime_array_from_raw_elements,
 };
+use crate::codegen::scope_tracker::{
+    cleanup_return_scopes_preserving_codegen_env,
+    cleanup_scopes_to_depth_preserving_codegen_env,
+    expr_requires_malloc_string_cleanup,
+    infer_loop_break_binding_requires_malloc_string_cleanup,
+    mark_binding_malloc_string_cleanup,
+};
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::values::{BasicValue, FunctionValue};
@@ -34,7 +42,7 @@ mod inference;
 #[doc = "Runtime return and guard-success type mapping helpers for statement lowering."]
 mod runtime_type_info;
 use self::inference::{ast_type_to_core_type_for_let, infer_core_type_from_expr};
-use self::runtime_type_info::infer_guard_success_core_type;
+use self::runtime_type_info::{infer_guard_success_core_type, known_runtime_return_type};
 
 /// Lower one typed statement into LLVM IR side effects.
 pub fn codegen_statement<'context>(
@@ -101,8 +109,23 @@ pub fn codegen_statement<'context>(
             codegen_return_statement(codegen_context, env, values.as_slice())
         }
         Stmt::Block { ref statements, .. } => {
+            let _block_scope_depth = env.enter_scope();
             for statement in statements {
                 codegen_statement(codegen_context, env, statement)?;
+            }
+            if let Some(current_block) = codegen_context.builder.get_insert_block() {
+                if current_block.get_terminator().is_none() {
+                    crate::codegen::scope_tracker::cleanup_scopes_to_depth_with_malloc_string_release(
+                        codegen_context,
+                        env,
+                        env.current_scope_depth().saturating_sub(1),
+                        &[],
+                    )?;
+                } else {
+                    unwind_scope_without_cleanup(env);
+                }
+            } else {
+                unwind_scope_without_cleanup(env);
             }
             Ok(())
         }
@@ -113,8 +136,22 @@ pub fn codegen_statement<'context>(
         Stmt::Break { ref values, .. } => {
             codegen_break_statement(codegen_context, env, values.as_slice())
         }
-        Stmt::Continue { .. } => codegen_continue_statement(codegen_context, env),
+        Stmt::Continue { ref values, .. } => {
+            codegen_continue_statement(codegen_context, env, values.as_slice())
+        }
         Stmt::Comment { .. } => Ok(()),
+    }
+}
+
+pub(crate) fn unwind_scope_without_cleanup<'context>(env: &mut CodegenEnv<'context>) {
+    let Some(scope_bindings) = env.scope_stack.pop() else {
+        return;
+    };
+
+    for binding_name in scope_bindings.into_iter().rev() {
+        let _removed_binding = env.variables.remove(binding_name.as_str());
+        let _removed_indices = env.variable_field_indices.remove(binding_name.as_str());
+        let _removed_aliases = env.variable_field_aliases.remove(binding_name.as_str());
     }
 }
 
@@ -174,12 +211,25 @@ fn codegen_let_statement<'context>(
         binding.name.clone(),
         VariableBinding {
             alloca,
-            core_type: declared_type,
+            core_type: declared_type.clone(),
             length: None,
             capacity: None,
             is_mutable: binding.is_mutable,
         },
     );
+    env.register_scope_binding(binding.name.as_str());
+    if declared_type == CoreType::String
+        && initializer.is_some_and(|initializer_expr| {
+            expr_requires_malloc_string_cleanup(
+                codegen_context,
+                env,
+                initializer_expr,
+                &BTreeMap::new(),
+            )
+        })
+    {
+        mark_binding_malloc_string_cleanup(env, binding.name.as_str());
+    }
     if let (Some(initializer_expr), Some(initializer_value)) = (initializer, lowered_initializer) {
         let retain_new_value = matches!(*initializer_expr, Expr::Identifier { .. });
         initialize_binding_value(
@@ -229,12 +279,17 @@ fn codegen_let_destructure_statement<'context>(
     let mut slots = Vec::new();
     let mut labels = Vec::new();
     for binding in bindings {
-        let binding_type = binding
-            .type_annotation
-            .as_ref()
-            .map(ast_type_to_core_type_for_let)
-            .transpose()?
-            .unwrap_or(CoreType::Int64);
+        let binding_type = if let Some(annotation) = binding.type_annotation.as_ref() {
+            ast_type_to_core_type_for_let(annotation)?
+        } else {
+            infer_loop_break_binding_type(
+                codegen_context,
+                env,
+                body.as_ref(),
+                bindings,
+                binding.name.as_str(),
+            )
+        };
         let slot_type = core_type_to_llvm(codegen_context.context, &binding_type);
         let alloca = codegen_context
             .builder
@@ -245,12 +300,24 @@ fn codegen_let_destructure_statement<'context>(
             binding.name.clone(),
             VariableBinding {
                 alloca,
-                core_type: binding_type,
+                core_type: binding_type.clone(),
                 length: None,
                 capacity: None,
                 is_mutable: binding.is_mutable,
             },
         );
+        env.register_scope_binding(binding.name.as_str());
+        if binding_type == CoreType::String
+            && infer_loop_break_binding_requires_malloc_string_cleanup(
+                codegen_context,
+                env,
+                body.as_ref(),
+                bindings,
+                binding.name.as_str(),
+            )
+        {
+            mark_binding_malloc_string_cleanup(env, binding.name.as_str());
+        }
     }
 
     codegen_loop_expression_into_slots(
@@ -279,6 +346,13 @@ fn codegen_break_statement<'context>(
         loop_context.break_slots.as_slice(),
         loop_context.break_labels.as_slice(),
     )?;
+    let transferred_names = collect_transferred_identifier_names(values);
+    cleanup_scopes_to_depth_preserving_codegen_env(
+        codegen_context,
+        env,
+        loop_context.scope_depth,
+        transferred_names.as_slice(),
+    )?;
     let _branch = codegen_context
         .builder
         .build_unconditional_branch(loop_context.break_target)?;
@@ -293,11 +367,24 @@ fn codegen_break_statement<'context>(
 fn codegen_continue_statement<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
+    values: &[LabeledValue],
 ) -> Result<(), CodegenError> {
+    if !values.is_empty() {
+        return Err(CodegenError::new(String::from(
+            "continue payloads are not supported during code generation",
+        )));
+    }
+
     let loop_context = env
         .current_loop()
         .cloned()
         .ok_or_else(|| CodegenError::new(String::from("continue used outside of loop body")))?;
+    cleanup_scopes_to_depth_preserving_codegen_env(
+        codegen_context,
+        env,
+        loop_context.scope_depth,
+        &[],
+    )?;
     let _branch = codegen_context
         .builder
         .build_unconditional_branch(loop_context.continue_target)?;
@@ -334,6 +421,189 @@ fn store_break_values_into_slots<'context>(
 
     Ok(())
 }
+
+pub(crate) fn collect_transferred_identifier_names(values: &[LabeledValue]) -> Vec<String> {
+    values
+        .iter()
+        .filter_map(|value| match &value.value {
+            &Expr::Identifier { ref name, .. } => Some(name.clone()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+}
+
+fn infer_loop_break_binding_type<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &CodegenEnv<'context>,
+    stmt: &Stmt,
+    bindings: &[LetBinding],
+    binding_name: &str,
+) -> CoreType {
+    let mut local_bindings = BTreeMap::new();
+    infer_loop_break_binding_type_with_locals(
+        codegen_context,
+        env,
+        stmt,
+        bindings,
+        binding_name,
+        &mut local_bindings,
+    )
+}
+
+fn infer_loop_break_binding_type_with_locals<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &CodegenEnv<'context>,
+    stmt: &Stmt,
+    bindings: &[LetBinding],
+    binding_name: &str,
+    local_bindings: &mut BTreeMap<String, CoreType>,
+) -> CoreType {
+    match stmt {
+        &Stmt::Break { ref values, .. } => {
+            let selected_value = if bindings.len() == 1 {
+                values.first()
+            } else {
+                values
+                    .iter()
+                    .find(|value| value.label == binding_name)
+                    .or_else(|| {
+                        bindings
+                            .iter()
+                            .position(|binding| binding.name == binding_name)
+                            .and_then(|index| values.get(index))
+                    })
+            };
+            selected_value.map_or(CoreType::Int64, |value| {
+                infer_loop_break_value_type(codegen_context, env, &value.value, local_bindings)
+            })
+        }
+        &Stmt::Block { ref statements, .. } => {
+            let mut scoped_bindings = local_bindings.clone();
+            for statement in statements {
+                let inferred = infer_loop_break_binding_type_with_locals(
+                    codegen_context,
+                    env,
+                    statement,
+                    bindings,
+                    binding_name,
+                    &mut scoped_bindings,
+                );
+                if inferred != CoreType::Int64 {
+                    return inferred;
+                }
+                register_inferred_local_binding(codegen_context, env, statement, &mut scoped_bindings);
+            }
+            CoreType::Int64
+        }
+        &Stmt::If {
+            ref then_branch,
+            ref else_branch,
+            ..
+        } => {
+            let mut then_bindings = local_bindings.clone();
+            let then_type = infer_loop_break_binding_type_with_locals(
+                codegen_context,
+                env,
+                then_branch.as_ref(),
+                bindings,
+                binding_name,
+                &mut then_bindings,
+            );
+            if then_type != CoreType::Int64 {
+                return then_type;
+            }
+            else_branch.as_deref().map_or(CoreType::Int64, |else_stmt| {
+                let mut else_bindings = local_bindings.clone();
+                infer_loop_break_binding_type_with_locals(
+                    codegen_context,
+                    env,
+                    else_stmt,
+                    bindings,
+                    binding_name,
+                    &mut else_bindings,
+                )
+            })
+        }
+        &Stmt::Guard { ref else_body, .. } | &Stmt::Loop { body: ref else_body, .. } => {
+            let mut nested_bindings = local_bindings.clone();
+            infer_loop_break_binding_type_with_locals(
+                codegen_context,
+                env,
+                else_body.as_ref(),
+                bindings,
+                binding_name,
+                &mut nested_bindings,
+            )
+        }
+        &Stmt::While { ref body, .. } | &Stmt::For { ref body, .. } => {
+            let mut nested_bindings = local_bindings.clone();
+            infer_loop_break_binding_type_with_locals(
+                codegen_context,
+                env,
+                body.as_ref(),
+                bindings,
+                binding_name,
+                &mut nested_bindings,
+            )
+        }
+        _ => CoreType::Int64,
+    }
+}
+
+fn infer_loop_break_value_type<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &CodegenEnv<'context>,
+    expr: &Expr,
+    local_bindings: &BTreeMap<String, CoreType>,
+) -> CoreType {
+    if let &Expr::Identifier { ref name, .. } = expr {
+        if let Some(local_type) = local_bindings.get(name) {
+            return local_type.clone();
+        }
+    }
+
+    if let &Expr::Call { ref callee, .. } = expr {
+        if let &Expr::Identifier { ref name, .. } = callee.as_ref() {
+            if let Some(runtime_name) = env.imported_functions.get(name) {
+                if runtime_name == "string_join" {
+                    return CoreType::String;
+                }
+                if let Some(runtime_type) = known_runtime_return_type(runtime_name.as_str()) {
+                    return runtime_type;
+                }
+            }
+            if name == "string_join" {
+                return CoreType::String;
+            }
+            if let Some(runtime_type) = known_runtime_return_type(name.as_str()) {
+                return runtime_type;
+            }
+        }
+    }
+
+    infer_core_type_from_expr(codegen_context, env, expr)
+}
+
+fn register_inferred_local_binding<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &CodegenEnv<'context>,
+    stmt: &Stmt,
+    local_bindings: &mut BTreeMap<String, CoreType>,
+) {
+    if let &Stmt::Let {
+        ref binding,
+        initializer: Some(ref initializer),
+        ..
+    } = stmt
+    {
+        let binding_type = binding.type_annotation.as_ref().map_or_else(
+            || infer_loop_break_value_type(codegen_context, env, initializer, local_bindings),
+            |annotation| ast_type_to_core_type_for_let(annotation).unwrap_or(CoreType::Int64),
+        );
+        local_bindings.insert(binding.name.clone(), binding_type);
+    }
+}
+
 
 /// Lower a simple identifier assignment into a store.
 fn codegen_assignment<'context>(
@@ -490,6 +760,7 @@ fn codegen_guard_statement<'context>(
                 }
 
                 codegen_context.builder.position_at_end(else_block);
+                let _else_scope_depth = env.enter_scope();
                 let error_alloca = codegen_context
                     .builder
                     .build_alloca(error_value.get_type(), error_binding)?;
@@ -506,6 +777,7 @@ fn codegen_guard_statement<'context>(
                         is_mutable: false,
                     },
                 );
+                env.register_scope_binding(error_binding);
                 env.push_active_guard_error_slot(error_alloca);
 
                 codegen_statement(codegen_context, env, else_body)?;
@@ -515,6 +787,21 @@ fn codegen_guard_statement<'context>(
                     popped_guard_error_slot == Some(error_alloca),
                     "guard error slot stack should unwind in LIFO order"
                 );
+
+                if let Some(block) = codegen_context.builder.get_insert_block() {
+                    if block.get_terminator().is_none() {
+                        crate::codegen::scope_tracker::cleanup_scopes_to_depth_with_malloc_string_release(
+                            codegen_context,
+                            env,
+                            env.current_scope_depth().saturating_sub(1),
+                            &[],
+                        )?;
+                    } else {
+                        unwind_scope_without_cleanup(env);
+                    }
+                } else {
+                    unwind_scope_without_cleanup(env);
+                }
 
                 if let Some(previous) = previous_error_binding {
                     env.variables.insert(error_binding.to_owned(), previous);
@@ -547,6 +834,7 @@ fn codegen_guard_statement<'context>(
                             is_mutable: false,
                         },
                     );
+                    env.register_scope_binding(success_binding_name);
                 }
 
                 return Ok(());
@@ -571,6 +859,7 @@ fn codegen_guard_statement<'context>(
                 is_mutable: false,
             },
         );
+        env.register_scope_binding(success_name);
     }
 
     Ok(())
@@ -623,6 +912,7 @@ fn codegen_guard_error_propagation_statement<'context>(
         success_type,
         loaded_error.into_pointer_value(),
     )?;
+    cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
     let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
     Ok(())
 }

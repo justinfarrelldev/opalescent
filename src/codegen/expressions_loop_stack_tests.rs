@@ -23,6 +23,7 @@ fn with_loop_isolated_clears_and_restores_loop_stack() {
         break_target,
         break_slots: vec![break_slot],
         break_labels: vec![String::from("value")],
+        scope_depth: 0,
     };
 
     let mut env = CodegenEnv::new(false);

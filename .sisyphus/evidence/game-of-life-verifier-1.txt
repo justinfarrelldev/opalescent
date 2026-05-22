@@ -1,0 +1,74 @@
+Verifier 1 rerun: Game-of-Life leak-safety audit after propagate-string ownership fix
+Date: 2026-05-22
+Scope: Independent review of current code and captured evidence focused on the prior reject condition for propagated string locals in Game of Life.
+
+Files inspected
+- src/codegen/scope_tracker.rs
+- src/codegen/statements/runtime_type_info.rs
+- src/codegen/expressions.rs
+- src/codegen/functions.rs
+- src/codegen/statements.rs
+- src/codegen/statements/inference.rs
+- test-projects/game-of-life/src/main.op
+- .sisyphus/evidence/task-8-propagated-string-local.txt
+- .sisyphus/evidence/task-8-scope-leak.txt
+- .sisyphus/evidence/task-8-game-of-life.txt
+
+Previous reject condition
+Verifier 1 previously rejected because propagated string results bound to locals were not being marked for malloc-string cleanup. The concrete Game-of-Life path was:
+- test-projects/game-of-life/src/main.op:21
+- let header_text = propagate string_builder_finish(header_builder)
+
+Current code review findings
+1. Propagate recognition is present.
+- In src/codegen/scope_tracker.rs, expr_requires_malloc_string_cleanup(...) still recurses through Expr::Propagate.
+- This preserves the necessary ability to inspect propagate-wrapped call expressions instead of dropping ownership inference at the wrapper boundary.
+
+2. string_builder_finish now infers as String in let-binding type inference.
+- In src/codegen/statements/runtime_type_info.rs, known_runtime_return_type("string_builder_finish") returns Some(CoreType::String).
+- In src/codegen/statements/inference.rs, infer_core_type_from_expr(...) recurses through Expr::Propagate and delegates call return typing to infer_call_return_type(...).
+- In src/codegen/statements.rs, let-bindings are only marked for malloc-string cleanup when declared_type == CoreType::String and the initializer requires malloc-string cleanup.
+- Together, these paths now allow let header_text = propagate string_builder_finish(...) to satisfy both conditions: inferred CoreType::String and explicit owned-string producer classification.
+
+3. The unsafe broad ownership heuristic is no longer in use.
+- In src/codegen/scope_tracker.rs, call_returns_owned_string(...) no longer relies on imported_signatures or LLVM pointer-return fallback.
+- Ownership tagging now comes from:
+  - explicit runtime owned-string allowlist via runtime_returns_owned_string(...)
+  - imported runtime alias resolution via env.imported_functions
+  - explicitly tracked user-defined owned-string functions via env.owned_string_functions
+- This directly addresses the prior invalid-free risk from classifying arbitrary pointer-returning paths as owned malloc strings.
+
+4. User-defined string return transfer remains covered.
+- In src/codegen/expressions.rs, CodegenEnv now contains owned_string_functions.
+- In src/codegen/functions.rs, non-entry, non-error, single-return string functions are registered into env.owned_string_functions.
+- This is relevant because the scope leak suite includes a return-transfer case and it currently passes, which indicates the fix did not trade Game-of-Life safety for a regression in ordinary string-returning helper functions.
+
+5. Game-of-Life concrete path review
+- test-projects/game-of-life/src/main.op uses a StringBuilder each frame, then binds the propagated finish result to header_text before writing it.
+- Given the reviewed code paths, header_text is now inferable as CoreType::String and recognized as cleanup-eligible through Expr::Propagate -> Call -> string_builder_finish explicit allowlist.
+- Because broad pointer/signature heuristics are absent, this path is fixed without reopening the earlier invalid free condition.
+
+Evidence review
+1. .sisyphus/evidence/task-8-propagated-string-local.txt
+- Result: tests::scope_leak_counters::scope_leak_propagated_string_local ... ok
+- This directly targets the previously rejected ownership path and is now green.
+
+2. .sisyphus/evidence/task-8-scope-leak.txt
+- Result: 9 passed; 0 failed
+- Includes both:
+  - scope_leak_propagated_string_local ... ok
+  - scope_leak_return_transfer ... ok
+- This supports that the targeted ownership change fixed the propagated-local leak while preserving expected string return transfer behavior.
+
+3. .sisyphus/evidence/task-8-game-of-life.txt
+- Result: tests::game_of_life::game_of_life_ten_frames ... ok
+- No invalid free signal is present in the captured evidence.
+
+Assessment
+- The previous reject condition is resolved.
+- The concrete propagated-local Game-of-Life leak path is now covered by explicit String type inference plus explicit owned-string cleanup classification.
+- The prior regression source (broad pointer/signature-based ownership tagging) is not present in the current implementation.
+- The available evidence is consistent with the intended narrow fix: propagated-string local cleanup is green, the broader scope leak suite is green, and Game of Life remains green.
+
+Verdict
+PASS

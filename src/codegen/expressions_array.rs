@@ -326,7 +326,7 @@ fn codegen_indexed_array_assignment_for_array_value<'context>(
     codegen_context.builder.position_at_end(unique_block);
     let overwrite_slot =
         build_array_element_ptr(codegen_context, env, source_data_ptr, index_value)?;
-    let overwritten_value_unique = is_rc_bearing_element_type(element_core_type)
+    let overwritten_value_unique = requires_rc_runtime_hooks(element_core_type)
         .then(|| {
             codegen_context.builder.build_load(
                 overwrite_slot,
@@ -369,7 +369,7 @@ fn codegen_indexed_array_assignment_for_array_value<'context>(
 
     let shared_overwrite_slot =
         build_array_element_ptr(codegen_context, env, cloned_data_ptr, index_value)?;
-    let overwritten_value_shared = is_rc_bearing_element_type(element_core_type)
+    let overwritten_value_shared = requires_rc_runtime_hooks(element_core_type)
         .then(|| {
             codegen_context.builder.build_load(
                 shared_overwrite_slot,
@@ -823,7 +823,7 @@ fn array_drop_children_fn_ptr<'context>(
         .context
         .i8_type()
         .ptr_type(AddressSpace::default());
-    if !is_rc_bearing_element_type(element_core_type) {
+    if !requires_rc_runtime_hooks(element_core_type) {
         return Ok(i8_ptr_type.const_null());
     }
 
@@ -1254,7 +1254,7 @@ fn retain_rc_value_if_needed<'context>(
     element_core_type: &CoreType,
     value: BasicValueEnum<'context>,
 ) -> Result<(), CodegenError> {
-    if !is_rc_bearing_element_type(element_core_type) {
+    if !requires_rc_runtime_hooks(element_core_type) {
         return Ok(());
     }
     if !value.is_pointer_value() {
@@ -1271,7 +1271,7 @@ fn release_rc_value_if_needed<'context>(
     element_core_type: &CoreType,
     value: BasicValueEnum<'context>,
 ) -> Result<(), CodegenError> {
-    if !is_rc_bearing_element_type(element_core_type) {
+    if !requires_rc_runtime_hooks(element_core_type) {
         return Ok(());
     }
     if !value.is_pointer_value() {
@@ -1294,10 +1294,16 @@ fn array_element_heap_class(element_core_type: &CoreType) -> HeapClass {
 
 pub(crate) fn is_rc_bearing_element_type(element_core_type: &CoreType) -> bool {
     match array_element_heap_class(element_core_type) {
-        HeapClass::ReferenceCounted => matches!(element_core_type, CoreType::Array(_)),
+        HeapClass::ReferenceCounted => {
+            matches!(element_core_type, CoreType::String | CoreType::Array(_))
+        }
         HeapClass::CallerOwned | HeapClass::RuntimeManaged => true,
         HeapClass::InlineValue => false,
     }
+}
+
+pub(crate) fn requires_rc_runtime_hooks(element_core_type: &CoreType) -> bool {
+    is_rc_bearing_element_type(element_core_type) && !matches!(element_core_type, CoreType::String)
 }
 
 #[cfg(test)]
@@ -1314,7 +1320,7 @@ mod tests {
             classify_core_type(&CoreType::String),
             HeapClass::ReferenceCounted
         );
-        assert!(!is_rc_bearing_element_type(&CoreType::String));
+        assert!(is_rc_bearing_element_type(&CoreType::String));
         assert!(is_rc_bearing_element_type(&CoreType::Array(Box::new(
             CoreType::String
         ))));

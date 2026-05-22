@@ -12,6 +12,7 @@ use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::rc_emitter::RcEmitter;
 use crate::type_system::heap_class::{HeapClass, classify_core_type};
 use crate::type_system::types::CoreType;
+use alloc::borrow::Cow;
 use alloc::format;
 use inkwell::values::BasicValueEnum;
 
@@ -53,7 +54,7 @@ pub(crate) fn store_binding_overwrite_rc_safe<'context>(
         )));
     };
 
-    let rc_bearing_binding = is_rc_bearing_binding_core_type(&binding_snapshot.core_type);
+    let rc_bearing_binding = binding_requires_rc_cleanup(&binding_snapshot.core_type);
     let old_value = rc_bearing_binding
         .then(|| {
             codegen_context.builder.build_load(
@@ -68,10 +69,11 @@ pub(crate) fn store_binding_overwrite_rc_safe<'context>(
         .builder
         .build_store(binding_snapshot.alloca, value)?;
     if let Some(previous_value) = old_value {
-        release_old_binding_value_if_needed(
+        release_binding_value_if_needed(
             codegen_context,
             &binding_snapshot.core_type,
             previous_value,
+            "overwrite",
         )?;
     }
     clear_array_binding_metadata(env, binding_name);
@@ -91,7 +93,7 @@ fn binding_heap_class(core_type: &CoreType) -> HeapClass {
     classify_core_type(core_type)
 }
 
-fn is_rc_bearing_binding_core_type(core_type: &CoreType) -> bool {
+pub(crate) fn binding_requires_rc_cleanup(core_type: &CoreType) -> bool {
     matches!(binding_heap_class(core_type), HeapClass::ReferenceCounted)
 }
 
@@ -100,7 +102,7 @@ fn retain_new_binding_value_if_needed<'context>(
     core_type: &CoreType,
     value: BasicValueEnum<'context>,
 ) -> Result<(), CodegenError> {
-    if !is_rc_bearing_binding_core_type(core_type) {
+    if !binding_requires_rc_cleanup(core_type) {
         return Ok(());
     }
     if !value.is_pointer_value() {
@@ -113,17 +115,19 @@ fn retain_new_binding_value_if_needed<'context>(
     emitter.emit_inc(value.into_pointer_value())
 }
 
-fn release_old_binding_value_if_needed<'context>(
+pub(crate) fn release_binding_value_if_needed<'context>(
     codegen_context: &CodegenContext<'context>,
     core_type: &CoreType,
     value: BasicValueEnum<'context>,
+    operation: impl Into<Cow<'static, str>>,
 ) -> Result<(), CodegenError> {
-    if !is_rc_bearing_binding_core_type(core_type) {
+    if !binding_requires_rc_cleanup(core_type) {
         return Ok(());
     }
     if !value.is_pointer_value() {
+        let operation = operation.into();
         return Err(CodegenError::new(format!(
-            "RC-bearing binding type '{core_type}' expected pointer value during overwrite"
+            "RC-bearing binding type '{core_type}' expected pointer value during {operation}"
         )));
     }
 

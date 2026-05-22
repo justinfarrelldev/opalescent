@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+
+running 1 test
+test tests::game_of_life::game_of_life_ten_frames ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 169 filtered out; finished in 0.43s
+
