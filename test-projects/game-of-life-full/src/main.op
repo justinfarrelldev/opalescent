@@ -1,0 +1,29 @@
+import frame_clock_wait_next_sync from standard
+import board_width, board_height, target_frames_per_second from ./config
+import create_seed_board from ./patterns
+import next_generation from ./rules
+import prepare_display, write_frame from ./render
+import type LifeConfig from ./life.types
+
+##
+  Description: Runs the full instructional Conway's Game of Life animation until externally stopped.
+##
+entry main = f(args: string[]): void errors InvalidFrameRateError, WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError, InvalidCursorPositionError =>
+    let config: LifeConfig = new LifeConfig:
+        width: board_width()
+        height: board_height()
+        frames_per_second: target_frames_per_second()
+
+    let clock = propagate new FrameClock:
+        frames_per_second: config.frames_per_second
+    let mutable board: int8[] = create_seed_board(config.width, config.height)
+    let mutable generation: int64 = 0
+
+    propagate prepare_display()
+    while true:
+        propagate write_frame(config.width, config.height, board, generation)
+        board = next_generation(board, config.width, config.height)
+        generation = generation + 1
+        propagate frame_clock_wait_next_sync(clock)
+
+    return void

@@ -1,0 +1,7 @@
+##
+  Description: Runtime settings shared by every Game of Life module in this project.
+##
+public type LifeConfig:
+    width: int64
+    height: int64
+    frames_per_second: int32

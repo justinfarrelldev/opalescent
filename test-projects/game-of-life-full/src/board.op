@@ -1,0 +1,35 @@
+import alive_cell, dead_cell from ./config
+
+##
+  Description: Converts a zero-based x/y coordinate into a row-major flat-array index.
+##
+public let board_index = f(width: int64, x: int64, y: int64): int64 =>
+    return (y * width) + x
+
+##
+  Description: Reports whether a zero-based coordinate is inside the configured board rectangle.
+##
+public let in_bounds = f(width: int64, height: int64, x: int64, y: int64): boolean =>
+    if x < 0:
+        return false
+    if y < 0:
+        return false
+    if x >= width:
+        return false
+    if y >= height:
+        return false
+    return true
+
+##
+  Description: Reads one flat board cell, treating coordinates outside the board as dead.
+##
+public let cell_at = f(board: int8[], width: int64, height: int64, x: int64, y: int64): int8 =>
+    if in_bounds(width, height, x, y):
+        return board[board_index(width, x, y)]
+    return dead_cell()
+
+##
+  Description: Checks whether a flat board cell is alive, with out-of-bounds cells considered dead.
+##
+public let is_alive_at = f(board: int8[], width: int64, height: int64, x: int64, y: int64): boolean =>
+    return cell_at(board, width, height, x, y) is alive_cell()

@@ -1,0 +1,45 @@
+import alive_cell, dead_cell from ./config
+import is_alive_at from ./board
+
+##
+  Description: Counts the eight neighboring cells around one coordinate in the flat board.
+##
+public let count_live_neighbors = f(board: int8[], width: int64, height: int64, x: int64, y: int64): int64 =>
+    let mutable count: int64 = 0
+    let mutable dy: int64 = -1
+    while dy <= 1:
+        let mutable dx: int64 = -1
+        while dx <= 1:
+            if dx is not 0 or dy is not 0:
+                if is_alive_at(board, width, height, x + dx, y + dy):
+                    count = count + 1
+            dx = dx + 1
+        dy = dy + 1
+    return count
+
+##
+  Description: Applies Conway's survival and birth rules to one cell of the current generation.
+##
+public let next_cell_state = f(board: int8[], width: int64, height: int64, x: int64, y: int64): int8 =>
+    let neighbors = count_live_neighbors(board, width, height, x, y)
+    if is_alive_at(board, width, height, x, y):
+        if neighbors is 2 or neighbors is 3:
+            return alive_cell()
+        return dead_cell()
+    if neighbors is 3:
+        return alive_cell()
+    return dead_cell()
+
+##
+  Description: Produces the next generation as a new flat int8 board without mutating the current board.
+##
+public let next_generation = f(board: int8[], width: int64, height: int64): int8[] =>
+    let mutable next_board: int8[] = []
+    let mutable y: int64 = 0
+    while y < height:
+        let mutable x: int64 = 0
+        while x < width:
+            next_board.push(next_cell_state(board, width, height, x, y))
+            x = x + 1
+        y = y + 1
+    return next_board

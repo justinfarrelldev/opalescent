@@ -7,6 +7,7 @@
     "/^cd /home/justi/Projects/opalescent/test-projects/delete-downloads && \\./target/program$/": {
       "approve": true,
       "matchCommandLine": true
-    }
+    },
+    "cargo run": true
   }
 }

@@ -1,0 +1,92 @@
+import alive_cell, dead_cell from ./config
+
+##
+  Description: Identifies the five live cells of a glider near the upper-left board area.
+##
+let is_glider_seed = f(x: int64, y: int64): boolean =>
+    if x is 4 and y is 3:
+        return true
+    if x is 5 and y is 4:
+        return true
+    if y is 5 and x >= 3 and x <= 5:
+        return true
+    return false
+
+##
+  Description: Identifies a three-cell horizontal blinker in the upper board area.
+##
+let is_blinker_seed = f(x: int64, y: int64): boolean =>
+    if y is 8 and x >= 18 and x <= 20:
+        return true
+    return false
+
+##
+  Description: Identifies two offset blocks that form a stable-period beacon oscillator.
+##
+let is_beacon_seed = f(x: int64, y: int64): boolean =>
+    if x >= 34 and x <= 35 and y >= 8 and y <= 9:
+        return true
+    if x >= 37 and x <= 38 and y >= 10 and y <= 11:
+        return true
+    return false
+
+##
+  Description: Identifies the live cells of a lightweight spaceship moving across the board.
+##
+let is_spaceship_seed = f(x: int64, y: int64): boolean =>
+    if y is 12 and (x is 56 or x is 59):
+        return true
+    if y is 13 and x is 55:
+        return true
+    if y is 14 and (x is 55 or x is 59):
+        return true
+    if y is 15 and x >= 55 and x <= 58:
+        return true
+    return false
+
+##
+  Description: Identifies a compact exploder pattern that quickly demonstrates growth and decay.
+##
+let is_small_exploder_seed = f(x: int64, y: int64): boolean =>
+    if x is 26 and y is 24:
+        return true
+    if y is 25 and x >= 25 and x <= 27:
+        return true
+    if y is 26 and (x is 25 or x is 27):
+        return true
+    if x is 26 and y is 27:
+        return true
+    return false
+
+##
+  Description: Combines every deterministic starter pattern into one board-cell predicate.
+##
+public let is_seed_cell = f(x: int64, y: int64): boolean =>
+    if is_glider_seed(x, y):
+        return true
+    if is_blinker_seed(x, y):
+        return true
+    if is_beacon_seed(x, y):
+        return true
+    if is_spaceship_seed(x, y):
+        return true
+    if is_small_exploder_seed(x, y):
+        return true
+    return false
+
+##
+  Description: Creates the initial flat int8 board by walking each row and pushing one cell value.
+##
+public let create_seed_board = f(width: int64, height: int64): int8[] =>
+    let mutable board: int8[] = []
+    let mutable y: int64 = 0
+    while y < height:
+        let mutable x: int64 = 0
+        while x < width:
+            if is_seed_cell(x, y):
+                board.push(alive_cell())
+            else:
+                board.push(dead_cell())
+            x = x + 1
+        y = y + 1
+    return board
