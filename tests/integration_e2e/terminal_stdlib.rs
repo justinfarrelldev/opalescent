@@ -48,7 +48,7 @@ fn terminal_clear_screen_ansi_bytes() {
             ));
         }
 
-        let expected = b"\x1b[2J\x1b[H";
+        let expected = b"\x1b[2J\x1b[3J\x1b[H";
         if run_output.stdout.as_slice() != expected {
             return Err(format!(
                 "terminal-clear-screen-ansi-bytes stdout should equal {:?}, got {:?}",
