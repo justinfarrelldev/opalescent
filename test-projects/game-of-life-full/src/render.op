@@ -1,4 +1,4 @@
-import stdout_writer, writer_write_sync, writer_flush_sync, stdout_terminal, terminal_supports_ansi, terminal_clear_screen_on_sync, terminal_move_cursor_on_sync, int64_to_string from standard
+import stdout_writer, writer_write_sync, writer_flush_sync, stdout_terminal, terminal_supports_ansi, terminal_clear_screen_on_sync, int64_to_string from standard
 import is_alive_at from ./board
 
 ##
@@ -11,13 +11,13 @@ public let prepare_display = f(): void errors TerminalWriteFailureError, SinkClo
     return void
 
 ##
-  Description: Streams one complete board frame to stdout and flushes after the final row.
+  Description: Clears supported terminals, streams one complete frame, and flushes after the final row.
 ##
-public let write_frame = f(width: int64, height: int64, board: int8[], generation: int64): void errors WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError, InvalidCursorPositionError =>
+public let write_frame = f(width: int64, height: int64, board: int8[], generation: int64): void errors WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError =>
     let terminal = stdout_terminal()
     let writer = stdout_writer()
     if terminal_supports_ansi(terminal):
-        propagate terminal_move_cursor_on_sync(terminal, 0, 0)
+        propagate terminal_clear_screen_on_sync(terminal)
     else:
         propagate writer_write_sync(writer, '\n')
 

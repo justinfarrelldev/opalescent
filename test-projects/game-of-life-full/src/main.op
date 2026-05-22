@@ -8,7 +8,7 @@ import type LifeConfig from ./life.types
 ##
   Description: Runs the full instructional Conway's Game of Life animation until externally stopped.
 ##
-entry main = f(args: string[]): void errors InvalidFrameRateError, WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError, InvalidCursorPositionError =>
+entry main = f(args: string[]): void errors InvalidFrameRateError, WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError =>
     let config: LifeConfig = new LifeConfig:
         width: board_width()
         height: board_height()

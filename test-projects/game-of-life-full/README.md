@@ -16,7 +16,8 @@ process is stopped externally with Ctrl+C or a command such as `timeout`.
 - `src/patterns.op` creates the deterministic seed board from recognizable
   Conway patterns.
 - `src/rules.op` implements live-neighbor counting and next-generation rules.
-- `src/render.op` streams each frame to stdout and flushes once per frame.
+- `src/render.op` clears ANSI terminals for each generation, streams each frame
+  to stdout, and flushes once per frame.
 
 ## Flat Board Storage
 
@@ -49,6 +50,15 @@ before imported nominal types are available.
 Terminal and timing operations are fallible. This project follows Opalescent's
 error style by propagating those errors to `entry main` instead of handling them
 inside lower-level modules. The app itself does not use custom exit codes.
+
+## Terminal Rendering
+
+Opalescent can clear the terminal through `terminal_clear_screen_on_sync` when
+stdout supports ANSI control sequences. The standard clear operation clears the
+visible screen, clears terminal scrollback, and returns the cursor home. In an
+interactive terminal this project clears before writing each generation, so the
+board animates in place. When stdout is redirected, ANSI support is reported as
+unavailable and frames are written as a readable transcript instead.
 
 ## Build
 
