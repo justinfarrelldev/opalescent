@@ -70,6 +70,7 @@ mod project_execution_rc;
 mod rc_counter_negative_fixture;
 mod rc_store_leak_regressions;
 mod scope_leak_counters;
+mod call_temp_leak_regressions;
 mod stdout_text_stdlib;
 mod stdout_writer_stdlib;
 mod string_builder_stdlib;
