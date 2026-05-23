@@ -9,13 +9,36 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-const STRESS_WINDOW: Duration = Duration::from_secs(15);
-const HARD_TIMEOUT: Duration = Duration::from_secs(20);
-const SAMPLE_INTERVAL: Duration = Duration::from_millis(250);
-const MIN_SAMPLES: usize = 30;
-const WARMUP_SAMPLES: usize = 8;
-const MAX_POST_WARMUP_GROWTH_BYTES: i64 = 8 * 1024 * 1024;
-const MAX_POST_WARMUP_SPREAD_BYTES: i64 = 10 * 1024 * 1024;
+#[derive(Clone, Copy, Debug)]
+struct StressLimits {
+    stress_window: Duration,
+    hard_timeout: Duration,
+    sample_interval: Duration,
+    min_samples: usize,
+    warmup_samples: usize,
+    max_post_warmup_growth_bytes: i64,
+    max_post_warmup_spread_bytes: i64,
+}
+
+const GAME_OF_LIFE_FULL_LIMITS: StressLimits = StressLimits {
+    stress_window: Duration::from_secs(15),
+    hard_timeout: Duration::from_secs(20),
+    sample_interval: Duration::from_millis(250),
+    min_samples: 30,
+    warmup_samples: 8,
+    max_post_warmup_growth_bytes: 8 * 1024 * 1024,
+    max_post_warmup_spread_bytes: 10 * 1024 * 1024,
+};
+
+const GAME_OF_LIFE_RC_RETURN_LIMITS: StressLimits = StressLimits {
+    stress_window: Duration::from_secs(120),
+    hard_timeout: Duration::from_secs(130),
+    sample_interval: Duration::from_secs(1),
+    min_samples: 90,
+    warmup_samples: 10,
+    max_post_warmup_growth_bytes: 2 * 1024 * 1024,
+    max_post_warmup_spread_bytes: 4 * 1024 * 1024,
+};
 
 #[derive(Clone, Debug)]
 struct MemorySample {
@@ -140,7 +163,7 @@ fn kill_and_reap_child(child: &mut Child) -> (bool, Option<String>, Option<ExitS
     (kill_attempted, kill_result, final_status)
 }
 
-fn run_memory_stress(binary_path: &Path) -> Result<StressReport, String> {
+fn run_memory_stress(binary_path: &Path, limits: StressLimits) -> Result<StressReport, String> {
     let mut child = Command::new(binary_path)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -159,12 +182,12 @@ fn run_memory_stress(binary_path: &Path) -> Result<StressReport, String> {
 
     loop {
         let elapsed = start.elapsed();
-        if elapsed >= HARD_TIMEOUT {
+        if elapsed >= limits.hard_timeout {
             timed_out = true;
             break;
         }
 
-        if elapsed >= STRESS_WINDOW {
+        if elapsed >= limits.stress_window {
             break;
         }
 
@@ -182,20 +205,20 @@ fn run_memory_stress(binary_path: &Path) -> Result<StressReport, String> {
 
         let rss_bytes = read_linux_rss_bytes(pid)?;
         samples.push(MemorySample { elapsed, rss_bytes });
-        thread::sleep(SAMPLE_INTERVAL);
+        thread::sleep(limits.sample_interval);
     }
 
     let (kill_attempted, kill_result, final_status) = kill_and_reap_child(&mut child);
 
     Ok(StressReport {
         samples,
-        warmup_samples: WARMUP_SAMPLES,
-        min_samples: MIN_SAMPLES,
-        sample_interval: SAMPLE_INTERVAL,
-        stress_window: STRESS_WINDOW,
-        hard_timeout: HARD_TIMEOUT,
-        max_post_warmup_growth_bytes: MAX_POST_WARMUP_GROWTH_BYTES,
-        max_post_warmup_spread_bytes: MAX_POST_WARMUP_SPREAD_BYTES,
+        warmup_samples: limits.warmup_samples,
+        min_samples: limits.min_samples,
+        sample_interval: limits.sample_interval,
+        stress_window: limits.stress_window,
+        hard_timeout: limits.hard_timeout,
+        max_post_warmup_growth_bytes: limits.max_post_warmup_growth_bytes,
+        max_post_warmup_spread_bytes: limits.max_post_warmup_spread_bytes,
         timed_out,
         final_status,
         kill_attempted,
@@ -249,6 +272,13 @@ fn extract_post_warmup_stats(report: &StressReport) -> Result<(i64, i64, i64, i6
 }
 
 fn assert_bounded_memory(report: &StressReport) -> Result<(), String> {
+    if report.timed_out {
+        return Err(format!(
+            "game-of-life-full memory stress must finish sampling before hard timeout; {}",
+            stress_context(report)
+        ));
+    }
+
     if report.samples.len() < report.min_samples {
         return Err(format!(
             "game-of-life-full memory stress should collect at least {} samples, got {}; {}",
@@ -335,7 +365,7 @@ fn game_of_life_full_memory_stress() {
                 format!("game-of-life-full fixture should compile into a binary: {error}")
             })?;
 
-        let report = run_memory_stress(&binary_path)?;
+        let report = run_memory_stress(&binary_path, GAME_OF_LIFE_FULL_LIMITS)?;
         assert_bounded_memory(&report)
     })();
 
@@ -343,5 +373,38 @@ fn game_of_life_full_memory_stress() {
     assert!(
         failure_message.is_empty(),
         "game-of-life-full stress executable should run under bounded timeout, collect sufficient samples, remain memory-bounded post-warmup, and always be reaped: {failure_message}"
+    );
+}
+
+#[test]
+#[ignore = "stress test: opt-in via --ignored and OPAL_RUN_STRESS=1"]
+#[serial(fs)]
+fn game_of_life_rc_return_stress() {
+    if !should_run_stress() {
+        eprintln!("skipping game_of_life_rc_return_stress: OPAL_RUN_STRESS != 1");
+        return;
+    }
+
+    let project_name = "game-of-life-full";
+    let project_dir = fs_project_root(project_name);
+
+    let execution_result: Result<(), String> = (|| {
+        let _guard = FsStateGuard::new("test-projects/game-of-life-full")
+            .map_err(|error| format!("game-of-life-full guard should initialize: {error}"))?;
+
+        let temp_dir = super::fs_helpers::unique_probe_target_dir("game-of-life-rc-return-stress");
+        let binary_path = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host())
+            .map_err(|error| {
+                format!("game-of-life-full fixture should compile into a binary: {error}")
+            })?;
+
+        let report = run_memory_stress(&binary_path, GAME_OF_LIFE_RC_RETURN_LIMITS)?;
+        assert_bounded_memory(&report)
+    })();
+
+    let failure_message = execution_result.err().unwrap_or_default();
+    assert!(
+        failure_message.is_empty(),
+        "game_of_life_rc_return_stress should run the real game-of-life-full reassignment loop for 120s with hard timeout <=130s, keep post-warmup RSS bounded, and always reap the child process: {failure_message}"
     );
 }

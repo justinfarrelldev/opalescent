@@ -1,0 +1,48 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-a78f5a55e4e32ce5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1277 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-3851ea484802c5ad)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 49 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-be9371b00ff8c799)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-84b03c5f67d4c8de)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+
+running 1 test
+test tests::game_of_life_full_memory_stress::game_of_life_rc_return_stress ... 
+thread 'tests::game_of_life_full_memory_stress::game_of_life_rc_return_stress' panicked at tests/integration_e2e/game_of_life_full_memory_stress.rs:406:5:
+game_of_life_rc_return_stress should run the real game-of-life-full reassignment loop for 120s with hard timeout <=130s, keep post-warmup RSS bounded, and always reap the child process: game-of-life-full post-warmup RSS growth should stay <= 2097152B but was 6909952B; warmup_samples=10; post_warmup_samples=110; spread=6909952B (limit=4194304B); sample_interval=1000ms; stress_window=120000ms; hard_timeout=130000ms; warmup_samples=10; min_samples=90; kill_attempted=true; kill_result=Some("ok"); final_status=Some(ExitStatus(unix_wait_status(9))); timed_out=false; samples=[#0: t=0ms rss=16384B; #1: t=1000ms rss=1728512B; #2: t=2000ms rss=1789952B; #3: t=3000ms rss=1851392B; #4: t=4000ms rss=1912832B; #5: t=5001ms rss=1978368B; #6: t=6001ms rss=2039808B; #7: t=7001ms rss=2101248B; #8: t=8002ms rss=2166784B; #9: t=9002ms rss=2232320B; #10: t=10002ms rss=2293760B; #11: t=11002ms rss=2355200B; #12: t=12002ms rss=2416640B; #13: t=13003ms rss=2482176B; #14: t=14003ms rss=2547712B; #15: t=15003ms rss=2609152B; #16: t=16004ms rss=2674688B; #17: t=17004ms rss=2740224B; #18: t=18004ms rss=2801664B; #19: t=19004ms rss=2863104B; #20: t=20004ms rss=2924544B; #21: t=21005ms rss=2985984B; #22: t=22005ms rss=3055616B; #23: t=23005ms rss=3117056B; #24: t=24005ms rss=3182592B; #25: t=25006ms rss=3244032B; #26: t=26006ms rss=3309568B; #27: t=27006ms rss=3371008B; #28: t=28006ms rss=3432448B; #29: t=29007ms rss=3493888B; #30: t=30007ms rss=3559424B; #31: t=31007ms rss=3624960B; #32: t=32008ms rss=3686400B; #33: t=33008ms rss=3751936B; #34: t=34008ms rss=3817472B; #35: t=35008ms rss=3878912B; #36: t=36009ms rss=3940352B; #37: t=37009ms rss=4001792B; #38: t=38009ms rss=4063232B; #39: t=39009ms rss=4132864B; #40: t=40010ms rss=4198400B; #41: t=41010ms rss=4259840B; #42: t=42010ms rss=4321280B; #43: t=43010ms rss=4386816B; #44: t=44011ms rss=4448256B; #45: t=45011ms rss=4509696B; #46: t=46011ms rss=4571136B; #47: t=47012ms rss=4636672B; #48: t=48012ms rss=4706304B; #49: t=49012ms rss=4767744B; #50: t=50012ms rss=4829184B; #51: t=51013ms rss=4894720B; #52: t=52013ms rss=4956160B; #53: t=53013ms rss=5017600B; #54: t=54013ms rss=5079040B; #55: t=55014ms rss=5144576B; #56: t=56014ms rss=5214208B; #57: t=57014ms rss=5275648B; #58: t=58014ms rss=5337088B; #59: t=59015ms rss=5398528B; #60: t=60015ms rss=5464064B; #61: t=61015ms rss=5525504B; #62: t=62015ms rss=5586944B; #63: t=63016ms rss=5652480B; #64: t=64016ms rss=5718016B; #65: t=65016ms rss=5783552B; #66: t=66017ms rss=5844992B; #67: t=67017ms rss=5906432B; #68: t=68017ms rss=5971968B; #69: t=69018ms rss=6033408B; #70: t=70018ms rss=6094848B; #71: t=71018ms rss=6160384B; #72: t=72018ms rss=6225920B; #73: t=73019ms rss=6291456B; #74: t=74019ms rss=6352896B; #75: t=75019ms rss=6414336B; #76: t=76020ms rss=6475776B; #77: t=77020ms rss=6541312B; #78: t=78020ms rss=6602752B; #79: t=79020ms rss=6668288B; #80: t=80021ms rss=6729728B; #81: t=81021ms rss=6795264B; #82: t=82021ms rss=6860800B; #83: t=83021ms rss=6922240B; #84: t=84022ms rss=6983680B; #85: t=85022ms rss=7049216B; #86: t=86022ms rss=7110656B; #87: t=87022ms rss=7176192B; #88: t=88023ms rss=7237632B; #89: t=89023ms rss=7303168B; #90: t=90023ms rss=7368704B; #91: t=91023ms rss=7430144B; #92: t=92024ms rss=7491584B; #93: t=93024ms rss=7553024B; #94: t=94024ms rss=7618560B; #95: t=95024ms rss=7680000B; #96: t=96025ms rss=7745536B; #97: t=97025ms rss=7806976B; #98: t=98025ms rss=7872512B; #99: t=99025ms rss=7938048B; #100: t=100025ms rss=7999488B; #101: t=101026ms rss=8060928B; #102: t=102026ms rss=8126464B; #103: t=103026ms rss=8187904B; #104: t=104026ms rss=8249344B; #105: t=105027ms rss=8314880B; #106: t=106027ms rss=8380416B; #107: t=107027ms rss=8445952B; #108: t=108028ms rss=8507392B; #109: t=109028ms rss=8568832B; #110: t=110028ms rss=8634368B; #111: t=111028ms rss=8695808B; #112: t=112029ms rss=8761344B; #113: t=113029ms rss=8822784B; #114: t=114029ms rss=8884224B; #115: t=115029ms rss=8953856B; #116: t=116030ms rss=9015296B; #117: t=117030ms rss=9076736B; #118: t=118030ms rss=9138176B; #119: t=119031ms rss=9203712B]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    tests::game_of_life_full_memory_stress::game_of_life_rc_return_stress
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 184 filtered out; finished in 120.46s
+
+error: test failed, to rerun pass `--test integration_e2e`
