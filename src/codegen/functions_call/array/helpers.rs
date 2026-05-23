@@ -15,9 +15,9 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding};
 use crate::codegen::expressions_array::{
-    allocate_array_payload, is_rc_bearing_element_type, load_array_capacity_from_value,
+    allocate_array_payload, load_array_capacity_from_value,
     load_array_data_ptr_for_element_type, load_array_length_from_value,
-    load_array_payload_ptr_from_binding,
+    load_array_payload_ptr_from_binding, requires_rc_runtime_hooks,
 };
 use crate::codegen::rc_emitter::RcEmitter;
 use crate::type_system::types::CoreType;
@@ -119,7 +119,7 @@ pub(super) fn retain_rc_element_if_needed<'context>(
     value: inkwell::values::BasicValueEnum<'context>,
     name_prefix: &str,
 ) -> Result<(), CodegenError> {
-    if !is_rc_bearing_element_type(element_core_type) {
+    if !requires_rc_runtime_hooks(element_core_type) {
         return Ok(());
     }
     if !value.is_pointer_value() {

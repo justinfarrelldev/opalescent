@@ -10,8 +10,8 @@ extern crate alloc;
 use crate::ast::{Expr, LabeledValue, LetBinding, Stmt};
 use crate::codegen::adts::product_field_indices_from_constructor;
 use crate::codegen::binding_store::{
-    StoreMode, initialize_binding_value, store_binding_overwrite_rc_safe,
-    store_binding_overwrite_rc_safe_with_mode,
+    StoreMode, binding_requires_rc_cleanup, initialize_binding_value,
+    store_binding_overwrite_rc_safe, store_binding_overwrite_rc_safe_with_mode,
 };
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::{
@@ -940,15 +940,17 @@ fn assignment_store_mode(value: &Expr, binding_type: &CoreType) -> StoreMode {
         Expr::Call { ref callee, .. } if reserve_call_returns_owned_alias(callee.as_ref()) => {
             StoreMode::TakeOwned
         }
-        // Align with let-initializer ownership: fresh RC call results should be taken owned only
-        // when the binding itself requires RC cleanup.
-        Expr::Call { .. } if binding_requires_rc_cleanup(binding_type) => StoreMode::TakeOwned,
+        // Align with reassignment leak semantics: call results transfer ownership when the
+        // destination binding participates in RC cleanup.
+        Expr::Call { .. } if binding_requires_take_owned_call_assignment(binding_type) => {
+            StoreMode::TakeOwned
+        }
         _ => StoreMode::Retain,
     }
 }
 
-const fn binding_requires_rc_cleanup(binding_type: &CoreType) -> bool {
-    matches!(*binding_type, CoreType::Array(_) | CoreType::String)
+fn binding_requires_take_owned_call_assignment(binding_type: &CoreType) -> bool {
+    binding_requires_rc_cleanup(binding_type)
 }
 
 fn reserve_call_returns_owned_alias(callee: &Expr) -> bool {

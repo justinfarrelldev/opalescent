@@ -1302,8 +1302,11 @@ pub(crate) fn is_rc_bearing_element_type(element_core_type: &CoreType) -> bool {
     }
 }
 
-pub(crate) fn requires_rc_runtime_hooks(element_core_type: &CoreType) -> bool {
-    is_rc_bearing_element_type(element_core_type) && !matches!(element_core_type, CoreType::String)
+pub(crate) const fn requires_rc_runtime_hooks(element_core_type: &CoreType) -> bool {
+    // Runtime RC hooks currently operate on RC payload pointers (`opal_rc_inc/dec/drop_child`).
+    // Only nested arrays lower to that representation here; strings and nominal/generic values
+    // are not RC payload pointers and must not be passed to those hooks.
+    matches!(element_core_type, CoreType::Array(_))
 }
 
 #[cfg(test)]

@@ -23,7 +23,7 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, codegen_expression};
 use crate::codegen::expressions_array::{
-    infer_expression_core_type, is_rc_bearing_element_type, load_array_payload_ptr_from_binding,
+    infer_expression_core_type, load_array_payload_ptr_from_binding, requires_rc_runtime_hooks,
 };
 use crate::codegen::rc_emitter::RcEmitter;
 use crate::type_system::types::CoreType;
@@ -1137,7 +1137,7 @@ fn codegen_array_pop_call<'context>(
     )?;
 
     codegen_context.builder.position_at_end(unique_block);
-    if is_rc_bearing_element_type(&element_core_type) {
+    if requires_rc_runtime_hooks(&element_core_type) {
         retain_rc_element_if_needed(
             codegen_context,
             env,
@@ -1161,7 +1161,7 @@ fn codegen_array_pop_call<'context>(
         .build_unconditional_branch(cont_block)?;
 
     codegen_context.builder.position_at_end(shared_block);
-    if is_rc_bearing_element_type(&element_core_type) {
+    if requires_rc_runtime_hooks(&element_core_type) {
         retain_rc_element_if_needed(
             codegen_context,
             env,
@@ -1228,7 +1228,7 @@ fn release_array_live_elements_if_needed<'context>(
     live_length: inkwell::values::IntValue<'context>,
     operation: &str,
 ) -> Result<(), CodegenError> {
-    if !is_rc_bearing_element_type(element_core_type) {
+    if !requires_rc_runtime_hooks(element_core_type) {
         return Ok(());
     }
 
