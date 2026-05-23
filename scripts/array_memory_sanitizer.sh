@@ -29,9 +29,21 @@ SANITIZED_SELECTORS=(
   "array_rebind_releases_old_preserves_alias"
 )
 MEMORY_VERIFICATION_TESTS=(
-  "memory_model_counters"
-  "rc_counter_negative_fixture"
+  "tests::memory_model_counters::memory_model_counters"
+  "tests::rc_counter_negative_fixture::rc_counter_negative_fixture"
+  "tests::rc_store_leak_regressions::rc_store_direct_assignment"
+  "tests::rc_store_leak_regressions::rc_store_push_no_grow"
+  "tests::rc_store_leak_regressions::rc_store_push_grow"
+  "tests::rc_store_leak_regressions::rc_store_self_overwrite"
+  "tests::rc_store_leak_regressions::rc_store_aliased_source_safety"
+  "tests::rc_store_leak_regressions::rc_store_second_class_ref_adjacent"
+  "tests::call_temp_leak_regressions::call_temp_owned_arg_freed_on_return"
+  "tests::call_temp_leak_regressions::call_temp_owned_arg_freed_on_propagate"
+  "tests::call_temp_leak_regressions::call_temp_mixed_disposition"
+  "tests::call_temp_leak_regressions::call_temp_nested_later_failure_cleanup"
+  "tests::call_temp_leak_regressions::call_temp_take_owned_no_double_free"
 )
+STRESS_VERIFICATION_TEST="tests::game_of_life_full_memory_stress::game_of_life_full_memory_stress"
 
 cleanup() {
   rm -rf "${TMP_DIR}"
@@ -125,20 +137,36 @@ EOF
 run_memory_verification_test() {
   local test_name="$1"
 
-  echo "INFO: running mandatory memory verification test '${test_name}'."
+  echo "INFO: running mandatory memory verification test '${test_name}' (exact selector)."
   (
     cd "${ROOT_DIR}"
-    cargo test --features integration --test integration_e2e "${test_name}" -- --nocapture --test-threads=1
+    cargo test --features integration --test integration_e2e "${test_name}" -- --exact --nocapture --test-threads=1
+  )
+}
+
+run_opt_in_stress_verification() {
+  if [[ "${OPAL_RUN_STRESS:-0}" != "1" ]]; then
+    echo "INFO: skipping ignored stress verification; set OPAL_RUN_STRESS=1 to enable '${STRESS_VERIFICATION_TEST}'."
+    return 0
+  fi
+
+  echo "INFO: running opt-in ignored stress verification '${STRESS_VERIFICATION_TEST}'."
+  (
+    cd "${ROOT_DIR}"
+    OPAL_RUN_STRESS=1 cargo test --features integration --test integration_e2e \
+      "${STRESS_VERIFICATION_TEST}" -- --ignored --exact --nocapture --test-threads=1
   )
 }
 
 run_memory_verification_hooks() {
-  echo "INFO: running mandatory T2 memory verification hooks."
+  echo "INFO: running deterministic memory verification hooks."
 
   local test_name
   for test_name in "${MEMORY_VERIFICATION_TESTS[@]}"; do
     run_memory_verification_test "${test_name}"
   done
+
+  run_opt_in_stress_verification
 }
 
 assert_sanitized_selectors_present
