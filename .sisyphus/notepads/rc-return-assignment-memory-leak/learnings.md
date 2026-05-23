@@ -13,8 +13,12 @@
 - `initialize_binding_value` is intentionally shared across `let`, function parameter, and loop-iteration initialization paths, so the audit should not attempt to specialize it.
 - The `let` initializer path already avoids double-retaining call results, so the correct fix target stays on assignment behavior only.
 
-
 ## 2026-05-23T04:55:36Z — Task 4 learnings
 - `assignment_store_mode` now mirrors the let-init ownership rule for RC-bound call results by taking ownership only when the binding needs RC cleanup.
 - Preserving the `Expr::Array` and `reserve(...)` branches kept the change narrow and avoided disturbing existing fresh-owner behavior.
 - The focused regression and the existing RC-store suite both stayed green after threading `binding_type` into the assignment path.
+
+## 2026-05-23T05:00:00Z — Task 5 learnings
+- The `game_of_life_rc_return_stress` gate behaves correctly: without `OPAL_RUN_STRESS=1` it skips immediately, and with the env var it ran the full 120s window and stayed green.
+- The sanitizer workflow evidence must explicitly record when `scripts/array_memory_sanitizer.sh` is absent or not executable so the report stays truthful.
+- The Task 5 stress run completed within the 130s hard cap, which preserves the bounded verification contract for this fix.
