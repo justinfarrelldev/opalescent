@@ -20,3 +20,5 @@
 
 
 - [2026-05-23 05:48:25Z] Problem closed: deterministic fs test failures traced to invalid RC hook calls on non-RC payload pointers in array element handling. Fix validated across full integration, full test suite, and stress gate.
+
+- [2026-05-23 F4] No new unresolved scope-fidelity problems found in the final committed state for this plan.

@@ -31,3 +31,29 @@
 - [2026-05-23 05:48:25Z] fs blocker root cause: array RC hook predicate was too broad. String/FilesystemPath/Pair elements were flowing through hook sites (`opal_rc_inc/dec`) that require RC payload pointers. Tightening hook eligibility to nested array elements fixed deterministic fs corruption while preserving array-child RC semantics.
 
 - [2026-05-23 05:53:36Z] Restored assignment call-ownership gating in `assignment_store_mode` to use RC-cleanup predicate semantics (`binding_requires_rc_cleanup(binding_type)`) via helper wrapper, while preserving `Expr::Array` and `reserve(...)` TakeOwned branches.
+
+- [2026-05-23 F4] Final scope audit passed because the committed reassignment fix stayed anchored to `assignment_store_mode` ownership gating, while the Task 6 follow-up remained a narrow RC-hook eligibility correction rather than a redesign.
+
+## 2026-05-23T06:00:00Z — F2 code quality review learnings
+- The assignment ownership fix in `src/codegen/statements.rs` is readable and maintainable: binding-type threading plus RC-cleanup-gated call `TakeOwned` is explicit and aligns with let/assignment ownership intent.
+- Required quality scans found no `TODO/FIXME/HACK/as any/@ts-ignore/console.log` markers in the reviewed changed production/test files.
+- For strict final-wave criteria, even valid follow-up production fixes in adjacent files can invalidate a “surgical in statements.rs” claim unless explicitly broadened in the gate definition.
+
+## 2026-05-23T06:13:08Z — F1 plan compliance audit
+- Final-wave F1 re-audit approved the plan state because Task 6 explicitly allowed a focused follow-up fix and rerun, and the evidence commit `9e22c43` records that post-fix verification.
+- The audited guardrail commands remained clean for `test-projects/game-of-life-full/src/main.op`, `runtime/opal_rc.c`, `runtime/opal_rc.h`, and `src/codegen/control_flow.rs`, while the tests-first reassignment chain still appears in recent git history.
+
+## 2026-05-23T06:25:00Z — F3 real manual QA learnings
+- Full required F3 command sequence passed in strict order with exit code 0 for cargo test, cargo test --features integration, and the opt-in stress target.
+- The stress test  completed in 120.46s, remaining within the 130s acceptance budget.
+- Sanitizer execution must be reported as skipped when script exists but lacks executable permission; this preserves truthful QA evidence and avoids fabricated green signals.
+
+## 2026-05-23T06:25:00Z — F3 real manual QA learnings
+- Full required F3 command sequence passed in strict order with exit code 0 for cargo test, cargo test --features integration, and the opt-in stress target.
+- The stress test `game_of_life_rc_return_stress` completed in 120.46s, remaining within the 130s acceptance budget.
+- Sanitizer execution must be reported as skipped when script exists but lacks executable permission; this preserves truthful QA evidence and avoids fabricated green signals.
+
+## 2026-05-23T06:25:00Z — F2 rerun learnings
+- Re-evaluating F2 against the plan text plus final commit chain (not just the immediate fix commit) changes the quality outcome: small, cohesive follow-up corrections can still satisfy maintainability/scope quality.
+- `3de44f8` is best classified as a verification-driven RC-hook eligibility correction, not broad refactor churn, because it is localized and semantically coupled to the same RC ownership surface.
+- For strict final-wave reviews, commit-range context (`a4640b1^..3de44f8`) is essential to distinguish acceptable focused follow-ups from true scope drift.

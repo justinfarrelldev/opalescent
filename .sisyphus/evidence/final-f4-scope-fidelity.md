@@ -1,61 +1,86 @@
-# Final F4 Scope Fidelity Check — Guard Error Propagation
+# Final Wave F4 — Scope Fidelity Check
 
-Generated: 2026-05-13T20:48:46Z
-Plan audited: `.sisyphus/plans/guard-error-propagation.md`
+VERDICT: APPROVE
 
-## Verdict
-**APPROVE**
+## Scope decision
+The final state is within scope for `.sisyphus/plans/rc-return-assignment-memory-leak.md`.
+The reassignment leak fix remains centered on assignment ownership gating, the alias-return limitation is documented and explicitly not claimed fixed, there is no Game of Life source workaround, and there are no semantic changes in `runtime/opal_rc.c`, `runtime/opal_rc.h`, or `src/codegen/control_flow.rs`.
 
-## Checks rerun in this pass
-- `cargo fmt --all -- --check` → PASS
-- `cargo clippy --all-targets --all-features -- -D warnings` → PASS
-- `cargo test --all-features` → PASS
-- representative diff review over:
-  - `src/bounded_proc.rs`
-  - `src/compiler.rs`
-  - `src/compiler/tests.rs`
-  - `src/hot_reload/tests.rs`
-  - `src/type_system/checker/expressions_guard.rs`
-  - `tests/integration_e2e/guard_optional_binding.rs`
+## Required checks
 
-## Scope fidelity findings
+### 1. Intended reassignment leak behavior is the thing being fixed
+The final assignment path still routes mutable reassignment through the target-type-aware store-mode selector:
+- `src/codegen/statements.rs:632-649` — assignment lowers the RHS with `Some(&binding_type)` and selects `StoreMode` via `assignment_store_mode(value, &binding_type)`.
+- `src/codegen/statements.rs:933-953` — `assignment_store_mode` preserves the existing `Expr::Array` and `reserve(...)` `TakeOwned` behavior and adds the RC-cleanup-gated ordinary call arm.
 
-### 1) Correct plan target
-**Status:** PASS
+This matches the plan's intended narrow behavioral change: RC-typed reassignment from fresh call results consumes the owned result instead of retaining again.
 
-This final-wave artifact audits the required plan path:
-- `.sisyphus/plans/guard-error-propagation.md`
+Supporting evidence:
+- `.sisyphus/evidence/task-4-reassignment-green.txt`
+- `.sisyphus/evidence/task-5-stress-green.txt`
 
-### 2) No prohibited semantic expansion in this closure pass
-**Status:** PASS
+### 2. Alias-return limitation is documented, not claimed fixed
+The known limitation remains explicit and truthful:
+- `tests/integration_e2e/rc_store_leak_regressions.rs:391-424` defines ignored test `alias_return_assignment_known_limitation`.
+- The failure text states that alias-returning user functions do not prove fresh RC ownership and that fixing this would require separate alias/provenance tracking.
 
-Representative source inspection shows the `src/` changes in this closure pass are rustfmt-only. In particular:
-- `src/type_system/checker/expressions_guard.rs` has layout-only reformatting;
-- no new `return err` support was added;
-- no broad `Expr::Propagate` generalization was added;
-- no new compiler subsystems or unrelated refactors were introduced.
+This is consistent with the plan's “Known Limitations” and does not over-claim a fix.
 
-### 3) Requested semantics remain intact
-**Status:** PASS
+Supporting evidence:
+- `.sisyphus/evidence/task-1-alias-known-limitation.txt`
 
-Fresh test evidence from this pass confirms the requested guard semantics still hold:
-- `return err` remains rejected inside guard error clauses;
-- long-form `propagate err` behavior remains guarded by terminal/handling rules;
-- shorthand `propagate <call>()` remains valid in the focused guard suites;
-- `delete-downloads` and `delete-downloads-strict` still run successfully with the rebuilt release binary.
+### 3. No Game of Life source workaround
+The project source keeps the direct reassignment shape:
+- `test-projects/game-of-life-full/src/main.op:23-27` uses `board = next_generation(board, config.width, config.height)` directly.
 
-### 4) Optional-binding reconciliation stayed in scope
-**Status:** PASS
+Required command check:
+- `git diff -- test-projects/game-of-life-full/src/main.op` → empty in the current final state.
 
-The only intentional non-formatting closure change is the reconciliation in `tests/integration_e2e/guard_optional_binding.rs`:
-- it corrects the verification method description by using the real in-process frontend path;
-- it does not change compiler semantics;
-- it preserves the requested guard-coverage intent.
+Assessment:
+- No banned workaround such as `let next_board = ...; board = next_board` was introduced.
 
-### 5) No skip/delete shortcuts
-**Status:** PASS
+### 4. No runtime / return-lowering semantic change
+Required command check:
+- `git diff -- runtime/opal_rc.c runtime/opal_rc.h src/codegen/control_flow.rs` → empty in the current final state.
 
-The final pass did not add `#[ignore]`, comment out failing tests, or delete guard fixtures to obtain green results. The passing `cargo test --all-features` rerun demonstrates the current workspace succeeds without those shortcuts.
+Assessment:
+- No runtime RC semantics changed.
+- No return-lowering behavior changed.
 
-## Conclusion
-**APPROVE** — the final closure state matches the requested guard-error-propagation scope, keeps prohibited features out, and preserves the intended semantics while limiting substantive non-formatting changes to the optional-binding test/evidence reconciliation.
+### 5. No provenance / metadata redesign
+The scoped compiler change remains simple ownership gating rather than any redesign:
+- No new return-ownership metadata, callee annotations, provenance tracking, escape analysis, or borrow-checking machinery appears in the scoped diff.
+- `git diff -- src/codegen/statements.rs src/codegen/expressions_array.rs src/codegen/functions_call/array/helpers.rs src/codegen/functions_call/array/intrinsics.rs tests/integration_e2e/rc_store_leak_regressions.rs tests/integration_e2e/game_of_life_full_memory_stress.rs` → empty in the current final state because the plan work is fully committed.
+
+### 6. Evaluation of the Task 6 follow-up commit
+Recent commit chain:
+- `9e22c43 docs(sisyphus): record task 6 verification evidence`
+- `3de44f8 fix(codegen): tighten rc hooks and restore call ownership gating`
+- `e333296 test(rc): verify reassignment stress workflow`
+- `1b3f8f7 fix(codegen): take ownership of rc call assignment results`
+- `59ac066 test(rc): document reassignment ownership audit`
+- `0747cbe test(rc): add game of life reassignment stress`
+- `a4640b1 test(rc): add reassignment return leak regression`
+
+The plan text for Task 6 explicitly allows a focused follow-up commit if verification fails.
+`3de44f8` is acceptable under that rule because it is still narrowly tied to the same ownership/RC-correctness surface:
+- `src/codegen/statements.rs:943-953` restores the final call-ownership gating to the RC-cleanup predicate.
+- `src/codegen/expressions_array.rs:1305-1309` narrows RC hook eligibility to the element kinds that actually lower to RC payload pointers.
+- `src/codegen/functions_call/array/helpers.rs:122-128` and `src/codegen/functions_call/array/intrinsics.rs:1140-1171` / `1228-1231` consume that same hook-eligibility predicate at the existing hook sites.
+
+Why this remains in scope:
+- It is a verification-driven correction inside the same compiler ownership/RC-lowering area.
+- It does not change runtime files, return lowering, or Game of Life source.
+- It does not introduce a new subsystem or redesign.
+- It resolves final verification fallout without broadening the feature target beyond reassignment leak correctness.
+
+### 7. Working tree sanity
+Required command check:
+- `git diff --stat` shows only unrelated `.sisyphus/boulder.json` working-tree drift.
+
+Assessment:
+- The only live diff is unrelated session bookkeeping, not plan implementation drift.
+- No scoped production/test files for this plan are currently dirty.
+
+## Final rationale
+This plan asked for a narrow reassignment leak fix, truthful limitation documentation, no source workaround, and no runtime/return-lowering/provenance redesign. The final repository state satisfies those constraints. The one extra compiler follow-up commit is justified by the plan's Task 6 allowance for a focused verification fix and remains tightly bound to RC hook eligibility plus the final intended ownership gating.
