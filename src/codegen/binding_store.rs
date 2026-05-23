@@ -16,6 +16,13 @@ use alloc::borrow::Cow;
 use alloc::format;
 use inkwell::values::BasicValueEnum;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum StoreMode {
+    Retain,
+    // Only valid when the lowering site proves the stored RC value is fresh/linear.
+    TakeOwned,
+}
+
 pub(crate) fn initialize_binding_value<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -48,6 +55,24 @@ pub(crate) fn store_binding_overwrite_rc_safe<'context>(
     value: BasicValueEnum<'context>,
     operation: &str,
 ) -> Result<(), CodegenError> {
+    store_binding_overwrite_rc_safe_with_mode(
+        codegen_context,
+        env,
+        binding_name,
+        value,
+        operation,
+        StoreMode::Retain,
+    )
+}
+
+pub(crate) fn store_binding_overwrite_rc_safe_with_mode<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    binding_name: &str,
+    value: BasicValueEnum<'context>,
+    operation: &str,
+    store_mode: StoreMode,
+) -> Result<(), CodegenError> {
     let Some(binding_snapshot) = env.variables.get(binding_name).cloned() else {
         return Err(CodegenError::new(format!(
             "{operation} target '{binding_name}' not found"
@@ -64,7 +89,13 @@ pub(crate) fn store_binding_overwrite_rc_safe<'context>(
         })
         .transpose()?;
 
-    retain_new_binding_value_if_needed(codegen_context, &binding_snapshot.core_type, value)?;
+    prepare_new_binding_value_for_store_mode(
+        codegen_context,
+        &binding_snapshot.core_type,
+        value,
+        store_mode,
+        operation,
+    )?;
     codegen_context
         .builder
         .build_store(binding_snapshot.alloca, value)?;
@@ -113,6 +144,28 @@ fn retain_new_binding_value_if_needed<'context>(
 
     let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
     emitter.emit_inc(value.into_pointer_value())
+}
+
+fn prepare_new_binding_value_for_store_mode<'context>(
+    codegen_context: &CodegenContext<'context>,
+    core_type: &CoreType,
+    value: BasicValueEnum<'context>,
+    store_mode: StoreMode,
+    operation: &str,
+) -> Result<(), CodegenError> {
+    if !binding_requires_rc_cleanup(core_type) {
+        return Ok(());
+    }
+    if !value.is_pointer_value() {
+        return Err(CodegenError::new(format!(
+            "RC-bearing binding type '{core_type}' expected pointer value during {operation}"
+        )));
+    }
+
+    match store_mode {
+        StoreMode::Retain => retain_new_binding_value_if_needed(codegen_context, core_type, value),
+        StoreMode::TakeOwned => Ok(()),
+    }
 }
 
 pub(crate) fn release_binding_value_if_needed<'context>(

@@ -9,7 +9,10 @@ extern crate alloc;
 
 use crate::ast::{Expr, LabeledValue, LetBinding, Stmt};
 use crate::codegen::adts::product_field_indices_from_constructor;
-use crate::codegen::binding_store::{initialize_binding_value, store_binding_overwrite_rc_safe};
+use crate::codegen::binding_store::{
+    StoreMode, initialize_binding_value, store_binding_overwrite_rc_safe,
+    store_binding_overwrite_rc_safe_with_mode,
+};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::{
     codegen_if_statement, codegen_loop_expression_into_slots, codegen_loop_statement,
@@ -627,13 +630,23 @@ fn codegen_assignment<'context>(
             let binding_type = binding_snapshot.core_type.clone();
 
             let rhs_value = codegen_expression(codegen_context, env, value, Some(&binding_type))?;
-            store_binding_overwrite_rc_safe(
-                codegen_context,
-                env,
-                name.as_str(),
-                rhs_value,
-                "assign",
-            )
+            match assignment_store_mode(value) {
+                StoreMode::Retain => store_binding_overwrite_rc_safe(
+                    codegen_context,
+                    env,
+                    name.as_str(),
+                    rhs_value,
+                    "assign",
+                ),
+                StoreMode::TakeOwned => store_binding_overwrite_rc_safe_with_mode(
+                    codegen_context,
+                    env,
+                    name.as_str(),
+                    rhs_value,
+                    "assign",
+                    StoreMode::TakeOwned,
+                ),
+            }
         }
         Expr::Index {
             ref object,
@@ -915,6 +928,27 @@ fn codegen_guard_error_propagation_statement<'context>(
     cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
     let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
     Ok(())
+}
+
+fn assignment_store_mode(value: &Expr) -> StoreMode {
+    match *value {
+        // Array literals are allocated in this lowering flow, so assignment can transfer that
+        // fresh RC owner directly into the binding without an extra retain.
+        Expr::Array { .. } => StoreMode::TakeOwned,
+        // `reserve` noop paths return an owned alias, so reassignment should consume that owner
+        // instead of retaining the same pointer again.
+        Expr::Call { ref callee, .. } if reserve_call_returns_owned_alias(callee.as_ref()) => {
+            StoreMode::TakeOwned
+        }
+        _ => StoreMode::Retain,
+    }
+}
+
+fn reserve_call_returns_owned_alias(callee: &Expr) -> bool {
+    match *callee {
+        Expr::Identifier { ref name, .. } => name == "reserve",
+        _ => false,
+    }
 }
 
 fn current_function<'context>(

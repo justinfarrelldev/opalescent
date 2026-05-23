@@ -10,7 +10,7 @@ extern crate alloc;
 use super::super::ast_type_to_core_type_for_signature;
 use super::super::current_function;
 use crate::ast::Expr;
-use crate::codegen::binding_store::store_binding_overwrite_rc_safe;
+use crate::codegen::binding_store::{StoreMode, store_binding_overwrite_rc_safe_with_mode};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding};
@@ -73,6 +73,24 @@ pub(super) fn store_array_binding<'context>(
     array_value: PointerValue<'context>,
     operation: &str,
 ) -> Result<(), CodegenError> {
+    store_array_binding_with_mode(
+        codegen_context,
+        env,
+        binding_name,
+        array_value,
+        operation,
+        StoreMode::Retain,
+    )
+}
+
+pub(super) fn store_array_binding_with_mode<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    binding_name: &str,
+    array_value: PointerValue<'context>,
+    operation: &str,
+    store_mode: StoreMode,
+) -> Result<(), CodegenError> {
     let Some(binding_snapshot) = env.variables.get(binding_name).cloned() else {
         return Err(CodegenError::new(format!(
             "{operation} receiver '{binding_name}' not found"
@@ -84,12 +102,13 @@ pub(super) fn store_array_binding<'context>(
         )));
     }
 
-    store_binding_overwrite_rc_safe(
+    store_binding_overwrite_rc_safe_with_mode(
         codegen_context,
         env,
         binding_name,
         array_value.as_basic_value_enum(),
         operation,
+        store_mode,
     )
 }
 

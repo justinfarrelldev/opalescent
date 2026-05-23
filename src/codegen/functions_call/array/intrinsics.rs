@@ -14,8 +14,10 @@ use super::helpers::{
     infer_array_callback_return_core_type, infer_map_callback_return_core_type,
     rc_object_is_reuse_eligible, rc_object_is_unique, resolve_array_identifier_binding,
     retain_rc_element_if_needed, set_array_payload_length, store_array_binding,
-    trap_on_invalid_array_state, validate_array_operation_metadata,
+    store_array_binding_with_mode, trap_on_invalid_array_state,
+    validate_array_operation_metadata,
 };
+use crate::codegen::binding_store::StoreMode;
 use crate::ast::{Expr, LiteralValue};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
@@ -328,7 +330,10 @@ fn codegen_array_reserve_call<'context>(
             )?;
 
             codegen_context.builder.position_at_end(noop_block);
-            store_array_binding(codegen_context, env, name.as_str(), array_value, "reserve")?;
+            let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
+            // `reserve` stays semantically noop here, but the returned value must remain an owned
+            // result so later bindings can outlive the original receiver safely.
+            emitter.emit_inc(array_value)?;
             codegen_context
                 .builder
                 .build_store(result_alloca, array_value)?;
@@ -421,6 +426,10 @@ fn codegen_array_reserve_call<'context>(
     )?;
 
     codegen_context.builder.position_at_end(noop_block);
+    let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
+    // `reserve` stays semantically noop here, but the returned value must remain an owned
+    // result so later bindings can outlive the original receiver safely.
+    emitter.emit_inc(array_value)?;
     codegen_context
         .builder
         .build_store(result_alloca, array_value)?;
@@ -920,12 +929,15 @@ fn codegen_array_push_call<'context>(
         .builder
         .build_store(grown_slot, appended_value)?;
     set_array_payload_length(codegen_context, env, grown_array, next_length, "push")?;
-    store_array_binding(
+    // `grown_array` is freshly allocated in this branch, so the receiver binding can take over
+    // that RC owner instead of retaining it again.
+    store_array_binding_with_mode(
         codegen_context,
         env,
         receiver_name.as_str(),
         grown_array,
         "push",
+        StoreMode::TakeOwned,
     )?;
     codegen_context
         .builder
@@ -970,12 +982,15 @@ fn codegen_array_push_call<'context>(
         .builder
         .build_store(fallback_slot, appended_value)?;
     set_array_payload_length(codegen_context, env, fallback_array, next_length, "push")?;
-    store_array_binding(
+    // `fallback_array` is freshly allocated in this branch, so the receiver binding can take over
+    // that RC owner instead of retaining it again.
+    store_array_binding_with_mode(
         codegen_context,
         env,
         receiver_name.as_str(),
         fallback_array,
         "push",
+        StoreMode::TakeOwned,
     )?;
     codegen_context
         .builder
