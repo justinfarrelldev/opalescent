@@ -1,0 +1,21 @@
+Command:
+cargo test --features integration --test integration_e2e scope_leak_counters -- --nocapture --test-threads=1
+
+Exit status: 0
+
+Output:
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+
+running 9 tests
+test tests::scope_leak_counters::scope_leak_block_exit ... ok
+test tests::scope_leak_counters::scope_leak_break ... ok
+test tests::scope_leak_counters::scope_leak_continue ... ok
+test tests::scope_leak_counters::scope_leak_early_return ... ok
+test tests::scope_leak_counters::scope_leak_for_iter_var ... ok
+test tests::scope_leak_counters::scope_leak_nested_if_else ... ok
+test tests::scope_leak_counters::scope_leak_propagated_string_local ... ok
+test tests::scope_leak_counters::scope_leak_return_transfer ... ok
+test tests::scope_leak_counters::scope_leak_string_array_drop ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 161 filtered out; finished in 5.89s

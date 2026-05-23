@@ -1,0 +1,15 @@
+
+running 1 test
+test tests::memory_model_counters::memory_model_counters ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 169 filtered out; finished in 0.63s
+
+counter:strings alloc=7 free=7 live=0
+counter:arrays alloc=1 free=1 live=0
+counter:bytes alloc=2 free=2 live=0
+counter:builders alloc=1 free=1 live=0
+counter:filesystem_objects alloc=1 free=1 live=0
+counter:metadata_permissions alloc=1 free=1 live=0
+counter:error_payloads alloc=1 free=1 live=0
+counter:rc_child_arrays alloc=1 free=1 live=0
+counter_status=balanced

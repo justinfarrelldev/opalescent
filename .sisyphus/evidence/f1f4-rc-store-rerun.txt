@@ -1,0 +1,13 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+
+running 6 tests
+test tests::rc_store_leak_regressions::rc_store_aliased_source_safety ... ok
+test tests::rc_store_leak_regressions::rc_store_direct_assignment ... ok
+test tests::rc_store_leak_regressions::rc_store_push_grow ... ok
+test tests::rc_store_leak_regressions::rc_store_push_no_grow ... ok
+test tests::rc_store_leak_regressions::rc_store_second_class_ref_adjacent ... ok
+test tests::rc_store_leak_regressions::rc_store_self_overwrite ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 176 filtered out; finished in 3.63s
+

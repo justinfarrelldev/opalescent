@@ -1,0 +1,123 @@
+INFO: running targeted array RC/COW sanitizer fixtures with ASAN+LSAN via cc wrapper (serialized).
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.74s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 1 test
+test tests::array_memory_churn_sanitizer_fixture ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 1.04s
+
+    Blocking waiting for file lock on build directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.38s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 1 test
+test tests::array_game_of_life_churn_sanitizer_fixture ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.93s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 1 test
+test tests::array_push_cow_alias ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.91s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 1 test
+test tests::array_pop_rc_element_ownership_transfer ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.94s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 1 test
+test tests::array_clear ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.93s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 1 test
+test tests::array_reserve_noop_when_within_capacity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.99s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 1 test
+test tests::array_index_assignment_cow_alias ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.88s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 1 test
+test tests::array_index_assignment_rc_nested_row_rebind ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.96s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 1 test
+test tests::array_nested_assignment_shared_inner_row_cow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.93s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 1 test
+test tests::array_self_assignment_rc_safe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.99s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+error: test failed, to rerun pass `--test array_integration`
+
+Caused by:
+  process didn't exit successfully: `/home/justi/Projects/opalescent/target/debug/deps/array_integration-68fe2378a8b17e27 array_rebind_releases_old_preserves_alias --nocapture --test-threads=1` (signal: 11, SIGSEGV: invalid memory reference)
+WARN: selector 'array_rebind_releases_old_preserves_alias' failed on attempt 1; retrying serialized run.
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+error: test failed, to rerun pass `--test array_integration`
+
+Caused by:
+  process didn't exit successfully: `/home/justi/Projects/opalescent/target/debug/deps/array_integration-68fe2378a8b17e27 array_rebind_releases_old_preserves_alias --nocapture --test-threads=1` (signal: 11, SIGSEGV: invalid memory reference)
+WARN: selector 'array_rebind_releases_old_preserves_alias' failed on attempt 2; retrying serialized run.
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 1 test
+test tests::array_rebind_releases_old_preserves_alias ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.91s
+
+INFO: running mandatory T2 memory verification hooks.
+INFO: running mandatory memory verification test 'memory_model_counters'.
+
+running 1 test
+test tests::memory_model_counters::memory_model_counters ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 175 filtered out; finished in 0.48s
+
+INFO: running mandatory memory verification test 'rc_counter_negative_fixture'.
+
+running 1 test
+test tests::rc_counter_negative_fixture::rc_counter_negative_fixture ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 175 filtered out; finished in 0.25s
+
+PASS: array memory sanitizer regression completed with no sanitizer error markers.
