@@ -50,6 +50,7 @@ mod fs_write_text_atomic;
 mod fs_markdown_roundtrip;
 mod fs_path_manipulation;
 mod game_of_life;
+mod game_of_life_full_memory_stress;
 mod guard_optional_binding;
 mod guard_shorthand;
 mod guard_stmt;
