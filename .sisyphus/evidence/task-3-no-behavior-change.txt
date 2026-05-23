@@ -1,0 +1,53 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-a78f5a55e4e32ce5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1277 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-3851ea484802c5ad)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 49 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-be9371b00ff8c799)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-84b03c5f67d4c8de)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-66bb05ee46e96da7)
+
+running 1 test
+
+thread 'tests::rc_store_leak_regressions::board_reassignment_from_user_fn_no_leak' panicked at tests/integration_e2e/rc_store_leak_regressions.rs:220:5:
+board_reassignment_from_user_fn_no_leak should complete with balanced rc store counters and heap accounting: board_reassignment_from_user_fn_no_leak should balance array counters (alloc=514, free=386, live=128), stdout: rc_store_counter:arrays alloc=514 free=386 live=128
+rc_store_live_heap_bytes=5632
+rc_store_peak_heap_bytes=5729
+rc_store_counter_status=imbalanced
+rc_store_heap_status=imbalanced
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tests::rc_store_leak_regressions::board_reassignment_from_user_fn_no_leak ... FAILED
+
+failures:
+
+failures:
+    tests::rc_store_leak_regressions::board_reassignment_from_user_fn_no_leak
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 184 filtered out; finished in 0.64s
+
+error: test failed, to rerun pass `--test integration_e2e`
