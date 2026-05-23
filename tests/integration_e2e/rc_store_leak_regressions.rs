@@ -193,24 +193,28 @@ fn assert_rc_store_balanced(stdout: &str, test_name: &str) -> Result<(), String>
     Ok(())
 }
 
-fn run_rc_store_test_case(test_name: &str, fixture_name: &str, source: &str) {
+fn execute_rc_store_case(test_name: &str, fixture_name: &str, source: &str) -> Result<String, String> {
     let temp_dir = unique_probe_target_dir(test_name);
-    let prepare = prepare_dir(&temp_dir);
-    assert!(
-        prepare.is_ok(),
-        "{test_name} temp directory should be created"
-    );
+    prepare_dir(&temp_dir)
+        .map_err(|error| format!("{test_name} temp directory should be created: {error}"))?;
 
-    let execution_result: Result<(), String> = (|| {
-        let stdout = run_rc_store_case(&temp_dir, fixture_name, source)?;
-        assert_rc_store_balanced(&stdout, test_name)
-    })();
+    let execution_result = run_rc_store_case(&temp_dir, fixture_name, source);
+    let cleanup_result = cleanup_dir(&temp_dir)
+        .map_err(|error| format!("{test_name} temp directory should be removed: {error}"));
 
-    let cleanup = cleanup_dir(&temp_dir);
-    assert!(
-        cleanup.is_ok(),
-        "{test_name} temp directory should be removed"
-    );
+    match (execution_result, cleanup_result) {
+        (Ok(stdout), Ok(())) => Ok(stdout),
+        (Err(error), Ok(())) => Err(error),
+        (Ok(_), Err(cleanup_error)) => Err(cleanup_error),
+        (Err(execution_error), Err(cleanup_error)) => Err(format!(
+            "{execution_error}; additional cleanup failure: {cleanup_error}"
+        )),
+    }
+}
+
+fn run_rc_store_test_case(test_name: &str, fixture_name: &str, source: &str) {
+    let execution_result = execute_rc_store_case(test_name, fixture_name, source)
+        .and_then(|stdout| assert_rc_store_balanced(&stdout, test_name));
 
     let failure_message = execution_result.err().unwrap_or_default();
     assert!(
@@ -342,4 +346,81 @@ entry main = f(args: string[]): void =>
         "rc_store_second_class_ref_adjacent",
         source,
     );
+}
+
+#[test]
+#[serial(fs)]
+fn board_reassignment_from_user_fn_no_leak() {
+    let source = "
+##
+  Description: Builds the next generation as a fresh local board for reassignment leak coverage.
+##
+let next_generation = f(board: int8[], width: int64, height: int64): int8[] =>
+    let mutable next_board: int8[] = []
+    let mutable y: int64 = 0
+    while y < height:
+        let mutable x: int64 = 0
+        while x < width:
+            next_board.push(board[(y * width) + x])
+            x = x + 1
+        y = y + 1
+    return next_board
+
+##
+  Description: Reassigns a mutable board from a fresh user function return many times.
+##
+entry main = f(args: string[]): void =>
+    let width: int64 = 2
+    let height: int64 = 2
+    let mutable board: int8[] = [1, 0, 1, 0]
+    let mutable generation: int64 = 0
+    while generation < 128:
+        board = next_generation(board, width, height)
+        generation = generation + 1
+    return void
+";
+
+    run_rc_store_test_case(
+        "board_reassignment_from_user_fn_no_leak",
+        "board_reassignment_from_user_fn_no_leak",
+        source,
+    );
+}
+
+#[test]
+#[ignore = "known limitation: alias-return ownership provenance is out of scope for this plan"]
+#[serial(fs)]
+fn alias_return_assignment_known_limitation() -> Result<(), String> {
+    let source = "
+##
+  Description: Returns the same board reference to characterize alias-return ownership limitations.
+##
+let alias_board = f(board: int8[]): int8[] =>
+    return board
+
+##
+  Description: Characterizes alias-return assignment before introducing freshness tracking.
+##
+entry main = f(args: string[]): void =>
+    let mutable board: int8[] = [1, 0, 1, 0]
+    board = alias_board(board)
+    return void
+";
+
+    let stdout = execute_rc_store_case(
+        "alias_return_assignment_known_limitation",
+        "alias_return_assignment_known_limitation",
+        source,
+    )?;
+
+    let (array_alloc, array_free, array_live) = parse_counter_line(&stdout, "arrays")?;
+    let live_heap = parse_metric(&stdout, "rc_store_live_heap_bytes=")?;
+
+    Err(format!(
+        "KNOWN LIMITATION: alias-returning user functions do not prove fresh RC ownership. \
+assignment currently stays balanced here only because ordinary call assignments retain by default; \
+aligning assignment with let-style owned-call semantics requires separate alias/provenance tracking. \
+Observed counters: alloc={array_alloc}, free={array_free}, live={array_live}, live_heap={live_heap}. \
+Harness stdout: {stdout}"
+    ))
 }

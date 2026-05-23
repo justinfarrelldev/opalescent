@@ -1,0 +1,17 @@
+Command: cargo test --features integration board_reassignment_from_user_fn_no_leak -- --nocapture
+Expected: FAIL before compiler fix due to leak assertion
+
+running 1 test
+
+thread 'tests::rc_store_leak_regressions::board_reassignment_from_user_fn_no_leak' panicked at tests/integration_e2e/rc_store_leak_regressions.rs:220:5:
+board_reassignment_from_user_fn_no_leak should complete with balanced rc store counters and heap accounting: board_reassignment_from_user_fn_no_leak should balance array counters (alloc=514, free=386, live=128), stdout: rc_store_counter:arrays alloc=514 free=386 live=128
+rc_store_live_heap_bytes=5632
+rc_store_peak_heap_bytes=5729
+rc_store_counter_status=imbalanced
+rc_store_heap_status=imbalanced
+
+test tests::rc_store_leak_regressions::board_reassignment_from_user_fn_no_leak ... FAILED
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 183 filtered out; finished in 0.69s
+
+error: test failed, to rerun pass `--test integration_e2e`

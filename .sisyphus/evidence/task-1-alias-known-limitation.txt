@@ -1,0 +1,11 @@
+Command: cargo test --features integration alias_return_assignment_known_limitation -- --ignored --nocapture
+Expected: ignored characterization documents pre-existing alias-return limitation when explicitly run
+
+running 1 test
+Error: "KNOWN LIMITATION: alias-returning user functions do not prove fresh RC ownership. assignment currently stays balanced here only because ordinary call assignments retain by default; aligning assignment with let-style owned-call semantics requires separate alias/provenance tracking. Observed counters: alloc=2, free=2, live=0, live_heap=0. Harness stdout: rc_store_counter:arrays alloc=2 free=2 live=0\nrc_store_live_heap_bytes=0\nrc_store_peak_heap_bytes=99\nrc_store_counter_status=balanced\nrc_store_heap_status=balanced\n"
+
+test tests::rc_store_leak_regressions::alias_return_assignment_known_limitation ... FAILED
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 183 filtered out; finished in 0.66s
+
+error: test failed, to rerun pass `--test integration_e2e`
