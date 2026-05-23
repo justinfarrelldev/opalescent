@@ -160,6 +160,7 @@ pub(crate) fn expr_requires_malloc_string_cleanup<'context>(
                 .and_then(|metadata| metadata.get(MALLOC_STRING_CLEANUP_KEY))
                 .is_some_and(|value| value == MALLOC_STRING_CLEANUP_VALUE)
         }),
+        &Expr::StringInterpolation { .. } => true,
         &Expr::Call { ref callee, .. } => call_returns_owned_string(codegen_context, env, callee.as_ref()),
         &Expr::Propagate { ref call, .. } => {
             expr_requires_malloc_string_cleanup(codegen_context, env, call.as_ref(), local_malloc_string_bindings)
