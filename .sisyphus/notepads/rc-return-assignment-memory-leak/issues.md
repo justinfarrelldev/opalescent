@@ -9,3 +9,8 @@
 ## 2026-05-23T05:00:00Z — Task 3 audit issues
 - The repo already contains a dirty `.sisyphus/boulder.json`, so commit isolation must exclude that unrelated file.
 - No production code changes were needed or desired for this audit; the main risk was accidentally turning the read-only caller review into a behavior change.
+
+
+## 2026-05-23T04:55:36Z — Task 4 issues
+- The repo still has an unrelated dirty `.sisyphus/boulder.json`; it was intentionally left out of the commit.
+- Full-suite verification produced a large amount of output, so the evidence capture relied on tee'd logs rather than trying to hand-curate test excerpts.

@@ -12,3 +12,9 @@
 - `assignment_store_mode` is a single-use selector today, called only from assignment lowering in `src/codegen/statements.rs`.
 - `initialize_binding_value` is intentionally shared across `let`, function parameter, and loop-iteration initialization paths, so the audit should not attempt to specialize it.
 - The `let` initializer path already avoids double-retaining call results, so the correct fix target stays on assignment behavior only.
+
+
+## 2026-05-23T04:55:36Z — Task 4 learnings
+- `assignment_store_mode` now mirrors the let-init ownership rule for RC-bound call results by taking ownership only when the binding needs RC cleanup.
+- Preserving the `Expr::Array` and `reserve(...)` branches kept the change narrow and avoided disturbing existing fresh-owner behavior.
+- The focused regression and the existing RC-store suite both stayed green after threading `binding_type` into the assignment path.

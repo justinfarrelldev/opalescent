@@ -630,7 +630,7 @@ fn codegen_assignment<'context>(
             let binding_type = binding_snapshot.core_type.clone();
 
             let rhs_value = codegen_expression(codegen_context, env, value, Some(&binding_type))?;
-            match assignment_store_mode(value) {
+            match assignment_store_mode(value, &binding_type) {
                 StoreMode::Retain => store_binding_overwrite_rc_safe(
                     codegen_context,
                     env,
@@ -930,7 +930,7 @@ fn codegen_guard_error_propagation_statement<'context>(
     Ok(())
 }
 
-fn assignment_store_mode(value: &Expr) -> StoreMode {
+fn assignment_store_mode(value: &Expr, binding_type: &CoreType) -> StoreMode {
     match *value {
         // Array literals are allocated in this lowering flow, so assignment can transfer that
         // fresh RC owner directly into the binding without an extra retain.
@@ -940,8 +940,15 @@ fn assignment_store_mode(value: &Expr) -> StoreMode {
         Expr::Call { ref callee, .. } if reserve_call_returns_owned_alias(callee.as_ref()) => {
             StoreMode::TakeOwned
         }
+        // Align with let-initializer ownership: fresh RC call results should be taken owned only
+        // when the binding itself requires RC cleanup.
+        Expr::Call { .. } if binding_requires_rc_cleanup(binding_type) => StoreMode::TakeOwned,
         _ => StoreMode::Retain,
     }
+}
+
+const fn binding_requires_rc_cleanup(binding_type: &CoreType) -> bool {
+    matches!(*binding_type, CoreType::Array(_) | CoreType::String)
 }
 
 fn reserve_call_returns_owned_alias(callee: &Expr) -> bool {

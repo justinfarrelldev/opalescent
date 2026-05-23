@@ -8,3 +8,8 @@
 ## 2026-05-23T05:00:00Z — Task 3 unresolved problems
 - The audit confirms the call graph and predicate choice, but the actual asymmetry fix remains deferred to Task 4.
 - `codegen_let_statement` stays unchanged on purpose, so alias-return provenance remains a known pre-existing limitation rather than a task-3 target.
+
+
+## 2026-05-23T04:55:36Z — Task 4 problems
+- No new functional problems were introduced by the assignment ownership fix.
+- The pre-existing alias-return limitation remains documented as out of scope, which is still the correct boundary for this task.
