@@ -22,3 +22,12 @@
 - The `game_of_life_rc_return_stress` gate behaves correctly: without `OPAL_RUN_STRESS=1` it skips immediately, and with the env var it ran the full 120s window and stayed green.
 - The sanitizer workflow evidence must explicitly record when `scripts/array_memory_sanitizer.sh` is absent or not executable so the report stays truthful.
 - The Task 5 stress run completed within the 130s hard cap, which preserves the bounded verification contract for this fix.
+## 2026-05-23T05:13:30Z — Task 6 learnings
+- Task 6 evidence should include both initial full-suite run and targeted reruns so failures are reproducible and auditable without hiding instability.
+- `cargo test` and `game_of_life_rc_return_stress` remained green (stress duration 120s), while integration failures were isolated to unrelated fs_* tests in this environment.
+- Guardrail audit confirmed no diff in `test-projects/game-of-life-full/src/main.op`, `runtime/opal_rc.c`, `runtime/opal_rc.h`, or `src/codegen/control_flow.rs`.
+
+
+- [2026-05-23 05:48:25Z] fs blocker root cause: array RC hook predicate was too broad. String/FilesystemPath/Pair elements were flowing through hook sites (`opal_rc_inc/dec`) that require RC payload pointers. Tightening hook eligibility to nested array elements fixed deterministic fs corruption while preserving array-child RC semantics.
+
+- [2026-05-23 05:53:36Z] Restored assignment call-ownership gating in `assignment_store_mode` to use RC-cleanup predicate semantics (`binding_requires_rc_cleanup(binding_type)`) via helper wrapper, while preserving `Expr::Array` and `reserve(...)` TakeOwned branches.

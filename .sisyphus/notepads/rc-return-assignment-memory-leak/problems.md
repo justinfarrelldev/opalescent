@@ -13,3 +13,10 @@
 ## 2026-05-23T04:55:36Z — Task 4 problems
 - No new functional problems were introduced by the assignment ownership fix.
 - The pre-existing alias-return limitation remains documented as out of scope, which is still the correct boundary for this task.
+
+## 2026-05-23T05:13:30Z — Task 6 unresolved problems
+- Final Task 6 acceptance cannot be fully satisfied yet because `cargo test --features integration` fails on unrelated fs integration tests in the current environment.
+- Scope discipline prevented modifying fs subsystems during this task; a separate follow-up is required to stabilize those failing tests before final verification wave approval.
+
+
+- [2026-05-23 05:48:25Z] Problem closed: deterministic fs test failures traced to invalid RC hook calls on non-RC payload pointers in array element handling. Fix validated across full integration, full test suite, and stress gate.
