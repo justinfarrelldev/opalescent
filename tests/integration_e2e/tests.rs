@@ -68,6 +68,7 @@ mod op_cat;
 mod project_execution;
 mod project_execution_rc;
 mod rc_counter_negative_fixture;
+mod rc_store_leak_regressions;
 mod scope_leak_counters;
 mod stdout_text_stdlib;
 mod stdout_writer_stdlib;
