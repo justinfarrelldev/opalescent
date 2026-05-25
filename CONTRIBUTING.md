@@ -102,6 +102,10 @@ Windows/MSVC cross-compilation from Linux is possible, but **Windows development
 
 Right now, the GitHub Actions are failing. This will be fixed when I upgrade LLVM.
 
+## Note on Codegen
+
+Right now, there is a `clippy:all` annotation in the codegen internals. This is intentional for now, but would make an excellent cleanup PR - it is just debt accumulated as the cost of going fast, but should be straightforward to bring back into alignment.
+
 ## Repository architecture
 
 Opalescent is implemented mostly in Rust, with a C runtime linked into generated programs.
@@ -283,6 +287,8 @@ If `cargo make` is unavailable, run a narrower local check first:
 ```bash
 cargo clippy --all-targets --all-features -- -D warnings
 ```
+
+Note that `cargo make lint` is not run in CI - this is a fundamental schism that should be resolved soon.
 
 ## Common footguns
 

@@ -301,4 +301,4 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before
 
 ## License
 
-A final open-source license has not been selected in this branch. Add a real `LICENSE` file before publishing the repository publicly.
+This repository uses Apache 2.0. See LICENSE.
