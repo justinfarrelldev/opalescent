@@ -14,6 +14,102 @@ cargo build --release
 
 If you are new to language projects or to Opalescent, start with [OPALESCENT_CRASH_COURSE.md](OPALESCENT_CRASH_COURSE.md). It explains the language from the ground up and points at working programs in `test-projects/`. For standard library functions, see [STDLIB.md](STDLIB.md).
 
+## What the language looks like
+
+### Simple quiz ([test-projects/simple-quiz](test-projects/simple-quiz/src/main.op))
+
+An interactive program that asks for a name, generates a random number, and checks the user's guess. It demonstrates imports, string interpolation, the `loop => ... break` expression form, `guard` error handling, and `if/else`.
+
+```
+import take_input, string_to_int32 from standard
+import random_int32 from math
+
+entry main = f(args: string[]): void =>
+    print('What is your name?')
+    let name = take_input()
+    let quiz_num = random_int32(1, 5)
+
+    print('Hello, {name}! Guess a number between 1 and 5')
+
+    # loop => ... break is an expression that returns a value when it breaks.
+    # Multiple named return values are destructured on the left.
+    let user_input, user_number =
+        loop =>
+            let s = take_input()
+            # guard handles errors inline; continue retries the loop on failure.
+            guard string_to_int32(s) into n else e =>
+                print('Error: {e}')
+                continue
+            break user_input: s, user_number: n
+
+    print('{user_number}, huh? Let\'s see how close you are, {name}...')
+
+    if user_number is quiz_num:
+        print('Wow, you guessed correctly! Congratulations!')
+        return void
+
+    if user_number < quiz_num:
+        print('Oh no, too low, you lose!')
+    else:
+        print('Too high, you lose!')
+
+    return void
+```
+
+### Game of Life — types and rules ([test-projects/game-of-life-full](test-projects/game-of-life-full/src/))
+
+A multi-file project. The `.types.op` file defines shared data; `rules.op` computes the next generation using Conway's rules. It demonstrates product types, cross-file imports, `public let`, nested `while` loops, and flat `int8[]` boards.
+
+**`life.types.op`**
+
+```
+public type LifeConfig:
+    width: int64
+    height: int64
+    frames_per_second: int32
+```
+
+**`rules.op`**
+
+```
+import alive_cell, dead_cell from ./config
+import is_alive_at from ./board
+
+public let count_live_neighbors = f(board: int8[], width: int64, height: int64, x: int64, y: int64): int64 =>
+    let mutable count: int64 = 0
+    let mutable dy: int64 = -1
+    while dy <= 1:
+        let mutable dx: int64 = -1
+        while dx <= 1:
+            if dx is not 0 or dy is not 0:
+                if is_alive_at(board, width, height, x + dx, y + dy):
+                    count = count + 1
+            dx = dx + 1
+        dy = dy + 1
+    return count
+
+public let next_cell_state = f(board: int8[], width: int64, height: int64, x: int64, y: int64): int8 =>
+    let neighbors = count_live_neighbors(board, width, height, x, y)
+    if is_alive_at(board, width, height, x, y):
+        if neighbors is 2 or neighbors is 3:
+            return alive_cell()
+        return dead_cell()
+    if neighbors is 3:
+        return alive_cell()
+    return dead_cell()
+
+public let next_generation = f(board: int8[], width: int64, height: int64): int8[] =>
+    let mutable next_board: int8[] = []
+    let mutable y: int64 = 0
+    while y < height:
+        let mutable x: int64 = 0
+        while x < width:
+            next_board.push(next_cell_state(board, width, height, x, y))
+            x = x + 1
+        y = y + 1
+    return next_board
+```
+
 ## Project status
 
 Opalescent is early software. **Memory bugs and general instability are to be expected**. Many pieces work end-to-end, but the language and library are still changing. The table below separates features that are implemented from features that are only planned or proposed. This list is based on the parser, type checker, code generator, standard-library registration, and integration tests in this repository.
