@@ -16,7 +16,9 @@ If you are new to language projects or to Opalescent, start with [OPALESCENT_CRA
 
 ## Project status
 
-Opalescent is early software. Many pieces work end-to-end, but the language and library are still changing. The table below separates features that are implemented from features that are only planned or proposed. This list is based on the parser, type checker, code generator, standard-library registration, and integration tests in this repository.
+Opalescent is early software. **Memory bugs and general instability are to be expected**. Many pieces work end-to-end, but the language and library are still changing. The table below separates features that are implemented from features that are only planned or proposed. This list is based on the parser, type checker, code generator, standard-library registration, and integration tests in this repository.
+
+Opalescent is currently well-suited for simple projects, though complex use cases may hit rough edges. For concrete examples of what the language can do, see the [Game of Life](test-projects/game-of-life/), [simple-quiz](test-projects/simple-quiz/), and [delete-downloads-strict-legal](test-projects/delete-downloads-strict-legal/) test projects.
 
 ### Implemented and tested
 
