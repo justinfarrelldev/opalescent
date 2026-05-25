@@ -1,8 +1,10 @@
 # Array Features: append and Multi-Dimensional Arrays
 
-This document specifies two planned array features for Opalescent: the `append` standard
-library function for adding elements to arrays, and first-class multi-dimensional array
-syntax using `T[][]`.
+This document describes array behavior that is exercised by fixtures plus remaining
+implementation gaps. `append` is available as a `standard` import and `.push` is used in
+larger fixtures such as `test-projects/game-of-life-full/`. Multi-dimensional `T[][]`
+syntax is parsed and type-checked, but nested array literal/access code generation is
+still partial, so use flat arrays for production examples today.
 
 ---
 
@@ -19,11 +21,14 @@ the array and the value being appended.
 
 ### Signature
 
-```op
+```opal
 import append from standard
 
-let append = f(xs: T[], value: T): T[] => ...
+# Public stdlib surface, shown as a signature.
+append<T>(xs: T[], value: T): T[]
 ```
+
+Call sites do not provide the generic type argument explicitly; fixtures rely on type inference from the array and appended value.
 
 ### Rules
 
@@ -62,17 +67,17 @@ after the examples below.
 
 **Example 1 — Building a list of scores**
 
-```op
+```opal
 import append from standard
 
 entry main = f(args: string[]): void =>
     let mutable scores: int32[] = []
-    scores = append(scores, 10)
-    scores = append(scores, 25)
-    scores = append(scores, 8)
-    scores = append(scores, 17)
+    scores = append(scores, 10 as int32)
+    scores = append(scores, 25 as int32)
+    scores = append(scores, 8 as int32)
+    scores = append(scores, 17 as int32)
 
-    let mutable i = 0
+    let mutable i: int64 = 0
     while i < scores.length:
         print('Score: {scores[i]}')
         i = i + 1
@@ -82,13 +87,13 @@ entry main = f(args: string[]): void =>
 
 **Example 2 — Collecting lines that pass a filter**
 
-```op
+```opal
 import append, read_lines_sync, path_from from standard
 
 let collect_non_empty = f(path: string): string[] errors FileNotFoundError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, PermissionDeniedError =>
     let lines = propagate read_lines_sync(path_from(path))
     let mutable result: string[] = []
-    let mutable i = 0
+    let mutable i: int64 = 0
     while i < lines.length:
         if lines[i].length > 0:
             result = append(result, lines[i])
@@ -96,8 +101,8 @@ let collect_non_empty = f(path: string): string[] errors FileNotFoundError, Read
     return result
 
 entry main = f(args: string[]): void =>
-    guard collect_non_empty('input.txt') into lines else _e =>
-        print('Could not read file')
+    guard collect_non_empty('input.txt') into lines else err =>
+        print('Could not read file: {err}')
         return void
     print('Non-empty line count: {lines.length}')
     return void
@@ -105,23 +110,23 @@ entry main = f(args: string[]): void =>
 
 **Example 3 — Flattening two arrays**
 
-```op
+```opal
 import append from standard
 
 let concat_arrays = f(left: int32[], right: int32[]): int32[] =>
     let mutable out = left
-    let mutable i = 0
+    let mutable i: int64 = 0
     while i < right.length:
         out = append(out, right[i])
         i = i + 1
     return out
 
 entry main = f(args: string[]): void =>
-    let a: int32[] = [1, 2, 3]
-    let b: int32[] = [4, 5, 6]
+    let a: int32[] = [1 as int32, 2 as int32, 3 as int32]
+    let b: int32[] = [4 as int32, 5 as int32, 6 as int32]
     let combined = concat_arrays(a, b)
 
-    let mutable i = 0
+    let mutable i: int64 = 0
     while i < combined.length:
         print('{combined[i]}')
         i = i + 1
@@ -131,14 +136,15 @@ entry main = f(args: string[]): void =>
 
 **Example 4 — Accumulating parsed values from strings**
 
-```op
-import append from standard
+```opal
+import append, string_to_int32 from standard
 
 let parse_valid_numbers = f(inputs: string[]): int32[] =>
     let mutable valid: int32[] = []
-    let mutable i = 0
+    let mutable i: int64 = 0
     while i < inputs.length:
-        guard string_to_int32(inputs[i]) into n else _e =>
+        guard string_to_int32(inputs[i]) into n else err =>
+            print('Skipping invalid number: {err}')
             i = i + 1
             continue
         valid = append(valid, n)
@@ -159,11 +165,11 @@ in-place and returns `void`. It is the preferred choice when constructing an arr
 inside a single function body with a locally owned `mutable` binding, because it avoids
 any allocation overhead:
 
-```op
+```opal
 let mutable xs: int32[] = []
-xs.push(10)
-xs.push(25)
-xs.push(8)
+xs.push(10 as int32)
+xs.push(25 as int32)
+xs.push(8 as int32)
 ```
 
 **When to use `append` vs `.push`**
@@ -182,12 +188,12 @@ statement — `guard` and `propagate` cannot and do not need to be applied to it
 `guard`/`propagate` wrap *failable expressions*; `push` is an *infallible statement*.
 They occupy different layers of the language and compose without conflict:
 
-```op
+```opal
 entry main = f(args: string[]): void =>
     let mutable results: int32[] = []
 
-    guard parse_something() into value else _e =>
-        print('parse failed')
+    guard parse_something() into value else err =>
+        print('parse failed: {err}')
         return void
 
     results.push(value)   # plain statement following a guard — no conflict
@@ -202,7 +208,7 @@ append in a loop.
 If OOM must eventually be recoverable (e.g. for embedded or safety-critical targets),
 the right design is a separate `try_push` rather than making `push` itself failable:
 
-```op
+```opal
 xs.push(value)                 # infallible — panics on OOM (the common case)
 propagate xs.try_push(value)   # errors OutOfMemoryError — for when OOM must be handled
 ```
@@ -216,7 +222,7 @@ Because arrays have value semantics, passing an array to a function passes a cop
 COW-shared reference). A `.push` inside the callee affects only its local view; the
 caller's binding is unchanged:
 
-```op
+```opal
 let bad_fill = f(xs: int32[]): void =>
     xs.push(99)   # mutates a local copy only — caller sees nothing
 
@@ -229,11 +235,11 @@ entry main = f(args: string[]): void =>
 
 When a helper function must grow an array, have it accept and return the array:
 
-```op
+```opal
 let add_defaults = f(xs: int32[]): int32[] =>
     let mutable out = xs
-    out.push(0)
-    out.push(-1)
+    out.push(0 as int32)
+    out.push(-1 as int32)
     return out
 ```
 
@@ -252,12 +258,12 @@ have a different length (jagged arrays are valid).
 
 ### Syntax
 
-```op
+```opal
 # Type annotation
 let grid: boolean[][] = ...
 
 # Literal
-let matrix: int32[][] = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+let matrix: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
 
 # Access — each [] consumes one dimension
 let value = matrix[row][col]
@@ -275,8 +281,8 @@ let value = matrix[row][col]
 Because every array has value semantics, each row in a `T[][]` is an independent array
 value. Constructing a grid from a shared row binding does not create aliases:
 
-```op
-let row: int32[] = [1, 2]
+```opal
+let row: int32[] = [1 as int32, 2 as int32]
 let grid: int32[][] = [row, row]
 # grid[0] and grid[1] are independent copies (or COW-shared until either is mutated).
 # Writing to grid[0] will NOT affect grid[1].
@@ -311,17 +317,17 @@ rectangular invariants. The flat manual-index encoding shown in Example 2
 
 **Example 1 — A 3×3 integer matrix**
 
-```op
+```opal
 entry main = f(args: string[]): void =>
     let matrix: int32[][] = [
-        [1, 2, 3],
-        [4, 5, 6],
-        [7, 8, 9]
+        [1 as int32, 2 as int32, 3 as int32],
+        [4 as int32, 5 as int32, 6 as int32],
+        [7 as int32, 8 as int32, 9 as int32]
     ]
 
-    let mutable row = 0
+    let mutable row: int64 = 0
     while row < matrix.length:
-        let mutable col = 0
+        let mutable col: int64 = 0
         while col < matrix[row].length:
             print('{matrix[row][col]} ')
             col = col + 1
@@ -338,28 +344,28 @@ assignment support in codegen, the idiomatic approach today is to represent a 2D
 a flat `int32[]` and compute the index manually. This example shows both the flat
 encoding and how `T[][]` would express the same intent once full support lands.
 
-```op
+```opal
 # Flat encoding (works today):
-let cell_index = f(row: int32, col: int32, width: int32): int32 =>
+let cell_index = f(row: int64, col: int64, width: int64): int64 =>
     return row * width + col
 
 entry main = f(args: string[]): void =>
-    let width = 5
-    let height = 5
+    let width: int64 = 5
+    let height: int64 = 5
     let mutable grid: int32[] = [
-        0, 1, 0, 0, 0,
-        0, 0, 1, 0, 0,
-        1, 1, 1, 0, 0,
-        0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0
+        0 as int32, 1 as int32, 0 as int32, 0 as int32, 0 as int32,
+        0 as int32, 0 as int32, 1 as int32, 0 as int32, 0 as int32,
+        1 as int32, 1 as int32, 1 as int32, 0 as int32, 0 as int32,
+        0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32,
+        0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32
     ]
 
-    let mutable row = 0
+    let mutable row: int64 = 0
     while row < height:
-        let mutable col = 0
+        let mutable col: int64 = 0
         while col < width:
             let idx = cell_index(row, col, width)
-            if grid[idx] is 1:
+            if grid[idx] is 1 as int32:
                 print('#')
             else:
                 print('.')
@@ -371,34 +377,34 @@ entry main = f(args: string[]): void =>
 
 # T[][] encoding (once full 2D codegen support lands):
 # let grid: int32[][] = [
-#     [0, 1, 0, 0, 0],
-#     [0, 0, 1, 0, 0],
-#     [1, 1, 1, 0, 0],
-#     [0, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0]
+#     [0 as int32, 1 as int32, 0 as int32, 0 as int32, 0 as int32],
+#     [0 as int32, 0 as int32, 1 as int32, 0 as int32, 0 as int32],
+#     [1 as int32, 1 as int32, 1 as int32, 0 as int32, 0 as int32],
+#     [0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32],
+#     [0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32]
 # ]
-# let alive = grid[row][col] is 1
+# let alive = grid[row][col] is 1 as int32
 ```
 
 **Example 3 — Adjacency list (jagged 2D array)**
 
-```op
+```opal
 entry main = f(args: string[]): void =>
     # Node 0 connects to 1, 2
     # Node 1 connects to 0, 3
     # Node 2 connects to 0
     # Node 3 connects to 1
     let adjacency: int32[][] = [
-        [1, 2],
-        [0, 3],
-        [0],
-        [1]
+        [1 as int32, 2 as int32],
+        [0 as int32, 3 as int32],
+        [0 as int32],
+        [1 as int32]
     ]
 
-    let mutable node = 0
+    let mutable node: int64 = 0
     while node < adjacency.length:
         print('Node {node} neighbours: ')
-        let mutable n = 0
+        let mutable n: int64 = 0
         while n < adjacency[node].length:
             print('{adjacency[node][n]} ')
             n = n + 1
@@ -410,15 +416,17 @@ entry main = f(args: string[]): void =>
 
 **Example 4 — Passing and returning `T[][]` from functions**
 
-```op
+```opal
+import append from standard
+
 let transpose = f(matrix: int32[][]): int32[][] =>
     let rows = matrix.length
     let cols = matrix[0].length
     let mutable result: int32[][] = []
-    let mutable c = 0
+    let mutable c: int64 = 0
     while c < cols:
         let mutable row_out: int32[] = []
-        let mutable r = 0
+        let mutable r: int64 = 0
         while r < rows:
             row_out = append(row_out, matrix[r][c])
             r = r + 1
@@ -427,12 +435,12 @@ let transpose = f(matrix: int32[][]): int32[][] =>
     return result
 
 entry main = f(args: string[]): void =>
-    let m: int32[][] = [[1, 2, 3], [4, 5, 6]]
+    let m: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32]]
     let t = transpose(m)
 
-    let mutable r = 0
+    let mutable r: int64 = 0
     while r < t.length:
-        let mutable c = 0
+        let mutable c: int64 = 0
         while c < t[r].length:
             print('{t[r][c]} ')
             c = c + 1
