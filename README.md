@@ -148,12 +148,12 @@ Generate Markdown docs from a source file:
 | `opal run` | working | Compile and run the current `opal.toml` project. |
 | `opal check <file.op>` | working | Lex, parse, validate file role, and type-check. |
 | `opal build` | working | Build the current `opal.toml` project. |
-| `opal fmt [--check] [--config <path>] [--output <path>] <file>` | working | Format Opalescent source. |
+| `opal fmt [--check] [--config <path>] [--output <path>] <file>` | working, but not perfect | Format Opalescent source. Needs additional work done in the future. |
 | `opal doc <file.op>` | working | Generate Markdown documentation from doc comments. |
-| `opal test [--filter <pattern>] [--target <triple>]` | working | Run the project test command. |
-| `opal bench` | working | Run built-in compiler benchmark probes. |
+| `opal test [--filter <pattern>] [--target <triple>]` | stub | CLI is wired up but runs against an empty test suite; no project test discovery is implemented. |
+| `opal bench` | stub | Runs two hard-coded micro-benchmarks (`parse` and `typecheck` on `"let x = 1"`); project-level benchmark discovery is not implemented. |
 | `opal watch <file.op>` | working | Recompile and run when a source file changes. |
-| `opal lsp --stdio` | working | Start the language server transport. |
+| `opal lsp --stdio` | stub | Creates the LSP server instance and prints a startup message, but no stdio message loop is wired up; the server cannot respond to editor requests. |
 | `opal pkg <command>` | planned | Help exists; command execution is not implemented yet. |
 
 ## Windows targets
