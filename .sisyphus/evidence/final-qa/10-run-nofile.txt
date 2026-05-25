@@ -1,3 +1,0 @@
-=== TEST 10: run (no file) ===
-error: opal run requires a source file — run 'opal help run' for usage
-EXIT: 1

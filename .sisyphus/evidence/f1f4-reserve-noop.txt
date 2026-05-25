@@ -1,8 +1,0 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
-     Running tests/array_integration.rs (target/debug/deps/array_integration-68fe2378a8b17e27)
-
-running 1 test
-test tests::array_reserve_noop_when_within_capacity ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.38s
-

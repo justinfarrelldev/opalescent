@@ -1,7 +1,0 @@
-Clippy verification
-
-Command:
-  cargo clippy -- -D warnings
-
-Result:
-  exit code: 0

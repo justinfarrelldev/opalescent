@@ -1,3 +1,0 @@
-# File header comment
-entry main = f(): void =>
-    return void

@@ -1,3 +1,0 @@
-=== TEST 8: doc (no file) ===
-error: opal doc requires a source file — run 'opal help doc' for usage
-EXIT: 1

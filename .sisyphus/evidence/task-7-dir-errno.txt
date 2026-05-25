@@ -1,9 +1,0 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
-     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-90a6cd731a338c60)
-
-running 2 tests
-test tests::fs_metadata::list_directory_not_found ... ok
-test tests::fs_metadata::list_directory_rejects_file_path ... ok
-
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 110 filtered out; finished in 0.79s
-

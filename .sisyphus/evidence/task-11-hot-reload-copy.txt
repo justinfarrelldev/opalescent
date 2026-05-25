@@ -1,9 +1,0 @@
-   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.52s
-     Running unittests src/lib.rs (target/debug/deps/opalescent-dafae65f302c4d62)
-
-running 1 test
-test hot_reload::tests::fs_module_loader_loads_real_shared_library ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1173 filtered out; finished in 0.19s
-

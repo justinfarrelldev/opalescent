@@ -1,1 +1,0 @@
-72 stdlib-proposals/.template.proposal.md

@@ -1,2 +1,0 @@
-$ git diff --name-only src/formatter/
-src/formatter/tests.rs

@@ -1,8 +1,0 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
-     Running unittests src/lib.rs (target/debug/deps/opalescent-fd03e2071514addc)
-
-running 1 test
-test type_system::tests::propagate_new_frameclock_typechecks_via_registry ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1256 filtered out; finished in 0.00s
-

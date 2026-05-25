@@ -1,6 +1,0 @@
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
-     Running `target/debug/opalescent /tmp/test_nested_loops.op --run`
-target/program
-=== Testing Nested Expression Loops ===
-15
-7

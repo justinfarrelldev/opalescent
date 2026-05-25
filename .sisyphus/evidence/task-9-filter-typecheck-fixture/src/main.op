@@ -1,8 +1,0 @@
-##
-  Description: Verifies array filter rejects predicates that do not return boolean values.
-##
-entry main = f(args: string[]): void =>
-    let xs: int32[] = [1 as int32, 2 as int32]
-    let filtered = xs.filter(f(x: int32): int32 => x)
-    print('length {filtered.length}')
-    return void

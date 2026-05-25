@@ -1,7 +1,0 @@
-Timestamp: 2026-05-05T00:00:00Z
-Command: cargo clippy --all-targets --all-features -- -D warnings
-Exit code: 0
-
-Summary:
-- Checking opalescent v0.1.0 (/home/justi/Projects/opalescent)
-- Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s

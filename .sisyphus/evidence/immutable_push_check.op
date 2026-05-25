@@ -1,7 +1,0 @@
-##
-  Description: Manual regression check for immutable push rejection.
-##
-entry main = f(args: string[]): void =>
-    let xs: int32[] = [1 as int32]
-    xs.push(1 as int32)
-    return void

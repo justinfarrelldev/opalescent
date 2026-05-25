@@ -1,3 +1,0 @@
-type AppError:
-    NotFound:
-        reason: string

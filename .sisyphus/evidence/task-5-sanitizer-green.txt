@@ -1,1 +1,0 @@
-scripts/array_memory_sanitizer.sh missing or not executable

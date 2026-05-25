@@ -1,7 +1,0 @@
-Scenario D: Re-parse formatted output
-
-Command:
-  cargo run -- fmt --output /dev/null /tmp/test_comments_out.op
-
-Result:
-  exit code: 0

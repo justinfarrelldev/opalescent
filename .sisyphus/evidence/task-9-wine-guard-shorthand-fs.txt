@@ -1,4 +1,0 @@
-/home/justi/Projects/opalescent/test-projects/guard-shorthand/target:
-total 8
-drwxr-xr-x 2 justi justi 4096 May 13 16:43 .
-drwxr-xr-x 4 justi justi 4096 May 13 16:43 ..

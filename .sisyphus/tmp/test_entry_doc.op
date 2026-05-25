@@ -1,6 +1,0 @@
-## Description: Test function ##
-entry main = f(): void =>
-    # Step 1: setup
-    let x = 42
-    # Step 2: finish
-    return void

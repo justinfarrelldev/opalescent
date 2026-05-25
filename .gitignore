@@ -1,7 +1,12 @@
 /target
 
+# Local compiler/test output
 temp.log
+*.rlib
 
+# Local assistant/tool metadata
 .serena
+.sisyphus/
 
+# Test-project build output
 /test-projects/**/target/*

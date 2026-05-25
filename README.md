@@ -1,1231 +1,202 @@
 # Opalescent
 
-A statically-typed, expression-oriented programming language with first-class error handling, algebraic data types, and an integrated toolchain.
+Opalescent is an experimental, statically typed programming language with explicit error handling, algebraic data types, native-code compilation through LLVM, and a small standard library focused on practical command-line programs.
 
----
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Installation](#installation)
-- [Building the Compiler for Windows](#building-the-compiler-for-windows)
-- [CLI Reference](#cli-reference)
-- [Language Basics](#language-basics)
-  - [Functions](#functions)
-  - [Variables](#variables)
-  - [Types](#types)
-  - [Pattern Matching](#pattern-matching)
-  - [Error Handling](#error-handling)
-  - [Generics](#generics)
-- [Project Architecture](#project-architecture)
-  - [Directory Layout](#directory-layout)
-  - [Project Configuration (`opal.toml`)](#project-configuration-opaltoml)
-  - [Package Manifest (`opal.pkg.toml`)](#package-manifest-opalpkgtoml)
-  - [Source File Conventions](#source-file-conventions)
-- [Compiler](#compiler)
-  - [Compiler Pipeline](#compiler-pipeline)
-  - [Escape Hatches](#escape-hatches)
-- [Testing](#testing)
-  - [Test Projects](#test-projects)
-  - [Integration Tests](#integration-tests)
-  - [Test Project Conventions](#test-project-conventions)
-- [Package Manager](#package-manager)
-- [Formatter](#formatter)
-- [Language Server (LSP)](#language-server-lsp)
-- [Hot Reload](#hot-reload)
-- [Build Targets](#build-targets)
-- [Building Windows Programs](#building-windows-programs)
-- [IDE Integration](#ide-integration)
-
----
-
-## Quick Start
+If you already know what you are doing:
 
 ```bash
-# Build the compiler
+export LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
 cargo build --release
-
-# Run a source file
-opal run hello_world.op
-
-# Get help
-opal help
-opal --help
-
-# Get help for a specific subcommand
-./target/release/opalescent help pkg
-./target/release/opalescent help fmt
+./target/release/opalescent run test-projects/hello-world/src/main.op
 ```
 
----
+If you are new to language projects or to Opalescent, start with [OPALESCENT_CRASH_COURSE.md](OPALESCENT_CRASH_COURSE.md). It explains the language from the ground up and points at working programs in `test-projects/`. For standard library functions, see [STDLIB.md](STDLIB.md).
 
-## Installation
+## Project status
 
-### Prerequisites
+Opalescent is early software. Many pieces work end-to-end, but the language and library are still changing. The table below separates features that are implemented from features that are only planned or proposed. This list is based on the parser, type checker, code generator, standard-library registration, and integration tests in this repository.
 
-- Rust 2024 edition toolchain (`rustup` recommended)
-- LLVM 14 (`llvm-14` package on Debian/Ubuntu, or Homebrew `llvm@14`)
-- Set the LLVM prefix before building:
+### Implemented and tested
+
+- [x] `.op` source files and `.types.op` type-definition files
+- [x] `entry main` program entry points
+- [x] `let` bindings, `mutable` bindings, assignment, and explicit `return`
+- [x] Functions declared with `f(...)` signatures
+- [x] Primitive types: `boolean`, `string`, `void`, signed/unsigned integer widths, and floating-point widths
+- [x] Algebraic data types: product types, sum types, enums, and recursive types
+- [x] Generic type syntax and selected generic surfaces such as `Weak<T>` and standard-library array helpers
+- [x] String interpolation with single-quoted strings such as `'Hello {name}'`
+- [x] Arrays with `.length`, indexing, `push`, `pop`, `map`, `filter`, `reduce`, `zip`, and related helpers
+- [x] Algebraic data type parsing/type work and `is`-based ADT/value checks in fixtures
+- [x] `if`, `while`, `for`, `while true`, `continue`, and the fixture-backed `loop => ... break name: value` expression form
+- [x] Fallible functions with `errors ...` clauses
+- [x] `propagate`, `guard ... else`, and `guard ... into ... else` error handling
+- [x] Importing functions and types from other files
+- [x] Standard-library I/O, string, bytes, filesystem, terminal, stdout-writer, and time/frame-clock symbols
+- [x] Dedicated `Bytes` values with hex conversion, concatenation, slicing, and `.length`
+- [x] Native compilation, `opal run`, `opal check`, `opal build`, `opal fmt`, `opal doc`, `opal test`, `opal bench`, `opal watch`, and `opal lsp --stdio`
+- [x] Linux native builds and Windows MSVC target support through the documented cross-compilation path
+- [x] VS Code syntax highlighting and LSP wiring under `vscode-extension/`
+
+### Implemented but still experimental
+
+- [x] Package-manager help topics exist, but `opal pkg` command execution currently reports `not yet implemented`.
+- [x] Hot-reload components exist in the codebase, but public production guarantees are still being defined.
+- [x] Windows/Wine validation exists in tests and scripts, but host setup is more involved than the Linux quick start.
+
+### Planned or proposed, not finished
+
+- [ ] Regex standard-library module (`stdlib-proposals/regex/`)
+- [ ] Crypto hashing standard-library module (`stdlib-proposals/crypto-hashing/`)
+- [ ] HTTP/network standard-library layer (`stdlib-proposals/network-http-layer/`)
+- [ ] Subprocess execution API (`stdlib-proposals/subprocess-exec/`)
+- [ ] JSON/TOML serialization APIs (`stdlib-proposals/serialization/`)
+- [ ] Compression APIs (`stdlib-proposals/compression/`)
+- [ ] UUID APIs (`stdlib-proposals/uuid/`)
+- [ ] Rich testing DSLs such as `describe`/`it`, snapshots, and property tests (`stdlib-proposals/testing-framework/`)
+- [ ] Final memory-model design beyond the current reference-counted runtime (`memory-model-proposals/`)
+- [ ] Final public package registry and publishing flow
+
+## Repository layout
+
+```text
+src/                  Rust implementation of the compiler and tools
+runtime/              C runtime used by generated programs
+stdlib/               Documentation-oriented prelude signatures
+tests/                Rust integration tests for the compiler
+test-projects/        Small Opalescent projects used as examples and integration fixtures
+language-spec/        Current language notes and sample programs
+stdlib-proposals/     Draft standard-library design proposals
+memory-model-proposals/ Draft memory-management design proposals
+vscode-extension/     VS Code grammar and extension scaffolding
+scripts/              Development and verification scripts
+```
+
+`test-projects/` is intentionally part of the public repo: each project is both a regression fixture and an example you can study.
+
+## Requirements
+
+- Rust toolchain with edition 2024 support.
+- LLVM 14 development libraries. On Debian/Ubuntu this is usually `llvm-14` and related development packages.
+- `LLVM_SYS_140_PREFIX` set to the LLVM 14 installation prefix.
+- A C toolchain/linker for your host platform.
+
+Linux example:
 
 ```bash
-export LLVM_SYS_140_PREFIX=/usr/lib/llvm-14   # Linux
-export LLVM_SYS_140_PREFIX=$(brew --prefix llvm@14)  # macOS
-```
-
-### Build
-
-```bash
-git clone https://github.com/your-org/opalescent
-cd opalescent
-cargo build --release
-```
-
-The binary will be at `target/release/opalescent`. You can alias it as `opal`:
-
-```bash
-alias opal="$(pwd)/target/release/opalescent"
-```
-
----
-
-## Building the Compiler for Windows
-
-### Native Windows Build (MSVC)
-
-To build Opalescent natively on Windows using the Microsoft Visual C++ (MSVC) toolchain:
-
-#### Prerequisites
-
-- **Rust**: Install via [rustup](https://rustup.rs/). The MSVC toolchain is required.
-- **LLVM 14**: Install LLVM 14.0. You can use the [LLVM project releases](https://github.com/llvm/llvm-project/releases/tag/llvmorg-14.0.0) or a package manager like `choco install llvm --version=14.0.0`.
-- **Environment Variables**: Set `LLVM_SYS_140_PREFIX` to your LLVM installation directory.
-  ```powershell
-  $env:LLVM_SYS_140_PREFIX = "C:\Program Files\LLVM"
-  ```
-
-#### Build
-
-```powershell
+export LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
 cargo build --release
 ```
 
-The binary will be located at `target\release\opalescent.exe`.
-
-### Cross-compilation from Linux (MSVC Target)
-
-You can cross-compile for Windows from a Linux host using `clang-cl` and `lld-link`. This requires the Windows SDK and CRT headers/libraries, which can be managed by `xwin`.
-
-#### Prerequisites
-
-- **Clang/LLVM**: `clang-cl` and `lld-link` (usually part of the `llvm` or `lld` package).
-- **xwin**: A tool to fetch and splat the Windows SDK and CRT.
-  ```bash
-  cargo install xwin --locked
-  xwin --accept-license splat --output ~/.xwin
-  ```
-
-#### Environment Setup
-
-Set the following environment variables to point to the `xwin` sysroot:
+macOS example, assuming Homebrew LLVM 14:
 
 ```bash
+export LLVM_SYS_140_PREFIX="$(brew --prefix llvm@14)"
+cargo build --release
+```
+
+## Build and run
+
+Build the compiler:
+
+```bash
+cargo build --release
+```
+
+Run a single source file:
+
+```bash
+./target/release/opalescent run test-projects/hello-world/src/main.op
+```
+
+Type-check without generating a binary:
+
+```bash
+./target/release/opalescent check test-projects/hello-world/src/main.op
+```
+
+Build a project from a directory containing `opal.toml` and `src/main.op`:
+
+```bash
+cd test-projects/hello-world
+../../target/release/opalescent build
+```
+
+Format a source file:
+
+```bash
+./target/release/opalescent fmt --check test-projects/hello-world/src/main.op
+```
+
+Generate Markdown docs from a source file:
+
+```bash
+./target/release/opalescent doc test-projects/hello-world/src/main.op
+```
+
+## CLI reference
+
+| Command | Status | Purpose |
+|---|---:|---|
+| `opal <file.op>` | working | Compile one source file and print the generated binary path. |
+| `opal <file.op> --run` | working | Compile and run one source file. |
+| `opal run <file.op> [-- args...]` | working | Compile and run one source file, forwarding args after `--`. |
+| `opal run` | working | Compile and run the current `opal.toml` project. |
+| `opal check <file.op>` | working | Lex, parse, validate file role, and type-check. |
+| `opal build` | working | Build the current `opal.toml` project. |
+| `opal fmt [--check] [--config <path>] [--output <path>] <file>` | working | Format Opalescent source. |
+| `opal doc <file.op>` | working | Generate Markdown documentation from doc comments. |
+| `opal test [--filter <pattern>] [--target <triple>]` | working | Run the project test command. |
+| `opal bench` | working | Run built-in compiler benchmark probes. |
+| `opal watch <file.op>` | working | Recompile and run when a source file changes. |
+| `opal lsp --stdio` | working | Start the language server transport. |
+| `opal pkg <command>` | planned | Help exists; command execution is not implemented yet. |
+
+## Windows targets
+
+Opalescent can target Windows MSVC from Linux when the Windows SDK is available through `xwin` and `clang-cl`/`lld-link` are configured. The short version is:
+
+```bash
+cargo install xwin --locked
+xwin --accept-license splat --output ~/.xwin
+export LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
 export XWIN_CACHE=$HOME/.xwin
-export CC_x86_64_pc_windows_msvc=clang-cl
-export CFLAGS_x86_64_pc_windows_msvc="/imsvc $XWIN_CACHE/crt/include /imsvc $XWIN_CACHE/sdk/include/ucrt /imsvc $XWIN_CACHE/sdk/include/um /imsvc $XWIN_CACHE/sdk/include/shared"
+export OPAL_XWIN_SYSROOT=$HOME/.xwin
+export OPAL_MSVC_CC=$LLVM_SYS_140_PREFIX/bin/clang-cl
 ```
 
-#### Build
-
-```bash
-cargo build --release --target x86_64-pc-windows-msvc
-```
-
-#### Testing with Wine
-
-You can run and test the cross-compiled `.exe` using Wine:
+Then build an Opalescent project with:
 
 ```bash
-sudo apt-get install wine64
-wine target/x86_64-pc-windows-msvc/release/opalescent.exe
+opal build --target x86_64-pc-windows-msvc
 ```
 
----
+Use the scripts and Windows integration tests as the source of truth when changing this area.
 
-## CLI Reference
+## Documentation
 
-The compiler binary is invoked as `opal`. All commands follow the pattern:
+Top-level Markdown files are intended to answer different questions:
 
-```
-opal <command> [arguments]
-```
-
-### Top-level commands
-
-| Command | Description |
-|---------|-------------|
-| `opal <file.op>` | Compile an Opalescent source file |
-| `opal <file.op> --run` | Compile and execute an Opalescent source file |
-| `opal run <file.op>` | Alias for `opal <file.op> --run` |
-| `opal check <file.op>` | Typecheck source without code generation |
-| `opal build` | Build the project from `opal.toml` |
-| `opal watch <file.op>` | Watch a file and recompile on changes |
-| `opal help` | Show the top-level help message |
-| `opal --help` | Alias for `opal help` |
-| `opal help <topic>` | Show help for a specific command |
-| `opal pkg <command>` | Package manager commands |
-| `opal fmt [options] <file>` | Format an Opalescent source file |
-| `opal lsp [options]` | Start the language server |
-| `opal test [options]` | Run project tests |
-| `opal doc [options]` | Generate documentation |
-| `opal bench` | Run benchmarks |
-
-### `opal <file.op>` — Compile
-
-Pass any `.op` source file as the first argument to compile it:
-
-```bash
-opal hello_world.op
-opal src/main.op
-```
-
-The compiler performs lexing, parsing, and type-checking. Errors are printed with source-location context and actionable suggestions.
-
-Pass `--run` to execute the compiled binary immediately after compilation:
-
-```bash
-opal src/main.op --run
-```
-
-### `opal fmt` — Formatter
-
-```
-opal fmt [--check] [--config <path>] <file>
-```
-
-| Flag | Description |
-|------|-------------|
-| `--check` | Exit with a non-zero code if the file would change (useful in CI) |
-| `--config <path>` | Path to an `opal-fmt.toml` configuration file |
-
-**Examples:**
-
-```bash
-# Format a file in-place
-opal fmt src/main.op
-
-# Check formatting without modifying (CI mode)
-opal fmt --check src/main.op
-
-# Use a custom config
-opal fmt --config .opal-fmt.toml src/main.op
-```
-
-### `opal pkg` — Package Manager
-
-```
-opal pkg <command>
-```
-
-| Command | Description |
-|---------|-------------|
-| `opal pkg init <name>` | Initialise a new project manifest |
-| `opal pkg add <pkg> <version>` | Add a dependency |
-| `opal pkg remove <pkg>` | Remove a dependency |
-| `opal pkg install` | Install all declared dependencies |
-| `opal pkg publish` | Publish the package to the registry |
-
-**Examples:**
-
-```bash
-opal pkg init my-project
-opal pkg add opal-json >=1.0.0
-opal pkg remove opal-json
-opal pkg install
-opal pkg publish
-```
-
-### `opal lsp` — Language Server
-
-```
-opal lsp [options]
-```
-
-Start the Opalescent language server.
-
-| Flag | Description |
-|------|-------------|
-| `--stdio` | Communicate over stdin/stdout (required for editor integration) |
-
-**Examples:**
-
-```bash
-opal lsp --stdio
-```
-
-### `opal test` — Test Runner
-
-```
-opal test [options]
-```
-
-Run tests in the current project.
-
-| Flag | Description |
-|------|-------------|
-| `--target <triple>` | Run tests for a specific build target |
-| `--filter <pattern>` | Only run tests whose names contain `<pattern>` |
-
-**Examples:**
-
-```bash
-opal test
-opal test --filter my_test
-opal test --target x86_64-linux
-```
-
-### `opal doc` — Documentation Generator
-
-```
-opal doc [options]
-```
-
-Generate documentation for the current project.
-
-| Flag | Description |
-|------|-------------|
-| `--format <md\|html>` | Output format (default: `md`) |
-
-**Examples:**
-
-```bash
-opal doc
-opal doc --format html
-```
-
-### `opal bench` — Benchmarks
-
-```
-opal bench
-```
-
-Run benchmarks in the current project.
-
-**Examples:**
-
-```bash
-opal bench
-```
-
-### `opal run` — Compile and Execute
-
-```
-opal run <file.op> [-- args...]
-```
-
-Compile and execute an Opalescent source file.
-
-| Flag | Description |
-|------|-------------|
-| `-- args...` | Arguments forwarded to the compiled binary |
-
-**Alias:** `opal <file.op> --run`
-
-**Examples:**
-
-```bash
-# Compile and run a file
-opal run src/main.op
-
-# Pass arguments to the program
-opal run src/main.op -- --verbose --input data.json
-```
-
-### `opal check` — Typecheck
-
-```
-opal check <file.op>
-```
-
-Run lex, parse, and typecheck pipeline without code generation.
-
-**Examples:**
-
-```bash
-opal check src/main.op
-```
-
-### `opal build` — Build Project
-
-```
-opal build
-```
-
-Build the project by reading `opal.toml` and compiling `src/main.op`.
-
-**Examples:**
-
-```bash
-opal build
-```
-
-### `opal watch` — Watch and Recompile
-
-```
-opal watch <file.op>
-```
-
-Watch a source file and recompile on each detected change. Press Ctrl-C to stop watching.
-
-**Examples:**
-
-```bash
-opal watch src/main.op
-```
-
-### `opal help` — Help
-
-```bash
-opal help              # Top-level usage summary
-opal --help            # Alias for opal help
-opal help pkg          # Package manager subcommands
-opal help fmt          # Formatter flags
-opal help lsp          # Language server flags
-opal help test         # Test runner flags
-opal help doc          # Documentation generator flags
-opal help bench        # Benchmark runner usage
-```
-
-
----
-
-## Language Basics
-
-Opalescent source files use the `.op` extension. Type definition files use the `.types.op` extension.
-
-### Functions
-
-Functions are first-class values declared with `let` (or `entry` for the program entry point):
-
-```opal
-##
-  Description: Adds two integers together
-##
-let add = f(a: int32, b: int32): int32 =>
-    return a + b
-```
-
-The `entry` keyword marks the single program entry point. It implies `public`, `impure`, and `untested`:
-
-```opal
-##
-  Description: starting point of the application
-##
-entry main = f(args: string[]): void =>
-    let world = 'world'
-    print('Hello {world}')
-    return void
-```
-
-**Function signatures:**
-
-```
-let <name> = f(<params>): <return_type> =>
-    <body>
-
-let <name> = f(<params>): <return_type> errors <ErrorType1>, <ErrorType2> =>
-    <body>
-```
-
-**Doc comments** are required on all public functions. Use `##` for multi-line doc blocks:
-
-```opal
-##
-  Description: Computes the nth Fibonacci number
-  Returns: int32
-##
-let fib = f(n: int32): int32 =>
-    if n <= 1:
-        return n
-    return fib(n - 1) + fib(n - 2)
-```
-
-### Variables
-
-Variables are immutable by default. Use `mutable` to opt into mutability:
-
-```opal
-# Immutable — type is inferred
-let message = 'hello'
-
-# Immutable with explicit type
-let count: int32 = 42
-
-# Mutable
-let mutable buffer: string[] = []
-```
-
-### Types
-
-Algebraic data types (sum and product types) are declared in `.types.op` files:
-
-Built-in numeric primitives are explicitly sized:
-
-- Signed integers: `int8`, `int16`, `int32`, `int64`
-- Unsigned integers: `uint8`, `uint16`, `uint32`, `uint64`
-- Floating-point: `float32`, `float64`
-
-**Product type (record):**
-
-```opal
-##
-  Description: A person with a name and age
-##
-type Person:
-    name: string
-    age: int32
-```
-
-**Sum type (tagged union / enum with data):**
-
-```opal
-##
-  Description: A message in a chat system
-##
-type Message:
-    Text:
-        sender: string
-        body: string
-    Join:
-        user: string
-    Leave:
-        user: string
-    Error:
-        code: int32
-        description: string
-```
-
-**Enum (no payload variants):**
-
-```opal
-##
-  Description: Cardinal directions
-##
-type Direction:
-    North
-    East
-    South
-    West
-```
-
-**Generic types:**
-
-```opal
-##
-  Description: A generic result type
-##
-type Result<T, E>:
-    Ok:
-        value: T
-    Error:
-        error: E
-```
-
-**Recursive types** are supported natively:
-
-```opal
-##
-  Description: A binary expression tree
-##
-type Expr:
-    Lit:
-        value: int32
-    Add:
-        left: Expr
-        right: Expr
-    Neg:
-        inner: Expr
-```
-
-### Pattern Matching
-
-Use `match` to destructure sum types:
-
-```opal
-let describe = f(msg: Message): string =>
-    match msg:
-        Text { sender, body } => return 'Message from {sender}: {body}'
-        Join { user }         => return '{user} joined'
-        Leave { user }        => return '{user} left'
-        Error { code, _ }     => return 'Error {code}'
-```
-
-Pattern matching is exhaustive — the compiler rejects non-exhaustive matches at compile time.
-
-**Guard clauses** refine matches:
-
-```opal
-match value:
-    n if n > 0 => return 'positive'
-    n if n < 0 => return 'negative'
-    _          => return 'zero'
-```
-
-### Error Handling
-
-Opalescent has structured error handling without exceptions. Functions declare their errors in the signature:
-
-```opal
-let parse_number = f(text: string): int32 errors ParseError =>
-    ...
-```
-
-**`propagate`** — propagate an error up to the caller (like `?` in Rust):
-
-```opal
-let load_number = f(path: string): int32 errors IoError, ParseError =>
-    let content = propagate read_line_from_disk(path)
-    ...
-```
-
-**`guard ... else` / `guard ... into ... else`** — handle an error locally without propagating.
-Use statement shorthand when you only care about the error branch, and keep `into` when you need the success value afterward:
-
-```opal
-let parse_number = f(text: string): int32 errors ParseError =>
-    guard parse_number_core(text) else parse_error =>
-        log_parse_failure(text)
-        return 0
-    return 7
-```
-
-```opal
-let load_number = f(path: string): int32 errors IoError, ParseError =>
-    let content = propagate read_line_from_disk(path)
-    guard parse_number(content) into value else parse_error =>
-        return 0
-    return value
-```
-
-If the guarded subject is an `if ... else ...` expression, parenthesize it so the parser can distinguish the subject from the guard handler:
-
-```opal
-guard (if ready { parse_number_core(text) } else { parse_number_core('0') }) else parse_error =>
-    return 0
-```
-
-#### ABI and Error Encoding
-
-The compiler uses a canonical ABI for error-bearing functions:
-- **Scalar Returns**: Returns `{T, i8*}` where `T` is the success value.
-- **Void Returns**: Returns `{i8*, i8*}` where the first field is always `null`.
-- **Encoding**: The second field is the error pointer. `null` indicates success. A non-null pointer points to the interned error variant name.
-
-**Limitations**:
-- **Aggregate Returns**: Only scalar types are supported as return values when errors are declared.
-- **Error Payloads**: Only payload-free error variants are supported for propagation.
-
-### Generics
-
-Generic functions declare type parameters after `f`:
-
-```opal
-let map = f<A, B, Err>(items: A[], mapper: f(A): B errors Err): B[] errors Err =>
-    let mutable out: B[] = []
-    for x in items:
-        let y = propagate mapper(x)
-        out.push(y)
-    return out
-```
-
-Generic constraints limit which types are accepted:
-
-```opal
-let max = f<T: Comparable>(a: T, b: T): T =>
-    if a > b: return a
-    return b
-```
-
-String interpolation uses `{expr}` inside single-quoted strings:
-
-```opal
-let n = 10
-print('The answer is {n}')
-print('Sum: {a + b}')
-```
-
----
-
-## Project Architecture
-
-### Directory Layout
-
-A typical Opalescent project looks like:
-
-```
-my-project/
-├── opal.toml            # Project configuration (build system)
-├── opal.pkg.toml        # Package manifest (for publishing)
-├── opal-fmt.toml        # Formatter config (optional)
-├── src/
-│   ├── main.op          # Entry point (contains `entry main`)
-│   ├── models.types.op  # Type definitions
-│   ├── utils.op         # Utility functions
-│   └── ...
-├── tests/
-│   └── ...
-└── language-spec/       # (optional) Language spec / example files
-```
-
-**Key conventions:**
-
-- All source files use `.op` extension
-- Type definitions **must** live in files ending in `.types.op`
-- Each project has exactly **one** `entry main` function
-- All public functions require doc comments (≥ 30 characters)
-
-### Project Configuration (`opal.toml`)
-
-The build system reads `opal.toml` at the project root:
-
-```toml
-name = "my-project"
-version = "1.0.0"
-
-[dependencies]
-opal-json = ">=1.0.0"
-opal-http = ">=0.5.0, <1.0.0"
-
-[build]
-targets = ["x86_64-linux", "x86_64-pc-windows-msvc"]
-```
-
-**Root fields:**
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | ✅ | Project package name |
-| `version` | ✅ | Semantic version (`major.minor.patch`) |
-
-**`[dependencies]` section:**
-
-Each line is `package-name = "version-constraint"`. Supported constraint operators:
-
-| Operator | Example | Meaning |
-|----------|---------|---------|
-| `=` | `=1.2.0` | Exactly version 1.2.0 |
-| `>=` | `>=1.0.0` | At least 1.0.0 |
-| `>` | `>1.0.0` | Strictly newer than 1.0.0 |
-| `<=` | `<=2.0.0` | At most 2.0.0 |
-| `<` | `<2.0.0` | Strictly older than 2.0.0 |
-
-Combine constraints with a space or comma for range constraints:
-
-```toml
-[dependencies]
-opal-http = ">=0.5.0 <1.0.0"
-```
-
-**`[build]` section:**
-
-| Field | Description |
-|-------|-------------|
-| `targets` | Array of target triples to build for |
-
-**Supported target triples:**
-
-| Triple | Platform | Extension |
-|--------|----------|-----------|
-| `x86_64-linux` | 64-bit Linux | `.so` |
-| `aarch64-linux` | ARM64 Linux | `.so` |
-| `x86_64-darwin` | 64-bit macOS | `.dylib` |
-| `aarch64-darwin` | Apple Silicon macOS | `.dylib` |
-| `x86_64-pc-windows-msvc` | Windows (64-bit, MSVC CRT) | `.dll` |
-| `x86_64-pc-windows-gnu` | Windows (64-bit, MinGW-w64) | `.dll` |
-
-### Package Manifest (`opal.pkg.toml`)
-
-For publishing to the package registry, create `opal.pkg.toml`:
-
-```toml
-name = "my-library"
-version = "0.1.0"
-author = "Your Name"
-description = "A brief description of the package"
-
-[dependencies]
-opal-json = ">=1.0.0"
-```
-
-**Fields:**
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | ✅ | Package name (used in `opal pkg add`) |
-| `version` | ✅ | Semantic version string |
-| `author` | ❌ | Author name |
-| `description` | ❌ | Short human-readable description |
-
-### Source File Conventions
-
-| Convention | Rule |
-|-----------|------|
-| Regular source | `*.op` |
-| Type definitions | `*.types.op` |
-| Only one `entry` | Exactly one `entry main` per project |
-| Doc comments | Required on all public functions (≥ 30 chars) |
-| No semicolons | Statement termination uses newlines |
-| Indentation | 4 spaces (configurable via `opal-fmt.toml`) |
-
----
-
-## Compiler
-
-### Compiler Pipeline
-
-The Opalescent compiler pipeline processes source code through several stages to produce a native binary:
-
-1. **Lexing & Parsing** — Source text is tokenized and parsed into an Abstract Syntax Tree (AST)
-2. **Type Checking** — The AST is analyzed for type correctness and symbol resolution
-3. **Code Generation** — Type-checked AST is lowered to LLVM IR via Inkwell
-4. **Object Emission** — LLVM IR is compiled to native object code (`.o` file)
-5. **Linking** — The object file is linked with the C runtime (embedded in the compiler binary) to produce the final binary. No `runtime/` folder is needed at runtime.
-
-The entry point is `compile_program(source: &str, output_dir: &Path) -> Result<PathBuf, CompileError>`, which orchestrates all stages:
-
-```rust
-// Compiles source code and produces a binary at output_dir/program
-let binary_path = compile_program(source, Path::new("target"))?;
-std::process::Command::new(binary_path).spawn()?.wait()?;
-```
-
-The compiler creates two artifacts inside `output_dir`:
-- `program.o` — intermediate object file
-- `program` — final executable binary
-
-### Escape Hatches
-
-The following escape hatches are used to work around platform-specific constraints and linker incompatibilities:
-
-| Platform | Escape Hatch | Reason |
-|----------|-------------|--------|
-| Linux (x86_64) | `-no-pie` flag to linker | Avoids Position-Independent Executable (PIE) relocation failure (`R_X86_64_32S`) on x86_64; required for compatibility with emitted object files |
-
-No other escape hatches were needed for current targets.
-
----
-
-## Testing
-
-### Test Projects
-
-Test projects are located in the `test-projects/` directory. Each is a minimal Opalescent program demonstrating specific language features or use cases. They serve as integration tests and examples:
-
-**Available test projects:**
-
-| Project | Location | Purpose |
-|---------|----------|---------|
-| `hello-world` | `test-projects/hello-world/` | Basic I/O and program entry |
-| `fib-recursive` | `test-projects/fib-recursive/` | Recursive function calls and integer arithmetic |
-| `fib-iterative` | `test-projects/fib-iterative/` | Iterative loops and mutable state |
-| `simple-quiz` | `test-projects/simple-quiz/` | User input, conditionals, and randomness |
-
-Each test project follows a standard structure (see [Test Project Conventions](#test-project-conventions) below).
-
-### Integration Tests
-
-Integration tests compile and execute test projects end-to-end. They verify that the compiler pipeline (lexing, parsing, type checking, code generation, linking, execution) works correctly.
-
-**Running integration tests:**
-
-```bash
-# Run all integration tests
-cargo test --features integration
-
-# Run a specific integration test
-cargo test --features integration simple_quiz_compiles_links_and_runs
-```
-
-Integration tests are gated behind the `integration` feature flag in `Cargo.toml` because they:
-- Write files to disk (`test-projects/<name>/target/`)
-- Spawn external processes
-- Take longer to execute than unit tests
-
-Test artifacts are automatically cleaned up after each test execution.
-
-### Test Project Conventions
-
-All `.op` files in test projects must follow these conventions:
-
-**Syntax:**
-- Colon-block syntax is the standard for control flow (`if`, `while`, `for`, `loop`)
-- Brace syntax `{ }` is also supported for block expressions
-- Statements use newlines for termination (no semicolons)
-
-**Types:**
-- Use **`int32` for all numeric types**
-- String types use the built-in `string` type
-
-**Entry Function:**
-- Entry function must be named `f(args: string[]): void` (legacy signatures without parameters are also supported):
-
-```opal
-entry main = f(args: string[]): void =>
-    print('Hello world')
-    return void
-```
-
-**Project Structure:**
-- `opal.toml` — Project metadata and dependencies
-- `.gitignore` — Typical `target/` and artifact entries
-- `README.md` — Brief description of the test project
-- `src/main.op` — Opalescent source code with `entry main`
-
-**Example directory layout:**
-
-```
-test-projects/hello-world/
-├── opal.toml
-├── .gitignore
-├── README.md
-└── src/
-    └── main.op
-```
-
----
-
-## Package Manager
-
-The package manager is invoked via `opal pkg`. It reads from and writes to `opal.pkg.toml`.
-
-Status: package-manager execution is not wired through `src/app.rs` yet; current CLI behavior exposes package manager help topics.
-
-### Initialise a project
-
-```bash
-opal pkg init my-library
-```
-
-Creates a starter `opal.pkg.toml`:
-
-```toml
-name = "my-library"
-version = "0.1.0"
-```
-
-### Add a dependency
-
-```bash
-opal pkg add opal-json >=1.0.0
-```
-
-Appends to the `[dependencies]` section of `opal.pkg.toml`.
-
-### Remove a dependency
-
-```bash
-opal pkg remove opal-json
-```
-
-### Install dependencies
-
-```bash
-opal pkg install
-```
-
-Resolves the dependency graph (highest compatible versions win), downloads, and installs all packages.
-
-### Publish a package
-
-```bash
-opal pkg publish
-```
-
-Validates the manifest and uploads the package to the registry. Requires a valid `opal.pkg.toml` with both `name` and `version`.
-
----
-
-## Formatter
-
-The formatter ensures consistent code style across all `.op` files.
-
-### Usage
-
-```bash
-# Format in-place
-opal fmt src/main.op
-
-# Check only (CI-safe, no writes)
-opal fmt --check src/main.op
-
-# Custom config
-opal fmt --config opal-fmt.toml src/main.op
-```
-
-### Configuration (`opal-fmt.toml`)
-
-```toml
-indent_size = 4
-max_line_width = 100
-use_tabs = false
-```
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `indent_size` | `4` | Spaces per indent level (ignored when `use_tabs = true`) |
-| `max_line_width` | `100` | Soft line-length hint for wrapping decisions |
-| `use_tabs` | `false` | Use tab characters instead of spaces |
-
-Unknown keys are silently ignored for forward-compatibility.
-
-### What the formatter does
-
-- Normalises line endings to `\n`
-- Removes trailing whitespace
-- Collapses multiple consecutive blank lines to one
-- Ensures a single trailing newline
-- Enforces naming conventions (snake_case for functions/variables, PascalCase for types)
-- Applies consistent indentation
-
----
-
-## Language Server (LSP)
-
-The Opalescent LSP server provides editor integration with full language intelligence.
-
-### Capabilities
-
-| Feature | Description |
-|---------|-------------|
-| **Diagnostics** | Real-time type errors and parse errors as you type |
-| **Completion** | Keywords, local variables, and function names |
-| **Hover** | Type information for symbols under the cursor |
-| **Go to Definition** | Jump to where a function or variable is declared |
-| **Rename** | Rename a symbol and all its references project-wide |
-| **Semantic Tokens** | Syntax highlighting beyond basic tokenization |
-
-### VS Code
-
-Install the bundled VS Code extension from the `vscode-extension/` directory:
-
-```bash
-cd vscode-extension
-npm install
-npx vsce package
-code --install-extension opalescent-*.vsix
-```
-
-Or open the `vscode-extension/` folder in VS Code and press **F5** to launch the extension in development mode.
-
-The extension activates automatically for any file with the `.op` or `.types.op` extension and connects to the LSP server.
-
-### Other editors
-
-Any editor that supports the Language Server Protocol can connect to `opal-lsp`. Start the server:
-
-```bash
-opal lsp --stdio
-```
-
-Configure your editor to launch this command for `.op` files.
-
----
-
-## Hot Reload
-
-Opalescent supports hot reloading of modules during development — swap out compiled modules without restarting the host process.
-
-### How it works
-
-1. The **change detector** watches for file modifications and classifies each change:
-   - **Hot-swappable** — function body change only, ABI is compatible → swap in-place
-   - **Requires restart** — function signature changed → full process restart needed
-   - **Full restart** — type layout changed → cannot swap safely
-
-2. The **ABI guard** verifies that the new module's exported function signatures are binary-compatible with the currently loaded module before swapping.
-
-3. The **hot-swap loader** atomically replaces the active module:
-   - Loads the new module
-   - Validates ABI compatibility
-   - Unloads the old module
-   - Sets the new module as active
-
-4. If loading fails or ABI is incompatible, the **recovery system** rolls back to the previous module without stopping the host process.
-
-### Change classification
-
-| Change type | Action |
-|-------------|--------|
-| Function body only | Hot swap (no restart) |
-| Function signature | Full process restart |
-| Type layout | Full process restart |
-
----
-
-## Build Targets
-
-Cross-compilation targets are declared in `opal.toml`:
-
-```toml
-[build]
-targets = ["x86_64-linux", "aarch64-darwin"]
-```
-
-**Supported platforms and their native library extensions:**
-
-| Target triple | OS | Extension |
-|--------------|-----|-----------|
-| `x86_64-linux` | Linux (64-bit) | `.so` |
-| `aarch64-linux` | Linux (ARM64) | `.so` |
-| `x86_64-darwin` | macOS (Intel) | `.dylib` |
-| `aarch64-darwin` | macOS (Apple Silicon) | `.dylib` |
-| `x86_64-pc-windows-msvc` | Windows (64-bit, MSVC CRT) | `.dll` |
-| `x86_64-pc-windows-gnu` | Windows (64-bit, MinGW-w64) | `.dll` |
-
----
-
-## Building Windows Programs
-
-### Before you build on Linux (MSVC target)
-
-Cross-compiling to Windows (MSVC) from Linux requires a Windows SDK sysroot. If you attempt to build for `x86_64-pc-windows-msvc` without a proper environment, Opalescent fails with:
-`missing XWIN_CACHE or OPAL_XWIN_SYSROOT for Linux cross-compilation`.
-
-To set up the required environment:
-
-1. **Install xwin**:
-   ```bash
-   cargo install xwin --locked --version 0.9.0
-   ```
-
-2. **Download Windows SDK to a global location**:
-   Use a single global directory like `~/.xwin` for all your projects.
-   ```bash
-   xwin --accept-license splat --output ~/.xwin
-   ```
-   *Note: If you see a `.xwin-cache` folder in your project root, it was likely created accidentally. Do not commit it. Remove it and use the global location instead.*
-
-3. **Configure Environment Variables**:
-   Consolidate these variables in your shell profile (e.g., `~/.bashrc` or `~/.zshrc`) to ensure consistent cross-compilation:
-
-   ```bash
-   # LLVM 14 location and binaries
-   export LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
-   export PATH=$LLVM_SYS_140_PREFIX/bin:$PATH
-
-   # Windows SDK location (managed by xwin)
-   export XWIN_CACHE=$HOME/.xwin
-   export OPAL_XWIN_SYSROOT=$HOME/.xwin
-
-   # Toolchain configuration
-   export OPAL_MSVC_CC=$LLVM_SYS_140_PREFIX/bin/clang-cl
-   export CC_x86_64_pc_windows_msvc=clang-cl
-   export CFLAGS_x86_64_pc_windows_msvc="/imsvc $XWIN_CACHE/crt/include /imsvc $XWIN_CACHE/sdk/include/ucrt /imsvc $XWIN_CACHE/sdk/include/um /imsvc $XWIN_CACHE/sdk/include/shared"
-   ```
-
-#### Variable Explanations
-
-| Variable | Description |
-|----------|-------------|
-| `LLVM_SYS_140_PREFIX` | Informs the build system where LLVM 14 is installed. |
-| `PATH` | Updated to include LLVM binaries so `clang-cl` and `lld-link` are discoverable. |
-| `XWIN_CACHE` | Directory where `xwin` caches Windows SDK artifacts. |
-| `OPAL_XWIN_SYSROOT` | Tells the Opalescent compiler where to find the splatted Windows headers/libraries. |
-| `OPAL_MSVC_CC` | Explicitly points to the `clang-cl` binary used for cross-compiling. |
-| `CC_x86_64_pc_windows_msvc` | Informs Cargo which C compiler to use for this specific target. |
-| `CFLAGS_x86_64_pc_windows_msvc` | Provides the necessary include paths for Windows headers to the C compiler. |
-
-Opalescent programs can be built for Windows using several paths. The primary supported runtime is **MSVC**, and the recommended validation environment on Linux is **Wine**.
-
-### Troubleshooting
-
-#### `io failed: No such file or directory (os error 2)`
-This error usually means a required tool or path is missing from your environment.
-
-1. **Check your toolchain**: Ensure `clang-cl` and `lld-link` are installed and in your PATH.
-   ```bash
-   which clang-cl
-   which lld-link
-   ```
-2. **Set explicit paths**: If the tools are installed but not found, set the path manually.
-   ```bash
-   export OPAL_MSVC_CC=/usr/lib/llvm-14/bin/clang-cl
-   ```
-3. **Verify xwin paths**: Ensure `XWIN_CACHE` and `OPAL_XWIN_SYSROOT` point to the directory where you ran `xwin splat`.
-4. **Check LLVM prefix**: If you see LLVM related errors, ensure your prefix is set.
-   ```bash
-   export LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
-   ```
-
-### Build Options
-
-#### 1. Native Windows + MSVC
-This is the standard path when running the Opalescent compiler on a Windows host.
-- **Toolchain**: Visual Studio Build Tools (MSVC), LLVM 14.
-- **Command**:
-  ```powershell
-  opal build --target x86_64-pc-windows-msvc
-  ```
-- **Artifact**: `target/program.exe`
-- **Verification**: Direct execution in PowerShell or CMD.
-
-#### 2. Linux Cross-compilation (MSVC)
-Recommended for CI and Linux-based development. Uses `xwin` to provide Windows SDK headers and libraries.
-- **Toolchain**: `clang-cl`, `lld-link`, `xwin` (0.9.0+).
-- **Command**:
-  ```bash
-  opal build --target x86_64-pc-windows-msvc
-  ```
-- **Artifact**: `target/program.exe`
-- **Verification**: `wine target/program.exe`
-
-#### 3. Linux Cross-compilation (GNU)
-A secondary path using the MinGW-w64 toolchain. Not considered a primary regression path.
-- **Toolchain**: `x86_64-w64-mingw32-gcc`.
-- **Command**:
-  ```bash
-  opal build --target x86_64-pc-windows-gnu
-  ```
-- **Artifact**: `target/program.exe` (linked against MinGW CRT).
-
-### Windows vs. Linux Comparison
-
-| Feature | Linux Build (`x86_64-linux`) | Windows Build (`x86_64-pc-windows-msvc`) |
-|---------|-----------------------------|------------------------------------------|
-| **Linker** | `ld` or `lld` | `link.exe` or `lld-link` |
-| **CRT** | `glibc` | `ucrt` (Universal C Runtime) |
-| **Artifact Name** | `program` | `program.exe` |
-| **Verification** | Native execution | Native (Windows) or Wine (Linux) |
-| **Primary Target** | Yes | Yes (Windows Primary) |
-
-### Key Differences & Caveats
-- **Artifact Extensions**: Windows builds always append `.exe` to the final binary, unlike Linux which produces extensionless binaries by default.
-- **Wine Validation**: On Linux hosts, Wine is the official gate for verifying Windows artifacts. While most core language features work identically, certain filesystem behaviors or deep platform integrations may vary.
-- **Toolchain Setup**: Cross-compiling to MSVC from Linux requires `xwin` to be initialized (`xwin splat`) and relevant environment variables (`CC_x86_64_pc_windows_msvc`, etc.) to be set.
-
----
-
-## IDE Integration
-
-### VS Code extension
-
-The `vscode-extension/` directory contains a complete VS Code extension with:
+| File | What it is for |
+|---|---|
+| [README.md](README.md) | Project overview, status, requirements, build/run commands, and the feature checklist. |
+| [OPALESCENT_CRASH_COURSE.md](OPALESCENT_CRASH_COURSE.md) | Beginner-friendly language tutorial, local `opal` alias setup, and common language footguns. |
+| [STDLIB.md](STDLIB.md) | User-facing standard-library reference with function behavior, signatures, and error notes. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor setup, architecture map, testing strategy, documentation rules, and PR checklist. |
+| [ARRAY_FEATURES.md](ARRAY_FEATURES.md) | Notes on implemented array behavior and array-related language/runtime support. |
+| [ERROR_HANDLING_STANDARDS.md](ERROR_HANDLING_STANDARDS.md) | Error-handling design expectations and implementation standards. |
+| [HOT_RELOAD_ARCHITECTURE.md](HOT_RELOAD_ARCHITECTURE.md) | Hot-reload subsystem architecture and design notes. |
+| [REFACTORING_GUIDE.md](REFACTORING_GUIDE.md) | Guidance for safe refactors in the compiler codebase. |
+| [SECURITY.md](SECURITY.md) | How to report security-sensitive issues. |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community behavior expectations and enforcement. |
+| [GAME_OF_LIFE_POST_MORTEM.md](GAME_OF_LIFE_POST_MORTEM.md) | Historical Game of Life debugging notes, if retained in the branch. |
 
-- Syntax highlighting for `.op` and `.types.op` files
-- Bracket matching and auto-closing pairs
-- LSP integration (diagnostics, completion, hover, go-to-definition, rename)
-- Snippet support
+Design proposal directories such as `stdlib-proposals/`, `memory-model-proposals/`, `error-handler-proposals/`, and `game-of-life-proposals/` contain draft options. They are useful context, but they are not finished API guarantees.
 
-**Syntax highlighting covers:**
-- Keywords (`let`, `entry`, `type`, `match`, `if`, `for`, `return`, `guard`, `propagate`, `mutable`)
-- Built-in types (`int32`, `int64`, `float64`, `string`, `boolean`, `void`)
-- String literals with interpolation highlighting
-- Comments (`#` single-line, `## ... ##` multi-line doc blocks)
-- Function declarations
+## Contributing
 
-### Language configuration
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening issues or pull requests.
 
-The extension ships `language-configuration.json` with:
+## License
 
-- Comment toggling (`#` for line comments, `## ... ##` for block comments)
-- Auto-closing pairs for `()`, `[]`, `{}`, `''`
-- Bracket definitions for indentation rules
+A final open-source license has not been selected in this branch. Add a real `LICENSE` file before publishing the repository publicly.

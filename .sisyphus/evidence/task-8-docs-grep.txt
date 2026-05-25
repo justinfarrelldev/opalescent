@@ -1,5 +1,0 @@
-stdlib/prelude.op:27:# (Note: bytes_new() is supported for legacy compatibility).
-stdlib/prelude.op:28:# bytes_new(): Bytes
-test-projects/bytes-empty-construct-legacy/README.md:3:An end-to-end test project for the legacy `bytes_new()` constructor. It verifies that an empty Bytes buffer compiles, runs, and reports a length of zero.
-test-projects/bytes-empty-construct-legacy/src/main.op:7:import bytes_new from standard
-test-projects/bytes-empty-construct-legacy/src/main.op:13:    let buffer: Bytes = bytes_new()

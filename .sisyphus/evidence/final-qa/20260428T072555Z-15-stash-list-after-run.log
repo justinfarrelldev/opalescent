@@ -1,5 +1,0 @@
-stash@{0}: On main: f3-temp-clean-check
-stash@{1}: On main: temp-task5-commit-isolation
-stash@{2}: On main: temp-stash-for-task1-commit
-stash@{3}: WIP on main: f0407f5 feat(cli): add opal build command for project-level compile
-stash@{4}: On main: Stashing temporarily to ask questions about staged changes

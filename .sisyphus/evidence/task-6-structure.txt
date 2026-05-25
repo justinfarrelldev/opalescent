@@ -1,4 +1,0 @@
-flat-bare-specifiers
-namespaced-stdlib
-tiered-stdlib
-6

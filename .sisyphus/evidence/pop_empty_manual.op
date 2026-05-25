@@ -1,8 +1,0 @@
-##
-  Description: Manual runtime trap check for pop on empty array.
-##
-entry main = f(args: string[]): void =>
-    let mutable xs: int32[] = []
-    let popped = xs.pop()
-    print('popped {popped}')
-    return void

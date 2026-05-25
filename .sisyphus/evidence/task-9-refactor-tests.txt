@@ -1,6 +1,0 @@
-cargo test guard --lib -- --nocapture
-PASS
-
-cargo test --features integration guard -- --nocapture
-PASS
-(note: one integration fixture printed a transient panic message, but the Cargo run completed successfully)

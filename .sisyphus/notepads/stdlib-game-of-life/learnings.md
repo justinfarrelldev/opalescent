@@ -1,1 +1,0 @@
-- 2026-05-18T12:40:00Z `clippy::default_numeric_fallback` in the Game of Life integration test was resolved by typing the loop bounds as `0_i32..10_i32`; behavior stayed identical and the exact test still passed.
