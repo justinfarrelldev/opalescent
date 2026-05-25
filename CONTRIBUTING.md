@@ -96,7 +96,7 @@ export LLVM_SYS_140_PREFIX="$(brew --prefix llvm@14)"
 cargo build --release
 ```
 
-Windows/MSVC cross-compilation from Linux is possible, but Windows development is not stable at the current time. It is expected to stabilize in the future. Today it needs extra setup through `xwin`, `clang-cl`, `lld-link`, and Wine, and the related tests are slower and more host-sensitive than the Linux path. Use `scripts/verify-wine-prereqs.sh`, `scripts/msvc_link_probe.sh`, and the `wine-tests` cargo-make task as references before changing that area.
+Windows/MSVC cross-compilation from Linux is possible, but **Windows development is not stable at the current time**. It is expected to stabilize in the future. Today it needs extra setup through `xwin`, `clang-cl`, `lld-link`, and Wine, and the related tests are slower and more host-sensitive than the Linux path. Use `scripts/verify-wine-prereqs.sh`, `scripts/msvc_link_probe.sh`, and the `wine-tests` cargo-make task as references before changing that area.
 
 ## Note on GitHub Actions
 

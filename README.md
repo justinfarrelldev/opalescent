@@ -112,7 +112,7 @@ public let next_generation = f(board: int8[], width: int64, height: int64): int8
 
 ## Project status
 
-Opalescent is early software. **Memory bugs and general instability are to be expected**. Many pieces work end-to-end, but the language and library are still changing. The table below separates features that are implemented from features that are only planned or proposed. This list is based on the parser, type checker, code generator, standard-library registration, and integration tests in this repository.
+Opalescent is early software. **Memory bugs and general instability are to be expected**. Many pieces work end-to-end, but the language and library are still changing. The checklist below separates features that are implemented from features that are only planned or proposed. This list is based on the parser, type checker, code generator, standard-library registration, and integration tests in this repository.
 
 Opalescent is currently well-suited for simple projects, though complex use cases may hit rough edges. For concrete examples of what the language can do, see the [Game of Life](test-projects/game-of-life/), [simple-quiz](test-projects/simple-quiz/), and [delete-downloads-strict-legal](test-projects/delete-downloads-strict-legal/) test projects.
 
@@ -202,6 +202,8 @@ Build the compiler:
 ```bash
 cargo build --release
 ```
+
+The compiled binary is named `opalescent`. Most examples in the documentation use `opal` as the command name. It is recommended to set up an alias — see [CONTRIBUTING.md](CONTRIBUTING.md) for the suggested alias setup, though the examples below use `./target/release/opalescent` instead.
 
 Run a single source file:
 
