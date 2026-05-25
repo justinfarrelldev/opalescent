@@ -2,6 +2,11 @@
 name = "opalescent"
 version = "0.1.0"
 edition = "2024"
+description = "An experimental statically typed programming language with explicit error handling, algebraic data types, and native-code compilation through LLVM."
+license = "Apache-2.0"
+repository = "https://github.com/justinfarrelldev/opalescent"
+homepage = "https://github.com/justinfarrelldev/opalescent"
+readme = "README.md"
 
 [dependencies]
 miette = { version = "7.0", features = ["fancy"] }
@@ -17,7 +22,9 @@ libc = "0.2"
 
 [target.'cfg(not(windows))'.dependencies]
 inkwell = { version = "0.8.0", features = ["llvm14-0"] }
-llvm-sys-140 = { package = "llvm-sys", version = "140.1.3", features = ["prefer-dynamic"] }
+llvm-sys-140 = { package = "llvm-sys", version = "140.1.3", features = [
+    "prefer-dynamic",
+] }
 
 [features]
 integration = []
