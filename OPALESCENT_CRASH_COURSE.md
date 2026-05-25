@@ -252,6 +252,8 @@ if answer is 42:
     print('correct')
 ```
 
+> **`is` means equality, not type identity.** If you come from Python, `is` checks whether two values are equal, the same role that `==` plays in most languages. It does not check whether two variables refer to the same object in memory, and it has nothing to do with type testing. Use `is` anywhere you would write `==` in another language.
+
 Boolean combinations use words:
 
 ```opal
