@@ -60,15 +60,17 @@ interactive terminal this project clears before writing each generation, so the
 board animates in place. When stdout is redirected, ANSI support is reported as
 unavailable and frames are written as a readable transcript instead.
 
-## Build
+## Setup
+
+You need the `opal` binary on your PATH. See [CONTRIBUTING.md](../../CONTRIBUTING.md) for full setup instructions.
+
+## Run
 
 From this project directory:
 
 ```bash
-cargo run --manifest-path ../../Cargo.toml -- build
+opal run
 ```
-
-The generated binary is `target/program`.
 
 ## Preview Safely
 
@@ -76,6 +78,7 @@ The program is intentionally infinite. Use an external timeout when previewing i
 from scripts or automated checks:
 
 ```bash
+opal build
 timeout 3s ./target/program
 ```
 
