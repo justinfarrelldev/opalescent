@@ -2,6 +2,8 @@
 
 Opalescent is an experimental, statically typed programming language with explicit error handling, algebraic data types, native-code compilation through LLVM, and a small standard library focused on practical command-line programs.
 
+This compiler was generated largely with LLMs.
+
 If you already know what you are doing:
 
 ```bash
