@@ -1,6 +1,0 @@
-Command: ./target/debug/opalescent fmt /tmp/inplace-test.op (in-place, no --output)
-/tmp/inplace-test.op
-EXIT: 0
-
-Source file mtime before: 2026-04-12 16:27:08.622593724 -0400
-/tmp/inplace-test.op was written in-place: -rw-r--r-- 1 justi justi 111 Apr 15 02:41 /tmp/inplace-test.op

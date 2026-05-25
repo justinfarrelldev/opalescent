@@ -1,5 +1,0 @@
-##
-  Description: This is a doc comment for main
-##
-entry main = f(): void =>
-    return void

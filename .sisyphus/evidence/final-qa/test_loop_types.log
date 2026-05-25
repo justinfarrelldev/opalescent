@@ -1,8 +1,0 @@
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
-     Running `target/debug/opalescent /tmp/test_loop_types.op --run`
-target/program
-=== Testing Loop Expressions with Different Types ===
-123
-true
-0
-Hello from loop

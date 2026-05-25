@@ -1,8 +1,0 @@
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
-     Running `target/debug/opalescent /tmp/test_conversions.op --run`
-target/program
-=== Testing Conversion Functions ===
-42
-true
-3.14
-123

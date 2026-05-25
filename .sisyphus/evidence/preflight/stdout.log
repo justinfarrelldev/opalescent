@@ -1,6 +1,0 @@
-str-elem-0
-str-elem-1
-path-name: a.txt
-path-name: b.txt
-guard-ok: true
-guard-err: PermissionDeniedError

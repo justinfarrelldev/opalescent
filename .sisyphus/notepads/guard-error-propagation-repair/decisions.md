@@ -1,3 +1,0 @@
-- 2026-05-13 F4 decision: verdict is REJECT, because scope fidelity must honor both semantic correctness and repair-plan boundaries; wrapper-return expansion plus unsealed final evidence fail that bar.
-- 2026-05-13 (F3 QA): Final verdict set to APPROVE based on explicit confirmation of compile-fail diagnostics for invalid originals and compile+run success for legal siblings.
-- 2026-05-14 Decision: keep scope restricted to evidence/compliance repair artifacts; regenerate final-gate seals from real git snapshots only.

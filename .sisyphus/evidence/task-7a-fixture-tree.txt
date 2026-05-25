@@ -1,9 +1,0 @@
-/home/justi/Projects/opalescent/test-projects/type-in-regular-file-fail/:
-opal.toml
-README.md
-src
-
-/home/justi/Projects/opalescent/test-projects/type-in-regular-file-fail/src:
-main.op
-1
-no .types.op file (correct)

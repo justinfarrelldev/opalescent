@@ -1,7 +1,0 @@
-Scenario E: Existing tests regression check
-
-Command:
-  cargo test
-
-Result summary:
-  test result: ok. 925 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out

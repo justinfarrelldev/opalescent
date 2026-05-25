@@ -1,7 +1,0 @@
-PASS Cargo.toml no longer contains llvm14-0-prefer-dynamic
-PASS non-Windows builds keep LLVM 14 dynamic preference through direct llvm-sys feature unification while Windows keeps plain llvm14-0
-PASS repo-local .cargo/config.toml is no longer checked in; final evidence uses explicit environment for host tools instead
-PASS ci.yml still pins xwin to 0.9.0 with --locked
-PASS ci.yml still does not patch Cargo.toml with sed
-PASS Makefile wine task uses integration + windows-wine features
-PASS verify-wine-prereqs.sh reports configured tools deterministically and passes on this host

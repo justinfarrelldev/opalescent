@@ -1,8 +1,0 @@
-##
-  Description: Verifies array map result type stays tied to the callback return type.
-##
-entry main = f(args: string[]): void =>
-    let xs: int32[] = [1 as int32]
-    let doubled: int32[] = xs.map(f(x: int32): string => 'wrong type')
-    print('length {doubled.length}')
-    return void

@@ -1,3 +1,0 @@
-src/codegen/expressions.rs:399:             // Task 12: Use uitofp for unsigned sources, sitofp for signed
-src/codegen/expressions.rs:409:                             .build_unsigned_int_to_float(int_value, float_type, "uitofp")?
-src/codegen/tests.rs:688: fn test_codegen_unsigned_int_to_float_cast_uses_uitofp() {

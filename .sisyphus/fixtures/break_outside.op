@@ -1,5 +1,0 @@
-##
-  Description: Task 14 fixture ensuring top-level break is rejected.
-##
-entry main = f(args: string[]): void =>
-    break

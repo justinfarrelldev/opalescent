@@ -1,6 +1,0 @@
-OK: Ergonomics
-OK: Error-model fit
-OK: Opalescent-idiom fit
-OK: Implementation effort
-OK: Extensibility
-OK: Async readiness

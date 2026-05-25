@@ -1,2 +1,0 @@
-?? .sisyphus/evidence/task-1-clean-tree.txt
-?? .sisyphus/evidence/task-1-commit-created.txt

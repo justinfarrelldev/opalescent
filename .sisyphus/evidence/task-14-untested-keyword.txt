@@ -1,6 +1,0 @@
-src/token.rs:167:     /// The 'untested' keyword for untested functions
-src/token.rs:422:             Self::Untested => write!(f, "untested"),
-src/parser/declarations.rs:42:             if self.check(&TokenType::Untested) {
-src/parser/declarations.rs:280:         if is_entry
-src/parser/declarations.rs:285:             effective_modifiers.push(FunctionModifier::Untested);
-src/parser/tests.rs:2888: fn test_entry_function_implicitly_gets_untested_modifier() {

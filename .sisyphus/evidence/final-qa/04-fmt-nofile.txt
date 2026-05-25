@@ -1,3 +1,0 @@
-=== TEST 4: fmt (no file) ===
-error: opal fmt requires a source file — run 'opal help fmt' for usage
-EXIT: 1

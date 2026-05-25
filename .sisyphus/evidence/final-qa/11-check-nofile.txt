@@ -1,4 +1,0 @@
-=== TEST 11: check (no file) ===
-error: no source file specified
-Usage: opal check <file.op>
-EXIT: 1

@@ -1,2 +1,0 @@
-$ cargo run --release --bin gol_memory_probe -- --size 100 --ticks 10
-peak_live_bytes: 29694

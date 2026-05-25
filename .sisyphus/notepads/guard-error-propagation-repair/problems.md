@@ -1,3 +1,0 @@
-- 2026-05-13 unresolved for orchestrator follow-up: decide whether wrapper-return support belongs in this repair scope or must be split into a separate plan and evidence line.
-- 2026-05-13 unresolved for orchestrator follow-up: produce a truly clean final gate if sealed evidence remains mandatory.
-- 2026-05-13 (F3 QA): No unresolved problems identified in this verification wave.

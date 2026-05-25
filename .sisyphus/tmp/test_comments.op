@@ -1,7 +1,0 @@
-# File header comment
-entry main = f(): void =>
-    return void
-
-# Section separator
-let helper = f(x: int32): int32 =>
-    return x

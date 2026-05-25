@@ -1,1 +1,0 @@
-(skipped before Wine execution)

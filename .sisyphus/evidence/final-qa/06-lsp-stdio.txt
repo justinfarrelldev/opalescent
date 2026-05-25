@@ -1,3 +1,0 @@
-=== TEST 6: lsp --stdio ===
-Opalescent language server started (stdio mode)
-EXIT: 0

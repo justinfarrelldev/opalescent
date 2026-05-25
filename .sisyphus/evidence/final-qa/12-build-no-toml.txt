@@ -1,4 +1,0 @@
-=== TEST 12: build (no opal.toml in /tmp) ===
-error: no opal.toml found in current directory
-hint: run 'opal pkg init <name>' to create a project
-EXIT: 1
