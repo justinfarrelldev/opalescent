@@ -58,7 +58,7 @@ entry main = f(args: string[]): void =>
 
 ### Game of Life — types and rules ([test-projects/game-of-life-full](test-projects/game-of-life-full/src/))
 
-A multi-file project. The `.types.op` file defines shared data; `rules.op` computes the next generation using Conway's rules. It demonstrates product types, cross-file imports, `public let`, nested `while` loops, and flat `int8[]` boards.
+A multi-file project with separate modules for board state, rendering, patterns, configuration, and rules. The two excerpts below are just a slice — see [test-projects/game-of-life-full](test-projects/game-of-life-full/src/) for the full project. They demonstrate product types, cross-file imports, `public let`, nested `while` loops, and flat `int8[]` boards.
 
 **`life.types.op`**
 
