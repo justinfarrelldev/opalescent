@@ -24,7 +24,9 @@ use crate::codegen::functions::{
     codegen_call_expression, codegen_guard_expression, codegen_propagate_expression,
 };
 use crate::codegen::types::{integer_literal_bits, is_signed_core_type};
-use crate::type_system::type_mapping::{AstTypeMappingError, ast_type_to_core_type};
+use crate::type_system::type_mapping::{
+    AstTypeMappingError, ast_type_to_core_type, basic_type_name_to_core_type,
+};
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
 use alloc::format;
@@ -104,7 +106,6 @@ impl<'context> CodegenEnv<'context> {
         self.temp_counter = self.temp_counter.saturating_add(1);
         format!("{base}.{index}")
     }
-
 }
 
 pub fn codegen_expression<'context>(
@@ -827,6 +828,12 @@ fn ast_type_to_core_type_for_cast(ast_type: &Type) -> Result<CoreType, CodegenEr
         return Err(CodegenError::new(String::from(
             "function and generic types cannot be cast targets",
         )));
+    }
+
+    if let Type::Basic { ref name, .. } = *ast_type {
+        if basic_type_name_to_core_type(name.as_str()).is_none() {
+            return Err(CodegenError::new(format!("unsupported type '{name}'")));
+        }
     }
 
     ast_type_to_core_type(ast_type).map_err(|error| match error {

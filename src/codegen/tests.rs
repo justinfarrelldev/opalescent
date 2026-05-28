@@ -8,7 +8,7 @@ use crate::codegen::control_flow::{
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::functions::{
     codegen_call_expression, codegen_function_declaration, codegen_guard_expression,
-    codegen_propagate_expression,
+    codegen_propagate_expression, emit_default_return,
 };
 use crate::codegen::functions_stdlib::declare_stdlib_function;
 use crate::codegen::monomorphization::monomorphized_function_name;
@@ -214,6 +214,43 @@ fn create_codegen_function<'context>(
         .append_basic_block(function, "entry");
     codegen_context.builder.position_at_end(entry_block);
     function
+}
+
+#[test]
+fn emit_default_return_for_error_bearing_unit_function_returns_success_aggregate() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "implicit_error_unit_return");
+    let function_type =
+        crate::codegen::error_abi::build_error_return_type(&context, None).fn_type(&[], false);
+    let function =
+        codegen_context
+            .module
+            .add_function("implicit_error_unit_return_fn", function_type, None);
+    let entry_block = codegen_context
+        .context
+        .append_basic_block(function, "entry");
+    codegen_context.builder.position_at_end(entry_block);
+    let mut env = CodegenEnv::new(true);
+
+    emit_default_return(&codegen_context, &mut env, &[CoreType::Unit])
+        .expect("implicit default return for unit errors function should lower");
+
+    let verification = codegen_context.module.verify();
+    assert!(
+        verification.is_ok(),
+        "module with implicit error-bearing unit default return should verify: {verification:?}"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        !ir.contains("ret { i8*, i8* } undef") && !ir.contains("ret { ptr, ptr } undef"),
+        "implicit error-bearing unit return should not lower to undef aggregate: {ir}"
+    );
+    assert!(
+        ir.contains("ret { i8*, i8* } zeroinitializer")
+            || ir.contains("ret { ptr, ptr } zeroinitializer"),
+        "implicit error-bearing unit return should lower to a zero-initialized success aggregate: {ir}"
+    );
 }
 
 #[test]
@@ -2357,6 +2394,27 @@ fn test_codegen_cast_function_type_error_message() {
 }
 
 #[test]
+fn test_codegen_cast_unknown_basic_type_error_message() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "cast_unknown_type_test");
+    let _function = create_codegen_function(&codegen_context, "cast_unknown_type_fn");
+    let mut env = CodegenEnv::new(false);
+
+    let expr = cast(9_112, int_lit(9_113, 1), "nonexistent");
+    let result = codegen_expression(&codegen_context, &mut env, &expr, None);
+    assert!(
+        result.is_err(),
+        "cast to unknown basic type should produce an error"
+    );
+
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("unsupported type 'nonexistent'"),
+        "error should say unsupported type for unknown cast targets, got: {err_msg}"
+    );
+}
+
+#[test]
 fn test_string_array_literal_does_not_emit_rc_child_hooks() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "string_array_literal_test");
@@ -3665,7 +3723,10 @@ fn test_linux_target_uses_direct_fs_small_results_and_sret_for_array_results() {
     );
     assert!(
         read_text.get_type().get_return_type().is_some()
-            && current_executable_path.get_type().get_return_type().is_some(),
+            && current_executable_path
+                .get_type()
+                .get_return_type()
+                .is_some(),
         "Linux two-field filesystem-style results should keep direct struct returns"
     );
     assert!(
@@ -3700,9 +3761,7 @@ fn test_windows_msvc_target_uses_sret_for_filesystem_results() {
         "Windows MSVC should lower two-field filesystem string results with sret: {ir}"
     );
     assert!(
-        ir.contains(
-            "declare void @current_executable_path_sync({ i8*, i8* }* sret({ i8*, i8* }))"
-        ),
+        ir.contains("declare void @current_executable_path_sync({ i8*, i8* }* sret({ i8*, i8* }))"),
         "Windows MSVC should lower process path results with sret: {ir}"
     );
     assert!(
@@ -3717,7 +3776,10 @@ fn test_windows_msvc_target_uses_sret_for_filesystem_results() {
     );
     assert!(
         read_text.get_type().get_return_type().is_none()
-            && current_executable_path.get_type().get_return_type().is_none()
+            && current_executable_path
+                .get_type()
+                .get_return_type()
+                .is_none()
             && is_directory.get_type().get_return_type().is_none()
             && list_directory.get_type().get_return_type().is_none(),
         "Windows MSVC filesystem-style result declarations should all use a hidden sret pointer"

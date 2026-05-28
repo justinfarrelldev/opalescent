@@ -10,27 +10,39 @@ pub enum AstTypeMappingError {
     TypeNotFound { type_name: String, span: Span },
 }
 
+pub fn basic_type_name_to_core_type(name: &str) -> Option<CoreType> {
+    match name {
+        "int8" => Some(CoreType::Int8),
+        "int16" => Some(CoreType::Int16),
+        "int32" => Some(CoreType::Int32),
+        "int64" => Some(CoreType::Int64),
+        "uint8" => Some(CoreType::UInt8),
+        "uint16" => Some(CoreType::UInt16),
+        "uint32" => Some(CoreType::UInt32),
+        "uint64" => Some(CoreType::UInt64),
+        "float32" => Some(CoreType::Float32),
+        "float64" => Some(CoreType::Float64),
+        "string" => Some(CoreType::String),
+        "boolean" => Some(CoreType::Boolean),
+        "unit" | "void" => Some(CoreType::Unit),
+        _ => None,
+    }
+}
+
 pub fn ast_type_to_core_type(ast_type: &Type) -> Result<CoreType, AstTypeMappingError> {
     match *ast_type {
-        Type::Basic { ref name, span } => match name.as_str() {
-            "int8" => Ok(CoreType::Int8),
-            "int16" => Ok(CoreType::Int16),
-            "int32" => Ok(CoreType::Int32),
-            "int64" => Ok(CoreType::Int64),
-            "uint8" => Ok(CoreType::UInt8),
-            "uint16" => Ok(CoreType::UInt16),
-            "uint32" => Ok(CoreType::UInt32),
-            "uint64" => Ok(CoreType::UInt64),
-            "float32" => Ok(CoreType::Float32),
-            "float64" => Ok(CoreType::Float64),
-            "string" => Ok(CoreType::String),
-            "boolean" => Ok(CoreType::Boolean),
-            "unit" | "void" => Ok(CoreType::Unit),
-            _ => Err(AstTypeMappingError::TypeNotFound {
-                type_name: name.clone(),
-                span,
-            }),
-        },
+        Type::Basic {
+            ref name,
+            span: _span,
+        } => basic_type_name_to_core_type(name.as_str()).map_or_else(
+            || {
+                Ok(CoreType::Generic {
+                    name: name.clone(),
+                    type_args: Vec::new(),
+                })
+            },
+            Ok,
+        ),
         Type::Array {
             ref element_type, ..
         } => {

@@ -4511,10 +4511,14 @@ fn test_ast_type_to_core_type() {
         name: "nonexistent".to_owned(),
         span,
     };
-    assert!(
+    assert_eq!(
         ast_type_to_core_type(&invalid_type)
             .map_err(TypeError::from)
-            .is_err()
+            .unwrap(),
+        CoreType::Generic {
+            name: "nonexistent".to_owned(),
+            type_args: Vec::new(),
+        }
     );
 }
 

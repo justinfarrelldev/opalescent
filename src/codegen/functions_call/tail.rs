@@ -140,6 +140,21 @@ pub fn emit_default_return(
     returns: &[CoreType],
 ) -> Result<(), CodegenError> {
     if returns.is_empty() || (returns.len() == 1 && matches!(returns[0], CoreType::Unit)) {
+        let function_return_type = codegen_context
+            .builder
+            .get_insert_block()
+            .and_then(inkwell::basic_block::BasicBlock::get_parent)
+            .and_then(|function| function.get_type().get_return_type());
+        if let Some(return_type) = function_return_type {
+            if return_type.is_struct_type() && return_type.into_struct_type().count_fields() == 2 {
+                let success_aggregate =
+                    crate::codegen::error_abi::build_void_success_aggregate(codegen_context)?;
+                let _ret = codegen_context
+                    .builder
+                    .build_return(Some(&success_aggregate))?;
+                return Ok(());
+            }
+        }
         let _ret = codegen_context.builder.build_return(None)?;
         return Ok(());
     }
