@@ -1,0 +1,34 @@
+import get_environment_variable, get_environment_variable_or, environment_variable_exists from process
+
+##
+  Description: Exercises process environment read runtime functions with deterministic markers.
+##
+entry main = f(args: string[]): void errors EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error =>
+    let present_value = propagate get_environment_variable('OPAL_PROCESS_TEST_VALUE')
+    print('present_value={present_value}')
+
+    let present_exists = propagate environment_variable_exists('OPAL_PROCESS_TEST_VALUE')
+    if present_exists:
+        print('present_exists=true')
+    else:
+        print('present_exists=false')
+
+    let missing_exists = propagate environment_variable_exists('OPAL_PROCESS_TEST_MISSING')
+    if missing_exists:
+        print('missing_exists=true')
+    else:
+        print('missing_exists=false')
+
+    let missing_default = propagate get_environment_variable_or('OPAL_PROCESS_TEST_MISSING', 'fallback-value')
+    print('missing_default={missing_default}')
+
+    let empty_present = propagate get_environment_variable('OPAL_PROCESS_TEST_EMPTY')
+    print('empty_present={empty_present}')
+
+    let empty_default = propagate get_environment_variable_or('OPAL_PROCESS_TEST_EMPTY', 'should-not-appear')
+    print('empty_default={empty_default}')
+
+    let present_default = propagate get_environment_variable_or('OPAL_PROCESS_TEST_VALUE', 'should-not-appear')
+    print('present_default={present_default}')
+
+    return void

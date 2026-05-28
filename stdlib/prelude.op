@@ -71,3 +71,19 @@
 # fs_is_file_nofollow_sync(path: FilesystemPath): boolean errors PermissionDeniedError, InvalidPathError
 # fs_is_directory_sync(path: FilesystemPath): boolean errors PermissionDeniedError, InvalidPathError
 # fs_is_directory_nofollow_sync(path: FilesystemPath): boolean errors PermissionDeniedError, InvalidPathError
+
+## process
+# Process operations (synchronous). Interaction with environment variables,
+# current working directory, and process termination.
+#
+# current_working_directory_sync(): FilesystemPath errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError
+# current_executable_path_sync(): FilesystemPath errors PermissionDeniedError, InvalidPathError, CurrentExecutablePathUnavailableError
+# current_executable_directory_sync(): FilesystemPath errors PermissionDeniedError, InvalidPathError, CurrentExecutablePathUnavailableError
+# set_current_working_directory_sync(path: FilesystemPath): unit errors FileNotFoundError, PermissionDeniedError, IsNotADirectoryError, InvalidPathError
+# get_environment_variable(name: string): string errors EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error
+# get_environment_variable_or(name: string, default_value: string): string errors InvalidEnvironmentVariableNameError, InvalidUtf8Error
+# environment_variable_exists(name: string): boolean errors InvalidEnvironmentVariableNameError
+#
+# exit_process(code: int32): unit
+# Note: exit_process returns void (unit) now but should be treated as never-returning.
+# It will become a 'never' type once supported by the language.

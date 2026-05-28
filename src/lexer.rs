@@ -569,7 +569,15 @@ impl<'input> Lexer<'input> {
         let mut value = String::new();
 
         while !self.is_at_end() && self.current_char() != '\'' {
-            if self.current_char() == '\\' {
+            if self.current_char() == '\0' {
+                let span = LexError::span_from_position(self.position, 1);
+                self.errors.push(LexError::UnexpectedCharacter {
+                    character: '\0',
+                    position: self.position,
+                    span,
+                });
+                self.advance();
+            } else if self.current_char() == '\\' {
                 self.advance();
                 if self.is_at_end() {
                     break;

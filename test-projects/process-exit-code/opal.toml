@@ -1,0 +1,5 @@
+name = "process-exit-code"
+version = "0.1.0"
+
+[build]
+targets = ["x86_64-linux", "x86_64-pc-windows-msvc"]

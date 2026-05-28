@@ -15,6 +15,8 @@ mod standard_symbols_core_io_and_bytes;
 mod standard_symbols_filesystem_operations;
 /// Filesystem type and error symbol declarations for the `standard` module.
 mod standard_symbols_filesystem_types_and_errors;
+/// Process-module symbol declarations.
+mod standard_symbols_process;
 
 /// Export/import view for one module path.
 #[derive(Debug, Clone)]

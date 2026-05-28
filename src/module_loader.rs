@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 /// Supported forms:
 /// - `./path` -> `<from_dir>/path.op`
 /// - `./path.types` -> `<from_dir>/path.types.op`
-/// - `standard` / `math` -> `__stdlib__/<name>` sentinel path
+/// - `standard` / `math` / `process` -> `__stdlib__/<name>` sentinel path
 /// - `@scope/name` -> `TypeError::PackageImportNotSupported`
 ///
 /// # Errors
@@ -38,7 +38,7 @@ fn resolve_import_path_with_span(
     import_source: &str,
     span: Span,
 ) -> Result<PathBuf, TypeError> {
-    if matches!(import_source, "standard" | "math") {
+    if matches!(import_source, "standard" | "math" | "process") {
         return Ok(PathBuf::from(format!("__stdlib__/{import_source}")));
     }
 
@@ -492,6 +492,13 @@ mod tests {
         let from_file = PathBuf::from("/tmp/main.op");
         let resolved = resolve_import_path(&from_file, "standard").expect("stdlib resolves");
         assert_eq!(resolved, PathBuf::from("__stdlib__/standard"));
+    }
+
+    #[test]
+    fn resolve_import_path_process_stdlib_sentinel() {
+        let from_file = PathBuf::from("/tmp/main.op");
+        let resolved = resolve_import_path(&from_file, "process").expect("process stdlib resolves");
+        assert_eq!(resolved, PathBuf::from("__stdlib__/process"));
     }
 
     #[test]

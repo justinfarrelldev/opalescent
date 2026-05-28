@@ -5,6 +5,7 @@ use super::ModuleResolver;
 use super::standard_symbols_core_io_and_bytes::standard_symbols_core_io_and_bytes;
 use super::standard_symbols_filesystem_operations::standard_symbols_filesystem_operations;
 use super::standard_symbols_filesystem_types_and_errors::standard_symbols_filesystem_types_and_errors;
+use super::standard_symbols_process::standard_symbols_process;
 use crate::type_system::symbol_table::{SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
@@ -14,6 +15,7 @@ use alloc::{string::String, vec::Vec};
 pub(super) fn register_standard_modules(resolver: &mut ModuleResolver) {
     register_standard_module(resolver);
     register_math_module(resolver);
+    register_process_module(resolver);
 }
 
 /// Register `standard` built-in module symbols.
@@ -64,6 +66,25 @@ fn register_standard_module(resolver: &mut ModuleResolver) {
         String::from("FilePermissions"),
         fs_perms_fields,
     );
+}
+
+/// Register `process` built-in module symbols.
+fn register_process_module(resolver: &mut ModuleResolver) {
+    let mut interface = ModuleInterface::new(String::from("process"));
+    let process_symbols = standard_symbols_process();
+
+    for (name, core_type, symbol_type) in process_symbols {
+        let register_result = interface.register_symbol(ModuleResolver::module_symbol(
+            name,
+            symbol_type,
+            core_type,
+            Visibility::Public,
+        ));
+        if register_result.is_err() {
+            return;
+        }
+    }
+    resolver.register_module_interface(interface);
 }
 
 /// Register `math` built-in module symbols.

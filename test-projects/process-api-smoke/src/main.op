@@ -1,0 +1,44 @@
+import current_working_directory_sync, current_executable_path_sync, current_executable_directory_sync, set_current_working_directory_sync, get_environment_variable, get_environment_variable_or, environment_variable_exists, exit_process from process
+import path_exists_sync, is_directory_sync, path_to_string from standard
+
+##
+  Description: Smoke fixture that imports all process APIs and exercises non-terminating surfaces.
+##
+entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError, EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error =>
+    let cwd = propagate current_working_directory_sync()
+    let exe_path = propagate current_executable_path_sync()
+    let exe_dir = propagate current_executable_directory_sync()
+
+    let cwd_exists = propagate path_exists_sync(cwd)
+    let exe_path_exists = propagate path_exists_sync(exe_path)
+    let exe_dir_is_directory = propagate is_directory_sync(exe_dir)
+
+    if cwd_exists and exe_path_exists and exe_dir_is_directory:
+        print('process_api_smoke_paths_ok=true')
+    else:
+        print('process_api_smoke_paths_ok=false')
+
+    let env_present = propagate get_environment_variable_or('OPAL_PROCESS_TEST_VALUE', 'fallback')
+    let env_exists = propagate environment_variable_exists('OPAL_PROCESS_TEST_VALUE')
+    if env_present is 'present-value' and env_exists:
+        print('process_api_smoke_env_ok=true')
+    else:
+        print('process_api_smoke_env_ok=false')
+
+    guard get_environment_variable('OPAL_PROCESS_TEST_VALUE') into exact_value else err =>
+        print(err)
+        propagate err
+
+    if exact_value is env_present:
+        print('process_api_smoke_get_ok=true')
+    else:
+        print('process_api_smoke_get_ok=false')
+
+    # Mention exit_process in a branch that never executes to validate import wiring safely.
+    if args.length < 0:
+        exit_process(42)
+
+    propagate set_current_working_directory_sync(cwd)
+
+    print('process_api_smoke_done=true')
+    return void

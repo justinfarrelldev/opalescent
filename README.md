@@ -132,7 +132,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [x] Fallible functions with `errors ...` clauses
 - [x] `propagate`, `guard ... else`, and `guard ... into ... else` error handling
 - [x] Importing functions and types from other files
-- [x] Standard-library I/O, string, bytes, filesystem, terminal, stdout-writer, and time/frame-clock symbols
+- [x] Standard-library I/O, string, bytes, filesystem, terminal, stdout-writer, time/frame-clock, and process symbols
 - [x] Dedicated `Bytes` values with hex conversion, concatenation, slicing, and `.length`
 - [x] Native compilation, `opal run`, `opal check`, `opal build`, `opal fmt`, `opal doc`, `opal test`, `opal bench`, `opal watch`, and `opal lsp --stdio`
 - [x] Linux native builds and Windows MSVC target support through the documented cross-compilation path
@@ -283,7 +283,7 @@ Top-level Markdown files are intended to answer different questions:
 |---|---|
 | [README.md](README.md) | Project overview, status, requirements, build/run commands, and the feature checklist. |
 | [OPALESCENT_CRASH_COURSE.md](OPALESCENT_CRASH_COURSE.md) | Beginner-friendly language tutorial, local `opal` alias setup, and common language footguns. |
-| [STDLIB.md](STDLIB.md) | User-facing standard-library reference with function behavior, signatures, and error notes. |
+| [STDLIB.md](STDLIB.md) | User-facing standard-library reference with function behavior, signatures, and error notes. Includes notes on the `exit_process` `void` now / `never` later footgun. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor setup, architecture map, testing strategy, documentation rules, and PR checklist. |
 | [ARRAY_FEATURES.md](ARRAY_FEATURES.md) | Notes on implemented array behavior and array-related language/runtime support. |
 | [ERROR_HANDLING_STANDARDS.md](ERROR_HANDLING_STANDARDS.md) | Error-handling design expectations and implementation standards. |

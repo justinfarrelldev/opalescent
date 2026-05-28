@@ -3,6 +3,8 @@
 # Local compiler/test output
 temp.log
 *.rlib
+runtime/*.obj
+runtime/*.o
 
 # Local assistant/tool metadata
 .serena

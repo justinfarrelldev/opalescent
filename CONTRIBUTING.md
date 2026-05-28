@@ -106,6 +106,11 @@ Right now, the GitHub Actions are failing. This will be fixed when I upgrade LLV
 
 Right now, there is a `clippy:all` annotation in the codegen internals. This is intentional for now, but would make an excellent cleanup PR - it is just debt accumulated as the cost of going fast, but should be straightforward to bring back into alignment.
 
+### Contributor ticket ideas
+
+- **Language Support**: Change `exit_process` in the `process` module from `void` to `never` once the `never` type is implemented.
+- **Compiler Debt**: Resolve the `clippy:all` annotation in the codegen internals.
+
 ## Repository architecture
 
 Opalescent is implemented mostly in Rust, with a C runtime linked into generated programs.

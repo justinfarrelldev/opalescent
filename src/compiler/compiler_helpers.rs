@@ -180,7 +180,7 @@ pub fn compile_checked_program_to_module<'context>(
     for declaration in &program.declarations {
         match *declaration {
             Decl::Import { ref source, .. } => {
-                if matches!(source.as_str(), "standard" | "math") {
+                if matches!(source.as_str(), "standard" | "math" | "process") {
                     codegen_import_declaration(&codegen_context, &mut env, declaration)?;
                 }
             }

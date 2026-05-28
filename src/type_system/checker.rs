@@ -32,6 +32,8 @@ mod expressions_guard;
 mod fallible_expressions;
 /// Filesystem stdlib built-in type registration.
 mod fs_builtins;
+/// Process stdlib built-in nominal error registration.
+mod process_builtins;
 /// Generic ADT and function instantiation metadata helpers.
 mod generics;
 mod helpers;
@@ -339,6 +341,7 @@ impl TypeChecker {
         self.register_stdout_text_builtins();
         self.register_time_builtins();
         self.register_fs_builtins();
+        self.register_process_builtins();
         self.register_integer_intrinsics_for_type("int8", &CoreType::Int8);
         self.register_integer_intrinsics_for_type("int16", &CoreType::Int16);
         self.register_integer_intrinsics_for_type("int32", &CoreType::Int32);

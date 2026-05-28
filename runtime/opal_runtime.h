@@ -161,6 +161,14 @@ typedef struct { char**     value; int64_t count; const char* error; } FsStringA
 typedef struct { void*      value; const char* error; } FsMetadataResult;
 typedef struct { void*      value; const char* error; } FsPermissionsResult;
 
+FsPathResult current_working_directory_sync(void);
+FsPathResult current_executable_path_sync(void);
+FsPathResult current_executable_directory_sync(void);
+FsVoidResult set_current_working_directory_sync(const char* path);
+FsStringResult get_environment_variable(const char* name);
+FsStringResult get_environment_variable_or(const char* name, const char* default_value);
+FsBooleanResult environment_variable_exists(const char* name);
+void exit_process(int32_t code);
 FsBytesResult read_contents_sync(const char* path);
 FsStringResult read_text_sync(const char* path);
 FsStringResult read_first_line_sync(const char* path);

@@ -285,6 +285,8 @@ for name in names:
 Use `while true:` for a simple unconditional statement loop. The tested `loop` form is an expression form written with `loop =>`; it can `continue` and can `break` with named values.
 
 ```opal
+import take_input, string_to_int32 from standard
+
 let user_input, user_number =
     loop =>
         let s = take_input()
@@ -333,6 +335,8 @@ public type Person:
 Construct a product value with `new`:
 
 ```opal
+import type Person from ./person.types
+
 let person: Person = new Person:
     name: 'Ada'
     age: 36
@@ -411,6 +415,8 @@ Working examples live in `test-projects/import-types-basic/`, `test-projects/imp
 Opalescent does not hide errors as exceptions. A function that can fail says so in its signature:
 
 ```opal
+import read_text_sync from standard
+
 let load_text = f(path: FilesystemPath): string errors FileNotFoundError, ReadFailureError =>
     return propagate read_text_sync(path)
 ```
@@ -422,6 +428,8 @@ That `errors ...` clause is part of the function type. Callers must decide what 
 Use `propagate` when you cannot handle an error locally and want to return it to your caller.
 
 ```opal
+import read_text_sync from standard
+
 let text = propagate read_text_sync(path)
 ```
 
@@ -434,6 +442,8 @@ The function containing that line must declare compatible error types.
 Use `guard` when you want to handle an error right here.
 
 ```opal
+import read_text_sync from standard
+
 guard read_text_sync(path) into text else err =>
     print(err)
     propagate err
@@ -506,6 +516,8 @@ See the complete working version in `test-projects/fs-markdown-roundtrip/src/mai
 The Game of Life fixture uses terminal and frame-clock APIs:
 
 ```opal
+import frame_clock_wait_next_sync from standard
+
 let clock = propagate new FrameClock:
     frames_per_second: config.frames_per_second
 

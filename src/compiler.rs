@@ -808,7 +808,7 @@ pub fn compile_project_with_run_policy(
                 ..
             } = declaration
             {
-                if matches!(import_source.as_str(), "standard" | "math") {
+                if matches!(import_source.as_str(), "standard" | "math" | "process") {
                     continue;
                 }
 

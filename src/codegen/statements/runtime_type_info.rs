@@ -46,7 +46,9 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "path_file_extension"
         | "read_text_sync"
         | "read_first_line_sync"
-        | "string_builder_finish" => Some(CoreType::String),
+        | "string_builder_finish"
+        | "get_environment_variable"
+        | "get_environment_variable_or" => Some(CoreType::String),
         "random_int8" => Some(CoreType::Int8),
         "random_int16" => Some(CoreType::Int16),
         "random_int32" | "bytes_length" => Some(CoreType::Int32),
@@ -105,7 +107,10 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "join_path_components"
         | "path_parent_directory"
         | "normalize_path"
-        | "absolute_path_sync" => Some(CoreType::Generic {
+        | "absolute_path_sync"
+        | "current_working_directory_sync"
+        | "current_executable_path_sync"
+        | "current_executable_directory_sync" => Some(CoreType::Generic {
             name: String::from("FilesystemPath"),
             type_args: Vec::new(),
         }),
@@ -130,6 +135,8 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "flush_standard_output_sync"
         | "sleep_ms_sync"
         | "frame_clock_wait_next_sync"
+        | "set_current_working_directory_sync"
+        | "exit_process"
         | "terminal_clear_screen_on_sync"
         | "terminal_move_cursor_on_sync"
         | "terminal_draw_rows_sync"
@@ -154,7 +161,8 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "is_file_sync"
         | "is_file_nofollow_sync"
         | "is_directory_sync"
-        | "is_directory_nofollow_sync" => Some(CoreType::Boolean),
+        | "is_directory_nofollow_sync"
+        | "environment_variable_exists" => Some(CoreType::Boolean),
         "read_metadata_sync" | "read_metadata_nofollow_sync" => Some(CoreType::Generic {
             name: String::from("FileMetadata"),
             type_args: Vec::new(),
@@ -190,9 +198,11 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
             name: String::from("FrameClock"),
             type_args: Vec::new(),
         }),
-        "string_builder_finish" | "read_text_sync" | "read_first_line_sync" => {
-            Some(CoreType::String)
-        }
+        "string_builder_finish"
+        | "read_text_sync"
+        | "read_first_line_sync"
+        | "get_environment_variable"
+        | "get_environment_variable_or" => Some(CoreType::String),
         "stdout_terminal" => Some(CoreType::Generic {
             name: String::from("StdoutTerminal"),
             type_args: Vec::new(),
@@ -202,6 +212,7 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
         | "writer_write_sync"
         | "writer_flush_sync"
         | "sleep_ms_sync"
+        | "set_current_working_directory_sync"
         | "frame_clock_wait_next_sync"
         | "string_builder_push"
         | "terminal_clear_screen_on_sync"
@@ -224,7 +235,10 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
         | "create_directory_recursive_sync"
         | "delete_directory_sync"
         | "delete_directory_recursive_sync" => Some(CoreType::Unit),
-        "absolute_path_sync" => Some(CoreType::Generic {
+        "absolute_path_sync"
+        | "current_working_directory_sync"
+        | "current_executable_path_sync"
+        | "current_executable_directory_sync" => Some(CoreType::Generic {
             name: String::from("FilesystemPath"),
             type_args: Vec::new(),
         }),
@@ -233,7 +247,8 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
         | "is_file_sync"
         | "is_file_nofollow_sync"
         | "is_directory_sync"
-        | "is_directory_nofollow_sync" => Some(CoreType::Boolean),
+        | "is_directory_nofollow_sync"
+        | "environment_variable_exists" => Some(CoreType::Boolean),
         "read_metadata_sync" | "read_metadata_nofollow_sync" => Some(CoreType::Generic {
             name: String::from("FileMetadata"),
             type_args: Vec::new(),

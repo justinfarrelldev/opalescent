@@ -3528,6 +3528,9 @@ fn test_linux_target_uses_direct_fs_small_results_and_sret_for_array_results() {
 
     let read_text = declare_stdlib_function(&codegen_ctx, "read_text_sync")
         .expect("read_text_sync declaration should exist");
+    let current_executable_path =
+        declare_stdlib_function(&codegen_ctx, "current_executable_path_sync")
+            .expect("current_executable_path_sync declaration should exist");
     let list_directory = declare_stdlib_function(&codegen_ctx, "list_directory_sync")
         .expect("list_directory_sync declaration should exist");
 
@@ -3537,14 +3540,19 @@ fn test_linux_target_uses_direct_fs_small_results_and_sret_for_array_results() {
         "Linux should return two-field filesystem results directly: {ir}"
     );
     assert!(
+        ir.contains("declare { i8*, i8* } @current_executable_path_sync()"),
+        "Linux should keep process path results as direct two-field returns: {ir}"
+    );
+    assert!(
         ir.contains(
             "declare void @list_directory_sync({ i8**, i64, i8* }* sret({ i8**, i64, i8* }), i8*)"
         ),
         "Linux should keep sret only for larger array filesystem results: {ir}"
     );
     assert!(
-        read_text.get_type().get_return_type().is_some(),
-        "Linux read_text_sync should keep a direct struct return"
+        read_text.get_type().get_return_type().is_some()
+            && current_executable_path.get_type().get_return_type().is_some(),
+        "Linux two-field filesystem-style results should keep direct struct returns"
     );
     assert!(
         list_directory.get_type().get_return_type().is_none(),
@@ -3564,6 +3572,9 @@ fn test_windows_msvc_target_uses_sret_for_filesystem_results() {
 
     let read_text = declare_stdlib_function(&codegen_ctx, "read_text_sync")
         .expect("read_text_sync declaration should exist");
+    let current_executable_path =
+        declare_stdlib_function(&codegen_ctx, "current_executable_path_sync")
+            .expect("current_executable_path_sync declaration should exist");
     let is_directory = declare_stdlib_function(&codegen_ctx, "is_directory_sync")
         .expect("is_directory_sync declaration should exist");
     let list_directory = declare_stdlib_function(&codegen_ctx, "list_directory_sync")
@@ -3573,6 +3584,12 @@ fn test_windows_msvc_target_uses_sret_for_filesystem_results() {
     assert!(
         ir.contains("declare void @read_text_sync({ i8*, i8* }* sret({ i8*, i8* }), i8*)"),
         "Windows MSVC should lower two-field filesystem string results with sret: {ir}"
+    );
+    assert!(
+        ir.contains(
+            "declare void @current_executable_path_sync({ i8*, i8* }* sret({ i8*, i8* }))"
+        ),
+        "Windows MSVC should lower process path results with sret: {ir}"
     );
     assert!(
         ir.contains("declare void @is_directory_sync({ i8, i8* }* sret({ i8, i8* }), i8*)"),
@@ -3586,9 +3603,10 @@ fn test_windows_msvc_target_uses_sret_for_filesystem_results() {
     );
     assert!(
         read_text.get_type().get_return_type().is_none()
+            && current_executable_path.get_type().get_return_type().is_none()
             && is_directory.get_type().get_return_type().is_none()
             && list_directory.get_type().get_return_type().is_none(),
-        "Windows MSVC filesystem result declarations should all use a hidden sret pointer"
+        "Windows MSVC filesystem-style result declarations should all use a hidden sret pointer"
     );
 }
 

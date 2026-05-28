@@ -1,0 +1,41 @@
+import current_working_directory_sync, set_current_working_directory_sync from process
+import path_from, path_exists_sync, is_directory_sync, create_directory_sync, delete_directory_sync, path_to_string from standard
+
+##
+  Description: Mutates cwd to a fixture-relative workspace directory and restores it before exit.
+##
+entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, DirectoryNotFoundError, IsNotADirectoryError, CreateFailureError, FileAlreadyExistsError, FilesystemFullError, DeleteFailureError, DirectoryNotEmptyError =>
+    let mutable original_cwd = propagate current_working_directory_sync()
+
+    let fixture_workspace = path_from('test-projects/process-cwd/workspace')
+    let fixture_workspace_exists = propagate path_exists_sync(fixture_workspace)
+    if fixture_workspace_exists is false:
+        propagate create_directory_sync(fixture_workspace)
+
+    guard set_current_working_directory_sync(fixture_workspace) else change_err =>
+        print(change_err)
+        propagate change_err
+
+    let mutated_cwd = propagate current_working_directory_sync()
+    let mutated_is_directory = propagate is_directory_sync(mutated_cwd)
+    if mutated_is_directory:
+        print('cwd_mutation_applied=true')
+    else:
+        print('cwd_mutation_applied=false')
+
+    guard set_current_working_directory_sync(original_cwd) else restore_err =>
+        print(restore_err)
+        propagate restore_err
+
+    let restored_cwd = propagate current_working_directory_sync()
+    if path_to_string(restored_cwd) is path_to_string(original_cwd):
+        print('cwd_mutation_restored=true')
+    else:
+        print('cwd_mutation_restored=false')
+
+    let cleanup_exists = propagate path_exists_sync(fixture_workspace)
+    if cleanup_exists:
+        propagate delete_directory_sync(fixture_workspace)
+
+    print('cwd_fixture_done=true')
+    return void

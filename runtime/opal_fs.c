@@ -91,6 +91,19 @@ static char* fs_offset_out_of_range_error(const char* detail);
 static int fs_write_via_mode(const char* path, const uint8_t* bytes, size_t length, const char* mode, const char* write_prefix, FsVoidResult* out);
 static FsVoidResult write_contents_atomic_bytes_sync(const char* path, const uint8_t* bytes, size_t length);
 static int remove_directory_recursive_inner(const char* path, FsVoidResult* out);
+static char* process_error(const char* prefix, const char* detail, const char* fallback);
+static char* process_invalid_path_detail_error(const char* detail);
+static char* current_working_directory_error_from_errno(int err);
+static char* current_executable_path_error_from_errno(int err);
+static char* set_current_working_directory_error_from_errno(int err);
+static char* current_working_directory_unavailable_error(const char* detail);
+static char* current_executable_path_unavailable_error(const char* detail);
+static char* invalid_environment_variable_name_error(const char* detail);
+static char* environment_variable_not_found_error(const char* detail);
+static char* environment_invalid_utf8_error(size_t invalid_offset);
+static int process_finish_utf8_path_result(FsPathResult* out, char* path_buffer);
+static int validate_environment_variable_name(const char* name, char** error_out);
+static int opal_validate_utf8(const unsigned char* bytes, size_t length, size_t* invalid_offset);
 
 static int opal_is_path_separator(char c) {
     return c == '/' || c == '\\';
@@ -361,6 +374,149 @@ static char* fs_offset_out_of_range_error(const char* detail) {
         error = safe_strdup("OffsetOutOfRangeError: offset out of range");
     }
     return error;
+}
+
+static char* process_error(const char* prefix, const char* detail, const char* fallback) {
+    char* error = opal_fs_format_err(prefix, detail);
+    if (!error) {
+        error = safe_strdup(fallback);
+    }
+    return error;
+}
+
+static char* process_invalid_path_detail_error(const char* detail) {
+    return process_error(OPAL_FS_ERR_INVALID_PATH, detail, "InvalidPathError: invalid path");
+}
+
+static char* current_working_directory_unavailable_error(const char* detail) {
+    return process_error(
+        "CurrentWorkingDirectoryUnavailableError",
+        detail,
+        "CurrentWorkingDirectoryUnavailableError: current working directory unavailable"
+    );
+}
+
+static char* current_executable_path_unavailable_error(const char* detail) {
+    return process_error(
+        "CurrentExecutablePathUnavailableError",
+        detail,
+        "CurrentExecutablePathUnavailableError: current executable path unavailable"
+    );
+}
+
+static char* invalid_environment_variable_name_error(const char* detail) {
+    return process_error(
+        "InvalidEnvironmentVariableNameError",
+        detail,
+        "InvalidEnvironmentVariableNameError: invalid environment variable name"
+    );
+}
+
+static char* environment_variable_not_found_error(const char* detail) {
+    return process_error(
+        "EnvironmentVariableNotFoundError",
+        detail,
+        "EnvironmentVariableNotFoundError: environment variable not found"
+    );
+}
+
+static char* environment_invalid_utf8_error(size_t invalid_offset) {
+    char detail[32];
+    snprintf(detail, sizeof(detail), "%zu", invalid_offset);
+    char* error = opal_fs_format_err(OPAL_FS_ERR_INVALID_UTF8, detail);
+    if (!error) {
+        error = safe_strdup("InvalidUtf8Error: failed to allocate error message");
+    }
+    return error;
+}
+
+static char* current_working_directory_error_from_errno(int err) {
+    switch (err) {
+        case EACCES:
+        case EPERM:
+            return process_error(OPAL_FS_ERR_PERMISSION_DENIED, strerror(err), "PermissionDeniedError: permission denied");
+        case EINVAL:
+        case ENAMETOOLONG:
+            return process_error(OPAL_FS_ERR_INVALID_PATH, strerror(err), "InvalidPathError: invalid path");
+        default:
+            return current_working_directory_unavailable_error(strerror(err));
+    }
+}
+
+static char* current_executable_path_error_from_errno(int err) {
+    switch (err) {
+        case EACCES:
+        case EPERM:
+            return process_error(OPAL_FS_ERR_PERMISSION_DENIED, strerror(err), "PermissionDeniedError: permission denied");
+        case EINVAL:
+        case ENAMETOOLONG:
+            return process_error(OPAL_FS_ERR_INVALID_PATH, strerror(err), "InvalidPathError: invalid path");
+        default:
+            return current_executable_path_unavailable_error(strerror(err));
+    }
+}
+
+static char* set_current_working_directory_error_from_errno(int err) {
+    switch (err) {
+        case ENOENT:
+            return process_error(OPAL_FS_ERR_NOT_FOUND, strerror(err), "FileNotFoundError: path not found");
+        case EACCES:
+        case EPERM:
+            return process_error(OPAL_FS_ERR_PERMISSION_DENIED, strerror(err), "PermissionDeniedError: permission denied");
+        case ENOTDIR:
+            return process_error(OPAL_FS_ERR_NOT_A_DIRECTORY, strerror(err), "IsNotADirectoryError: path is not a directory");
+        default:
+            return process_error(OPAL_FS_ERR_INVALID_PATH, strerror(err), "InvalidPathError: invalid path");
+    }
+}
+
+static int process_finish_utf8_path_result(FsPathResult* out, char* path_buffer) {
+    size_t invalid_offset = 0;
+    size_t length = strlen(path_buffer);
+    if (!opal_validate_utf8((const unsigned char*)path_buffer, length, &invalid_offset)) {
+        char detail[96];
+        snprintf(detail, sizeof(detail), "path is not valid UTF-8 at byte %zu", invalid_offset);
+        free(path_buffer);
+        out->error = process_invalid_path_detail_error(detail);
+        return -1;
+    }
+
+    out->value = path_buffer;
+    return 0;
+}
+
+static int validate_environment_variable_name(const char* name, char** error_out) {
+    if (error_out) {
+        *error_out = NULL;
+    }
+
+    /*
+     * Language-visible strings are UTF-8 C strings and the lexer rejects
+     * embedded NUL bytes. That invariant means runtime names cannot contain
+     * interior NUL; explicit checks here therefore cover emptiness and '='.
+     */
+
+    if (!name || name[0] == '\0') {
+        if (error_out) {
+            *error_out = invalid_environment_variable_name_error("environment variable name must not be empty");
+        }
+        return -1;
+    }
+
+    for (size_t i = 0;; i++) {
+        unsigned char current = (unsigned char)name[i];
+        if (current == '\0') {
+            break;
+        }
+        if (current == '=') {
+            if (error_out) {
+                *error_out = invalid_environment_variable_name_error("environment variable name must not contain '='");
+            }
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 static int fs_write_via_mode(const char* path, const uint8_t* bytes, size_t length, const char* mode, const char* write_prefix, FsVoidResult* out) {
@@ -883,6 +1039,394 @@ FsPathResult absolute_path_sync(const char* path) {
 
     r.value = resolved;
     return r;
+}
+
+FsPathResult current_working_directory_sync(void) {
+    FsPathResult r;
+    r.value = NULL;
+    r.error = NULL;
+
+#if OPAL_WINDOWS
+    DWORD capacity = 256;
+    for (;;) {
+        wchar_t* wide_buffer = (wchar_t*)malloc((size_t)capacity * sizeof(wchar_t));
+        if (!wide_buffer) {
+            r.error = current_working_directory_unavailable_error("out of memory");
+            return r;
+        }
+
+        DWORD result = GetCurrentDirectoryW(capacity, wide_buffer);
+        if (result == 0) {
+            DWORD win_error = GetLastError();
+            free(wide_buffer);
+            opal_set_errno_from_win32(win_error);
+            r.error = current_working_directory_error_from_errno(errno ? errno : EIO);
+            return r;
+        }
+
+        if (result >= capacity) {
+            free(wide_buffer);
+            if (result >= UINT32_MAX - 1) {
+                r.error = current_working_directory_unavailable_error("current working directory path is too long");
+                return r;
+            }
+            capacity = result + 1;
+            continue;
+        }
+
+        char* utf8_buffer = opal_wide_to_utf8(wide_buffer);
+        free(wide_buffer);
+        if (!utf8_buffer) {
+            r.error = process_invalid_path_detail_error("current working directory could not be represented as UTF-8");
+            return r;
+        }
+
+        r.value = utf8_buffer;
+        return r;
+    }
+#else
+    size_t capacity = 256;
+    for (;;) {
+        char* buffer = (char*)malloc(capacity);
+        if (!buffer) {
+            r.error = current_working_directory_unavailable_error("out of memory");
+            return r;
+        }
+
+        errno = 0;
+        if (getcwd(buffer, capacity) != NULL) {
+            if (process_finish_utf8_path_result(&r, buffer) != 0) {
+                return r;
+            }
+            return r;
+        }
+
+        int cwd_errno = errno ? errno : EIO;
+        free(buffer);
+        if (cwd_errno == ERANGE) {
+            if (capacity > (SIZE_MAX / 2)) {
+                r.error = current_working_directory_unavailable_error("current working directory path is too long");
+                return r;
+            }
+            capacity *= 2;
+            continue;
+        }
+
+        r.error = current_working_directory_error_from_errno(cwd_errno);
+        return r;
+    }
+#endif
+}
+
+FsPathResult current_executable_path_sync(void) {
+    FsPathResult r;
+    r.value = NULL;
+    r.error = NULL;
+
+#if OPAL_WINDOWS
+    DWORD capacity = 256;
+    for (;;) {
+        wchar_t* wide_buffer = (wchar_t*)malloc((size_t)capacity * sizeof(wchar_t));
+        if (!wide_buffer) {
+            r.error = current_executable_path_unavailable_error("out of memory");
+            return r;
+        }
+
+        DWORD result = GetModuleFileNameW(NULL, wide_buffer, capacity);
+        if (result == 0) {
+            DWORD win_error = GetLastError();
+            free(wide_buffer);
+            opal_set_errno_from_win32(win_error);
+            r.error = current_executable_path_error_from_errno(errno ? errno : EIO);
+            return r;
+        }
+
+        if (result >= capacity) {
+            free(wide_buffer);
+            if (capacity > (UINT32_MAX / 2)) {
+                r.error = current_executable_path_unavailable_error("current executable path is too long");
+                return r;
+            }
+            capacity *= 2;
+            continue;
+        }
+
+        char* utf8_buffer = opal_wide_to_utf8(wide_buffer);
+        free(wide_buffer);
+        if (!utf8_buffer) {
+            r.error = process_invalid_path_detail_error("current executable path could not be represented as UTF-8");
+            return r;
+        }
+
+        r.value = utf8_buffer;
+        return r;
+    }
+#else
+#  if defined(__linux__)
+    size_t capacity = 256;
+    for (;;) {
+        char* buffer = (char*)malloc(capacity + 1);
+        if (!buffer) {
+            r.error = current_executable_path_unavailable_error("out of memory");
+            return r;
+        }
+
+        ssize_t result = readlink("/proc/self/exe", buffer, capacity);
+        if (result < 0) {
+            int readlink_errno = errno ? errno : EIO;
+            free(buffer);
+            r.error = current_executable_path_error_from_errno(readlink_errno);
+            return r;
+        }
+
+        if ((size_t)result >= capacity) {
+            free(buffer);
+            if (capacity > (SIZE_MAX / 2)) {
+                r.error = current_executable_path_unavailable_error("current executable path is too long");
+                return r;
+            }
+            capacity *= 2;
+            continue;
+        }
+
+        buffer[result] = '\0';
+        if (process_finish_utf8_path_result(&r, buffer) != 0) {
+            return r;
+        }
+        return r;
+    }
+#  else
+    r.error = current_executable_path_unavailable_error("current executable path is unavailable on this platform");
+    return r;
+#  endif
+#endif
+}
+
+FsPathResult current_executable_directory_sync(void) {
+    FsPathResult executable_path_result = current_executable_path_sync();
+    if (executable_path_result.error) {
+        return executable_path_result;
+    }
+
+    FsPathResult r;
+    r.value = path_parent_directory(executable_path_result.value);
+    r.error = NULL;
+    free(executable_path_result.value);
+
+    if (!r.value) {
+        r.error = current_executable_path_unavailable_error("out of memory");
+    }
+
+    return r;
+}
+
+FsVoidResult set_current_working_directory_sync(const char* path) {
+    FsVoidResult r;
+    r.value = NULL;
+    r.error = NULL;
+
+    if (!path || path[0] == '\0') {
+        r.error = fs_invalid_path_error();
+        return r;
+    }
+
+#if OPAL_WINDOWS
+    wchar_t* wide_path = opal_utf8_to_wide_path(path);
+    if (!wide_path) {
+        r.error = set_current_working_directory_error_from_errno(errno ? errno : EINVAL);
+        return r;
+    }
+
+    if (SetCurrentDirectoryW(wide_path) == 0) {
+        DWORD win_error = GetLastError();
+        free(wide_path);
+        opal_set_errno_from_win32(win_error);
+        r.error = set_current_working_directory_error_from_errno(errno ? errno : EIO);
+        return r;
+    }
+
+    free(wide_path);
+#else
+    if (chdir(path) != 0) {
+        r.error = set_current_working_directory_error_from_errno(errno ? errno : EIO);
+        return r;
+    }
+#endif
+
+    return r;
+}
+
+FsStringResult get_environment_variable(const char* name) {
+    FsStringResult r;
+    r.value = NULL;
+    r.error = NULL;
+
+    if (validate_environment_variable_name(name, (char**)&r.error) != 0) {
+        return r;
+    }
+
+#if OPAL_WINDOWS
+    wchar_t* wide_name = opal_utf8_to_wide(name);
+    if (!wide_name) {
+        r.error = invalid_environment_variable_name_error("environment variable name is not valid UTF-8");
+        return r;
+    }
+
+    DWORD capacity = 256;
+    for (;;) {
+        wchar_t* wide_value = (wchar_t*)malloc((size_t)capacity * sizeof(wchar_t));
+        if (!wide_value) {
+            free(wide_name);
+            r.error = fs_out_of_memory_error(OPAL_FS_ERR_IO, "ReadFailureError: out of memory");
+            return r;
+        }
+
+        SetLastError(ERROR_SUCCESS);
+        DWORD result = GetEnvironmentVariableW(wide_name, wide_value, capacity);
+        if (result == 0) {
+            DWORD win_error = GetLastError();
+            if (win_error == ERROR_SUCCESS) {
+                free(wide_value);
+                free(wide_name);
+                r.value = safe_strdup("");
+                if (!r.value) {
+                    r.error = fs_out_of_memory_error(OPAL_FS_ERR_IO, "ReadFailureError: out of memory");
+                }
+                return r;
+            }
+
+            free(wide_value);
+            free(wide_name);
+            if (win_error == ERROR_ENVVAR_NOT_FOUND) {
+                r.error = environment_variable_not_found_error("environment variable not found");
+            } else {
+                opal_set_errno_from_win32(win_error);
+                r.error = environment_variable_not_found_error(strerror(errno ? errno : EIO));
+            }
+            return r;
+        }
+
+        if (result >= capacity) {
+            free(wide_value);
+            if (result >= UINT32_MAX - 1) {
+                free(wide_name);
+                r.error = environment_variable_not_found_error("environment variable value is too large");
+                return r;
+            }
+            capacity = result + 1;
+            continue;
+        }
+
+        char* utf8_value = opal_wide_to_utf8(wide_value);
+        free(wide_value);
+        free(wide_name);
+        if (!utf8_value) {
+            r.error = process_error(OPAL_FS_ERR_INVALID_UTF8, "environment variable value is not valid UTF-8", "InvalidUtf8Error: environment variable value is not valid UTF-8");
+            return r;
+        }
+
+        r.value = utf8_value;
+        return r;
+    }
+#else
+    const char* raw_value = getenv(name);
+    if (!raw_value) {
+        r.error = environment_variable_not_found_error("environment variable not found");
+        return r;
+    }
+
+    size_t value_length = strlen(raw_value);
+    size_t invalid_offset = 0;
+    if (!opal_validate_utf8((const unsigned char*)raw_value, value_length, &invalid_offset)) {
+        r.error = environment_invalid_utf8_error(invalid_offset);
+        return r;
+    }
+
+    r.value = safe_strdup(raw_value);
+    if (!r.value) {
+        r.error = fs_out_of_memory_error(OPAL_FS_ERR_IO, "ReadFailureError: out of memory");
+    }
+    return r;
+#endif
+}
+
+FsStringResult get_environment_variable_or(const char* name, const char* default_value) {
+    FsStringResult r = get_environment_variable(name);
+    if (!r.error) {
+        return r;
+    }
+
+    static const char not_found_prefix[] = "EnvironmentVariableNotFoundError:";
+    if (strncmp(r.error, not_found_prefix, sizeof(not_found_prefix) - 1) != 0) {
+        return r;
+    }
+
+    free((void*)r.error);
+    r.error = NULL;
+    r.value = safe_strdup(default_value ? default_value : "");
+    if (!r.value) {
+        r.error = fs_out_of_memory_error(OPAL_FS_ERR_IO, "ReadFailureError: out of memory");
+    }
+    return r;
+}
+
+FsBooleanResult environment_variable_exists(const char* name) {
+    FsBooleanResult r;
+    r.value = 0;
+    r.error = NULL;
+
+    if (validate_environment_variable_name(name, (char**)&r.error) != 0) {
+        return r;
+    }
+
+#if OPAL_WINDOWS
+    wchar_t* wide_name = opal_utf8_to_wide(name);
+    if (!wide_name) {
+        r.error = invalid_environment_variable_name_error("environment variable name is not valid UTF-8");
+        return r;
+    }
+
+    SetLastError(ERROR_SUCCESS);
+    DWORD result = GetEnvironmentVariableW(wide_name, NULL, 0);
+    DWORD win_error = GetLastError();
+    free(wide_name);
+
+    if (result > 0) {
+        r.value = 1;
+        return r;
+    }
+
+    if (win_error == ERROR_SUCCESS) {
+        r.value = 1;
+        return r;
+    }
+
+    if (win_error == ERROR_ENVVAR_NOT_FOUND) {
+        r.value = 0;
+        return r;
+    }
+
+    opal_set_errno_from_win32(win_error);
+    r.error = process_error(
+        OPAL_FS_ERR_IO,
+        strerror(errno ? errno : EIO),
+        "ReadFailureError: failed to query environment variable"
+    );
+    return r;
+#else
+    if (getenv(name) != NULL) {
+        r.value = 1;
+    }
+    return r;
+#endif
+}
+
+void exit_process(int32_t code) {
+#if OPAL_WINDOWS
+    ExitProcess((UINT)code);
+#else
+    exit((int)code);
+#endif
 }
 
 FsBytesResult read_contents_sync(const char* path) {

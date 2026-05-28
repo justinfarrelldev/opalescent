@@ -204,6 +204,8 @@ fn runtime_returns_owned_string(name: &str) -> bool {
             | "path_file_extension"
             | "read_text_sync"
             | "read_first_line_sync"
+            | "get_environment_variable"
+            | "get_environment_variable_or"
             | "int8_to_string"
             | "int16_to_string"
             | "int32_to_string"

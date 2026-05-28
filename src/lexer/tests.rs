@@ -272,6 +272,22 @@ fn test_unexpected_character() {
 }
 
 #[test]
+fn test_string_literal_rejects_embedded_nul() {
+    let input = "'bad\0name'";
+    let lexer = Lexer::new(input);
+    let (_tokens, errors) = lexer.tokenize();
+
+    assert_eq!(errors.len(), 1);
+    assert!(matches!(
+        errors.errors[0],
+        LexError::UnexpectedCharacter {
+            character: '\0',
+            ..
+        }
+    ));
+}
+
+#[test]
 fn test_indent_dedent_after_control_flow_colon() {
     let input = "if cond:\n    body\n";
     let lexer = Lexer::new(input);

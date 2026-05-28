@@ -318,6 +318,32 @@ entry main = f(): void =>
     }
 
     #[test]
+    fn test_process_module_imports_all_frozen_symbols() {
+        const SOURCE: &str = "
+import current_working_directory_sync from process
+import current_executable_path_sync from process
+import current_executable_directory_sync from process
+import set_current_working_directory_sync from process
+import get_environment_variable from process
+import get_environment_variable_or from process
+import environment_variable_exists from process
+import exit_process from process
+import CurrentWorkingDirectoryUnavailableError from process
+
+entry main = f(): void errors CurrentWorkingDirectoryUnavailableError =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "all frozen process module symbols must be importable: {result:?}",
+        );
+    }
+
+    #[test]
     fn test_all_19_new_standard_conversion_functions_are_importable() {
         const SOURCE: &str = "
 import string_to_int8 from standard

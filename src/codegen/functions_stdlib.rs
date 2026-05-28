@@ -53,6 +53,7 @@ pub fn declare_stdlib_function<'context>(
     let fs_void_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
     let fs_boolean_result_type = ctx.struct_type(&[i8_type.into(), i8_ptr.into()], false);
     let fs_metadata_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+    let fs_path_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
     let fs_path_array_result_type = ctx.struct_type(
         &[
             i8_ptr.ptr_type(AddressSpace::default()).into(),
@@ -433,7 +434,6 @@ pub fn declare_stdlib_function<'context>(
             Some(module.add_function("path_to_string", ft, None))
         }),
         "absolute_path_sync" => module.get_function("absolute_path_sync").or_else(|| {
-            let fs_path_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
             Some(declare_fs_result_function(
                 codegen_context,
                 "absolute_path_sync",
@@ -441,6 +441,36 @@ pub fn declare_stdlib_function<'context>(
                 &[i8_ptr.into()],
             ))
         }),
+        "current_working_directory_sync" => module
+            .get_function("current_working_directory_sync")
+            .or_else(|| {
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "current_working_directory_sync",
+                    fs_path_result_type,
+                    &[],
+                ))
+            }),
+        "current_executable_path_sync" => module
+            .get_function("current_executable_path_sync")
+            .or_else(|| {
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "current_executable_path_sync",
+                    fs_path_result_type,
+                    &[],
+                ))
+            }),
+        "current_executable_directory_sync" => module
+            .get_function("current_executable_directory_sync")
+            .or_else(|| {
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "current_executable_directory_sync",
+                    fs_path_result_type,
+                    &[],
+                ))
+            }),
         "read_contents_sync" => module.get_function("read_contents_sync").or_else(|| {
             let fs_bytes_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
             Some(declare_fs_result_function(
@@ -498,6 +528,44 @@ pub fn declare_stdlib_function<'context>(
                     ))
                 })
         }
+        "get_environment_variable" => module.get_function("get_environment_variable").or_else(|| {
+            Some(declare_fs_result_function(
+                codegen_context,
+                "get_environment_variable",
+                pointer_error_result_type,
+                &[i8_ptr.into()],
+            ))
+        }),
+        "get_environment_variable_or" => module
+            .get_function("get_environment_variable_or")
+            .or_else(|| {
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "get_environment_variable_or",
+                    pointer_error_result_type,
+                    &[i8_ptr.into(), i8_ptr.into()],
+                ))
+            }),
+        "environment_variable_exists" => module
+            .get_function("environment_variable_exists")
+            .or_else(|| {
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "environment_variable_exists",
+                    fs_boolean_result_type,
+                    &[i8_ptr.into()],
+                ))
+            }),
+        "set_current_working_directory_sync" => module
+            .get_function("set_current_working_directory_sync")
+            .or_else(|| {
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "set_current_working_directory_sync",
+                    fs_void_result_type,
+                    &[i8_ptr.into()],
+                ))
+            }),
         "write_contents_sync" => module.get_function("write_contents_sync").or_else(|| {
             Some(declare_fs_result_function(
                 codegen_context,
@@ -700,6 +768,10 @@ pub fn declare_stdlib_function<'context>(
                     ))
                 })
         }
+        "exit_process" => module.get_function("exit_process").or_else(|| {
+            let ft = void_type.fn_type(&[i32_type.into()], false);
+            Some(module.add_function("exit_process", ft, None))
+        }),
         _ => None,
     }
 }
@@ -757,7 +829,9 @@ pub fn resolve_imported_runtime_name(
     symbol_name: &str,
 ) -> Result<String, CodegenError> {
     match (module_name, symbol_name) {
-        ("standard" | "math", name) if STDLIB_NAMES.contains(&name) => Ok(name.to_owned()),
+        ("standard" | "math" | "process", name) if STDLIB_NAMES.contains(&name) => {
+            Ok(name.to_owned())
+        }
         _ => Err(CodegenError::new(format!(
             "unknown import symbol '{symbol_name}' in module '{module_name}'"
         ))),
@@ -846,11 +920,18 @@ pub const STDLIB_NAMES: &[&str] = &[
     "normalize_path",
     "path_to_string",
     "absolute_path_sync",
+    "current_working_directory_sync",
+    "current_executable_path_sync",
+    "current_executable_directory_sync",
     "read_contents_sync",
     "read_text_sync",
     "read_first_line_sync",
     "read_lines_sync",
     "read_bytes_at_offset_sync",
+    "get_environment_variable",
+    "get_environment_variable_or",
+    "environment_variable_exists",
+    "set_current_working_directory_sync",
     "write_contents_sync",
     "write_text_sync",
     "write_contents_atomic_sync",
@@ -877,6 +958,7 @@ pub const STDLIB_NAMES: &[&str] = &[
     "is_file_nofollow_sync",
     "is_directory_sync",
     "is_directory_nofollow_sync",
+    "exit_process",
 ];
 
 #[cfg(test)]
@@ -887,8 +969,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            111,
-            "stdlib registry should have 111 names"
+            119,
+            "stdlib registry should have 119 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),
@@ -901,6 +983,14 @@ mod tests {
         assert!(
             STDLIB_NAMES.contains(&"random_int32"),
             "random_int32 should be in registry"
+        );
+        assert!(
+            STDLIB_NAMES.contains(&"current_working_directory_sync"),
+            "current_working_directory_sync should be in registry"
+        );
+        assert!(
+            STDLIB_NAMES.contains(&"exit_process"),
+            "exit_process should be in registry"
         );
     }
 }

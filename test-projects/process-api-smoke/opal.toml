@@ -1,0 +1,5 @@
+name = "process-api-smoke"
+version = "0.1.0"
+
+[build]
+targets = ["x86_64-linux"]

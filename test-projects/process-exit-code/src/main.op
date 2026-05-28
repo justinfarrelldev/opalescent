@@ -1,0 +1,8 @@
+import exit_process from process
+
+##
+  Description: Exits immediately with a deterministic nonzero code for subprocess harness validation.
+##
+entry main = f(args: string[]): void =>
+    exit_process(42)
+    return void

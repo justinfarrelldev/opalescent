@@ -1,0 +1,80 @@
+import current_working_directory_sync, current_executable_path_sync, current_executable_directory_sync, set_current_working_directory_sync from process
+import path_to_string, path_exists_sync, is_directory_sync from standard
+
+##
+  Description: Exercises process cwd/path runtime functions with structural checks only.
+##
+entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError =>
+    let original_cwd = propagate current_working_directory_sync()
+    let original_cwd_string = path_to_string(original_cwd)
+    let original_cwd_exists = propagate path_exists_sync(original_cwd)
+    let original_cwd_is_directory = propagate is_directory_sync(original_cwd)
+    if original_cwd_string.length > 0:
+        print('cwd_non_empty=true')
+    else:
+        print('cwd_non_empty=false')
+    if original_cwd_exists:
+        print('cwd_exists=true')
+    else:
+        print('cwd_exists=false')
+    if original_cwd_is_directory:
+        print('cwd_is_directory=true')
+    else:
+        print('cwd_is_directory=false')
+
+    let executable_path = propagate current_executable_path_sync()
+    let executable_path_string = path_to_string(executable_path)
+    let executable_path_exists = propagate path_exists_sync(executable_path)
+    if executable_path_string.length > 0:
+        print('exe_path_non_empty=true')
+    else:
+        print('exe_path_non_empty=false')
+    if executable_path_exists:
+        print('exe_path_exists=true')
+    else:
+        print('exe_path_exists=false')
+
+    let executable_directory = propagate current_executable_directory_sync()
+    let executable_directory_string = path_to_string(executable_directory)
+    let executable_directory_exists = propagate path_exists_sync(executable_directory)
+    let executable_directory_is_directory = propagate is_directory_sync(executable_directory)
+    if executable_directory_string.length > 0:
+        print('exe_dir_non_empty=true')
+    else:
+        print('exe_dir_non_empty=false')
+    if executable_directory_exists:
+        print('exe_dir_exists=true')
+    else:
+        print('exe_dir_exists=false')
+    if executable_directory_is_directory:
+        print('exe_dir_is_directory=true')
+    else:
+        print('exe_dir_is_directory=false')
+
+    propagate set_current_working_directory_sync(executable_directory)
+    let changed_cwd = propagate current_working_directory_sync()
+    let changed_cwd_string = path_to_string(changed_cwd)
+    let changed_cwd_exists = propagate path_exists_sync(changed_cwd)
+    let changed_cwd_is_directory = propagate is_directory_sync(changed_cwd)
+    if changed_cwd_string.length > 0 and changed_cwd_exists and changed_cwd_is_directory:
+        print('cwd_changed=true')
+    else:
+        print('cwd_changed=false')
+    if changed_cwd_exists:
+        print('changed_cwd_exists=true')
+    else:
+        print('changed_cwd_exists=false')
+    if changed_cwd_is_directory:
+        print('changed_cwd_is_directory=true')
+    else:
+        print('changed_cwd_is_directory=false')
+
+    propagate set_current_working_directory_sync(original_cwd)
+    let restored_cwd = propagate current_working_directory_sync()
+    let restored_cwd_string = path_to_string(restored_cwd)
+    if restored_cwd_string is original_cwd_string:
+        print('cwd_restored=true')
+    else:
+        print('cwd_restored=false')
+
+    return void

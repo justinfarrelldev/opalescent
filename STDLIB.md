@@ -23,6 +23,10 @@ entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedE
 
 ## Console I/O
 
+```opal
+import print, println, take_input from standard
+```
+
 ### `print(value): void`
 
 Prints a displayable value. The surface is generic: strings, booleans, integers, floats, and other supported display values are lowered to the appropriate runtime printing path.
@@ -52,6 +56,13 @@ print('you typed {answer}')
 
 ## Parsing strings into numbers
 
+```opal
+import string_to_int8, string_to_int16, string_to_int32, string_to_int64,
+    string_to_uint8, string_to_uint16, string_to_uint32, string_to_uint64,
+    string_to_float32, string_to_float64
+from standard
+```
+
 These parse decimal text into the requested numeric type. They skip leading whitespace, require the whole trimmed input to be valid, and fail with `ParseError` for invalid digits, empty input, or values outside the target range.
 
 | Function | What it returns | Description |
@@ -72,6 +83,13 @@ let n = propagate string_to_int32('123')
 ```
 
 ## Converting values to strings
+
+```opal
+import int8_to_string, int16_to_string, int32_to_string, int64_to_string,
+    uint8_to_string, uint16_to_string, uint32_to_string, uint64_to_string,
+    float32_to_string, float64_to_string, bool_to_string
+from standard
+```
 
 These allocate and return a decimal or boolean string representation of the input value. They do not declare errors.
 
@@ -96,6 +114,12 @@ print('roundtrip: ok ({int64_to_string(actual.length)} bytes match)')
 ```
 
 ## Strings
+
+```opal
+import string_length, string_join, string_builder_new, string_builder_push,
+    string_builder_finish
+from standard
+```
 
 ### `string_length(text: string): int64`
 
@@ -129,6 +153,12 @@ Finishes the builder and returns the accumulated string. Calling push or finish 
 
 ## Random integer helpers
 
+```opal
+import random_int8, random_int16, random_int32, random_int64,
+    random_uint8, random_uint16, random_uint32, random_uint64
+from math
+```
+
 These return a pseudo-random value in the requested inclusive range. The type-specific runtime helpers exist for code generation; the language-facing surface is still being refined, so prefer examples already present in tests.
 
 | Function | Description |
@@ -148,6 +178,10 @@ print('roll: {roll}')
 ```
 
 ## Arrays and collections
+
+```opal
+import array_length, array_filled, reserve, clear from standard
+```
 
 Most users should prefer source-level array syntax and member operations. These helpers exist for lowering and library-style array construction.
 
@@ -186,6 +220,12 @@ let last = values.pop()
 Implemented/tested fixture areas include `array-map`, `array-filter`, `array-reduce`, `array-zip`, and `array-pair` under `test-projects/`.
 
 ## Bytes
+
+```opal
+import bytes_new, bytes_length, bytes_to_hex, bytes_from_hex,
+    bytes_concatenate, bytes_slice
+from standard
+```
 
 `Bytes` is an opaque immutable byte buffer for binary data.
 
@@ -227,6 +267,13 @@ print(rendered)
 ```
 
 ## Filesystem path helpers
+
+```opal
+import path_from, join_path_components, path_parent_directory,
+    path_file_name, path_file_extension, normalize_path,
+    path_to_string, absolute_path_sync
+from standard
+```
 
 Filesystem APIs use `FilesystemPath` rather than plain strings for most operations.
 
@@ -270,6 +317,12 @@ print(path_to_string(project))
 
 ## Reading files
 
+```opal
+import read_contents_sync, read_text_sync, read_first_line_sync,
+    read_lines_sync, read_bytes_at_offset_sync
+from standard
+```
+
 ### `read_contents_sync(path: FilesystemPath): Bytes errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError`
 
 Reads the whole file as raw bytes.
@@ -293,6 +346,13 @@ Reads `count` bytes beginning at `offset`. It fails if the range is outside the 
 Beginner rule: use `read_text_sync` or `read_lines_sync` for human text, and `read_contents_sync` for binary data.
 
 ## Writing files
+
+```opal
+import write_contents_sync, write_text_sync, write_contents_atomic_sync,
+    write_text_atomic_sync, append_contents_sync, append_text_sync,
+    write_bytes_at_offset_sync
+from standard
+```
 
 ### `write_contents_sync(path: FilesystemPath, content: Bytes): void errors PermissionDeniedError, WriteFailureError, IsADirectoryError, InvalidPathError, FilesystemFullError`
 
@@ -324,6 +384,12 @@ Writes bytes at a specific file offset. It fails when the offset is invalid or o
 
 ## File management
 
+```opal
+import create_file_sync, delete_file_sync, copy_file_sync, move_path_sync,
+    path_exists_sync
+from standard
+```
+
 ### `create_file_sync(path: FilesystemPath): void errors FileAlreadyExistsError, PermissionDeniedError, CreateFailureError, InvalidPathError, FilesystemFullError`
 
 Creates a new empty file and fails if the file already exists.
@@ -345,6 +411,14 @@ Moves or renames a path.
 Returns whether a path exists, while still surfacing permission and invalid-path failures.
 
 ## Metadata and directories
+
+```opal
+import read_metadata_sync, read_metadata_nofollow_sync, create_directory_sync,
+    create_directory_recursive_sync, delete_directory_sync,
+    delete_directory_recursive_sync, list_directory_sync, is_file_sync,
+    is_file_nofollow_sync, is_directory_sync, is_directory_nofollow_sync
+from standard
+```
 
 ### `read_metadata_sync(path: FilesystemPath): FileMetadata errors FileNotFoundError, PermissionDeniedError, MetadataUnavailableError, InvalidPathError`
 
@@ -391,6 +465,15 @@ Returns true if the path is a directory, following symlinks.
 Returns true if the path itself is a directory without following symlinks.
 
 ## Stdout writer and terminal APIs
+
+```opal
+import print_text_sync, flush_standard_output_sync, stdout_writer,
+    writer_write_sync, writer_flush_sync, stdout_terminal,
+    terminal_supports_ansi, terminal_clear_screen_on_sync,
+    terminal_move_cursor_on_sync, terminal_draw_rows_sync,
+    terminal_clear_screen_sync, terminal_move_cursor_sync
+from standard
+```
 
 These functions are useful for programs that need more control than `print`.
 
@@ -446,6 +529,10 @@ The Game of Life project uses this family to redraw the terminal. See `test-proj
 
 ## Time APIs
 
+```opal
+import sleep_ms_sync, frame_clock_new, frame_clock_wait_next_sync from standard
+```
+
 ### `sleep_ms_sync(milliseconds: int32): void errors InvalidSleepDurationError`
 
 Blocks the current thread for the requested number of milliseconds. Negative or otherwise invalid durations fail.
@@ -464,6 +551,74 @@ Source syntax usually constructs `FrameClock` with `new FrameClock:` rather than
 let clock = propagate new FrameClock:
     frames_per_second: 15
 propagate frame_clock_wait_next_sync(clock)
+```
+
+## Process module
+
+The `process` module provides functions for interacting with the current process, including environment variables, working directory, and process termination.
+
+```opal
+import current_working_directory_sync,
+    current_executable_path_sync,
+    current_executable_directory_sync,
+    set_current_working_directory_sync,
+    get_environment_variable,
+    get_environment_variable_or,
+    environment_variable_exists,
+    exit_process
+from process
+```
+
+### `current_working_directory_sync(): FilesystemPath`
+
+Returns the absolute path of the current working directory.
+
+**Errors:** `PermissionDeniedError`, `InvalidPathError`, `CurrentWorkingDirectoryUnavailableError`
+
+### `current_executable_path_sync(): FilesystemPath`
+
+Returns the absolute path of the currently running executable.
+
+**Errors:** `PermissionDeniedError`, `InvalidPathError`, `CurrentExecutablePathUnavailableError`
+
+### `current_executable_directory_sync(): FilesystemPath`
+
+Returns the absolute path of the directory containing the currently running executable. This is derived from the executable path.
+
+**Errors:** `PermissionDeniedError`, `InvalidPathError`, `CurrentExecutablePathUnavailableError`
+
+### `set_current_working_directory_sync(path: FilesystemPath): void`
+
+Changes the current working directory to `path`.
+
+**Errors:** `FileNotFoundError`, `PermissionDeniedError`, `IsNotADirectoryError`, `InvalidPathError`
+
+### `get_environment_variable(name: string): string`
+
+Returns the value of the environment variable `name`.
+
+**Errors:** `EnvironmentVariableNotFoundError`, `InvalidEnvironmentVariableNameError`, `InvalidUtf8Error`
+
+### `get_environment_variable_or(name: string, default_value: string): string`
+
+Returns the value of the environment variable `name`, or `default_value` if the variable is not found.
+
+**Errors:** `InvalidEnvironmentVariableNameError`, `InvalidUtf8Error`
+
+### `environment_variable_exists(name: string): boolean`
+
+Returns whether the environment variable `name` exists.
+
+**Errors:** `InvalidEnvironmentVariableNameError`
+
+### `exit_process(code: int32): void`
+
+Immediately terminates the current process with the given exit code.
+
+**Footgun:** This function currently returns `void` but should be treated as if it never returns. It will eventually return a `never` type once supported by the language. Portable shell-facing exit codes should be low nonnegative values (e.g., `42`).
+
+```opal
+exit_process(42)
 ```
 
 ## Internal runtime helpers
@@ -513,6 +668,10 @@ Common standard-library error types include:
 - `InvalidCursorPositionError`
 - `InvalidSleepDurationError`
 - `InvalidFrameRateError`
+- `CurrentWorkingDirectoryUnavailableError`
+- `CurrentExecutablePathUnavailableError`
+- `EnvironmentVariableNotFoundError`
+- `InvalidEnvironmentVariableNameError`
 
 If a function lists an error type, the compiler expects callers to handle or propagate it.
 
