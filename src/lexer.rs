@@ -99,6 +99,8 @@ pub struct Lexer<'input> {
     line_has_block_starter: bool,
     /// Whether the next line is expected to increase indentation.
     awaiting_block_indent: bool,
+    /// Absolute source offset where this lexer's input starts.
+    span_offset_base: usize,
 }
 
 /// Type of whitespace detected in the source code
@@ -115,6 +117,11 @@ enum WhitespaceType {
 impl<'input> Lexer<'input> {
     /// Create a new lexer for the given input
     pub fn new(input: &'input str) -> Self {
+        Self::new_with_start_position(input, Position::start())
+    }
+
+    /// Create a lexer whose first character maps to an arbitrary source position.
+    pub fn new_with_start_position(input: &'input str, start_position: Position) -> Self {
         let mut chars = input.char_indices();
         let current = chars.next();
 
@@ -180,7 +187,7 @@ impl<'input> Lexer<'input> {
             input,
             chars,
             current,
-            position: Position::start(),
+            position: start_position,
             errors: LexErrors::new(),
             keywords,
             whitespace_type: None,
@@ -189,6 +196,7 @@ impl<'input> Lexer<'input> {
             at_line_start: true,
             line_has_block_starter: false,
             awaiting_block_indent: false,
+            span_offset_base: start_position.offset,
         }
     }
 
@@ -440,7 +448,7 @@ impl<'input> Lexer<'input> {
 
     /// Make a token advancing past the current character
     fn make_token(&mut self, token_type: TokenType, start_pos: Position) -> Token {
-        let start_offset = start_pos.offset;
+        let start_offset = start_pos.offset.saturating_sub(self.span_offset_base);
         let current_char = self.current_char();
 
         if current_char == '\n' {
@@ -468,7 +476,7 @@ impl<'input> Lexer<'input> {
 
     /// Scan a single-line comment
     fn scan_single_line_comment(&mut self, start_pos: Position) -> token::Token {
-        let start_offset = start_pos.offset;
+        let start_offset = start_pos.offset.saturating_sub(self.span_offset_base);
 
         // Skip the '#'
         self.advance();
@@ -504,7 +512,7 @@ impl<'input> Lexer<'input> {
 
     /// Scan a multi-line comment
     fn scan_multiline_comment(&mut self, start_pos: Position) -> token::Token {
-        let start_offset = start_pos.offset;
+        let start_offset = start_pos.offset.saturating_sub(self.span_offset_base);
 
         // Skip the second '#' (first was already skipped in next_token)
         self.advance();
@@ -561,7 +569,7 @@ impl<'input> Lexer<'input> {
 
     /// Scan a string literal
     fn scan_string_literal(&mut self, start_pos: Position) -> token::Token {
-        let start_offset = start_pos.offset;
+        let start_offset = start_pos.offset.saturating_sub(self.span_offset_base);
 
         // Skip opening quote
         self.advance();
@@ -642,7 +650,7 @@ impl<'input> Lexer<'input> {
 
     /// Scan a number literal
     fn scan_number(&mut self, start_pos: Position) -> Option<Token> {
-        let start_offset = start_pos.offset;
+        let start_offset = start_pos.offset.saturating_sub(self.span_offset_base);
 
         // Scan integer part
         while !self.is_at_end() && self.current_char().is_ascii_digit() {
@@ -709,7 +717,7 @@ impl<'input> Lexer<'input> {
 
     /// Scan an identifier or keyword
     fn scan_identifier(&mut self, start_pos: Position) -> token::Token {
-        let start_offset = start_pos.offset;
+        let start_offset = start_pos.offset.saturating_sub(self.span_offset_base);
 
         // First character is already validated
         self.advance();

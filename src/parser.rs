@@ -44,6 +44,8 @@ pub mod precedence;
 mod statements;
 /// Parser submodule for guard statement parsing helpers
 mod statements_guard;
+/// Parser submodule for string interpolation parsing helpers
+mod string_interpolation;
 /// Parser submodule for type parsing (type annotations, function types)
 mod types;
 

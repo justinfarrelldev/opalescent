@@ -3541,6 +3541,25 @@ fn test_string_interpolation_no_spaces() {
 }
 
 #[test]
+fn test_string_interpolation_preserves_inner_expression_span() {
+    let interpolation = parse_expression_from_string("'Moving {path} to trash'").unwrap();
+    if let Expr::StringInterpolation { parts, .. } = interpolation {
+        assert_eq!(parts.len(), 3);
+
+        if let StringPart::Expression(Expr::Identifier { name, span, .. }) = &parts[1] {
+            assert_eq!(name, "path");
+            assert_eq!(span.start.line, 1);
+            assert_eq!(span.start.column, 10);
+            assert_eq!(span.start.offset, 9);
+        } else {
+            unreachable!("Expected identifier interpolation expression");
+        }
+    } else {
+        unreachable!("Expected string interpolation expression");
+    }
+}
+
+#[test]
 fn test_string_interpolation_error_cases() {
     // Test unclosed interpolation brace
     let result = parse_expression_from_string("'Hello {world'");
