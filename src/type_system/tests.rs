@@ -5387,6 +5387,37 @@ fn test_type_check_string_interpolation_rejects_non_displayable_expression() {
 }
 
 #[test]
+fn test_string_interpolation_type_error_reports_expression_offset() {
+    let source = "let values = [1]\nlet msg = 'values: {values}'\n";
+    let program = parse_program_from_source(source);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("string interpolation with array value should fail type checking");
+
+    let invalid_operation_span = errors
+        .iter()
+        .find_map(|error| match error {
+            TypeError::InvalidOperation {
+                operation, span, ..
+            } => (operation == "string interpolation").then_some(span),
+            _ => None,
+        })
+        .expect("expected invalid string interpolation operation error");
+
+    let expected_offset = source
+        .find("{values}")
+        .expect("fixture must contain interpolation expression")
+        .saturating_add(1);
+
+    assert_eq!(
+        invalid_operation_span.offset(),
+        expected_offset,
+        "string interpolation errors should point at the interpolated expression, not 1:1"
+    );
+}
+
+#[test]
 fn test_type_check_let_statement_registers_symbol() {
     let mut checker = TypeChecker::new();
     let binding = LetBinding {
