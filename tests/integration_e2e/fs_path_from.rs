@@ -8,6 +8,7 @@ use super::fs_helpers::{
 use super::*;
 use alloc::string::ToString;
 use serial_test::serial;
+use std::process::{Command, Stdio};
 
 fn stringify_error<E: core::fmt::Display>(error: E) -> String {
     error.to_string()
@@ -112,6 +113,107 @@ entry main = f(args: string[]): void =>
         assert!(
             run_output.status.success(),
             "path_from empty-sentinel binary should exit with status code 0, got: {:?}",
+            run_output.status.code()
+        );
+    }
+
+    assert_workspace_empty("_fs_path_from");
+}
+
+#[cfg(feature = "integration")]
+#[test]
+#[serial(fs)]
+fn path_from_expands_home_tilde_prefix() {
+    {
+        let _guard = FsStateGuard::new("test-projects/_fs_path_from")
+            .expect("path_from tilde guard should initialize and reset target/workspace");
+
+        assert_workspace_empty("_fs_path_from");
+
+        let source = "
+import path_from, path_to_string from standard
+
+##
+  Description: Validates path_from expands a leading user-home tilde.
+##
+entry main = f(args: string[]): void =>
+    let home = path_from('~')
+    let nested = path_from('~/op-trash')
+    let literal = path_from('folder/~')
+
+    print('home={path_to_string(home)}')
+    print('nested={path_to_string(nested)}')
+    print('literal={path_to_string(literal)}')
+
+    return void
+";
+
+        let temp_dir = unique_probe_target_dir("path-from-tilde-prefix");
+
+        let binary_result = compile_program_for_tests(
+            Path::new("test-projects/_fs_path_from/src/main.op"),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        );
+        assert!(
+            binary_result.is_ok(),
+            "path_from tilde source should compile into a binary: {}",
+            binary_result
+                .as_ref()
+                .err()
+                .map_or_else(|| String::from("unknown compile error"), stringify_error)
+        );
+        let Ok(binary_path) = binary_result else {
+            return;
+        };
+
+        let fake_home = temp_dir.join("fake-home");
+        let mut command = Command::new(&binary_path);
+        command
+            .env("HOME", &fake_home)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let run_output_result = super::fs_helpers::wait_for_child_output_with_timeout(
+            command
+                .spawn()
+                .expect("path_from tilde binary should spawn"),
+            std::time::Duration::from_secs(30),
+            "path_from tilde compiled binary",
+        );
+        assert!(
+            run_output_result.is_ok(),
+            "path_from tilde compiled binary should execute: {}",
+            run_output_result
+                .as_ref()
+                .err()
+                .map_or_else(|| String::from("unknown execution error"), stringify_error)
+        );
+        let Ok(run_output) = run_output_result else {
+            return;
+        };
+
+        let stdout = strip_crlf(&String::from_utf8_lossy(&run_output.stdout));
+        let lines: Vec<&str> = stdout
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .collect();
+
+        let fake_home_string = fake_home.to_string_lossy();
+        let expected = vec![
+            format!("home={fake_home_string}"),
+            format!("nested={fake_home_string}/op-trash"),
+            String::from("literal=folder/~"),
+        ];
+        assert_eq!(
+            lines, expected,
+            "path_from should expand only a leading user-home tilde prefix"
+        );
+
+        assert!(
+            run_output.status.success(),
+            "path_from tilde binary should exit with status code 0, got: {:?}",
             run_output.status.code()
         );
     }

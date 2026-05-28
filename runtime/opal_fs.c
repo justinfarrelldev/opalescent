@@ -105,6 +105,16 @@ static int process_finish_utf8_path_result(FsPathResult* out, char* path_buffer)
 static int validate_environment_variable_name(const char* name, char** error_out);
 static int opal_validate_utf8(const unsigned char* bytes, size_t length, size_t* invalid_offset);
 
+static const char* opal_home_directory_env_value(void) {
+#if OPAL_WINDOWS
+    const char* home = getenv("USERPROFILE");
+    if (home && home[0] != '\0') {
+        return home;
+    }
+#endif
+    return getenv("HOME");
+}
+
 static int opal_is_path_separator(char c) {
     return c == '/' || c == '\\';
 }
@@ -862,6 +872,24 @@ static char* lex_normalize_path(const char* path) {
 
 char* path_from(const char* raw) {
     if (!raw || raw[0] == '\0') return safe_strdup("");
+
+    if (raw[0] == '~' && (raw[1] == '\0' || opal_is_path_separator(raw[1]))) {
+        const char* home = opal_home_directory_env_value();
+        if (home && home[0] != '\0') {
+            size_t home_len = strlen(home);
+            size_t suffix_len = strlen(raw + 1);
+            if (home_len <= SIZE_MAX - suffix_len - 1) {
+                char* expanded = (char*)malloc(home_len + suffix_len + 1);
+                if (expanded) {
+                    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+                    memcpy(expanded, home, home_len);
+                    memcpy(expanded + home_len, raw + 1, suffix_len + 1);
+                    return expanded;
+                }
+            }
+        }
+    }
+
     return safe_strdup(raw);
 }
 
