@@ -6593,6 +6593,28 @@ fn test_constraint_solver_applies_substitution_to_inferred_top_level_bindings() 
 }
 
 #[test]
+fn test_top_level_lambda_signature_accepts_imported_nominal_types() {
+    let program = parse_program_from_source_with_spaces(
+        "
+        import FilesystemPath from standard
+
+        public move_if_exists = f(path: FilesystemPath): FilesystemPath =>
+            return path
+
+        entry main = f(): int64 =>
+            return 0
+        ",
+    );
+
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "top-level lambda signatures should accept imported nominal types: {result:?}"
+    );
+}
+
+#[test]
 fn test_constraint_solver_unifies_compatible_type_variables_in_sequence() {
     let mut checker = TypeChecker::new();
     let span = test_span();

@@ -687,12 +687,12 @@ impl TypeChecker {
 
         let parameter_types = params
             .iter()
-            .map(|param| ast_type_to_core_type(&param.param_type).map_err(TypeError::from))
+            .map(|param| Self::ast_type_to_core_type_with_generics(&param.param_type, &[]))
             .collect::<Result<Vec<_>, _>>()?;
 
         let return_core_types = return_types
             .iter()
-            .map(|return_type| ast_type_to_core_type(return_type).map_err(TypeError::from))
+            .map(|return_type| Self::ast_type_to_core_type_with_generics(return_type, &[]))
             .collect::<Result<Vec<_>, _>>()?;
 
         let error_core_types = error_types
