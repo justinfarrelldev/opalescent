@@ -721,6 +721,17 @@ fn codegen_guard_statement<'context>(
                     } else {
                         success_value
                     }
+                } else if matches!(success_core_type, CoreType::Boolean) {
+                    let success_int = success_value.into_int_value();
+                    codegen_context
+                        .builder
+                        .build_int_compare(
+                            inkwell::IntPredicate::NE,
+                            success_int,
+                            success_int.get_type().const_zero(),
+                            env.next_name("guard.bool").as_str(),
+                        )?
+                        .as_basic_value_enum()
                 } else {
                     success_value
                 };

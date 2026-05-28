@@ -382,7 +382,19 @@ fn codegen_unary<'context>(
                     .as_basic_value_enum())
             }
         }
-        UnaryOp::Not | UnaryOp::BitNot => Ok(codegen_context
+        UnaryOp::Not => {
+            let int_value = value.into_int_value();
+            Ok(codegen_context
+                .builder
+                .build_int_compare(
+                    IntPredicate::EQ,
+                    int_value,
+                    int_value.get_type().const_zero(),
+                    "lnot",
+                )?
+                .as_basic_value_enum())
+        }
+        UnaryOp::BitNot => Ok(codegen_context
             .builder
             .build_not(value.into_int_value(), "inot")?
             .as_basic_value_enum()),

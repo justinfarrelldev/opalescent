@@ -746,6 +746,58 @@ entry main = f(): void =>
 }
 
 #[test]
+fn test_codegen_unary_logical_not_emits_i1_compare() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "logical_not");
+    let _function = create_codegen_function(&codegen_context, "logical_not_fn");
+    let mut env = CodegenEnv::new(true);
+
+    let raw_bool_slot = codegen_context
+        .builder
+        .build_alloca(context.i8_type(), "raw_bool")
+        .expect("i8 guard-style boolean slot should allocate");
+    codegen_context
+        .builder
+        .build_store(raw_bool_slot, context.i8_type().const_int(1, false))
+        .expect("i8 guard-style boolean slot should initialize");
+    env.variables.insert(
+        String::from("raw_bool"),
+        VariableBinding {
+            alloca: raw_bool_slot,
+            core_type: CoreType::Boolean,
+            length: None,
+            capacity: None,
+            is_mutable: false,
+        },
+    );
+
+    let unary_result = codegen_expression(
+        &codegen_context,
+        &mut env,
+        &unary(21, UnaryOp::Not, ident(22, "raw_bool")),
+        Some(&CoreType::Boolean),
+    );
+    assert!(unary_result.is_ok(), "unary boolean not should codegen");
+
+    let value = unary_result.expect("checked above");
+    assert_eq!(
+        value.into_int_value().get_type().get_bit_width(),
+        1,
+        "logical not should return an i1 boolean, not an integer-width bitwise complement"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("icmp eq i8"),
+        "logical not should lower to a zero equality comparison for non-i1 boolean carriers, got IR: {ir}"
+    );
+    assert!(
+        !ir.contains("xor i8"),
+        "logical not should not lower through LLVM bitwise not/xor, got IR: {ir}"
+    );
+}
+
+#[test]
 fn test_codegen_unary_and_cast_operations() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "unary_cast");
@@ -1608,6 +1660,68 @@ entry main = f(): void =>
     assert!(
         ir.contains("declare { i32, i8* } @string_to_int32"),
         "guard statement should emit struct-return declaration signature for string_to_int32: {ir}"
+    );
+}
+
+#[test]
+fn test_guard_statement_coerces_runtime_boolean_success_to_i1() {
+    let source = "
+import path_from, path_exists_sync from standard
+
+##
+    Description: Entry function validates filesystem boolean guard success lowering
+##
+let guard_boolean_worker = f(): void errors PermissionDeniedError, InvalidPathError =>
+    guard path_exists_sync(path_from('/tmp')) into path_exists else fs_err =>
+        print('UNEXPECTED_FS_ERROR={fs_err}')
+        propagate fs_err
+
+    if not path_exists:
+        print('missing')
+    else:
+        print('exists')
+    return void
+
+##
+    Description: Entry function keeps the module runnable
+##
+entry main = f(): void =>
+    return void
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "guard statement over path_exists_sync should compile successfully"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+
+    let verification = module.verify();
+    assert!(
+        verification.is_ok(),
+        "module containing filesystem boolean guard should verify: {verification:?}"
+    );
+
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("alloca i1"),
+        "guard binding for path_exists_sync should allocate an i1 boolean slot, got IR: {ir}"
+    );
+    assert!(
+        ir.contains("icmp ne i8"),
+        "guard binding should coerce runtime i8 boolean success field to i1, got IR: {ir}"
+    );
+    assert!(
+        ir.contains("icmp eq i1"),
+        "logical not on guard boolean should compare the i1 binding with false, got IR: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8, i8* } @path_exists_sync"),
+        "path_exists_sync should keep the runtime i8 boolean result ABI: {ir}"
     );
 }
 
