@@ -1,0 +1,94 @@
+import current_working_directory_sync from process
+import list_directory_sync, join_path_components, move_path_sync, path_to_string, path_from, path_exists_sync, create_directory_sync from standard
+
+let move_if_exists = f(arg: string, cwd: FilesystemPath, dest: FilesystemPath): void errors PermissionDeniedError, InvalidPathError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, FileNotFoundError, MoveFailureError => 
+    let path = join_path_components(cwd, [arg])
+    print('Moving {path_to_string(path)} to {path_to_string(dest)}')
+    
+    guard path_exists_sync(dest) into path_exists else e => 
+        print('An error occurred while checking if {path_to_string(dest)} exists')
+        propagate e
+
+    if not path_exists: 
+        print('Directory {path_to_string(dest)} does not exist yet, creating {path_to_string(dest)}')
+        guard create_directory_sync(dest) else e => 
+            print('An error occurred while making the directory {path_to_string(dest)}: {e}')
+            propagate e
+    
+    guard move_path_sync(path, join_path_components(dest, [arg])) else e => 
+        print('An error occurred: {e}')
+        propagate e
+    print('Moved {path_to_string(path)} to {path_to_string(dest)} successfully')
+
+let get_trash_entries = f(dest: FilesystemPath): string[] errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError => 
+    guard list_directory_sync(dest) into dirs else e =>
+        print('An error occurred while reading {path_to_string(dest)}: {e}')
+        propagate e
+    let mutable str_entries: string[] = []
+    for dir in dirs: 
+        str_entries.push(path_to_string(dir))
+
+    return str_entries
+
+##
+    Description: saferm is an alternative to rm which places the removed item in 
+    ~/.local/share/op-trash/
+
+    This is a Unix-only program, not meant for Windows
+##
+entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError => 
+    let dest = path_from('~/.local/share/op-trash')
+
+    if args.length < 2:
+        print('Please provide the names of the files you wish to remove after the call. Example: "saferm myfile1.txt myfile2.txt"')
+        return void
+
+    guard current_working_directory_sync() into cwd else e => 
+        print('An error occurred: {e}')
+        propagate e
+
+    if args[1] is '--restore' and args.length is 2:
+        # list off all items in trash
+        print('Options that can be restored:')
+
+        # This caused issues due to the array so I'm leaving it commented here
+        # guard get_trash_entries(dest) into trash_files else e => 
+        #    print('An error occurred while getting the trash entries for --restore: {e}')
+        #    propagate e
+        let trash_files: string[] = propagate get_trash_entries(dest)
+
+        for file in trash_files:
+            print('- {file}')
+
+        return void
+
+    let mutable i = 0
+
+    if args[1] is '--restore' and args.length > 2:
+        for arg in args:
+            if i < 2: 
+                # we don't want to enumerate the past args as they don't matter
+                i = i + 1
+                continue
+            
+            guard move_if_exists(arg, dest, cwd) else e => 
+                print('An error occurred while restoring {arg}: {e}')
+                propagate e
+        
+        return void
+
+
+    for arg in args:
+        if i is 0: 
+            # we don't want to accidentally remove the program or something
+            i = i + 1
+            continue
+
+        guard move_if_exists(arg, cwd, dest) else e => 
+            print('An error occurred while moving {arg}: {e}')
+            propagate e
+
+        i = i + 1
+
+
+    return void

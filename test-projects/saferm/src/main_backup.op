@@ -1,0 +1,46 @@
+import current_working_directory_sync from process
+import join_path_components, move_path_sync, path_to_string, path_from, path_exists_sync from standard
+
+# This is only here to track a bug, see main_backup.md next to this file
+
+##
+    Description: saferm is an alternative to rm which places the removed item in 
+    ~/.local/share/op-trash/
+
+    This is a Unix-only program, not meant for Windows
+##
+entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, PermissionDeniedError, MoveFailureError, FileAlreadyExistsError, InvalidPathError => 
+    let dest = path_from('~/.local/share/op-trash/')
+
+    if args.length < 2:
+        print('Please provide the names of the files you wish to remove after the call. Example: "saferm myfile1.txt myfile2.txt"')
+
+    guard current_working_directory_sync() into cwd else e => 
+        print('An error occurred: {e}')
+        propagate e
+
+    let mutable i = 0
+    for arg in args:
+        if i is 0: 
+            # we don't want to accidentally remove the program or something
+            i = i + 1
+            continue
+        let path = join_path_components(cwd, [arg])
+
+        # I also really want a better error story for path_to_string being required
+        # right now, the "path can't become string" error is almost nonexistant and ugly
+        print('Moving {path_to_string(path)} to {path_to_string(dest)}')
+        
+        # this line is the culprit
+        if not propagate path_exists_sync(dest): 
+            print('Directory {path_to_string(dest)} does not exist yet, creating {path_to_string(dest)}')
+
+        
+        guard move_path_sync(path, dest) else e => 
+            print('An error occurred: {e}')
+            propagate e
+        print('Moved {path_to_string(path)} to {path_to_string(dest)} successfully')
+        i = i + 1
+
+
+    return void
