@@ -1,10 +1,16 @@
 import current_working_directory_sync from process
 import list_directory_sync, join_path_components, move_path_sync, path_to_string, path_from, path_exists_sync, create_directory_recursive_sync from standard
 
-let move_if_exists = f(arg: string, cwd: FilesystemPath, dest: FilesystemPath): void errors PermissionDeniedError, InvalidPathError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, FileNotFoundError, MoveFailureError => 
+let move_to_trash = f(arg: string, cwd: FilesystemPath, dest: FilesystemPath): void errors PermissionDeniedError, InvalidPathError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, FileNotFoundError, MoveFailureError => 
     let path = join_path_components(cwd, [arg])
     print('Moving {path_to_string(path)} to {path_to_string(dest)}')
     
+    guard move_path_sync(path, join_path_components(dest, [arg])) else e => 
+        print('An error occurred: {e}')
+        propagate e
+    print('Moved {path_to_string(path)} to {path_to_string(dest)} successfully')
+
+let create_trash_path_if_not_exists = f(dest: FilesystemPath): void errors PermissionDeniedError, InvalidPathError, CreateFailureError, FilesystemFullError => 
     guard path_exists_sync(dest) into path_exists else e => 
         print('An error occurred while checking if {path_to_string(dest)} exists')
         propagate e
@@ -14,11 +20,6 @@ let move_if_exists = f(arg: string, cwd: FilesystemPath, dest: FilesystemPath): 
         guard create_directory_recursive_sync(dest) else e => 
             print('An error occurred while making the directory {path_to_string(dest)}: {e}')
             propagate e
-    
-    guard move_path_sync(path, join_path_components(dest, [arg])) else e => 
-        print('An error occurred: {e}')
-        propagate e
-    print('Moved {path_to_string(path)} to {path_to_string(dest)} successfully')
 
 let get_trash_entries = f(dest: FilesystemPath): string[] errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError => 
     guard list_directory_sync(dest) into dirs else e =>
@@ -72,6 +73,10 @@ entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDe
 
         return void
 
+    guard create_trash_path_if_not_exists(dest) else e => 
+        print('An error occurred while creating {path_to_string(dest)}: {e}')
+        propagate e
+
     let mutable i = 0
 
     if args[1] is '--restore' and args.length > 2:
@@ -81,7 +86,7 @@ entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDe
                 i = i + 1
                 continue
             
-            guard move_if_exists(arg, dest, cwd) else e => 
+            guard move_to_trash(arg, dest, cwd) else e => 
                 print('An error occurred while restoring {arg}: {e}')
                 propagate e
         
@@ -94,7 +99,7 @@ entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDe
             i = i + 1
             continue
 
-        guard move_if_exists(arg, cwd, dest) else e => 
+        guard move_to_trash(arg, cwd, dest) else e => 
             print('An error occurred while moving {arg}: {e}')
             propagate e
 
