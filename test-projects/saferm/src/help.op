@@ -1,0 +1,13 @@
+import path_to_string, print from standard
+
+##
+    Description: Prints out the help entries with the options
+##
+public let print_help = f(dest: FilesystemPath): void => 
+    print('saferm will put items you remove in {path_to_string(dest)} and allow you to restore them later if desired.')
+    print('Options:')
+    print('')
+    print('- saferm filename.txt | Removes a file, putting it in {path_to_string(dest)}')
+    print('- saferm filename.txt filename2.txt | Removes multiple files, putting them in {path_to_string(dest)}')
+    print('- saferm --restore | Shows files available to restore')
+    print('- saferm --restore filename.txt | Moves a file out of {path_to_string(dest)} and into the current directory')

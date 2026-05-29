@@ -1,5 +1,6 @@
 import current_working_directory_sync from process
 import list_directory_sync, join_path_components, move_path_sync, path_to_string, path_from, path_exists_sync, create_directory_recursive_sync from standard
+import print_help from ./help
 
 let move_to_trash = f(arg: string, cwd: FilesystemPath, dest: FilesystemPath): void errors PermissionDeniedError, InvalidPathError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, FileNotFoundError, MoveFailureError => 
     let path = join_path_components(cwd, [arg])
@@ -49,13 +50,7 @@ entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDe
         propagate e
 
     if args[1] is '--help' or args[1] is 'help':
-        print('saferm will put items you remove in {path_to_string(dest)} and allow you to restore them later if desired.')
-        print('Options:')
-        print('')
-        print('- saferm filename.txt | Removes a file, putting it in {path_to_string(dest)}')
-        print('- saferm filename.txt filename2.txt | Removes multiple files, putting them in {path_to_string(dest)}')
-        print('- saferm --restore | Shows files available to restore')
-        print('- saferm --restore filename.txt | Moves a file out of {path_to_string(dest)} and into the current directory')
+        print_help(dest)
         return void
 
     if args[1] is '--restore' and args.length is 2:
