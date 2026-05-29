@@ -2,7 +2,7 @@ import current_working_directory_sync from process
 import list_directory_sync, join_path_components, move_path_sync, path_to_string, path_from, path_exists_sync, create_directory_recursive_sync from standard
 import print_help from ./help
 
-let move_to_trash = f(arg: string, cwd: FilesystemPath, dest: FilesystemPath): void errors PermissionDeniedError, InvalidPathError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, FileNotFoundError, MoveFailureError => 
+let move_to_destination = f(arg: string, cwd: FilesystemPath, dest: FilesystemPath): void errors PermissionDeniedError, InvalidPathError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, FileNotFoundError, MoveFailureError => 
     let path = join_path_components(cwd, [arg])
     print('Moving {path_to_string(path)} to {path_to_string(dest)}')
     
@@ -81,7 +81,7 @@ entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDe
                 i = i + 1
                 continue
             
-            guard move_to_trash(arg, dest, cwd) else e => 
+            guard move_to_destination(arg, dest, cwd) else e => 
                 print('An error occurred while restoring {arg}: {e}')
                 propagate e
         
@@ -94,7 +94,7 @@ entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDe
             i = i + 1
             continue
 
-        guard move_to_trash(arg, cwd, dest) else e => 
+        guard move_to_destination(arg, cwd, dest) else e => 
             print('An error occurred while moving {arg}: {e}')
             propagate e
 
