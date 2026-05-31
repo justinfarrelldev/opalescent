@@ -3,9 +3,11 @@
 extern crate alloc;
 
 use crate::ast::{Decl, ImportItem, Program};
+use crate::errors::reporter::CompilationErrorReport;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::token::Span;
+use crate::parser::errors::ParseError;
+use crate::token::{Position, Span};
 use crate::type_system::errors::TypeError;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
@@ -192,6 +194,29 @@ pub struct ImportInfo {
     pub span: Span,
 }
 
+/// Discovery-time failure that either preserves a normal type error or carries
+/// a ready-to-render diagnostic report for one module source file.
+#[derive(Debug)]
+pub enum ModuleDiscoveryError {
+    /// Discovery failed with a regular type-system error.
+    Type(TypeError),
+    /// Discovery failed with renderable lexer/parser diagnostics for one module.
+    Report {
+        /// Path to the module that produced the diagnostic(s).
+        module_path: PathBuf,
+        /// Collected lexer/parser diagnostics.
+        report: CompilationErrorReport,
+        /// Tab-normalized source used for Miette rendering.
+        normalized_source: String,
+    },
+}
+
+impl From<TypeError> for ModuleDiscoveryError {
+    fn from(error: TypeError) -> Self {
+        Self::Type(error)
+    }
+}
+
 /// File-based module loader with source caching.
 #[derive(Debug, Clone)]
 pub struct ModuleLoader {
@@ -231,14 +256,17 @@ impl ModuleLoader {
     /// Returns topological order where dependencies come first and entry is last.
     ///
     /// # Errors
-    /// Returns [`TypeError`] for unresolved imports, parse failures, or dependency cycles.
-    pub fn discover_all_modules(&mut self, entry_path: &Path) -> Result<Vec<PathBuf>, TypeError> {
+    /// Returns [`ModuleDiscoveryError`] for unresolved imports, parse failures, or dependency cycles.
+    pub fn discover_all_modules(
+        &mut self,
+        entry_path: &Path,
+    ) -> Result<Vec<PathBuf>, ModuleDiscoveryError> {
         let entry = self.normalize_path(entry_path);
         if !entry.exists() {
-            return Err(TypeError::ModuleNotFound {
+            return Err(ModuleDiscoveryError::Type(TypeError::ModuleNotFound {
                 path: entry.display().to_string(),
                 span: TypeError::unknown_span(),
-            });
+            }));
         }
 
         let mut parsed_cache: BTreeMap<PathBuf, ParsedModule> = BTreeMap::new();
@@ -262,7 +290,7 @@ impl ModuleLoader {
     /// Traverse module imports depth-first and emit topologically sorted paths.
     ///
     /// # Errors
-    /// Returns [`TypeError`] for cycle detection failures or nested module parse/resolve failures.
+    /// Returns [`ModuleDiscoveryError`] for cycle detection failures or nested module parse/resolve failures.
     fn discover_module_dfs(
         &mut self,
         current: &Path,
@@ -271,7 +299,7 @@ impl ModuleLoader {
         visiting: &mut BTreeSet<PathBuf>,
         visiting_stack: &mut Vec<PathBuf>,
         ordered: &mut Vec<PathBuf>,
-    ) -> Result<(), TypeError> {
+    ) -> Result<(), ModuleDiscoveryError> {
         let normalized = self.normalize_path(current);
 
         if visited.contains(&normalized) {
@@ -289,10 +317,10 @@ impl ModuleLoader {
                 .collect();
             cycle.push(normalized.display().to_string());
 
-            return Err(TypeError::CircularDependency {
+            return Err(ModuleDiscoveryError::Type(TypeError::CircularDependency {
                 cycle,
                 span: TypeError::unknown_span(),
-            });
+            }));
         }
 
         visiting.insert(normalized.clone());
@@ -330,50 +358,51 @@ impl ModuleLoader {
     /// Parse one module file and collect its import declarations.
     ///
     /// # Errors
-    /// Returns [`TypeError`] when the module cannot be loaded, lexed, parsed, or imports fail resolution.
-    fn parse_module(&mut self, path: &Path) -> Result<ParsedModule, TypeError> {
+    /// Returns [`ModuleDiscoveryError`] when the module cannot be loaded, lexed, parsed, or imports fail resolution.
+    fn parse_module(&mut self, path: &Path) -> Result<ParsedModule, ModuleDiscoveryError> {
         let normalized = self.normalize_path(path);
-        let source =
-            self.get_module_source(&normalized)
-                .map_err(|_io_err| TypeError::ModuleNotFound {
-                    path: normalized.display().to_string(),
-                    span: TypeError::unknown_span(),
-                })?;
+        let source = self.get_module_source(&normalized).map_err(|_io_err| {
+            ModuleDiscoveryError::Type(TypeError::ModuleNotFound {
+                path: normalized.display().to_string(),
+                span: TypeError::unknown_span(),
+            })
+        })?;
         let normalized_source = source.replace('\t', "    ");
 
         let lexer = Lexer::new(&normalized_source);
         let (tokens, lex_errors) = lexer.tokenize();
         if !lex_errors.errors.is_empty() {
-            return Err(TypeError::ConstraintSolvingFailed {
-                reason: format!(
-                    "failed to lex module '{}': {} lexical error(s)",
-                    normalized.display(),
-                    lex_errors.errors.len()
-                ),
-                span: TypeError::unknown_span(),
+            let mut report = CompilationErrorReport::new();
+            report.extend_lex_errors(lex_errors.errors);
+            return Err(ModuleDiscoveryError::Report {
+                module_path: normalized.clone(),
+                report,
+                normalized_source,
             });
         }
 
         let parser = Parser::new(tokens);
         let (program, parse_errors) = parser.parse();
         if !parse_errors.errors.is_empty() {
-            return Err(TypeError::ConstraintSolvingFailed {
-                reason: format!(
-                    "failed to parse module '{}': {} parse error(s)",
-                    normalized.display(),
-                    parse_errors.errors.len()
-                ),
-                span: TypeError::unknown_span(),
+            let mut report = CompilationErrorReport::new();
+            report.extend_parse_errors(parse_errors.errors);
+            return Err(ModuleDiscoveryError::Report {
+                module_path: normalized.clone(),
+                report,
+                normalized_source,
             });
         }
 
         let Some(ast) = program else {
-            return Err(TypeError::ConstraintSolvingFailed {
-                reason: format!(
-                    "parser returned no AST for module '{}'",
-                    normalized.display()
-                ),
-                span: TypeError::unknown_span(),
+            let mut report = CompilationErrorReport::new();
+            report.push_parse_error(ParseError::InvalidSyntax {
+                message: String::from("parser returned no AST after successful parse"),
+                span: crate::error::LexError::span_from_position(Position::start(), 1),
+            });
+            return Err(ModuleDiscoveryError::Report {
+                module_path: normalized.clone(),
+                report,
+                normalized_source,
             });
         };
 
@@ -386,8 +415,8 @@ impl ModuleLoader {
                 ..
             } = declaration
             {
-                let resolved_path =
-                    resolve_import_path_with_span(&normalized, import_source, span)?;
+                let resolved_path = resolve_import_path_with_span(&normalized, import_source, span)
+                    .map_err(ModuleDiscoveryError::from)?;
                 let is_type_import = items
                     .iter()
                     .all(|item| matches!(item, &ImportItem::Type { .. }));
@@ -430,7 +459,9 @@ impl ModuleLoader {
 
 #[cfg(test)]
 mod tests {
-    use super::{ModuleLoader, resolve_import_path, validate_module_file_role};
+    use super::{
+        ModuleDiscoveryError, ModuleLoader, resolve_import_path, validate_module_file_role,
+    };
     use crate::type_system::errors::TypeError;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -570,7 +601,10 @@ mod tests {
         let mut loader = ModuleLoader::new(base.clone());
         let result = loader.discover_all_modules(&a);
         let error = result.expect_err("cycle should be reported");
-        assert!(matches!(error, TypeError::CircularDependency { .. }));
+        assert!(matches!(
+            error,
+            ModuleDiscoveryError::Type(TypeError::CircularDependency { .. })
+        ));
 
         std::fs::remove_dir_all(&base).expect("temp dir should be removable");
     }

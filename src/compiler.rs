@@ -19,7 +19,8 @@ use crate::error::LexError;
 use crate::errors::reporter::{CompilationErrorReport, CompilerError};
 use crate::lexer::Lexer;
 use crate::module_loader::{
-    ModuleLoader, is_types_file, resolve_import_path, validate_module_file_role,
+    ModuleDiscoveryError, ModuleLoader, is_types_file, resolve_import_path,
+    validate_module_file_role,
 };
 use crate::parser::Parser;
 use crate::parser::errors::ParseError;
@@ -151,6 +152,8 @@ pub enum CompileError {
     /// Front-end compilation returned one or more diagnostics.
     #[error("front-end compilation failed")]
     Report {
+        /// Path to the source file that produced the diagnostic(s).
+        source_path: String,
         /// Collected diagnostics across compiler phases.
         report: CompilationErrorReport,
         /// Tab-normalized source used for diagnostics.
@@ -605,6 +608,7 @@ pub fn compile_program_with_run_policy(
             }
 
             return Err(CompileError::Report {
+                source_path: source_path.display().to_string(),
                 report,
                 normalized_source,
             });
@@ -700,9 +704,21 @@ pub fn compile_project_with_run_policy(
 
     let mut module_loader = ModuleLoader::new(project_dir.to_path_buf());
     let entry_module_path = project_dir.join("src").join("main.op");
-    let discovered_module_paths = module_loader
-        .discover_all_modules(&entry_module_path)
-        .map_err(CompileError::Type)?;
+    let discovered_module_paths =
+        module_loader
+            .discover_all_modules(&entry_module_path)
+            .map_err(|error| match error {
+                ModuleDiscoveryError::Type(type_error) => CompileError::Type(type_error),
+                ModuleDiscoveryError::Report {
+                    module_path,
+                    report,
+                    normalized_source,
+                } => CompileError::Report {
+                    source_path: module_path.display().to_string(),
+                    report,
+                    normalized_source,
+                },
+            })?;
 
     let mut parsed_programs: BTreeMap<PathBuf, Program> = BTreeMap::new();
     let mut module_sources: BTreeMap<PathBuf, String> = BTreeMap::new();
@@ -716,6 +732,7 @@ pub fn compile_project_with_run_policy(
             let mut report = CompilationErrorReport::new();
             report.extend_type_errors(vec![role_error]);
             return Err(CompileError::Report {
+                source_path: module_path.display().to_string(),
                 report,
                 normalized_source: module_source.replace('\t', "    "),
             });
@@ -762,6 +779,7 @@ pub fn compile_project_with_run_policy(
                     .get(first_module_path)
                     .map_or_else(String::new, |source| source.replace('\t', "    "));
                 return Err(CompileError::Report {
+                    source_path: first_module_path.display().to_string(),
                     report,
                     normalized_source,
                 });
@@ -845,6 +863,7 @@ pub fn compile_project_with_run_policy(
                     .get(module_path)
                     .map_or_else(String::new, |source| source.replace('\t', "    "));
                 return Err(CompileError::Report {
+                    source_path: module_path.display().to_string(),
                     report,
                     normalized_source,
                 });

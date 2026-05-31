@@ -204,6 +204,7 @@ fn run_with_args(args: &[String]) -> Result<(), i32> {
     ) {
         Ok(path) => path,
         Err(CompileError::Report {
+            ref source_path,
             ref report,
             ref normalized_source,
         }) => {
@@ -273,6 +274,7 @@ fn compile_and_run(
         match compile_program(Path::new(source_path), &source, Path::new("target"), target) {
             Ok(path) => path,
             Err(CompileError::Report {
+                ref source_path,
                 ref report,
                 ref normalized_source,
             }) => {
@@ -325,13 +327,11 @@ fn run_run_command(args: &[String]) -> Result<(), i32> {
     let binary_path = match compile_project(&cwd, Path::new("target"), &target) {
         Ok(path) => path,
         Err(CompileError::Report {
+            ref source_path,
             ref report,
             ref normalized_source,
         }) => {
-            eprintln!(
-                "{}",
-                render_report("src/main.op", normalized_source, report)
-            );
+            eprintln!("{}", render_report(source_path, normalized_source, report));
             return Err(1);
         }
         Err(error) => {
@@ -646,13 +646,11 @@ fn run_build_command(args: &[String]) -> Result<(), i32> {
     let binary_path = match compile_project(Path::new("."), Path::new("target"), &target) {
         Ok(path) => path,
         Err(CompileError::Report {
+            ref source_path,
             ref report,
             ref normalized_source,
         }) => {
-            eprintln!(
-                "{}",
-                render_report("src/main.op", normalized_source, report)
-            );
+            eprintln!("{}", render_report(source_path, normalized_source, report));
             return Err(1);
         }
         Err(error) => {

@@ -357,6 +357,7 @@ fn compile_project_type_errors_return_miette_report() {
         "project type errors should return a miette report, got {result:?}"
     );
     let Err(CompileError::Report {
+        source_path,
         report,
         normalized_source,
     }) = result
@@ -364,6 +365,11 @@ fn compile_project_type_errors_return_miette_report() {
         unreachable!("result shape checked above")
     };
 
+    assert_eq!(
+        source_path,
+        src_dir.join("main.op").display().to_string(),
+        "project report should preserve the failing module path for miette rendering"
+    );
     assert_eq!(
         normalized_source,
         source.replace('\t', "    "),

@@ -499,6 +499,7 @@ fn validate_ambiguous_guard_if_failure(compile_failure: CompileError) -> Result<
     let CompileError::Report {
         report,
         normalized_source,
+        ..
     } = compile_failure
     else {
         return Err(format!(
@@ -581,4 +582,106 @@ fn ensure_guard_help_text(rendered: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[test]
+fn saferm_module_parse_diagnostics_should_be_source_anchored() {
+    let cwd = std::env::current_dir();
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+
+    let project_dir = cwd_path.join("test-projects/saferm");
+    let temp_dir = unique_probe_target_dir("saferm-module-parse-diagnostics");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "saferm-module-parse-diagnostics target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let source_path = project_dir.join("src/flags.op");
+        let source_result = fs::read_to_string(&source_path);
+        let source_str = match source_result {
+            Ok(contents) => contents,
+            Err(error) => {
+                return Err(format!(
+                    "saferm source file should be readable: {error}"
+                ));
+            }
+        };
+
+        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
+        let compile_error = match binary_result {
+            Ok(_path) => {
+                return Err(
+                    "saferm project should currently fail to compile because module parse diagnostics are collapsed, but compilation succeeded"
+                        .to_owned(),
+                );
+            }
+            Err(error) => error,
+        };
+
+        let CompileError::Report {
+            source_path: reported_source_path,
+            report,
+            normalized_source,
+        } = compile_error
+        else {
+            return Err(format!(
+                "saferm should fail with CompileError::Report, got: {compile_error}"
+            ));
+        };
+
+        if reported_source_path != source_path.display().to_string() {
+            return Err(format!(
+                "saferm module parse diagnostics should preserve the failing module path, expected {}, got {}",
+                source_path.display(),
+                reported_source_path
+            ));
+        }
+
+        let rendered = opalescent::errors::renderer::render_report(
+            reported_source_path.as_str(),
+            normalized_source.as_str(),
+            &report,
+        );
+
+        let has_source_anchor = rendered.contains("flags.op")
+            || rendered.contains("public let flags: Flag[] =")
+            || rendered.contains("examples: [");
+        if !has_source_anchor {
+            return Err(format!(
+                "saferm module parse diagnostics should be source anchored and mention flags.op/public let flags/examples, got: {rendered}"
+            ));
+        }
+
+        if !rendered.contains("unexpected token") {
+            return Err(format!(
+                "saferm module parse diagnostics should surface parser label/code like unexpected token, got: {rendered}"
+            ));
+        }
+
+        drop(source_str);
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "saferm-module-parse-diagnostics target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "saferm source should expose source-anchored parser diagnostics instead of only aggregate module parse failure text: {failure_message}"
+    );
 }
