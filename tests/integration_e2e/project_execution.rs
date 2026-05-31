@@ -1,13 +1,10 @@
 #![cfg(feature = "integration")]
-
 use super::*;
 use crate::tests::fs_helpers::unique_probe_target_dir;
 use std::process::Stdio;
 use std::time::Duration;
-
 const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 const INTERACTIVE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
-
 fn run_binary_with_timeout(
     binary_path: &Path,
     context: &str,
@@ -18,14 +15,12 @@ fn run_binary_with_timeout(
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| format!("{context} should execute: {error}"))?;
-
     super::fs_helpers::wait_for_child_output_with_timeout(
         child,
         GENERATED_BINARY_TEST_TIMEOUT,
         context,
     )
 }
-
 #[test]
 fn overflow_trap_exits_nonzero() {
     let temp_dir = unique_probe_target_dir("overflow-trap");
@@ -35,7 +30,6 @@ fn overflow_trap_exits_nonzero() {
         prepare.is_ok(),
         "overflow-trap target directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let source_path = Path::new("test-projects/overflow-trap/src/main.op");
         let source_result = fs::read_to_string(source_path);
@@ -47,7 +41,6 @@ fn overflow_trap_exits_nonzero() {
                 ));
             }
         };
-
         let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
@@ -62,24 +55,19 @@ fn overflow_trap_exits_nonzero() {
                 ));
             }
         };
-
         let run_output = run_binary_with_timeout(&binary_path, "overflow-trap compiled binary")?;
-
         if run_output.status.success() {
             return Err(
                 "overflow-trap binary should exit with non-zero status (overflow trap), but it exited successfully".to_owned()
             );
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "overflow-trap target directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -89,7 +77,6 @@ fn overflow_trap_exits_nonzero() {
         "overflow-trap should compile, run, and exit with non-zero status: {failure_message}"
     );
 }
-
 #[test]
 fn lambda_basic_compiles_and_returns_correct_value() {
     let temp_dir = unique_probe_target_dir("lambda-basic");
@@ -99,7 +86,6 @@ fn lambda_basic_compiles_and_returns_correct_value() {
         prepare.is_ok(),
         "lambda-basic target directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let source_path = Path::new("test-projects/lambda-basic/src/main.op");
         let source_result = fs::read_to_string(source_path);
@@ -111,7 +97,6 @@ fn lambda_basic_compiles_and_returns_correct_value() {
                 ));
             }
         };
-
         let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
@@ -126,32 +111,26 @@ fn lambda_basic_compiles_and_returns_correct_value() {
                 ));
             }
         };
-
         let run_output = run_binary_with_timeout(&binary_path, "lambda-basic compiled binary")?;
-
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("3 + 4 = 7") {
             return Err(format!(
                 "lambda-basic binary stdout should contain '3 + 4 = 7', got: '{stdout}'"
             ));
         }
-
         if !run_output.status.success() {
             return Err(format!(
                 "lambda-basic binary should exit with status code 0, got: {:?}",
                 run_output.status.code()
             ));
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "lambda-basic target directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -161,7 +140,6 @@ fn lambda_basic_compiles_and_returns_correct_value() {
         "lambda-basic should compile, run, print correct sum, and exit cleanly: {failure_message}"
     );
 }
-
 #[test]
 fn array_bounds_trap_exits_nonzero() {
     let temp_dir = unique_probe_target_dir("array-bounds");
@@ -171,7 +149,6 @@ fn array_bounds_trap_exits_nonzero() {
         prepare.is_ok(),
         "array-bounds target directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let source_path = Path::new("test-projects/array-bounds/src/main.op");
         let source_result = fs::read_to_string(source_path);
@@ -183,7 +160,6 @@ fn array_bounds_trap_exits_nonzero() {
                 ));
             }
         };
-
         let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
@@ -198,24 +174,19 @@ fn array_bounds_trap_exits_nonzero() {
                 ));
             }
         };
-
         let run_output = run_binary_with_timeout(&binary_path, "array-bounds compiled binary")?;
-
         if run_output.status.success() {
             return Err(
                 "array-bounds binary should exit with non-zero status (bounds trap), but it exited successfully".to_owned()
             );
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "array-bounds target directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -225,7 +196,6 @@ fn array_bounds_trap_exits_nonzero() {
         "array-bounds should compile, run, and exit with non-zero status: {failure_message}"
     );
 }
-
 #[test]
 fn string_interp_long_does_not_crash() {
     let temp_dir = unique_probe_target_dir("string-interp-long");
@@ -235,7 +205,6 @@ fn string_interp_long_does_not_crash() {
         prepare.is_ok(),
         "string-interp-long target directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let source_path = Path::new("test-projects/string-interp-long/src/main.op");
         let source_result = fs::read_to_string(source_path);
@@ -247,7 +216,6 @@ fn string_interp_long_does_not_crash() {
                 ));
             }
         };
-
         let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
@@ -262,33 +230,27 @@ fn string_interp_long_does_not_crash() {
                 ));
             }
         };
-
         let run_output =
             run_binary_with_timeout(&binary_path, "string-interp-long compiled binary")?;
-
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("Part1=") || !stdout.contains("Part2=") {
             return Err(format!(
                 "string-interp-long binary stdout should contain both 'Part1=' and 'Part2=', got: '{stdout}'"
             ));
         }
-
         if !run_output.status.success() {
             return Err(format!(
                 "string-interp-long binary should exit with status code 0, got: {:?}",
                 run_output.status.code()
             ));
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "string-interp-long target directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -298,7 +260,6 @@ fn string_interp_long_does_not_crash() {
         "string-interp-long should compile, run without crash, print output, and exit cleanly: {failure_message}"
     );
 }
-
 #[test]
 fn should_print_final_result_compiles_and_runs() {
     let temp_dir = unique_probe_target_dir("should-print-final-result");
@@ -311,7 +272,6 @@ fn should_print_final_result_compiles_and_runs() {
         prepare.is_ok(),
         "should-print-final-result target directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let source_path = Path::new("test-projects/should-print-final-result/src/main.op");
         let source_result = fs::read_to_string(source_path);
@@ -323,7 +283,6 @@ fn should_print_final_result_compiles_and_runs() {
                 ));
             }
         };
-
         let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
@@ -338,7 +297,6 @@ fn should_print_final_result_compiles_and_runs() {
                 ));
             }
         };
-
         let child_result = std::process::Command::new(&binary_path)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
@@ -352,7 +310,6 @@ fn should_print_final_result_compiles_and_runs() {
                 ));
             }
         };
-
         if let Some(mut stdin) = child.stdin.take() {
             let write_result = std::io::Write::write_all(&mut stdin, b"2\n3\n");
             if let Err(error) = write_result {
@@ -367,36 +324,30 @@ fn should_print_final_result_compiles_and_runs() {
                     .to_owned(),
             );
         }
-
         let run_output = super::fs_helpers::wait_for_child_output_with_timeout(
             child,
             INTERACTIVE_TEST_TIMEOUT,
             "should-print-final-result compiled binary",
         )?;
-
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains('5') {
             return Err(format!(
                 "should-print-final-result stdout should contain computed final result '5', got: '{stdout}'"
             ));
         }
-
         if !run_output.status.success() {
             return Err(format!(
                 "should-print-final-result binary should exit with status code 0, got: {:?}",
                 run_output.status.code()
             ));
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "should-print-final-result target directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -406,7 +357,6 @@ fn should_print_final_result_compiles_and_runs() {
         "should-print-final-result should compile, run, and produce final numeric output: {failure_message}"
     );
 }
-
 #[test]
 fn cast_safety_compiles_and_runs() {
     let temp_dir = unique_probe_target_dir("cast-safety");
@@ -416,7 +366,6 @@ fn cast_safety_compiles_and_runs() {
         prepare.is_ok(),
         "cast-safety target directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let source_path = Path::new("test-projects/cast-safety/src/main.op");
         let source_result = fs::read_to_string(source_path);
@@ -428,7 +377,6 @@ fn cast_safety_compiles_and_runs() {
                 ));
             }
         };
-
         let binary_result = compile_program_for_tests(
             source_path,
             source_str.as_str(),
@@ -443,32 +391,26 @@ fn cast_safety_compiles_and_runs() {
                 ));
             }
         };
-
         let run_output = run_binary_with_timeout(&binary_path, "cast-safety compiled binary")?;
-
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if !stdout.contains("float64:") || !stdout.contains("float32:") {
             return Err(format!(
                 "cast-safety binary stdout should contain both 'float64:' and 'float32:', got: '{stdout}'"
             ));
         }
-
         if !run_output.status.success() {
             return Err(format!(
                 "cast-safety binary should exit with status code 0, got: {:?}",
                 run_output.status.code()
             ));
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "cast-safety target directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -478,7 +420,6 @@ fn cast_safety_compiles_and_runs() {
         "cast-safety should compile, run, print float output, and exit cleanly: {failure_message}"
     );
 }
-
 #[test]
 fn multi_file_project_compiles_and_runs() {
     let cwd = std::env::current_dir();
@@ -489,7 +430,6 @@ fn multi_file_project_compiles_and_runs() {
     let Ok(cwd_path) = cwd else {
         return;
     };
-
     let project_dir = cwd_path.join("test-projects/multi-file");
     let temp_dir = unique_probe_target_dir("multi-file-project");
     println!("multi-file target dir: {}", temp_dir.display());
@@ -498,7 +438,6 @@ fn multi_file_project_compiles_and_runs() {
         prepare.is_ok(),
         "multi-file target directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let binary_result =
             compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
@@ -510,32 +449,26 @@ fn multi_file_project_compiles_and_runs() {
                 ));
             }
         };
-
         let run_output = run_binary_with_timeout(&binary_path, "multi-file compiled binary")?;
-
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim() != "7" {
             return Err(format!(
                 "multi-file binary stdout should equal '7', got: '{stdout}'"
             ));
         }
-
         if !run_output.status.success() {
             return Err(format!(
                 "multi-file binary should exit with status code 0, got: {:?}",
                 run_output.status.code()
             ));
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "multi-file target directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -545,7 +478,6 @@ fn multi_file_project_compiles_and_runs() {
         "multi-file project should compile, run, and print computed sum: {failure_message}"
     );
 }
-
 #[test]
 #[expect(clippy::too_many_lines, reason = "integration test covers several related failure modes")]
 #[expect(clippy::pattern_type_mismatch, reason = "borrowed report entries are matched directly in this test")]
@@ -558,17 +490,14 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
     let Ok(cwd_path) = cwd else {
         return;
     };
-
     let project_dir = cwd_path.join("test-projects/_entry-wrong-file");
     let src_dir = project_dir.join("src");
     let output_dir = unique_probe_target_dir("entry-wrong-file");
-
     let prepare = prepare_dir(&project_dir);
     assert!(
         prepare.is_ok(),
         "entry-wrong-file project directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let src_create_result = fs::create_dir_all(&src_dir);
         if let Err(error) = src_create_result {
@@ -576,7 +505,6 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
                 "entry-wrong-file src directory should be created: {error}"
             ));
         }
-
         let toml_write = fs::write(
             project_dir.join("opal.toml"),
             "name = \"entry-wrong-file\"\nversion = \"1.0.0\"\n",
@@ -586,7 +514,6 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
                 "entry-wrong-file opal.toml should be written: {error}"
             ));
         }
-
         let main_write = fs::write(
             src_dir.join("main.op"),
             "import helper from ./worker\n\nlet call_helper = f(): int32 =>\n    return helper()\n",
@@ -596,7 +523,6 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
                 "entry-wrong-file main.op should be written: {error}"
             ));
         }
-
         let worker_write = fs::write(
             src_dir.join("worker.op"),
             "##\n  Description: wrong module entry used for validation error path\n##\nentry worker = f(args: string[]): void =>\n    return void\n\n##\n  Description: helper function exported from worker module\n##\npublic let helper = f(): int32 =>\n    return 1\n",
@@ -606,7 +532,6 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
                 "entry-wrong-file worker.op should be written: {error}"
             ));
         }
-
         let binary_result =
             compile_project_for_tests(&project_dir, &output_dir, &TargetTriple::host());
         let compile_error = match binary_result {
@@ -618,7 +543,6 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
             }
             Err(error) => error,
         };
-
         let worker_path = src_dir.join("worker.op");
         match compile_error {
             CompileError::Type(TypeError::EntryNotInMainModule { file_path, .. }) => {
@@ -657,16 +581,13 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
                 ));
             }
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&project_dir);
     assert!(
         cleanup.is_ok(),
         "entry-wrong-file project directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -676,7 +597,6 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
         "entry-wrong-file project should fail with entry-not-in-main-module style error: {failure_message}"
     );
 }
-
 #[test]
 #[expect(clippy::too_many_lines, reason = "integration test covers several related failure modes")]
 #[expect(clippy::pattern_type_mismatch, reason = "borrowed report entries are matched directly in this test")]
@@ -689,17 +609,14 @@ fn package_import_fails_with_not_supported() {
     let Ok(cwd_path) = cwd else {
         return;
     };
-
     let project_dir = cwd_path.join("test-projects/_package-import-not-supported");
     let src_dir = project_dir.join("src");
     let output_dir = unique_probe_target_dir("package-import-not-supported");
-
     let prepare = prepare_dir(&project_dir);
     assert!(
         prepare.is_ok(),
         "package-import-not-supported project directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let src_create_result = fs::create_dir_all(&src_dir);
         if let Err(error) = src_create_result {
@@ -707,7 +624,6 @@ fn package_import_fails_with_not_supported() {
                 "package-import-not-supported src directory should be created: {error}"
             ));
         }
-
         let toml_write = fs::write(
             project_dir.join("opal.toml"),
             "name = \"package-import-not-supported\"\nversion = \"1.0.0\"\n",
@@ -717,7 +633,6 @@ fn package_import_fails_with_not_supported() {
                 "package-import-not-supported opal.toml should be written: {error}"
             ));
         }
-
         let main_write = fs::write(
             src_dir.join("main.op"),
             "import foo from '@scope/package'\n\n##\n  Description: entrypoint used for package import error validation\n##\nentry main = f(args: string[]): void =>\n    print(foo)\n    return void\n",
@@ -727,7 +642,6 @@ fn package_import_fails_with_not_supported() {
                 "package-import-not-supported main.op should be written: {error}"
             ));
         }
-
         let binary_result =
             compile_project_for_tests(&project_dir, &output_dir, &TargetTriple::host());
         let compile_error = match binary_result {
@@ -739,7 +653,6 @@ fn package_import_fails_with_not_supported() {
             }
             Err(error) => error,
         };
-
         match compile_error {
             CompileError::Type(TypeError::PackageImportNotSupported { path, .. }) => {
                 if path != "@scope/package" {
@@ -775,16 +688,13 @@ fn package_import_fails_with_not_supported() {
                 ));
             }
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&project_dir);
     assert!(
         cleanup.is_ok(),
         "package-import-not-supported project directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -794,7 +704,6 @@ fn package_import_fails_with_not_supported() {
         "package-import-not-supported project should fail with not-supported import error: {failure_message}"
     );
 }
-
 #[test]
 fn import_types_basic_compiles_and_runs() {
     let cwd = std::env::current_dir();
@@ -805,7 +714,6 @@ fn import_types_basic_compiles_and_runs() {
     let Ok(cwd_path) = cwd else {
         return;
     };
-
     let project_dir = cwd_path.join("test-projects/import-types-basic");
     let temp_dir = unique_probe_target_dir("import-types-basic");
     println!("import-types-basic target dir: {}", temp_dir.display());
@@ -814,7 +722,6 @@ fn import_types_basic_compiles_and_runs() {
         prepare.is_ok(),
         "import-types-basic target directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let binary_result =
             compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
@@ -826,33 +733,27 @@ fn import_types_basic_compiles_and_runs() {
                 ));
             }
         };
-
         let run_output =
             run_binary_with_timeout(&binary_path, "import-types-basic compiled binary")?;
-
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim_end() != "Alice is 30 years old" {
             return Err(format!(
                 "import-types-basic stdout should equal 'Alice is 30 years old', got: '{stdout}'"
             ));
         }
-
         if !run_output.status.success() {
             return Err(format!(
                 "import-types-basic binary should exit with status code 0, got: {:?}",
                 run_output.status.code()
             ));
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "import-types-basic target directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -862,7 +763,6 @@ fn import_types_basic_compiles_and_runs() {
         "import-types-basic should compile, run, print expected output, and exit cleanly: {failure_message}"
     );
 }
-
 #[test]
 fn import_types_aliased_compiles_and_runs() {
     let cwd = std::env::current_dir();
@@ -873,7 +773,6 @@ fn import_types_aliased_compiles_and_runs() {
     let Ok(cwd_path) = cwd else {
         return;
     };
-
     let project_dir = cwd_path.join("test-projects/import-types-aliased");
     let temp_dir = unique_probe_target_dir("import-types-aliased");
     println!("import-types-aliased target dir: {}", temp_dir.display());
@@ -882,7 +781,6 @@ fn import_types_aliased_compiles_and_runs() {
         prepare.is_ok(),
         "import-types-aliased target directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let binary_result =
             compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
@@ -894,33 +792,27 @@ fn import_types_aliased_compiles_and_runs() {
                 ));
             }
         };
-
         let run_output =
             run_binary_with_timeout(&binary_path, "import-types-aliased compiled binary")?;
-
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim_end() != "User 42: Bob" {
             return Err(format!(
                 "import-types-aliased stdout should equal 'User 42: Bob', got: '{stdout}'"
             ));
         }
-
         if !run_output.status.success() {
             return Err(format!(
                 "import-types-aliased binary should exit with status code 0, got: {:?}",
                 run_output.status.code()
             ));
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "import-types-aliased target directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -930,7 +822,6 @@ fn import_types_aliased_compiles_and_runs() {
         "import-types-aliased should compile, run, print expected output, and exit cleanly: {failure_message}"
     );
 }
-
 #[test]
 fn import_types_multiple_compiles_and_runs() {
     let cwd = std::env::current_dir();
@@ -941,7 +832,6 @@ fn import_types_multiple_compiles_and_runs() {
     let Ok(cwd_path) = cwd else {
         return;
     };
-
     let project_dir = cwd_path.join("test-projects/import-types-multiple");
     let temp_dir = unique_probe_target_dir("import-types-multiple");
     println!("import-types-multiple target dir: {}", temp_dir.display());
@@ -950,7 +840,6 @@ fn import_types_multiple_compiles_and_runs() {
         prepare.is_ok(),
         "import-types-multiple target directory should be created"
     );
-
     let execution_result: Result<(), String> = (|| {
         let binary_result =
             compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
@@ -962,33 +851,27 @@ fn import_types_multiple_compiles_and_runs() {
                 ));
             }
         };
-
         let run_output =
             run_binary_with_timeout(&binary_path, "import-types-multiple compiled binary")?;
-
         let stdout = String::from_utf8_lossy(&run_output.stdout);
         if stdout.trim_end() != "Rect 10x20 at (0,0)" {
             return Err(format!(
                 "import-types-multiple stdout should equal 'Rect 10x20 at (0,0)', got: '{stdout}'"
             ));
         }
-
         if !run_output.status.success() {
             return Err(format!(
                 "import-types-multiple binary should exit with status code 0, got: {:?}",
                 run_output.status.code()
             ));
         }
-
         Ok(())
     })();
-
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
         "import-types-multiple target directory should be removed"
     );
-
     let failure_message = match execution_result {
         Ok(()) => String::new(),
         Err(message) => message,
@@ -996,5 +879,96 @@ fn import_types_multiple_compiles_and_runs() {
     assert!(
         failure_message.is_empty(),
         "import-types-multiple should compile, run, print expected output, and exit cleanly: {failure_message}"
+    );
+}
+#[test]
+#[expect(clippy::pattern_type_mismatch, reason = "borrowed report entries are matched directly in this test")]
+fn saferm_project_builds_fails_with_post_parser_semantic_blocker() {
+    let cwd = std::env::current_dir();
+    assert!(
+        cwd.is_ok(),
+        "current working directory should be readable for integration tests"
+    );
+    let Ok(cwd_path) = cwd else {
+        return;
+    };
+    let project_dir = cwd_path.join("test-projects/saferm");
+    let temp_dir = unique_probe_target_dir("saferm-project-builds");
+    println!("saferm-project-builds target dir: {}", temp_dir.display());
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "saferm-project-builds target directory should be created"
+    );
+    let execution_result: Result<(), String> = (|| {
+        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
+        let compile_error = match binary_result {
+            Ok(_path) => {
+                return Err(
+                    "saferm project should fail to compile because the documented semantic blocker remains, but compilation succeeded"
+                        .to_owned(),
+                );
+            }
+            Err(error) => error,
+        };
+        let flags_path = project_dir.join("src/flags.op");
+        let expected_source_path = flags_path.display().to_string();
+        match compile_error {
+            CompileError::Type(TypeError::SymbolNotFound { name, .. }) => {
+                if name != "path_to_string" {
+                    return Err(format!(
+                        "saferm project should fail on path_to_string, got SymbolNotFound for {name}"
+                    ));
+                }
+            }
+            CompileError::Report {
+                source_path,
+                report,
+                normalized_source,
+            } => {
+                if source_path != expected_source_path {
+                    return Err(format!(
+                        "saferm project should report the semantic blocker in src/flags.op, expected {expected_source_path}, got {source_path}"
+                    ));
+                }
+                if !normalized_source.contains("path_to_string(dest)") {
+                    return Err(format!(
+                        "saferm project should preserve the documented blocker expression, got: {normalized_source}"
+                    ));
+                }
+                let has_expected_error = report.entries().iter().any(|entry| {
+                    if let CompilerError::TypeChecker(TypeError::SymbolNotFound { name, .. }) = &entry.1 {
+                        name == "path_to_string"
+                    } else {
+                        false
+                    }
+                });
+                if !has_expected_error {
+                    return Err(format!(
+                        "saferm project should emit SymbolNotFound for path_to_string, got report entries: {:?}",
+                        report.entries()
+                    ));
+                }
+            }
+            other => {
+                return Err(format!(
+                    "saferm project should fail with SymbolNotFound/path_to_string, got: {other}"
+                ));
+            }
+        }
+        Ok(())
+    })();
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "saferm-project-builds target directory should be removed"
+    );
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "saferm project should fail with the documented post-parser semantic blocker: {failure_message}"
     );
 }

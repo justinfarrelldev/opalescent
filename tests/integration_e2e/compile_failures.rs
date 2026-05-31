@@ -608,7 +608,7 @@ fn module_discovery_parse_diagnostics_are_source_anchored() {
 
         fs::write(
             src_dir.join("main.op"),
-            "import { helper } from './broken'\n\n##\n  Description: main module that loads a broken dependency\n##\nentry main = f(args: string[]): void =>\n    print(helper())\n    return void\n",
+            "import helper from ./broken\n\n##\n  Description: main module that loads a broken dependency\n##\nentry main = f(args: string[]): void =>\n    print(helper())\n    return void\n",
         )
         .map_err(|error| format!("module-discovery main.op should be written: {error}"))?;
 
@@ -641,15 +641,34 @@ fn module_discovery_parse_diagnostics_are_source_anchored() {
             ));
         };
 
+        let expected_broken_path = broken_path.display().to_string();
+        if reported_source_path != expected_broken_path {
+            return Err(format!(
+                "module-discovery parse diagnostics should be anchored to broken.op, expected {expected_broken_path}, got {reported_source_path}"
+            ));
+        }
+
+        if !normalized_source.contains("extra") {
+            return Err(format!(
+                "module-discovery parse diagnostics should preserve the broken module source, got: {normalized_source}"
+            ));
+        }
+
         let rendered = opalescent::errors::renderer::render_report(
             reported_source_path.as_str(),
             normalized_source.as_str(),
             &report,
         );
 
-        if !rendered.contains("main.op") {
+        if !rendered.contains("broken.op") {
             return Err(format!(
-                "module-discovery parse diagnostics should be anchored to main.op, got: {rendered}"
+                "module-discovery parse diagnostics should be anchored to the imported broken module, got: {rendered}"
+            ));
+        }
+
+        if rendered.contains("main.op") {
+            return Err(format!(
+                "module-discovery parse diagnostics should not anchor to main.op, got: {rendered}"
             ));
         }
 
