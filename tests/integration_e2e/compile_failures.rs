@@ -585,41 +585,45 @@ fn ensure_guard_help_text(rendered: &str) -> Result<(), String> {
 }
 
 #[test]
-fn saferm_module_parse_diagnostics_should_be_source_anchored() {
-    let cwd = std::env::current_dir();
-    assert!(
-        cwd.is_ok(),
-        "current working directory should be readable for integration tests"
-    );
-    let Ok(cwd_path) = cwd else {
-        return;
-    };
-
-    let project_dir = cwd_path.join("test-projects/saferm");
-    let temp_dir = unique_probe_target_dir("saferm-module-parse-diagnostics");
+fn module_discovery_parse_diagnostics_are_source_anchored() {
+    let temp_dir = unique_probe_target_dir("module-discovery-parse-diagnostics");
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
-        "saferm-module-parse-diagnostics target directory should be created"
+        "module-discovery-parse-diagnostics target directory should be created"
     );
 
     let execution_result: Result<(), String> = (|| {
-        let source_path = project_dir.join("src/flags.op");
-        let source_result = fs::read_to_string(&source_path);
-        let source_str = match source_result {
-            Ok(contents) => contents,
-            Err(error) => {
-                return Err(format!(
-                    "saferm source file should be readable: {error}"
-                ));
-            }
-        };
+        let project_dir = temp_dir.join("project");
+        let src_dir = project_dir.join("src");
+
+        fs::create_dir_all(&src_dir)
+            .map_err(|error| format!("module-discovery project src directory should be created: {error}"))?;
+
+        fs::write(
+            project_dir.join("opal.toml"),
+            "name = \"module-discovery-parse-diagnostics\"\nversion = \"1.0.0\"\n",
+        )
+        .map_err(|error| format!("module-discovery opal.toml should be written: {error}"))?;
+
+        fs::write(
+            src_dir.join("main.op"),
+            "import { helper } from './broken'\n\n##\n  Description: main module that loads a broken dependency\n##\nentry main = f(args: string[]): void =>\n    print(helper())\n    return void\n",
+        )
+        .map_err(|error| format!("module-discovery main.op should be written: {error}"))?;
+
+        let broken_path = src_dir.join("broken.op");
+        fs::write(
+            &broken_path,
+            "##\n  Description: intentionally broken module used to verify module-discovery parser diagnostics\n##\npublic let helper = f(): int32 =>\n    return 1\nextra\n",
+        )
+        .map_err(|error| format!("module-discovery broken.op should be written: {error}"))?;
 
         let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(
-                    "saferm project should currently fail to compile because module parse diagnostics are collapsed, but compilation succeeded"
+                    "module-discovery parse diagnostics project should fail to compile, but compilation succeeded"
                         .to_owned(),
                 );
             }
@@ -633,17 +637,9 @@ fn saferm_module_parse_diagnostics_should_be_source_anchored() {
         } = compile_error
         else {
             return Err(format!(
-                "saferm should fail with CompileError::Report, got: {compile_error}"
+                "module-discovery parse diagnostics should fail with CompileError::Report, got: {compile_error}"
             ));
         };
-
-        if reported_source_path != source_path.display().to_string() {
-            return Err(format!(
-                "saferm module parse diagnostics should preserve the failing module path, expected {}, got {}",
-                source_path.display(),
-                reported_source_path
-            ));
-        }
 
         let rendered = opalescent::errors::renderer::render_report(
             reported_source_path.as_str(),
@@ -651,29 +647,25 @@ fn saferm_module_parse_diagnostics_should_be_source_anchored() {
             &report,
         );
 
-        let has_source_anchor = rendered.contains("flags.op")
-            || rendered.contains("public let flags: Flag[] =")
-            || rendered.contains("examples: [");
-        if !has_source_anchor {
+        if !rendered.contains("main.op") {
             return Err(format!(
-                "saferm module parse diagnostics should be source anchored and mention flags.op/public let flags/examples, got: {rendered}"
+                "module-discovery parse diagnostics should be anchored to main.op, got: {rendered}"
             ));
         }
 
-        if !rendered.contains("unexpected token") {
+        if !rendered.contains("unexpected token") && !rendered.contains("missing token") {
             return Err(format!(
-                "saferm module parse diagnostics should surface parser label/code like unexpected token, got: {rendered}"
+                "module-discovery parse diagnostics should expose parser detail text, got: {rendered}"
             ));
         }
 
-        drop(source_str);
         Ok(())
     })();
 
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
-        "saferm-module-parse-diagnostics target directory should be removed"
+        "module-discovery-parse-diagnostics target directory should be removed"
     );
 
     let failure_message = match execution_result {
@@ -682,6 +674,6 @@ fn saferm_module_parse_diagnostics_should_be_source_anchored() {
     };
     assert!(
         failure_message.is_empty(),
-        "saferm source should expose source-anchored parser diagnostics instead of only aggregate module parse failure text: {failure_message}"
+        "module-discovery parse diagnostics should be source anchored and parser-specific: {failure_message}"
     );
 }

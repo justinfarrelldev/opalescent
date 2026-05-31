@@ -547,6 +547,8 @@ fn multi_file_project_compiles_and_runs() {
 }
 
 #[test]
+#[expect(clippy::too_many_lines, reason = "integration test covers several related failure modes")]
+#[expect(clippy::pattern_type_mismatch, reason = "borrowed report entries are matched directly in this test")]
 fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
     let cwd = std::env::current_dir();
     assert!(
@@ -587,7 +589,7 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
 
         let main_write = fs::write(
             src_dir.join("main.op"),
-            "import { helper } from './worker'\n\nlet call_helper = f(): int32 =>\n    return helper()\n",
+            "import helper from ./worker\n\nlet call_helper = f(): int32 =>\n    return helper()\n",
         );
         if let Err(error) = main_write {
             return Err(format!(
@@ -617,13 +619,43 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
             Err(error) => error,
         };
 
-        let error_message = compile_error.to_string();
-        let contains_expected = error_message.to_ascii_lowercase().contains("entry")
-            && error_message.to_ascii_lowercase().contains("main");
-        if !contains_expected {
-            return Err(format!(
-                "entry-wrong-file compile error should mention entry not in main module, got: {error_message}"
-            ));
+        let worker_path = src_dir.join("worker.op");
+        match compile_error {
+            CompileError::Type(TypeError::EntryNotInMainModule { file_path, .. }) => {
+                if file_path != worker_path.display().to_string() {
+                    return Err(format!(
+                        "entry-wrong-file should report worker.op in EntryNotInMainModule, expected {}, got {}",
+                        worker_path.display(),
+                        file_path
+                    ));
+                }
+            }
+            CompileError::Report {
+                source_path,
+                report,
+                normalized_source,
+            } => {
+                let has_expected = report.entries().iter().any(|entry| {
+                    if let CompilerError::TypeChecker(TypeError::EntryNotInMainModule { file_path, .. }) =
+                        &entry.1
+                    {
+                        *file_path == worker_path.display().to_string()
+                    } else {
+                        false
+                    }
+                });
+                if !has_expected {
+                    return Err(format!(
+                        "entry-wrong-file compile error should carry EntryNotInMainModule for worker.op, got report entries: {:?}; source_path={source_path}; normalized source: {normalized_source}",
+                        report.entries()
+                    ));
+                }
+            }
+            other => {
+                return Err(format!(
+                    "entry-wrong-file should fail with EntryNotInMainModule, got: {other}"
+                ));
+            }
         }
 
         Ok(())
@@ -646,6 +678,8 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
 }
 
 #[test]
+#[expect(clippy::too_many_lines, reason = "integration test covers several related failure modes")]
+#[expect(clippy::pattern_type_mismatch, reason = "borrowed report entries are matched directly in this test")]
 fn package_import_fails_with_not_supported() {
     let cwd = std::env::current_dir();
     assert!(
@@ -686,7 +720,7 @@ fn package_import_fails_with_not_supported() {
 
         let main_write = fs::write(
             src_dir.join("main.op"),
-            "import { foo } from '@scope/package'\n\n##\n  Description: entrypoint used for package import error validation\n##\nentry main = f(args: string[]): void =>\n    print('{foo}')\n    return void\n",
+            "import foo from '@scope/package'\n\n##\n  Description: entrypoint used for package import error validation\n##\nentry main = f(args: string[]): void =>\n    print(foo)\n    return void\n",
         );
         if let Err(error) = main_write {
             return Err(format!(
@@ -706,15 +740,40 @@ fn package_import_fails_with_not_supported() {
             Err(error) => error,
         };
 
-        let error_message = compile_error.to_string();
-        let lowercase_message = error_message.to_ascii_lowercase();
-        let contains_expected = lowercase_message.contains("package")
-            && lowercase_message.contains("import")
-            && lowercase_message.contains("support");
-        if !contains_expected {
-            return Err(format!(
-                "package-import-not-supported compile error should mention package imports are not supported, got: {error_message}"
-            ));
+        match compile_error {
+            CompileError::Type(TypeError::PackageImportNotSupported { path, .. }) => {
+                if path != "@scope/package" {
+                    return Err(format!(
+                        "package-import-not-supported should report @scope/package in PackageImportNotSupported, got: {path}"
+                    ));
+                }
+            }
+            CompileError::Report {
+                source_path,
+                report,
+                normalized_source,
+            } => {
+                let has_expected = report.entries().iter().any(|entry| {
+                    if let CompilerError::TypeChecker(TypeError::PackageImportNotSupported { path, .. }) =
+                        &entry.1
+                    {
+                        path == "@scope/package"
+                    } else {
+                        false
+                    }
+                });
+                if !has_expected {
+                    return Err(format!(
+                        "package-import-not-supported compile error should carry PackageImportNotSupported for @scope/package, got report entries: {:?}; source_path={source_path}; normalized source: {normalized_source}",
+                        report.entries()
+                    ));
+                }
+            }
+            other => {
+                return Err(format!(
+                    "package-import-not-supported should fail with PackageImportNotSupported, got: {other}"
+                ));
+            }
         }
 
         Ok(())
