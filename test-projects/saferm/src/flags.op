@@ -1,0 +1,16 @@
+import type Flag from ./flags.types
+import type FilesystemPath from standard
+
+##
+    Description: The flags surfaced to the saferm program.
+##
+public let flags: Flag[] =
+    [
+        new Flag:
+            name: '--restore'
+            description: 'Shows files available to restore when used without additional arguments. When used with a filename after, restores that item to the current directory.'
+            examples: [
+                'saferm --restore filename.txt | Moves a file out of the trash and into the current directory',
+                'saferm --restore | Shows files available to restore'
+            ]
+    ]

@@ -9,5 +9,7 @@
       "matchCommandLine": true
     },
     "cargo run": true
-  }
+  },
+  "snyk.advanced.organization": "289c2cc9-c215-4968-ae45-21ea05ca64b6",
+  "snyk.advanced.autoSelectOrganization": true
 }
