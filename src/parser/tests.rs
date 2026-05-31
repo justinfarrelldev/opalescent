@@ -6432,3 +6432,153 @@ entry main = f(): void =>
         "Expected parse error for legacy `Type {{ ... }}` constructor, got: {result:?}"
     );
 }
+
+#[test]
+fn multiline_top_level_let_initializer_parses_across_blank_line() {
+    let source = "\
+public let flags: Flag[] =
+
+    [
+        1,
+        2
+    ]
+";
+
+    let program = parse_program_from_string(source)
+        .expect("public let initializer should parse across a blank line after `=`");
+    assert_eq!(program.declarations.len(), 1);
+
+    let Decl::Let {
+        binding,
+        initializer,
+        visibility,
+        ..
+    } = &program.declarations[0]
+    else {
+        panic!("Expected let declaration, got: {:?}", program.declarations[0]);
+    };
+
+    assert_eq!(*visibility, Visibility::Public);
+    assert_eq!(binding.name, "flags");
+    assert!(binding.type_annotation.is_some());
+
+    let Expr::Array { elements, .. } = initializer else {
+        panic!("Expected array initializer, got: {initializer:?}");
+    };
+    assert_eq!(elements.len(), 2, "Expected two array elements");
+}
+
+#[test]
+fn nested_multiline_array_constructor_field_parses_inside_new_constructor() {
+    let source = "\
+entry main = f(): void =>
+    let flag = new Flag:
+        name: 'restore'
+        examples: [
+            'first',
+            'second'
+        ]
+    return void
+";
+
+    let program = parse_program_from_string(source)
+        .expect("constructor field should allow a nested multiline array literal");
+    let Decl::Function { body, .. } = &program.declarations[0] else {
+        panic!("Expected function declaration, got: {:?}", program.declarations[0]);
+    };
+    let Stmt::Block { statements, .. } = body else {
+        panic!("Expected function body block, got: {body:?}");
+    };
+    let Stmt::Let {
+        initializer: Some(initializer),
+        ..
+    } = &statements[0]
+    else {
+        panic!("Expected let with initializer as first statement, got: {:?}", statements[0]);
+    };
+
+    let Expr::Constructor { fields, .. } = initializer else {
+        panic!("Expected constructor initializer, got: {initializer:?}");
+    };
+    let examples_field = fields
+        .iter()
+        .find(|field| field.name == "examples")
+        .expect("Expected examples field in constructor");
+    let Expr::Array { elements, .. } = &examples_field.value else {
+        panic!("Expected array value for examples field, got: {:?}", examples_field.value);
+    };
+    assert_eq!(elements.len(), 2, "Expected two array elements inside constructor field");
+}
+
+#[test]
+fn nested_multiline_array_constructor_field_rejects_missing_closing_bracket() {
+    let source = "\
+entry main = f(): void =>
+    let flag = new Flag:
+        examples: ['first', 'second'
+";
+
+    let errors = parse_program_from_string(source)
+        .expect_err("missing closing bracket should still fail with a parser error");
+    assert!(
+        errors.iter().any(|error| matches!(
+            error,
+            ParseError::MissingToken { expected, .. }
+                if expected == "']'"
+        )),
+        "expected a missing `]` parser error, got: {errors:?}"
+    );
+}
+
+#[test]
+fn nested_multiline_array_constructor_field_rejects_missing_expression_after_comma() {
+    let source = "\
+entry main = f(): void =>
+    let flag = new Flag:
+        examples: ['first',]
+";
+
+    let errors = parse_program_from_string(source)
+        .expect_err("missing array element after comma should fail with a parser error");
+    assert!(
+        errors.iter().any(|error| matches!(
+            error,
+            ParseError::UnexpectedToken { expected, found, .. }
+                if expected.contains("expression") && found == "']'"
+        )),
+        "expected a missing-expression parser error after comma, got: {errors:?}"
+    );
+}
+
+#[test]
+fn malformed_multiline_array_reports_span() {
+    let source = "\
+entry main = f(): void =>
+    let flag = new Flag:
+        examples: [
+            'first',
+        ]
+";
+    let closing_bracket_offset = source.find(']').expect("expected closing bracket in test source");
+
+    let errors = parse_program_from_string(source)
+        .expect_err("trailing comma in multiline array should still fail with a parser error");
+    let Some(ParseError::UnexpectedToken {
+        expected,
+        found,
+        span,
+    }) = errors.iter().find(|error| {
+        matches!(
+            error,
+            ParseError::UnexpectedToken { expected, found, .. }
+                if expected.contains("expression") && found == "']'"
+        )
+    }) else {
+        panic!("expected missing-expression parser error at closing bracket, got: {errors:?}");
+    };
+
+    assert!(expected.contains("expression"));
+    assert_eq!(found, "']'");
+    assert_eq!(span.offset(), closing_bracket_offset);
+    assert_eq!(span.len(), 1);
+}

@@ -692,6 +692,7 @@ impl Parser {
         )?;
 
         // Parse initializer expression
+        self.skip_newlines_and_comments();
         let initializer = self.parse_expression()?;
 
         let end_span = self.previous_token().span;

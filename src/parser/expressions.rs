@@ -350,12 +350,15 @@ impl Parser {
         self.advance();
         let mut elements = Vec::new();
 
+        self.skip_newlines_and_comments();
         if !self.check(&TokenType::RightBracket) {
             loop {
                 elements.push(self.parse_precedence(Precedence::Assignment)?);
+                self.skip_newlines_and_comments();
 
                 if self.check(&TokenType::Comma) {
                     self.advance();
+                    self.skip_newlines_and_comments();
                 } else {
                     break;
                 }
