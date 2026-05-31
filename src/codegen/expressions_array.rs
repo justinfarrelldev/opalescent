@@ -999,7 +999,7 @@ fn declare_or_get_array_drop_children_fn<'context>(
     Ok(function)
 }
 
-fn declare_or_get_opal_rc_drop_child<'context>(
+pub(crate) fn declare_or_get_opal_rc_drop_child<'context>(
     codegen_context: &CodegenContext<'context>,
 ) -> FunctionValue<'context> {
     let module = &codegen_context.module;

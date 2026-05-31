@@ -6,10 +6,11 @@
 extern crate alloc;
 
 use crate::ast::{Decl, Expr, ImportItem, Visibility};
-use crate::codegen::binding_store::initialize_binding_value;
+use crate::codegen::binding_store::{binding_requires_rc_cleanup, initialize_binding_value};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, ValueAccessorBinding, VariableBinding};
+use crate::codegen::rc_emitter::RcEmitter;
 use crate::codegen::statements::codegen_statement;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
@@ -174,6 +175,7 @@ pub fn codegen_function_declaration<'context>(
     Ok(function)
 }
 
+#[expect(clippy::too_many_lines, reason = "top-level declarations handle cache initialization and RC bookkeeping together")]
 pub fn codegen_top_level_value_declaration<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -257,11 +259,21 @@ pub fn codegen_top_level_value_declaration<'context>(
     let cached_value = codegen_context
         .builder
         .build_load(cache_global.as_pointer_value(), "value.cached.load")?;
+    if binding_requires_rc_cleanup(core_type) {
+        let pointer_value = cached_value.into_pointer_value();
+        let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
+        emitter.emit_inc(pointer_value)?;
+    }
     codegen_context.builder.build_return(Some(&cached_value))?;
 
     codegen_context.builder.position_at_end(init_block);
     let initialized_value =
         crate::codegen::expressions::codegen_expression(codegen_context, env, initializer, Some(core_type))?;
+    if binding_requires_rc_cleanup(core_type) {
+        let pointer_value = initialized_value.into_pointer_value();
+        let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
+        emitter.emit_inc(pointer_value)?;
+    }
     codegen_context
         .builder
         .build_store(cache_global.as_pointer_value(), initialized_value)?;

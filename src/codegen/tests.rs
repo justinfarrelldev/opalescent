@@ -2239,6 +2239,146 @@ fn test_codegen_product_field_access_loads_named_field() {
 }
 
 #[test]
+fn test_codegen_local_nominal_field_access_uses_pointer_backed_payload_path() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "nominal_product_field_access");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+    env.adt_field_layouts.insert(
+        String::from("Point"),
+        vec![
+            (String::from("x"), CoreType::Int64),
+            (String::from("y"), CoreType::Int64),
+        ],
+    );
+    env.adt_field_indices.insert(
+        String::from("Point"),
+        [
+            (String::from("x"), 0_u32),
+            (String::from("y"), 1_u32),
+        ]
+        .into_iter()
+        .collect(),
+    );
+
+    let point_constructor = Expr::Constructor {
+        callee: Box::new(ident(728, "Point")),
+        fields: vec![
+            crate::ast::ConstructorField {
+                name: String::from("x"),
+                value: int_lit(729, 5),
+                span: test_span(),
+            },
+            crate::ast::ConstructorField {
+                name: String::from("y"),
+                value: int_lit(730, 6),
+                span: test_span(),
+            },
+        ],
+        span: test_span(),
+        id: test_node_id(731),
+    };
+
+    let point_decl = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("point"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("Point"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(732),
+        },
+        initializer: Some(point_constructor),
+        span: test_span(),
+        id: test_node_id(733),
+    };
+    let decl_result = codegen_statement(&codegen_context, &mut env, &point_decl);
+    assert!(
+        decl_result.is_ok(),
+        "nominal product constructor let should codegen"
+    );
+
+    let field_expr = Expr::Member {
+        object: Box::new(ident(734, "point")),
+        member: String::from("y"),
+        span: test_span(),
+        id: test_node_id(735),
+    };
+    let field_result = codegen_field_access_expression(&codegen_context, &mut env, &field_expr);
+    assert!(
+        field_result.is_ok(),
+        "field access on local nominal product should codegen"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("field.ptr.gep") && ir.contains("product.payload.cast"),
+        "local nominal field access should use pointer-backed payload path: {ir}"
+    );
+    assert!(
+        !ir.contains("field.gep"),
+        "local nominal field access must not reuse inline stack-slot field indexing: {ir}"
+    );
+}
+
+#[test]
+fn test_codegen_nominal_product_with_array_child_emits_drop_callback() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "nominal_product_array_child_drop");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+    env.adt_field_layouts.insert(
+        String::from("Boxed"),
+        vec![(
+            String::from("items"),
+            CoreType::Array(Box::new(CoreType::Int64)),
+        )],
+    );
+
+    let constructor_expr = Expr::Constructor {
+        callee: Box::new(ident(736, "Boxed")),
+        fields: vec![crate::ast::ConstructorField {
+            name: String::from("items"),
+            value: Expr::Array {
+                elements: vec![int_lit(737, 1), int_lit(738, 2), int_lit(739, 3)],
+                span: test_span(),
+                id: test_node_id(740),
+            },
+            span: test_span(),
+        }],
+        span: test_span(),
+        id: test_node_id(741),
+    };
+    let nominal_type = CoreType::Generic {
+        name: String::from("Boxed"),
+        type_args: vec![],
+    };
+
+    let result = codegen_expression(
+        &codegen_context,
+        &mut env,
+        &constructor_expr,
+        Some(&nominal_type),
+    );
+    assert!(
+        result.is_ok(),
+        "nominal product with array child should codegen"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("@__opalescent_drop_children_Boxed") && ir.contains("@opal_rc_drop_child"),
+        "nominal product with RC-bearing child should emit a dedicated child-drop callback: {ir}"
+    );
+    assert!(
+        ir.contains("call i8* @opal_rc_alloc") && ir.contains("bitcast (void (i8*, i8***, i64*, i64*)* @__opalescent_drop_children_Boxed to i8*)"),
+        "nominal product allocation should pass the child-drop callback to opal_rc_alloc: {ir}"
+    );
+}
+
+#[test]
 fn test_codegen_power_operator_int_computes_correct_value() {
     // Verify that the `^` (power) binary operator lowers to correct LLVM IR for integers.
     let context = Context::create();

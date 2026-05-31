@@ -5,9 +5,11 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::expressions_array::{
-    load_array_length_from_value, load_array_payload_ptr_from_binding,
+    declare_or_get_opal_rc_drop_child, load_array_length_from_value,
+    load_array_payload_ptr_from_binding, requires_rc_runtime_hooks,
 };
-use crate::codegen::types::integer_literal_bits;
+use crate::codegen::rc_emitter::RcEmitter;
+use crate::codegen::types::{core_type_to_llvm, integer_literal_bits};
 use crate::type_system::fallible_constructors::{
     CanonicalTypeIdentity, FallibleConstructorEntry, lookup_fallible_constructor,
 };
@@ -18,6 +20,7 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::values::{BasicValue, BasicValueEnum};
+use inkwell::AddressSpace;
 
 #[doc = "Instantiate a concrete ADT symbol name for generic arguments."]
 #[must_use]
@@ -92,7 +95,12 @@ pub fn codegen_constructor_expression<'context>(
         if matches!(callee.as_ref(), &Expr::Member { .. }) {
             return codegen_sum_variant_constructor(codegen_context, env, fields.as_slice());
         }
-        return codegen_product_constructor(codegen_context, env, fields.as_slice());
+        return codegen_product_constructor(
+            codegen_context,
+            env,
+            fields.as_slice(),
+            expected_type,
+        );
     }
     Err(CodegenError::new(String::from(
         "expected constructor expression",
@@ -140,30 +148,34 @@ pub fn codegen_field_access_expression<'context>(
                 return Ok(lowered);
             }
 
-            if let Some(field_indices) = env
-                .variable_field_indices
-                .get(effective_receiver_name.as_str())
-            {
-                if let Some(index) = field_indices.get(effective_member_name) {
-                    // SAFETY: Index comes from tracked constructor field layout for same receiver alloca.
-                    // SAFETY: GEP indices are derived from the tracked ADT layout for the concrete receiver type.
-        let field_ptr = unsafe {
-                        codegen_context.builder.build_in_bounds_gep(
-                            binding.alloca,
-                            &[
-                                codegen_context.context.i32_type().const_zero(),
-                                codegen_context
-                                    .context
-                                    .i32_type()
-                                    .const_int(u64::from(*index), false),
-                            ],
-                            &env.next_name("field.gep"),
-                        )?
-                    };
-                    return codegen_context
-                        .builder
-                        .build_load(field_ptr, &env.next_name("field.load"))
-                        .map_err(CodegenError::from);
+            let uses_pointer_backed_nominal_path = matches!(
+                &binding.core_type,
+                &CoreType::Generic { ref name, .. } if env.adt_field_layouts.contains_key(name)
+            );
+            if !uses_pointer_backed_nominal_path {
+                if let Some(field_indices) = env
+                    .variable_field_indices
+                    .get(effective_receiver_name.as_str())
+                {
+                    if let Some(index) = field_indices.get(effective_member_name) {
+                        let field_ptr = unsafe {
+                            codegen_context.builder.build_in_bounds_gep(
+                                binding.alloca,
+                                &[
+                                    codegen_context.context.i32_type().const_zero(),
+                                    codegen_context
+                                        .context
+                                        .i32_type()
+                                        .const_int(u64::from(*index), false),
+                                ],
+                                &env.next_name("field.gep"),
+                            )?
+                        };
+                        return codegen_context
+                            .builder
+                            .build_load(field_ptr, &env.next_name("field.load"))
+                            .map_err(CodegenError::from);
+                    }
                 }
             }
         }
@@ -704,12 +716,60 @@ fn codegen_sum_variant_constructor<'context>(
         .map_err(CodegenError::from)
 }
 
-#[doc = "Lower product constructors to plain LLVM struct values."]
+#[doc = "Lower product constructors to plain LLVM struct values or heap-backed nominal payloads."]
 fn codegen_product_constructor<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     fields: &[crate::ast::ConstructorField],
+    expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
+    if let Some(&CoreType::Generic { ref name, .. }) = expected_type {
+        if let Some(field_layout) = env.adt_field_layouts.get(name.as_str()).cloned() {
+            let field_map = fields.iter().map(|field| (field.name.as_str(), &field.value)).collect::<BTreeMap<_, _>>();
+            let mut lowered_fields = Vec::with_capacity(field_layout.len());
+            let field_types = field_layout
+                .iter()
+                .map(|&(_, ref field_type)| core_type_to_llvm(codegen_context.context, field_type))
+                .collect::<Vec<_>>();
+            let struct_type = codegen_context.context.struct_type(field_types.as_slice(), false);
+            for &(ref field_name, ref field_type) in &field_layout {
+                let field_expr = field_map.get(field_name.as_str()).copied().ok_or_else(|| {
+                    CodegenError::new(format!("missing field '{field_name}' for constructor '{name}'"))
+                })?;
+                lowered_fields.push(codegen_expression(codegen_context, env, field_expr, Some(field_type))?);
+            }
+            let payload_size = struct_type.size_of().ok_or_else(|| CodegenError::new(format!("could not compute payload size for constructor '{name}'")))?;
+            let nominal_core_type = expected_type.expect("nominal constructor expected type should exist");
+            let drop_children_fn = if field_layout.iter().any(|&(_, ref field_type)| requires_rc_runtime_hooks(field_type)) {
+                let callback = declare_or_get_nominal_drop_children_fn(codegen_context, nominal_core_type, field_layout.as_slice())?;
+                let i8_ptr_type = codegen_context.context.i8_type().ptr_type(AddressSpace::default());
+                Some(callback.as_global_value().as_pointer_value().const_cast(i8_ptr_type))
+            } else {
+                None
+            };
+            let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
+            let payload_ptr = emitter.emit_alloc(payload_size, drop_children_fn)?;
+            let typed_ptr = codegen_context.builder.build_pointer_cast(payload_ptr, struct_type.ptr_type(AddressSpace::default()), &env.next_name("product.payload.cast"))?;
+            for (index, value) in lowered_fields.iter().enumerate() {
+                let converted_index = u64::try_from(index)
+                    .map_err(|conversion_error| CodegenError::new(format!("{conversion_error}")))?;
+                // SAFETY: GEP indices come from the concrete nominal field layout for this payload.
+                let field_ptr = unsafe {
+                    codegen_context.builder.build_in_bounds_gep(
+                        typed_ptr,
+                        &[
+                            codegen_context.context.i32_type().const_zero(),
+                            codegen_context.context.i32_type().const_int(converted_index, false),
+                        ],
+                        &env.next_name("product.field.ptr"),
+                    )?
+                };
+                let _store = codegen_context.builder.build_store(field_ptr, *value)?;
+            }
+            return Ok(payload_ptr.as_basic_value_enum());
+        }
+    }
+
     let mut lowered_fields = Vec::new();
     for field in fields {
         lowered_fields.push(codegen_expression(
@@ -734,7 +794,7 @@ fn codegen_product_constructor<'context>(
     for (index, value) in lowered_fields.iter().enumerate() {
         let converted_index = u64::try_from(index)
             .map_err(|conversion_error| CodegenError::new(format!("{conversion_error}")))?;
-        // SAFETY: Field index comes from bounded iteration over the constructor field vector.
+        // SAFETY: GEP indices come from the constructor's concrete field layout.
         let field_ptr = unsafe {
             codegen_context.builder.build_in_bounds_gep(
                 alloca,
@@ -755,6 +815,122 @@ fn codegen_product_constructor<'context>(
         .builder
         .build_load(alloca, &env.next_name("product.value"))
         .map_err(CodegenError::from)
+}
+
+#[doc = "Build or fetch the nominal product child-drop callback used by the RC runtime."]
+#[expect(clippy::too_many_lines, reason = "nominal child-drop callback setup is centralized here")]
+fn declare_or_get_nominal_drop_children_fn<'context>(
+    codegen_context: &CodegenContext<'context>,
+    nominal_core_type: &CoreType,
+    field_layout: &[(String, CoreType)],
+) -> Result<inkwell::values::FunctionValue<'context>, CodegenError> {
+    let &CoreType::Generic { ref name, ref type_args } = nominal_core_type else {
+        return Err(CodegenError::new(String::from(
+            "nominal child-drop callback requires generic nominal type",
+        )));
+    };
+    let specialized_name = instantiate_generic_adt_name(name.as_str(), type_args.as_slice());
+    let function_name = format!("__opalescent_drop_children_{specialized_name}");
+    if let Some(function) = codegen_context.module.get_function(function_name.as_str()) {
+        return Ok(function);
+    }
+
+    let context = codegen_context.context;
+    let i8_ptr_type = context.i8_type().ptr_type(AddressSpace::default());
+    let i8_ptr_ptr_type = i8_ptr_type.ptr_type(AddressSpace::default());
+    let i8_ptr_ptr_ptr_type = i8_ptr_ptr_type.ptr_type(AddressSpace::default());
+    let size_t_ptr_type = context.i64_type().ptr_type(AddressSpace::default());
+    let function_type = context.void_type().fn_type(
+        &[
+            i8_ptr_type.into(),
+            i8_ptr_ptr_ptr_type.into(),
+            size_t_ptr_type.into(),
+            size_t_ptr_type.into(),
+        ],
+        false,
+    );
+    let function = codegen_context.module.add_function(
+        function_name.as_str(),
+        function_type,
+        Some(inkwell::module::Linkage::Internal),
+    );
+    let entry = context.append_basic_block(function, "entry");
+    let current_block = codegen_context.builder.get_insert_block();
+    codegen_context.builder.position_at_end(entry);
+
+    let payload = function
+        .get_nth_param(0)
+        .expect("nominal child-drop callback should receive payload")
+        .into_pointer_value();
+    let stack = function
+        .get_nth_param(1)
+        .expect("nominal child-drop callback should receive stack")
+        .into_pointer_value();
+    let stack_top = function
+        .get_nth_param(2)
+        .expect("nominal child-drop callback should receive stack_top")
+        .into_pointer_value();
+    let stack_cap = function
+        .get_nth_param(3)
+        .expect("nominal child-drop callback should receive stack_cap")
+        .into_pointer_value();
+
+    let struct_type = context.struct_type(
+        field_layout
+            .iter()
+            .map(|&(_, ref field_type)| core_type_to_llvm(context, field_type))
+            .collect::<Vec<_>>()
+            .as_slice(),
+        false,
+    );
+    let typed_ptr = codegen_context.builder.build_pointer_cast(
+        payload,
+        struct_type.ptr_type(AddressSpace::default()),
+        "nominal.drop.payload.cast",
+    )?;
+    let drop_child_fn = declare_or_get_opal_rc_drop_child(codegen_context);
+    for (index, &(_, ref field_type)) in field_layout.iter().enumerate() {
+        if !requires_rc_runtime_hooks(field_type) {
+            continue;
+        }
+        let converted_index = u64::try_from(index)
+            .map_err(|conversion_error| CodegenError::new(format!("{conversion_error}")))?;
+        // SAFETY: GEP indices come from the concrete nominal field layout for this payload.
+        let field_ptr = unsafe {
+            codegen_context.builder.build_in_bounds_gep(
+                typed_ptr,
+                &[
+                    context.i32_type().const_zero(),
+                    context.i32_type().const_int(converted_index, false),
+                ],
+                "nominal.drop.field.ptr",
+            )?
+        };
+        let field_value = codegen_context
+            .builder
+            .build_load(field_ptr, "nominal.drop.field.load")?
+            .into_pointer_value();
+        let child_ptr = codegen_context.builder.build_pointer_cast(
+            field_value,
+            i8_ptr_type,
+            "nominal.drop.child.cast",
+        )?;
+        let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
+            drop_child_fn,
+            &[
+                child_ptr.into(),
+                stack.into(),
+                stack_top.into(),
+                stack_cap.into(),
+            ],
+            "nominal.drop.child.call",
+        )?;
+    }
+    let _: inkwell::values::InstructionValue = codegen_context.builder.build_return(None)?;
+    if let Some(block) = current_block {
+        codegen_context.builder.position_at_end(block);
+    }
+    Ok(function)
 }
 
 #[doc = "Render type argument to specialization suffix fragment."]

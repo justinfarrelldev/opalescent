@@ -882,8 +882,28 @@ fn import_types_multiple_compiles_and_runs() {
     );
 }
 #[test]
-#[expect(clippy::pattern_type_mismatch, reason = "borrowed report entries are matched directly in this test")]
-fn saferm_project_builds_fails_with_post_parser_semantic_blocker() {
+fn local_nominal_product_field_access_compiles_and_runs() {
+    let temp_dir = unique_probe_target_dir("local-nominal-product-field-access");
+    println!("local-nominal-product-field-access target dir: {}", temp_dir.display());
+    assert!(prepare_dir(&temp_dir).is_ok(), "local-nominal-product-field-access target directory should be created");
+    let execution_result: Result<(), String> = (|| {
+        let project_dir = temp_dir.join("project");
+        let src_dir = project_dir.join("src");
+        fs::create_dir_all(&src_dir).map_err(|error| format!("local nominal product field access project src directory should be created: {error}"))?;
+        fs::write(project_dir.join("opal.toml"), "name = \"local-nominal-product-field-access\"\nversion = \"1.0.0\"\n").map_err(|error| format!("local nominal product field access opal.toml should be written: {error}"))?;
+        fs::write(src_dir.join("models.types.op"), "##\n  Description: local nominal field access runtime regression type\n##\npublic type Point:\n    x: int64\n    y: int64\n").map_err(|error| format!("local nominal product field access models.types.op should be written: {error}"))?;
+        fs::write(src_dir.join("main.op"), "import Point from ./models.types\n\n##\n  Description: local nominal field access runtime regression main\n##\nentry main = f(args: string[]): void =>\n    let point: Point = new Point:\n        x: 5\n        y: 6\n    print('{point.y}')\n    return void\n").map_err(|error| format!("local nominal product field access main.op should be written: {error}"))?;
+        let binary_path = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host()).map_err(|error| format!("local nominal product field access project should compile into a binary: {error}"))?;
+        let run_output = run_binary_with_timeout(&binary_path, "local nominal product field access compiled binary")?;
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        if run_output.status.success() && stdout.trim_end() == "6" { Ok(()) } else { Err(format!("local nominal product field access should compile, run, print expected output, and exit cleanly: status={:?}, stdout='{stdout}'", run_output.status.code())) }
+    })();
+    assert!(cleanup_dir(&temp_dir).is_ok(), "local-nominal-product-field-access target directory should be removed");
+    assert!(execution_result.is_ok(), "local nominal product field access should compile, run, print expected output, and exit cleanly: {execution_result:?}");
+}
+
+#[test]
+fn saferm_project_builds_and_prints_help() {
     let cwd = std::env::current_dir();
     assert!(
         cwd.is_ok(),
@@ -901,58 +921,34 @@ fn saferm_project_builds_fails_with_post_parser_semantic_blocker() {
         "saferm-project-builds target directory should be created"
     );
     let execution_result: Result<(), String> = (|| {
-        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
-        let compile_error = match binary_result {
-            Ok(_path) => {
-                return Err(
-                    "saferm project should fail to compile because the documented semantic blocker remains, but compilation succeeded"
-                        .to_owned(),
-                );
-            }
-            Err(error) => error,
-        };
-        let flags_path = project_dir.join("src/flags.op");
-        let expected_source_path = flags_path.display().to_string();
-        match compile_error {
-            CompileError::Type(TypeError::SymbolNotFound { name, .. }) => {
-                if name != "path_to_string" {
-                    return Err(format!(
-                        "saferm project should fail on path_to_string, got SymbolNotFound for {name}"
-                    ));
-                }
-            }
-            CompileError::Report {
-                source_path,
-                report,
-                normalized_source,
-            } => {
-                if source_path != expected_source_path {
-                    return Err(format!(
-                        "saferm project should report the semantic blocker in src/flags.op, expected {expected_source_path}, got {source_path}"
-                    ));
-                }
-                if !normalized_source.contains("path_to_string(dest)") {
-                    return Err(format!(
-                        "saferm project should preserve the documented blocker expression, got: {normalized_source}"
-                    ));
-                }
-                let has_expected_error = report.entries().iter().any(|entry| {
-                    if let CompilerError::TypeChecker(TypeError::SymbolNotFound { name, .. }) = &entry.1 {
-                        name == "path_to_string"
-                    } else {
-                        false
-                    }
-                });
-                if !has_expected_error {
-                    return Err(format!(
-                        "saferm project should emit SymbolNotFound for path_to_string, got report entries: {:?}",
-                        report.entries()
-                    ));
-                }
-            }
-            other => {
+        let binary_path = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host())
+            .map_err(|error| format!("saferm project should compile into a binary: {error}"))?;
+        let mut command = std::process::Command::new(&binary_path);
+        command.current_dir(&project_dir).arg("--help");
+        let run_output = run_command_output_with_timeout(
+            &mut command,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "saferm compiled binary --help",
+        )?;
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        if !run_output.status.success() {
+            return Err(format!(
+                "saferm --help should exit with status code 0, got {:?} with stdout '{stdout}' and stderr '{}'",
+                run_output.status.code(),
+                String::from_utf8_lossy(&run_output.stderr)
+            ));
+        }
+        for expected_snippet in [
+            "saferm will put items you remove in",
+            "Options:",
+            "- saferm --restore | Shows files available to restore when used without additional arguments.",
+            "Usage:",
+            "saferm --restore filename.txt | Moves a file out of the trash and into the current directory",
+            "saferm --restore | Shows files available to restore",
+        ] {
+            if !stdout.contains(expected_snippet) {
                 return Err(format!(
-                    "saferm project should fail with SymbolNotFound/path_to_string, got: {other}"
+                    "saferm --help stdout should contain '{expected_snippet}', got: '{stdout}'"
                 ));
             }
         }
@@ -969,6 +965,6 @@ fn saferm_project_builds_fails_with_post_parser_semantic_blocker() {
     };
     assert!(
         failure_message.is_empty(),
-        "saferm project should fail with the documented post-parser semantic blocker: {failure_message}"
+        "saferm project should compile and print help output cleanly: {failure_message}"
     );
 }
