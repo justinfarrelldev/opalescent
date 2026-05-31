@@ -52,6 +52,12 @@ pub struct VariableBinding<'context> {
 }
 
 #[derive(Debug, Clone)]
+pub struct ValueAccessorBinding {
+    pub accessor_name: String,
+    pub core_type: CoreType,
+}
+
+#[derive(Debug, Clone)]
 pub struct LoopContext<'context> {
     pub continue_target: inkwell::basic_block::BasicBlock<'context>,
     pub break_target: inkwell::basic_block::BasicBlock<'context>,
@@ -63,10 +69,13 @@ pub struct LoopContext<'context> {
 pub struct CodegenEnv<'context> {
     pub variables: BTreeMap<String, VariableBinding<'context>>,
     pub imported_functions: BTreeMap<String, String>,
+    pub value_accessors: BTreeMap<String, ValueAccessorBinding>,
     /// Type signatures for imported symbols keyed by import-visible symbol name.
     pub imported_signatures: BTreeMap<String, CoreType>,
     /// Function names proven to return caller-owned malloc strings.
     pub owned_string_functions: BTreeMap<String, bool>,
+    pub adt_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
+    pub adt_field_layouts: BTreeMap<String, Vec<(String, CoreType)>>,
     pub variable_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
     pub variable_field_aliases: BTreeMap<String, BTreeMap<String, String>>,
     pub emitted_specializations: BTreeMap<(String, Vec<String>), FunctionValue<'context>>,
@@ -88,8 +97,11 @@ impl<'context> CodegenEnv<'context> {
         Self {
             variables: BTreeMap::new(),
             imported_functions: BTreeMap::new(),
+            value_accessors: BTreeMap::new(),
             imported_signatures: BTreeMap::new(),
             owned_string_functions: BTreeMap::new(),
+            adt_field_indices: BTreeMap::new(),
+            adt_field_layouts: BTreeMap::new(),
             variable_field_indices: BTreeMap::new(),
             variable_field_aliases: BTreeMap::new(),
             emitted_specializations: BTreeMap::new(),
@@ -274,23 +286,54 @@ fn codegen_literal<'context>(
 
 fn codegen_identifier<'context>(
     codegen_context: &CodegenContext<'context>,
-    env: &CodegenEnv<'context>,
+    env: &mut CodegenEnv<'context>,
     name: &str,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let Some(binding) = env.variables.get(name) else {
+    if let Some(binding) = env.variables.get(name) {
+        return Ok(codegen_context.builder.build_load(binding.alloca, name)?);
+    }
+
+    let Some(accessor_binding) = env.value_accessors.get(name).cloned() else {
         return Err(CodegenError::new(format!("unknown variable '{name}'")));
     };
-    Ok(codegen_context.builder.build_load(binding.alloca, name)?)
+    let accessor_function = codegen_context
+        .module
+        .get_function(accessor_binding.accessor_name.as_str())
+        .ok_or_else(|| {
+            CodegenError::new(format!(
+                "missing imported value accessor '{}' for '{name}'",
+                accessor_binding.accessor_name
+            ))
+        })?;
+    let call = codegen_context.builder.build_call(
+        accessor_function,
+        &[],
+        &env.next_name(format!("{name}.value.access").as_str()),
+    )?;
+    call.try_as_basic_value().basic().ok_or_else(|| {
+        CodegenError::new(format!(
+            "imported value accessor '{}' did not return a value",
+            accessor_binding.accessor_name
+        ))
+    })
+}
+
+fn identifier_core_type(env: &CodegenEnv<'_>, name: &str) -> Option<CoreType> {
+    env.variables
+        .get(name)
+        .map(|binding| binding.core_type.clone())
+        .or_else(|| {
+            env.value_accessors
+                .get(name)
+                .map(|binding| binding.core_type.clone())
+        })
 }
 
 /// Infer the `CoreType` of an expression for comparison purposes.
 /// Returns None if type cannot be determined (fallback to strcmp).
 fn infer_operand_type(expr: &Expr, env: &CodegenEnv<'_>) -> Option<CoreType> {
     match *expr {
-        Expr::Identifier { ref name, .. } => env
-            .variables
-            .get(name)
-            .map(|binding| binding.core_type.clone()),
+        Expr::Identifier { ref name, .. } => identifier_core_type(env, name),
         Expr::Literal { ref value, .. } => Some(match *value {
             LiteralValue::String(_) => CoreType::String,
             LiteralValue::Integer(_) => CoreType::Int64,
@@ -304,10 +347,7 @@ fn infer_operand_type(expr: &Expr, env: &CodegenEnv<'_>) -> Option<CoreType> {
 
 fn infer_cast_source_core_type(expr: &Expr, env: &CodegenEnv<'_>) -> Option<CoreType> {
     match *expr {
-        Expr::Identifier { ref name, .. } => env
-            .variables
-            .get(name)
-            .map(|binding| binding.core_type.clone()),
+        Expr::Identifier { ref name, .. } => identifier_core_type(env, name),
         Expr::Literal {
             value: LiteralValue::Integer(_),
             ..

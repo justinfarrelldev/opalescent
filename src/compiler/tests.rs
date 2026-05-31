@@ -5,7 +5,9 @@ use super::{
 };
 use crate::build_system::targets::{TargetTriple, parse_target_triple};
 use crate::compiler::compiler_helpers::{
-    compile_checked_program_to_module, parse_source_to_program,
+    collect_module_symbol_signatures, collect_program_adt_field_indices,
+    collect_program_adt_field_layouts, compile_checked_program_to_module,
+    parse_source_to_program,
 };
 use crate::errors::reporter::CompilerError;
 use crate::type_system::checker::TypeChecker;
@@ -206,9 +208,19 @@ fn compile_checked_program_to_module_preserves_windows_target_for_stdlib_abi() {
         .expect("source should type-check");
     let imported_signatures =
         crate::compiler::compiler_helpers::collect_imported_symbol_signatures(&checker, &program);
-    let module =
-        compile_checked_program_to_module(&context, &program, imported_signatures, &target)
-            .expect("compiler helper should build module for windows target");
+    let module_symbol_signatures = collect_module_symbol_signatures(&checker, "test.op");
+    let adt_field_indices = collect_program_adt_field_indices(&program);
+    let adt_field_layouts = collect_program_adt_field_layouts(&program);
+    let module = compile_checked_program_to_module(
+        &context,
+        &program,
+        imported_signatures,
+        &module_symbol_signatures,
+        &adt_field_indices,
+        &adt_field_layouts,
+        &target,
+    )
+    .expect("compiler helper should build module for windows target");
     let ir = module.print_to_string().to_string();
     assert!(
         ir.contains("declare void @read_text_sync({ i8*, i8* }* sret({ i8*, i8* }), i8*)"),
@@ -384,6 +396,71 @@ fn compile_project_type_errors_return_miette_report() {
             )
         )),
         "project report should retain the guard TypeError diagnostic"
+    );
+}
+
+#[test]
+fn imported_public_array_values_compile_through_loop_length_and_indexing() {
+    let temp_dir = tempfile::tempdir().expect("create temp project");
+    let src_dir = temp_dir.path().join("src");
+    std::fs::create_dir_all(&src_dir).expect("create src dir");
+    std::fs::write(
+        temp_dir.path().join("opal.toml"),
+        "name = \"imported-public-array-values\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("write opal.toml");
+    std::fs::write(
+        src_dir.join("flags.op"),
+        "public let flags: int64[] = [7, 9]\n",
+    )
+    .expect("write flags module");
+    std::fs::write(
+        src_dir.join("main.op"),
+        "import flags from ./flags\n\n##\n    Description: Entry function exercises imported public array values\n##\nentry main = f(): void =>\n    let mutable total: int64 = 0\n    for flag in flags:\n        total = total + flag\n    let count: int64 = flags.length\n    let second_flag: int64 = flags[1]\n    if total < count + second_flag:\n        return void\n    return void\n",
+    )
+    .expect("write main source");
+
+    let target = TargetTriple::host();
+    let result = super::compile_project_with_run_policy(
+        temp_dir.path(),
+        &temp_dir.path().join("target"),
+        &target,
+        CompileRunPolicy::default(),
+    );
+    assert!(
+        result.is_ok(),
+        "imported public array values should compile through loop, length, and indexing: {result:?}"
+    );
+}
+
+#[test]
+fn imported_public_scalar_values_compile_in_expressions() {
+    let temp_dir = tempfile::tempdir().expect("create temp project");
+    let src_dir = temp_dir.path().join("src");
+    std::fs::create_dir_all(&src_dir).expect("create src dir");
+    std::fs::write(
+        temp_dir.path().join("opal.toml"),
+        "name = \"imported-public-scalar-values\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("write opal.toml");
+    std::fs::write(src_dir.join("config.op"), "public let answer: int64 = 41\n")
+        .expect("write config source");
+    std::fs::write(
+        src_dir.join("main.op"),
+        "import answer from ./config\n\n##\n    Description: Entry function exercises imported public scalar values\n##\nentry main = f(): void =>\n    let next: int64 = answer + 1\n    if next is 42:\n        return void\n    return void\n",
+    )
+    .expect("write main source");
+
+    let target = TargetTriple::host();
+    let result = super::compile_project_with_run_policy(
+        temp_dir.path(),
+        &temp_dir.path().join("target"),
+        &target,
+        CompileRunPolicy::default(),
+    );
+    assert!(
+        result.is_ok(),
+        "imported public scalar values should compile inside normal expressions: {result:?}"
     );
 }
 

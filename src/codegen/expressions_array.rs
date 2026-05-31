@@ -436,7 +436,12 @@ pub fn infer_expression_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<C
         Expr::Identifier { ref name, .. } => env
             .variables
             .get(name.as_str())
-            .map(|binding| binding.core_type.clone()),
+            .map(|binding| binding.core_type.clone())
+            .or_else(|| {
+                env.value_accessors
+                    .get(name.as_str())
+                    .map(|binding| binding.core_type.clone())
+            }),
         Expr::Array { ref elements, .. } => elements.first().map_or_else(
             || Some(CoreType::Array(Box::new(CoreType::Int64))),
             |first| {
@@ -455,6 +460,14 @@ pub fn infer_expression_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<C
         } => match infer_expression_core_type(env, object.as_ref()) {
             Some(CoreType::Array(_)) if member == "length" => Some(CoreType::Int64),
             Some(CoreType::Array(element_type)) => Some(element_type.as_ref().clone()),
+            Some(CoreType::Generic { name, .. }) => env
+                .adt_field_layouts
+                .get(name.as_str())
+                .and_then(|field_layout| {
+                    field_layout.iter().find_map(|(field_name, field_type)| {
+                        (field_name == member).then(|| field_type.clone())
+                    })
+                }),
             _ => None,
         },
         _ => None,
@@ -1031,7 +1044,7 @@ fn array_element_layout<'context>(
     Ok((element_size_i64, element_size_i64))
 }
 
-fn cast_array_payload_to_i8_ptr<'context>(
+pub(crate) fn cast_array_payload_to_i8_ptr<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     array_value: PointerValue<'context>,
@@ -1084,40 +1097,21 @@ fn resolve_array_access_base_and_length<'context>(
     element_core_type: &CoreType,
 ) -> Result<(PointerValue<'context>, IntValue<'context>), CodegenError> {
     let array_value = if let Expr::Identifier { ref name, .. } = *object {
-        let Some(binding) = env.variables.get(name).cloned() else {
-            return Err(CodegenError::new(format!(
-                "unknown array variable '{name}'"
-            )));
-        };
-        load_array_payload_ptr_from_binding(codegen_context, env, name, binding)?
+        if let Some(binding) = env.variables.get(name).cloned() {
+            load_array_payload_ptr_from_binding(codegen_context, env, name, binding)?
+        } else if let Some(accessor_binding) = env.value_accessors.get(name).cloned() {
+            let accessor_function = codegen_context.module.get_function(accessor_binding.accessor_name.as_str()).ok_or_else(|| CodegenError::new(format!("missing imported value accessor '{}' for '{name}'", accessor_binding.accessor_name)))?;
+            let call = codegen_context.builder.build_call(accessor_function, &[], &env.next_name(format!("{name}.array.value").as_str()))?;
+            let array_result = call.try_as_basic_value().basic().ok_or_else(|| CodegenError::new(format!("imported value accessor '{}' did not return a value", accessor_binding.accessor_name)))?;
+            cast_array_payload_to_i8_ptr(codegen_context, env, array_result.into_pointer_value(), name)?
+        } else { return Err(CodegenError::new(format!("unknown array variable '{name}'"))); }
     } else {
-        let object_value = codegen_expression(
-            codegen_context,
-            env,
-            object,
-            Some(&CoreType::Array(Box::new(element_core_type.clone()))),
-        )?;
-        if !object_value.is_pointer_value() {
-            return Err(CodegenError::new(String::from(
-                "array expression did not lower to a payload pointer",
-            )));
-        }
-        cast_array_payload_to_i8_ptr(
-            codegen_context,
-            env,
-            object_value.into_pointer_value(),
-            "array.access.expr",
-        )?
+        let object_value = codegen_expression(codegen_context, env, object, Some(&CoreType::Array(Box::new(element_core_type.clone()))))?;
+        if !object_value.is_pointer_value() { return Err(CodegenError::new(String::from("array expression did not lower to a payload pointer"))); }
+        cast_array_payload_to_i8_ptr(codegen_context, env, object_value.into_pointer_value(), "array.access.expr")?
     };
-    let array_length =
-        load_array_length_from_value(codegen_context, env, array_value, "array.access")?;
-    let base_ptr = load_array_data_ptr_for_element_type(
-        codegen_context,
-        env,
-        array_value,
-        element_core_type,
-        "array.access",
-    )?;
+    let array_length = load_array_length_from_value(codegen_context, env, array_value, "array.access")?;
+    let base_ptr = load_array_data_ptr_for_element_type(codegen_context, env, array_value, element_core_type, "array.access")?;
     Ok((base_ptr, array_length))
 }
 

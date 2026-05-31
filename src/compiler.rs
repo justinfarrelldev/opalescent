@@ -31,7 +31,9 @@ use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::{collections::BTreeMap, vec::Vec};
 use compiler_helpers::{
-    collect_imported_symbol_signatures, compile_checked_program_to_module, is_main_module_path,
+    collect_imported_symbol_signatures, collect_module_symbol_signatures,
+    collect_program_adt_field_indices, collect_program_adt_field_layouts,
+    compile_checked_program_to_module, is_main_module_path,
     lambda_body_to_function_body, parse_source_to_program, validate_entry_declarations_for_module,
 };
 use inkwell::context::Context;
@@ -294,6 +296,7 @@ pub fn compile_to_module_for_target<'context>(
     }
 
     let mut checker = TypeChecker::new();
+    checker.set_current_module_path(source_path.display().to_string());
     if let Err(type_errors) = checker.type_check_program(&program) {
         report.extend_type_errors(type_errors);
         if report.is_empty() {
@@ -305,6 +308,10 @@ pub fn compile_to_module_for_target<'context>(
         return Err((report, normalized_source));
     }
 
+    let module_symbol_signatures =
+        collect_module_symbol_signatures(&checker, source_path.display().to_string().as_str());
+    let adt_field_indices = collect_program_adt_field_indices(&program);
+    let adt_field_layouts = collect_program_adt_field_layouts(&program);
     let codegen_context = CodegenContext::for_triple(context, "opalescent_module", target)
         .map_err(|error| {
             let mut codegen_report = CompilationErrorReport::new();
@@ -312,6 +319,8 @@ pub fn compile_to_module_for_target<'context>(
             (codegen_report, normalized_source.clone())
         })?;
     let mut env = CodegenEnv::new(true);
+    env.adt_field_indices = adt_field_indices;
+    env.adt_field_layouts = adt_field_layouts;
 
     for declaration in &program.declarations {
         match *declaration {
@@ -375,7 +384,29 @@ pub fn compile_to_module_for_target<'context>(
                         (codegen_report, normalized_source.clone())
                     })?;
             }
-            Decl::Let { .. } | Decl::Type { .. } | Decl::Comment { .. } => {}
+            Decl::Let {
+                ref binding,
+                ref initializer,
+                ref visibility,
+                ..
+            } => {
+                if let Some(core_type) = module_symbol_signatures.get(binding.name.as_str()) {
+                    crate::codegen::functions::codegen_top_level_value_declaration(
+                        &codegen_context,
+                        &mut env,
+                        binding.name.as_str(),
+                        initializer,
+                        visibility,
+                        core_type,
+                    )
+                    .map_err(|error| {
+                        let mut codegen_report = CompilationErrorReport::new();
+                        codegen_report.push_codegen_error_full(error);
+                        (codegen_report, normalized_source.clone())
+                    })?;
+                }
+            }
+            Decl::Type { .. } | Decl::Comment { .. } => {}
         }
     }
 
@@ -886,6 +917,30 @@ pub fn compile_project_with_run_policy(
         imported_signatures_by_module.insert(module_path.clone(), imported_signatures);
     }
 
+    let mut module_symbol_signatures_by_module: BTreeMap<PathBuf, BTreeMap<String, CoreType>> =
+        BTreeMap::new();
+    for (module_path, interface) in &discovered_interfaces {
+        let mut module_signatures = BTreeMap::new();
+        for (name, symbol) in &interface.exports {
+            module_signatures.insert(name.clone(), symbol.core_type.clone());
+        }
+        for (name, symbol) in &interface.private_symbols {
+            module_signatures.insert(name.clone(), symbol.core_type.clone());
+        }
+        module_symbol_signatures_by_module.insert(module_path.clone(), module_signatures);
+    }
+
+    let mut global_adt_field_indices: BTreeMap<String, BTreeMap<String, u32>> = BTreeMap::new();
+    let mut global_adt_field_layouts: BTreeMap<String, Vec<(String, CoreType)>> = BTreeMap::new();
+    for program in parsed_programs.values() {
+        for (name, fields) in collect_program_adt_field_indices(program) {
+            global_adt_field_indices.insert(name, fields);
+        }
+        for (name, fields) in collect_program_adt_field_layouts(program) {
+            global_adt_field_layouts.insert(name, fields);
+        }
+    }
+
     let mut object_paths: Vec<PathBuf> = Vec::new();
     for (index, module_path) in discovered_module_paths.iter().enumerate() {
         if is_types_file(module_path) {
@@ -905,11 +960,22 @@ pub fn compile_project_with_run_policy(
             .get(module_path)
             .cloned()
             .unwrap_or_default();
+        let module_symbol_signatures = module_symbol_signatures_by_module
+            .get(module_path)
+            .cloned()
+            .unwrap_or_default();
 
         let context = Context::create();
-        let llvm_module =
-            compile_checked_program_to_module(&context, program, imported_signatures, target)
-                .map_err(CompileError::Codegen)?;
+        let llvm_module = compile_checked_program_to_module(
+            &context,
+            program,
+            imported_signatures,
+            &module_symbol_signatures,
+            &global_adt_field_indices,
+            &global_adt_field_layouts,
+            target,
+        )
+        .map_err(CompileError::Codegen)?;
 
         let object_ext = object_file_extension(target);
         let object_path = output_dir.join(format!("module_{index}{object_ext}"));

@@ -100,6 +100,8 @@ pub fn codegen_constructor_expression<'context>(
 }
 
 #[doc = "Lower field access for product ADT values using tracked field indices."]
+#[expect(clippy::too_many_lines, reason = "field access lowering handles several receiver forms in one place")]
+#[expect(clippy::undocumented_unsafe_blocks, reason = "the pointer-backed GEP uses tracked ADT layout metadata")]
 pub fn codegen_field_access_expression<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -144,7 +146,8 @@ pub fn codegen_field_access_expression<'context>(
             {
                 if let Some(index) = field_indices.get(effective_member_name) {
                     // SAFETY: Index comes from tracked constructor field layout for same receiver alloca.
-                    let field_ptr = unsafe {
+                    // SAFETY: GEP indices are derived from the tracked ADT layout for the concrete receiver type.
+        let field_ptr = unsafe {
                         codegen_context.builder.build_in_bounds_gep(
                             binding.alloca,
                             &[
@@ -184,10 +187,52 @@ pub fn codegen_field_access_expression<'context>(
         return Ok(length_value.as_basic_value_enum());
     }
     let object_value = codegen_expression(codegen_context, env, object.as_ref(), None)?;
-    let field_index = product_field_index_for_core_type(&object_core_type, member.as_str())
+    let field_index = product_field_index_for_core_type(env, &object_core_type, member.as_str())
         .ok_or_else(|| {
             CodegenError::new(format!("unknown field '{member}' on receiver expression"))
         })?;
+    if object_value.is_pointer_value() {
+        let CoreType::Generic { ref name, .. } = object_core_type else {
+            return Err(CodegenError::new(format!(
+                "pointer-backed receiver expression does not support field '{member}'"
+            )));
+        };
+        let Some(field_layout) = env.adt_field_layouts.get(name) else {
+            return Err(CodegenError::new(format!(
+                "missing field layout metadata for receiver type '{name}'"
+            )));
+        };
+        let struct_type = codegen_context.context.struct_type(
+            field_layout
+                .iter()
+                .map(|&(_, ref field_type)| crate::codegen::types::core_type_to_llvm(codegen_context.context, field_type))
+                .collect::<Vec<_>>()
+                .as_slice(),
+            false,
+        );
+        let typed_ptr = codegen_context.builder.build_pointer_cast(
+            object_value.into_pointer_value(),
+            struct_type.ptr_type(inkwell::AddressSpace::default()),
+            &env.next_name("field.ptr.cast"),
+        )?;
+        let field_ptr = unsafe {
+            codegen_context.builder.build_in_bounds_gep(
+                typed_ptr,
+                &[
+                    codegen_context.context.i32_type().const_zero(),
+                    codegen_context
+                        .context
+                        .i32_type()
+                        .const_int(u64::from(field_index), false),
+                ],
+                &env.next_name("field.ptr.gep"),
+            )?
+        };
+        return codegen_context
+            .builder
+            .build_load(field_ptr, &env.next_name("field.ptr.load"))
+            .map_err(CodegenError::from);
+    }
     let struct_value = object_value.into_struct_value();
     codegen_context
         .builder
@@ -440,7 +485,12 @@ fn infer_product_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<CoreType
         Expr::Identifier { ref name, .. } => env
             .variables
             .get(name)
-            .map(|binding| binding.core_type.clone()),
+            .map(|binding| binding.core_type.clone())
+            .or_else(|| {
+                env.value_accessors
+                    .get(name)
+                    .map(|binding| binding.core_type.clone())
+            }),
         Expr::Index { ref object, .. } => match infer_product_core_type(env, object.as_ref()) {
             Some(CoreType::Array(element_type)) => Some(element_type.as_ref().clone()),
             _ => None,
@@ -481,7 +531,15 @@ fn infer_product_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<CoreType
                     let Expr::Identifier { ref name, .. } = *args.first()? else {
                         return None;
                     };
-                    let right_type = env.variables.get(name)?.core_type.clone();
+                    let right_type = env
+                        .variables
+                        .get(name)
+                        .map(|binding| binding.core_type.clone())
+                        .or_else(|| {
+                            env.value_accessors
+                                .get(name)
+                                .map(|binding| binding.core_type.clone())
+                        })?;
                     let CoreType::Array(right_element_type) = right_type else {
                         return None;
                     };
@@ -501,7 +559,11 @@ fn infer_product_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<CoreType
 }
 
 #[doc = "Resolve the field index for a known lowered product core type."]
-fn product_field_index_for_core_type(core_type: &CoreType, member: &str) -> Option<u32> {
+fn product_field_index_for_core_type(
+    env: &CodegenEnv<'_>,
+    core_type: &CoreType,
+    member: &str,
+) -> Option<u32> {
     match *core_type {
         CoreType::Generic {
             ref name,
@@ -511,6 +573,10 @@ fn product_field_index_for_core_type(core_type: &CoreType, member: &str) -> Opti
             "second" => Some(1),
             _ => None,
         },
+        CoreType::Generic { ref name, .. } => env
+            .adt_field_indices
+            .get(name)
+            .and_then(|field_indices| field_indices.get(member).copied()),
         _ => None,
     }
 }

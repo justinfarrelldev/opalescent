@@ -1,14 +1,19 @@
 extern crate alloc;
-use crate::ast::{Decl, Expr, ImportItem, LabeledValue, LambdaBody, NodeId, Program, Stmt};
+use crate::ast::{
+    Decl, Expr, ImportItem, LabeledValue, LambdaBody, NodeId, Program, Stmt, TypeDef,
+};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::expressions::CodegenEnv;
-use crate::codegen::functions::{codegen_function_declaration, codegen_import_declaration};
+use crate::codegen::functions::{
+    codegen_function_declaration, codegen_import_declaration, codegen_top_level_value_declaration,
+};
 use crate::error::LexError;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::parser::errors::ParseError;
 use crate::token::{Position, Span};
 use crate::type_system::checker::TypeChecker;
+use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
@@ -113,6 +118,75 @@ pub fn validate_entry_declarations_for_module(
     Ok(())
 }
 
+/// Builds a field-index lookup table for every product and sum type in a program.
+pub fn collect_program_adt_field_indices(program: &Program) -> BTreeMap<String, BTreeMap<String, u32>> {
+    let mut adt_field_indices = BTreeMap::new();
+    for (name, fields) in collect_program_adt_field_layouts(program) {
+        let mut field_indices = BTreeMap::new();
+        for (index, &(ref field_name, ref _field_type)) in fields.iter().enumerate() {
+            let Ok(converted_index) = u32::try_from(index) else {
+                continue;
+            };
+            field_indices.insert(field_name.clone(), converted_index);
+        }
+        adt_field_indices.insert(name, field_indices);
+    }
+    adt_field_indices
+}
+
+/// Builds the lowered field layout for every product and sum variant in a program.
+pub fn collect_program_adt_field_layouts(
+    program: &Program,
+) -> BTreeMap<String, Vec<(String, CoreType)>> {
+    let mut adt_field_layouts = BTreeMap::new();
+    for declaration in &program.declarations {
+        let Decl::Type { ref name, ref type_def, .. } = *declaration else { continue; };
+        match *type_def {
+            TypeDef::Product { ref fields, .. } => {
+                let mut field_layout = Vec::new();
+                for field in fields {
+                    let Ok(core_type) = ast_type_to_core_type(&field.type_annotation) else {
+                        continue;
+                    };
+                    field_layout.push((field.name.clone(), core_type));
+                }
+                adt_field_layouts.insert(name.clone(), field_layout);
+            }
+            TypeDef::Sum { ref variants, .. } => {
+                for variant in variants {
+                    let mut field_layout = Vec::new();
+                    for field in &variant.fields {
+                        let Ok(core_type) = ast_type_to_core_type(&field.type_annotation) else {
+                            continue;
+                        };
+                        field_layout.push((field.name.clone(), core_type));
+                    }
+                    adt_field_layouts.insert(format!("{name}.{}", variant.name), field_layout);
+                }
+            }
+            TypeDef::Alias { .. } => {}
+        }
+    }
+    adt_field_layouts
+}
+
+/// Collects the current module's public and private symbol signatures for codegen.
+pub fn collect_module_symbol_signatures(
+    checker: &TypeChecker,
+    module_path: &str,
+) -> BTreeMap<String, CoreType> {
+    let mut module_signatures = BTreeMap::new();
+    if let Some(interface) = checker.module_interface(module_path) {
+        for (name, symbol) in &interface.exports {
+            module_signatures.insert(name.clone(), symbol.core_type.clone());
+        }
+        for (name, symbol) in &interface.private_symbols {
+            module_signatures.insert(name.clone(), symbol.core_type.clone());
+        }
+    }
+    module_signatures
+}
+
 /// Collects type signatures of imported symbols for code generation.
 #[expect(
     clippy::needless_borrowed_reference,
@@ -170,19 +244,22 @@ pub fn compile_checked_program_to_module<'context>(
     context: &'context Context,
     program: &Program,
     imported_signatures: BTreeMap<String, CoreType>,
+    module_symbol_signatures: &BTreeMap<String, CoreType>,
+    adt_field_indices: &BTreeMap<String, BTreeMap<String, u32>>,
+    adt_field_layouts: &BTreeMap<String, Vec<(String, CoreType)>>,
     target: &crate::build_system::targets::TargetTriple,
 ) -> Result<Module<'context>, crate::codegen::error::CodegenError> {
     let codegen_context = CodegenContext::for_triple(context, "opalescent_module", target)
         .map_err(|error| crate::codegen::error::CodegenError::new(format!("{error:?}")))?;
     let mut env = CodegenEnv::new(true);
     env.imported_signatures = imported_signatures;
+    env.adt_field_indices = adt_field_indices.clone();
+    env.adt_field_layouts = adt_field_layouts.clone();
 
     for declaration in &program.declarations {
         match *declaration {
-            Decl::Import { ref source, .. } => {
-                if matches!(source.as_str(), "standard" | "math" | "process") {
-                    codegen_import_declaration(&codegen_context, &mut env, declaration)?;
-                }
+            Decl::Import { .. } => {
+                codegen_import_declaration(&codegen_context, &mut env, declaration)?;
             }
             Decl::Function { .. } => {
                 codegen_function_declaration(&codegen_context, &mut env, declaration)?;
@@ -224,7 +301,24 @@ pub fn compile_checked_program_to_module<'context>(
 
                 codegen_function_declaration(&codegen_context, &mut env, &lowered_declaration)?;
             }
-            Decl::Let { .. } | Decl::Type { .. } | Decl::Comment { .. } => {}
+            Decl::Let {
+                ref binding,
+                ref initializer,
+                ref visibility,
+                ..
+            } => {
+                if let Some(core_type) = module_symbol_signatures.get(binding.name.as_str()) {
+                    codegen_top_level_value_declaration(
+                        &codegen_context,
+                        &mut env,
+                        binding.name.as_str(),
+                        initializer,
+                        visibility,
+                        core_type,
+                    )?;
+                }
+            }
+            Decl::Type { .. } | Decl::Comment { .. } => {}
         }
     }
 

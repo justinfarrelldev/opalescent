@@ -5,11 +5,11 @@
 )]
 extern crate alloc;
 
-use crate::ast::{Decl, ImportItem, Visibility};
+use crate::ast::{Decl, Expr, ImportItem, Visibility};
 use crate::codegen::binding_store::initialize_binding_value;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
-use crate::codegen::expressions::{CodegenEnv, VariableBinding};
+use crate::codegen::expressions::{CodegenEnv, ValueAccessorBinding, VariableBinding};
 use crate::codegen::statements::codegen_statement;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
@@ -27,6 +27,11 @@ pub use crate::codegen::functions_call::{
     codegen_guard_expression, codegen_propagate_expression, emit_c_main_wrapper,
     emit_default_return,
 };
+
+#[must_use]
+pub fn top_level_value_accessor_name(name: &str) -> String {
+    format!("__opalescent_value_{name}")
+}
 
 #[doc = "Lower a function declaration and optionally emit a C main wrapper."]
 #[expect(
@@ -169,6 +174,113 @@ pub fn codegen_function_declaration<'context>(
     Ok(function)
 }
 
+pub fn codegen_top_level_value_declaration<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    binding_name: &str,
+    initializer: &Expr,
+    visibility: &Visibility,
+    core_type: &CoreType,
+) -> Result<(), CodegenError> {
+    let accessor_name = top_level_value_accessor_name(binding_name);
+    let value_type = core_type_to_llvm(codegen_context.context, core_type);
+    let linkage = if matches!(*visibility, Visibility::Public) {
+        Some(Linkage::External)
+    } else {
+        Some(Linkage::Internal)
+    };
+    let accessor_function = codegen_context
+        .module
+        .get_function(accessor_name.as_str())
+        .unwrap_or_else(|| {
+            codegen_context
+                .module
+                .add_function(accessor_name.as_str(), value_type.fn_type(&[], false), linkage)
+        });
+    if matches!(*visibility, Visibility::Public)
+        && codegen_context.target.platform == crate::build_system::targets::Platform::Windows
+    {
+        accessor_function
+            .as_global_value()
+            .set_dll_storage_class(DLLStorageClass::Export);
+    }
+
+    let cache_name = format!("{accessor_name}.cache");
+    let cache_global = codegen_context
+        .module
+        .get_global(cache_name.as_str())
+        .unwrap_or_else(|| {
+            codegen_context
+                .module
+                .add_global(value_type, None, cache_name.as_str())
+        });
+    cache_global.set_linkage(Linkage::Internal);
+    cache_global.set_initializer(&value_type.const_zero());
+
+    let init_name = format!("{accessor_name}.initialized");
+    let init_global = codegen_context
+        .module
+        .get_global(init_name.as_str())
+        .unwrap_or_else(|| {
+            codegen_context
+                .module
+                .add_global(codegen_context.context.bool_type(), None, init_name.as_str())
+        });
+    init_global.set_linkage(Linkage::Internal);
+    init_global.set_initializer(&codegen_context.context.bool_type().const_zero());
+
+    let entry_block = codegen_context
+        .context
+        .append_basic_block(accessor_function, "entry");
+    let cached_block = codegen_context
+        .context
+        .append_basic_block(accessor_function, "cached");
+    let init_block = codegen_context
+        .context
+        .append_basic_block(accessor_function, "init");
+    codegen_context.builder.position_at_end(entry_block);
+    let init_flag = codegen_context
+        .builder
+        .build_load(init_global.as_pointer_value(), "value.init.flag")?
+        .into_int_value();
+    let is_initialized = codegen_context.builder.build_int_compare(
+        inkwell::IntPredicate::NE,
+        init_flag,
+        codegen_context.context.bool_type().const_zero(),
+        "value.init.ready",
+    )?;
+    codegen_context
+        .builder
+        .build_conditional_branch(is_initialized, cached_block, init_block)?;
+
+    codegen_context.builder.position_at_end(cached_block);
+    let cached_value = codegen_context
+        .builder
+        .build_load(cache_global.as_pointer_value(), "value.cached.load")?;
+    codegen_context.builder.build_return(Some(&cached_value))?;
+
+    codegen_context.builder.position_at_end(init_block);
+    let initialized_value =
+        crate::codegen::expressions::codegen_expression(codegen_context, env, initializer, Some(core_type))?;
+    codegen_context
+        .builder
+        .build_store(cache_global.as_pointer_value(), initialized_value)?;
+    codegen_context.builder.build_store(
+        init_global.as_pointer_value(),
+        codegen_context.context.bool_type().const_int(1, false),
+    )?;
+    codegen_context.builder.build_return(Some(&initialized_value))?;
+
+    env.value_accessors.insert(
+        binding_name.to_owned(),
+        ValueAccessorBinding {
+            accessor_name,
+            core_type: core_type.clone(),
+        },
+    );
+    Ok(())
+}
+
 #[doc = "Lower import declarations by declaring known stdlib externs and alias mappings."]
 pub fn codegen_import_declaration<'context>(
     codegen_context: &CodegenContext<'context>,
@@ -268,7 +380,26 @@ fn codegen_local_import_declaration<'context>(
                     ..
                 } = core_type
                 else {
-                    // Not a function (e.g. a type alias) — no runtime declaration needed.
+                    let accessor_name = top_level_value_accessor_name(name.as_str());
+                    let accessor_type = core_type_to_llvm(codegen_context.context, &core_type)
+                        .fn_type(&[], false);
+                    let _extern_accessor = codegen_context
+                        .module
+                        .get_function(accessor_name.as_str())
+                        .unwrap_or_else(|| {
+                            codegen_context.module.add_function(
+                                accessor_name.as_str(),
+                                accessor_type,
+                                Some(Linkage::External),
+                            )
+                        });
+                    env.value_accessors.insert(
+                        local_name,
+                        ValueAccessorBinding {
+                            accessor_name,
+                            core_type,
+                        },
+                    );
                     continue;
                 };
                 // Build lowered parameter types (arrays get an extra length i64 param).

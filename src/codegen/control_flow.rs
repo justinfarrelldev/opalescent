@@ -262,87 +262,34 @@ pub fn codegen_loop_statement<'context>(
         } => {
             let (iterable_ptr, iterable_length, element_core_type) = match *iterable {
                 Expr::Identifier { ref name, .. } => {
-                    let Some(binding) = env.variables.get(name).cloned() else {
-                        return Err(CodegenError::new(format!(
-                            "unknown array variable '{name}' in for loop"
-                        )));
-                    };
-
-                    let &CoreType::Array(ref element_core_type) = &binding.core_type else {
-                        return Err(CodegenError::new(format!(
-                            "for loop iterable '{name}' is not an array"
-                        )));
-                    };
-
-                    let array_value =
-                        crate::codegen::expressions_array::load_array_payload_ptr_from_binding(
-                            codegen_context,
-                            env,
-                            name,
-                            binding.clone(),
-                        )?;
-                    let array_ptr =
-                        crate::codegen::expressions_array::load_array_data_ptr_for_element_type(
-                            codegen_context,
-                            env,
-                            array_value,
-                            element_core_type.as_ref(),
-                            "for.iterable",
-                        )?;
-                    let array_length =
-                        crate::codegen::expressions_array::load_array_length_from_value(
-                            codegen_context,
-                            env,
-                            array_value,
-                            "for.iterable",
-                        )?;
-
-                    (array_ptr, array_length, element_core_type.as_ref().clone())
+                    let (array_value, element_core_type) = if let Some(binding) = env.variables.get(name).cloned() {
+                        match binding.core_type.clone() {
+                            CoreType::Array(element_core_type) => (crate::codegen::expressions_array::load_array_payload_ptr_from_binding(codegen_context, env, name, binding)?, element_core_type),
+                            _ => return Err(CodegenError::new(format!("for loop iterable '{name}' is not an array"))),
+                        }
+                    } else if let Some(accessor_binding) = env.value_accessors.get(name).cloned() {
+                        let CoreType::Array(element_core_type) = accessor_binding.core_type else { return Err(CodegenError::new(format!("for loop iterable '{name}' is not an array"))); };
+                        let accessor_function = codegen_context.module.get_function(accessor_binding.accessor_name.as_str()).ok_or_else(|| CodegenError::new(format!("missing imported value accessor '{}' for '{name}'", accessor_binding.accessor_name)))?;
+                        let call = codegen_context.builder.build_call(accessor_function, &[], &env.next_name(format!("{name}.for.iterable").as_str()))?;
+                        let array_result = call.try_as_basic_value().basic().ok_or_else(|| CodegenError::new(format!("imported value accessor '{}' did not return a value", accessor_binding.accessor_name)))?;
+                        (crate::codegen::expressions_array::cast_array_payload_to_i8_ptr(codegen_context, env, array_result.into_pointer_value(), name)?, element_core_type)
+                    } else { return Err(CodegenError::new(format!("unknown array variable '{name}' in for loop"))); };
+                    let array_ptr = crate::codegen::expressions_array::load_array_data_ptr_for_element_type(codegen_context, env, array_value, &element_core_type, "for.iterable")?;
+                    let array_length = crate::codegen::expressions_array::load_array_length_from_value(codegen_context, env, array_value, "for.iterable")?;
+                    (array_ptr, array_length, element_core_type)
                 }
                 Expr::Array { ref elements, .. } => {
-                    let element_core_type =
-                        elements
-                            .first()
-                            .map_or(CoreType::Int64, |first| match *first {
-                                Expr::Literal {
-                                    value: crate::ast::LiteralValue::Float(_),
-                                    ..
-                                } => CoreType::Float64,
-                                Expr::Literal {
-                                    value: crate::ast::LiteralValue::String(_),
-                                    ..
-                                } => CoreType::String,
-                                Expr::Literal {
-                                    value: crate::ast::LiteralValue::Boolean(_),
-                                    ..
-                                } => CoreType::Boolean,
-                                _ => CoreType::Int64,
-                            });
-                    let iterable_expected_type =
-                        CoreType::Array(Box::new(element_core_type.clone()));
-                    let iterable_value = codegen_expression(
-                        codegen_context,
-                        env,
-                        iterable,
-                        Some(&iterable_expected_type),
-                    )?;
-                    (
-                        iterable_value.into_pointer_value(),
-                        codegen_context.context.i64_type().const_int(
-                            u64::try_from(elements.len()).map_err(|conversion_error| {
-                                CodegenError::new(format!(
-                                    "for loop iterable length conversion failed: {conversion_error}"
-                                ))
-                            })?,
-                            false,
-                        ),
-                        element_core_type,
-                    )
+                    let element_core_type = Box::new(elements.first().map_or(CoreType::Int64, |first| match *first { Expr::Literal { value: crate::ast::LiteralValue::Float(_), .. } => CoreType::Float64, Expr::Literal { value: crate::ast::LiteralValue::String(_), .. } => CoreType::String, Expr::Literal { value: crate::ast::LiteralValue::Boolean(_), .. } => CoreType::Boolean, _ => CoreType::Int64 }));
+                    let iterable_value = codegen_expression(codegen_context, env, iterable, Some(&CoreType::Array(element_core_type.clone())))?;
+                    (iterable_value.into_pointer_value(), codegen_context.context.i64_type().const_int(u64::try_from(elements.len()).map_err(|conversion_error| CodegenError::new(format!("for loop iterable length conversion failed: {conversion_error}")))?, false), element_core_type)
                 }
                 _ => {
-                    return Err(CodegenError::new(String::from(
-                        "for loop iterable must be an array variable or array literal",
-                    )));
+                    let Some(CoreType::Array(element_core_type)) = crate::codegen::expressions_array::infer_expression_core_type(env, iterable) else { return Err(CodegenError::new(String::from("for loop iterable must lower to an array expression"))); };
+                    let iterable_value = codegen_expression(codegen_context, env, iterable, Some(&CoreType::Array(element_core_type.clone())))?;
+                    let array_value = crate::codegen::expressions_array::cast_array_payload_to_i8_ptr(codegen_context, env, iterable_value.into_pointer_value(), "for.iterable.expr")?;
+                    let array_length = crate::codegen::expressions_array::load_array_length_from_value(codegen_context, env, array_value, "for.iterable.expr")?;
+                    let array_ptr = crate::codegen::expressions_array::load_array_data_ptr_for_element_type(codegen_context, env, array_value, element_core_type.as_ref(), "for.iterable.expr")?;
+                    (array_ptr, array_length, element_core_type)
                 }
             };
 
@@ -409,7 +356,7 @@ pub fn codegen_loop_statement<'context>(
                 variable.clone(),
                 VariableBinding {
                     alloca: iteration_alloca,
-                    core_type: element_core_type.clone(),
+                    core_type: element_core_type.as_ref().clone(),
                     length: None,
                     capacity: None,
                     is_mutable: false,
