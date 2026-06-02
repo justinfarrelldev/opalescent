@@ -8761,6 +8761,33 @@ return first
 }
 
 #[test]
+fn test_string_indexing_rejects_non_integral_index_type() {
+    const SOURCE: &str = "
+entry demo = f(): string => {
+let message = 'hello'
+return message['bad']
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("string indexing with a string index should fail type checking");
+
+    assert!(
+        errors.iter().any(|error| matches!(
+            error,
+            TypeError::InvalidOperation {
+                operation,
+                type_name,
+                ..
+            } if operation == "indexing" && type_name == "string"
+        )),
+        "expected invalid string-index type diagnostic naming string, got: {errors:?}"
+    );
+}
+
+#[test]
 fn test_array_length_member_type_checks_as_int64() {
     const SOURCE: &str = "
 entry demo = f(): int64 => {

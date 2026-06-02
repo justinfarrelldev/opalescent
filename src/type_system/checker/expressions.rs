@@ -655,6 +655,7 @@ impl TypeChecker {
         ensure_integer_type(&index_type, index.span(), "indexing")?;
         match object_type {
             CoreType::Array(element_type) => Ok(*element_type),
+            CoreType::String => Ok(CoreType::String),
             other => Err(invalid_operation_error("indexing", &other, span)),
         }
     }
