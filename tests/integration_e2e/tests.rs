@@ -80,6 +80,7 @@ mod call_temp_leak_regressions;
 mod stdout_text_stdlib;
 mod stdout_writer_stdlib;
 mod string_builder_stdlib;
+mod string_indexing;
 mod string_join_stdlib;
 mod terminal_stdlib;
 mod time_stdlib;

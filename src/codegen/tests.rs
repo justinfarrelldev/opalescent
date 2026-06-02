@@ -3704,6 +3704,39 @@ entry main = f(): void => {
 }
 
 #[test]
+fn test_string_indexing_lowering_emits_runtime_helper() {
+    let source = "
+##
+    Description: Entry function validates string indexing lowering
+##
+import print from standard
+
+entry main = f(): void => {
+    let message = 'hello'
+    let first: string = message[0]
+    let last: string = message[message.length - 1]
+    print('{first}{last}')
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "string indexing should compile and lower both message[0] and message[message.length - 1]"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("string_index") || ir.contains("index_string"),
+        "string indexing lowering should emit a runtime helper for indexed string access: {ir}"
+    );
+}
+
+#[test]
 fn test_array_length_member_emits_i64_return() {
     let source = "
 ##

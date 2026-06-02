@@ -1245,6 +1245,46 @@ fn test_function_result_index_expression() {
 }
 
 #[test]
+fn test_string_indexing_literal_object_parses() {
+    let expr = parse_expression_from_string("'hello'[0]").unwrap();
+    if let Expr::Index { object, index, .. } = expr {
+        assert!(matches!(
+            *object,
+            Expr::Literal {
+                value: LiteralValue::String(ref text),
+                ..
+            } if text == "hello"
+        ));
+        assert!(matches!(
+            *index,
+            Expr::Literal {
+                value: LiteralValue::Integer(0),
+                ..
+            }
+        ));
+    } else {
+        unreachable!("Expected Expr::Index for 'hello'[0]");
+    }
+}
+
+#[test]
+fn test_string_indexing_length_minus_one_parses() {
+    let expr = parse_expression_from_string("message[message.length - 1]").unwrap();
+    if let Expr::Index { object, index, .. } = expr {
+        assert!(matches!(*object, Expr::Identifier { name, .. } if name == "message"));
+        assert!(matches!(
+            *index,
+            Expr::Binary {
+                operator: BinaryOp::Subtract,
+                ..
+            }
+        ));
+    } else {
+        unreachable!("Expected Expr::Index for message[message.length - 1]");
+    }
+}
+
+#[test]
 fn test_operator_precedence() {
     // Test that multiplication has higher precedence than addition
     let precedence_expr = parse_expression_from_string("1 + 2 * 3").unwrap();

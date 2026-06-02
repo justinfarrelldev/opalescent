@@ -8742,6 +8742,25 @@ return message.length
 }
 
 #[test]
+fn test_string_indexing_type_checks_as_string() {
+    const SOURCE: &str = "
+entry demo = f(): string => {
+let message = 'hello'
+let first: string = message[0]
+let last: string = message[message.length - 1]
+return first
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "string indexing should type check as string for both message[0] and message[message.length - 1]: {result:?}"
+    );
+}
+
+#[test]
 fn test_array_length_member_type_checks_as_int64() {
     const SOURCE: &str = "
 entry demo = f(): int64 => {

@@ -1,0 +1,12 @@
+import print from standard
+
+##
+    Description: RED fixture for string indexing syntax and lowering
+##
+entry main = f(): void => {
+    let message = 'opal'
+    let first: string = message[0]
+    let last: string = message[message.length - 1]
+    print('{first}{last}')
+    return void
+}
