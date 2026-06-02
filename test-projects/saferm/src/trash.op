@@ -1,0 +1,118 @@
+import get_environment_variable_or from process
+import list_directory_sync, join_path_components, move_path_sync, path_to_string, path_from, path_exists_sync, create_directory_recursive_sync, path_file_name, path_parent_directory, int64_to_string from standard
+
+##
+    Description: Returns the saferm trash directory using HOME when available.
+##
+public let trash_directory = f(): FilesystemPath errors InvalidEnvironmentVariableNameError, InvalidUtf8Error =>
+    let home = propagate get_environment_variable_or('HOME', '.')
+    return join_path_components(path_from(home), ['.local', 'share', 'op-trash'])
+
+##
+    Description: Chooses the final path component used inside the trash directory.
+##
+public let target_name_for = f(path: FilesystemPath): string =>
+    let name = path_file_name(path)
+    if name is not '':
+        return name
+
+    let parent_name = path_file_name(path_parent_directory(path))
+    if parent_name is not '':
+        return parent_name
+
+    return 'root'
+
+##
+    Description: Returns a destination path whose name does not collide with an existing trash or restore target.
+##
+public let unique_destination_for = f(destination_root: FilesystemPath, name: string): FilesystemPath errors PermissionDeniedError, InvalidPathError =>
+    let mutable candidate_name = name
+    let mutable candidate = join_path_components(destination_root, [candidate_name])
+    let mutable suffix: int64 = 1
+
+    while propagate path_exists_sync(candidate):
+        candidate_name = '{name}.{int64_to_string(suffix)}'
+        candidate = join_path_components(destination_root, [candidate_name])
+        suffix = suffix + 1
+
+    return candidate
+
+##
+    Description: Returns true when a requested restore name is an actual top-level trash entry.
+##
+public let trash_entry_exists = f(dest: FilesystemPath, requested_name: string): boolean errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError =>
+    let entries = propagate list_directory_sync(dest)
+    for trash_entry in entries:
+        if path_to_string(trash_entry) is requested_name:
+            return true
+    return false
+
+##
+    Description: Returns true when an operand resolves to the process working directory.
+##
+public let targets_current_directory = f(cwd: FilesystemPath, source: FilesystemPath): boolean =>
+    return path_to_string(source) is path_to_string(cwd)
+
+##
+    Description: Returns true when an operand resolves to the filesystem root.
+##
+public let targets_root_directory = f(source: FilesystemPath): boolean =>
+    let source_text = path_to_string(source)
+    if source_text is '/':
+        return true
+    if source_text is '':
+        return true
+    return false
+
+##
+    Description: Moves a file or directory from one root to another, preserving whole folders.
+##
+public let move_to_destination = f(arg: string, source_root: FilesystemPath, destination_root: FilesystemPath, force: boolean, verbose: boolean): void errors PermissionDeniedError, InvalidPathError, FileAlreadyExistsError, FileNotFoundError, MoveFailureError =>
+    let source = join_path_components(source_root, [arg])
+    let exists = propagate path_exists_sync(source)
+
+    if exists:
+        let target = propagate unique_destination_for(destination_root, target_name_for(source))
+        if verbose:
+            print('Moving {path_to_string(source)} to {path_to_string(target)}')
+        guard move_path_sync(source, target) else e =>
+            print('An error occurred while moving {path_to_string(source)}: {e}')
+            propagate e
+        if verbose:
+            print('Moved {path_to_string(source)} to {path_to_string(target)} successfully')
+        return void
+
+    if force:
+        return void
+
+    guard move_path_sync(source, propagate unique_destination_for(destination_root, target_name_for(source))) else e =>
+        print('An error occurred while moving {path_to_string(source)}: {e}')
+        propagate e
+
+##
+    Description: Creates the trash directory when it is not already present.
+##
+public let create_trash_path_if_not_exists = f(dest: FilesystemPath): void errors PermissionDeniedError, InvalidPathError, CreateFailureError, FilesystemFullError =>
+    guard path_exists_sync(dest) into path_exists else e =>
+        print('An error occurred while checking if {path_to_string(dest)} exists')
+        propagate e
+
+    if path_exists:
+        return void
+
+    guard create_directory_recursive_sync(dest) else e =>
+        print('An error occurred while making the directory {path_to_string(dest)}: {e}')
+        propagate e
+
+##
+    Description: Returns trash entries as displayable path strings.
+##
+public let get_trash_entries = f(dest: FilesystemPath): string[] errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError =>
+    guard list_directory_sync(dest) into dirs else e =>
+        print('An error occurred while reading {path_to_string(dest)}: {e}')
+        propagate e
+    let mutable str_entries: string[] = []
+    for dir in dirs:
+        str_entries.push(path_to_string(dir))
+
+    return str_entries

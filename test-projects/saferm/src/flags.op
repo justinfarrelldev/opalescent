@@ -1,16 +1,76 @@
 import type Flag from ./flags.types
-import type FilesystemPath from standard
 
 ##
     Description: The flags surfaced to the saferm program.
 ##
-public let flags: Flag[] =
-    [
-        new Flag:
-            name: '--restore'
-            description: 'Shows files available to restore when used without additional arguments. When used with a filename after, restores that item to the current directory.'
-            examples: [
-                'saferm --restore filename.txt | Moves a file out of the trash and into the current directory',
-                'saferm --restore | Shows files available to restore'
-            ]
-    ]
+public let flags: Flag[] = [
+    new Flag:
+        name: '-f, --force'
+        description: 'Ignore nonexistent files and missing operands, and never prompt.'
+        examples: ['saferm -f filename.txt | Ignore filename.txt if it does not exist', 'saferm --force filename.txt | Ignore filename.txt if it does not exist']
+    ,
+    new Flag:
+        name: '-i'
+        description: 'Prompt before every removal. Equivalent to --interactive=always.'
+        examples: ['saferm -i filename.txt | Ask before moving filename.txt to trash']
+    ,
+    new Flag:
+        name: '-I'
+        description: 'Prompt once before removing more than three files, or when removing recursively.'
+        examples: ['saferm -I file1 file2 file3 file4 | Ask once before moving the files to trash']
+    ,
+    new Flag:
+        name: '--interactive[=WHEN]'
+        description: 'Prompt according to WHEN: never, once, or always. Without WHEN, prompt always.'
+        examples: ['saferm --interactive filename.txt | Ask before moving filename.txt to trash', 'saferm --interactive=never filename.txt | Do not prompt', 'saferm --interactive=once folder | Ask once before moving folder to trash', 'saferm --interactive=always filename.txt | Ask before moving filename.txt to trash']
+    ,
+    new Flag:
+        name: '--one-file-system'
+        description: 'Recognized for rm compatibility, but unavailable until Opalescent exposes filesystem device identity.'
+        examples: ['saferm --one-file-system -r folder | Report that one-file-system protection is unavailable']
+    ,
+    new Flag:
+        name: '--no-preserve-root'
+        description: 'Do not treat / specially.'
+        examples: ['saferm --no-preserve-root -r / | Accept rm-compatible root handling override']
+    ,
+    new Flag:
+        name: '--preserve-root[=all]'
+        description: 'Do not remove / by default. The =all form is recognized but unavailable until Opalescent exposes filesystem device identity.'
+        examples: ['saferm --preserve-root -r / | Preserve root', 'saferm --preserve-root=all -r folder | Report that device-aware root preservation is unavailable']
+    ,
+    new Flag:
+        name: '-r, -R, --recursive'
+        description: 'Remove directories and their contents recursively. saferm moves the whole directory into trash with its contents intact.'
+        examples: ['saferm -r folder | Move folder and all of its contents to trash', 'saferm -R folder | Move folder and all of its contents to trash', 'saferm --recursive folder | Move folder and all of its contents to trash']
+    ,
+    new Flag:
+        name: '-d, --dir'
+        description: 'Move listed directories to trash only when they are empty.'
+        examples: ['saferm -d folder | Move folder to trash', 'saferm --dir folder | Move folder to trash']
+    ,
+    new Flag:
+        name: '-v, --verbose'
+        description: 'Explain what is being done.'
+        examples: ['saferm -v filename.txt | Print the move into trash', 'saferm --verbose filename.txt | Print the move into trash']
+    ,
+    new Flag:
+        name: '--help'
+        description: 'Display help and exit.'
+        examples: ['saferm --help | Show saferm help']
+    ,
+    new Flag:
+        name: '--version'
+        description: 'Output version information and exit.'
+        examples: ['saferm --version | Show saferm version']
+    ,
+    new Flag:
+        name: '--'
+        description: 'Treat all following arguments as file names, even if they begin with -.'
+        examples: ['saferm -- -f | Move a file named -f to trash']
+    ,
+    new Flag:
+        name: '--restore'
+        description: 'Shows files available to restore when used without additional arguments. When used with a filename after, restores that item to the current directory.'
+        examples: ['saferm --restore filename.txt | Moves a file out of the trash and into the current directory', 'saferm --restore folder | Moves a folder out of the trash and into the current directory with its contents', 'saferm --restore | Shows files available to restore']
+]

@@ -1,0 +1,73 @@
+##
+    Description: rm-compatible force options accepted by saferm.
+##
+public let force_options: string[] = ['-f', '--force']
+
+##
+    Description: Options that prompt before every removal.
+##
+public let prompt_each_options: string[] = ['-i', '--interactive', '--interactive=always']
+
+##
+    Description: Options that prompt once before larger or recursive removals.
+##
+public let prompt_once_options: string[] = ['-I', '--interactive=once']
+
+##
+    Description: Options that disable interactive prompts without implying force.
+##
+public let prompt_never_options: string[] = ['--interactive=never']
+
+##
+    Description: Options that allow directory trees to be moved to trash.
+##
+public let recursive_options: string[] = ['-r', '-R', '--recursive']
+
+##
+    Description: Options that keep the recursive root guard enabled.
+##
+public let preserve_root_options: string[] = ['--preserve-root']
+
+##
+    Description: Device-aware preserve-root option recognized but unavailable in current Opalescent.
+##
+public let preserve_root_all_options: string[] = ['--preserve-root=all']
+
+##
+    Description: Option that disables the recursive root guard.
+##
+public let no_preserve_root_options: string[] = ['--no-preserve-root']
+
+##
+    Description: Options that print move progress.
+##
+public let verbose_options: string[] = ['-v', '--verbose']
+
+##
+    Description: Options that allow empty directories to be moved to trash.
+##
+public let dir_options: string[] = ['-d', '--dir']
+
+##
+    Description: Device-aware recursive traversal option recognized but unavailable in current Opalescent.
+##
+public let one_file_system_options: string[] = ['--one-file-system']
+
+##
+    Description: Options that print help and exit.
+##
+public let help_options: string[] = ['--help', 'help']
+
+##
+    Description: Options that print the saferm version and exit.
+##
+public let version_options: string[] = ['--version']
+
+##
+    Description: Tests whether a candidate string is present in a string array.
+##
+public let contains_string = f(values: string[], candidate: string): boolean =>
+    for value in values:
+        if candidate is value:
+            return true
+    return false
