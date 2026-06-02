@@ -33,8 +33,8 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use compiler_helpers::{
     collect_imported_symbol_signatures, collect_module_symbol_signatures,
     collect_program_adt_field_indices, collect_program_adt_field_layouts,
-    compile_checked_program_to_module, is_main_module_path,
-    lambda_body_to_function_body, parse_source_to_program, validate_entry_declarations_for_module,
+    compile_checked_program_to_module, is_main_module_path, lambda_body_to_function_body,
+    parse_source_to_program, validate_entry_declarations_for_module,
 };
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -319,6 +319,8 @@ pub fn compile_to_module_for_target<'context>(
             (codegen_report, normalized_source.clone())
         })?;
     let mut env = CodegenEnv::new(true);
+    env.current_source_path = source_path.display().to_string();
+    env.current_source_text.clone_from(&normalized_source);
     env.adt_field_indices = adt_field_indices;
     env.adt_field_layouts = adt_field_layouts;
 
@@ -735,21 +737,20 @@ pub fn compile_project_with_run_policy(
 
     let mut module_loader = ModuleLoader::new(project_dir.to_path_buf());
     let entry_module_path = project_dir.join("src").join("main.op");
-    let discovered_module_paths =
-        module_loader
-            .discover_all_modules(&entry_module_path)
-            .map_err(|error| match error {
-                ModuleDiscoveryError::Type(type_error) => CompileError::Type(type_error),
-                ModuleDiscoveryError::Report {
-                    module_path,
-                    report,
-                    normalized_source,
-                } => CompileError::Report {
-                    source_path: module_path.display().to_string(),
-                    report,
-                    normalized_source,
-                },
-            })?;
+    let discovered_module_paths = module_loader
+        .discover_all_modules(&entry_module_path)
+        .map_err(|error| match error {
+            ModuleDiscoveryError::Type(type_error) => CompileError::Type(type_error),
+            ModuleDiscoveryError::Report {
+                module_path,
+                report,
+                normalized_source,
+            } => CompileError::Report {
+                source_path: module_path.display().to_string(),
+                report,
+                normalized_source,
+            },
+        })?;
 
     let mut parsed_programs: BTreeMap<PathBuf, Program> = BTreeMap::new();
     let mut module_sources: BTreeMap<PathBuf, String> = BTreeMap::new();
@@ -968,6 +969,8 @@ pub fn compile_project_with_run_policy(
         let context = Context::create();
         let llvm_module = compile_checked_program_to_module(
             &context,
+            module_path,
+            module_sources.get(module_path).map_or("", String::as_str),
             program,
             imported_signatures,
             &module_symbol_signatures,

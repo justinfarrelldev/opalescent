@@ -14,11 +14,10 @@ use super::helpers::{
     infer_array_callback_return_core_type, infer_map_callback_return_core_type,
     rc_object_is_reuse_eligible, rc_object_is_unique, resolve_array_identifier_binding,
     retain_rc_element_if_needed, set_array_payload_length, store_array_binding,
-    store_array_binding_with_mode, trap_on_invalid_array_state,
-    validate_array_operation_metadata,
+    store_array_binding_with_mode, trap_on_invalid_array_state, validate_array_operation_metadata,
 };
-use crate::codegen::binding_store::StoreMode;
 use crate::ast::{Expr, LiteralValue};
+use crate::codegen::binding_store::StoreMode;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, codegen_expression};

@@ -59,7 +59,11 @@ fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-fn compile_scope_leak_binary(temp_dir: &Path, fixture_name: &str, source: &str) -> Result<PathBuf, String> {
+fn compile_scope_leak_binary(
+    temp_dir: &Path,
+    fixture_name: &str,
+    source: &str,
+) -> Result<PathBuf, String> {
     let context = inkwell::context::Context::create();
     let module = compile_to_module(&context, Path::new(fixture_name), source)
         .map_err(|error| format!("{fixture_name} should compile into an LLVM module: {error:?}"))?;
@@ -115,7 +119,11 @@ fn compile_scope_leak_binary(temp_dir: &Path, fixture_name: &str, source: &str) 
     Ok(harness_bin)
 }
 
-fn run_scope_leak_case(temp_dir: &Path, fixture_name: &str, source: &str) -> Result<String, String> {
+fn run_scope_leak_case(
+    temp_dir: &Path,
+    fixture_name: &str,
+    source: &str,
+) -> Result<String, String> {
     let harness_bin = compile_scope_leak_binary(temp_dir, fixture_name, source)?;
 
     let output = run_binary_output_with_timeout(
@@ -306,11 +314,7 @@ entry main = f(args: string[]): void =>
     return void
 ";
 
-    run_scope_leak_test_case(
-        "scope_leak_early_return",
-        "scope_leak_early_return",
-        source,
-    );
+    run_scope_leak_test_case("scope_leak_early_return", "scope_leak_early_return", source);
 }
 
 #[test]

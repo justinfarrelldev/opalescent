@@ -175,7 +175,10 @@ pub fn codegen_function_declaration<'context>(
     Ok(function)
 }
 
-#[expect(clippy::too_many_lines, reason = "top-level declarations handle cache initialization and RC bookkeeping together")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "top-level declarations handle cache initialization and RC bookkeeping together"
+)]
 pub fn codegen_top_level_value_declaration<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -195,9 +198,11 @@ pub fn codegen_top_level_value_declaration<'context>(
         .module
         .get_function(accessor_name.as_str())
         .unwrap_or_else(|| {
-            codegen_context
-                .module
-                .add_function(accessor_name.as_str(), value_type.fn_type(&[], false), linkage)
+            codegen_context.module.add_function(
+                accessor_name.as_str(),
+                value_type.fn_type(&[], false),
+                linkage,
+            )
         });
     if matches!(*visibility, Visibility::Public)
         && codegen_context.target.platform == crate::build_system::targets::Platform::Windows
@@ -224,9 +229,11 @@ pub fn codegen_top_level_value_declaration<'context>(
         .module
         .get_global(init_name.as_str())
         .unwrap_or_else(|| {
-            codegen_context
-                .module
-                .add_global(codegen_context.context.bool_type(), None, init_name.as_str())
+            codegen_context.module.add_global(
+                codegen_context.context.bool_type(),
+                None,
+                init_name.as_str(),
+            )
         });
     init_global.set_linkage(Linkage::Internal);
     init_global.set_initializer(&codegen_context.context.bool_type().const_zero());
@@ -267,8 +274,12 @@ pub fn codegen_top_level_value_declaration<'context>(
     codegen_context.builder.build_return(Some(&cached_value))?;
 
     codegen_context.builder.position_at_end(init_block);
-    let initialized_value =
-        crate::codegen::expressions::codegen_expression(codegen_context, env, initializer, Some(core_type))?;
+    let initialized_value = crate::codegen::expressions::codegen_expression(
+        codegen_context,
+        env,
+        initializer,
+        Some(core_type),
+    )?;
     if binding_requires_rc_cleanup(core_type) {
         let pointer_value = initialized_value.into_pointer_value();
         let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
@@ -281,7 +292,9 @@ pub fn codegen_top_level_value_declaration<'context>(
         init_global.as_pointer_value(),
         codegen_context.context.bool_type().const_int(1, false),
     )?;
-    codegen_context.builder.build_return(Some(&initialized_value))?;
+    codegen_context
+        .builder
+        .build_return(Some(&initialized_value))?;
 
     env.value_accessors.insert(
         binding_name.to_owned(),
@@ -393,8 +406,8 @@ fn codegen_local_import_declaration<'context>(
                 } = core_type
                 else {
                     let accessor_name = top_level_value_accessor_name(name.as_str());
-                    let accessor_type = core_type_to_llvm(codegen_context.context, &core_type)
-                        .fn_type(&[], false);
+                    let accessor_type =
+                        core_type_to_llvm(codegen_context.context, &core_type).fn_type(&[], false);
                     let _extern_accessor = codegen_context
                         .module
                         .get_function(accessor_name.as_str())

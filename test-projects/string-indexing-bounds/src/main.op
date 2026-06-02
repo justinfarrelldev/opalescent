@@ -1,0 +1,11 @@
+import print from standard
+
+##
+    Description: minimal fixture proving string indexing bounds diagnostics
+##
+entry main = f(): void => {
+    let message = 'opal'
+    let first: string = message[message.length]
+    print(first)
+    return void
+}

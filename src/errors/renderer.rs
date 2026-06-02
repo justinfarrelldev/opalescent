@@ -10,26 +10,38 @@ use miette::{
 
 #[derive(Debug)]
 /// Runtime wrapper that supplies source text to an existing diagnostic.
-struct DiagnosticWithSource<'diagnostic> {
+struct DiagnosticWithSource<'diagnostic, DiagnosticType>
+where
+    DiagnosticType: Diagnostic + fmt::Display + ?Sized,
+{
     /// Full source text bound to the current filename.
     source_code: NamedSource<String>,
     /// Original diagnostic emitted by compiler phases.
-    inner: &'diagnostic dyn Diagnostic,
+    inner: &'diagnostic DiagnosticType,
 }
 
-impl fmt::Display for DiagnosticWithSource<'_> {
+impl<DiagnosticType> fmt::Display for DiagnosticWithSource<'_, DiagnosticType>
+where
+    DiagnosticType: Diagnostic + fmt::Display + ?Sized,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.inner)
     }
 }
 
-impl core::error::Error for DiagnosticWithSource<'_> {
+impl<DiagnosticType> core::error::Error for DiagnosticWithSource<'_, DiagnosticType>
+where
+    DiagnosticType: Diagnostic + fmt::Display + ?Sized,
+{
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         self.inner.source()
     }
 }
 
-impl Diagnostic for DiagnosticWithSource<'_> {
+impl<DiagnosticType> Diagnostic for DiagnosticWithSource<'_, DiagnosticType>
+where
+    DiagnosticType: Diagnostic + fmt::Display + ?Sized,
+{
     fn code<'diagnostic>(&'diagnostic self) -> Option<Box<dyn fmt::Display + 'diagnostic>> {
         self.inner.code()
     }
@@ -65,8 +77,16 @@ impl Diagnostic for DiagnosticWithSource<'_> {
     }
 }
 
+/// Render a diagnostic with source text attached.
 #[must_use]
-pub fn render_diagnostic(filename: &str, source: &str, error: &dyn Diagnostic) -> String {
+pub(crate) fn render_diagnostic_with_source<DiagnosticType>(
+    filename: &str,
+    source: &str,
+    error: &DiagnosticType,
+) -> String
+where
+    DiagnosticType: Diagnostic + fmt::Display + ?Sized,
+{
     let diagnostic = DiagnosticWithSource {
         source_code: NamedSource::new(filename, source.to_owned()),
         inner: error,
@@ -79,6 +99,11 @@ pub fn render_diagnostic(filename: &str, source: &str, error: &dyn Diagnostic) -
     }
 
     rendered
+}
+
+#[must_use]
+pub fn render_diagnostic(filename: &str, source: &str, error: &dyn Diagnostic) -> String {
+    render_diagnostic_with_source(filename, source, error)
 }
 
 #[must_use]

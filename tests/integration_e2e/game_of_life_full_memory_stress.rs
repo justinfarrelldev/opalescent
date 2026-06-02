@@ -133,7 +133,11 @@ fn kill_and_reap_child(child: &mut Child) -> (bool, Option<String>, Option<ExitS
 
     match child.try_wait() {
         Ok(Some(status)) => {
-            return (false, Some(String::from("not-needed-already-exited")), Some(status));
+            return (
+                false,
+                Some(String::from("not-needed-already-exited")),
+                Some(status),
+            );
         }
         Ok(None) => {}
         Err(error) => {
@@ -170,9 +174,7 @@ fn run_memory_stress(binary_path: &Path, limits: StressLimits) -> Result<StressR
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| {
-            format!(
-                "game-of-life-full compiled binary should spawn for memory stress: {error}"
-            )
+            format!("game-of-life-full compiled binary should spawn for memory stress: {error}")
         })?;
 
     let pid = child.id();

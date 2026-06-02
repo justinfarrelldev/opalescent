@@ -69,7 +69,10 @@ fn standard_symbols_process_functions() -> Vec<(String, CoreType, SymbolType)> {
             "get_environment_variable_or",
             vec![CoreType::String, CoreType::String],
             vec![CoreType::String],
-            vec![invalid_environment_variable_name_error(), invalid_utf8_error()],
+            vec![
+                invalid_environment_variable_name_error(),
+                invalid_utf8_error(),
+            ],
         ),
         function_symbol(
             "environment_variable_exists",
@@ -77,7 +80,12 @@ fn standard_symbols_process_functions() -> Vec<(String, CoreType, SymbolType)> {
             vec![CoreType::Boolean],
             vec![invalid_environment_variable_name_error()],
         ),
-        function_symbol("exit_process", vec![CoreType::Int32], vec![CoreType::Unit], vec![]),
+        function_symbol(
+            "exit_process",
+            vec![CoreType::Int32],
+            vec![CoreType::Unit],
+            vec![],
+        ),
     ]
 }
 

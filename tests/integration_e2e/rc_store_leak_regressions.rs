@@ -12,7 +12,11 @@ fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-fn compile_rc_store_binary(temp_dir: &Path, fixture_name: &str, source: &str) -> Result<PathBuf, String> {
+fn compile_rc_store_binary(
+    temp_dir: &Path,
+    fixture_name: &str,
+    source: &str,
+) -> Result<PathBuf, String> {
     let context = inkwell::context::Context::create();
     let module = compile_to_module(&context, Path::new(fixture_name), source)
         .map_err(|error| format!("{fixture_name} should compile into an LLVM module: {error:?}"))?;
@@ -22,7 +26,8 @@ fn compile_rc_store_binary(temp_dir: &Path, fixture_name: &str, source: &str) ->
         .map_err(|error| format!("{fixture_name} object emission should succeed: {error}"))?;
 
     let harness_bin = temp_dir.join(format!("{fixture_name}_rc_store_harness"));
-    let fixture_path = repo_root().join("tests/integration_e2e/fixtures/rc_store_leak_regressions.c");
+    let fixture_path =
+        repo_root().join("tests/integration_e2e/fixtures/rc_store_leak_regressions.c");
 
     let mut compile_command = Command::new("cc");
     compile_command
@@ -193,7 +198,11 @@ fn assert_rc_store_balanced(stdout: &str, test_name: &str) -> Result<(), String>
     Ok(())
 }
 
-fn execute_rc_store_case(test_name: &str, fixture_name: &str, source: &str) -> Result<String, String> {
+fn execute_rc_store_case(
+    test_name: &str,
+    fixture_name: &str,
+    source: &str,
+) -> Result<String, String> {
     let temp_dir = unique_probe_target_dir(test_name);
     prepare_dir(&temp_dir)
         .map_err(|error| format!("{test_name} temp directory should be created: {error}"))?;
@@ -289,11 +298,7 @@ entry main = f(args: string[]): void =>
     return void
 ";
 
-    run_rc_store_test_case(
-        "rc_store_self_overwrite",
-        "rc_store_self_overwrite",
-        source,
-    );
+    run_rc_store_test_case("rc_store_self_overwrite", "rc_store_self_overwrite", source);
 }
 
 #[test]

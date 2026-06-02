@@ -46,7 +46,10 @@ pub fn classify_nominal_type(type_name: &str) -> Option<HeapClass> {
 pub fn classify_core_type(core_type: &CoreType) -> HeapClass {
     match *core_type {
         CoreType::String | CoreType::Array(_) => HeapClass::ReferenceCounted,
-        CoreType::Generic { ref name, ref type_args } if type_args.is_empty() => {
+        CoreType::Generic {
+            ref name,
+            ref type_args,
+        } if type_args.is_empty() => {
             classify_nominal_type(name.as_str()).unwrap_or(HeapClass::InlineValue)
         }
         _ => HeapClass::InlineValue,

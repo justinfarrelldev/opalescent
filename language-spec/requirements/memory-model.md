@@ -45,6 +45,8 @@ Reference counting is used for heap-allocated types:
 
 Primitives (e.g., `int32`, `float64`, `boolean`) are stored inline and are **not** RC-managed.
 
+For public language semantics, indexing a string still yields a `string`. `value[0]` and `value[value.length - 1]` produce one-scalar strings, using zero-based Unicode scalar positions. This model does not add a public `char` or `rune` type.
+
 ### 3.2 RC Object Header Layout (ABI-stable)
 Every RC-managed object is preceded by a 24-byte header. The user pointer points directly to the payload, with the header residing at `pointer - 24`.
 
@@ -166,3 +168,4 @@ The Opalescent memory model maintains the following invariants:
 - **Leak Prevention**: RC ensures memory is reclaimed; `Weak<T>` provides tools to break cycles manually.
 - **Stack Safety**: Iterative drop prevents deep recursion during deallocation.
 - **Concurrency Ready**: RC operations are designed to be atomic (though the current implementation is single-threaded).
+- **String Indexing Contract**: Out-of-bounds string indexing is reported through source-anchored Miette diagnostics that point at the exact indexed expression and tell the user to keep the index within `0 <= index < string.length`.

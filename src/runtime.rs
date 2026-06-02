@@ -20,7 +20,7 @@ pub use stdlib::{
     DefaultRandomIntSource, RandomIntSource, format_interpolated_string, opal_array_slice,
     random_int32, random_int32_with_source, string_to_int32,
 };
-pub use strings::{string_compare, string_concat, string_equals, string_length};
+pub use strings::{string_compare, string_concat, string_equals, string_index, string_length};
 
 #[cfg(test)]
 mod tests;

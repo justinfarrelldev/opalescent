@@ -19,8 +19,8 @@ use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use inkwell::values::{BasicValue, BasicValueEnum};
 use inkwell::AddressSpace;
+use inkwell::values::{BasicValue, BasicValueEnum};
 
 #[doc = "Instantiate a concrete ADT symbol name for generic arguments."]
 #[must_use]
@@ -95,12 +95,7 @@ pub fn codegen_constructor_expression<'context>(
         if matches!(callee.as_ref(), &Expr::Member { .. }) {
             return codegen_sum_variant_constructor(codegen_context, env, fields.as_slice());
         }
-        return codegen_product_constructor(
-            codegen_context,
-            env,
-            fields.as_slice(),
-            expected_type,
-        );
+        return codegen_product_constructor(codegen_context, env, fields.as_slice(), expected_type);
     }
     Err(CodegenError::new(String::from(
         "expected constructor expression",
@@ -108,8 +103,14 @@ pub fn codegen_constructor_expression<'context>(
 }
 
 #[doc = "Lower field access for product ADT values using tracked field indices."]
-#[expect(clippy::too_many_lines, reason = "field access lowering handles several receiver forms in one place")]
-#[expect(clippy::undocumented_unsafe_blocks, reason = "the pointer-backed GEP uses tracked ADT layout metadata")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "field access lowering handles several receiver forms in one place"
+)]
+#[expect(
+    clippy::undocumented_unsafe_blocks,
+    reason = "the pointer-backed GEP uses tracked ADT layout metadata"
+)]
 pub fn codegen_field_access_expression<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -217,7 +218,9 @@ pub fn codegen_field_access_expression<'context>(
         let struct_type = codegen_context.context.struct_type(
             field_layout
                 .iter()
-                .map(|&(_, ref field_type)| crate::codegen::types::core_type_to_llvm(codegen_context.context, field_type))
+                .map(|&(_, ref field_type)| {
+                    crate::codegen::types::core_type_to_llvm(codegen_context.context, field_type)
+                })
                 .collect::<Vec<_>>()
                 .as_slice(),
             false,
@@ -521,6 +524,16 @@ fn infer_product_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<CoreType
                         _ => None,
                     }
                 }
+                CoreType::Generic { name, .. } => env
+                    .adt_field_layouts
+                    .get(name.as_str())
+                    .and_then(|field_layout| {
+                        field_layout
+                            .iter()
+                            .find_map(|&(ref field_name, ref field_type)| {
+                                (field_name == member).then(|| field_type.clone())
+                            })
+                    }),
                 _ => None,
             }
         }
@@ -717,6 +730,7 @@ fn codegen_sum_variant_constructor<'context>(
 }
 
 #[doc = "Lower product constructors to plain LLVM struct values or heap-backed nominal payloads."]
+#[expect(clippy::too_many_lines, reason = "product constructor lowering is centralized here")]
 fn codegen_product_constructor<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -725,31 +739,67 @@ fn codegen_product_constructor<'context>(
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     if let Some(&CoreType::Generic { ref name, .. }) = expected_type {
         if let Some(field_layout) = env.adt_field_layouts.get(name.as_str()).cloned() {
-            let field_map = fields.iter().map(|field| (field.name.as_str(), &field.value)).collect::<BTreeMap<_, _>>();
+            let field_map = fields
+                .iter()
+                .map(|field| (field.name.as_str(), &field.value))
+                .collect::<BTreeMap<_, _>>();
             let mut lowered_fields = Vec::with_capacity(field_layout.len());
             let field_types = field_layout
                 .iter()
                 .map(|&(_, ref field_type)| core_type_to_llvm(codegen_context.context, field_type))
                 .collect::<Vec<_>>();
-            let struct_type = codegen_context.context.struct_type(field_types.as_slice(), false);
+            let struct_type = codegen_context
+                .context
+                .struct_type(field_types.as_slice(), false);
             for &(ref field_name, ref field_type) in &field_layout {
                 let field_expr = field_map.get(field_name.as_str()).copied().ok_or_else(|| {
-                    CodegenError::new(format!("missing field '{field_name}' for constructor '{name}'"))
+                    CodegenError::new(format!(
+                        "missing field '{field_name}' for constructor '{name}'"
+                    ))
                 })?;
-                lowered_fields.push(codegen_expression(codegen_context, env, field_expr, Some(field_type))?);
+                lowered_fields.push(codegen_expression(
+                    codegen_context,
+                    env,
+                    field_expr,
+                    Some(field_type),
+                )?);
             }
-            let payload_size = struct_type.size_of().ok_or_else(|| CodegenError::new(format!("could not compute payload size for constructor '{name}'")))?;
-            let nominal_core_type = expected_type.expect("nominal constructor expected type should exist");
-            let drop_children_fn = if field_layout.iter().any(|&(_, ref field_type)| requires_rc_runtime_hooks(field_type)) {
-                let callback = declare_or_get_nominal_drop_children_fn(codegen_context, nominal_core_type, field_layout.as_slice())?;
-                let i8_ptr_type = codegen_context.context.i8_type().ptr_type(AddressSpace::default());
-                Some(callback.as_global_value().as_pointer_value().const_cast(i8_ptr_type))
+            let payload_size = struct_type.size_of().ok_or_else(|| {
+                CodegenError::new(format!(
+                    "could not compute payload size for constructor '{name}'"
+                ))
+            })?;
+            let nominal_core_type =
+                expected_type.expect("nominal constructor expected type should exist");
+            let drop_children_fn = if field_layout
+                .iter()
+                .any(|&(_, ref field_type)| requires_rc_runtime_hooks(field_type))
+            {
+                let callback = declare_or_get_nominal_drop_children_fn(
+                    codegen_context,
+                    nominal_core_type,
+                    field_layout.as_slice(),
+                )?;
+                let i8_ptr_type = codegen_context
+                    .context
+                    .i8_type()
+                    .ptr_type(AddressSpace::default());
+                Some(
+                    callback
+                        .as_global_value()
+                        .as_pointer_value()
+                        .const_cast(i8_ptr_type),
+                )
             } else {
                 None
             };
             let emitter = RcEmitter::new(&codegen_context.builder, &codegen_context.module);
             let payload_ptr = emitter.emit_alloc(payload_size, drop_children_fn)?;
-            let typed_ptr = codegen_context.builder.build_pointer_cast(payload_ptr, struct_type.ptr_type(AddressSpace::default()), &env.next_name("product.payload.cast"))?;
+            let typed_ptr = codegen_context.builder.build_pointer_cast(
+                payload_ptr,
+                struct_type.ptr_type(AddressSpace::default()),
+                &env.next_name("product.payload.cast"),
+            )?;
             for (index, value) in lowered_fields.iter().enumerate() {
                 let converted_index = u64::try_from(index)
                     .map_err(|conversion_error| CodegenError::new(format!("{conversion_error}")))?;
@@ -759,7 +809,10 @@ fn codegen_product_constructor<'context>(
                         typed_ptr,
                         &[
                             codegen_context.context.i32_type().const_zero(),
-                            codegen_context.context.i32_type().const_int(converted_index, false),
+                            codegen_context
+                                .context
+                                .i32_type()
+                                .const_int(converted_index, false),
                         ],
                         &env.next_name("product.field.ptr"),
                     )?
@@ -818,13 +871,20 @@ fn codegen_product_constructor<'context>(
 }
 
 #[doc = "Build or fetch the nominal product child-drop callback used by the RC runtime."]
-#[expect(clippy::too_many_lines, reason = "nominal child-drop callback setup is centralized here")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "nominal child-drop callback setup is centralized here"
+)]
 fn declare_or_get_nominal_drop_children_fn<'context>(
     codegen_context: &CodegenContext<'context>,
     nominal_core_type: &CoreType,
     field_layout: &[(String, CoreType)],
 ) -> Result<inkwell::values::FunctionValue<'context>, CodegenError> {
-    let &CoreType::Generic { ref name, ref type_args } = nominal_core_type else {
+    let &CoreType::Generic {
+        ref name,
+        ref type_args,
+    } = nominal_core_type
+    else {
         return Err(CodegenError::new(String::from(
             "nominal child-drop callback requires generic nominal type",
         )));

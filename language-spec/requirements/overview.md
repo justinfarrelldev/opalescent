@@ -51,6 +51,15 @@ Cast syntax: (expr as T)
 
 Use miette for formatting of the output.
 
+# String Indexing
+
+Public string indexing uses `value[index]` with zero-based Unicode scalar positions.
+
+- `value[index]` returns `string`
+- `value[value.length - 1]` is valid when the string is non-empty
+- Opalescent does not introduce a public `char` or `rune` type for indexed string access
+- Out-of-bounds string indexing must produce a source-anchored Miette diagnostic that includes the file path, source line, highlighted `value[index]` expression, and help text for `0 <= index < string.length`
+
 # Whitespace
 
 Mixed whitespace is not allowed. Only either spaces or tabs are allowed in a project, and all files must match. This will eventually be enforced with a formatter.

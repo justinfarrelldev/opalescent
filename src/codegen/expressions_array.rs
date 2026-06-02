@@ -19,6 +19,7 @@ use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, codegen_expression, current_function};
 use crate::codegen::rc_emitter::RcEmitter;
 use crate::codegen::types::core_type_to_llvm;
+use crate::token::Span;
 use crate::type_system::heap_class::{HeapClass, classify_core_type};
 use crate::type_system::types::CoreType;
 use alloc::boxed::Box;
@@ -91,6 +92,69 @@ pub fn codegen_array_access<'context>(
 
     let _: Option<&CoreType> = expected_type;
     Ok(loaded)
+}
+
+/// Lower string indexing through the runtime Unicode-scalar helper path.
+pub fn codegen_string_access<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    object: &Expr,
+    index: &Expr,
+    access_span: Span,
+    expected_type: Option<&CoreType>,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let object_core_type = infer_expression_core_type(env, object).ok_or_else(|| {
+        CodegenError::new(String::from(
+            "string access receiver type could not be inferred",
+        ))
+    })?;
+    if object_core_type != CoreType::String {
+        return Err(CodegenError::new(format!(
+            "index access expects string receiver, found '{object_core_type}'"
+        )));
+    }
+
+    let string_value = codegen_expression(codegen_context, env, object, Some(&CoreType::String))?
+        .into_pointer_value();
+    let index_value =
+        codegen_expression(codegen_context, env, index, Some(&CoreType::Int64))?.into_int_value();
+    let string_length_fn =
+        crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, "string_length")
+            .ok_or_else(|| CodegenError::new(String::from("string_length declaration missing")))?;
+    let length_call = codegen_context.builder.build_call(
+        string_length_fn,
+        &[string_value.into()],
+        &env.next_name("string.index.length"),
+    )?;
+    let string_length = length_call
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("string_length returned no value")))?
+        .into_int_value();
+
+    emit_string_bounds_check(
+        codegen_context,
+        env,
+        index_value,
+        string_length,
+        access_span,
+    )?;
+
+    let string_index_fn =
+        crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, "string_index")
+            .ok_or_else(|| CodegenError::new(String::from("string_index declaration missing")))?;
+    let index_call = codegen_context.builder.build_call(
+        string_index_fn,
+        &[string_value.into(), index_value.into()],
+        &env.next_name("string.index.call"),
+    )?;
+    let indexed_value = index_call
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("string_index returned no value")))?;
+
+    let _: Option<&CoreType> = expected_type;
+    Ok(indexed_value)
 }
 
 pub fn codegen_identifier_indexed_array_assignment<'context>(
@@ -451,6 +515,7 @@ pub fn infer_expression_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<C
         ),
         Expr::Index { ref object, .. } => match infer_expression_core_type(env, object.as_ref()) {
             Some(CoreType::Array(element_type)) => Some(element_type.as_ref().clone()),
+            Some(CoreType::String) => Some(CoreType::String),
             _ => None,
         },
         Expr::Member {
@@ -458,7 +523,9 @@ pub fn infer_expression_core_type(env: &CodegenEnv<'_>, expr: &Expr) -> Option<C
             ref member,
             ..
         } => match infer_expression_core_type(env, object.as_ref()) {
-            Some(CoreType::Array(_)) if member == "length" => Some(CoreType::Int64),
+            Some(CoreType::Array(_) | CoreType::String) if member == "length" => {
+                Some(CoreType::Int64)
+            }
             Some(CoreType::Array(element_type)) => Some(element_type.as_ref().clone()),
             Some(CoreType::Generic { name, .. }) => env
                 .adt_field_layouts
@@ -1100,18 +1167,65 @@ fn resolve_array_access_base_and_length<'context>(
         if let Some(binding) = env.variables.get(name).cloned() {
             load_array_payload_ptr_from_binding(codegen_context, env, name, binding)?
         } else if let Some(accessor_binding) = env.value_accessors.get(name).cloned() {
-            let accessor_function = codegen_context.module.get_function(accessor_binding.accessor_name.as_str()).ok_or_else(|| CodegenError::new(format!("missing imported value accessor '{}' for '{name}'", accessor_binding.accessor_name)))?;
-            let call = codegen_context.builder.build_call(accessor_function, &[], &env.next_name(format!("{name}.array.value").as_str()))?;
-            let array_result = call.try_as_basic_value().basic().ok_or_else(|| CodegenError::new(format!("imported value accessor '{}' did not return a value", accessor_binding.accessor_name)))?;
-            cast_array_payload_to_i8_ptr(codegen_context, env, array_result.into_pointer_value(), name)?
-        } else { return Err(CodegenError::new(format!("unknown array variable '{name}'"))); }
+            let accessor_function = codegen_context
+                .module
+                .get_function(accessor_binding.accessor_name.as_str())
+                .ok_or_else(|| {
+                    CodegenError::new(format!(
+                        "missing imported value accessor '{}' for '{name}'",
+                        accessor_binding.accessor_name
+                    ))
+                })?;
+            let call = codegen_context.builder.build_call(
+                accessor_function,
+                &[],
+                &env.next_name(format!("{name}.array.value").as_str()),
+            )?;
+            let array_result = call.try_as_basic_value().basic().ok_or_else(|| {
+                CodegenError::new(format!(
+                    "imported value accessor '{}' did not return a value",
+                    accessor_binding.accessor_name
+                ))
+            })?;
+            cast_array_payload_to_i8_ptr(
+                codegen_context,
+                env,
+                array_result.into_pointer_value(),
+                name,
+            )?
+        } else {
+            return Err(CodegenError::new(format!(
+                "unknown array variable '{name}'"
+            )));
+        }
     } else {
-        let object_value = codegen_expression(codegen_context, env, object, Some(&CoreType::Array(Box::new(element_core_type.clone()))))?;
-        if !object_value.is_pointer_value() { return Err(CodegenError::new(String::from("array expression did not lower to a payload pointer"))); }
-        cast_array_payload_to_i8_ptr(codegen_context, env, object_value.into_pointer_value(), "array.access.expr")?
+        let object_value = codegen_expression(
+            codegen_context,
+            env,
+            object,
+            Some(&CoreType::Array(Box::new(element_core_type.clone()))),
+        )?;
+        if !object_value.is_pointer_value() {
+            return Err(CodegenError::new(String::from(
+                "array expression did not lower to a payload pointer",
+            )));
+        }
+        cast_array_payload_to_i8_ptr(
+            codegen_context,
+            env,
+            object_value.into_pointer_value(),
+            "array.access.expr",
+        )?
     };
-    let array_length = load_array_length_from_value(codegen_context, env, array_value, "array.access")?;
-    let base_ptr = load_array_data_ptr_for_element_type(codegen_context, env, array_value, element_core_type, "array.access")?;
+    let array_length =
+        load_array_length_from_value(codegen_context, env, array_value, "array.access")?;
+    let base_ptr = load_array_data_ptr_for_element_type(
+        codegen_context,
+        env,
+        array_value,
+        element_core_type,
+        "array.access",
+    )?;
     Ok((base_ptr, array_length))
 }
 
@@ -1350,6 +1464,201 @@ fn emit_array_bounds_check<'context>(
     )?;
 
     codegen_context.builder.position_at_end(trap_block);
+    emit_bounds_error_trap(
+        codegen_context,
+        env,
+        index_value,
+        length_value,
+        "array.bounds.index.i64",
+        "array.bounds.length.i64",
+        "array.trap.call",
+    )?;
+
+    codegen_context.builder.position_at_end(cont_block);
+    Ok(())
+}
+
+fn emit_string_bounds_check<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    index_value: IntValue<'context>,
+    length_value: IntValue<'context>,
+    access_span: Span,
+) -> Result<(), CodegenError> {
+    let zero = index_value.get_type().const_zero();
+    let is_negative = codegen_context.builder.build_int_compare(
+        IntPredicate::SLT,
+        index_value,
+        zero,
+        &env.next_name("string.bounds.negative"),
+    )?;
+    let current_fn = current_function(codegen_context)?;
+    let negative_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("string.negative.trap"));
+    let bounds_check_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("string.bounds.check"));
+    let _negative_branch = codegen_context.builder.build_conditional_branch(
+        is_negative,
+        negative_block,
+        bounds_check_block,
+    )?;
+
+    codegen_context.builder.position_at_end(negative_block);
+    record_string_bounds_span(codegen_context, env, access_span)?;
+    emit_bounds_error_trap(
+        codegen_context,
+        env,
+        codegen_context.context.i64_type().const_zero(),
+        length_value,
+        "string.bounds.negative.index.i64",
+        "string.bounds.length.i64",
+        "string.negative.trap.call",
+    )?;
+
+    codegen_context.builder.position_at_end(bounds_check_block);
+    let is_out_of_bounds = codegen_context.builder.build_int_compare(
+        IntPredicate::SGE,
+        index_value,
+        length_value,
+        &env.next_name("string.bounds.oob"),
+    )?;
+    let oob_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("string.oob.trap"));
+    let cont_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("string.cont"));
+    let _bounds_branch = codegen_context.builder.build_conditional_branch(
+        is_out_of_bounds,
+        oob_block,
+        cont_block,
+    )?;
+
+    codegen_context.builder.position_at_end(oob_block);
+    record_string_bounds_span(codegen_context, env, access_span)?;
+    emit_bounds_error_trap(
+        codegen_context,
+        env,
+        index_value,
+        length_value,
+        "string.bounds.index.i64",
+        "string.bounds.length.i64",
+        "string.oob.trap.call",
+    )?;
+
+    codegen_context.builder.position_at_end(cont_block);
+    Ok(())
+}
+
+fn record_string_bounds_span<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    access_span: Span,
+) -> Result<(), CodegenError> {
+    let span_start = u64::try_from(access_span.start.offset).map_err(|conversion_error| {
+        CodegenError::with_span(
+            format!(
+                "string index span start offset exceeds runtime metadata width: {conversion_error}"
+            ),
+            crate::error::LexError::span_from_span(access_span),
+        )
+    })?;
+    let span_len = u64::try_from(access_span.len()).map_err(|conversion_error| {
+        CodegenError::with_span(
+            format!("string index span length exceeds runtime metadata width: {conversion_error}"),
+            crate::error::LexError::span_from_span(access_span),
+        )
+    })?;
+    let start_global =
+        declare_or_get_runtime_span_global(codegen_context, "opal_runtime_string_index_span_start");
+    let len_global =
+        declare_or_get_runtime_span_global(codegen_context, "opal_runtime_string_index_span_len");
+    let source_path_global = declare_or_get_runtime_string_global(
+        codegen_context,
+        "opal_runtime_string_index_source_path",
+    );
+    let source_text_global = declare_or_get_runtime_string_global(
+        codegen_context,
+        "opal_runtime_string_index_source_text",
+    );
+    let start_value = codegen_context
+        .context
+        .i64_type()
+        .const_int(span_start, false);
+    let len_value = codegen_context
+        .context
+        .i64_type()
+        .const_int(span_len, false);
+    let source_path_name = env.next_name("string.index.source.path");
+    let source_text_name = env.next_name("string.index.source.text");
+    let source_path = env.current_source_path.clone();
+    let source_text = env.current_source_text.clone();
+    let source_path_value = codegen_context
+        .builder
+        .build_global_string_ptr(source_path.as_str(), source_path_name.as_str())?
+        .as_pointer_value();
+    let source_text_value = codegen_context
+        .builder
+        .build_global_string_ptr(source_text.as_str(), source_text_name.as_str())?
+        .as_pointer_value();
+    let _start_store = codegen_context
+        .builder
+        .build_store(start_global.as_pointer_value(), start_value)?;
+    let _len_store = codegen_context
+        .builder
+        .build_store(len_global.as_pointer_value(), len_value)?;
+    let _source_path_store = codegen_context
+        .builder
+        .build_store(source_path_global.as_pointer_value(), source_path_value)?;
+    let _source_text_store = codegen_context
+        .builder
+        .build_store(source_text_global.as_pointer_value(), source_text_value)?;
+    Ok(())
+}
+
+fn declare_or_get_runtime_span_global<'context>(
+    codegen_context: &CodegenContext<'context>,
+    name: &str,
+) -> inkwell::values::GlobalValue<'context> {
+    codegen_context.module.get_global(name).unwrap_or_else(|| {
+        let global =
+            codegen_context
+                .module
+                .add_global(codegen_context.context.i64_type(), None, name);
+        global.set_linkage(Linkage::External);
+        global
+    })
+}
+
+fn declare_or_get_runtime_string_global<'context>(
+    codegen_context: &CodegenContext<'context>,
+    name: &str,
+) -> inkwell::values::GlobalValue<'context> {
+    codegen_context.module.get_global(name).unwrap_or_else(|| {
+        let global = codegen_context.module.add_global(
+            codegen_context
+                .context
+                .i8_type()
+                .ptr_type(AddressSpace::default()),
+            None,
+            name,
+        );
+        global.set_linkage(Linkage::External);
+        global
+    })
+}
+
+fn emit_bounds_error_trap<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    index_value: IntValue<'context>,
+    length_value: IntValue<'context>,
+    index_name: &str,
+    length_name: &str,
+    call_name: &str,
+) -> Result<(), CodegenError> {
     let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
         codegen_context,
         "opal_array_bounds_error",
@@ -1363,7 +1672,7 @@ fn emit_array_bounds_check<'context>(
         codegen_context.builder.build_int_z_extend(
             index_value,
             codegen_context.context.i64_type(),
-            &env.next_name("array.bounds.index.i64"),
+            &env.next_name(index_name),
         )?
     };
     let length_arg = if length_value.get_type().get_bit_width() == 64 {
@@ -1372,17 +1681,14 @@ fn emit_array_bounds_check<'context>(
         codegen_context.builder.build_int_z_extend(
             length_value,
             codegen_context.context.i64_type(),
-            &env.next_name("array.bounds.length.i64"),
+            &env.next_name(length_name),
         )?
     };
     let trap_args: [BasicMetadataValueEnum<'context>; 2] = [index_arg.into(), length_arg.into()];
-    let _call = codegen_context.builder.build_call(
-        runtime_fn,
-        &trap_args,
-        &env.next_name("array.trap.call"),
-    )?;
+    let _call =
+        codegen_context
+            .builder
+            .build_call(runtime_fn, &trap_args, &env.next_name(call_name))?;
     let _unreachable = codegen_context.builder.build_unreachable()?;
-
-    codegen_context.builder.position_at_end(cont_block);
     Ok(())
 }

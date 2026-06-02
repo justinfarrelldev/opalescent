@@ -6,8 +6,7 @@ use super::{
 use crate::build_system::targets::{TargetTriple, parse_target_triple};
 use crate::compiler::compiler_helpers::{
     collect_module_symbol_signatures, collect_program_adt_field_indices,
-    collect_program_adt_field_layouts, compile_checked_program_to_module,
-    parse_source_to_program,
+    collect_program_adt_field_layouts, compile_checked_program_to_module, parse_source_to_program,
 };
 use crate::errors::reporter::CompilerError;
 use crate::type_system::checker::TypeChecker;
@@ -213,6 +212,8 @@ fn compile_checked_program_to_module_preserves_windows_target_for_stdlib_abi() {
     let adt_field_layouts = collect_program_adt_field_layouts(&program);
     let module = compile_checked_program_to_module(
         &context,
+        Path::new("test.op"),
+        source,
         &program,
         imported_signatures,
         &module_symbol_signatures,

@@ -152,7 +152,6 @@ fn lower_string_array_argument<'context>(
     Ok((data_ptr, length_value))
 }
 
-
 fn maybe_lower_specialized_string_array_call<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -197,14 +196,8 @@ fn maybe_lower_specialized_string_array_call<'context>(
     }
 
     if runtime_name == "join_path_components" {
-        let base_argument = lower_call_argument(
-            codegen_context,
-            env,
-            callee,
-            0,
-            &args[0],
-            cleanup_records,
-        )?;
+        let base_argument =
+            lower_call_argument(codegen_context, env, callee, 0, &args[0], cleanup_records)?;
         let components_argument = codegen_expression(codegen_context, env, &args[1], None)?;
         let (components_ptr, components_count) =
             lower_string_array_argument(codegen_context, env, components_argument)?;
@@ -217,14 +210,8 @@ fn maybe_lower_specialized_string_array_call<'context>(
     }
 
     let array_argument = codegen_expression(codegen_context, env, &args[0], None)?;
-    let separator_argument = lower_call_argument(
-        codegen_context,
-        env,
-        callee,
-        1,
-        &args[1],
-        cleanup_records,
-    )?;
+    let separator_argument =
+        lower_call_argument(codegen_context, env, callee, 1, &args[1], cleanup_records)?;
 
     let (array_ptr, length_value) =
         lower_string_array_argument(codegen_context, env, array_argument)?;
@@ -427,15 +414,14 @@ pub fn codegen_call_expression<'context>(
                                 .context
                                 .void_type()
                                 .fn_type(&[i8_ptr.into()], false);
-                            let free_fn =
-                                codegen_context
-                                    .module
-                                    .get_function("free")
-                                    .unwrap_or_else(|| {
-                                        codegen_context
-                                            .module
-                                            .add_function("free", free_fn_type, None)
-                                    });
+                            let free_fn = codegen_context
+                                .module
+                                .get_function("free")
+                                .unwrap_or_else(|| {
+                                    codegen_context
+                                        .module
+                                        .add_function("free", free_fn_type, None)
+                                });
                             let _: inkwell::values::CallSiteValue =
                                 codegen_context.builder.build_call(
                                     free_fn,
@@ -458,11 +444,12 @@ pub fn codegen_call_expression<'context>(
                         .ok_or_else(|| {
                             CodegenError::new(format!("{print_fn_name} declaration missing"))
                         })?;
-                        let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
-                            print_fn,
-                            &[int_value.into()],
-                            &env.next_name("print.int"),
-                        )?;
+                        let _: inkwell::values::CallSiteValue =
+                            codegen_context.builder.build_call(
+                                print_fn,
+                                &[int_value.into()],
+                                &env.next_name("print.int"),
+                            )?;
                         return Ok(void_value);
                     }
 
@@ -480,11 +467,12 @@ pub fn codegen_call_expression<'context>(
                         .ok_or_else(|| {
                             CodegenError::new(format!("{print_fn_name} declaration missing"))
                         })?;
-                        let _: inkwell::values::CallSiteValue = codegen_context.builder.build_call(
-                            print_fn,
-                            &[float_value.into()],
-                            &env.next_name("print.float"),
-                        )?;
+                        let _: inkwell::values::CallSiteValue =
+                            codegen_context.builder.build_call(
+                                print_fn,
+                                &[float_value.into()],
+                                &env.next_name("print.float"),
+                            )?;
                         return Ok(void_value);
                     }
                 }
@@ -506,7 +494,9 @@ pub fn codegen_call_expression<'context>(
                             env.next_name("call").as_str(),
                         )?;
                         if let Some(result_value) = call.try_as_basic_value().basic() {
-                            codegen_context.builder.build_store(result_alloca, result_value)?;
+                            codegen_context
+                                .builder
+                                .build_store(result_alloca, result_value)?;
                         } else {
                             return Err(CodegenError::new(String::from(
                                 "aggregate error-abi call should return struct result",

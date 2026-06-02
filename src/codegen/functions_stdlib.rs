@@ -201,6 +201,10 @@ pub fn declare_stdlib_function<'context>(
             let ft = i64_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("string_length", ft, None))
         }),
+        "string_index" => module.get_function("string_index").or_else(|| {
+            let ft = i8_ptr.fn_type(&[i8_ptr.into(), i64_type.into()], false);
+            Some(module.add_function("string_index", ft, None))
+        }),
         "string_join" => module.get_function("string_join").or_else(|| {
             let ft = i8_ptr.fn_type(
                 &[
@@ -528,14 +532,16 @@ pub fn declare_stdlib_function<'context>(
                     ))
                 })
         }
-        "get_environment_variable" => module.get_function("get_environment_variable").or_else(|| {
-            Some(declare_fs_result_function(
-                codegen_context,
-                "get_environment_variable",
-                pointer_error_result_type,
-                &[i8_ptr.into()],
-            ))
-        }),
+        "get_environment_variable" => {
+            module.get_function("get_environment_variable").or_else(|| {
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "get_environment_variable",
+                    pointer_error_result_type,
+                    &[i8_ptr.into()],
+                ))
+            })
+        }
         "get_environment_variable_or" => module
             .get_function("get_environment_variable_or")
             .or_else(|| {
@@ -884,6 +890,7 @@ pub const STDLIB_NAMES: &[&str] = &[
     "float64_to_string",
     "bool_to_string",
     "string_length",
+    "string_index",
     "string_join",
     "string_builder_new",
     "string_builder_push",
@@ -969,8 +976,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len(),
-            119,
-            "stdlib registry should have 119 names"
+            120,
+            "stdlib registry should have 120 names"
         );
         assert!(
             STDLIB_NAMES.contains(&"opal_runtime_error"),

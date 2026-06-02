@@ -1,5 +1,5 @@
-use super::wine_harness::*;
 use super::WineRun;
+use super::wine_harness::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -162,7 +162,8 @@ pub(super) fn assert_symlink_metadata_output(run: &WineRun) {
         run.stderr
     );
     assert!(
-        run.stdout.contains("NOFOLLOW is_symlink=true") || run.stdout.contains("NOFOLLOW is_symlink=1"),
+        run.stdout.contains("NOFOLLOW is_symlink=true")
+            || run.stdout.contains("NOFOLLOW is_symlink=1"),
         "wine_msvc_symlink_metadata should report reparse-point symlink for nofollow metadata on Windows, stdout={:?}, stderr={:?}",
         run.stdout,
         run.stderr
@@ -209,7 +210,8 @@ pub(super) fn run_file_ops_under_wine(exe_path: &Path) -> Option<WineRun> {
     let run_result = run_under_wine(exe_path, &[]);
     if let Err(error) = run_result.as_ref() {
         if is_known_wine_host_limitation(error) {
-            let reason = format!("Wine limitation: fatal crash/dialog requires manual close ({error})");
+            let reason =
+                format!("Wine limitation: fatal crash/dialog requires manual close ({error})");
             record_skip(
                 FILE_OPS_TASK_NUM,
                 FILE_OPS_SLUG,
@@ -331,7 +333,9 @@ pub(super) fn assert_file_ops_host_state(paths: &FileOpsFixturePaths, run: &Wine
     );
     assert!(
         run.fs_dump.contains("final-summary.txt")
-            && run.fs_dump.contains("deep-file-name-that-keeps-the-path-over-two-hundred-sixty-characters.txt"),
+            && run.fs_dump.contains(
+                "deep-file-name-that-keeps-the-path-over-two-hundred-sixty-characters.txt"
+            ),
         "wine_msvc_file_ops filesystem snapshot should record final-summary.txt, fs_dump={:?}",
         run.fs_dump
     );

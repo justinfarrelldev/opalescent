@@ -119,7 +119,9 @@ pub fn validate_entry_declarations_for_module(
 }
 
 /// Builds a field-index lookup table for every product and sum type in a program.
-pub fn collect_program_adt_field_indices(program: &Program) -> BTreeMap<String, BTreeMap<String, u32>> {
+pub fn collect_program_adt_field_indices(
+    program: &Program,
+) -> BTreeMap<String, BTreeMap<String, u32>> {
     let mut adt_field_indices = BTreeMap::new();
     for (name, fields) in collect_program_adt_field_layouts(program) {
         let mut field_indices = BTreeMap::new();
@@ -140,7 +142,14 @@ pub fn collect_program_adt_field_layouts(
 ) -> BTreeMap<String, Vec<(String, CoreType)>> {
     let mut adt_field_layouts = BTreeMap::new();
     for declaration in &program.declarations {
-        let Decl::Type { ref name, ref type_def, .. } = *declaration else { continue; };
+        let Decl::Type {
+            ref name,
+            ref type_def,
+            ..
+        } = *declaration
+        else {
+            continue;
+        };
         match *type_def {
             TypeDef::Product { ref fields, .. } => {
                 let mut field_layout = Vec::new();
@@ -240,8 +249,11 @@ pub fn collect_imported_symbol_signatures(
 }
 
 /// Compiles a type-checked program into an LLVM module.
+#[expect(clippy::too_many_arguments, reason = "compilation inputs are threaded through explicitly")]
 pub fn compile_checked_program_to_module<'context>(
     context: &'context Context,
+    source_path: &Path,
+    source: &str,
     program: &Program,
     imported_signatures: BTreeMap<String, CoreType>,
     module_symbol_signatures: &BTreeMap<String, CoreType>,
@@ -253,6 +265,8 @@ pub fn compile_checked_program_to_module<'context>(
         .map_err(|error| crate::codegen::error::CodegenError::new(format!("{error:?}")))?;
     let mut env = CodegenEnv::new(true);
     env.imported_signatures = imported_signatures;
+    env.current_source_path = source_path.display().to_string();
+    env.current_source_text = source.replace('\t', "    ");
     env.adt_field_indices = adt_field_indices.clone();
     env.adt_field_layouts = adt_field_layouts.clone();
 

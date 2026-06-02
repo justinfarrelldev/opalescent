@@ -15,7 +15,9 @@ use crate::runtime::stdlib::{
     RandomIntSource, format_interpolated_string, opal_array_slice, random_int32_with_source,
     string_to_int32,
 };
-use crate::runtime::strings::{string_compare, string_concat, string_equals, string_length};
+use crate::runtime::strings::{
+    string_compare, string_concat, string_equals, string_index, string_length,
+};
 use alloc::collections::VecDeque;
 use alloc::format;
 use alloc::string::String;
@@ -129,6 +131,70 @@ fn string_runtime_supports_all_required_operations() {
         string_compare(&left, &right),
         Ordering::Greater,
         "lexicographic compare should report expected ordering"
+    );
+}
+
+#[test]
+fn string_indexing_uses_unicode_scalar_semantics_and_bounds_checks() {
+    let allocator = MockAllocator;
+    let message = OpalString::new(String::from("hé🙂"));
+
+    let first = string_index(&allocator, &message, 0);
+    assert!(first.is_ok(), "first scalar index should succeed");
+    assert_eq!(
+        first.as_ref().map(OpalString::as_str),
+        Ok("h"),
+        "ASCII scalar indexing should return a one-character string"
+    );
+
+    let accented = string_index(&allocator, &message, 1);
+    assert!(accented.is_ok(), "non-ASCII scalar index should succeed");
+    assert_eq!(
+        accented.as_ref().map(OpalString::as_str),
+        Ok("é"),
+        "non-ASCII indexing should return the full Unicode scalar"
+    );
+
+    let last = string_index(&allocator, &message, string_length(&message) - 1);
+    assert!(last.is_ok(), "last scalar index should succeed");
+    assert_eq!(
+        last.as_ref().map(OpalString::as_str),
+        Ok("🙂"),
+        "length - 1 indexing should return the final Unicode scalar"
+    );
+
+    let out_of_bounds = string_index(&allocator, &message, string_length(&message));
+    assert!(
+        out_of_bounds.is_err(),
+        "out-of-bounds string index should fail"
+    );
+    assert_eq!(
+        out_of_bounds.err(),
+        Some(RuntimeError::IndexOutOfBounds {
+            index: 3,
+            length: 3,
+        }),
+        "string indexing bounds failures must preserve index and scalar length"
+    );
+}
+
+#[test]
+fn string_indexing_rejects_empty_string_access_with_zero_length_bounds() {
+    let allocator = MockAllocator;
+    let empty = OpalString::new(String::new());
+
+    let out_of_bounds = string_index(&allocator, &empty, 0);
+    assert!(
+        out_of_bounds.is_err(),
+        "empty-string string index should fail immediately"
+    );
+    assert_eq!(
+        out_of_bounds.err(),
+        Some(RuntimeError::IndexOutOfBounds {
+            index: 0,
+            length: 0,
+        }),
+        "empty-string indexing should preserve attempted index 0 and scalar length 0"
     );
 }
 
@@ -355,6 +421,109 @@ fn runtime_error_reporting_formats_miette_style_multiline_output() {
     assert!(
         rendered.contains("help:"),
         "formatted output should include actionable help text"
+    );
+}
+
+#[test]
+fn c_runtime_string_bounds_reporting_uses_unicode_scalar_columns() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir for C runtime unicode test");
+    let source_path = temp_dir
+        .path()
+        .join("c_runtime_string_bounds_reporting_uses_unicode_scalar_columns.c");
+    let binary_path = temp_dir
+        .path()
+        .join("c_runtime_string_bounds_reporting_uses_unicode_scalar_columns");
+    let runtime_test_source = r#"
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+extern uint64_t opal_runtime_string_index_span_start;
+extern uint64_t opal_runtime_string_index_span_len;
+extern const char* opal_runtime_string_index_source_path;
+extern const char* opal_runtime_string_index_source_text;
+void opal_array_bounds_error(uint64_t index, uint64_t length);
+
+int main(void) {
+    const char* source_text = "entry main = f(): void =>\n    let prefix = 'é🙂'; let first: string = message[message.length]\n    return void\n";
+    const char* failing_expr = strstr(source_text, "message[message.length]");
+    if (failing_expr == NULL) {
+        fprintf(stderr, "failed to find failing expression\n");
+        return 2;
+    }
+
+    opal_runtime_string_index_source_path = "test-runtime-string-index-unicode.op";
+    opal_runtime_string_index_source_text = source_text;
+    opal_runtime_string_index_span_start = (uint64_t)(size_t)(failing_expr - source_text);
+    opal_runtime_string_index_span_len = (uint64_t)strlen("message[message.length]");
+    opal_array_bounds_error(4u, 4u);
+    return 3;
+}
+"#;
+    fs::write(&source_path, runtime_test_source).expect("write C runtime unicode test source");
+
+    let compile_output = Command::new("gcc")
+        .args([
+            "-std=c11",
+            "-D_POSIX_C_SOURCE=200809L",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            source_path.to_str().expect("utf-8 source path"),
+            "runtime/opal_string.c",
+            "runtime/opal_rc.c",
+            "-Iruntime",
+            "-o",
+            binary_path.to_str().expect("utf-8 binary path"),
+        ])
+        .output();
+
+    let compiled = match compile_output {
+        Ok(output) => output,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!(
+                "gcc not found, skipping c_runtime_string_bounds_reporting_uses_unicode_scalar_columns"
+            );
+            return;
+        }
+        Err(error) => panic!("failed to invoke gcc for unicode runtime test: {error}"),
+    };
+
+    assert!(
+        compiled.status.success(),
+        "gcc failed for unicode runtime test:\n{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+
+    let run_output = Command::new(&binary_path)
+        .output()
+        .unwrap_or_else(|error| panic!("failed to run compiled unicode runtime test: {error}"));
+    let stderr = String::from_utf8_lossy(&run_output.stderr);
+
+    assert!(
+        !run_output.status.success(),
+        "unicode runtime test should exit non-zero after triggering bounds error"
+    );
+    assert!(
+        stderr.contains("error[opalescent::runtime::index_out_of_bounds]"),
+        "unicode runtime diagnostic should include the runtime error code header: {stderr}"
+    );
+    assert!(
+        stderr.contains("test-runtime-string-index-unicode.op:2:44"),
+        "unicode runtime diagnostic should report scalar-aware line/column 2:44: {stderr}"
+    );
+    assert!(
+        stderr.contains("let prefix = 'é🙂'; let first: string = message[message.length]"),
+        "unicode runtime diagnostic should include the full source line: {stderr}"
+    );
+    assert!(
+        stderr.contains("                                           ^^^^^^^^^^^^^^^^^^^^^^^ string index is out of bounds for this string"),
+        "unicode runtime diagnostic should align the caret underline to the failing expression after non-ASCII prefix text: {stderr}"
+    );
+    assert!(
+        stderr.contains("Ensure the index is within 0 <= index < string.length"),
+        "unicode runtime diagnostic should include the bounds help text: {stderr}"
     );
 }
 

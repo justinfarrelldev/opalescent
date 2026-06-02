@@ -8742,6 +8742,17 @@ return message.length
 }
 
 #[test]
+fn string_indexing() {
+    test_string_indexing_type_checks_as_string();
+    test_string_indexing_rejects_non_integral_index_type();
+}
+
+#[test]
+fn string_indexing_invalid_index_type() {
+    test_string_indexing_rejects_non_integral_index_type();
+}
+
+#[test]
 fn test_string_indexing_type_checks_as_string() {
     const SOURCE: &str = "
 entry demo = f(): string => {

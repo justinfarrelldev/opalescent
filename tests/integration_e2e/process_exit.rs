@@ -28,13 +28,10 @@ fn process_exit_runtime_function_terminates_child_with_requested_code() {
     assert!(
         binary_result.is_ok(),
         "process-exit-code fixture should compile into a binary: {}",
-        binary_result
-            .as_ref()
-            .err()
-            .map_or_else(
-                || String::from("unknown compile error"),
-                alloc::string::ToString::to_string,
-            )
+        binary_result.as_ref().err().map_or_else(
+            || String::from("unknown compile error"),
+            alloc::string::ToString::to_string,
+        )
     );
     let Ok(binary_path) = binary_result else {
         return;
@@ -48,13 +45,10 @@ fn process_exit_runtime_function_terminates_child_with_requested_code() {
     assert!(
         output_result.is_ok(),
         "process-exit-code compiled binary should execute: {}",
-        output_result
-            .as_ref()
-            .err()
-            .map_or_else(
-                || String::from("unknown execution error"),
-                alloc::string::ToString::to_string,
-            )
+        output_result.as_ref().err().map_or_else(
+            || String::from("unknown execution error"),
+            alloc::string::ToString::to_string,
+        )
     );
     let Ok(run_output) = output_result else {
         return;

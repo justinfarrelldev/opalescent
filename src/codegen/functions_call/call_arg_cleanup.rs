@@ -115,7 +115,8 @@ pub(super) fn lower_call_argument<'context>(
     cleanup_records: &mut Vec<CallArgCleanupRecord>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let lowered = codegen_expression(codegen_context, env, argument, None)?;
-    let disposition = call_arg_cleanup_disposition(codegen_context, env, callee, argument, arg_index);
+    let disposition =
+        call_arg_cleanup_disposition(codegen_context, env, callee, argument, arg_index);
     if disposition != CallArgCleanupDisposition::Borrowed {
         let binding_name = register_call_arg_cleanup_binding(codegen_context, env, lowered)?;
         cleanup_records.push(CallArgCleanupRecord {

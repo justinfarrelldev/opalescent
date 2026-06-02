@@ -24,13 +24,10 @@ fn process_paths_runtime_functions_compile_and_run() {
     assert!(
         binary_result.is_ok(),
         "process-paths fixture should compile into a binary: {}",
-        binary_result
-            .as_ref()
-            .err()
-            .map_or_else(
-                || String::from("unknown compile error"),
-                alloc::string::ToString::to_string,
-            )
+        binary_result.as_ref().err().map_or_else(
+            || String::from("unknown compile error"),
+            alloc::string::ToString::to_string,
+        )
     );
     let Ok(binary_path) = binary_result else {
         return;
@@ -44,13 +41,10 @@ fn process_paths_runtime_functions_compile_and_run() {
     assert!(
         output_result.is_ok(),
         "process-paths compiled binary should execute: {}",
-        output_result
-            .as_ref()
-            .err()
-            .map_or_else(
-                || String::from("unknown execution error"),
-                alloc::string::ToString::to_string,
-            )
+        output_result.as_ref().err().map_or_else(
+            || String::from("unknown execution error"),
+            alloc::string::ToString::to_string,
+        )
     );
     let Ok(run_output) = output_result else {
         return;

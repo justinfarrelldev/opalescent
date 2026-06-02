@@ -23,7 +23,7 @@ fn build_invalid_name_source(name_literal: &str) -> String {
 
 fn build_invalid_utf8_source() -> String {
     String::from(
-        "import get_environment_variable, get_environment_variable_or from process\n\n##\n  Description: Integration probe that reports env invalid-utf8 errors.\n##\nentry main = f(args: string[]): void errors EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error =>\n    guard get_environment_variable('OPAL_PROCESS_TEST_INVALID_UTF8') into value else err =>\n        print(err)\n        propagate err\n\n    let fallback_value = propagate get_environment_variable_or('OPAL_PROCESS_TEST_INVALID_UTF8', 'fallback-value')\n    print('UNEXPECTED_SUCCESS')\n    print(value)\n    print(fallback_value)\n    return void\n"
+        "import get_environment_variable, get_environment_variable_or from process\n\n##\n  Description: Integration probe that reports env invalid-utf8 errors.\n##\nentry main = f(args: string[]): void errors EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error =>\n    guard get_environment_variable('OPAL_PROCESS_TEST_INVALID_UTF8') into value else err =>\n        print(err)\n        propagate err\n\n    let fallback_value = propagate get_environment_variable_or('OPAL_PROCESS_TEST_INVALID_UTF8', 'fallback-value')\n    print('UNEXPECTED_SUCCESS')\n    print(value)\n    print(fallback_value)\n    return void\n",
     )
 }
 
@@ -73,13 +73,10 @@ fn process_environment_runtime_functions_compile_and_run() {
     assert!(
         binary_result.is_ok(),
         "process-env fixture should compile into a binary: {}",
-        binary_result
-            .as_ref()
-            .err()
-            .map_or_else(
-                || String::from("unknown compile error"),
-                alloc::string::ToString::to_string,
-            )
+        binary_result.as_ref().err().map_or_else(
+            || String::from("unknown compile error"),
+            alloc::string::ToString::to_string,
+        )
     );
     let Ok(binary_path) = binary_result else {
         return;
@@ -98,13 +95,10 @@ fn process_environment_runtime_functions_compile_and_run() {
     assert!(
         output_result.is_ok(),
         "process-env compiled binary should execute: {}",
-        output_result
-            .as_ref()
-            .err()
-            .map_or_else(
-                || String::from("unknown execution error"),
-                alloc::string::ToString::to_string,
-            )
+        output_result.as_ref().err().map_or_else(
+            || String::from("unknown execution error"),
+            alloc::string::ToString::to_string,
+        )
     );
     let Ok(run_output) = output_result else {
         return;
@@ -154,8 +148,14 @@ fn process_environment_invalid_names_fail_with_invalid_environment_variable_name
 
     let execution_result: Result<(), String> = (|| {
         for (name_literal, expected) in [
-            ("''", "InvalidEnvironmentVariableNameError: environment variable name must not be empty"),
-            ("'BAD=NAME'", "InvalidEnvironmentVariableNameError: environment variable name must not contain '='"),
+            (
+                "''",
+                "InvalidEnvironmentVariableNameError: environment variable name must not be empty",
+            ),
+            (
+                "'BAD=NAME'",
+                "InvalidEnvironmentVariableNameError: environment variable name must not contain '='",
+            ),
         ] {
             let source = build_invalid_name_source(name_literal);
             let run_output = compile_and_run_inline_program(&source, &temp_dir)?;

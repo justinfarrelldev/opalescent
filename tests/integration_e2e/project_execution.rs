@@ -479,8 +479,14 @@ fn multi_file_project_compiles_and_runs() {
     );
 }
 #[test]
-#[expect(clippy::too_many_lines, reason = "integration test covers several related failure modes")]
-#[expect(clippy::pattern_type_mismatch, reason = "borrowed report entries are matched directly in this test")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "integration test covers several related failure modes"
+)]
+#[expect(
+    clippy::pattern_type_mismatch,
+    reason = "borrowed report entries are matched directly in this test"
+)]
 fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
     let cwd = std::env::current_dir();
     assert!(
@@ -560,8 +566,10 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
                 normalized_source,
             } => {
                 let has_expected = report.entries().iter().any(|entry| {
-                    if let CompilerError::TypeChecker(TypeError::EntryNotInMainModule { file_path, .. }) =
-                        &entry.1
+                    if let CompilerError::TypeChecker(TypeError::EntryNotInMainModule {
+                        file_path,
+                        ..
+                    }) = &entry.1
                     {
                         *file_path == worker_path.display().to_string()
                     } else {
@@ -598,8 +606,14 @@ fn entry_in_wrong_file_fails_with_entry_not_in_main_module() {
     );
 }
 #[test]
-#[expect(clippy::too_many_lines, reason = "integration test covers several related failure modes")]
-#[expect(clippy::pattern_type_mismatch, reason = "borrowed report entries are matched directly in this test")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "integration test covers several related failure modes"
+)]
+#[expect(
+    clippy::pattern_type_mismatch,
+    reason = "borrowed report entries are matched directly in this test"
+)]
 fn package_import_fails_with_not_supported() {
     let cwd = std::env::current_dir();
     assert!(
@@ -667,8 +681,10 @@ fn package_import_fails_with_not_supported() {
                 normalized_source,
             } => {
                 let has_expected = report.entries().iter().any(|entry| {
-                    if let CompilerError::TypeChecker(TypeError::PackageImportNotSupported { path, .. }) =
-                        &entry.1
+                    if let CompilerError::TypeChecker(TypeError::PackageImportNotSupported {
+                        path,
+                        ..
+                    }) = &entry.1
                     {
                         path == "@scope/package"
                     } else {
@@ -884,22 +900,50 @@ fn import_types_multiple_compiles_and_runs() {
 #[test]
 fn local_nominal_product_field_access_compiles_and_runs() {
     let temp_dir = unique_probe_target_dir("local-nominal-product-field-access");
-    println!("local-nominal-product-field-access target dir: {}", temp_dir.display());
-    assert!(prepare_dir(&temp_dir).is_ok(), "local-nominal-product-field-access target directory should be created");
+    println!(
+        "local-nominal-product-field-access target dir: {}",
+        temp_dir.display()
+    );
+    assert!(
+        prepare_dir(&temp_dir).is_ok(),
+        "local-nominal-product-field-access target directory should be created"
+    );
     let execution_result: Result<(), String> = (|| {
         let project_dir = temp_dir.join("project");
         let src_dir = project_dir.join("src");
         fs::create_dir_all(&src_dir).map_err(|error| format!("local nominal product field access project src directory should be created: {error}"))?;
-        fs::write(project_dir.join("opal.toml"), "name = \"local-nominal-product-field-access\"\nversion = \"1.0.0\"\n").map_err(|error| format!("local nominal product field access opal.toml should be written: {error}"))?;
+        fs::write(
+            project_dir.join("opal.toml"),
+            "name = \"local-nominal-product-field-access\"\nversion = \"1.0.0\"\n",
+        )
+        .map_err(|error| {
+            format!("local nominal product field access opal.toml should be written: {error}")
+        })?;
         fs::write(src_dir.join("models.types.op"), "##\n  Description: local nominal field access runtime regression type\n##\npublic type Point:\n    x: int64\n    y: int64\n").map_err(|error| format!("local nominal product field access models.types.op should be written: {error}"))?;
         fs::write(src_dir.join("main.op"), "import Point from ./models.types\n\n##\n  Description: local nominal field access runtime regression main\n##\nentry main = f(args: string[]): void =>\n    let point: Point = new Point:\n        x: 5\n        y: 6\n    print('{point.y}')\n    return void\n").map_err(|error| format!("local nominal product field access main.op should be written: {error}"))?;
         let binary_path = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host()).map_err(|error| format!("local nominal product field access project should compile into a binary: {error}"))?;
-        let run_output = run_binary_with_timeout(&binary_path, "local nominal product field access compiled binary")?;
+        let run_output = run_binary_with_timeout(
+            &binary_path,
+            "local nominal product field access compiled binary",
+        )?;
         let stdout = String::from_utf8_lossy(&run_output.stdout);
-        if run_output.status.success() && stdout.trim_end() == "6" { Ok(()) } else { Err(format!("local nominal product field access should compile, run, print expected output, and exit cleanly: status={:?}, stdout='{stdout}'", run_output.status.code())) }
+        if run_output.status.success() && stdout.trim_end() == "6" {
+            Ok(())
+        } else {
+            Err(format!(
+                "local nominal product field access should compile, run, print expected output, and exit cleanly: status={:?}, stdout='{stdout}'",
+                run_output.status.code()
+            ))
+        }
     })();
-    assert!(cleanup_dir(&temp_dir).is_ok(), "local-nominal-product-field-access target directory should be removed");
-    assert!(execution_result.is_ok(), "local nominal product field access should compile, run, print expected output, and exit cleanly: {execution_result:?}");
+    assert!(
+        cleanup_dir(&temp_dir).is_ok(),
+        "local-nominal-product-field-access target directory should be removed"
+    );
+    assert!(
+        execution_result.is_ok(),
+        "local nominal product field access should compile, run, print expected output, and exit cleanly: {execution_result:?}"
+    );
 }
 
 #[test]
@@ -941,7 +985,7 @@ fn saferm_project_builds_and_prints_help() {
         for expected_snippet in [
             "saferm will put items you remove in",
             "Options:",
-            "- saferm --restore | Shows files available to restore when used without additional arguments.",
+            "saferm --restore | Shows files available to restore when used without additional arguments. When used with a filename after, restores that item to the current directory.",
             "Usage:",
             "saferm --restore filename.txt | Moves a file out of the trash and into the current directory",
             "saferm --restore | Shows files available to restore",

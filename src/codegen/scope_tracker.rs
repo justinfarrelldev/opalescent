@@ -39,7 +39,10 @@ impl<'context> CodegenEnv<'context> {
         let Some(scope_bindings) = self.scope_stack.last_mut() else {
             return;
         };
-        if !scope_bindings.iter().any(|binding_name| binding_name == name) {
+        if !scope_bindings
+            .iter()
+            .any(|binding_name| binding_name == name)
+        {
             scope_bindings.push(name.to_owned());
         }
     }
@@ -50,7 +53,10 @@ impl<'context> CodegenEnv<'context> {
         name: &str,
         transferred_names: &[String],
     ) -> Result<(), CodegenError> {
-        if transferred_names.iter().any(|transferred_name| transferred_name == name) {
+        if transferred_names
+            .iter()
+            .any(|transferred_name| transferred_name == name)
+        {
             return Ok(());
         }
 
@@ -89,7 +95,11 @@ impl<'context> CodegenEnv<'context> {
         };
 
         for binding_name in scope_bindings.into_iter().rev() {
-            self.release_scope_binding_value(codegen_context, binding_name.as_str(), transferred_names)?;
+            self.release_scope_binding_value(
+                codegen_context,
+                binding_name.as_str(),
+                transferred_names,
+            )?;
         }
         Ok(())
     }
@@ -154,20 +164,31 @@ pub(crate) fn expr_requires_malloc_string_cleanup<'context>(
     local_malloc_string_bindings: &BTreeMap<String, bool>,
 ) -> bool {
     match expr {
-        &Expr::Identifier { ref name, .. } => local_malloc_string_bindings.get(name).copied().unwrap_or_else(|| {
-            env.variable_field_aliases
-                .get(name)
-                .and_then(|metadata| metadata.get(MALLOC_STRING_CLEANUP_KEY))
-                .is_some_and(|value| value == MALLOC_STRING_CLEANUP_VALUE)
-        }),
+        &Expr::Identifier { ref name, .. } => local_malloc_string_bindings
+            .get(name)
+            .copied()
+            .unwrap_or_else(|| {
+                env.variable_field_aliases
+                    .get(name)
+                    .and_then(|metadata| metadata.get(MALLOC_STRING_CLEANUP_KEY))
+                    .is_some_and(|value| value == MALLOC_STRING_CLEANUP_VALUE)
+            }),
         &Expr::StringInterpolation { .. } => true,
-        &Expr::Call { ref callee, .. } => call_returns_owned_string(codegen_context, env, callee.as_ref()),
-        &Expr::Propagate { ref call, .. } => {
-            expr_requires_malloc_string_cleanup(codegen_context, env, call.as_ref(), local_malloc_string_bindings)
+        &Expr::Call { ref callee, .. } => {
+            call_returns_owned_string(codegen_context, env, callee.as_ref())
         }
-        &Expr::Parenthesized { ref expr, .. } => {
-            expr_requires_malloc_string_cleanup(codegen_context, env, expr.as_ref(), local_malloc_string_bindings)
-        }
+        &Expr::Propagate { ref call, .. } => expr_requires_malloc_string_cleanup(
+            codegen_context,
+            env,
+            call.as_ref(),
+            local_malloc_string_bindings,
+        ),
+        &Expr::Parenthesized { ref expr, .. } => expr_requires_malloc_string_cleanup(
+            codegen_context,
+            env,
+            expr.as_ref(),
+            local_malloc_string_bindings,
+        ),
         _ => false,
     }
 }
@@ -315,7 +336,11 @@ fn infer_loop_break_binding_requires_malloc_string_cleanup_with_locals<'context>
                 )
             })
         }
-        &Stmt::Guard { ref else_body, .. } | &Stmt::Loop { body: ref else_body, .. } => {
+        &Stmt::Guard { ref else_body, .. }
+        | &Stmt::Loop {
+            body: ref else_body,
+            ..
+        } => {
             let mut nested = local_malloc_string_bindings.clone();
             infer_loop_break_binding_requires_malloc_string_cleanup_with_locals(
                 codegen_context,
@@ -378,7 +403,6 @@ pub(crate) fn mark_binding_malloc_string_cleanup(env: &mut CodegenEnv<'_>, bindi
     );
 }
 
-
 fn collect_malloc_string_cleanup_bindings(
     env: &CodegenEnv<'_>,
     target_depth: usize,
@@ -420,7 +444,10 @@ fn release_malloc_string_binding_value<'context>(
     }
 
     let i32_type = codegen_context.context.i32_type();
-    let note_free_fn_type = codegen_context.context.void_type().fn_type(&[i32_type.into()], false);
+    let note_free_fn_type = codegen_context
+        .context
+        .void_type()
+        .fn_type(&[i32_type.into()], false);
     let note_free_fn = codegen_context
         .module
         .get_function("opal_rc_debug_note_free")
@@ -439,10 +466,18 @@ fn release_malloc_string_binding_value<'context>(
         .context
         .i8_type()
         .ptr_type(inkwell::AddressSpace::default());
-    let free_fn_type = codegen_context.context.void_type().fn_type(&[i8_ptr.into()], false);
-    let free_fn = codegen_context.module.get_function("free").unwrap_or_else(|| {
-        codegen_context.module.add_function("free", free_fn_type, None)
-    });
+    let free_fn_type = codegen_context
+        .context
+        .void_type()
+        .fn_type(&[i8_ptr.into()], false);
+    let free_fn = codegen_context
+        .module
+        .get_function("free")
+        .unwrap_or_else(|| {
+            codegen_context
+                .module
+                .add_function("free", free_fn_type, None)
+        });
     let _free = codegen_context.builder.build_call(
         free_fn,
         &[loaded_value.into_pointer_value().into()],
@@ -470,14 +505,16 @@ pub(crate) fn cleanup_scopes_to_depth_with_malloc_string_release<'context>(
     target_depth: usize,
     transferred_names: &[String],
 ) -> Result<(), CodegenError> {
-    let malloc_string_bindings = collect_malloc_string_cleanup_bindings(env, target_depth, transferred_names);
+    let malloc_string_bindings =
+        collect_malloc_string_cleanup_bindings(env, target_depth, transferred_names);
     for binding_name in &malloc_string_bindings {
         release_malloc_string_binding_value(codegen_context, env, binding_name.as_str())?;
     }
 
     let mut cleanup_skips = transferred_names.to_vec();
     cleanup_skips.extend(malloc_string_bindings.iter().cloned());
-    let cleanup_result = env.cleanup_scopes_to_depth(codegen_context, target_depth, cleanup_skips.as_slice());
+    let cleanup_result =
+        env.cleanup_scopes_to_depth(codegen_context, target_depth, cleanup_skips.as_slice());
     if cleanup_result.is_ok() {
         for binding_name in malloc_string_bindings {
             clear_binding_cleanup_metadata(env, binding_name.as_str());

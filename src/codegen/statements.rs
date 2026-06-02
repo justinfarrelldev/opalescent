@@ -25,10 +25,8 @@ use crate::codegen::expressions_array::{
     codegen_identifier_indexed_array_assignment, materialize_runtime_array_from_raw_elements,
 };
 use crate::codegen::scope_tracker::{
-    cleanup_return_scopes_preserving_codegen_env,
-    cleanup_scopes_to_depth_preserving_codegen_env,
-    expr_requires_malloc_string_cleanup,
-    infer_loop_break_binding_requires_malloc_string_cleanup,
+    cleanup_return_scopes_preserving_codegen_env, cleanup_scopes_to_depth_preserving_codegen_env,
+    expr_requires_malloc_string_cleanup, infer_loop_break_binding_requires_malloc_string_cleanup,
     mark_binding_malloc_string_cleanup,
 };
 use crate::codegen::types::core_type_to_llvm;
@@ -494,7 +492,12 @@ fn infer_loop_break_binding_type_with_locals<'context>(
                 if inferred != CoreType::Int64 {
                     return inferred;
                 }
-                register_inferred_local_binding(codegen_context, env, statement, &mut scoped_bindings);
+                register_inferred_local_binding(
+                    codegen_context,
+                    env,
+                    statement,
+                    &mut scoped_bindings,
+                );
             }
             CoreType::Int64
         }
@@ -527,7 +530,11 @@ fn infer_loop_break_binding_type_with_locals<'context>(
                 )
             })
         }
-        &Stmt::Guard { ref else_body, .. } | &Stmt::Loop { body: ref else_body, .. } => {
+        &Stmt::Guard { ref else_body, .. }
+        | &Stmt::Loop {
+            body: ref else_body,
+            ..
+        } => {
             let mut nested_bindings = local_bindings.clone();
             infer_loop_break_binding_type_with_locals(
                 codegen_context,
@@ -606,7 +613,6 @@ fn register_inferred_local_binding<'context>(
         local_bindings.insert(binding.name.clone(), binding_type);
     }
 }
-
 
 /// Lower a simple identifier assignment into a store.
 fn codegen_assignment<'context>(

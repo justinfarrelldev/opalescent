@@ -10,7 +10,10 @@ fn string_indexing_project_compiles_and_runs() {
     let project_dir = cwd.join("test-projects/string-indexing");
     let temp_dir = unique_probe_target_dir("string-indexing");
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "string-indexing target directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "string-indexing target directory should be created"
+    );
 
     let execution_result: Result<(), String> = (|| {
         let binary_path = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host())
@@ -23,9 +26,10 @@ fn string_indexing_project_compiles_and_runs() {
             "string-indexing compiled binary",
         )?;
         let stdout = String::from_utf8_lossy(&run_output.stdout);
-        if stdout.trim() != "oa" {
+        let expected_stdout = "first=a\nlast=f\nunicode=é\ncondition=true";
+        if stdout.trim_end() != expected_stdout {
             return Err(format!(
-                "string-indexing binary stdout should be 'oa', got: '{stdout}'"
+                "string-indexing binary stdout should be exactly {expected_stdout:?}, got: {stdout:?}"
             ));
         }
         if !run_output.status.success() {
@@ -38,7 +42,10 @@ fn string_indexing_project_compiles_and_runs() {
     })();
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "string-indexing target directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "string-indexing target directory should be removed"
+    );
 
     let failure_message = match execution_result {
         Ok(()) => String::new(),

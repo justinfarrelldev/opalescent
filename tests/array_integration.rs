@@ -45,7 +45,10 @@ fn project_root_for_source(source: &std::path::Path) -> PathBuf {
     source
         .ancestors()
         .find(|candidate| candidate.join("opal.toml").is_file())
-        .map_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")), std::path::Path::to_path_buf)
+        .map_or_else(
+            || PathBuf::from(env!("CARGO_MANIFEST_DIR")),
+            std::path::Path::to_path_buf,
+        )
 }
 
 fn run_opal_source(source: &std::path::Path) -> std::process::Output {

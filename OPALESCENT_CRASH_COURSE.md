@@ -179,6 +179,21 @@ let text = 'hello'
 print('length: {text.length}')
 ```
 
+You can also index a string by zero-based Unicode scalar position. The result is still a `string`, so there is no separate public `char` type:
+
+```opal
+let message = 'aéf'
+let first: string = message[0]
+let last: string = message[message.length - 1]
+let unicode: string = message[1]
+
+print('first={first}')
+print('last={last}')
+print('unicode={unicode}')
+```
+
+If the index is outside `0 <= index < message.length`, the compiler runtime reports a source-anchored Miette diagnostic that points at the exact `message[index]` expression.
+
 ## 8. Functions
 
 A function is declared with `let name = f(...): ReturnType =>`.

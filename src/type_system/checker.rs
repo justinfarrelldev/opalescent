@@ -32,8 +32,6 @@ mod expressions_guard;
 mod fallible_expressions;
 /// Filesystem stdlib built-in type registration.
 mod fs_builtins;
-/// Process stdlib built-in nominal error registration.
-mod process_builtins;
 /// Generic ADT and function instantiation metadata helpers.
 mod generics;
 mod helpers;
@@ -42,6 +40,8 @@ mod hot_reload;
 mod module_checking;
 /// Pattern-matching typing and exhaustiveness checks.
 mod patterns;
+/// Process stdlib built-in nominal error registration.
+mod process_builtins;
 /// Reference parameter and second-class reference validation rules.
 mod ref_rules;
 mod returns;

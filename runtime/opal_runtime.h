@@ -5,6 +5,11 @@
 
 void opal_runtime_init(void);
 
+extern uint64_t opal_runtime_string_index_span_start;
+extern uint64_t opal_runtime_string_index_span_len;
+extern const char* opal_runtime_string_index_source_path;
+extern const char* opal_runtime_string_index_source_text;
+
 typedef struct { int8_t value;   const char* error; } ParseResultI8;
 typedef struct { int16_t value;  const char* error; } ParseResultI16;
 typedef struct { int32_t value;  const char* error; } ParseResultI32;
@@ -64,6 +69,7 @@ char* float32_to_string(float value);
 char* float64_to_string(double value);
 char* bool_to_string(int8_t value);
 int64_t string_length(const char* value);
+char* string_index(const char* value, int64_t index);
 char* string_join(const char** values, int64_t count, const char* separator);
 typedef struct OpalStringBuilder OpalStringBuilder;
 typedef struct { void* value; const char* error; } StringBuilderVoidResult;

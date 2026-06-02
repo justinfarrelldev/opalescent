@@ -597,8 +597,9 @@ fn module_discovery_parse_diagnostics_are_source_anchored() {
         let project_dir = temp_dir.join("project");
         let src_dir = project_dir.join("src");
 
-        fs::create_dir_all(&src_dir)
-            .map_err(|error| format!("module-discovery project src directory should be created: {error}"))?;
+        fs::create_dir_all(&src_dir).map_err(|error| {
+            format!("module-discovery project src directory should be created: {error}")
+        })?;
 
         fs::write(
             project_dir.join("opal.toml"),
@@ -619,7 +620,8 @@ fn module_discovery_parse_diagnostics_are_source_anchored() {
         )
         .map_err(|error| format!("module-discovery broken.op should be written: {error}"))?;
 
-        let binary_result = compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
+        let binary_result =
+            compile_project_for_tests(&project_dir, &temp_dir, &TargetTriple::host());
         let compile_error = match binary_result {
             Ok(_path) => {
                 return Err(

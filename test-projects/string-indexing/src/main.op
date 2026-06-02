@@ -1,12 +1,21 @@
 import print from standard
 
 ##
-    Description: RED fixture for string indexing syntax and lowering
+    Description: minimal fixture proving string indexing and comparison
 ##
 entry main = f(): void => {
-    let message = 'opal'
+    let message = 'aéf'
     let first: string = message[0]
     let last: string = message[message.length - 1]
-    print('{first}{last}')
+    let unicode: string = message[1]
+
+    print('first={first}')
+    print('last={last}')
+    print('unicode={unicode}')
+
+    if message[0] is 'a' {
+        print('condition=true')
+    }
+
     return void
 }

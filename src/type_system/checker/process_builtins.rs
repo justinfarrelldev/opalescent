@@ -19,9 +19,9 @@ const PROCESS_ERROR_NAMES: &[&str] = &[
 
 impl TypeChecker {
     /// Register process-module-specific nominal error types.
-///
-/// Shared core errors, including `InvalidUtf8Error`, are registered by other
-/// checker builtin paths; this only adds the process-specific error set.
+    ///
+    /// Shared core errors, including `InvalidUtf8Error`, are registered by other
+    /// checker builtin paths; this only adds the process-specific error set.
     pub(super) fn register_process_builtins(&mut self) {
         for name in PROCESS_ERROR_NAMES {
             self.environment

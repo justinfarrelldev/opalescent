@@ -2253,12 +2253,9 @@ fn test_codegen_local_nominal_field_access_uses_pointer_backed_payload_path() {
     );
     env.adt_field_indices.insert(
         String::from("Point"),
-        [
-            (String::from("x"), 0_u32),
-            (String::from("y"), 1_u32),
-        ]
-        .into_iter()
-        .collect(),
+        [(String::from("x"), 0_u32), (String::from("y"), 1_u32)]
+            .into_iter()
+            .collect(),
     );
 
     let point_constructor = Expr::Constructor {
@@ -2324,6 +2321,140 @@ fn test_codegen_local_nominal_field_access_uses_pointer_backed_payload_path() {
 }
 
 #[test]
+#[expect(clippy::too_many_lines, reason = "test covers a nested nominal field-access regression")]
+fn test_codegen_nested_nominal_field_access_infers_intermediate_receiver_type() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "nested_nominal_product_field_access");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+    env.adt_field_layouts.insert(
+        String::from("Point"),
+        vec![
+            (String::from("x"), CoreType::Int64),
+            (String::from("y"), CoreType::Int64),
+        ],
+    );
+    env.adt_field_indices.insert(
+        String::from("Point"),
+        [(String::from("x"), 0_u32), (String::from("y"), 1_u32)]
+            .into_iter()
+            .collect(),
+    );
+    env.adt_field_layouts.insert(
+        String::from("Rect"),
+        vec![
+            (
+                String::from("top_left"),
+                CoreType::Generic {
+                    name: String::from("Point"),
+                    type_args: vec![],
+                },
+            ),
+            (String::from("width"), CoreType::Int64),
+        ],
+    );
+    env.adt_field_indices.insert(
+        String::from("Rect"),
+        [
+            (String::from("top_left"), 0_u32),
+            (String::from("width"), 1_u32),
+        ]
+        .into_iter()
+        .collect(),
+    );
+
+    let point_decl = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("origin"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("Point"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(9_710),
+        },
+        initializer: Some(Expr::Constructor {
+            callee: Box::new(ident(9_711, "Point")),
+            fields: vec![
+                crate::ast::ConstructorField {
+                    name: String::from("x"),
+                    value: int_lit(9_712, 1),
+                    span: test_span(),
+                },
+                crate::ast::ConstructorField {
+                    name: String::from("y"),
+                    value: int_lit(9_713, 2),
+                    span: test_span(),
+                },
+            ],
+            span: test_span(),
+            id: test_node_id(9_714),
+        }),
+        span: test_span(),
+        id: test_node_id(9_715),
+    };
+    assert!(
+        codegen_statement(&codegen_context, &mut env, &point_decl).is_ok(),
+        "nested nominal field access setup should codegen point binding"
+    );
+
+    let rect_decl = Stmt::Let {
+        binding: LetBinding {
+            name: String::from("rect"),
+            type_annotation: Some(Type::Basic {
+                name: String::from("Rect"),
+                span: test_span(),
+            }),
+            is_mutable: false,
+            span: test_span(),
+            id: test_node_id(9_716),
+        },
+        initializer: Some(Expr::Constructor {
+            callee: Box::new(ident(9_717, "Rect")),
+            fields: vec![
+                crate::ast::ConstructorField {
+                    name: String::from("top_left"),
+                    value: ident(9_718, "origin"),
+                    span: test_span(),
+                },
+                crate::ast::ConstructorField {
+                    name: String::from("width"),
+                    value: int_lit(9_719, 10),
+                    span: test_span(),
+                },
+            ],
+            span: test_span(),
+            id: test_node_id(9_720),
+        }),
+        span: test_span(),
+        id: test_node_id(9_721),
+    };
+    assert!(
+        codegen_statement(&codegen_context, &mut env, &rect_decl).is_ok(),
+        "nested nominal field access setup should codegen rect binding"
+    );
+
+    let nested_field_expr = Expr::Member {
+        object: Box::new(Expr::Member {
+            object: Box::new(ident(9_722, "rect")),
+            member: String::from("top_left"),
+            span: test_span(),
+            id: test_node_id(9_723),
+        }),
+        member: String::from("x"),
+        span: test_span(),
+        id: test_node_id(9_724),
+    };
+    let field_result =
+        codegen_field_access_expression(&codegen_context, &mut env, &nested_field_expr);
+    assert!(
+        field_result.is_ok(),
+        "nested nominal field access should infer the intermediate receiver type"
+    );
+}
+
+#[test]
 fn test_codegen_nominal_product_with_array_child_emits_drop_callback() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "nominal_product_array_child_drop");
@@ -2373,7 +2504,10 @@ fn test_codegen_nominal_product_with_array_child_emits_drop_callback() {
         "nominal product with RC-bearing child should emit a dedicated child-drop callback: {ir}"
     );
     assert!(
-        ir.contains("call i8* @opal_rc_alloc") && ir.contains("bitcast (void (i8*, i8***, i64*, i64*)* @__opalescent_drop_children_Boxed to i8*)"),
+        ir.contains("call i8* @opal_rc_alloc")
+            && ir.contains(
+                "bitcast (void (i8*, i8***, i64*, i64*)* @__opalescent_drop_children_Boxed to i8*)"
+            ),
         "nominal product allocation should pass the child-drop callback to opal_rc_alloc: {ir}"
     );
 }
@@ -3704,18 +3838,24 @@ entry main = f(): void => {
 }
 
 #[test]
+fn string_indexing() {
+    test_string_indexing_lowering_emits_runtime_helper();
+}
+
+#[test]
 fn test_string_indexing_lowering_emits_runtime_helper() {
     let source = "
+import print from standard
+
 ##
     Description: Entry function validates string indexing lowering
 ##
-import print from standard
-
 entry main = f(): void => {
-    let message = 'hello'
+    let message = 'hé🙂'
     let first: string = message[0]
+    let middle: string = message[1]
     let last: string = message[message.length - 1]
-    print('{first}{last}')
+    print('{first}{middle}{last}')
     return void
 }
 ";
@@ -3724,15 +3864,45 @@ entry main = f(): void => {
     let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
-        "string indexing should compile and lower both message[0] and message[message.length - 1]"
+        "string indexing should compile and lower both message[0] and message[message.length - 1]: {module_result:?}"
     );
     let Ok(module) = module_result else {
         return;
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("string_index") || ir.contains("index_string"),
-        "string indexing lowering should emit a runtime helper for indexed string access: {ir}"
+        ir.contains("declare i8* @string_index(i8*, i64)"),
+        "string indexing lowering should declare string_index as 'i8* @string_index(i8*, i64)': {ir}"
+    );
+    assert!(
+        ir.contains("call i8* @string_index(i8*"),
+        "string indexing lowering should emit calls to the runtime string_index helper: {ir}"
+    );
+    assert!(
+        ir.contains("call i64 @string_length(i8*"),
+        "last-character indexing should continue to use string_length scalar semantics: {ir}"
+    );
+    assert!(
+        ir.contains("@opal_runtime_string_index_span_start")
+            && ir.contains("@opal_runtime_string_index_span_len"),
+        "string bounds lowering should declare runtime span globals for later diagnostics: {ir}"
+    );
+    assert!(
+        ir.contains("@opal_runtime_string_index_source_path")
+            && ir.contains("@opal_runtime_string_index_source_text"),
+        "string bounds lowering should declare runtime source globals for later diagnostics: {ir}"
+    );
+    assert!(
+        ir.contains("store i64")
+            && ir.contains("@opal_runtime_string_index_span_start")
+            && ir.contains("@opal_runtime_string_index_span_len"),
+        "string bounds trap blocks should record the original index-expression span before trapping: {ir}"
+    );
+    assert!(
+        (ir.contains("store ptr") || ir.contains("store i8*"))
+            && ir.contains("@opal_runtime_string_index_source_path")
+            && ir.contains("@opal_runtime_string_index_source_text"),
+        "string bounds trap blocks should record the source filename and text before trapping: {ir}"
     );
 }
 

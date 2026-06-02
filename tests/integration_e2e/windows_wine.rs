@@ -319,7 +319,6 @@ mod tests {
         drop(check_prereqs());
     }
 
-
     fn build_required_process_project(
         project: &str,
         test_name: &str,
@@ -354,8 +353,11 @@ mod tests {
 
     #[test]
     fn process_paths() {
-        if skip_if_prereqs_missing(PROCESS_PATHS_TASK_NUM, PROCESS_PATHS_SLUG, PROCESS_PATHS_TEST_NAME)
-        {
+        if skip_if_prereqs_missing(
+            PROCESS_PATHS_TASK_NUM,
+            PROCESS_PATHS_SLUG,
+            PROCESS_PATHS_TEST_NAME,
+        ) {
             return;
         }
 
@@ -386,16 +388,16 @@ mod tests {
             "process-paths Wine child should exit successfully, stdout={:?}, stderr={:?}",
             run.stdout, run.stderr
         );
-        assert_stdout_markers(
-            &run,
-            &PROCESS_PATHS_MARKERS,
-            "process-paths Wine fixture",
-        );
+        assert_stdout_markers(&run, &PROCESS_PATHS_MARKERS, "process-paths Wine fixture");
     }
 
     #[test]
     fn process_env() {
-        if skip_if_prereqs_missing(PROCESS_ENV_TASK_NUM, PROCESS_ENV_SLUG, PROCESS_ENV_TEST_NAME) {
+        if skip_if_prereqs_missing(
+            PROCESS_ENV_TASK_NUM,
+            PROCESS_ENV_SLUG,
+            PROCESS_ENV_TEST_NAME,
+        ) {
             return;
         }
 
@@ -439,7 +441,11 @@ mod tests {
 
     #[test]
     fn process_exit() {
-        if skip_if_prereqs_missing(PROCESS_EXIT_TASK_NUM, PROCESS_EXIT_SLUG, PROCESS_EXIT_TEST_NAME) {
+        if skip_if_prereqs_missing(
+            PROCESS_EXIT_TASK_NUM,
+            PROCESS_EXIT_SLUG,
+            PROCESS_EXIT_TEST_NAME,
+        ) {
             return;
         }
 
@@ -449,7 +455,8 @@ mod tests {
             "process-exit-code fixture should build for {WINDOWS_MSVC_TARGET} when prereqs are available: {:?}",
             exe_path_result.as_ref().err()
         );
-        let exe_path = exe_path_result.expect("asserted Windows process-exit fixture build succeeded");
+        let exe_path =
+            exe_path_result.expect("asserted Windows process-exit fixture build succeeded");
 
         let run_result = run_under_wine(&exe_path, &[]);
         assert!(

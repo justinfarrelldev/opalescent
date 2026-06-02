@@ -13,7 +13,11 @@ fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-fn compile_call_temp_binary(temp_dir: &Path, fixture_name: &str, source: &str) -> Result<PathBuf, String> {
+fn compile_call_temp_binary(
+    temp_dir: &Path,
+    fixture_name: &str,
+    source: &str,
+) -> Result<PathBuf, String> {
     let context = inkwell::context::Context::create();
     let module = compile_to_module(&context, Path::new(fixture_name), source)
         .map_err(|error| format!("{fixture_name} should compile into an LLVM module: {error:?}"))?;
@@ -119,8 +123,7 @@ fn run_call_temp_test_case(test_name: &str, fixture_name: &str, source: &str) {
         "{test_name} temp directory should be created"
     );
 
-    let execution_result: Result<(), String> =
-        run_call_temp_case(&temp_dir, fixture_name, source);
+    let execution_result: Result<(), String> = run_call_temp_case(&temp_dir, fixture_name, source);
 
     let cleanup = cleanup_dir(&temp_dir);
     assert!(

@@ -14,7 +14,9 @@ use crate::codegen::adts::{
 };
 use crate::codegen::context::CodegenContext;
 use crate::codegen::control_flow::codegen_if_expression;
-use crate::codegen::expressions_array::{codegen_array_access, codegen_array_literal};
+use crate::codegen::expressions_array::{
+    codegen_array_access, codegen_array_literal, codegen_string_access, infer_expression_core_type,
+};
 use crate::codegen::expressions_numeric::{
     codegen_cmp, codegen_div, codegen_div_euclid, codegen_mod_euclid, codegen_numeric_binop,
     codegen_power, codegen_rem,
@@ -74,6 +76,10 @@ pub struct CodegenEnv<'context> {
     pub imported_signatures: BTreeMap<String, CoreType>,
     /// Function names proven to return caller-owned malloc strings.
     pub owned_string_functions: BTreeMap<String, bool>,
+    /// Normalized source path for the module currently being lowered.
+    pub current_source_path: String,
+    /// Tab-normalized source text for the module currently being lowered.
+    pub current_source_text: String,
     pub adt_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
     pub adt_field_layouts: BTreeMap<String, Vec<(String, CoreType)>>,
     pub variable_field_indices: BTreeMap<String, BTreeMap<String, u32>>,
@@ -100,6 +106,8 @@ impl<'context> CodegenEnv<'context> {
             value_accessors: BTreeMap::new(),
             imported_signatures: BTreeMap::new(),
             owned_string_functions: BTreeMap::new(),
+            current_source_path: String::new(),
+            current_source_text: String::new(),
             adt_field_indices: BTreeMap::new(),
             adt_field_layouts: BTreeMap::new(),
             variable_field_indices: BTreeMap::new(),
@@ -156,8 +164,22 @@ pub fn codegen_expression<'context>(
         Expr::Index {
             ref object,
             ref index,
+            span,
             ..
-        } => codegen_array_access(codegen_context, env, object, index, expected_type),
+        } => match infer_expression_core_type(env, object.as_ref()) {
+            Some(CoreType::String) => {
+                codegen_string_access(codegen_context, env, object, index, span, expected_type)
+            }
+            Some(CoreType::Array(_)) => {
+                codegen_array_access(codegen_context, env, object, index, expected_type)
+            }
+            Some(other) => Err(CodegenError::new(format!(
+                "index access expects array or string receiver, found '{other}'"
+            ))),
+            None => Err(CodegenError::new(String::from(
+                "index access receiver type could not be inferred",
+            ))),
+        },
         Expr::Call {
             ref callee,
             ref generic_args,
