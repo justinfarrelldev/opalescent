@@ -13,6 +13,7 @@ use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
+use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::{FunctionValue, PointerValue};
 
 #[doc = "Emit early-return default for propagate error path."]
@@ -34,13 +35,10 @@ pub(super) fn emit_function_default_return<'context>(
     if let Some(error_ptr) = forwarded_error {
         if return_basic_type.is_struct_type() {
             let return_struct_type = return_basic_type.into_struct_type();
-            if return_struct_type.count_fields() == 2 {
-                let success_type = return_struct_type
-                    .get_field_type_at_index(0)
-                    .ok_or_else(|| CodegenError::new(String::from("missing success field type")))?;
-                let aggregate = crate::codegen::error_abi::build_error_aggregate(
+            if crate::codegen::error_abi::is_error_abi_struct_type(return_struct_type) {
+                let aggregate = crate::codegen::error_abi::build_error_aggregate_for_return_type(
                     codegen_context,
-                    success_type,
+                    return_struct_type,
                     error_ptr,
                 )?;
                 let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
@@ -124,7 +122,10 @@ pub(super) fn caller_returns_error_aggregate(function: FunctionValue<'_>) -> boo
         .get_type()
         .get_return_type()
         .is_some_and(|return_type| {
-            return_type.is_struct_type() && return_type.into_struct_type().count_fields() == 2
+            return_type.is_struct_type()
+                && crate::codegen::error_abi::is_error_abi_struct_type(
+                    return_type.into_struct_type(),
+                )
         })
 }
 
@@ -152,6 +153,35 @@ pub(super) fn llvm_basic_type_to_core_type(
         return CoreType::Array(alloc::boxed::Box::new(CoreType::Int64));
     }
     CoreType::Unit
+}
+
+pub(super) fn llvm_metadata_type_to_core_type(
+    metadata_type: BasicMetadataTypeEnum<'_>,
+) -> CoreType {
+    match metadata_type {
+        BasicMetadataTypeEnum::ArrayType(array_type) => {
+            llvm_basic_type_to_core_type(array_type.as_basic_type_enum())
+        }
+        BasicMetadataTypeEnum::FloatType(float_type) => {
+            llvm_basic_type_to_core_type(float_type.as_basic_type_enum())
+        }
+        BasicMetadataTypeEnum::IntType(int_type) => {
+            llvm_basic_type_to_core_type(int_type.as_basic_type_enum())
+        }
+        BasicMetadataTypeEnum::PointerType(pointer_type) => {
+            llvm_basic_type_to_core_type(pointer_type.as_basic_type_enum())
+        }
+        BasicMetadataTypeEnum::StructType(struct_type) => {
+            llvm_basic_type_to_core_type(struct_type.as_basic_type_enum())
+        }
+        BasicMetadataTypeEnum::VectorType(vector_type) => {
+            llvm_basic_type_to_core_type(vector_type.as_basic_type_enum())
+        }
+        BasicMetadataTypeEnum::ScalableVectorType(vector_type) => {
+            llvm_basic_type_to_core_type(vector_type.as_basic_type_enum())
+        }
+        BasicMetadataTypeEnum::MetadataType(_) => CoreType::Unit,
+    }
 }
 
 #[doc = "Infer semantic core type for guard success binding from callee signature when possible."]

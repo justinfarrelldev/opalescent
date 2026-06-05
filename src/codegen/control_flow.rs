@@ -1,8 +1,10 @@
 #![allow(
     clippy::all,
+    clippy::let_underscore_untyped,
     clippy::missing_docs_in_private_items,
     clippy::pattern_type_mismatch,
     clippy::panic,
+    clippy::too_many_lines,
     reason = "internal codegen implementation module"
 )]
 extern crate alloc;
@@ -12,8 +14,8 @@ use crate::codegen::binding_store::initialize_binding_value;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::error_abi::{
-    build_error_aggregate, build_success_aggregate, build_void_error_aggregate,
-    build_void_success_aggregate, intern_variant_name,
+    build_error_aggregate_for_return_type, build_success_aggregate, build_void_error_aggregate,
+    build_void_success_aggregate, intern_variant_name, is_error_abi_struct_type,
 };
 use crate::codegen::expressions::{CodegenEnv, LoopContext, VariableBinding, codegen_expression};
 use crate::codegen::scope_tracker::{
@@ -28,7 +30,81 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use inkwell::IntPredicate;
 use inkwell::types::StructType;
-use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue};
+use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue};
+
+fn coerce_condition_to_i1<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    condition_value: BasicValueEnum<'context>,
+) -> Result<IntValue<'context>, CodegenError> {
+    let condition_int = condition_value.into_int_value();
+    if condition_int.get_type().get_bit_width() == 1 {
+        return Ok(condition_int);
+    }
+
+    codegen_context
+        .builder
+        .build_int_compare(
+            IntPredicate::NE,
+            condition_int,
+            condition_int.get_type().const_zero(),
+            env.next_name("cond.i1").as_str(),
+        )
+        .map_err(CodegenError::from)
+}
+
+fn llvm_basic_type_to_core_type(llvm_type: inkwell::types::BasicTypeEnum<'_>) -> CoreType {
+    if llvm_type.is_int_type() {
+        let int_type = llvm_type.into_int_type();
+        return match int_type.get_bit_width() {
+            1 => CoreType::Boolean,
+            8 => CoreType::Int8,
+            16 => CoreType::Int16,
+            32 => CoreType::Int32,
+            _ => CoreType::Int64,
+        };
+    }
+    if llvm_type.is_float_type() {
+        return if llvm_type.into_float_type().get_bit_width() == 32 {
+            CoreType::Float32
+        } else {
+            CoreType::Float64
+        };
+    }
+    if llvm_type.is_pointer_type() {
+        return CoreType::String;
+    }
+    if llvm_type.is_array_type() {
+        return CoreType::Array(Box::new(CoreType::Int64));
+    }
+    CoreType::Unit
+}
+
+fn current_return_core_types<'context>(function: FunctionValue<'context>) -> Vec<CoreType> {
+    let Some(return_type) = function.get_type().get_return_type() else {
+        return Vec::new();
+    };
+    if return_type.is_struct_type() {
+        return return_type
+            .into_struct_type()
+            .get_field_types()
+            .into_iter()
+            .map(llvm_basic_type_to_core_type)
+            .collect();
+    }
+    vec![llvm_basic_type_to_core_type(return_type)]
+}
+
+fn current_error_success_core_types<'context>(
+    error_return_type: StructType<'context>,
+) -> Vec<CoreType> {
+    let mut field_types = error_return_type.get_field_types();
+    field_types.pop();
+    field_types
+        .into_iter()
+        .map(llvm_basic_type_to_core_type)
+        .collect()
+}
 
 #[doc = "Lower if statement control-flow blocks."]
 pub fn codegen_if_statement<'context>(
@@ -38,8 +114,9 @@ pub fn codegen_if_statement<'context>(
     then_branch: &Stmt,
     else_branch: Option<&Stmt>,
 ) -> Result<(), CodegenError> {
-    let condition_value = codegen_expression(codegen_context, env, condition, None)?;
-    let condition_int = condition_value.into_int_value();
+    let condition_value =
+        codegen_expression(codegen_context, env, condition, Some(&CoreType::Boolean))?;
+    let condition_int = coerce_condition_to_i1(codegen_context, env, condition_value)?;
     let function = current_function(codegen_context)?;
     let then_block = codegen_context
         .context
@@ -111,8 +188,9 @@ pub fn codegen_if_expression<'context>(
     then_branch: &Stmt,
     else_branch: Option<&Stmt>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let condition_value = codegen_expression(codegen_context, env, condition, None)?;
-    let condition_int = condition_value.into_int_value();
+    let condition_value =
+        codegen_expression(codegen_context, env, condition, Some(&CoreType::Boolean))?;
+    let condition_int = coerce_condition_to_i1(codegen_context, env, condition_value)?;
     let function = current_function(codegen_context)?;
     let then_block = codegen_context
         .context
@@ -219,12 +297,13 @@ pub fn codegen_loop_statement<'context>(
                 .append_basic_block(function, env.next_name("while.exit").as_str());
             let _jump_header = codegen_context.builder.build_unconditional_branch(header)?;
             codegen_context.builder.position_at_end(header);
-            let condition_value = codegen_expression(codegen_context, env, condition, None)?;
-            let _cond = codegen_context.builder.build_conditional_branch(
-                condition_value.into_int_value(),
-                loop_body,
-                exit,
-            )?;
+            let condition_value =
+                codegen_expression(codegen_context, env, condition, Some(&CoreType::Boolean))?;
+            let condition_int = coerce_condition_to_i1(codegen_context, env, condition_value)?;
+            let _cond =
+                codegen_context
+                    .builder
+                    .build_conditional_branch(condition_int, loop_body, exit)?;
             codegen_context.builder.position_at_end(loop_body);
             let loop_scope_depth = env.current_scope_depth();
             emit_loop_body_with_targets(
@@ -622,8 +701,14 @@ pub fn codegen_return_statement<'context>(
         let _ret = codegen_context.builder.build_return(None)?;
         return Ok(());
     }
+    let expected_return_types = current_return_core_types(current_function(codegen_context)?);
     if values.len() == 1 {
-        let value = codegen_expression(codegen_context, env, &values[0].value, None)?;
+        let value = codegen_expression(
+            codegen_context,
+            env,
+            &values[0].value,
+            expected_return_types.first(),
+        )?;
         if value.is_struct_value() && value.into_struct_value().get_type().count_fields() == 0 {
             cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
             let _ret = codegen_context.builder.build_return(None)?;
@@ -639,7 +724,15 @@ pub fn codegen_return_statement<'context>(
     }
     let lowered = values
         .iter()
-        .map(|value| codegen_expression(codegen_context, env, &value.value, None))
+        .enumerate()
+        .map(|(index, value)| {
+            codegen_expression(
+                codegen_context,
+                env,
+                &value.value,
+                expected_return_types.get(index),
+            )
+        })
         .collect::<Result<Vec<_>, _>>()?;
     let aggregate_type = codegen_context.context.struct_type(
         lowered
@@ -684,64 +777,108 @@ fn codegen_error_aware_return_statement<'context>(
         return Ok(());
     }
 
-    if values.len() != 1 {
-        return Err(CodegenError::new(String::from(
-            "errors-bearing functions returning multiple values are not yet supported",
-        )));
-    }
-    let labeled_value = &values[0];
-    if labeled_value.label == "err" {
-        let variant_name = extract_error_variant_name(&labeled_value.value)?;
-        let error_ptr = intern_variant_name(codegen_context, env, variant_name.as_str());
-        let success_field_type = error_return_type
-            .get_field_types()
-            .first()
-            .copied()
-            .ok_or_else(|| {
-                CodegenError::new(String::from("error ABI return type missing success field"))
-            })?;
-        let aggregate = if success_field_type.is_pointer_type() {
-            build_void_error_aggregate(codegen_context, error_ptr)?
-        } else {
-            build_error_aggregate(codegen_context, success_field_type, error_ptr)?
-        };
-        cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
-        let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
-        return Ok(());
-    }
-
-    if labeled_value.label.is_empty() {
-        if let Some(variant_name) =
-            extract_guard_wrapper_error_variant(codegen_context, env, &labeled_value.value)?
-        {
+    if values.len() == 1 {
+        let labeled_value = &values[0];
+        if labeled_value.label == "err" {
+            let variant_name = extract_error_variant_name(&labeled_value.value)?;
             let error_ptr = intern_variant_name(codegen_context, env, variant_name.as_str());
-            let success_field_type = error_return_type
-                .get_field_types()
-                .first()
-                .copied()
-                .ok_or_else(|| {
-                    CodegenError::new(String::from("error ABI return type missing success field"))
-                })?;
-            let aggregate = if success_field_type.is_pointer_type() {
+            let aggregate = if is_error_abi_struct_type(error_return_type)
+                && error_return_type.count_fields() == 2
+                && error_return_type
+                    .get_field_types()
+                    .first()
+                    .is_some_and(|field_type| field_type.is_pointer_type())
+            {
                 build_void_error_aggregate(codegen_context, error_ptr)?
             } else {
-                build_error_aggregate(codegen_context, success_field_type, error_ptr)?
+                build_error_aggregate_for_return_type(
+                    codegen_context,
+                    error_return_type,
+                    error_ptr,
+                )?
             };
             cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
             let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
             return Ok(());
         }
+
+        if labeled_value.label.is_empty() {
+            if let Some(variant_name) =
+                extract_guard_wrapper_error_variant(codegen_context, env, &labeled_value.value)?
+            {
+                let error_ptr = intern_variant_name(codegen_context, env, variant_name.as_str());
+                let aggregate = if is_error_abi_struct_type(error_return_type)
+                    && error_return_type.count_fields() == 2
+                    && error_return_type
+                        .get_field_types()
+                        .first()
+                        .is_some_and(|field_type| field_type.is_pointer_type())
+                {
+                    build_void_error_aggregate(codegen_context, error_ptr)?
+                } else {
+                    build_error_aggregate_for_return_type(
+                        codegen_context,
+                        error_return_type,
+                        error_ptr,
+                    )?
+                };
+                cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
+                let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+                return Ok(());
+            }
+        }
     }
 
     let transferred_names = collect_transferred_return_identifier_names(values);
-    let value = codegen_expression(codegen_context, env, &labeled_value.value, None)?;
-    if value.is_struct_value() && value.into_struct_value().get_type().count_fields() == 0 {
-        let aggregate = build_void_success_aggregate(codegen_context)?;
-        cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
-        let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
-        return Ok(());
-    }
-    let aggregate = build_success_aggregate(codegen_context, value)?;
+    let expected_success_types = current_error_success_core_types(error_return_type);
+    let lowered = values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            codegen_expression(
+                codegen_context,
+                env,
+                &value.value,
+                expected_success_types.get(index),
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let success_value = if lowered.len() == 1 {
+        let value = lowered[0];
+        if value.is_struct_value() && value.into_struct_value().get_type().count_fields() == 0 {
+            let aggregate = build_void_success_aggregate(codegen_context)?;
+            cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
+            let _ret = codegen_context.builder.build_return(Some(&aggregate))?;
+            return Ok(());
+        }
+        value
+    } else {
+        let aggregate_type = codegen_context.context.struct_type(
+            lowered
+                .iter()
+                .map(BasicValueEnum::get_type)
+                .collect::<Vec<_>>()
+                .as_slice(),
+            false,
+        );
+        let mut aggregate = aggregate_type.get_undef();
+        for (index, value) in lowered.iter().enumerate() {
+            aggregate = codegen_context
+                .builder
+                .build_insert_value(
+                    aggregate,
+                    *value,
+                    u32::try_from(index).map_err(|conversion_error| {
+                        CodegenError::new(format!("{conversion_error}"))
+                    })?,
+                    env.next_name("ret.errabi.insert").as_str(),
+                )?
+                .into_struct_value();
+        }
+        aggregate.as_basic_value_enum()
+    };
+    let aggregate = build_success_aggregate(codegen_context, success_value)?;
     cleanup_return_scopes_preserving_codegen_env(
         codegen_context,
         env,
@@ -774,25 +911,11 @@ fn current_error_return_type<'context>(
     }
 
     let struct_type = return_type.into_struct_type();
-    if is_error_abi_return_type(struct_type) {
+    if is_error_abi_struct_type(struct_type) {
         Ok(Some(struct_type))
     } else {
         Ok(None)
     }
-}
-
-fn is_error_abi_return_type<'context>(struct_type: StructType<'context>) -> bool {
-    if struct_type.count_fields() != 2 {
-        return false;
-    }
-
-    let field_types = struct_type.get_field_types();
-    if !field_types[1].is_pointer_type() {
-        return false;
-    }
-
-    let error_pointee = field_types[1].into_pointer_type().get_element_type();
-    error_pointee.is_int_type() && error_pointee.into_int_type().get_bit_width() == 8
 }
 
 fn extract_guard_wrapper_error_variant<'context>(

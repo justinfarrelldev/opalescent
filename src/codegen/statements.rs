@@ -1,8 +1,11 @@
 #![allow(
     clippy::all,
-    clippy::too_many_lines,
+    clippy::arithmetic_side_effects,
+    clippy::cognitive_complexity,
     clippy::needless_pass_by_ref_mut,
     clippy::missing_docs_in_private_items,
+    clippy::pattern_type_mismatch,
+    clippy::too_many_lines,
     reason = "internal codegen implementation module"
 )]
 extern crate alloc;
@@ -42,8 +45,12 @@ mod inference;
 #[path = "statements/runtime_type_info.rs"]
 #[doc = "Runtime return and guard-success type mapping helpers for statement lowering."]
 mod runtime_type_info;
-use self::inference::{ast_type_to_core_type_for_let, infer_core_type_from_expr};
-use self::runtime_type_info::{infer_guard_success_core_type, known_runtime_return_type};
+use self::inference::{
+    ast_type_to_core_type_for_let, infer_call_return_types, infer_core_type_from_expr,
+};
+use self::runtime_type_info::{
+    infer_guard_success_core_type, known_guard_success_type, known_runtime_return_type,
+};
 
 /// Lower one typed statement into LLVM IR side effects.
 pub fn codegen_statement<'context>(
@@ -87,6 +94,7 @@ pub fn codegen_statement<'context>(
         Stmt::Guard {
             ref expression,
             ref success_binding,
+            ref success_bindings,
             ref error_binding,
             ref else_body,
             ..
@@ -95,6 +103,7 @@ pub fn codegen_statement<'context>(
             env,
             expression.as_ref(),
             success_binding.as_deref(),
+            success_bindings.as_slice(),
             error_binding.as_str(),
             else_body.as_ref(),
         ),
@@ -264,70 +273,170 @@ fn codegen_let_statement<'context>(
     Ok(())
 }
 
-/// Lower a destructuring `let` from a loop expression into preallocated slots.
+/// Lower a destructuring `let` from a loop expression or ordinary multi-return call.
 fn codegen_let_destructure_statement<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     bindings: &[LetBinding],
     initializer: &Expr,
 ) -> Result<(), CodegenError> {
-    let Expr::Loop { ref body, .. } = *initializer else {
-        return Err(CodegenError::new(String::from(
-            "destructuring let currently requires loop expression initializer",
-        )));
+    if let Expr::Loop { ref body, .. } = *initializer {
+        let mut slots = Vec::new();
+        let mut labels = Vec::new();
+        for binding in bindings {
+            let binding_type = if let Some(annotation) = binding.type_annotation.as_ref() {
+                ast_type_to_core_type_for_let(annotation)?
+            } else {
+                infer_loop_break_binding_type(
+                    codegen_context,
+                    env,
+                    body.as_ref(),
+                    bindings,
+                    binding.name.as_str(),
+                )
+            };
+            let slot_type = core_type_to_llvm(codegen_context.context, &binding_type);
+            let alloca = codegen_context
+                .builder
+                .build_alloca(slot_type, binding.name.as_str())?;
+            slots.push(alloca);
+            labels.push(
+                binding
+                    .returned_label
+                    .clone()
+                    .unwrap_or_else(|| binding.name.clone()),
+            );
+            env.variables.insert(
+                binding.name.clone(),
+                VariableBinding {
+                    alloca,
+                    core_type: binding_type.clone(),
+                    length: None,
+                    capacity: None,
+                    is_mutable: binding.is_mutable,
+                },
+            );
+            env.register_scope_binding(binding.name.as_str());
+            if binding_type == CoreType::String
+                && infer_loop_break_binding_requires_malloc_string_cleanup(
+                    codegen_context,
+                    env,
+                    body.as_ref(),
+                    bindings,
+                    binding.name.as_str(),
+                )
+            {
+                mark_binding_malloc_string_cleanup(env, binding.name.as_str());
+            }
+        }
+
+        return codegen_loop_expression_into_slots(
+            codegen_context,
+            env,
+            body.as_ref(),
+            slots.as_slice(),
+            labels.as_slice(),
+        );
+    }
+
+    let (callee, args) = match *initializer {
+        Expr::Call {
+            ref callee,
+            ref args,
+            ..
+        } => (callee.as_ref(), args.as_slice()),
+        Expr::Propagate { ref call, .. } => {
+            let Expr::Call {
+                ref callee,
+                ref args,
+                ..
+            } = *call.as_ref()
+            else {
+                return Err(CodegenError::new(String::from(
+                    "destructuring let propagate initializer must wrap a fallible call",
+                )));
+            };
+            (callee.as_ref(), args.as_slice())
+        }
+        _ => {
+            return Err(CodegenError::new(String::from(
+                "destructuring let currently requires loop expression, propagate call, or multi-return call initializer",
+            )));
+        }
     };
 
-    let mut slots = Vec::new();
-    let mut labels = Vec::new();
-    for binding in bindings {
-        let binding_type = if let Some(annotation) = binding.type_annotation.as_ref() {
+    let mut return_types =
+        infer_call_return_types(codegen_context, env, callee, args).ok_or_else(|| {
+            CodegenError::new(String::from(
+                "could not infer destructured call return types",
+            ))
+        })?;
+    if matches!(*initializer, Expr::Propagate { .. }) && return_types.len() == bindings.len() + 1 {
+        let _trailing_error_type = return_types.pop();
+    }
+    if return_types.len() != bindings.len() {
+        return Err(CodegenError::new(format!(
+            "destructuring let expected {} values but call returns {}",
+            bindings.len(),
+            return_types.len()
+        )));
+    }
+
+    for (binding, binding_type) in bindings.iter().zip(return_types.iter()) {
+        let storage_type = if let Some(annotation) = binding.type_annotation.as_ref() {
             ast_type_to_core_type_for_let(annotation)?
         } else {
-            infer_loop_break_binding_type(
-                codegen_context,
-                env,
-                body.as_ref(),
-                bindings,
-                binding.name.as_str(),
-            )
+            binding_type.clone()
         };
-        let slot_type = core_type_to_llvm(codegen_context.context, &binding_type);
+        let slot_type = core_type_to_llvm(codegen_context.context, &storage_type);
         let alloca = codegen_context
             .builder
             .build_alloca(slot_type, binding.name.as_str())?;
-        slots.push(alloca);
-        labels.push(binding.name.clone());
         env.variables.insert(
             binding.name.clone(),
             VariableBinding {
                 alloca,
-                core_type: binding_type.clone(),
+                core_type: storage_type.clone(),
                 length: None,
                 capacity: None,
                 is_mutable: binding.is_mutable,
             },
         );
         env.register_scope_binding(binding.name.as_str());
-        if binding_type == CoreType::String
-            && infer_loop_break_binding_requires_malloc_string_cleanup(
-                codegen_context,
-                env,
-                body.as_ref(),
-                bindings,
-                binding.name.as_str(),
-            )
-        {
+        if storage_type == CoreType::String {
             mark_binding_malloc_string_cleanup(env, binding.name.as_str());
         }
     }
 
-    codegen_loop_expression_into_slots(
-        codegen_context,
-        env,
-        body.as_ref(),
-        slots.as_slice(),
-        labels.as_slice(),
-    )
+    let aggregate = codegen_expression(codegen_context, env, initializer, None)?;
+    let struct_value = if aggregate.is_struct_value() {
+        aggregate.into_struct_value()
+    } else {
+        return Err(CodegenError::new(String::from(
+            "multi-return call did not lower to an aggregate value",
+        )));
+    };
+    for (index, binding) in bindings.iter().enumerate() {
+        let extracted = codegen_context
+            .builder
+            .build_extract_value(
+                struct_value,
+                u32::try_from(index)
+                    .map_err(|conversion_error| CodegenError::new(format!("{conversion_error}")))?,
+                env.next_name("destructure.call.extract").as_str(),
+            )?
+            .as_basic_value_enum();
+        initialize_binding_value(
+            codegen_context,
+            env,
+            binding.name.as_str(),
+            extracted,
+            "let.destructure.call.init",
+            false,
+        )?;
+    }
+
+    Ok(())
 }
 
 /// Lower a `break` statement using the active loop frame.
@@ -594,6 +703,23 @@ fn infer_loop_break_value_type<'context>(
     infer_core_type_from_expr(codegen_context, env, expr)
 }
 
+fn infer_named_guard_success_type<'context>(
+    env: &CodegenEnv<'context>,
+    expression: &Expr,
+) -> Option<CoreType> {
+    let Expr::Call { ref callee, .. } = *expression else {
+        return None;
+    };
+    let Expr::Identifier { ref name, .. } = *callee.as_ref() else {
+        return None;
+    };
+
+    env.imported_functions
+        .get(name)
+        .and_then(|runtime_name| known_guard_success_type(runtime_name.as_str()))
+        .or_else(|| known_guard_success_type(name.as_str()))
+}
+
 fn register_inferred_local_binding<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &CodegenEnv<'context>,
@@ -611,6 +737,35 @@ fn register_inferred_local_binding<'context>(
             |annotation| ast_type_to_core_type_for_let(annotation).unwrap_or(CoreType::Int64),
         );
         local_bindings.insert(binding.name.clone(), binding_type);
+        return;
+    }
+
+    if let Stmt::Guard {
+        expression,
+        success_binding,
+        success_binding_type,
+        success_bindings,
+        ..
+    } = stmt
+    {
+        if let Some(binding_name) = success_binding.as_ref() {
+            let binding_type = success_binding_type
+                .as_ref()
+                .and_then(|annotation| ast_type_to_core_type_for_let(annotation).ok())
+                .or_else(|| infer_named_guard_success_type(env, expression.as_ref()))
+                .unwrap_or(CoreType::Int64);
+            local_bindings.insert(binding_name.clone(), binding_type);
+        }
+
+        for binding in success_bindings {
+            let binding_type = binding
+                .type_annotation
+                .as_ref()
+                .and_then(|annotation| ast_type_to_core_type_for_let(annotation).ok())
+                .or_else(|| infer_named_guard_success_type(env, expression.as_ref()))
+                .unwrap_or(CoreType::Int64);
+            local_bindings.insert(binding.name.clone(), binding_type);
+        }
     }
 }
 
@@ -681,6 +836,7 @@ fn codegen_guard_statement<'context>(
     env: &mut CodegenEnv<'context>,
     expression: &Expr,
     success_binding: Option<&str>,
+    success_bindings: &[LetBinding],
     error_binding: &str,
     else_body: &Stmt,
 ) -> Result<(), CodegenError> {
@@ -689,7 +845,7 @@ fn codegen_guard_statement<'context>(
         let struct_value = value.into_struct_value();
         let field_count = struct_value.get_type().count_fields();
         if field_count >= 2 {
-            let error_field_index = if field_count >= 3 { 2 } else { 1 };
+            let error_field_index = crate::codegen::error_abi::error_field_index(field_count);
             let error_value = codegen_context.builder.build_extract_value(
                 struct_value,
                 error_field_index,
@@ -697,63 +853,10 @@ fn codegen_guard_statement<'context>(
             )?;
 
             if error_value.is_pointer_value() {
-                let success_value = codegen_context.builder.build_extract_value(
-                    struct_value,
-                    0,
-                    env.next_name("guard.ok").as_str(),
-                )?;
-                let success_core_type =
-                    infer_guard_success_core_type(env, expression, success_value.get_type());
-                let normalized_success_value = if field_count >= 3 {
-                    if let CoreType::Array(ref element_core_type) = success_core_type {
-                        if success_value.is_pointer_value() {
-                            let length_value = codegen_context.builder.build_extract_value(
-                                struct_value,
-                                1,
-                                env.next_name("guard.len").as_str(),
-                            )?;
-                            let runtime_array = materialize_runtime_array_from_raw_elements(
-                                codegen_context,
-                                env,
-                                success_value.into_pointer_value(),
-                                length_value.into_int_value(),
-                                element_core_type.as_ref(),
-                                "guard.array",
-                            )?;
-                            runtime_array.as_basic_value_enum()
-                        } else {
-                            success_value
-                        }
-                    } else {
-                        success_value
-                    }
-                } else if matches!(success_core_type, CoreType::Boolean) {
-                    let success_int = success_value.into_int_value();
-                    codegen_context
-                        .builder
-                        .build_int_compare(
-                            inkwell::IntPredicate::NE,
-                            success_int,
-                            success_int.get_type().const_zero(),
-                            env.next_name("guard.bool").as_str(),
-                        )?
-                        .as_basic_value_enum()
-                } else {
-                    success_value
-                };
-                let success_binding_name = success_binding.unwrap_or("");
-                let success_alloca = if success_binding.is_some() {
-                    let alloca = codegen_context
-                        .builder
-                        .build_alloca(normalized_success_value.get_type(), success_binding_name)?;
-                    let _success_init = codegen_context
-                        .builder
-                        .build_store(alloca, normalized_success_value.get_type().const_zero())?;
-                    Some(alloca)
-                } else {
-                    None
-                };
-
+                let uses_multi_bindings = success_bindings.len() > 1
+                    || success_bindings
+                        .first()
+                        .is_some_and(|binding| binding.returned_label.is_some());
                 let current_fn = current_function(codegen_context)?;
                 let success_block = codegen_context
                     .context
@@ -764,6 +867,106 @@ fn codegen_guard_statement<'context>(
                 let merge_block = codegen_context
                     .context
                     .append_basic_block(current_fn, env.next_name("guard.merge").as_str());
+
+                let mut success_slots = Vec::new();
+                let mut success_slot_types = Vec::new();
+                if uses_multi_bindings {
+                    let (callee, args) = match expression {
+                        Expr::Call { callee, args, .. } => (callee.as_ref(), args.as_slice()),
+                        _ => {
+                            return Err(CodegenError::new(String::from(
+                                "guard destructuring currently requires a fallible call expression",
+                            )));
+                        }
+                    };
+                    let mut return_types =
+                        infer_call_return_types(codegen_context, env, callee, args).ok_or_else(
+                            || {
+                                CodegenError::new(String::from(
+                                    "could not infer guard destructured call return types",
+                                ))
+                            },
+                        )?;
+                    if return_types.len() == success_bindings.len() + 1 {
+                        let _trailing_error_type = return_types.pop();
+                    }
+                    if return_types.len() != success_bindings.len() {
+                        return Err(CodegenError::new(format!(
+                            "guard destructuring expected {} values but call returns {}",
+                            success_bindings.len(),
+                            return_types.len()
+                        )));
+                    }
+                    for (binding, binding_type) in success_bindings.iter().zip(return_types.iter())
+                    {
+                        let slot_type = core_type_to_llvm(codegen_context.context, binding_type);
+                        success_slots.push(
+                            codegen_context
+                                .builder
+                                .build_alloca(slot_type, binding.name.as_str())?,
+                        );
+                        success_slot_types.push(binding_type.clone());
+                    }
+                }
+
+                let success_binding_name = success_binding.unwrap_or("");
+                let success_alloca = if !uses_multi_bindings && success_binding.is_some() {
+                    let success_value = codegen_context.builder.build_extract_value(
+                        struct_value,
+                        0,
+                        env.next_name("guard.ok").as_str(),
+                    )?;
+                    let success_core_type =
+                        infer_guard_success_core_type(env, expression, success_value.get_type());
+                    let normalized_success_value = if error_field_index == 2 {
+                        if let CoreType::Array(ref element_core_type) = success_core_type {
+                            if success_value.is_pointer_value() {
+                                let length_value = codegen_context.builder.build_extract_value(
+                                    struct_value,
+                                    1,
+                                    env.next_name("guard.len").as_str(),
+                                )?;
+                                let runtime_array = materialize_runtime_array_from_raw_elements(
+                                    codegen_context,
+                                    env,
+                                    success_value.into_pointer_value(),
+                                    length_value.into_int_value(),
+                                    element_core_type.as_ref(),
+                                    "guard.array",
+                                )?;
+                                runtime_array.as_basic_value_enum()
+                            } else {
+                                success_value
+                            }
+                        } else {
+                            success_value
+                        }
+                    } else if matches!(success_core_type, CoreType::Boolean) {
+                        let success_int = success_value.into_int_value();
+                        codegen_context
+                            .builder
+                            .build_int_compare(
+                                inkwell::IntPredicate::NE,
+                                success_int,
+                                success_int.get_type().const_zero(),
+                                env.next_name("guard.bool").as_str(),
+                            )?
+                            .as_basic_value_enum()
+                    } else {
+                        success_value
+                    };
+                    let alloca = codegen_context
+                        .builder
+                        .build_alloca(normalized_success_value.get_type(), success_binding_name)?;
+                    let _success_init = codegen_context
+                        .builder
+                        .build_store(alloca, normalized_success_value.get_type().const_zero())?;
+                    success_slot_types.push(success_core_type.clone());
+                    success_slots.push(alloca);
+                    Some((alloca, normalized_success_value, success_core_type))
+                } else {
+                    None
+                };
 
                 let error_ptr = error_value.into_pointer_value();
                 let is_success = codegen_context
@@ -776,7 +979,23 @@ fn codegen_guard_statement<'context>(
                 )?;
 
                 codegen_context.builder.position_at_end(success_block);
-                if let Some(success_slot) = success_alloca {
+                if uses_multi_bindings {
+                    for (index, success_slot) in success_slots.iter().enumerate() {
+                        let success_value = codegen_context
+                            .builder
+                            .build_extract_value(
+                                struct_value,
+                                u32::try_from(index).map_err(|conversion_error| {
+                                    CodegenError::new(format!("{conversion_error}"))
+                                })?,
+                                env.next_name("guard.ok.multi").as_str(),
+                            )?
+                            .as_basic_value_enum();
+                        let _store_ok = codegen_context
+                            .builder
+                            .build_store(*success_slot, success_value)?;
+                    }
+                } else if let Some((success_slot, normalized_success_value, _)) = success_alloca {
                     let _store_ok = codegen_context
                         .builder
                         .build_store(success_slot, normalized_success_value)?;
@@ -848,8 +1067,26 @@ fn codegen_guard_statement<'context>(
                 }
 
                 codegen_context.builder.position_at_end(merge_block);
-                if success_binding.is_some() {
-                    let Some(success_slot) = success_alloca else {
+                if uses_multi_bindings {
+                    for ((binding, success_slot), success_core_type) in success_bindings
+                        .iter()
+                        .zip(success_slots.iter())
+                        .zip(success_slot_types.iter())
+                    {
+                        env.variables.insert(
+                            binding.name.clone(),
+                            VariableBinding {
+                                alloca: *success_slot,
+                                core_type: success_core_type.clone(),
+                                length: None,
+                                capacity: None,
+                                is_mutable: binding.is_mutable,
+                            },
+                        );
+                        env.register_scope_binding(binding.name.as_str());
+                    }
+                } else if success_binding.is_some() {
+                    let Some((success_slot, _, success_core_type)) = success_alloca else {
                         return Err(CodegenError::new(String::from(
                             "guard success binding slot missing in bound guard path",
                         )));

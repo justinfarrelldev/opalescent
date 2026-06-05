@@ -1,6 +1,11 @@
 #![allow(
+    clippy::arithmetic_side_effects,
+    clippy::missing_docs_in_private_items,
+    clippy::option_if_let_else,
     clippy::pattern_type_mismatch,
-    reason = "statement matcher patterns intentionally work on borrowed AST nodes"
+    clippy::too_many_lines,
+    clippy::unused_self,
+    reason = "statement typing keeps multi-return destructure validation and return pass-through checks localized during blocker cleanup"
 )]
 //! Statement type checking for the Opalescent type system
 
@@ -8,18 +13,18 @@ extern crate alloc;
 
 use super::control_flow::{GuardBindingInfo, GuardCheckRequest, GuardUsage};
 use super::helpers::{
-    coerce_literal_to_expected, ensure_boolean_type, ensure_integer_type,
-    invalid_operation_error, is_integer_type, type_mismatch_error,
+    coerce_literal_to_expected, ensure_boolean_type, ensure_integer_type, invalid_operation_error,
+    is_integer_type, type_mismatch_error,
 };
 use crate::ast::{AstNode, Expr, LabeledValue, LetBinding, LiteralValue, Stmt, Type};
 use crate::token::Span;
-use crate::type_system::checker::TypeChecker;
+use crate::type_system::checker::{FallibleExpressionContext, TypeChecker};
 use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::{TypeError, Warning};
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
-use alloc::format;
+use alloc::{format, string::String, vec::Vec};
 
 impl TypeChecker {
     /// Type check a slice of statements while propagating the expected return
@@ -160,16 +165,39 @@ impl TypeChecker {
                 ref success_binding,
                 ref success_binding_type,
                 success_binding_is_mutable,
+                ref success_bindings,
                 ref error_binding,
                 ref else_body,
                 span,
                 ..
             } => {
+                let uses_multi_bindings = success_bindings.len() > 1
+                    || success_bindings
+                        .first()
+                        .is_some_and(|binding| binding.returned_label.is_some());
+                if uses_multi_bindings {
+                    self.type_check_guard_destructure_statement(
+                        expression.as_ref(),
+                        success_bindings.as_slice(),
+                        error_binding.as_str(),
+                        else_body.as_ref(),
+                        expected_return,
+                    )?;
+                    return Ok(());
+                }
+
+                let fallback_binding = success_bindings.first();
                 let binding_info = GuardBindingInfo {
-                    name: success_binding.as_deref().unwrap_or("_"),
-                    annotation: success_binding_type.as_ref(),
-                    is_mutable: success_binding_is_mutable,
-                    span,
+                    name: success_binding
+                        .as_deref()
+                        .or_else(|| fallback_binding.map(|binding| binding.name.as_str()))
+                        .unwrap_or("_"),
+                    annotation: success_binding_type.as_ref().or_else(|| {
+                        fallback_binding.and_then(|binding| binding.type_annotation.as_ref())
+                    }),
+                    is_mutable: success_binding_is_mutable
+                        || fallback_binding.is_some_and(|binding| binding.is_mutable),
+                    span: fallback_binding.map_or(span, |binding| binding.span),
                 };
                 self.type_check_guard_expr(GuardCheckRequest {
                     expr: expression.as_ref(),
@@ -394,36 +422,151 @@ impl TypeChecker {
             });
         }
 
-        let Expr::Loop { ref body, .. } = *initializer else {
-            return Err(TypeError::InvalidOperation {
-                operation: "destructuring let initializer must be loop expression".to_owned(),
-                type_name: format!("{}", self.type_check_expr(initializer)?),
-                span: TypeError::span_from_span(initializer.span()),
-            });
-        };
+        if let Expr::Loop { ref body, .. } = *initializer {
+            self.context.loop_break_type_stack.push(None);
+            self.type_check_stmt_with_return(body.as_ref(), None)?;
+            let return_types = self.infer_loop_break_types(body.as_ref(), span)?;
+            self.context.loop_break_type_stack.pop();
+            self.validate_destructure_bindings(
+                bindings,
+                return_types.as_slice(),
+                bindings
+                    .iter()
+                    .map(|binding| {
+                        binding
+                            .returned_label
+                            .clone()
+                            .unwrap_or_else(|| binding.name.clone())
+                    })
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+                initializer.span(),
+            )?;
+            return self.register_destructure_bindings(
+                bindings,
+                return_types.as_slice(),
+                initializer.span(),
+            );
+        }
 
-        self.context.loop_break_type_stack.push(None);
-        self.type_check_stmt_with_return(body.as_ref(), None)?;
-        let return_types = self.infer_loop_break_types(body.as_ref(), span)?;
-        self.context.loop_break_type_stack.pop();
+        if let Expr::Propagate { ref call, .. } = *initializer {
+            let resolved = self.classify_fallible_call_shape(
+                call.as_ref(),
+                FallibleExpressionContext::Propagate,
+            )?;
+            self.ensure_propagate_error_types_allowed(
+                call.as_ref(),
+                resolved.error_types.as_slice(),
+                initializer.span(),
+            )?;
+            self.validate_destructure_bindings(
+                bindings,
+                resolved.success_types.as_slice(),
+                resolved.return_labels.as_slice(),
+                initializer.span(),
+            )?;
+            return self.register_destructure_bindings(
+                bindings,
+                resolved.success_types.as_slice(),
+                initializer.span(),
+            );
+        }
 
-        if return_types.len() != bindings.len() {
+        if let Expr::Call {
+            ref callee,
+            ref generic_args,
+            ref args,
+            ..
+        } = *initializer
+        {
+            let resolved = self.resolve_call_type(
+                callee.as_ref(),
+                generic_args.as_deref(),
+                args.as_slice(),
+                span,
+            )?;
+            self.validate_destructure_bindings(
+                bindings,
+                resolved.return_types.as_slice(),
+                resolved.return_labels.as_slice(),
+                initializer.span(),
+            )?;
+            return self.register_destructure_bindings(
+                bindings,
+                resolved.return_types.as_slice(),
+                initializer.span(),
+            );
+        }
+
+        Err(TypeError::InvalidOperation {
+            operation: "destructuring let initializer must be loop expression, propagate call, or multi-return call"
+                .to_owned(),
+            type_name: format!("{}", self.type_check_expr(initializer)?),
+            span: TypeError::span_from_span(initializer.span()),
+        })
+    }
+
+    pub(super) fn validate_destructure_bindings(
+        &self,
+        bindings: &[LetBinding],
+        value_types: &[CoreType],
+        returned_labels: &[String],
+        span: Span,
+    ) -> Result<(), TypeError> {
+        if value_types.len() != bindings.len() {
             return Err(TypeError::ArityMismatch {
                 expected: bindings.len(),
-                found: return_types.len(),
-                span: TypeError::span_from_span(initializer.span()),
+                found: value_types.len(),
+                span: TypeError::span_from_span(span),
             });
         }
 
-        for (binding, value_type) in bindings.iter().zip(return_types.into_iter()) {
+        for (index, binding) in bindings.iter().enumerate() {
+            let expected_label = returned_labels
+                .get(index)
+                .map_or(binding.name.as_str(), String::as_str);
+            let actual_label = binding
+                .returned_label
+                .as_deref()
+                .unwrap_or(binding.name.as_str());
+            if actual_label != expected_label {
+                let reason = if binding.returned_label.is_some() {
+                    format!(
+                        "explicit destructure labels verify intent and do not reorder returned values: expected label '{expected_label}' at position {}, found '{actual_label}'",
+                        index + 1,
+                    )
+                } else {
+                    format!(
+                        "destructure binding names must exactly match returned labels in order: expected label '{expected_label}' at position {}, found '{actual_label}'",
+                        index + 1,
+                    )
+                };
+                return Err(TypeError::ReturnLabelMismatch {
+                    expected: reason,
+                    found: actual_label.to_owned(),
+                    span: TypeError::span_from_span(binding.span()),
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    pub(super) fn register_destructure_bindings(
+        &mut self,
+        bindings: &[LetBinding],
+        value_types: &[CoreType],
+        initializer_span: Span,
+    ) -> Result<(), TypeError> {
+        for (binding, value_type) in bindings.iter().zip(value_types.iter()) {
             if let Some(annotation) = binding.type_annotation.as_ref() {
                 let annotated = ast_type_to_core_type(annotation).map_err(TypeError::from)?;
-                if !self.types_compatible(&annotated, &value_type) {
+                if !self.types_compatible(&annotated, value_type) {
                     return Err(type_mismatch_error(
                         &annotated,
                         Some(annotation.span()),
-                        &value_type,
-                        initializer.span(),
+                        value_type,
+                        initializer_span,
                     ));
                 }
             }
@@ -437,7 +580,7 @@ impl TypeChecker {
             self.symbol_table.register(SymbolInfo {
                 name: binding.name.clone(),
                 symbol_type,
-                core_type: value_type,
+                core_type: value_type.clone(),
                 visibility: Visibility::Private,
                 source_location: binding.span,
                 is_let_binding: true,
@@ -644,6 +787,28 @@ impl TypeChecker {
             span: TypeError::span_from_span(span),
         })?;
 
+        let pass_through_call = if values.len() == 1 && values[0].label.is_empty() {
+            if let Expr::Call {
+                ref callee,
+                ref generic_args,
+                ref args,
+                ..
+            } = values[0].value
+            {
+                self.validate_call_preconditions(callee.as_ref())?;
+                Some(self.resolve_call_type(
+                    callee.as_ref(),
+                    generic_args.as_deref(),
+                    args.as_slice(),
+                    values[0].value.span(),
+                )?)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         let labeled_count = values
             .iter()
             .filter(|value| !value.label.is_empty())
@@ -656,12 +821,52 @@ impl TypeChecker {
             });
         }
 
-        if labeled_count == 0 {
-            self.ensure_return_label_mode(&[], span)?;
+        let effective_labels = if let Some(resolved) = pass_through_call.as_ref() {
+            resolved.return_labels.clone()
+        } else if labeled_count == 0 {
+            Vec::new()
         } else {
-            let labels: alloc::vec::Vec<String> =
-                values.iter().map(|value| value.label.clone()).collect();
-            self.ensure_return_label_mode(labels.as_slice(), span)?;
+            values.iter().map(|value| value.label.clone()).collect()
+        };
+        self.ensure_return_label_mode(effective_labels.as_slice(), span)?;
+
+        if let Some(resolved) = pass_through_call {
+            if resolved.return_types.len() != expected.len() {
+                return Err(TypeError::ArityMismatch {
+                    expected: expected.len(),
+                    found: resolved.return_types.len(),
+                    span: TypeError::span_from_span(span),
+                });
+            }
+
+            for (expected_type, value_type) in
+                expected.iter().zip(resolved.return_types.into_iter())
+            {
+                let reconciled_type = if self.types_compatible(expected_type, &value_type)
+                    || matches!(value_type, CoreType::Variable(_))
+                    || matches!(expected_type, &CoreType::Variable(_))
+                {
+                    value_type
+                } else if is_integer_type(expected_type) && is_integer_type(&value_type) {
+                    expected_type.clone()
+                } else {
+                    return Err(type_mismatch_error(
+                        expected_type,
+                        None,
+                        &value_type,
+                        values[0].value.span(),
+                    ));
+                };
+
+                self.add_constraint(TypeConstraint::equality(
+                    expected_type.clone(),
+                    reconciled_type,
+                    None,
+                    Some(values[0].value.span()),
+                ));
+            }
+
+            return Ok(());
         }
 
         if values.is_empty() {

@@ -7,6 +7,7 @@
     clippy::match_same_arms,
     clippy::shadow_unrelated,
     clippy::arithmetic_side_effects,
+    clippy::too_many_arguments,
     clippy::too_many_lines,
     reason = "guard typing helpers are internal and intentionally verbose"
 )]
@@ -17,7 +18,7 @@ extern crate alloc;
 use super::control_flow::{GuardCheckRequest, GuardUsage};
 use super::helpers::coerce_literal_to_expected;
 use super::{FallibleExpressionContext, FallibleExpressionInfo};
-use crate::ast::{AstNode, Expr, LabeledValue, Stmt};
+use crate::ast::{AstNode, Expr, LabeledValue, LetBinding, Stmt};
 use crate::token::Span;
 use crate::type_system::checker::{ActiveGuardErrorBinding, TypeChecker};
 use crate::type_system::errors::TypeError;
@@ -50,7 +51,8 @@ struct GuardElseScopeRequest<'types, 'branch, 'binding, 'expected> {
     callee_error_types: &'types [CoreType],
     else_branch: &'branch Stmt,
     error_binding: Option<&'binding str>,
-    pending_success_binding: Option<&'binding str>,
+    pending_success_bindings: &'binding [String],
+    allow_terminal_named_propagate: bool,
     usage: GuardUsage,
     success_type: &'types CoreType,
     expected_return: Option<&'expected [CoreType]>,
@@ -109,14 +111,18 @@ impl TypeChecker {
 
         let should_register_success_binding =
             usage != GuardUsage::Statement || matches!(binding.name, name if name != "_");
-        let pending_success_binding = (usage == GuardUsage::Statement
-            && should_register_success_binding)
-            .then_some(binding.name);
+        let pending_success_bindings =
+            if usage == GuardUsage::Statement && should_register_success_binding {
+                vec![binding.name.to_owned()]
+            } else {
+                Vec::new()
+            };
         self.type_check_guard_else_with_scope(GuardElseScopeRequest {
             callee_error_types: callee_error_types.as_slice(),
             else_branch,
             error_binding,
-            pending_success_binding,
+            pending_success_bindings: pending_success_bindings.as_slice(),
+            allow_terminal_named_propagate: false,
             usage,
             success_type: &success_type,
             expected_return,
@@ -144,6 +150,45 @@ impl TypeChecker {
         Ok(success_type)
     }
 
+    pub(super) fn type_check_guard_destructure_statement(
+        &mut self,
+        expr: &Expr,
+        bindings: &[LetBinding],
+        error_binding: &str,
+        else_branch: &Stmt,
+        expected_return: Option<&[CoreType]>,
+    ) -> Result<(), TypeError> {
+        let resolved = self.classify_fallible_call_shape(expr, FallibleExpressionContext::Guard)?;
+        self.validate_destructure_bindings(
+            bindings,
+            resolved.success_types.as_slice(),
+            resolved.return_labels.as_slice(),
+            expr.span(),
+        )?;
+
+        let pending_success_bindings = bindings
+            .iter()
+            .map(|binding| binding.name.clone())
+            .collect::<Vec<_>>();
+        let success_type_fallback = resolved
+            .success_types
+            .first()
+            .cloned()
+            .unwrap_or(CoreType::Unit);
+        self.type_check_guard_else_with_scope(GuardElseScopeRequest {
+            callee_error_types: resolved.error_types.as_slice(),
+            else_branch,
+            error_binding: Some(error_binding),
+            pending_success_bindings: pending_success_bindings.as_slice(),
+            allow_terminal_named_propagate: true,
+            usage: GuardUsage::Statement,
+            success_type: &success_type_fallback,
+            expected_return,
+        })?;
+
+        self.register_destructure_bindings(bindings, resolved.success_types.as_slice(), expr.span())
+    }
+
     /// Type-check a guard else-branch inside an isolated scope and guard context.
     fn type_check_guard_else_with_scope(
         &mut self,
@@ -153,7 +198,8 @@ impl TypeChecker {
             callee_error_types,
             else_branch,
             error_binding,
-            pending_success_binding,
+            pending_success_bindings,
+            allow_terminal_named_propagate,
             usage,
             success_type,
             expected_return,
@@ -163,10 +209,10 @@ impl TypeChecker {
         self.context
             .guard_error_stack
             .push(callee_error_types.to_vec());
-        if let Some(success_binding_name) = pending_success_binding {
+        for success_binding_name in pending_success_bindings {
             self.context
                 .pending_guard_success_bindings
-                .push(success_binding_name.to_owned());
+                .push(success_binding_name.clone());
         }
 
         if let Some(error_binding_name) = error_binding {
@@ -201,6 +247,7 @@ impl TypeChecker {
             else_branch,
             callee_error_types,
             error_binding,
+            allow_terminal_named_propagate,
             usage,
             success_type,
             expected_return,
@@ -214,7 +261,7 @@ impl TypeChecker {
             );
         }
 
-        if pending_success_binding.is_some() {
+        for _ in pending_success_bindings {
             let hidden_binding = self.context.pending_guard_success_bindings.pop();
             debug_assert!(
                 hidden_binding.is_some(),
@@ -248,6 +295,7 @@ impl TypeChecker {
         else_branch: &Stmt,
         error_types: &[CoreType],
         error_binding: Option<&str>,
+        allow_terminal_named_propagate: bool,
         usage: GuardUsage,
         success_type: &CoreType,
         expected_return: Option<&[CoreType]>,
@@ -282,7 +330,11 @@ impl TypeChecker {
                         Ok(GuardElseOutcome::FallbackValue(fallback_type))
                     }
                     GuardUsage::Statement if error_binding.is_some() => {
-                        self.type_check_named_guard_error_clause(else_branch, expected_return)?;
+                        self.type_check_named_guard_error_clause(
+                            else_branch,
+                            expected_return,
+                            allow_terminal_named_propagate,
+                        )?;
                         Ok(GuardElseOutcome::ControlFlow)
                     }
                     GuardUsage::Statement => {
@@ -310,6 +362,7 @@ impl TypeChecker {
                         statements.as_slice(),
                         expected_return,
                         span,
+                        allow_terminal_named_propagate,
                     )?;
                 } else {
                     self.type_check_statements(statements, expected_return)?;
@@ -318,7 +371,11 @@ impl TypeChecker {
             }
             ref other => {
                 if usage == GuardUsage::Statement && error_binding.is_some() {
-                    self.type_check_named_guard_error_clause(other, expected_return)?;
+                    self.type_check_named_guard_error_clause(
+                        other,
+                        expected_return,
+                        allow_terminal_named_propagate,
+                    )?;
                 } else {
                     self.type_check_stmt_with_return(other, expected_return)?;
                 }
@@ -332,6 +389,7 @@ impl TypeChecker {
         statements: &[Stmt],
         expected_return: Option<&[CoreType]>,
         clause_span: Span,
+        allow_terminal_only_propagate: bool,
     ) -> Result<(), TypeError> {
         let meaningful_len = statements
             .iter()
@@ -349,7 +407,10 @@ impl TypeChecker {
             self.type_check_guard_error_clause_prelude_statement(statement, expected_return)?;
         }
 
-        if prelude.is_empty() && matches!(terminal, Stmt::PropagateGuardError { .. }) {
+        if !allow_terminal_only_propagate
+            && prelude.is_empty()
+            && matches!(terminal, Stmt::PropagateGuardError { .. })
+        {
             return Err(TypeError::GuardShorthandRequired {
                 span: TypeError::span_from_span(terminal.span()),
             });
@@ -377,6 +438,7 @@ impl TypeChecker {
         &mut self,
         clause: &Stmt,
         expected_return: Option<&[CoreType]>,
+        allow_terminal_only_propagate: bool,
     ) -> Result<(), TypeError> {
         match clause {
             Stmt::Block {
@@ -385,10 +447,17 @@ impl TypeChecker {
                 statements.as_slice(),
                 expected_return,
                 *span,
+                allow_terminal_only_propagate,
             ),
-            Stmt::PropagateGuardError { span, .. } => Err(TypeError::GuardShorthandRequired {
-                span: TypeError::span_from_span(*span),
-            }),
+            Stmt::PropagateGuardError { span, .. } => {
+                if allow_terminal_only_propagate {
+                    self.type_check_guard_error_clause_terminal_statement(clause, expected_return)
+                } else {
+                    Err(TypeError::GuardShorthandRequired {
+                        span: TypeError::span_from_span(*span),
+                    })
+                }
+            }
             other => self.type_check_guard_error_clause_terminal_statement(other, expected_return),
         }
     }
@@ -407,6 +476,7 @@ impl TypeChecker {
                     statements.as_slice(),
                     expected_return,
                     *span,
+                    false,
                 );
                 self.symbol_table.exit_scope();
 
@@ -506,6 +576,7 @@ impl TypeChecker {
                     statements.as_slice(),
                     expected_return,
                     *span,
+                    false,
                 );
                 self.symbol_table.exit_scope();
                 result

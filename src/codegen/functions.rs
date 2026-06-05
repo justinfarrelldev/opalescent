@@ -10,8 +10,9 @@ use crate::codegen::binding_store::{binding_requires_rc_cleanup, initialize_bind
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, ValueAccessorBinding, VariableBinding};
+use crate::codegen::expressions_array::materialize_runtime_array_from_raw_elements;
 use crate::codegen::rc_emitter::RcEmitter;
-use crate::codegen::statements::codegen_statement;
+use crate::codegen::statements::{codegen_statement, unwind_scope_without_cleanup};
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::format;
@@ -21,7 +22,7 @@ use inkwell::AddressSpace;
 use inkwell::DLLStorageClass;
 use inkwell::module::Linkage;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
-use inkwell::values::FunctionValue;
+use inkwell::values::{BasicValue, FunctionValue};
 
 pub use crate::codegen::functions_call::{
     ast_type_to_core_type_for_signature, build_function_type, codegen_call_expression,
@@ -80,6 +81,15 @@ pub fn codegen_function_declaration<'context>(
             type_args: Vec::new(),
         })
         .collect::<Vec<_>>();
+    env.imported_signatures.insert(
+        name.clone(),
+        CoreType::Function {
+            parameters: parameter_core_types.clone(),
+            return_types: returns.clone(),
+            error_types: error_core_types.clone(),
+            generic_params: Vec::new(),
+        },
+    );
     let function_returns_owned_string = !is_entry
         && error_core_types.is_empty()
         && returns.len() == 1
@@ -90,10 +100,20 @@ pub fn codegen_function_declaration<'context>(
         name.clone()
     };
 
-    let parameter_types = parameter_core_types
-        .iter()
-        .map(|core_type| core_type_to_llvm(codegen_context.context, core_type).into())
-        .collect::<Vec<BasicMetadataTypeEnum<'context>>>();
+    let mut parameter_types = Vec::new();
+    for core_type in &parameter_core_types {
+        match core_type {
+            CoreType::Array(element_type) if !is_entry => {
+                parameter_types.push(
+                    core_type_to_llvm(codegen_context.context, element_type.as_ref())
+                        .ptr_type(AddressSpace::default())
+                        .into(),
+                );
+                parameter_types.push(codegen_context.context.i64_type().into());
+            }
+            _ => parameter_types.push(core_type_to_llvm(codegen_context.context, core_type).into()),
+        }
+    }
     let function_type = build_function_type(
         codegen_context,
         &parameter_types,
@@ -127,38 +147,96 @@ pub fn codegen_function_declaration<'context>(
         .append_basic_block(function, "entry");
     codegen_context.builder.position_at_end(entry);
 
+    let _function_scope_depth = env.enter_scope();
+    let mut llvm_param_index = 0_usize;
     for (index, parameter) in parameters.iter().enumerate() {
-        let Some(param_value) =
-            function
-                .get_nth_param(u32::try_from(index).map_err(|conversion_error| {
-                    CodegenError::new(format!("{conversion_error}"))
-                })?)
-        else {
-            return Err(CodegenError::new(String::from(
-                "missing function parameter",
-            )));
-        };
-        let alloca = codegen_context
-            .builder
-            .build_alloca(param_value.get_type(), parameter.name.as_str())?;
-        env.variables.insert(
-            parameter.name.clone(),
-            VariableBinding {
-                alloca,
-                core_type: parameter_core_types[index].clone(),
-                length: None,
-                capacity: None,
-                is_mutable: false,
-            },
-        );
-        initialize_binding_value(
-            codegen_context,
-            env,
-            parameter.name.as_str(),
-            param_value,
-            "function.param.init",
-            false,
-        )?;
+        match &parameter_core_types[index] {
+            CoreType::Array(element_type) if !is_entry => {
+                let Some(data_param) =
+                    function.get_nth_param(u32::try_from(llvm_param_index).map_err(
+                        |conversion_error| CodegenError::new(format!("{conversion_error}")),
+                    )?)
+                else {
+                    return Err(CodegenError::new(String::from(
+                        "missing array data parameter",
+                    )));
+                };
+                let Some(length_param) = function.get_nth_param(
+                    u32::try_from(llvm_param_index.saturating_add(1)).map_err(
+                        |conversion_error| CodegenError::new(format!("{conversion_error}")),
+                    )?,
+                ) else {
+                    return Err(CodegenError::new(String::from(
+                        "missing array length parameter",
+                    )));
+                };
+                let runtime_array = materialize_runtime_array_from_raw_elements(
+                    codegen_context,
+                    env,
+                    data_param.into_pointer_value(),
+                    length_param.into_int_value(),
+                    element_type.as_ref(),
+                    "function.param.array",
+                )?;
+                let alloca = codegen_context
+                    .builder
+                    .build_alloca(runtime_array.get_type(), parameter.name.as_str())?;
+                env.variables.insert(
+                    parameter.name.clone(),
+                    VariableBinding {
+                        alloca,
+                        core_type: parameter_core_types[index].clone(),
+                        length: None,
+                        capacity: None,
+                        is_mutable: false,
+                    },
+                );
+                env.register_scope_binding(parameter.name.as_str());
+                initialize_binding_value(
+                    codegen_context,
+                    env,
+                    parameter.name.as_str(),
+                    runtime_array.as_basic_value_enum(),
+                    "function.param.init",
+                    false,
+                )?;
+                llvm_param_index = llvm_param_index.saturating_add(2);
+            }
+            _ => {
+                let Some(param_value) =
+                    function.get_nth_param(u32::try_from(llvm_param_index).map_err(
+                        |conversion_error| CodegenError::new(format!("{conversion_error}")),
+                    )?)
+                else {
+                    return Err(CodegenError::new(String::from(
+                        "missing function parameter",
+                    )));
+                };
+                let alloca = codegen_context
+                    .builder
+                    .build_alloca(param_value.get_type(), parameter.name.as_str())?;
+                env.variables.insert(
+                    parameter.name.clone(),
+                    VariableBinding {
+                        alloca,
+                        core_type: parameter_core_types[index].clone(),
+                        length: None,
+                        capacity: None,
+                        is_mutable: false,
+                    },
+                );
+                env.register_scope_binding(parameter.name.as_str());
+                initialize_binding_value(
+                    codegen_context,
+                    env,
+                    parameter.name.as_str(),
+                    param_value,
+                    "function.param.init",
+                    false,
+                )?;
+                llvm_param_index = llvm_param_index.saturating_add(1);
+            }
+        }
     }
 
     codegen_statement(codegen_context, env, body)?;
@@ -172,6 +250,7 @@ pub fn codegen_function_declaration<'context>(
         emit_c_main_wrapper(codegen_context, function)?;
     }
 
+    unwind_scope_without_cleanup(env);
     Ok(function)
 }
 

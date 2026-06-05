@@ -4,6 +4,7 @@
     clippy::missing_docs_in_private_items,
     clippy::missing_const_for_fn,
     clippy::pattern_type_mismatch,
+    clippy::too_many_lines,
     reason = "internal codegen implementation module"
 )]
 
@@ -138,7 +139,9 @@ pub fn codegen_expression<'context>(
         Expr::Literal { ref value, .. } => {
             codegen_literal(codegen_context, env, value, expected_type)
         }
-        Expr::Identifier { ref name, .. } => codegen_identifier(codegen_context, env, name),
+        Expr::Identifier { ref name, .. } => {
+            codegen_identifier(codegen_context, env, name, expected_type)
+        }
         Expr::Parenthesized { ref expr, .. } => {
             codegen_expression(codegen_context, env, expr, expected_type)
         }
@@ -308,13 +311,53 @@ fn codegen_literal<'context>(
     }
 }
 
+fn coerce_loaded_value_to_expected_type<'context>(
+    codegen_context: &CodegenContext<'context>,
+    value: BasicValueEnum<'context>,
+    expected_type: Option<&CoreType>,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let Some(expected_type) = expected_type else {
+        return Ok(value);
+    };
+    if !value.is_int_value() || !is_integer_core_type(expected_type) {
+        return Ok(value);
+    }
+
+    let int_value = value.into_int_value();
+    let target_type = integer_type_for(codegen_context, expected_type)?;
+    let in_bits = int_value.get_type().get_bit_width();
+    let out_bits = target_type.get_bit_width();
+    let coerced = match in_bits.cmp(&out_bits) {
+        core::cmp::Ordering::Greater => {
+            codegen_context
+                .builder
+                .build_int_truncate(int_value, target_type, "load.trunc")?
+        }
+        core::cmp::Ordering::Less => {
+            if is_signed_core_type(expected_type) {
+                codegen_context
+                    .builder
+                    .build_int_s_extend(int_value, target_type, "load.sext")?
+            } else {
+                codegen_context
+                    .builder
+                    .build_int_z_extend(int_value, target_type, "load.zext")?
+            }
+        }
+        core::cmp::Ordering::Equal => int_value,
+    };
+    Ok(coerced.as_basic_value_enum())
+}
+
 fn codegen_identifier<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     name: &str,
+    expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     if let Some(binding) = env.variables.get(name) {
-        return Ok(codegen_context.builder.build_load(binding.alloca, name)?);
+        let loaded = codegen_context.builder.build_load(binding.alloca, name)?;
+        return coerce_loaded_value_to_expected_type(codegen_context, loaded, expected_type);
     }
 
     let Some(accessor_binding) = env.value_accessors.get(name).cloned() else {
@@ -391,8 +434,20 @@ fn codegen_binary<'context>(
     right: &Expr,
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let lhs = codegen_expression(codegen_context, env, left, expected_type)?;
-    let rhs = codegen_expression(codegen_context, env, right, expected_type)?;
+    let operand_expected_type = match *operator {
+        BinaryOp::Equal
+        | BinaryOp::NotEqual
+        | BinaryOp::Is
+        | BinaryOp::IsNot
+        | BinaryOp::Less
+        | BinaryOp::LessEqual
+        | BinaryOp::Greater
+        | BinaryOp::GreaterEqual => infer_operand_type(left, env),
+        BinaryOp::And | BinaryOp::Or | BinaryOp::Xor => Some(CoreType::Boolean),
+        _ => expected_type.cloned(),
+    };
+    let lhs = codegen_expression(codegen_context, env, left, operand_expected_type.as_ref())?;
+    let rhs = codegen_expression(codegen_context, env, right, operand_expected_type.as_ref())?;
 
     match *operator {
         BinaryOp::Add => codegen_add(codegen_context, env, lhs, rhs, expected_type),
@@ -405,7 +460,13 @@ fn codegen_binary<'context>(
             codegen_cmp(codegen_context, lhs, rhs, operator, operand_type.as_ref())
         }
         BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => {
-            codegen_cmp(codegen_context, lhs, rhs, operator, expected_type)
+            codegen_cmp(
+                codegen_context,
+                lhs,
+                rhs,
+                operator,
+                operand_expected_type.as_ref(),
+            )
         }
         BinaryOp::And | BinaryOp::Or | BinaryOp::Xor => {
             codegen_bool(codegen_context, lhs, rhs, operator)
@@ -763,14 +824,33 @@ fn codegen_mul<'context>(
     codegen_numeric_binop(codegen_context, env, lhs, rhs, expected_type, "mul")
 }
 
+fn normalize_boolean_operand<'context>(
+    codegen_context: &CodegenContext<'context>,
+    value: inkwell::values::IntValue<'context>,
+) -> Result<inkwell::values::IntValue<'context>, CodegenError> {
+    if value.get_type().get_bit_width() == 1 {
+        return Ok(value);
+    }
+
+    codegen_context
+        .builder
+        .build_int_compare(
+            inkwell::IntPredicate::NE,
+            value,
+            value.get_type().const_zero(),
+            "bool.norm",
+        )
+        .map_err(CodegenError::from)
+}
+
 fn codegen_bool<'context>(
     codegen_context: &CodegenContext<'context>,
     lhs: BasicValueEnum<'context>,
     rhs: BasicValueEnum<'context>,
     operator: &BinaryOp,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let l = lhs.into_int_value();
-    let r = rhs.into_int_value();
+    let l = normalize_boolean_operand(codegen_context, lhs.into_int_value())?;
+    let r = normalize_boolean_operand(codegen_context, rhs.into_int_value())?;
     let value = match *operator {
         BinaryOp::And => codegen_context.builder.build_and(l, r, "land")?,
         BinaryOp::Or => codegen_context.builder.build_or(l, r, "lor")?,

@@ -1,3 +1,8 @@
+#![allow(
+    clippy::manual_let_else,
+    clippy::too_many_lines,
+    reason = "statement parsing keeps the let-destructure grammar in one place to avoid semantic drift across branches"
+)]
 //! Statement parsing functionality for the Opalescent parser
 //!
 //! This module handles parsing of all statement forms including:
@@ -230,32 +235,89 @@ impl Parser {
             });
         };
 
-        if self.check(&TokenType::Comma) {
-            let mut bindings = Vec::new();
-            bindings.push(self.create_let_binding(name, name_span, None, is_mutable));
+        let starts_plain_destructure = self.check(&TokenType::Comma);
+        let starts_explicit_label_destructure = self.check(&TokenType::Colon)
+            && self
+                .tokens
+                .get(self.current.saturating_add(1))
+                .is_some_and(|token| matches!(token.token_type, TokenType::Identifier(_)))
+            && self
+                .tokens
+                .get(self.current.saturating_add(2))
+                .is_some_and(|token| token.token_type == TokenType::Comma);
 
-            while self.check(&TokenType::Comma) {
+        if starts_plain_destructure || starts_explicit_label_destructure {
+            let mut bindings = Vec::new();
+
+            if starts_explicit_label_destructure {
                 self.advance();
-                let (next_name, next_span) = if self.check_identifier() {
-                    let token = self.advance();
-                    if let &TokenType::Identifier(ref value) = &token.token_type {
-                        (value.clone(), token.span)
-                    } else {
-                        return Err(ParseError::InvalidSyntax {
-                            message: "Expected identifier for destructured variable name"
-                                .to_owned(),
-                            span: ParseError::span_from_token(token),
-                        });
-                    }
-                } else {
+                if !self.check_identifier() {
                     return Err(ParseError::UnexpectedToken {
-                        expected: "variable name".to_owned(),
+                        expected: "local binding name after destructure label".to_owned(),
                         found: format!("{}", self.current_token().token_type),
                         span: ParseError::span_from_token(self.current_token()),
                     });
+                }
+                let local_name_token = self.advance().clone();
+                let local_name = match local_name_token.token_type {
+                    TokenType::Identifier(value) => value,
+                    _ => unreachable!("identifier check should guarantee a local binding name"),
+                };
+                bindings.push(self.create_let_binding(
+                    local_name,
+                    Some(name),
+                    local_name_token.span,
+                    None,
+                    is_mutable,
+                ));
+            } else {
+                bindings.push(self.create_let_binding(name, None, name_span, None, is_mutable));
+            }
+
+            while self.check(&TokenType::Comma) {
+                self.advance();
+                if !self.check_identifier() {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "identifier for destructured variable name".to_owned(),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                }
+                let next_label_or_name = self.advance().clone();
+
+                let (next_name, returned_label, next_span) = if self.check(&TokenType::Colon) {
+                    self.advance();
+                    if !self.check_identifier() {
+                        return Err(ParseError::UnexpectedToken {
+                            expected: "local binding name after destructure label".to_owned(),
+                            found: format!("{}", self.current_token().token_type),
+                            span: ParseError::span_from_token(self.current_token()),
+                        });
+                    }
+                    let local_name_token = self.advance().clone();
+                    let local_name = match local_name_token.token_type {
+                        TokenType::Identifier(value) => value,
+                        _ => unreachable!("identifier check should guarantee a local binding name"),
+                    };
+                    let returned_label = match next_label_or_name.token_type {
+                        TokenType::Identifier(value) => value,
+                        _ => unreachable!("identifier check should guarantee a destructure label"),
+                    };
+                    (local_name, Some(returned_label), local_name_token.span)
+                } else {
+                    match next_label_or_name.token_type {
+                        TokenType::Identifier(value) => (value, None, next_label_or_name.span),
+                        _ => unreachable!("identifier check should guarantee a binding name"),
+                    }
                 };
 
-                bindings.push(self.create_let_binding(next_name, next_span, None, is_mutable));
+                bindings.push(self.create_let_binding(
+                    next_name,
+                    returned_label,
+                    next_span,
+                    None,
+                    is_mutable,
+                ));
             }
 
             self.consume(
@@ -296,7 +358,7 @@ impl Parser {
         let end_span = self.previous_token().span;
         let span = Span::new(start_span.start, end_span.end);
 
-        let binding = self.create_let_binding(name, name_span, type_annotation, is_mutable);
+        let binding = self.create_let_binding(name, None, name_span, type_annotation, is_mutable);
 
         Ok(Stmt::Let {
             binding,

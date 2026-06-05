@@ -2,6 +2,7 @@
     clippy::all,
     clippy::similar_names,
     clippy::missing_docs_in_private_items,
+    clippy::unnecessary_wraps,
     reason = "internal codegen implementation module"
 )]
 extern crate alloc;
@@ -100,38 +101,23 @@ pub fn build_function_type<'context>(
         .fn_type(parameters, false));
     }
 
-    if returns.len() == 1 {
-        let success_type = core_type_to_llvm(codegen_context.context, &returns[0]);
-        if matches!(
-            success_type,
-            inkwell::types::BasicTypeEnum::ArrayType(_)
-                | inkwell::types::BasicTypeEnum::StructType(_)
-                | inkwell::types::BasicTypeEnum::VectorType(_)
-                | inkwell::types::BasicTypeEnum::ScalableVectorType(_)
-        ) {
-            return unsupported_error_return_type(&returns[0]);
-        }
-        return Ok(crate::codegen::error_abi::build_error_return_type(
-            codegen_context.context,
-            Some(success_type),
-        )
-        .fn_type(parameters, false));
-    }
-
-    unsupported_error_return_type(&CoreType::Function {
-        generic_params: Vec::new(),
-        parameters: Vec::new(),
-        return_types: returns.to_vec(),
-        error_types: error_types.to_vec(),
-    })
-}
-
-fn unsupported_error_return_type<'context>(
-    return_type: &CoreType,
-) -> Result<inkwell::types::FunctionType<'context>, CodegenError> {
-    Err(CodegenError::new(format!(
-        "aggregate error return type '{return_type:?}' not yet supported; only Unit and scalar/pointer returns can use an errors ABI"
-    )))
+    let success_type = if returns.len() == 1 {
+        core_type_to_llvm(codegen_context.context, &returns[0])
+    } else {
+        let aggregate_fields = returns
+            .iter()
+            .map(|core_type| core_type_to_llvm(codegen_context.context, core_type))
+            .collect::<Vec<_>>();
+        codegen_context
+            .context
+            .struct_type(aggregate_fields.as_slice(), false)
+            .into()
+    };
+    return Ok(crate::codegen::error_abi::build_error_return_type(
+        codegen_context.context,
+        Some(success_type),
+    )
+    .fn_type(parameters, false));
 }
 
 pub fn emit_default_return(
@@ -146,7 +132,11 @@ pub fn emit_default_return(
             .and_then(inkwell::basic_block::BasicBlock::get_parent)
             .and_then(|function| function.get_type().get_return_type());
         if let Some(return_type) = function_return_type {
-            if return_type.is_struct_type() && return_type.into_struct_type().count_fields() == 2 {
+            if return_type.is_struct_type()
+                && crate::codegen::error_abi::is_error_abi_struct_type(
+                    return_type.into_struct_type(),
+                )
+            {
                 let success_aggregate =
                     crate::codegen::error_abi::build_void_success_aggregate(codegen_context)?;
                 let _ret = codegen_context
@@ -382,6 +372,12 @@ fn build_entry_call_args<'context>(
         && matches!(parameter_types[0], BasicMetadataTypeEnum::PointerType(_)))
     .then(|| build_entry_string_array_arg(codegen_context, c_main, argc_param, argv_param))
     .transpose()?;
+    let lowered_entry_args = parameter_types.len() == 2
+        && entry_param_core_types.len() == 2
+        && matches!(entry_param_core_types[0], CoreType::Array(_))
+        && matches!(entry_param_core_types[1], CoreType::Int64)
+        && matches!(parameter_types[0], BasicMetadataTypeEnum::PointerType(_))
+        && matches!(parameter_types[1], BasicMetadataTypeEnum::IntType(_));
 
     for (index, parameter_type) in parameter_types.iter().enumerate() {
         let argument = match *parameter_type {
@@ -391,6 +387,17 @@ fn build_entry_call_args<'context>(
                 entry_args_array
                     .expect("entry args array should exist")
                     .const_cast(pointer_type)
+                    .into()
+            }
+            BasicMetadataTypeEnum::PointerType(pointer_type)
+                if index == 0 && lowered_entry_args =>
+            {
+                argv_param.const_cast(pointer_type).into()
+            }
+            BasicMetadataTypeEnum::IntType(int_type) if index == 1 && lowered_entry_args => {
+                codegen_context
+                    .builder
+                    .build_int_z_extend(argc_param, int_type, "entry.args.len")?
                     .into()
             }
             BasicMetadataTypeEnum::FloatType(float_type) => float_type.const_zero().into(),

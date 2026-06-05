@@ -455,6 +455,12 @@ pub fn emit_object_file(
             ))
         })?;
 
+    module.verify().map_err(|error| {
+        CodegenError::new(format!(
+            "LLVM module verification failed before object emission: {error}"
+        ))
+    })?;
+
     target_machine
         .write_to_file(module, inkwell::targets::FileType::Object, path)
         .map_err(|error| CodegenError::new(format!("failed to emit object file: {error}")))

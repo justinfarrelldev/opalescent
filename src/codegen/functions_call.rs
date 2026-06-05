@@ -1,7 +1,9 @@
 #![allow(
     clippy::all,
-    clippy::similar_names,
     clippy::missing_docs_in_private_items,
+    clippy::pattern_type_mismatch,
+    clippy::similar_names,
+    clippy::too_many_lines,
     reason = "internal codegen implementation module"
 )]
 extern crate alloc;
@@ -45,7 +47,7 @@ use self::call_arg_cleanup::{
 };
 use self::functions_call_helpers::{
     caller_returns_error_aggregate, current_function, emit_function_default_return,
-    infer_guard_binding_core_type, uses_aggregate_result_dispatch,
+    infer_guard_binding_core_type, llvm_metadata_type_to_core_type, uses_aggregate_result_dispatch,
 };
 use self::tail::declare_external_imported_function;
 
@@ -153,6 +155,71 @@ fn lower_string_array_argument<'context>(
     Ok((data_ptr, length_value))
 }
 
+fn lower_array_argument<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    argument: &Expr,
+    element_core_type: &CoreType,
+) -> Result<(PointerValue<'context>, IntValue<'context>), CodegenError> {
+    let argument_value = codegen_expression(
+        codegen_context,
+        env,
+        argument,
+        Some(&CoreType::Array(Box::new(element_core_type.clone()))),
+    )?;
+    let argument_value = extract_error_abi_success_value(codegen_context, env, argument_value)?;
+    if !argument_value.is_pointer_value() {
+        return Err(CodegenError::new(String::from(
+            "array argument should lower to pointer value",
+        )));
+    }
+
+    let array_payload = argument_value.into_pointer_value();
+    let length_value =
+        load_array_length_from_value(codegen_context, env, array_payload, "call.arg")?;
+    let data_ptr = load_array_data_ptr_for_element_type(
+        codegen_context,
+        env,
+        array_payload,
+        element_core_type,
+        "call.arg",
+    )?;
+    Ok((data_ptr, length_value))
+}
+
+fn expected_argument_core_type<'context>(
+    env: &CodegenEnv<'context>,
+    callee: &Expr,
+    function: FunctionValue<'context>,
+    arg_index: usize,
+) -> Option<CoreType> {
+    if let Expr::Identifier { ref name, .. } = *callee {
+        if name == "print" {
+            return None;
+        }
+        if let Some(&CoreType::Function { ref parameters, .. }) = env.imported_signatures.get(name)
+        {
+            if let Some(parameter) = parameters.get(arg_index) {
+                return Some(parameter.clone());
+            }
+        }
+    }
+
+    let uses_sret =
+        uses_aggregate_result_dispatch(function) && function.get_type().get_return_type().is_none();
+    let llvm_arg_index = if uses_sret {
+        arg_index.saturating_add(1)
+    } else {
+        arg_index
+    };
+    function
+        .get_type()
+        .get_param_types()
+        .get(llvm_arg_index)
+        .copied()
+        .map(llvm_metadata_type_to_core_type)
+}
+
 fn maybe_lower_specialized_string_array_call<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -181,7 +248,12 @@ fn maybe_lower_specialized_string_array_call<'context>(
         if args.len() < 2 {
             return Ok(false);
         }
-        let rows_argument = codegen_expression(codegen_context, env, &args[1], None)?;
+        let rows_argument = codegen_expression(
+            codegen_context,
+            env,
+            &args[1],
+            Some(&CoreType::Array(Box::new(CoreType::String))),
+        )?;
         let (rows_ptr, rows_count) =
             lower_string_array_argument(codegen_context, env, rows_argument)?;
         lowered_args.clear();
@@ -197,9 +269,21 @@ fn maybe_lower_specialized_string_array_call<'context>(
     }
 
     if runtime_name == "join_path_components" {
-        let base_argument =
-            lower_call_argument(codegen_context, env, callee, 0, &args[0], cleanup_records)?;
-        let components_argument = codegen_expression(codegen_context, env, &args[1], None)?;
+        let base_argument = lower_call_argument(
+            codegen_context,
+            env,
+            callee,
+            0,
+            &args[0],
+            None,
+            cleanup_records,
+        )?;
+        let components_argument = codegen_expression(
+            codegen_context,
+            env,
+            &args[1],
+            Some(&CoreType::Array(Box::new(CoreType::String))),
+        )?;
         let (components_ptr, components_count) =
             lower_string_array_argument(codegen_context, env, components_argument)?;
 
@@ -210,9 +294,21 @@ fn maybe_lower_specialized_string_array_call<'context>(
         return Ok(true);
     }
 
-    let array_argument = codegen_expression(codegen_context, env, &args[0], None)?;
-    let separator_argument =
-        lower_call_argument(codegen_context, env, callee, 1, &args[1], cleanup_records)?;
+    let array_argument = codegen_expression(
+        codegen_context,
+        env,
+        &args[0],
+        Some(&CoreType::Array(Box::new(CoreType::String))),
+    )?;
+    let separator_argument = lower_call_argument(
+        codegen_context,
+        env,
+        callee,
+        1,
+        &args[1],
+        None,
+        cleanup_records,
+    )?;
 
     let (array_ptr, length_value) =
         lower_string_array_argument(codegen_context, env, array_argument)?;
@@ -312,12 +408,29 @@ pub fn codegen_call_expression<'context>(
         )?;
         if !specialized {
             for (index, arg) in args.iter().enumerate() {
+                let expected_arg_type = expected_argument_core_type(env, callee, function, index);
+                if let Some(&CoreType::Array(ref element_core_type)) = expected_arg_type.as_ref() {
+                    let (array_ptr, array_length) = lower_array_argument(
+                        codegen_context,
+                        env,
+                        arg,
+                        element_core_type.as_ref(),
+                    )?;
+                    if index == 0 {
+                        first_lowered_arg = Some(array_ptr.as_basic_value_enum());
+                    }
+                    lowered_args.push(array_ptr.into());
+                    lowered_args.push(array_length.into());
+                    continue;
+                }
+
                 let lowered = lower_call_argument(
                     codegen_context,
                     env,
                     callee,
                     index,
                     arg,
+                    expected_arg_type.as_ref(),
                     &mut cleanup_records,
                 )?;
                 if index == 0 {
@@ -656,35 +769,77 @@ pub fn codegen_propagate_expression<'context>(
             codegen_context.builder.position_at_end(early_return);
             emit_function_default_return(codegen_context, current_fn, forward_error)?;
             codegen_context.builder.position_at_end(continue_block);
-            let success_value = codegen_context
+            let success_field_count = crate::codegen::error_abi::error_field_index(field_count);
+            if success_field_count == 0 {
+                return Ok(value);
+            }
+            let first_success_value = codegen_context
                 .builder
                 .build_extract_value(struct_value, 0, env.next_name("propagate.ok").as_str())
                 .map_err(CodegenError::from)?;
-            if field_count >= 3 {
-                if let Some(&CoreType::Array(ref element_core_type)) = expected_type {
-                    if success_value.is_pointer_value() {
-                        let length_value = codegen_context
-                            .builder
-                            .build_extract_value(
-                                struct_value,
-                                1,
-                                env.next_name("propagate.len").as_str(),
-                            )
-                            .map_err(CodegenError::from)?
-                            .into_int_value();
-                        let runtime_array = materialize_runtime_array_from_raw_elements(
-                            codegen_context,
-                            env,
-                            success_value.into_pointer_value(),
-                            length_value,
-                            element_core_type.as_ref(),
-                            "propagate.array",
-                        )?;
-                        return Ok(runtime_array.as_basic_value_enum());
-                    }
+            if let Some(&CoreType::Array(ref element_core_type)) = expected_type {
+                if success_field_count == 2 && first_success_value.is_pointer_value() {
+                    let length_value = codegen_context
+                        .builder
+                        .build_extract_value(
+                            struct_value,
+                            1,
+                            env.next_name("propagate.len").as_str(),
+                        )
+                        .map_err(CodegenError::from)?
+                        .into_int_value();
+                    let runtime_array = materialize_runtime_array_from_raw_elements(
+                        codegen_context,
+                        env,
+                        first_success_value.into_pointer_value(),
+                        length_value,
+                        element_core_type.as_ref(),
+                        "propagate.array",
+                    )?;
+                    return Ok(runtime_array.as_basic_value_enum());
                 }
             }
-            return Ok(success_value);
+            if success_field_count == 1 {
+                return Ok(first_success_value);
+            }
+            let mut success_fields = Vec::new();
+            success_fields.push(first_success_value);
+            for index in 1..success_field_count {
+                success_fields.push(
+                    codegen_context
+                        .builder
+                        .build_extract_value(
+                            struct_value,
+                            index,
+                            env.next_name("propagate.ok.more").as_str(),
+                        )
+                        .map_err(CodegenError::from)?
+                        .as_basic_value_enum(),
+                );
+            }
+            let success_aggregate_type = codegen_context.context.struct_type(
+                success_fields
+                    .iter()
+                    .map(BasicValueEnum::get_type)
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+                false,
+            );
+            let mut success_aggregate = success_aggregate_type.get_undef();
+            for (index, field) in success_fields.iter().enumerate() {
+                success_aggregate = codegen_context
+                    .builder
+                    .build_insert_value(
+                        success_aggregate,
+                        *field,
+                        u32::try_from(index).map_err(|conversion_error| {
+                            CodegenError::new(format!("{conversion_error}"))
+                        })?,
+                        env.next_name("propagate.ok.insert").as_str(),
+                    )?
+                    .into_struct_value();
+            }
+            return Ok(success_aggregate.as_basic_value_enum());
         }
     }
     Ok(value)

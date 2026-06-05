@@ -18,8 +18,6 @@ use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::format;
-use inkwell::AddressSpace;
-use inkwell::types::BasicType;
 use inkwell::values::BasicValueEnum;
 
 #[expect(
@@ -98,11 +96,6 @@ pub(super) fn codegen_array_zip_call<'context>(
         name: "Pair".to_owned(),
         type_args: vec![left_element_core_type, right_element_core_type],
     };
-    let result_pointer_type = core_type_to_llvm(codegen_context.context, &pair_core_type)
-        .ptr_type(AddressSpace::default());
-    let result_alloca = codegen_context
-        .builder
-        .build_alloca(result_pointer_type, &env.next_name("zip.result.ptr"))?;
 
     let current_function = current_function(codegen_context)?;
     let loop_block = codegen_context
@@ -116,6 +109,9 @@ pub(super) fn codegen_array_zip_call<'context>(
         .append_basic_block(current_function, &env.next_name("zip.exit"));
     let (result_array, result_data_ptr) =
         allocate_array_with_capacity(codegen_context, env, "zip", &pair_core_type, zipped_length)?;
+    let result_alloca = codegen_context
+        .builder
+        .build_alloca(result_array.get_type(), &env.next_name("zip.result.ptr"))?;
     codegen_context
         .builder
         .build_store(result_alloca, result_array)?;

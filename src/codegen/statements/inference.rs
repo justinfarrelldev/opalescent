@@ -1,11 +1,14 @@
 #![allow(
     clippy::all,
     clippy::needless_pass_by_ref_mut,
+    clippy::pattern_type_mismatch,
     reason = "internal codegen implementation module"
 )]
 extern crate alloc;
 
-use super::runtime_type_info::{known_runtime_return_type, llvm_return_type_to_core_type};
+use super::runtime_type_info::{
+    known_guard_success_type, known_runtime_return_type, llvm_return_type_to_core_type,
+};
 use crate::ast::{Expr, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
@@ -13,6 +16,7 @@ use crate::codegen::expressions::CodegenEnv;
 use crate::type_system::propertyless_constructors::lookup_propertyless_constructor;
 use crate::type_system::type_mapping::{AstTypeMappingError, ast_type_to_core_type};
 use crate::type_system::types::CoreType;
+use inkwell::types::BasicTypeEnum;
 
 /// Map a let-binding annotation into the lowered core type used during code generation.
 pub(super) fn ast_type_to_core_type_for_let(ast_type: &Type) -> Result<CoreType, CodegenError> {
@@ -57,7 +61,22 @@ pub(super) fn infer_core_type_from_expr<'context>(
             ref args,
             ..
         } => infer_call_return_type(codegen_context, env, callee, args).unwrap_or(CoreType::Int64),
-        Expr::Propagate { ref call, .. } => infer_core_type_from_expr(codegen_context, env, call),
+        Expr::Propagate { ref call, .. } => {
+            if let Expr::Call { ref callee, .. } = *call.as_ref() {
+                if let Expr::Identifier { ref name, .. } = *callee.as_ref() {
+                    if let Some(runtime_name) = env.imported_functions.get(name) {
+                        if let Some(success_type) = known_guard_success_type(runtime_name.as_str())
+                        {
+                            return success_type;
+                        }
+                    }
+                    if let Some(success_type) = known_guard_success_type(name.as_str()) {
+                        return success_type;
+                    }
+                }
+            }
+            infer_core_type_from_expr(codegen_context, env, call)
+        }
         Expr::Identifier { ref name, .. } => env
             .variables
             .get(name)
@@ -112,13 +131,12 @@ pub(super) fn infer_core_type_from_expr<'context>(
     clippy::pattern_type_mismatch,
     reason = "matching borrowed signatures is clearer than manual dereferencing"
 )]
-/// Infer the return type for a call expression from imported signatures, runtime metadata, or emitted functions.
-fn infer_call_return_type<'context>(
+pub(super) fn infer_call_return_types<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &CodegenEnv<'context>,
     callee: &Expr,
     args: &[Expr],
-) -> Option<CoreType> {
+) -> Option<Vec<CoreType>> {
     if let Expr::Member {
         ref object,
         ref member,
@@ -126,7 +144,8 @@ fn infer_call_return_type<'context>(
     } = *callee
     {
         let receiver_type = infer_core_type_from_expr(codegen_context, env, object);
-        return infer_member_call_return_type(env, &receiver_type, member.as_str(), args);
+        return infer_member_call_return_type(env, &receiver_type, member.as_str(), args)
+            .map(|core_type| vec![core_type]);
     }
 
     let Expr::Identifier { ref name, .. } = *callee else {
@@ -136,45 +155,93 @@ fn infer_call_return_type<'context>(
     if name == "append" || name == "reserve" || name == "clear" {
         return args.first().and_then(|array_expr| {
             let array_type = infer_core_type_from_expr(codegen_context, env, array_expr);
-            matches!(array_type, CoreType::Array(_)).then_some(array_type)
+            matches!(array_type, CoreType::Array(_)).then_some(vec![array_type])
         });
     }
     if name == "array_filled" {
         return args
             .get(1)
             .map(|element_expr| infer_core_type_from_expr(codegen_context, env, element_expr))
-            .map(|element_type| CoreType::Array(alloc::boxed::Box::new(element_type)));
+            .map(|element_type| vec![CoreType::Array(alloc::boxed::Box::new(element_type))]);
     }
 
     if let Some(imported_signature) = env.imported_signatures.get(name) {
         if let CoreType::Function { return_types, .. } = imported_signature {
-            if let Some(first_return) = return_types.first() {
-                return Some(first_return.clone());
-            }
+            return Some(return_types.clone());
         }
     }
 
     if let Some(runtime_name) = env.imported_functions.get(name) {
         if let Some(runtime_return_type) = known_runtime_return_type(runtime_name.as_str()) {
-            return Some(runtime_return_type);
+            return Some(vec![runtime_return_type]);
         }
     }
     if let Some(runtime_return_type) = known_runtime_return_type(name) {
-        return Some(runtime_return_type);
+        return Some(vec![runtime_return_type]);
     }
 
     if let Some(function) = codegen_context.module.get_function(name) {
-        return llvm_return_type_to_core_type(function.get_type().get_return_type());
+        return llvm_function_return_types(function);
     }
 
     env.imported_functions.get(name).and_then(|runtime_name| {
         codegen_context
             .module
             .get_function(runtime_name.as_str())
-            .and_then(|function| {
-                llvm_return_type_to_core_type(function.get_type().get_return_type())
-            })
+            .and_then(llvm_function_return_types)
     })
+}
+
+/// Infer the return type for a call expression from imported signatures, runtime metadata, or emitted functions.
+fn infer_call_return_type<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &CodegenEnv<'context>,
+    callee: &Expr,
+    args: &[Expr],
+) -> Option<CoreType> {
+    infer_call_return_types(codegen_context, env, callee, args)
+        .and_then(|return_types| return_types.into_iter().next())
+}
+
+fn llvm_function_return_types(
+    function: inkwell::values::FunctionValue<'_>,
+) -> Option<Vec<CoreType>> {
+    let return_type = function.get_type().get_return_type();
+    match return_type {
+        None => Some(vec![CoreType::Unit]),
+        Some(BasicTypeEnum::StructType(struct_type)) => Some(
+            struct_type
+                .get_field_types()
+                .iter()
+                .map(llvm_basic_type_to_core_type)
+                .collect(),
+        ),
+        Some(other) => llvm_return_type_to_core_type(Some(other)).map(|core_type| vec![core_type]),
+    }
+}
+
+fn llvm_basic_type_to_core_type(llvm_type: &BasicTypeEnum<'_>) -> CoreType {
+    match llvm_type {
+        BasicTypeEnum::IntType(int_type) => match int_type.get_bit_width() {
+            1 => CoreType::Boolean,
+            8 => CoreType::Int8,
+            16 => CoreType::Int16,
+            32 => CoreType::Int32,
+            _ => CoreType::Int64,
+        },
+        BasicTypeEnum::FloatType(float_type) => {
+            if float_type.get_bit_width() == 32 {
+                CoreType::Float32
+            } else {
+                CoreType::Float64
+            }
+        }
+        BasicTypeEnum::PointerType(_) => CoreType::String,
+        BasicTypeEnum::ArrayType(_) => CoreType::Array(alloc::boxed::Box::new(CoreType::Int64)),
+        BasicTypeEnum::StructType(_)
+        | BasicTypeEnum::VectorType(_)
+        | BasicTypeEnum::ScalableVectorType(_) => CoreType::Unit,
+    }
 }
 
 #[expect(

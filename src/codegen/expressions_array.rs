@@ -92,6 +92,7 @@ pub fn codegen_array_access<'context>(
     let loaded = codegen_context
         .builder
         .build_load(element_ptr, &env.next_name("array.load"))?;
+    retain_rc_value_if_needed(codegen_context, &element_core_type, loaded)?;
 
     let _: Option<&CoreType> = expected_type;
     Ok(loaded)
@@ -106,8 +107,13 @@ pub fn codegen_string_access<'context>(
     access_span: Span,
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let (string_value, index_value, string_length) =
-        lower_string_receiver_index_and_length(codegen_context, env, object, index, "string.index")?;
+    let (string_value, index_value, string_length) = lower_string_receiver_index_and_length(
+        codegen_context,
+        env,
+        object,
+        index,
+        "string.index",
+    )?;
 
     emit_string_bounds_check(
         codegen_context,
@@ -174,8 +180,10 @@ pub fn codegen_array_at_call<'context>(
     )?;
 
     let result_value_type = core_type_to_llvm(codegen_context.context, &element_core_type);
-    let result_type =
-        build_error_return_type(codegen_context.context, Some(result_value_type.as_basic_type_enum()));
+    let result_type = build_error_return_type(
+        codegen_context.context,
+        Some(result_value_type.as_basic_type_enum()),
+    );
     let result_alloca = codegen_context
         .builder
         .build_alloca(result_type, &env.next_name("array.at.result"))?;
@@ -198,6 +206,7 @@ pub fn codegen_array_at_call<'context>(
     let loaded = codegen_context
         .builder
         .build_load(element_ptr, &env.next_name("array.at.load"))?;
+    retain_rc_value_if_needed(codegen_context, &element_core_type, loaded)?;
     let success_result = build_success_aggregate(codegen_context, loaded)?;
     codegen_context
         .builder
@@ -234,13 +243,8 @@ pub fn codegen_string_at_call<'context>(
     object: &Expr,
     index: &Expr,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let (string_value, index_value, string_length) = lower_string_receiver_index_and_length(
-        codegen_context,
-        env,
-        object,
-        index,
-        "string.at",
-    )?;
+    let (string_value, index_value, string_length) =
+        lower_string_receiver_index_and_length(codegen_context, env, object, index, "string.at")?;
 
     let zero = codegen_context.context.i64_type().const_zero();
     let is_non_negative = codegen_context.builder.build_int_compare(
@@ -391,11 +395,14 @@ fn lower_string_receiver_index_and_length<'context>(
     object: &Expr,
     index: &Expr,
     name_prefix: &str,
-) -> Result<(
-    PointerValue<'context>,
-    IntValue<'context>,
-    IntValue<'context>,
-), CodegenError> {
+) -> Result<
+    (
+        PointerValue<'context>,
+        IntValue<'context>,
+        IntValue<'context>,
+    ),
+    CodegenError,
+> {
     let object_core_type = infer_expression_core_type(env, object).ok_or_else(|| {
         CodegenError::new(String::from(
             "string access receiver type could not be inferred",

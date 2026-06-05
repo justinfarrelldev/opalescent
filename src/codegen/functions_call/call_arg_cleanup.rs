@@ -112,9 +112,10 @@ pub(super) fn lower_call_argument<'context>(
     callee: &Expr,
     arg_index: usize,
     argument: &Expr,
+    expected_type: Option<&CoreType>,
     cleanup_records: &mut Vec<CallArgCleanupRecord>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let lowered = codegen_expression(codegen_context, env, argument, None)?;
+    let lowered = codegen_expression(codegen_context, env, argument, expected_type)?;
     let disposition =
         call_arg_cleanup_disposition(codegen_context, env, callee, argument, arg_index);
     if disposition != CallArgCleanupDisposition::Borrowed {

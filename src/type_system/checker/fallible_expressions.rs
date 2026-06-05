@@ -9,7 +9,8 @@
 extern crate alloc;
 
 use super::{
-    FallibleExpressionContext, FallibleExpressionInfo, FallibleExpressionKind, TypeChecker,
+    FallibleCallShape, FallibleExpressionContext, FallibleExpressionInfo, FallibleExpressionKind,
+    TypeChecker,
 };
 use crate::ast::{AstNode, Expr, Type};
 use crate::token::Span;
@@ -39,6 +40,22 @@ impl TypeChecker {
         call: &Expr,
         span: Span,
     ) -> Result<CoreType, TypeError> {
+        let fallible_info =
+            self.classify_fallible_expression(call, FallibleExpressionContext::Propagate)?;
+        self.ensure_propagate_error_types_allowed(
+            call,
+            fallible_info.error_types.as_slice(),
+            span,
+        )?;
+        Ok(fallible_info.success_type)
+    }
+
+    pub(super) fn ensure_propagate_error_types_allowed(
+        &self,
+        call: &Expr,
+        error_types: &[CoreType],
+        span: Span,
+    ) -> Result<(), TypeError> {
         let current_fn_error_types = match self.symbol_table().current_function_error_types() {
             Some(&[]) | None => {
                 return Err(TypeError::PropagateOutsideErrorFunction {
@@ -48,31 +65,24 @@ impl TypeChecker {
             Some(errors) => errors.to_vec(),
         };
 
-        let fallible_info =
-            self.classify_fallible_expression(call, FallibleExpressionContext::Propagate)?;
-
         if let Some(active_errors) = self.context.guard_error_stack.last() {
-            if !Self::guard_error_type_sets_match(
-                active_errors.as_slice(),
-                &fallible_info.error_types,
-            ) {
+            if !Self::guard_error_type_sets_match(active_errors.as_slice(), error_types) {
                 return Err(TypeError::GuardChainedErrorMismatch {
                     expected: Self::format_error_type_list(active_errors.as_slice()),
-                    found: Self::format_error_type_list(&fallible_info.error_types),
+                    found: Self::format_error_type_list(error_types),
                     span: TypeError::span_from_span(span),
                 });
             }
         }
 
-        let is_subset = fallible_info
-            .error_types
+        let is_subset = error_types
             .iter()
             .all(|error_type| current_fn_error_types.contains(error_type));
 
         if !is_subset {
             return Err(TypeError::PropagateErrorMismatch {
                 expected: Self::format_error_type_list(&current_fn_error_types),
-                found: Self::format_error_type_list(&fallible_info.error_types),
+                found: Self::format_error_type_list(error_types),
                 span: TypeError::span_from_span(
                     self.symbol_table.current_function_span().unwrap_or(span),
                 ),
@@ -80,7 +90,55 @@ impl TypeChecker {
             });
         }
 
-        Ok(fallible_info.success_type)
+        Ok(())
+    }
+
+    pub(super) fn classify_fallible_call_shape(
+        &mut self,
+        expr: &Expr,
+        context: FallibleExpressionContext,
+    ) -> Result<FallibleCallShape, TypeError> {
+        let Expr::Call {
+            callee,
+            generic_args,
+            args,
+            span,
+            ..
+        } = expr
+        else {
+            return Err(Self::non_error_expression_type_error(context, expr.span()));
+        };
+
+        let callee_type = self.type_check_expr(callee.as_ref())?;
+        let CoreType::Function { error_types, .. } = callee_type else {
+            return Err(Self::non_error_expression_type_error(context, expr.span()));
+        };
+
+        if error_types.is_empty() {
+            return Err(Self::non_error_expression_type_error(context, expr.span()));
+        }
+
+        let previous_propagate_context = self.context.in_propagate_context;
+        let previous_guard_subject_context = self.context.in_guard_subject_context;
+        match context {
+            FallibleExpressionContext::Propagate => self.context.in_propagate_context = true,
+            FallibleExpressionContext::Guard => self.context.in_guard_subject_context = true,
+        }
+        let resolved = self.resolve_call_type(
+            callee.as_ref(),
+            generic_args.as_deref(),
+            args.as_slice(),
+            *span,
+        );
+        self.context.in_propagate_context = previous_propagate_context;
+        self.context.in_guard_subject_context = previous_guard_subject_context;
+        let resolved = resolved?;
+
+        Ok(FallibleCallShape {
+            success_types: resolved.return_types,
+            return_labels: resolved.return_labels,
+            error_types,
+        })
     }
 
     /// Classify a fallible expression used by `propagate` and `guard`.
@@ -123,58 +181,31 @@ impl TypeChecker {
     fn classify_call_fallible_expression(
         &mut self,
         expr: &Expr,
-        callee: &Expr,
-        generic_args: Option<&[Type]>,
-        args: &[Expr],
-        span: Span,
+        _callee: &Expr,
+        _generic_args: Option<&[Type]>,
+        _args: &[Expr],
+        _span: Span,
         context: FallibleExpressionContext,
     ) -> Result<FallibleExpressionInfo, TypeError> {
-        let callee_type = self.type_check_expr(callee)?;
-        let CoreType::Function {
-            return_types,
-            error_types,
-            ..
-        } = callee_type
-        else {
-            return Err(Self::non_error_expression_type_error(context, expr.span()));
-        };
-
-        if error_types.is_empty() {
-            return Err(Self::non_error_expression_type_error(context, expr.span()));
-        }
-
-        if return_types.len() != 1 {
+        let resolved = self.classify_fallible_call_shape(expr, context)?;
+        if resolved.success_types.len() != 1 {
             return Err(TypeError::ArityMismatch {
                 expected: 1,
-                found: return_types.len(),
+                found: resolved.success_types.len(),
                 span: TypeError::span_from_span(expr.span()),
             });
         }
 
-        let previous_propagate_context = self.context.in_propagate_context;
-        let previous_guard_subject_context = self.context.in_guard_subject_context;
-        match context {
-            FallibleExpressionContext::Propagate => self.context.in_propagate_context = true,
-            FallibleExpressionContext::Guard => self.context.in_guard_subject_context = true,
-        }
-        let call_result =
-            self.type_check_call_expr(callee, generic_args, args, span, expr.node_id().0);
-        self.context.in_propagate_context = previous_propagate_context;
-        self.context.in_guard_subject_context = previous_guard_subject_context;
-        call_result?;
-
-        let success_type =
-            return_types
-                .first()
-                .cloned()
-                .ok_or_else(|| TypeError::ConstraintSolvingFailed {
-                    reason: "fallible call has no declared return type".to_owned(),
-                    span: TypeError::span_from_span(expr.span()),
-                })?;
+        let success_type = resolved.success_types.first().cloned().ok_or_else(|| {
+            TypeError::ConstraintSolvingFailed {
+                reason: "fallible call has no declared return type".to_owned(),
+                span: TypeError::span_from_span(expr.span()),
+            }
+        })?;
 
         Ok(FallibleExpressionInfo {
             success_type,
-            error_types,
+            error_types: resolved.error_types,
             expression_kind: FallibleExpressionKind::Call,
             constructor_entry: None,
         })

@@ -1,3 +1,8 @@
+#![allow(
+    clippy::missing_docs_in_private_items,
+    clippy::too_many_lines,
+    reason = "call-resolution helpers centralize multi-return and purity preflight logic during blocker cleanup"
+)]
 //! Function-call type resolution helpers.
 //!
 //! This module isolates call-site generic instantiation to keep the expression
@@ -41,6 +46,12 @@ const IMPURE_STDLIB_FUNCTIONS: &[&str] = &[
     "random_uint32",
     "random_uint64",
 ];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ResolvedCallType {
+    pub(super) return_types: Vec<CoreType>,
+    pub(super) return_labels: Vec<String>,
+}
 
 impl TypeChecker {
     /// Instantiate polymorphic call-site types so each function call receives fresh type variables.
@@ -106,18 +117,7 @@ impl TypeChecker {
         }
     }
 
-    /// Type check a function call, including optional explicit generic arguments.
-    #[expect(
-        clippy::too_many_lines,
-        reason = "Call typing centralizes arity, generic constraints, and argument reconciliation"
-    )]
-    pub(super) fn type_check_call_expr_impl(
-        &mut self,
-        callee: &Expr,
-        generic_args: Option<&[Type]>,
-        args: &[Expr],
-        span: Span,
-    ) -> Result<CoreType, TypeError> {
+    pub(super) fn validate_call_preconditions(&self, callee: &Expr) -> Result<(), TypeError> {
         self.ensure_mutating_member_receiver_is_mutable(callee)?;
 
         if self.current_function_is_pure() {
@@ -135,24 +135,60 @@ impl TypeChecker {
                     });
                 }
                 // Standard library builtins that are not in the impure denylist are treated as pure.
-                if self.environment.lookup_builtin(name).is_some() {
-                    // Skip transitive user-function purity enforcement for stdlib builtins.
-                    // (e.g. conversion/math functions)
-                }
-                // Transitive check: if callee is a user-defined function that is NOT pure, reject
-                else if let Some(symbol_info) = self.symbol_table.lookup(name) {
-                    if !symbol_info.is_pure {
-                        return Err(TypeError::PurityViolation {
-                            callee_name: name.clone(),
-                            reason: alloc::format!("function '{name}' is not marked 'pure'"),
-                            span: TypeError::span_from_span(callee_span),
-                        });
+                if self.environment.lookup_builtin(name).is_none() {
+                    // Transitive check: if callee is a user-defined function that is NOT pure, reject.
+                    if let Some(symbol_info) = self.symbol_table.lookup(name) {
+                        if !symbol_info.is_pure {
+                            return Err(TypeError::PurityViolation {
+                                callee_name: name.clone(),
+                                reason: alloc::format!("function '{name}' is not marked 'pure'"),
+                                span: TypeError::span_from_span(callee_span),
+                            });
+                        }
                     }
                 }
-                // If symbol is NOT in stdlib impure list and NOT in symbol table (e.g. pure stdlib math/conversion builtins), allow the call
+                // If symbol is NOT in stdlib impure list and NOT in symbol table (e.g. pure stdlib math/conversion builtins), allow the call.
             }
         }
 
+        Ok(())
+    }
+
+    /// Type check a function call, including optional explicit generic arguments.
+    pub(super) fn type_check_call_expr_impl(
+        &mut self,
+        callee: &Expr,
+        generic_args: Option<&[Type]>,
+        args: &[Expr],
+        span: Span,
+    ) -> Result<CoreType, TypeError> {
+        self.validate_call_preconditions(callee)?;
+
+        let resolved = self.resolve_call_type(callee, generic_args, args, span)?;
+        if resolved.return_types.len() != 1 {
+            return Err(Self::scalar_context_multi_return_error(
+                span,
+                resolved.return_types.len(),
+            ));
+        }
+
+        resolved
+            .return_types
+            .into_iter()
+            .next()
+            .ok_or_else(|| TypeError::ConstraintSolvingFailed {
+                reason: "function call has no declared return type".to_owned(),
+                span: TypeError::span_from_span(span),
+            })
+    }
+
+    pub(super) fn resolve_call_type(
+        &mut self,
+        callee: &Expr,
+        generic_args: Option<&[Type]>,
+        args: &[Expr],
+        span: Span,
+    ) -> Result<ResolvedCallType, TypeError> {
         let callee_type = self.type_check_expr(callee)?;
         match callee_type {
             CoreType::Function {
@@ -316,15 +352,29 @@ impl TypeChecker {
                     ));
                 }
 
-                let raw_return_type =
-                    instantiated_return_types.first().cloned().ok_or_else(|| {
-                        TypeError::ConstraintSolvingFailed {
-                            reason: "function call has no declared return type".to_owned(),
-                            span: TypeError::span_from_span(span),
+                let resolved_return_types = instantiated_return_types
+                    .iter()
+                    .map(|return_type| {
+                        let inferred_return_type = local_inference.apply(return_type);
+                        if let CoreType::Variable(ref return_var) = inferred_return_type {
+                            Ok(Self::resolve_return_constraint_type(
+                                return_var.id,
+                                generic_params.as_slice(),
+                                instantiated_generic_variables.as_slice(),
+                            )
+                            .unwrap_or(inferred_return_type))
+                        } else {
+                            Ok(inferred_return_type)
                         }
-                    })?;
+                    })
+                    .collect::<Result<Vec<_>, TypeError>>()?;
+                if resolved_return_types.is_empty() {
+                    return Err(TypeError::ConstraintSolvingFailed {
+                        reason: "function call has no declared return type".to_owned(),
+                        span: TypeError::span_from_span(span),
+                    });
+                }
 
-                let inferred_return_type = local_inference.apply(&raw_return_type);
                 let mut inferred_generic_type_args = Vec::new();
                 let mut has_unresolved_generic = false;
                 for declared_generic in &generic_params {
@@ -348,16 +398,17 @@ impl TypeChecker {
                     }
                 }
 
-                if let CoreType::Variable(ref return_var) = inferred_return_type {
-                    Ok(Self::resolve_return_constraint_type(
-                        return_var.id,
-                        generic_params.as_slice(),
-                        instantiated_generic_variables.as_slice(),
-                    )
-                    .unwrap_or(inferred_return_type))
+                let return_labels = if let Expr::Identifier { ref name, .. } = *callee {
+                    self.function_return_labels(name)
+                        .map_or_else(Vec::new, alloc::borrow::ToOwned::to_owned)
                 } else {
-                    Ok(inferred_return_type)
-                }
+                    Vec::new()
+                };
+
+                Ok(ResolvedCallType {
+                    return_types: resolved_return_types,
+                    return_labels,
+                })
             }
             other => Err(
                 crate::type_system::checker::helpers::invalid_operation_error(
@@ -366,6 +417,15 @@ impl TypeChecker {
                     span,
                 ),
             ),
+        }
+    }
+
+    pub(super) fn scalar_context_multi_return_error(span: Span, return_count: usize) -> TypeError {
+        TypeError::ConstraintSolvingFailed {
+            reason: alloc::format!(
+                "multi-return call with {return_count} values cannot be used in a scalar context"
+            ),
+            span: TypeError::span_from_span(span),
         }
     }
 

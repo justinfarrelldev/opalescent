@@ -1,3 +1,7 @@
+#![allow(
+    clippy::too_many_lines,
+    reason = "codegen regression tests keep full IR assertions inline for blocker coverage"
+)]
 use crate::codegen::adts::{
     codegen_field_access_expression, codegen_match_expression, instantiate_generic_adt_name,
 };
@@ -513,6 +517,7 @@ fn codegen_string_interpolation_with_variable() {
     let name_binding = Stmt::Let {
         binding: LetBinding {
             name: String::from("name"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("string"),
                 span: test_span(),
@@ -706,6 +711,7 @@ fn test_codegen_is_operator_on_int64_emits_icmp_eq() {
     let x_binding = Stmt::Let {
         binding: LetBinding {
             name: String::from("x"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("int64"),
                 span: test_span(),
@@ -853,6 +859,7 @@ fn test_codegen_unary_and_cast_operations() {
     let source_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("x"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("int64"),
                 span: test_span(),
@@ -871,6 +878,7 @@ fn test_codegen_unary_and_cast_operations() {
     let cast_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("casted"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("float64"),
                 span: test_span(),
@@ -903,6 +911,7 @@ fn test_codegen_unsigned_int_to_float_cast_uses_uitofp() {
     let source_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("u"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("uint64"),
                 span: test_span(),
@@ -921,6 +930,7 @@ fn test_codegen_unsigned_int_to_float_cast_uses_uitofp() {
     let cast_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("casted"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("float64"),
                 span: test_span(),
@@ -953,6 +963,7 @@ fn test_codegen_narrowing_signed_int_cast_emits_runtime_range_trap() {
     let source_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("x"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("int64"),
                 span: test_span(),
@@ -971,6 +982,7 @@ fn test_codegen_narrowing_signed_int_cast_emits_runtime_range_trap() {
     let cast_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("narrowed"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("int8"),
                 span: test_span(),
@@ -1007,6 +1019,7 @@ fn test_codegen_widening_signed_int_cast_emits_no_range_trap() {
     let source_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("small"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("int8"),
                 span: test_span(),
@@ -1025,6 +1038,7 @@ fn test_codegen_widening_signed_int_cast_emits_no_range_trap() {
     let cast_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("widened"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("int64"),
                 span: test_span(),
@@ -1057,6 +1071,7 @@ fn test_codegen_same_width_signed_to_unsigned_cast_emits_runtime_range_trap() {
     let source_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("x"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("int64"),
                 span: test_span(),
@@ -1075,6 +1090,7 @@ fn test_codegen_same_width_signed_to_unsigned_cast_emits_runtime_range_trap() {
     let cast_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("as_unsigned"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("uint64"),
                 span: test_span(),
@@ -1111,6 +1127,7 @@ fn test_codegen_same_width_unsigned_to_signed_cast_emits_runtime_range_trap() {
     let source_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("x"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("uint64"),
                 span: test_span(),
@@ -1129,6 +1146,7 @@ fn test_codegen_same_width_unsigned_to_signed_cast_emits_runtime_range_trap() {
     let cast_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("as_signed"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("int64"),
                 span: test_span(),
@@ -1165,6 +1183,7 @@ fn test_codegen_assignment_to_immutable_variable_returns_error() {
     let let_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("x"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("int32"),
                 span: test_span(),
@@ -1210,6 +1229,7 @@ fn test_codegen_let_assignment_array_and_access_statements() {
     let let_stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("x"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("int32"),
                 span: test_span(),
@@ -1253,6 +1273,7 @@ fn test_codegen_let_assignment_array_and_access_statements() {
     let array_let = Stmt::Let {
         binding: LetBinding {
             name: String::from("arr"),
+            returned_label: None,
             type_annotation: Some(Type::Array {
                 element_type: Box::new(Type::Basic {
                     name: String::from("int64"),
@@ -1981,6 +2002,7 @@ fn test_codegen_loop_forms_and_return_multi_value() {
     let destructured_loop = Stmt::LetDestructure {
         bindings: vec![
             LetBinding {
+                returned_label: None,
                 name: String::from("user_input"),
                 type_annotation: Some(Type::Basic {
                     name: String::from("int64"),
@@ -1991,6 +2013,7 @@ fn test_codegen_loop_forms_and_return_multi_value() {
                 id: test_node_id(651),
             },
             LetBinding {
+                returned_label: None,
                 name: String::from("user_number"),
                 type_annotation: Some(Type::Basic {
                     name: String::from("int64"),
@@ -2209,6 +2232,7 @@ fn test_codegen_product_field_access_loads_named_field() {
     let point_decl = Stmt::Let {
         binding: LetBinding {
             name: String::from("point"),
+            returned_label: None,
             type_annotation: None,
             is_mutable: false,
             span: test_span(),
@@ -2284,6 +2308,7 @@ fn test_codegen_local_nominal_field_access_uses_pointer_backed_payload_path() {
     let point_decl = Stmt::Let {
         binding: LetBinding {
             name: String::from("point"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("Point"),
                 span: test_span(),
@@ -2326,7 +2351,10 @@ fn test_codegen_local_nominal_field_access_uses_pointer_backed_payload_path() {
 }
 
 #[test]
-#[expect(clippy::too_many_lines, reason = "test covers a nested nominal field-access regression")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "test covers a nested nominal field-access regression"
+)]
 fn test_codegen_nested_nominal_field_access_infers_intermediate_receiver_type() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "nested_nominal_product_field_access");
@@ -2371,6 +2399,7 @@ fn test_codegen_nested_nominal_field_access_infers_intermediate_receiver_type() 
     let point_decl = Stmt::Let {
         binding: LetBinding {
             name: String::from("origin"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("Point"),
                 span: test_span(),
@@ -2407,6 +2436,7 @@ fn test_codegen_nested_nominal_field_access_infers_intermediate_receiver_type() 
     let rect_decl = Stmt::Let {
         binding: LetBinding {
             name: String::from("rect"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("Rect"),
                 span: test_span(),
@@ -2734,6 +2764,7 @@ fn test_codegen_identifier_backed_indexed_assignment_emits_array_clone_and_rebin
     let array_let = Stmt::Let {
         binding: LetBinding {
             name: String::from("xs"),
+            returned_label: None,
             type_annotation: Some(Type::Array {
                 element_type: Box::new(Type::Basic {
                     name: String::from("int64"),
@@ -2882,6 +2913,7 @@ fn test_codegen_unsupported_let_type_annotation_error_message() {
     let stmt = Stmt::Let {
         binding: LetBinding {
             name: String::from("callback"),
+            returned_label: None,
             type_annotation: Some(Type::Function {
                 parameters: vec![Type::Basic {
                     name: String::from("int64"),
@@ -2928,6 +2960,7 @@ fn test_codegen_string_is_comparison_emits_strcmp() {
     let x_binding = Stmt::Let {
         binding: LetBinding {
             name: String::from("x"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("string"),
                 span: test_span(),
@@ -2980,6 +3013,7 @@ fn test_codegen_string_is_not_comparison_emits_strcmp() {
     let x_binding = Stmt::Let {
         binding: LetBinding {
             name: String::from("x"),
+            returned_label: None,
             type_annotation: Some(Type::Basic {
                 name: String::from("string"),
                 span: test_span(),
@@ -3998,7 +4032,9 @@ entry main = f(): void => {
         "array .at(...) should be compiler-lowered with payload length/data access instead of a black-box ABI helper: {ir}"
     );
     assert!(
-        !ir.contains("@array_at") && !ir.contains("@opal_array_bounds_error") && !ir.contains("llvm.trap"),
+        !ir.contains("@array_at")
+            && !ir.contains("@opal_array_bounds_error")
+            && !ir.contains("llvm.trap"),
         "array .at(...) should not declare a generic array_at<T> ABI or trap-based bounds path; it must lower through the Opalescent error ABI: {ir}"
     );
 }
@@ -4057,6 +4093,7 @@ fn codegen_guard_shorthand_does_not_register_underscore_metadata() {
         success_binding: None,
         success_binding_type: None,
         success_binding_is_mutable: false,
+        success_bindings: vec![],
         error_binding: String::from("err"),
         else_body: Box::new(Stmt::Return {
             values: vec![labeled_value(9705, "", void_lit(9706))],
