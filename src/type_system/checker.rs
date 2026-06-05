@@ -108,6 +108,16 @@ struct FallibleExpressionInfo {
     constructor_entry: Option<crate::type_system::fallible_constructors::FallibleConstructorEntry>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct FallibleCallShape {
+    /// Ordered success types produced when the fallible call succeeds.
+    pub(super) success_types: Vec<CoreType>,
+    /// Ordered signature labels attached to the success values.
+    pub(super) return_labels: Vec<String>,
+    /// Error types produced by the call.
+    pub(super) error_types: Vec<CoreType>,
+}
+
 #[derive(Default)]
 struct TypeCheckContext {
     /// Nesting depth of guard `else` handlers currently being type checked.
@@ -158,6 +168,8 @@ pub struct TypeChecker {
     generic_instantiations: BTreeMap<String, Vec<Vec<CoreType>>>,
     /// Resolver for module interfaces and dependency cycle checks.
     module_resolver: ModuleResolver,
+    /// Ordered signature return labels keyed by the currently visible symbol name.
+    function_return_labels: BTreeMap<String, Vec<String>>,
     /// Module identifier currently associated with this checker instance.
     current_module_path: String,
     /// Stack tracking active function modifiers for the currently checked function/lambda.
@@ -181,6 +193,7 @@ impl TypeChecker {
             adt_generic_params: BTreeMap::new(),
             generic_instantiations: BTreeMap::new(),
             module_resolver: ModuleResolver::new(),
+            function_return_labels: BTreeMap::new(),
             current_module_path: String::from("__main__"),
             function_modifier_stack: Vec::new(),
         };
@@ -207,6 +220,7 @@ impl TypeChecker {
             adt_generic_params: BTreeMap::new(),
             generic_instantiations: BTreeMap::new(),
             module_resolver: ModuleResolver::new(),
+            function_return_labels: BTreeMap::new(),
             current_module_path: String::from("__main__"),
             function_modifier_stack: Vec::new(),
         };
@@ -448,6 +462,22 @@ impl TypeChecker {
     pub const fn symbol_table_mut(&mut self) -> &mut SymbolTable {
         &mut self.symbol_table
     }
+    /// Get ordered signature return labels for a visible symbol, if known.
+    pub fn function_return_labels(&self, name: &str) -> Option<&[String]> {
+        self.function_return_labels
+            .get(name)
+            .map(alloc::vec::Vec::as_slice)
+    }
+
+    /// Register ordered signature return labels for a visible symbol.
+    pub fn register_function_return_labels_for_symbol(
+        &mut self,
+        name: String,
+        labels: Vec<String>,
+    ) {
+        self.function_return_labels.insert(name, labels);
+    }
+
     /// Get all warnings collected so far.
     #[expect(
         clippy::missing_const_for_fn,
@@ -512,10 +542,6 @@ impl TypeChecker {
     /// # Errors
     ///
     /// Returns `TypeError::ConstraintSolvingFailed` if constraints cannot be satisfied.
-    #[expect(
-        clippy::too_many_lines,
-        reason = "Constraint solving handles all supported constraint variants in one pass"
-    )]
     pub fn solve_constraints(&mut self) -> Result<Substitution, TypeError> {
         let pending_constraints = core::mem::take(&mut self.constraints);
         let mut substitution = Substitution::empty();
@@ -587,12 +613,11 @@ impl TypeChecker {
                         }
                         if return_types.len() != 1 {
                             let diagnostic_span = callee_span
-                                .map_or_else(TypeError::unknown_span, TypeError::span_from_span);
-                            return Err(TypeError::ArityMismatch {
-                                expected: 1,
-                                found: return_types.len(),
-                                span: diagnostic_span,
-                            });
+                                .unwrap_or(Span::single(crate::token::Position::start()));
+                            return Err(Self::scalar_context_multi_return_error(
+                                diagnostic_span,
+                                return_types.len(),
+                            ));
                         }
                         if let Some(function_return_type) = return_types.first() {
                             let fn_return_applied = substitution.apply(function_return_type);

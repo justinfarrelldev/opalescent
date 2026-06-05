@@ -659,6 +659,19 @@ pub enum TypeError {
         #[label("this guard handler only rethrows; shorthand propagation is clearer")]
         span: SourceSpan,
     },
+    /// Multi-return function signature omitted one or more required labels.
+    #[error("labels are required for all multi-return functions")]
+    #[diagnostic(
+        code(opalescent::type_system::missing_multi_return_labels),
+        help(
+            "Declare an ordered label for every return slot in the signature, such as `f(): left: int64, right: int64 => ...`."
+        )
+    )]
+    MissingMultiReturnLabels {
+        #[label("this multi-return signature must label every return value")]
+        /// Source span of the multi-return signature missing labels.
+        span: SourceSpan,
+    },
     /// Return statements in the same function use incompatible label shapes.
     #[error("Return label mismatch: expected '{expected}', found '{found}'")]
     #[diagnostic(

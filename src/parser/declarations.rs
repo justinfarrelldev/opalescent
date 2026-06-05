@@ -1,3 +1,8 @@
+#![allow(
+    clippy::assigning_clones,
+    clippy::pattern_type_mismatch,
+    reason = "parser declaration helpers intentionally clone borrowed signature metadata while preserving parser ownership"
+)]
 //! Declaration parsing module for the Opalescent parser.
 //!
 //! This module contains all methods related to parsing top-level declarations,
@@ -119,6 +124,7 @@ impl Parser {
     pub(super) fn create_let_binding(
         &mut self,
         name: String,
+        returned_label: Option<String>,
         name_span: Span,
         type_annotation: Option<Type>,
         is_mutable: bool,
@@ -129,6 +135,7 @@ impl Parser {
 
         LetBinding {
             name,
+            returned_label,
             type_annotation,
             is_mutable,
             span: Span::new(name_span.start, binding_end),
@@ -205,21 +212,16 @@ impl Parser {
         // Expect ')'
         self.consume(&TokenType::RightParen, "Expected ')' after parameters")?;
 
-        let return_types = self
+        let return_signature = self
             .check(&TokenType::Colon)
             .then(|| {
                 self.advance();
-                let mut parsed_return_types = Vec::new();
-                parsed_return_types.push(self.parse_type()?);
-
-                while self.check(&TokenType::Comma) {
-                    self.advance();
-                    parsed_return_types.push(self.parse_type()?);
-                }
-
-                Ok(parsed_return_types)
+                self.parse_return_signature()
             })
             .transpose()?;
+        let return_types = return_signature
+            .as_ref()
+            .map(|(types, _labels)| types.clone());
 
         // Parse optional errors clause
         let error_types = self.parse_error_types_clause()?;
@@ -229,6 +231,9 @@ impl Parser {
                 &name,
                 &parameters,
                 return_types.as_deref(),
+                return_signature
+                    .as_ref()
+                    .and_then(|(_types, labels)| labels.as_deref()),
                 &error_types,
             );
             documentation
@@ -269,6 +274,9 @@ impl Parser {
         let span = Span::new(start_span.start, end_span.end);
 
         let mut metadata = HotReloadMetadata::for_function();
+        if let Some((_, Some(return_labels))) = return_signature.as_ref() {
+            metadata.return_labels.clone_from(return_labels);
+        }
         if is_entry {
             metadata.is_hot_reloadable = false;
         }
@@ -698,7 +706,7 @@ impl Parser {
         let end_span = self.previous_token().span;
         let let_span = Span::new(start_span.start, end_span.end);
 
-        let binding = self.create_let_binding(name, name_span, type_annotation, is_mutable);
+        let binding = self.create_let_binding(name, None, name_span, type_annotation, is_mutable);
 
         let mut metadata = HotReloadMetadata::for_let_declaration();
         if binding.is_mutable {

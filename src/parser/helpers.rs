@@ -1,3 +1,8 @@
+#![allow(
+    clippy::missing_docs_in_private_items,
+    clippy::pattern_type_mismatch,
+    reason = "parser helper predicates intentionally operate on borrowed token references and remain file-local"
+)]
 //! Helper methods for parser token navigation and state management
 //!
 //! This module contains utility functions used throughout the parser for:
@@ -11,6 +16,7 @@ use crate::ast::{Parameter, Stmt, Type};
 use crate::parser::{ParseError, ParseResult, Parser};
 use crate::token::{Token, TokenType};
 use alloc::string::String;
+use alloc::vec::Vec;
 use core::mem;
 
 impl Parser {
@@ -204,6 +210,67 @@ impl Parser {
         }
     }
 
+    /// Parse ordered return types plus optional ordered signature labels.
+    pub(super) fn parse_return_signature(
+        &mut self,
+    ) -> ParseResult<(Vec<Type>, Option<Vec<String>>)> {
+        let mut return_types = Vec::new();
+        let mut return_labels = Vec::new();
+        let mut saw_labels = false;
+
+        loop {
+            let slot_has_label = self.check_identifier()
+                && self
+                    .tokens
+                    .get(self.current.saturating_add(1))
+                    .is_some_and(|token| token.token_type == TokenType::Colon)
+                && self
+                    .tokens
+                    .get(self.current.saturating_add(2))
+                    .is_some_and(|token| Self::is_return_signature_type_start(&token.token_type));
+
+            if slot_has_label {
+                saw_labels = true;
+                let label_token = self.advance().clone();
+                let TokenType::Identifier(label) = label_token.token_type else {
+                    unreachable!("identifier check should guarantee a label token")
+                };
+                self.consume(&TokenType::Colon, "Expected ':' after return label")?;
+                return_labels.push(label);
+            }
+
+            return_types.push(self.parse_type()?);
+
+            if !self.check(&TokenType::Comma) {
+                break;
+            }
+            self.advance();
+        }
+
+        Ok((return_types, saw_labels.then_some(return_labels)))
+    }
+
+    fn is_return_signature_type_start(token_type: &TokenType) -> bool {
+        matches!(
+            token_type,
+            TokenType::Identifier(_)
+                | TokenType::Function
+                | TokenType::Int8
+                | TokenType::Int16
+                | TokenType::Int32
+                | TokenType::Int64
+                | TokenType::UInt8
+                | TokenType::UInt16
+                | TokenType::UInt32
+                | TokenType::UInt64
+                | TokenType::Float32
+                | TokenType::Float64
+                | TokenType::String
+                | TokenType::Boolean
+                | TokenType::Void
+        )
+    }
+
     /// Consume a token of the expected type or return an error
     ///
     /// If the current token matches the expected type, advances the parser
@@ -330,6 +397,7 @@ impl Parser {
         name: &str,
         parameters: &[Parameter],
         return_types: Option<&[Type]>,
+        return_labels: Option<&[String]>,
         error_types: &[String],
     ) -> String {
         let mut signature = String::from(name);
@@ -349,6 +417,12 @@ impl Parser {
             for (index, return_type) in return_type_list.iter().enumerate() {
                 if index > 0 {
                     signature.push_str(", ");
+                }
+                if let Some(labels) = return_labels {
+                    if let Some(label) = labels.get(index) {
+                        signature.push_str(label);
+                        signature.push_str(": ");
+                    }
                 }
                 signature.push_str(&return_type.to_signature_string());
             }

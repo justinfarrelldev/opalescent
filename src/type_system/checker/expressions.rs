@@ -307,11 +307,13 @@ impl TypeChecker {
                 ref return_types,
                 ref error_types,
                 ref body,
+                ref metadata,
                 span,
                 ..
             } => self.type_check_lambda_expr(
                 params.as_slice(),
                 return_types.as_slice(),
+                Self::metadata_return_labels(metadata),
                 error_types.as_slice(),
                 body,
                 span,
@@ -700,6 +702,7 @@ impl TypeChecker {
         &mut self,
         parameters: &[Parameter],
         return_types: &[Type],
+        return_labels: Option<&[String]>,
         error_types: &[alloc::string::String],
         body: &LambdaBody,
         span: Span,
@@ -780,9 +783,14 @@ impl TypeChecker {
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
+        Self::validate_multi_return_signature_labels(
+            return_core_types.len(),
+            return_labels.unwrap_or(&[]),
+            span,
+        )?;
         let core_errors = self.resolve_error_types(error_types, span)?;
         self.symbol_table.enter_function(core_errors.clone(), span);
-        self.begin_return_context();
+        self.begin_return_context(return_labels);
         let body_result = self.within_new_scope(|checker| -> Result<(), TypeError> {
             for (param, core_type) in parameters.iter().zip(parameter_types.iter()) {
                 checker.symbol_table.register(SymbolInfo {

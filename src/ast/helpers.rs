@@ -38,6 +38,7 @@ impl HotReloadMetadata {
         Self {
             abi_symbol: None,
             dependencies: alloc::vec::Vec::new(),
+            return_labels: alloc::vec::Vec::new(),
             is_hot_reloadable: false,
         }
     }
@@ -47,6 +48,7 @@ impl HotReloadMetadata {
         Self {
             abi_symbol: None,
             dependencies: alloc::vec::Vec::new(),
+            return_labels: alloc::vec::Vec::new(),
             is_hot_reloadable: true,
         }
     }
@@ -56,6 +58,7 @@ impl HotReloadMetadata {
         Self {
             abi_symbol: None,
             dependencies: alloc::vec::Vec::new(),
+            return_labels: alloc::vec::Vec::new(),
             is_hot_reloadable: false,
         }
     }
@@ -65,6 +68,7 @@ impl HotReloadMetadata {
         Self {
             abi_symbol: None,
             dependencies: alloc::vec::Vec::new(),
+            return_labels: alloc::vec::Vec::new(),
             is_hot_reloadable: false,
         }
     }
@@ -74,6 +78,7 @@ impl HotReloadMetadata {
         Self {
             abi_symbol: None,
             dependencies: alloc::vec::Vec::new(),
+            return_labels: alloc::vec::Vec::new(),
             is_hot_reloadable: false,
         }
     }

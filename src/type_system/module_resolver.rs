@@ -29,6 +29,8 @@ pub struct ModuleInterface {
     pub module_path: String,
     /// ADT field layouts keyed by nominal owner name.
     pub adt_fields: BTreeMap<String, BTreeMap<String, CoreType>>,
+    /// Ordered function return-label metadata keyed by exported/local symbol name.
+    pub function_return_labels: BTreeMap<String, Vec<String>>,
 }
 
 impl ModuleInterface {
@@ -44,6 +46,7 @@ impl ModuleInterface {
             private_symbols: BTreeMap::new(),
             module_path,
             adt_fields: BTreeMap::new(),
+            function_return_labels: BTreeMap::new(),
         }
     }
 
@@ -70,6 +73,18 @@ impl ModuleInterface {
             }
         }
         Ok(())
+    }
+
+    /// Register ordered return-label metadata for one symbol name.
+    pub fn register_function_return_labels(&mut self, symbol_name: String, labels: Vec<String>) {
+        self.function_return_labels.insert(symbol_name, labels);
+    }
+
+    /// Read ordered return-label metadata for one symbol name.
+    pub fn function_return_labels(&self, symbol_name: &str) -> Option<&[String]> {
+        self.function_return_labels
+            .get(symbol_name)
+            .map(Vec::as_slice)
     }
 }
 

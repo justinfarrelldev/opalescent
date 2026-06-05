@@ -54,6 +54,11 @@ pub struct HotReloadMetadata {
     pub abi_symbol: Option<SymbolInfo>,
     /// Other modules this node depends on for hot-reload safety
     pub dependencies: alloc::vec::Vec<ModulePath>,
+    /// Ordered return labels declared in the source signature.
+    ///
+    /// This metadata is separate from semantic function type identity so labels can survive
+    /// parser/type/doc/module flows without affecting ABI or `CoreType::Function` equality.
+    pub return_labels: alloc::vec::Vec<alloc::string::String>,
     /// Whether this node is eligible for hot reload without restart
     pub is_hot_reloadable: bool,
 }

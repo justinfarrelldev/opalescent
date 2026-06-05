@@ -48,9 +48,19 @@ impl TypeChecker {
         };
 
         let mut module_symbol = symbol;
+        let symbol_name = module_symbol.name.clone();
         module_symbol.visibility = symbol_visibility;
         self.module_resolver
             .register_symbol_for_module(&self.current_module_path, module_symbol)?;
+        if let Some(labels) = self.function_return_labels(symbol_name.as_str()) {
+            if let Some(mut interface) = self
+                .module_resolver
+                .module_interface(&self.current_module_path)
+            {
+                interface.register_function_return_labels(symbol_name, labels.to_vec());
+                self.module_resolver.register_module_interface(interface);
+            }
+        }
         Ok(())
     }
 
@@ -145,6 +155,14 @@ impl TypeChecker {
                         &symbol_to_register.symbol_type,
                         &symbol_to_register.core_type,
                     );
+                    if let Some(interface) = self.module_resolver.module_interface(source) {
+                        if let Some(labels) = interface.function_return_labels(name) {
+                            self.register_function_return_labels_for_symbol(
+                                resolved_import_name.clone(),
+                                labels.to_vec(),
+                            );
+                        }
+                    }
                     self.symbol_table.register(symbol_to_register);
                 }
                 ImportItem::Glob { .. } => {
@@ -158,6 +176,16 @@ impl TypeChecker {
                             source,
                             import_span,
                         )?;
+                        if let Some(interface) = self.module_resolver.module_interface(source) {
+                            if let Some(labels) =
+                                interface.function_return_labels(symbol.name.as_str())
+                            {
+                                self.register_function_return_labels_for_symbol(
+                                    symbol.name.clone(),
+                                    labels.to_vec(),
+                                );
+                            }
+                        }
                         self.symbol_table.register(symbol);
                     }
                 }
@@ -189,8 +217,18 @@ impl TypeChecker {
             is_pure: false,
         });
 
+        let interface = self.module_resolver.module_interface(source);
         for mut symbol in self.module_resolver.resolve_all_exports(source, span)? {
+            let original_name = symbol.name.clone();
             symbol.name = alloc::format!("{alias_name}.{}", symbol.name);
+            if let Some(interface_ref) = interface.as_ref() {
+                if let Some(labels) = interface_ref.function_return_labels(original_name.as_str()) {
+                    self.register_function_return_labels_for_symbol(
+                        symbol.name.clone(),
+                        labels.to_vec(),
+                    );
+                }
+            }
             self.symbol_table.register(symbol);
         }
 

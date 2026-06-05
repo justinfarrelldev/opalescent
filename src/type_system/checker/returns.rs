@@ -9,10 +9,15 @@ use alloc::{collections::BTreeSet, format, string::String};
 
 impl TypeChecker {
     /// Start return-shape tracking for a function or lambda body.
-    pub(super) fn begin_return_context(&mut self) {
-        self.context
-            .return_label_modes
-            .push(ReturnLabelMode::Unknown);
+    pub(super) fn begin_return_context(&mut self, declared_labels: Option<&[String]>) {
+        let mode = declared_labels.map_or(ReturnLabelMode::Unknown, |labels| {
+            if labels.is_empty() {
+                ReturnLabelMode::Unknown
+            } else {
+                ReturnLabelMode::Labeled(labels.to_vec())
+            }
+        });
+        self.context.return_label_modes.push(mode);
     }
 
     /// Finish return-shape tracking for a function or lambda body.

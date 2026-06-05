@@ -51,10 +51,17 @@ pub fn extract_public_api_docs(program: &Program) -> Vec<ApiDocSymbol> {
                 ref error_types,
                 ref visibility,
                 ref doc_comment,
+                ref metadata,
                 ..
             } if *visibility == Visibility::Public => {
-                let signature =
-                    function_signature(name, parameters, return_types.as_deref(), error_types);
+                let signature = function_signature(
+                    name,
+                    parameters,
+                    return_types.as_deref(),
+                    (!metadata.return_labels.is_empty())
+                        .then_some(metadata.return_labels.as_slice()),
+                    error_types,
+                );
                 symbols.push(symbol_from_docs(
                     name,
                     ApiSymbolKind::Function,
@@ -176,6 +183,7 @@ fn function_signature(
     name: &str,
     parameters: &[crate::ast::Parameter],
     return_types: Option<&[crate::ast::Type]>,
+    return_labels: Option<&[String]>,
     error_types: &[String],
 ) -> String {
     let mut signature = format!("{name} = f(");
@@ -194,6 +202,12 @@ fn function_signature(
         for (index, return_type) in return_type_list.iter().enumerate() {
             if index > 0 {
                 signature.push_str(", ");
+            }
+            if let Some(labels) = return_labels {
+                if let Some(label) = labels.get(index) {
+                    signature.push_str(label);
+                    signature.push_str(": ");
+                }
             }
             signature.push_str(&return_type.to_signature_string());
         }

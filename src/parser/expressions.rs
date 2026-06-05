@@ -481,13 +481,7 @@ impl Parser {
         // Expect ':'
         self.consume(&TokenType::Colon, "Expected ':' after lambda parameters")?;
 
-        let mut return_types = Vec::new();
-        return_types.push(self.parse_type()?);
-
-        while self.check(&TokenType::Comma) {
-            self.advance();
-            return_types.push(self.parse_type()?);
-        }
+        let (return_types, return_labels) = self.parse_return_signature()?;
 
         // Parse optional errors clause
         let error_types = self.parse_error_types_clause()?;
@@ -501,6 +495,11 @@ impl Parser {
         let end_span = self.previous_token().span;
         let lambda_span = Span::new(span.start, end_span.end);
 
+        let mut metadata = HotReloadMetadata::for_expression();
+        if let Some(labels) = return_labels {
+            metadata.return_labels = labels;
+        }
+
         Ok(Expr::Lambda {
             generic_params,
             generic_constraints,
@@ -509,7 +508,7 @@ impl Parser {
             error_types,
             body: body.clone(),
             captured_variables: collect_captured_variables(&body, &params),
-            metadata: Box::new(HotReloadMetadata::for_expression()),
+            metadata: Box::new(metadata),
             span: lambda_span,
             id: self.next_node_id(),
         })

@@ -138,6 +138,29 @@ fn test_renderer_markdown_contains_api_sections_and_attributes() {
 }
 
 #[test]
+fn test_extractor_renders_labeled_multi_return_signatures() {
+    let source = "##\n  Description: Returns both halves.\n##\npublic pair = f(): left: int32, right: string => {\n    return left: 1, right: 'two'\n}";
+    let program_option = parse_program(source);
+    assert!(
+        program_option.is_some(),
+        "program should parse successfully"
+    );
+    let Some(program) = program_option else {
+        return;
+    };
+    let symbols = extract_public_api_docs(&program);
+    let pair = symbols
+        .iter()
+        .find(|symbol| symbol.name == "pair")
+        .expect("public function docs should include pair");
+
+    assert_eq!(
+        pair.signature, "pair = f(): left: int32, right: string",
+        "function docs should preserve ordered return-label metadata and return types"
+    );
+}
+
+#[test]
 fn test_renderer_html_mode_renders_html_headings() {
     let source = "##\n  Description: Public user type.\n##\npublic type User:\n    Person";
     let program_option = parse_program(source);

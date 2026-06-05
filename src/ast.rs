@@ -536,8 +536,10 @@ pub struct ConstructorField {
 /// Shared metadata for `let` bindings used in statements and declarations
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LetBinding {
-    /// Name of the variable being bound
+    /// Name of the local variable being bound.
     pub name: String,
+    /// Optional returned label this binding expects in destructuring contexts.
+    pub returned_label: Option<String>,
     /// Optional explicit type annotation
     pub type_annotation: Option<Type>,
     /// Whether the binding is mutable
@@ -673,6 +675,7 @@ pub enum Stmt {
         success_binding: Option<String>,
         success_binding_type: Option<Type>,
         success_binding_is_mutable: bool,
+        success_bindings: Vec<LetBinding>,
         error_binding: String,
         else_body: Box<Stmt>,
         span: Span,

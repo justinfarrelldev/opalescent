@@ -1,3 +1,7 @@
+#![allow(
+    clippy::missing_docs_in_private_items,
+    reason = "declaration checker helpers expose internal metadata hooks that remain file-local during blocker cleanup"
+)]
 //! Declaration type checking for the Opalescent type system
 
 extern crate alloc;
@@ -27,6 +31,8 @@ struct FunctionCheckParams<'params> {
     parameters: &'params [Parameter],
     /// Return types
     return_types: Option<&'params [Type]>,
+    /// Ordered declared signature return labels, when present.
+    return_labels: Option<&'params [String]>,
     /// Error types
     error_types: &'params [String],
     /// Function modifiers (pure, untested)
@@ -214,6 +220,25 @@ impl TypeChecker {
         }
     }
 
+    pub(super) fn validate_multi_return_signature_labels(
+        return_count: usize,
+        return_labels: &[String],
+        span: crate::token::Span,
+    ) -> Result<(), TypeError> {
+        if return_count > 1 && return_labels.len() != return_count {
+            return Err(TypeError::MissingMultiReturnLabels {
+                span: TypeError::span_from_span(span),
+            });
+        }
+        Ok(())
+    }
+
+    pub(super) fn metadata_return_labels(
+        metadata: &crate::ast::HotReloadMetadata,
+    ) -> Option<&[String]> {
+        (!metadata.return_labels.is_empty()).then_some(metadata.return_labels.as_slice())
+    }
+
     /// Register a declaration's symbol signature prior to body checking so forward references succeed.
     #[expect(
         clippy::too_many_lines,
@@ -244,6 +269,7 @@ impl TypeChecker {
                 ref modifiers,
                 visibility: ref decl_visibility,
                 is_entry,
+                ref metadata,
                 span,
                 ..
             } => {
@@ -310,6 +336,12 @@ impl TypeChecker {
                     .transpose()?
                     .unwrap_or_else(|| vec![CoreType::Unit]);
 
+                Self::validate_multi_return_signature_labels(
+                    return_core_types.len(),
+                    metadata.return_labels.as_slice(),
+                    span,
+                )?;
+
                 let core_errors = self.resolve_error_types(error_types, span)?;
 
                 let function_type = CoreType::Function {
@@ -346,6 +378,12 @@ impl TypeChecker {
                         .iter()
                         .any(|modifier| matches!(modifier, FunctionModifier::Pure)),
                 });
+                if !metadata.return_labels.is_empty() {
+                    self.register_function_return_labels_for_symbol(
+                        function_name.clone(),
+                        metadata.return_labels.clone(),
+                    );
+                }
                 if let Some(registered_symbol) = self.symbol_table.lookup(function_name).cloned() {
                     self.register_current_module_symbol(registered_symbol, decl_visibility)?;
                 }
@@ -362,6 +400,25 @@ impl TypeChecker {
                 } else {
                     Self::lambda_signature_type(initializer)?
                 };
+
+                if let Expr::Lambda {
+                    return_types,
+                    metadata,
+                    ..
+                } = initializer
+                {
+                    Self::validate_multi_return_signature_labels(
+                        return_types.len(),
+                        metadata.return_labels.as_slice(),
+                        binding.span,
+                    )?;
+                    if !metadata.return_labels.is_empty() {
+                        self.register_function_return_labels_for_symbol(
+                            binding.name.clone(),
+                            metadata.return_labels.clone(),
+                        );
+                    }
+                }
 
                 if let Some(core_type) = inferred_type {
                     let symbol_type = if binding.is_mutable {
@@ -557,12 +614,14 @@ impl TypeChecker {
                 ref modifiers,
                 is_entry,
                 ref body,
+                ref metadata,
                 span,
                 ..
             } => self.type_check_function_declaration(&FunctionCheckParams {
                 generic_constraints: generic_constraints.as_deref(),
                 parameters: parameters.as_slice(),
                 return_types: return_types.as_deref(),
+                return_labels: Self::metadata_return_labels(metadata),
                 error_types,
                 modifiers: modifiers.as_slice(),
                 is_entry,
@@ -646,7 +705,7 @@ impl TypeChecker {
 
         self.symbol_table.enter_function(core_errors, params.span);
         self.enter_function_modifier_context(effective_modifiers);
-        self.begin_return_context();
+        self.begin_return_context(params.return_labels);
 
         let result = self.within_new_scope(|checker| -> Result<(), TypeError> {
             for (param, core_type) in params.parameters.iter().zip(parameter_types.iter()) {
