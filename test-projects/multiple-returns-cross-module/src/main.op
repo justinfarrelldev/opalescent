@@ -1,0 +1,12 @@
+import pair, forwarded_pair from './producer'
+
+##
+  Description: Entry point validating imported labeled multi-return metadata for exact-name and explicit-renaming destructuring.
+##
+entry main = f(args: string[]): void =>
+    let left, right = pair()
+    let left: lhs, right: rhs = forwarded_pair()
+    print('IMPORTED={left},{right}')
+    print('RENAMED={lhs},{rhs}')
+    print('FORWARDED={lhs + rhs}')
+    return void

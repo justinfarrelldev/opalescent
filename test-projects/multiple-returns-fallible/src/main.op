@@ -1,0 +1,44 @@
+import string_to_int32 from standard
+
+##
+  Description: Parses two strings into a labeled pair so fallible multiple return destructuring can be exercised end to end.
+##
+let parse_pair = f(left_text: string, right_text: string): left: int32, right: int32 errors ParseError =>
+    let left = propagate string_to_int32(left_text)
+    let right = propagate string_to_int32(right_text)
+    return left: left, right: right
+
+##
+  Description: Sums a parsed labeled pair so callers can exercise label-safe propagate destructuring on fallible multiple returns.
+##
+let sum_pair = f(left_text: string, right_text: string): int32 errors ParseError =>
+    let left, right = propagate parse_pair(left_text, right_text)
+    return left + right
+
+##
+  Description: Runs the failing statement-guard path, logs the error, and forwards it so the caller can handle it.
+##
+let guard_failure_sum = f(): int32 errors ParseError =>
+    guard parse_pair('oops', '9') into left: failed_left, right: failed_right else err =>
+        print('GUARD_HANDLED={err}')
+        propagate err
+    return failed_left + failed_right
+
+##
+  Description: Entry point validating propagate success, statement-guard success binding, and handled error paths.
+##
+entry main = f(args: string[]): void errors ParseError =>
+    let propagated_total = propagate sum_pair('7', '8')
+    print('PROPAGATE_SUM={propagated_total}')
+
+    guard parse_pair('5', '6') into left, right else err =>
+        print('UNEXPECTED_GUARD_ERROR={err}')
+        propagate err
+    print('GUARD_SUCCESS={left},{right}')
+
+    let recovered_total: int32 = guard guard_failure_sum() into value: int32 else 0
+    if recovered_total is 0:
+        return void
+
+    print('UNEXPECTED_GUARD_SUCCESS={recovered_total}')
+    return void

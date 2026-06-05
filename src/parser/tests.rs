@@ -737,6 +737,70 @@ fn statement_guard_parses_typed_mutable_binding_like_expression_guards() {
 }
 
 #[test]
+fn statement_guard_parses_multi_bind_exact_names() {
+    let stmt = parse_statement_from_string(
+        "guard fallible_pair() into left, right else err =>\n    propagate err",
+    )
+    .expect("statement guards should parse exact-name multi-bind success destructuring");
+
+    match stmt {
+        Stmt::Guard {
+            success_binding,
+            success_binding_type,
+            success_binding_is_mutable,
+            success_bindings,
+            error_binding,
+            else_body,
+            ..
+        } => {
+            assert!(success_binding.is_none());
+            assert!(success_binding_type.is_none());
+            assert!(!success_binding_is_mutable);
+            assert_eq!(success_bindings.len(), 2);
+            assert_eq!(success_bindings[0].name, "left");
+            assert_eq!(success_bindings[0].returned_label, None);
+            assert_eq!(success_bindings[1].name, "right");
+            assert_eq!(success_bindings[1].returned_label, None);
+            assert_eq!(error_binding, "err");
+            assert!(matches!(*else_body, Stmt::Block { .. }));
+        }
+        other => panic!("expected statement guard, found: {other:?}"),
+    }
+}
+
+#[test]
+fn statement_guard_parses_multi_bind_explicit_labels() {
+    let stmt = parse_statement_from_string(
+        "guard fallible_pair() into left: left_val, right: right_val else err =>\n    propagate err",
+    )
+    .expect("statement guards should parse explicit returned_label: local_name multi-bind destructuring");
+
+    match stmt {
+        Stmt::Guard {
+            success_binding,
+            success_binding_type,
+            success_binding_is_mutable,
+            success_bindings,
+            error_binding,
+            else_body,
+            ..
+        } => {
+            assert!(success_binding.is_none());
+            assert!(success_binding_type.is_none());
+            assert!(!success_binding_is_mutable);
+            assert_eq!(success_bindings.len(), 2);
+            assert_eq!(success_bindings[0].name, "left_val");
+            assert_eq!(success_bindings[0].returned_label.as_deref(), Some("left"));
+            assert_eq!(success_bindings[1].name, "right_val");
+            assert_eq!(success_bindings[1].returned_label.as_deref(), Some("right"));
+            assert_eq!(error_binding, "err");
+            assert!(matches!(*else_body, Stmt::Block { .. }));
+        }
+        other => panic!("expected statement guard, found: {other:?}"),
+    }
+}
+
+#[test]
 fn statement_guard_allows_guard_only_propagate_err_terminal() {
     let stmt = parse_statement_from_string(
         "guard fallible() into value else err =>\n    log_error(err)\n    propagate err",
@@ -1297,9 +1361,13 @@ fn test_parse_guard_string_at_member_call() {
                 match callee.as_ref() {
                     Expr::Member { object, member, .. } => {
                         assert_eq!(member, "at");
-                        assert!(matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "message"));
+                        assert!(
+                            matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "message")
+                        );
                     }
-                    other => panic!("expected member callee inside guard string .at(...), found: {other:?}"),
+                    other => panic!(
+                        "expected member callee inside guard string .at(...), found: {other:?}"
+                    ),
                 }
             }
             other => panic!("expected guard subject call for string .at(...), found: {other:?}"),
@@ -1321,9 +1389,13 @@ fn test_parse_guard_array_at_member_call() {
                 match callee.as_ref() {
                     Expr::Member { object, member, .. } => {
                         assert_eq!(member, "at");
-                        assert!(matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "xs"));
+                        assert!(
+                            matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "xs")
+                        );
                     }
-                    other => panic!("expected member callee inside guard array .at(...), found: {other:?}"),
+                    other => panic!(
+                        "expected member callee inside guard array .at(...), found: {other:?}"
+                    ),
                 }
             }
             other => panic!("expected guard subject call for array .at(...), found: {other:?}"),
@@ -1345,9 +1417,13 @@ fn test_parse_propagate_string_at_member_call() {
                 match callee.as_ref() {
                     Expr::Member { object, member, .. } => {
                         assert_eq!(member, "at");
-                        assert!(matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "message"));
+                        assert!(
+                            matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "message")
+                        );
                     }
-                    other => panic!("expected member callee inside propagate string .at(...), found: {other:?}"),
+                    other => panic!(
+                        "expected member callee inside propagate string .at(...), found: {other:?}"
+                    ),
                 }
             }
             other => panic!("expected propagated call for string .at(...), found: {other:?}"),
@@ -1369,9 +1445,13 @@ fn test_parse_propagate_array_at_member_call() {
                 match callee.as_ref() {
                     Expr::Member { object, member, .. } => {
                         assert_eq!(member, "at");
-                        assert!(matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "xs"));
+                        assert!(
+                            matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "xs")
+                        );
                     }
-                    other => panic!("expected member callee inside propagate array .at(...), found: {other:?}"),
+                    other => panic!(
+                        "expected member callee inside propagate array .at(...), found: {other:?}"
+                    ),
                 }
             }
             other => panic!("expected propagated call for array .at(...), found: {other:?}"),
@@ -3103,7 +3183,9 @@ fn test_let_destructure_loop_expression_statement() {
         } => {
             assert_eq!(bindings.len(), 2);
             assert_eq!(bindings[0].name, "a");
+            assert_eq!(bindings[0].returned_label, None);
             assert_eq!(bindings[1].name, "b");
+            assert_eq!(bindings[1].returned_label, None);
             assert!(matches!(initializer, Expr::Loop { .. }));
         }
         other => panic!("expected Stmt::LetDestructure, got {other:?}"),
@@ -6699,6 +6781,103 @@ entry main = f(): void =>
                 if expected.contains("expression") && found == "']'"
         )),
         "expected a missing-expression parser error after comma, got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_multiple_return_signature_labels_parse() {
+    let source = "\
+entry pair = f(): x: int32, y: string =>
+    return x: 1, y: 'two'
+";
+
+    let result = parse_program_from_string(source);
+    assert!(
+        result.is_ok(),
+        "labeled multi-return signatures should parse so later phases can enforce label metadata: {result:?}"
+    );
+
+    let program =
+        result.expect("parser should produce a program for labeled multi-return signatures");
+    let Decl::Function { metadata, body, .. } = &program.declarations[0] else {
+        panic!(
+            "expected function declaration, got {:#?}",
+            program.declarations[0]
+        );
+    };
+    assert_eq!(metadata.return_labels.as_slice(), ["x", "y"]);
+
+    let Stmt::Block { statements, .. } = body else {
+        panic!("expected function body block, got: {body:?}");
+    };
+    let Stmt::Return { values, .. } = &statements[0] else {
+        panic!("expected return statement, got: {:?}", statements[0]);
+    };
+    assert_eq!(values.len(), 2);
+    assert_eq!(values[0].label, "x");
+    assert!(matches!(
+        &values[0].value,
+        Expr::Literal {
+            value: LiteralValue::Integer(1),
+            ..
+        }
+    ));
+    assert_eq!(values[1].label, "y");
+    assert!(matches!(
+        &values[1].value,
+        Expr::Literal {
+            value: LiteralValue::String(text),
+            ..
+        } if text == "two"
+    ));
+}
+
+#[test]
+fn test_multiple_return_explicit_destructuring_label_to_local_syntax_parses() {
+    let source = "\
+entry main = f(): void =>
+    let x: x_val, y: y_val = pair()
+    return void
+";
+
+    let result = parse_program_from_string(source);
+    assert!(
+        result.is_ok(),
+        "explicit `returned_label: local_name` destructuring syntax should parse for later type-checking: {result:?}"
+    );
+
+    let program =
+        result.expect("parser should produce a program for explicit destructuring syntax");
+    let Decl::Function { body, .. } = &program.declarations[0] else {
+        panic!(
+            "expected function declaration, got: {:#?}",
+            program.declarations[0]
+        );
+    };
+    let Stmt::Block { statements, .. } = body else {
+        panic!("expected function body block, got: {body:?}");
+    };
+    let Stmt::LetDestructure { bindings, .. } = &statements[0] else {
+        panic!("expected let destructure, got: {:?}", statements[0]);
+    };
+    assert_eq!(bindings.len(), 2);
+    assert_eq!(bindings[0].name, "x_val");
+    assert_eq!(bindings[0].returned_label.as_deref(), Some("x"));
+    assert_eq!(bindings[1].name, "y_val");
+    assert_eq!(bindings[1].returned_label.as_deref(), Some("y"));
+}
+
+#[test]
+fn test_multiple_return_payload_requires_colon() {
+    let source = "\
+entry main = f(): void =>
+    return x: 1, : 2
+";
+
+    let result = parse_program_from_string(source);
+    assert!(
+        result.is_err(),
+        "return payloads should reject missing labels in labeled multi-return syntax: {result:?}"
     );
 }
 

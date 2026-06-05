@@ -66,6 +66,7 @@ mod fs_rerunnability;
 pub mod fs_state_guard;
 mod interactive_io;
 mod memory_model_counters;
+mod multiple_returns_projects;
 mod op_cat;
 mod process_api_smoke;
 mod process_cwd;

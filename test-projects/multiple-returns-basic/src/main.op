@@ -1,0 +1,29 @@
+##
+  Description: Produces a labeled pair for ordinary multiple return fixture coverage.
+##
+let pair = f(): first: int32, second: int32 =>
+    return first: 11 as int32, second: 22 as int32
+
+##
+  Description: Returns another labeled multi-return call unchanged to validate pass-through behavior.
+##
+let forwarded_pair = f(): first: int32, second: int32 =>
+    return pair()
+
+##
+  Description: Sums the forwarded labeled pair so the fixture proves return pass-through reaches callers unchanged.
+##
+let pass_through_total = f(): int32 =>
+    let first, second = forwarded_pair()
+    return first + second
+
+##
+  Description: Entry point validating exact-name destructuring, explicit renaming, and pass-through output.
+##
+entry main = f(args: string[]): void =>
+    let first, second = forwarded_pair()
+    let first: renamed_first, second: renamed_second = pair()
+    print('EXACT={first},{second}')
+    print('RENAMED={renamed_first},{renamed_second}')
+    print('PASS_THROUGH={pass_through_total()}')
+    return void

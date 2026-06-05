@@ -53,6 +53,7 @@ fn test_binary_expr() {
 fn test_statement_span_and_node_id() {
     let binding = LetBinding {
         name: "value".to_owned(),
+        returned_label: None,
         type_annotation: None,
         is_mutable: false,
         span: dummy_span(),

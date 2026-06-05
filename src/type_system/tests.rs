@@ -274,6 +274,7 @@ fn make_let_decl(name: &str, annotation: Option<Type>, initializer: Expr, id: us
     Decl::Let {
         binding: LetBinding {
             name: name.to_owned(),
+            returned_label: None,
             type_annotation: annotation,
             is_mutable: false,
             span: test_span(),
@@ -471,6 +472,7 @@ fn test_propagate_succeeds_with_subset_errors() {
     let let_stmt = Stmt::Let {
         binding: LetBinding {
             name: "n".to_owned(),
+            returned_label: None,
             type_annotation: Some(int_type("int32")),
             is_mutable: false,
             span: test_span(),
@@ -526,6 +528,7 @@ fn test_propagate_fails_outside_error_function() {
     let let_stmt = Stmt::Let {
         binding: LetBinding {
             name: "n".to_owned(),
+            returned_label: None,
             type_annotation: Some(int_type("int32")),
             is_mutable: false,
             span: test_span(),
@@ -590,6 +593,7 @@ fn test_propagate_fails_when_error_types_mismatch() {
     let let_stmt = Stmt::Let {
         binding: LetBinding {
             name: "data".to_owned(),
+            returned_label: None,
             type_annotation: Some(int_type("string")),
             is_mutable: false,
             span: test_span(),
@@ -1154,6 +1158,7 @@ fn test_pure_function_allows_local_mutation() {
         statements: vec![
             Stmt::Let {
                 binding: LetBinding {
+                    returned_label: None,
                     name: "x".to_owned(),
                     type_annotation: Some(int_type("int32")),
                     is_mutable: true,
@@ -1209,6 +1214,7 @@ fn test_pure_function_allows_collection_member_calls() {
         statements: vec![
             Stmt::Let {
                 binding: LetBinding {
+                    returned_label: None,
                     name: "arr".to_owned(),
                     type_annotation: Some(Type::Array {
                         element_type: Box::new(int_type("int32")),
@@ -1299,6 +1305,7 @@ fn test_type_check_pure_function_allows_string_to_int32() {
         statements: vec![
             Stmt::Let {
                 binding: LetBinding {
+                    returned_label: None,
                     name: "n".to_owned(),
                     type_annotation: Some(int_type("int32")),
                     is_mutable: false,
@@ -1532,6 +1539,7 @@ fn test_propagate_multiple_error_types_subset_and_superset() {
                 statements: vec![
                     Stmt::Let {
                         binding: LetBinding {
+                            returned_label: None,
                             name: "value".to_owned(),
                             type_annotation: Some(int_type("int32")),
                             is_mutable: false,
@@ -1581,6 +1589,7 @@ fn test_propagate_multiple_error_types_subset_and_superset() {
                 statements: vec![
                     Stmt::Let {
                         binding: LetBinding {
+                            returned_label: None,
                             name: "value".to_owned(),
                             type_annotation: Some(int_type("int32")),
                             is_mutable: false,
@@ -1637,6 +1646,7 @@ fn test_propagate_rejects_empty_error_list() {
                 statements: vec![
                     Stmt::Let {
                         binding: LetBinding {
+                            returned_label: None,
                             name: "result".to_owned(),
                             type_annotation: Some(int_type("int32")),
                             is_mutable: false,
@@ -1701,6 +1711,7 @@ fn test_propagate_nested_expressions() {
                 statements: vec![
                     Stmt::Let {
                         binding: LetBinding {
+                            returned_label: None,
                             name: "parsed".to_owned(),
                             type_annotation: Some(int_type("int32")),
                             is_mutable: false,
@@ -1716,6 +1727,7 @@ fn test_propagate_nested_expressions() {
                     },
                     Stmt::Let {
                         binding: LetBinding {
+                            returned_label: None,
                             name: "doubled".to_owned(),
                             type_annotation: Some(int_type("int32")),
                             is_mutable: false,
@@ -1778,6 +1790,7 @@ fn test_propagate_rejects_structurally_identical_error_names() {
                 statements: vec![
                     Stmt::Let {
                         binding: LetBinding {
+                            returned_label: None,
                             name: "parsed".to_owned(),
                             type_annotation: Some(int_type("int32")),
                             is_mutable: false,
@@ -1849,6 +1862,7 @@ fn test_propagate_inside_lambda_with_errors() {
         ),
         Decl::Let {
             binding: LetBinding {
+                returned_label: None,
                 name: "handler".to_owned(),
                 type_annotation: Some(Type::Function {
                     parameters: vec![int_type("string")],
@@ -2462,10 +2476,12 @@ fn test_guard_statement_multi_error_binding_stays_contextual() {
                         success_binding: Some("value".to_owned()),
                         success_binding_type: Some(int_type("int32")),
                         success_binding_is_mutable: false,
+                        success_bindings: vec![],
                         error_binding: "err".to_owned(),
                         else_body: Box::new(Stmt::Block {
                             statements: vec![Stmt::Let {
                                 binding: LetBinding {
+                                    returned_label: None,
                                     name: "copy".to_owned(),
                                     type_annotation: Some(int_type("ParseError")),
                                     is_mutable: false,
@@ -2658,6 +2674,7 @@ fn test_guard_else_expression_requires_matching_success_type() {
     let let_guard = Stmt::Let {
         binding: LetBinding {
             name: "result".to_owned(),
+            returned_label: None,
             type_annotation: Some(int_type("int32")),
             is_mutable: false,
             span: test_span(),
@@ -2729,6 +2746,7 @@ fn test_guard_else_expression_allows_matching_success_type() {
     let let_guard = Stmt::Let {
         binding: LetBinding {
             name: "result".to_owned(),
+            returned_label: None,
             type_annotation: Some(int_type("int32")),
             is_mutable: false,
             span: test_span(),
@@ -2796,6 +2814,7 @@ fn test_guard_else_expression_rejects_heterogeneous_error_sets() {
     let let_guard = Stmt::Let {
         binding: LetBinding {
             name: "result".to_owned(),
+            returned_label: None,
             type_annotation: Some(int_type("int32")),
             is_mutable: false,
             span: test_span(),
@@ -3084,6 +3103,7 @@ fn test_guard_else_rejects_chained_guard_with_mismatched_errors() {
     let let_guard = Stmt::Let {
         binding: LetBinding {
             name: "config".to_owned(),
+            returned_label: None,
             type_annotation: Some(int_type("int32")),
             is_mutable: false,
             span: test_span(),
@@ -3174,6 +3194,7 @@ fn test_guard_else_allows_chained_guard_with_identical_errors() {
     let let_guard = Stmt::Let {
         binding: LetBinding {
             name: "config".to_owned(),
+            returned_label: None,
             type_annotation: Some(int_type("int32")),
             is_mutable: false,
             span: test_span(),
@@ -3248,6 +3269,7 @@ fn test_guard_else_rejects_propagate_with_mismatched_errors() {
     let let_guard = Stmt::Let {
         binding: LetBinding {
             name: "config".to_owned(),
+            returned_label: None,
             type_annotation: Some(int_type("int32")),
             is_mutable: false,
             span: test_span(),
@@ -3448,6 +3470,7 @@ fn test_guard_error_clause_success_binding_does_not_leak_over_outer_shadowing() 
             Stmt::Block {
                 statements: vec![Stmt::Let {
                     binding: LetBinding {
+                        returned_label: None,
                         name: "seen".to_owned(),
                         type_annotation: Some(int_type("string")),
                         is_mutable: false,
@@ -3476,6 +3499,7 @@ fn test_guard_error_clause_success_binding_does_not_leak_over_outer_shadowing() 
             Stmt::Block {
                 statements: vec![Stmt::Let {
                     binding: LetBinding {
+                        returned_label: None,
                         name: "shadow_copy".to_owned(),
                         type_annotation: Some(int_type("string")),
                         is_mutable: false,
@@ -3551,6 +3575,7 @@ fn test_guard_error_clause_success_binding_does_not_leak_over_outer_shadowing() 
                 statements: vec![
                     Stmt::Let {
                         binding: LetBinding {
+                            returned_label: None,
                             name: "value".to_owned(),
                             type_annotation: Some(int_type("string")),
                             is_mutable: false,
@@ -3610,6 +3635,7 @@ fn test_guard_error_clause_return_err_is_rejected() {
         success_binding: Some("value".to_owned()),
         success_binding_type: Some(int_type("int32")),
         success_binding_is_mutable: false,
+        success_bindings: vec![],
         error_binding: "err".to_owned(),
         else_body: Box::new(Stmt::Block {
             statements: vec![return_stmt(identifier_expr("err", 7621), 7622)],
@@ -3666,6 +3692,7 @@ fn test_guard_error_clause_propagate_err_must_be_terminal() {
         success_binding: Some("value".to_owned()),
         success_binding_type: Some(int_type("int32")),
         success_binding_is_mutable: false,
+        success_bindings: vec![],
         error_binding: "err".to_owned(),
         else_body: Box::new(Stmt::Block {
             statements: vec![
@@ -3733,6 +3760,7 @@ fn test_guard_error_clause_only_propagate_is_rejected() {
         success_binding: Some("value".to_owned()),
         success_binding_type: Some(int_type("int32")),
         success_binding_is_mutable: false,
+        success_bindings: vec![],
         error_binding: "err".to_owned(),
         else_body: Box::new(Stmt::PropagateGuardError {
             error_binding: "err".to_owned(),
@@ -3789,11 +3817,13 @@ fn test_guard_error_clause_side_effect_then_propagate_err_is_allowed() {
         success_binding: Some("value".to_owned()),
         success_binding_type: Some(int_type("int32")),
         success_binding_is_mutable: false,
+        success_bindings: vec![],
         error_binding: "err".to_owned(),
         else_body: Box::new(Stmt::Block {
             statements: vec![
                 Stmt::Let {
                     binding: LetBinding {
+                        returned_label: None,
                         name: "seen_error".to_owned(),
                         type_annotation: Some(Type::Basic {
                             name: "ParseError".to_owned(),
@@ -3862,6 +3892,7 @@ fn test_guard_error_clause_must_handle_or_propagate_bound_error() {
         success_binding: Some("value".to_owned()),
         success_binding_type: Some(int_type("int32")),
         success_binding_is_mutable: false,
+        success_bindings: vec![],
         error_binding: "err".to_owned(),
         else_body: Box::new(Stmt::Block {
             statements: vec![Stmt::Expression {
@@ -3922,6 +3953,7 @@ fn test_guard_error_clause_rejects_void_return_after_side_effect() {
         success_binding: Some("value".to_owned()),
         success_binding_type: Some(int_type("int32")),
         success_binding_is_mutable: false,
+        success_bindings: vec![],
         error_binding: "err".to_owned(),
         else_body: Box::new(Stmt::Block {
             statements: vec![
@@ -3992,6 +4024,7 @@ fn test_guard_error_clause_rejects_success_fallback_return() {
         success_binding: Some("value".to_owned()),
         success_binding_type: Some(int_type("int32")),
         success_binding_is_mutable: false,
+        success_bindings: vec![],
         error_binding: "err".to_owned(),
         else_body: Box::new(return_stmt(
             literal_expr(LiteralValue::Integer(0), 7695),
@@ -4047,11 +4080,13 @@ fn test_guard_error_clause_rejects_wrapper_return_with_aliased_source() {
         success_binding: Some("value".to_owned()),
         success_binding_type: Some(int_type("int32")),
         success_binding_is_mutable: false,
+        success_bindings: vec![],
         error_binding: "err".to_owned(),
         else_body: Box::new(Stmt::Block {
             statements: vec![
                 Stmt::Let {
                     binding: LetBinding {
+                        returned_label: None,
                         name: "alias_err".to_owned(),
                         type_annotation: Some(int_type("ParseError")),
                         is_mutable: false,
@@ -4147,6 +4182,7 @@ fn test_propagate_call_remains_valid_unmodified() {
                 statements: vec![
                     Stmt::Let {
                         binding: LetBinding {
+                            returned_label: None,
                             name: "value".to_owned(),
                             type_annotation: Some(int_type("int32")),
                             is_mutable: false,
@@ -5426,6 +5462,7 @@ fn test_type_check_let_statement_registers_symbol() {
     let mut checker = TypeChecker::new();
     let binding = LetBinding {
         name: "value".to_owned(),
+        returned_label: None,
         type_annotation: Some(Type::Basic {
             name: "int64".to_owned(),
             span: test_span(),
@@ -5521,6 +5558,7 @@ fn test_type_check_assignment_type_mismatch() {
     let mut checker = TypeChecker::new();
     let binding = LetBinding {
         name: "value".to_owned(),
+        returned_label: None,
         type_annotation: Some(Type::Basic {
             name: "int64".to_owned(),
             span: test_span(),
@@ -5686,6 +5724,7 @@ fn test_type_check_let_destructure_loop_break_values() {
     let destructure = Stmt::LetDestructure {
         bindings: vec![
             LetBinding {
+                returned_label: None,
                 name: "user_input".to_owned(),
                 type_annotation: Some(int_type("int64")),
                 is_mutable: false,
@@ -5693,6 +5732,7 @@ fn test_type_check_let_destructure_loop_break_values() {
                 id: node_id(20_133),
             },
             LetBinding {
+                returned_label: None,
                 name: "user_number".to_owned(),
                 type_annotation: Some(int_type("int64")),
                 is_mutable: false,
@@ -5822,7 +5862,11 @@ fn test_type_check_labeled_returns_require_consistent_ordered_labels() {
         doc_comment: None,
         span: test_span(),
         id: node_id(20_151),
-        metadata: HotReloadMetadata::for_function(),
+        metadata: {
+            let mut metadata = HotReloadMetadata::for_function();
+            metadata.return_labels = vec!["left".to_owned(), "right".to_owned()];
+            metadata
+        },
     };
 
     let program = create_entry_program(vec![function]);
@@ -5899,7 +5943,11 @@ fn test_type_check_labeled_and_unlabeled_returns_cannot_mix() {
         doc_comment: None,
         span: test_span(),
         id: node_id(20_171),
-        metadata: HotReloadMetadata::for_function(),
+        metadata: {
+            let mut metadata = HotReloadMetadata::for_function();
+            metadata.return_labels = vec!["left".to_owned(), "right".to_owned()];
+            metadata
+        },
     };
 
     let program = create_entry_program(vec![function]);
@@ -5913,6 +5961,364 @@ fn test_type_check_labeled_and_unlabeled_returns_cannot_mix() {
                 .any(|error| matches!(error, &TypeError::ReturnLabelMismatch { .. }))
         ),
         "mixing unlabeled and labeled returns should fail"
+    );
+}
+
+#[test]
+fn test_type_check_multiple_return_requires_signature_labels_miette_diagnostic() {
+    const SOURCE: &str = "
+let pair = f(): int32, string =>
+    return x: 1, y: 'two'
+entry main = f(): void =>
+    return void
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("multi-return functions should require signature labels on every return value");
+    let rendered = errors
+        .iter()
+        .map(|error| render_diagnostic("test.op", SOURCE, error))
+        .collect::<Vec<_>>()
+        .join("\n---\n");
+
+    assert!(
+        rendered.contains("labels are required for all multi-return functions"),
+        "expected labeled-signature diagnostic for unlabeled multi-return function, got: {rendered}"
+    );
+}
+
+#[test]
+fn test_type_check_multiple_return_return_labels_must_match_declared_signature_order() {
+    const SOURCE: &str = "
+let pair = f(): left: int32, right: int32 =>
+    return x: 1, y: 2
+entry main = f(): void =>
+    return void
+";
+
+    let rejection = reject_source(
+        SOURCE,
+        "labeled multi-return returns should use the declared signature labels in the same order",
+    );
+    assert!(
+        matches!(
+            rejection,
+            SourceRejection::Type(ref errors)
+                if errors.iter().any(|error| matches!(error, TypeError::ReturnLabelMismatch { .. }))
+        ),
+        "expected signature label mismatch rejection, got: {rejection:?}"
+    );
+}
+
+#[test]
+fn test_type_check_multiple_return_exact_name_destructuring_from_call() {
+    const SOURCE: &str = "
+let pair = f(): x: int32, y: int32 =>
+    return x: 1, y: 2
+entry main = f(): int32 =>
+    let x, y = pair()
+    return x + y
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "exact-name destructuring from a labeled multi-return call should type-check: {result:?}"
+    );
+}
+
+#[test]
+fn test_type_check_multiple_return_requires_explicit_labels_for_renamed_destructure_bindings() {
+    const SOURCE: &str = "
+let pair = f(): x: int32, y: int32 =>
+    return x: 1, y: 2
+entry main = f(): int32 =>
+    let x_val, y_val = pair()
+    return x_val + y_val
+";
+
+    let rejection = reject_source(
+        SOURCE,
+        "renamed multi-return destructure bindings should be rejected without explicit returned labels",
+    );
+    assert!(
+        matches!(
+            rejection,
+            SourceRejection::Type(ref errors)
+                if errors.iter().any(|error| error
+                    .to_string()
+                    .contains("must exactly match returned labels"))
+        ),
+        "expected exact-label rejection for renamed destructure bindings, got: {rejection:?}"
+    );
+}
+
+#[test]
+fn test_type_check_multiple_return_explicit_label_to_local_destructuring() {
+    const SOURCE: &str = "
+let pair = f(): x: int32, y: int32 =>
+    return x: 1, y: 2
+entry main = f(): int32 =>
+    let x: x_val, y: y_val = pair()
+    return x_val + y_val
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "explicit `returned_label: local_name` destructuring should type-check: {result:?}"
+    );
+}
+
+#[test]
+fn test_type_check_multiple_return_reversed_explicit_labels_are_rejected() {
+    const SOURCE: &str = "
+let pair = f(): x: int32, y: int32 =>
+    return x: 1, y: 2
+entry main = f(): int32 =>
+    let y: y_val, x: x_val = pair()
+    return y_val + x_val
+";
+
+    let rejection = reject_source(
+        SOURCE,
+        "reversed explicit multi-return labels should be rejected because labels do not reorder values",
+    );
+    assert!(
+        matches!(
+            rejection,
+            SourceRejection::Type(ref errors)
+                if errors.iter().any(|error| error.to_string().contains("do not reorder"))
+        ),
+        "expected positional-label rejection for reversed explicit labels, got: {rejection:?}"
+    );
+}
+
+#[test]
+fn test_type_check_multiple_return_return_pass_through_preserves_ordered_labels() {
+    const SOURCE: &str = "
+let pair = f(): x: int32, y: int32 =>
+    return x: 1, y: 2
+let forward = f(): x: int32, y: int32 =>
+    return pair()
+entry main = f(): int32 =>
+    let x, y = forward()
+    return x + y
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "returning another labeled multi-return call should type-check when labels and order match: {result:?}"
+    );
+}
+
+#[test]
+fn test_type_check_multiple_return_scalar_let_binding_rejected() {
+    const SOURCE: &str = "
+let pair = f(): x: int32, y: int32 =>
+    return x: 1, y: 2
+entry main = f(): int32 =>
+    let scalar = pair()
+    return scalar
+";
+
+    let rejection = reject_source(
+        SOURCE,
+        "multi-return values should be rejected in scalar let-binding contexts",
+    );
+    assert!(
+        matches!(
+            rejection,
+            SourceRejection::Type(ref errors)
+                if errors.iter().any(|error| error.to_string().contains("scalar context"))
+        ),
+        "expected scalar-context rejection for `let scalar = pair()`, got: {rejection:?}"
+    );
+}
+
+#[test]
+fn test_type_check_multiple_return_scalar_call_argument_rejected() {
+    const SOURCE: &str = "
+let pair = f(): x: int32, y: int32 =>
+    return x: 1, y: 2
+entry main = f(): void =>
+    print(pair())
+    return void
+";
+
+    let rejection = reject_source(
+        SOURCE,
+        "multi-return values should be rejected when passed to scalar call sites like print()",
+    );
+    assert!(
+        matches!(
+            rejection,
+            SourceRejection::Type(ref errors)
+                if errors.iter().any(|error| error.to_string().contains("scalar context"))
+        ),
+        "expected scalar-context rejection for `print(pair())`, got: {rejection:?}"
+    );
+}
+
+#[test]
+fn test_type_check_fallible_multiple_return_exact_name_destructuring_from_propagate() {
+    const SOURCE: &str = "
+type ParseError:
+    BadInput
+
+let fallible_pair = f(): left: int32, right: int32 errors ParseError =>
+    return left: 1, right: 2
+
+entry main = f(): int32 errors ParseError =>
+    let left, right = propagate fallible_pair()
+    return left + right
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "fallible multi-return propagate should bind exact returned labels positionally: {result:?}"
+    );
+}
+
+#[test]
+fn test_type_check_fallible_multiple_return_explicit_label_to_local_destructuring_from_propagate() {
+    const SOURCE: &str = "
+type ParseError:
+    BadInput
+
+let fallible_pair = f(): left: int32, right: int32 errors ParseError =>
+    return left: 1, right: 2
+
+entry main = f(): int32 errors ParseError =>
+    let left: left_val, right: right_val = propagate fallible_pair()
+    return left_val + right_val
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "fallible multi-return propagate should support explicit returned_label: local_name renaming: {result:?}"
+    );
+}
+
+#[test]
+fn test_type_check_fallible_multiple_return_guard_statement_exact_name_destructuring_handles_error_path()
+ {
+    const SOURCE: &str = "
+type ParseError:
+    BadInput
+
+let fallible_pair = f(): left: int32, right: int32 errors ParseError =>
+    return left: 1, right: 2
+
+entry main = f(): int32 errors ParseError =>
+    guard fallible_pair() into left, right else err =>
+        propagate err
+    return left + right
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "fallible multi-return guard should bind exact returned labels and preserve the handled error path: {result:?}"
+    );
+}
+
+#[test]
+fn test_type_check_fallible_multiple_return_guard_statement_explicit_label_to_local_destructuring_handles_error_path()
+ {
+    const SOURCE: &str = "
+type ParseError:
+    BadInput
+
+let fallible_pair = f(): left: int32, right: int32 errors ParseError =>
+    return left: 1, right: 2
+
+entry main = f(): int32 errors ParseError =>
+    guard fallible_pair() into left: left_val, right: right_val else err =>
+        propagate err
+    return left_val + right_val
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "fallible multi-return guard should support explicit returned_label: local_name renaming and keep the handled error path: {result:?}"
+    );
+}
+
+#[test]
+fn test_type_check_fallible_multiple_return_reversed_explicit_labels_are_rejected_from_propagate() {
+    const SOURCE: &str = "
+type ParseError:
+    BadInput
+
+let fallible_pair = f(): left: int32, right: int32 errors ParseError =>
+    return left: 1, right: 2
+
+entry main = f(): int32 errors ParseError =>
+    let right: right_val, left: left_val = propagate fallible_pair()
+    return left_val + right_val
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("reversed explicit labels should be rejected in fallible propagate contexts");
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::ReturnLabelMismatch { .. })),
+        "fallible propagate should reject reversed labels because labels do not reorder values: {errors:?}"
+    );
+}
+
+#[test]
+fn test_type_check_fallible_multiple_return_reversed_explicit_labels_are_rejected_from_guard_statement()
+ {
+    const SOURCE: &str = "
+type ParseError:
+    BadInput
+
+let fallible_pair = f(): left: int32, right: int32 errors ParseError =>
+    return left: 1, right: 2
+
+entry main = f(): int32 errors ParseError =>
+    guard fallible_pair() into right: right_val, left: left_val else err =>
+        propagate err
+    return left_val + right_val
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("reversed explicit labels should be rejected in fallible guard contexts");
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::ReturnLabelMismatch { .. })),
+        "fallible guard should reject reversed labels because labels do not reorder values: {errors:?}"
     );
 }
 
@@ -8375,6 +8781,7 @@ fn ordinary_aliased_constructor_not_treated_as_fallible() {
                 statements: vec![
                     Stmt::Let {
                         binding: LetBinding {
+                returned_label: None,
                             name: "account".to_owned(),
                             type_annotation: Some(Type::Basic {
                                 name: "AccountAlias".to_owned(),
@@ -8491,6 +8898,7 @@ fn propagate_new_nonfallible_constructor_reports_diagnostic() {
                 statements: vec![
                     Stmt::Let {
                         binding: LetBinding {
+                returned_label: None,
                             name: "account".to_owned(),
                             type_annotation: Some(Type::Basic {
                                 name: "Account".to_owned(),

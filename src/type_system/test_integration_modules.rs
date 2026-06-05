@@ -232,6 +232,125 @@ entry main = f(): void =>
     }
 
     #[test]
+    fn test_cross_module_multi_return_labels_survive_export_import() {
+        const PRODUCER_SOURCE: &str = "
+##
+    Description: Produces a labeled pair for module tests.
+##
+public pair = f(): x: int64, y: int64 =>
+    return x: 1, y: 2
+entry main = f(): void =>
+    return void
+";
+        const CONSUMER_SOURCE: &str = "
+import pair from ./producer
+
+entry main = f(): void =>
+    return void
+";
+
+        let producer_program = parse_pipeline(PRODUCER_SOURCE);
+        let mut producer_checker = TypeChecker::new();
+        producer_checker.set_current_module_path(String::from("./producer"));
+        let producer_result = producer_checker.type_check_program(&producer_program);
+        assert!(
+            producer_result.is_ok(),
+            "producer module should type-check: {producer_result:?}"
+        );
+
+        let producer_interface = producer_checker
+            .module_interface("./producer")
+            .expect("producer module interface should be registered");
+        assert_eq!(
+            producer_interface
+                .function_return_labels("pair")
+                .map(|labels| labels.iter().map(String::as_str).collect::<Vec<_>>()),
+            Some(vec!["x", "y"]),
+            "exported module interface should preserve ordered return labels"
+        );
+
+        let consumer_program = parse_pipeline(CONSUMER_SOURCE);
+        let mut consumer_checker = TypeChecker::new();
+        consumer_checker.register_module_interface(producer_interface);
+        consumer_checker.set_current_module_path(String::from("./consumer"));
+        let consumer_result = consumer_checker.type_check_program(&consumer_program);
+        assert!(
+            consumer_result.is_ok(),
+            "consumer module should type-check with imported label metadata: {consumer_result:?}"
+        );
+        assert_eq!(
+            consumer_checker
+                .function_return_labels("pair")
+                .map(|labels| labels.iter().map(String::as_str).collect::<Vec<_>>()),
+            Some(vec!["x", "y"]),
+            "imported caller should see the callee's ordered return labels"
+        );
+    }
+
+    #[test]
+    fn test_multi_return_labels_do_not_affect_underlying_function_type_identity() {
+        const FIRST_SOURCE: &str = "
+##
+    Description: First labeled pair shape.
+##
+public first_pair = f(): x: int64, y: int64 =>
+    return x: 1, y: 2
+entry main = f(): void =>
+    return void
+";
+        const SECOND_SOURCE: &str = "
+##
+    Description: Second labeled pair shape.
+##
+public second_pair = f(): left: int64, right: int64 =>
+    return left: 1, right: 2
+entry main = f(): void =>
+    return void
+";
+
+        let first_program = parse_pipeline(FIRST_SOURCE);
+        let second_program = parse_pipeline(SECOND_SOURCE);
+        let mut first_checker = TypeChecker::new();
+        let mut second_checker = TypeChecker::new();
+        first_checker.set_current_module_path(String::from("./first"));
+        second_checker.set_current_module_path(String::from("./second"));
+        assert!(first_checker.type_check_program(&first_program).is_ok());
+        assert!(second_checker.type_check_program(&second_program).is_ok());
+
+        let first_interface = first_checker
+            .module_interface("./first")
+            .expect("first module interface should exist");
+        let second_interface = second_checker
+            .module_interface("./second")
+            .expect("second module interface should exist");
+        let first_symbol = first_interface
+            .exports
+            .get("first_pair")
+            .expect("first export should exist");
+        let second_symbol = second_interface
+            .exports
+            .get("second_pair")
+            .expect("second export should exist");
+
+        assert_eq!(
+            first_symbol.core_type, second_symbol.core_type,
+            "different return labels should preserve the same underlying ordered function type"
+        );
+        assert_eq!(
+            first_interface
+                .function_return_labels("first_pair")
+                .map(|labels| labels.iter().map(String::as_str).collect::<Vec<_>>()),
+            Some(vec!["x", "y"])
+        );
+        assert_eq!(
+            second_interface
+                .function_return_labels("second_pair")
+                .map(|labels| labels.iter().map(String::as_str).collect::<Vec<_>>()),
+            Some(vec!["left", "right"])
+        );
+    }
+
+    #[test]
     fn test_cross_module_function_call_type_mismatch_is_reported() {
         const SOURCE: &str = "
 import to_int from ./conversions

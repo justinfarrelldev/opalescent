@@ -1,0 +1,11 @@
+##
+  Description: Exports a labeled pair so importing callers can validate ordered return-label metadata.
+##
+public let pair = f(): left: int32, right: int32 =>
+    return left: 3 as int32, right: 4 as int32
+
+##
+  Description: Re-exports the same labeled pair through return pass-through to preserve imported label metadata.
+##
+public let forwarded_pair = f(): left: int32, right: int32 =>
+    return pair()
