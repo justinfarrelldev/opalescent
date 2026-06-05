@@ -30,7 +30,7 @@ entry main = f(args: string[]): void =>
   Description: finds the highest score — borrows the array
 ##
 let highest_score = f(scores: ref int32[]): int32 =>
-    let mutable best = scores[0]
+    let mutable best: int32 = guard scores.at(0) into value: int32 else 0
     for s in scores:
         if s > best:
             best = s
@@ -45,7 +45,9 @@ let summarize = f(names: ref string[], scores: ref int32[]): string =>
     let mutable i = 0
     while i < names.len():
         # Copies the name out (required — can't return a ref)
-        let line = '  {names[i]}: {scores[i]}\n'
+        let name: string = guard names.at(i) into value: string else ""
+        let score: int32 = guard scores.at(i) into value: int32 else 0
+        let line = '  {name}: {score}\n'
         result = result + line
         i = i + 1
     return result
@@ -57,7 +59,8 @@ let summarize = f(names: ref string[], scores: ref int32[]): string =>
 let curve_scores = f(scores: mutable ref int32[], bonus: int32): void =>
     let mutable i = 0
     while i < scores.len():
-        scores[i] = scores[i] + bonus
+        let current_score: int32 = guard scores.at(i) into value: int32 else 0
+        scores[i] = current_score + bonus
         i = i + 1
     return void
 

@@ -39,10 +39,9 @@ The compiler infers lifetimes automatically when:
 - All references in a struct come from the same scope
 
 ```opal
-# No lifetime annotations needed — compiler infers that the return
-# borrows from 'items'
-let first = f<T>(items: ref T[]): ref T =>
-    return items[0]
+# No extra annotations needed for a fallible first-value helper.
+let first = f<T>(items: ref T[]): T errors IndexOutOfBoundsError =>
+    return propagate items.at(0)
 
 # No annotation needed — single ref input
 let longest_line = f(text: ref string): ref string =>

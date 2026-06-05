@@ -19,6 +19,18 @@ impl TypeChecker {
             },
         );
         self.register_builtin_method(
+            "string.at",
+            CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: vec![CoreType::Int64],
+                return_types: vec![CoreType::String],
+                error_types: vec![CoreType::Generic {
+                    name: "IndexOutOfBoundsError".to_owned(),
+                    type_args: Vec::new(),
+                }],
+            },
+        );
+        self.register_builtin_method(
             "string.split",
             CoreType::Function {
                 generic_params: Vec::new(),

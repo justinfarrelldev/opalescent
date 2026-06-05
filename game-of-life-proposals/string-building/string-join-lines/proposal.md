@@ -23,11 +23,12 @@ Prior art includes Python `separator.join(values)`, JavaScript `array.join(separ
 ```opal
 import string_join from standard
 
-let render_board = f(board: int32[][]): string =>
+let render_board = f(board: int32[][]): string errors IndexOutOfBoundsError =>
     let mutable rows: string[] = []
     let mutable row_index: int64 = 0
     while row_index < board.length:
-        rows.push(render_row(board[row_index]))
+        let row = propagate board.at(row_index)
+        rows.push(propagate render_row(row))
         row_index = row_index + 1
     return string_join(rows, '\n')
 ```

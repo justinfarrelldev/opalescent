@@ -93,7 +93,11 @@ The fallible operation must still be explicit through `guard`, so the compiler c
 import string_to_int32, print_error from standard
 
 entry main = f(args: string[]): void =>
-    guard string_to_int32(args[0]) into count else parse_err =>
+    guard args.at(0) into raw_count else index_err =>
+        print_error(index_err)
+        return void
+
+    guard string_to_int32(raw_count) into count else parse_err =>
         print_error(parse_err)
         return void
 

@@ -15,9 +15,13 @@ No new syntax is required. This proposal utilizes existing primitive types and c
 
 ```opal
 let find_index = f(items: int32[], target: int32): int32 =>
-    for i in 0..items.length:
-        if items[i] is target:
-            return i
+    let mutable i: int64 = 0
+    while i < items.length:
+        guard items.at(i) into item else _ =>
+            return -1
+        if item is target:
+            return i as int32
+        i = i + 1
     return -1
 ```
 

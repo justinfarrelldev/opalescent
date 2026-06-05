@@ -28,7 +28,9 @@ let parse_body = f(raw: string): ParsedBody =>
     for part in parts:
         let kv = part.split('=')
         if kv.len() is 2:
-            fields.push(Pair<string>{ first: kv[0], second: kv[1] })
+            let first: string = guard kv.at(0) into value: string else ""
+            let second: string = guard kv.at(1) into value: string else ""
+            fields.push(Pair<string>{ first: first, second: second })
     return ParsedBody{ fields: fields }
 
 

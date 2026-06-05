@@ -5,7 +5,12 @@ entry main = f(args: string[]): void =>
     let left: int32[] = [1 as int32, 2 as int32, 3 as int32]
     let right: string[] = ['a', 'b']
     let pairs = left.zip(right)
+    let mutable pair_index: int64 = 0
     print('length {pairs.length}')
-    print('first {pairs[0].first} {pairs[0].second}')
-    print('second {pairs[1].first} {pairs[1].second}')
+    for pair in pairs:
+        if pair_index is 0:
+            print('first {pair.first} {pair.second}')
+        if pair_index is 1:
+            print('second {pair.first} {pair.second}')
+        pair_index = pair_index + 1
     return void

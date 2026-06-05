@@ -16,6 +16,9 @@ extern crate alloc;
 use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
+use crate::codegen::error_abi::{
+    build_error_aggregate, build_error_return_type, build_success_aggregate, intern_variant_name,
+};
 use crate::codegen::expressions::{CodegenEnv, codegen_expression, current_function};
 use crate::codegen::rc_emitter::RcEmitter;
 use crate::codegen::types::core_type_to_llvm;
@@ -103,34 +106,8 @@ pub fn codegen_string_access<'context>(
     access_span: Span,
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let object_core_type = infer_expression_core_type(env, object).ok_or_else(|| {
-        CodegenError::new(String::from(
-            "string access receiver type could not be inferred",
-        ))
-    })?;
-    if object_core_type != CoreType::String {
-        return Err(CodegenError::new(format!(
-            "index access expects string receiver, found '{object_core_type}'"
-        )));
-    }
-
-    let string_value = codegen_expression(codegen_context, env, object, Some(&CoreType::String))?
-        .into_pointer_value();
-    let index_value =
-        codegen_expression(codegen_context, env, index, Some(&CoreType::Int64))?.into_int_value();
-    let string_length_fn =
-        crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, "string_length")
-            .ok_or_else(|| CodegenError::new(String::from("string_length declaration missing")))?;
-    let length_call = codegen_context.builder.build_call(
-        string_length_fn,
-        &[string_value.into()],
-        &env.next_name("string.index.length"),
-    )?;
-    let string_length = length_call
-        .try_as_basic_value()
-        .basic()
-        .ok_or_else(|| CodegenError::new(String::from("string_length returned no value")))?
-        .into_int_value();
+    let (string_value, index_value, string_length) =
+        lower_string_receiver_index_and_length(codegen_context, env, object, index, "string.index")?;
 
     emit_string_bounds_check(
         codegen_context,
@@ -140,21 +117,206 @@ pub fn codegen_string_access<'context>(
         access_span,
     )?;
 
-    let string_index_fn =
-        crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, "string_index")
-            .ok_or_else(|| CodegenError::new(String::from("string_index declaration missing")))?;
-    let index_call = codegen_context.builder.build_call(
-        string_index_fn,
-        &[string_value.into(), index_value.into()],
-        &env.next_name("string.index.call"),
+    let indexed_value = emit_string_index_success_call(
+        codegen_context,
+        env,
+        string_value,
+        index_value,
+        "string.index.call",
     )?;
-    let indexed_value = index_call
-        .try_as_basic_value()
-        .basic()
-        .ok_or_else(|| CodegenError::new(String::from("string_index returned no value")))?;
 
     let _: Option<&CoreType> = expected_type;
     Ok(indexed_value)
+}
+
+/// Lower fallible `array.at(index)` through the canonical `{T, err_ptr}` ABI.
+pub fn codegen_array_at_call<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    object: &Expr,
+    index: &Expr,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let object_core_type = infer_expression_core_type(env, object).ok_or_else(|| {
+        CodegenError::new(String::from(
+            "array access receiver type could not be inferred",
+        ))
+    })?;
+    let element_core_type = match object_core_type {
+        CoreType::Array(element_type) => element_type.as_ref().clone(),
+        other => {
+            return Err(CodegenError::new(format!(
+                "array .at(...) expects array receiver, found '{other}'"
+            )));
+        }
+    };
+    let (base_ptr, array_length) =
+        resolve_array_access_base_and_length(codegen_context, env, object, &element_core_type)?;
+    let index_value =
+        codegen_expression(codegen_context, env, index, Some(&CoreType::Int64))?.into_int_value();
+
+    let zero = codegen_context.context.i64_type().const_zero();
+    let is_non_negative = codegen_context.builder.build_int_compare(
+        IntPredicate::SGE,
+        index_value,
+        zero,
+        &env.next_name("array.at.non_negative"),
+    )?;
+    let is_below_length = codegen_context.builder.build_int_compare(
+        IntPredicate::SLT,
+        index_value,
+        array_length,
+        &env.next_name("array.at.in_bounds"),
+    )?;
+    let is_in_bounds = codegen_context.builder.build_and(
+        is_non_negative,
+        is_below_length,
+        &env.next_name("array.at.valid"),
+    )?;
+
+    let result_value_type = core_type_to_llvm(codegen_context.context, &element_core_type);
+    let result_type =
+        build_error_return_type(codegen_context.context, Some(result_value_type.as_basic_type_enum()));
+    let result_alloca = codegen_context
+        .builder
+        .build_alloca(result_type, &env.next_name("array.at.result"))?;
+    let current_fn = current_function(codegen_context)?;
+    let success_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("array.at.success"));
+    let error_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("array.at.error"));
+    let cont_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("array.at.cont"));
+    codegen_context
+        .builder
+        .build_conditional_branch(is_in_bounds, success_block, error_block)?;
+
+    codegen_context.builder.position_at_end(success_block);
+    let element_ptr = build_array_element_ptr(codegen_context, env, base_ptr, index_value)?;
+    let loaded = codegen_context
+        .builder
+        .build_load(element_ptr, &env.next_name("array.at.load"))?;
+    let success_result = build_success_aggregate(codegen_context, loaded)?;
+    codegen_context
+        .builder
+        .build_store(result_alloca, success_result)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(cont_block)?;
+
+    codegen_context.builder.position_at_end(error_block);
+    let error_ptr = intern_variant_name(codegen_context, env, "IndexOutOfBoundsError");
+    let error_result = build_error_aggregate(
+        codegen_context,
+        result_value_type.as_basic_type_enum(),
+        error_ptr,
+    )?;
+    codegen_context
+        .builder
+        .build_store(result_alloca, error_result)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(cont_block)?;
+
+    codegen_context.builder.position_at_end(cont_block);
+    codegen_context
+        .builder
+        .build_load(result_alloca, &env.next_name("array.at.result.load"))
+        .map_err(Into::into)
+}
+
+/// Lower fallible `string.at(index)` through the canonical `{string, err_ptr}` ABI.
+pub fn codegen_string_at_call<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    object: &Expr,
+    index: &Expr,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let (string_value, index_value, string_length) = lower_string_receiver_index_and_length(
+        codegen_context,
+        env,
+        object,
+        index,
+        "string.at",
+    )?;
+
+    let zero = codegen_context.context.i64_type().const_zero();
+    let is_non_negative = codegen_context.builder.build_int_compare(
+        IntPredicate::SGE,
+        index_value,
+        zero,
+        &env.next_name("string.at.non_negative"),
+    )?;
+    let is_below_length = codegen_context.builder.build_int_compare(
+        IntPredicate::SLT,
+        index_value,
+        string_length,
+        &env.next_name("string.at.in_bounds"),
+    )?;
+    let is_in_bounds = codegen_context.builder.build_and(
+        is_non_negative,
+        is_below_length,
+        &env.next_name("string.at.valid"),
+    )?;
+
+    let result_type = build_error_return_type(
+        codegen_context.context,
+        Some(string_value.get_type().as_basic_type_enum()),
+    );
+    let result_alloca = codegen_context
+        .builder
+        .build_alloca(result_type, &env.next_name("string.at.result"))?;
+    let current_fn = current_function(codegen_context)?;
+    let success_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("string.at.success"));
+    let error_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("string.at.error"));
+    let cont_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name("string.at.cont"));
+    codegen_context
+        .builder
+        .build_conditional_branch(is_in_bounds, success_block, error_block)?;
+
+    codegen_context.builder.position_at_end(success_block);
+    let indexed_value = emit_string_index_success_call(
+        codegen_context,
+        env,
+        string_value,
+        index_value,
+        "string.at.call",
+    )?;
+    let success_result = build_success_aggregate(codegen_context, indexed_value)?;
+    codegen_context
+        .builder
+        .build_store(result_alloca, success_result)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(cont_block)?;
+
+    codegen_context.builder.position_at_end(error_block);
+    let error_ptr = intern_variant_name(codegen_context, env, "IndexOutOfBoundsError");
+    let error_result = build_error_aggregate(
+        codegen_context,
+        string_value.get_type().as_basic_type_enum(),
+        error_ptr,
+    )?;
+    codegen_context
+        .builder
+        .build_store(result_alloca, error_result)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(cont_block)?;
+
+    codegen_context.builder.position_at_end(cont_block);
+    codegen_context
+        .builder
+        .build_load(result_alloca, &env.next_name("string.at.result.load"))
+        .map_err(Into::into)
 }
 
 pub fn codegen_identifier_indexed_array_assignment<'context>(
@@ -221,6 +383,70 @@ pub fn codegen_identifier_indexed_array_assignment<'context>(
             "indexed assignment currently requires identifier array receiver",
         ))),
     }
+}
+
+fn lower_string_receiver_index_and_length<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    object: &Expr,
+    index: &Expr,
+    name_prefix: &str,
+) -> Result<(
+    PointerValue<'context>,
+    IntValue<'context>,
+    IntValue<'context>,
+), CodegenError> {
+    let object_core_type = infer_expression_core_type(env, object).ok_or_else(|| {
+        CodegenError::new(String::from(
+            "string access receiver type could not be inferred",
+        ))
+    })?;
+    if object_core_type != CoreType::String {
+        return Err(CodegenError::new(format!(
+            "index access expects string receiver, found '{object_core_type}'"
+        )));
+    }
+
+    let string_value = codegen_expression(codegen_context, env, object, Some(&CoreType::String))?
+        .into_pointer_value();
+    let index_value =
+        codegen_expression(codegen_context, env, index, Some(&CoreType::Int64))?.into_int_value();
+    let string_length_fn =
+        crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, "string_length")
+            .ok_or_else(|| CodegenError::new(String::from("string_length declaration missing")))?;
+    let length_call = codegen_context.builder.build_call(
+        string_length_fn,
+        &[string_value.into()],
+        &env.next_name(format!("{name_prefix}.length").as_str()),
+    )?;
+    let string_length = length_call
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("string_length returned no value")))?
+        .into_int_value();
+
+    Ok((string_value, index_value, string_length))
+}
+
+fn emit_string_index_success_call<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    string_value: PointerValue<'context>,
+    index_value: IntValue<'context>,
+    name_prefix: &str,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let string_index_fn =
+        crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, "string_index")
+            .ok_or_else(|| CodegenError::new(String::from("string_index declaration missing")))?;
+    let index_call = codegen_context.builder.build_call(
+        string_index_fn,
+        &[string_value.into(), index_value.into()],
+        &env.next_name(name_prefix),
+    )?;
+    index_call
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("string_index returned no value")))
 }
 
 fn codegen_nested_indexed_array_assignment<'context>(

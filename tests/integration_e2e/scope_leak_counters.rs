@@ -260,13 +260,13 @@ import string_join from standard
 ##
   Description: Scope leak red fixture for block exit cleanup.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
     let outer: string[] = ['outer']
     if outer.length > 0:
         let scoped: string[] = ['block', 'exit']
         let joined = string_join(scoped, '-')
         print(joined)
-    print(outer[0])
+    print(propagate outer.at(0))
     return void
 ";
 
@@ -303,10 +303,10 @@ import string_join from standard
 ##
   Description: Scope leak red fixture for early return cleanup.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
     let values: string[] = ['early', 'return']
     if values.length > 0:
-        let payload: string[] = [values[0], 'path']
+        let payload: string[] = [propagate values.at(0), 'path']
         let joined = string_join(payload, '-')
         print(joined)
         return void

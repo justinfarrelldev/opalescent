@@ -6,7 +6,7 @@ let is_counted_entry = f(seed_line: string): boolean =>
 ##
   Description: Reads a seed plan, creates a workspace tree, lists alpha, removes it, and reports matching counts.
 ##
-entry main = f(args: string[]): void errors FileNotFoundError, DirectoryNotFoundError, PermissionDeniedError, IsADirectoryError, IsNotADirectoryError, InvalidPathError, ReadFailureError, InvalidUtf8Error, WriteFailureError, DeleteFailureError, DirectoryNotEmptyError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError =>
+entry main = f(args: string[]): void errors FileNotFoundError, DirectoryNotFoundError, PermissionDeniedError, IsADirectoryError, IsNotADirectoryError, InvalidPathError, ReadFailureError, InvalidUtf8Error, WriteFailureError, DeleteFailureError, DirectoryNotEmptyError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, IndexOutOfBoundsError =>
     let project_root = 'test-projects/fs-directory-operations/'
     let seed_path = path_from('{project_root}fixtures/seed.txt')
 
@@ -66,7 +66,7 @@ entry main = f(args: string[]): void errors FileNotFoundError, DirectoryNotFound
     let mutable remove_index = lines.length
     while remove_index > 0:
         remove_index = remove_index - 1
-        let line = lines[remove_index]
+        let line = propagate lines.at(remove_index)
         if line is 'workspace/alpha/data.txt|42':
             guard delete_file_sync(path_from('{project_root}workspace/alpha/data.txt')) else err =>
                 print(err)

@@ -1858,6 +1858,11 @@ fn test_codegen_propagate_and_guard_expressions_lower_error_flow() {
         &mut env,
         &call_expr(620, ident(621, "fallible"), vec![int_lit(622, 1)]),
         "ok_value",
+        &Stmt::Expression {
+            expr: int_lit(626, 0),
+            span: test_span(),
+            id: test_node_id(627),
+        },
         None,
     );
     assert!(
@@ -3848,13 +3853,13 @@ fn test_string_indexing_lowering_emits_runtime_helper() {
 import print from standard
 
 ##
-    Description: Entry function validates string indexing lowering
+    Description: Entry function validates string at lowering
 ##
-entry main = f(): void => {
+entry main = f(): void errors IndexOutOfBoundsError => {
     let message = 'hé🙂'
-    let first: string = message[0]
-    let middle: string = message[1]
-    let last: string = message[message.length - 1]
+    let first: string = propagate message.at(0)
+    let middle: string = propagate message.at(1)
+    let last: string = propagate message.at(message.length - 1)
     print('{first}{middle}{last}')
     return void
 }
@@ -3864,7 +3869,7 @@ entry main = f(): void => {
     let module_result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         module_result.is_ok(),
-        "string indexing should compile and lower both message[0] and message[message.length - 1]: {module_result:?}"
+        "string .at(...) should compile and lower both message.at(0) and message.at(message.length - 1): {module_result:?}"
     );
     let Ok(module) = module_result else {
         return;
@@ -3872,37 +3877,129 @@ entry main = f(): void => {
     let ir = module.print_to_string().to_string();
     assert!(
         ir.contains("declare i8* @string_index(i8*, i64)"),
-        "string indexing lowering should declare string_index as 'i8* @string_index(i8*, i64)': {ir}"
+        "string .at(...) lowering should declare string_index as 'i8* @string_index(i8*, i64)': {ir}"
     );
     assert!(
         ir.contains("call i8* @string_index(i8*"),
-        "string indexing lowering should emit calls to the runtime string_index helper: {ir}"
+        "string .at(...) lowering should emit calls to the runtime string_index helper: {ir}"
     );
     assert!(
         ir.contains("call i64 @string_length(i8*"),
-        "last-character indexing should continue to use string_length scalar semantics: {ir}"
+        "last-character .at(...) lowering should continue to use string_length scalar semantics: {ir}"
     );
     assert!(
-        ir.contains("@opal_runtime_string_index_span_start")
-            && ir.contains("@opal_runtime_string_index_span_len"),
-        "string bounds lowering should declare runtime span globals for later diagnostics: {ir}"
+        !ir.contains("@opal_runtime_string_index_span_start")
+            && !ir.contains("@opal_runtime_string_index_span_len")
+            && !ir.contains("@opal_runtime_string_index_source_path")
+            && !ir.contains("@opal_runtime_string_index_source_text"),
+        "string .at(...) success lowering should not rely on legacy runtime trap metadata globals: {ir}"
     );
     assert!(
-        ir.contains("@opal_runtime_string_index_source_path")
-            && ir.contains("@opal_runtime_string_index_source_text"),
-        "string bounds lowering should declare runtime source globals for later diagnostics: {ir}"
+        ir.contains("IndexOutOfBoundsError")
+            && ir.contains("extractvalue { i8*, i8* }")
+            && ir.contains("propagate.is_err"),
+        "string .at(...) success lowering should thread IndexOutOfBoundsError through the error ABI with propagate checks: {ir}"
+    );
+}
+
+#[test]
+fn test_string_at_lowering_uses_error_abi_without_trap_metadata() {
+    let source = "
+import print from standard
+
+##
+    Description: Entry function validates string .at(...) success and OOB lowering through guard/error ABI paths
+##
+entry main = f(): void => {
+    let message = 'hé🙂'
+    let first: string = guard message.at(0) into scalar: string else 'fallback-first'
+    let dynamic_index: int64 = 1
+    let middle: string = guard message.at(dynamic_index) into scalar: string else 'fallback-middle'
+    let last: string = guard message.at(message.length - 1) into scalar: string else 'fallback-last'
+    let one_past_end: string = guard message.at(message.length) into scalar: string else 'oob'
+    let negative: string = guard message.at(-1) into scalar: string else 'negative-oob'
+    let empty = ''
+    let empty_zero: string = guard empty.at(0) into scalar: string else 'empty-oob'
+    print('{first}{middle}{last}{one_past_end}{negative}{empty_zero}')
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "string .at(...) lowering should compile through guard/error ABI success and OOB paths: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @string_index(i8*, i64)"),
+        "string .at(...) lowering should still reuse the Unicode-scalar string_index helper for successful reads: {ir}"
     );
     assert!(
-        ir.contains("store i64")
-            && ir.contains("@opal_runtime_string_index_span_start")
-            && ir.contains("@opal_runtime_string_index_span_len"),
-        "string bounds trap blocks should record the original index-expression span before trapping: {ir}"
+        ir.contains("call i8* @string_index(i8*"),
+        "string .at(...) lowering should emit string_index calls for successful reads: {ir}"
     );
     assert!(
-        (ir.contains("store ptr") || ir.contains("store i8*"))
-            && ir.contains("@opal_runtime_string_index_source_path")
-            && ir.contains("@opal_runtime_string_index_source_text"),
-        "string bounds trap blocks should record the source filename and text before trapping: {ir}"
+        ir.contains("call i64 @string_length(i8*"),
+        "string .at(...) lowering should still consult string_length for last-index and one-past-end checks: {ir}"
+    );
+    assert!(
+        !ir.contains("@opal_runtime_string_index_span_start")
+            && !ir.contains("@opal_runtime_string_index_span_len")
+            && !ir.contains("@opal_runtime_string_index_source_path")
+            && !ir.contains("@opal_runtime_string_index_source_text"),
+        "string .at(...) should lower through the error ABI instead of trap-only runtime span metadata globals: {ir}"
+    );
+    assert!(
+        !ir.contains("@opal_array_bounds_error") && !ir.contains("llvm.trap"),
+        "string .at(...) should return IndexOutOfBoundsError through the Opalescent error ABI instead of trap-based bounds failures: {ir}"
+    );
+}
+
+#[test]
+fn test_array_at_lowering_is_compiler_lowered_without_generic_array_at_abi() {
+    let source = "
+import print from standard
+
+##
+    Description: Entry function validates array .at(...) success and OOB lowering without a generic array_at<T> ABI
+##
+entry main = f(): void => {
+    let values: int32[] = [10 as int32, 20 as int32, 30 as int32]
+    let first: int32 = guard values.at(0) into value: int32 else -1 as int32
+    let dynamic_index: int64 = 1
+    let middle: int32 = guard values.at(dynamic_index) into value: int32 else -1 as int32
+    let last: int32 = guard values.at(values.length - 1) into value: int32 else -1 as int32
+    let one_past_end: int32 = guard values.at(values.length) into value: int32 else -1 as int32
+    let negative: int32 = guard values.at(-1) into value: int32 else -1 as int32
+    let empty: int32[] = []
+    let empty_zero: int32 = guard empty.at(0) into value: int32 else -1 as int32
+    print('{first},{middle},{last},{one_past_end},{negative},{empty_zero}')
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "array .at(...) lowering should compile through guard/error ABI success and OOB paths: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("@opal_array_len") && ir.contains("@opal_array_data"),
+        "array .at(...) should be compiler-lowered with payload length/data access instead of a black-box ABI helper: {ir}"
+    );
+    assert!(
+        !ir.contains("@array_at") && !ir.contains("@opal_array_bounds_error") && !ir.contains("llvm.trap"),
+        "array .at(...) should not declare a generic array_at<T> ABI or trap-based bounds path; it must lower through the Opalescent error ABI: {ir}"
     );
 }
 

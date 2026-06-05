@@ -1285,6 +1285,102 @@ fn test_string_indexing_length_minus_one_parses() {
 }
 
 #[test]
+fn test_parse_guard_string_at_member_call() {
+    let expr = parse_expression_from_string("guard message.at(index) into scalar else fallback()")
+        .expect("guard string .at(...) should parse");
+
+    match expr {
+        Expr::Guard { expr, .. } => match expr.as_ref() {
+            Expr::Call { callee, args, .. } => {
+                assert_eq!(args.len(), 1, "string .at(...) should keep one argument");
+                assert!(matches!(&args[0], Expr::Identifier { name, .. } if name == "index"));
+                match callee.as_ref() {
+                    Expr::Member { object, member, .. } => {
+                        assert_eq!(member, "at");
+                        assert!(matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "message"));
+                    }
+                    other => panic!("expected member callee inside guard string .at(...), found: {other:?}"),
+                }
+            }
+            other => panic!("expected guard subject call for string .at(...), found: {other:?}"),
+        },
+        other => panic!("expected guard expression, found: {other:?}"),
+    }
+}
+
+#[test]
+fn test_parse_guard_array_at_member_call() {
+    let expr = parse_expression_from_string("guard xs.at(i) into value else fallback()")
+        .expect("guard array .at(...) should parse");
+
+    match expr {
+        Expr::Guard { expr, .. } => match expr.as_ref() {
+            Expr::Call { callee, args, .. } => {
+                assert_eq!(args.len(), 1, "array .at(...) should keep one argument");
+                assert!(matches!(&args[0], Expr::Identifier { name, .. } if name == "i"));
+                match callee.as_ref() {
+                    Expr::Member { object, member, .. } => {
+                        assert_eq!(member, "at");
+                        assert!(matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "xs"));
+                    }
+                    other => panic!("expected member callee inside guard array .at(...), found: {other:?}"),
+                }
+            }
+            other => panic!("expected guard subject call for array .at(...), found: {other:?}"),
+        },
+        other => panic!("expected guard expression, found: {other:?}"),
+    }
+}
+
+#[test]
+fn test_parse_propagate_string_at_member_call() {
+    let expr = parse_expression_from_string("propagate message.at(index)")
+        .expect("propagate string .at(...) should parse");
+
+    match expr {
+        Expr::Propagate { call, .. } => match call.as_ref() {
+            Expr::Call { callee, args, .. } => {
+                assert_eq!(args.len(), 1, "string .at(...) should keep one argument");
+                assert!(matches!(&args[0], Expr::Identifier { name, .. } if name == "index"));
+                match callee.as_ref() {
+                    Expr::Member { object, member, .. } => {
+                        assert_eq!(member, "at");
+                        assert!(matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "message"));
+                    }
+                    other => panic!("expected member callee inside propagate string .at(...), found: {other:?}"),
+                }
+            }
+            other => panic!("expected propagated call for string .at(...), found: {other:?}"),
+        },
+        other => panic!("expected propagate expression, found: {other:?}"),
+    }
+}
+
+#[test]
+fn test_parse_propagate_array_at_member_call() {
+    let expr = parse_expression_from_string("propagate xs.at(i)")
+        .expect("propagate array .at(...) should parse");
+
+    match expr {
+        Expr::Propagate { call, .. } => match call.as_ref() {
+            Expr::Call { callee, args, .. } => {
+                assert_eq!(args.len(), 1, "array .at(...) should keep one argument");
+                assert!(matches!(&args[0], Expr::Identifier { name, .. } if name == "i"));
+                match callee.as_ref() {
+                    Expr::Member { object, member, .. } => {
+                        assert_eq!(member, "at");
+                        assert!(matches!(object.as_ref(), Expr::Identifier { name, .. } if name == "xs"));
+                    }
+                    other => panic!("expected member callee inside propagate array .at(...), found: {other:?}"),
+                }
+            }
+            other => panic!("expected propagated call for array .at(...), found: {other:?}"),
+        },
+        other => panic!("expected propagate expression, found: {other:?}"),
+    }
+}
+
+#[test]
 fn test_operator_precedence() {
     // Test that multiplication has higher precedence than addition
     let precedence_expr = parse_expression_from_string("1 + 2 * 3").unwrap();

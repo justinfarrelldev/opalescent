@@ -46,7 +46,7 @@ let handle_request = f(server: ref Server, req: Request): Response =>
         if path_parts.len() < 2:
             return Response{ status: 404, body: "Not Found" }
 
-        let resource = path_parts[1]
+        let resource: string = guard path_parts.at(1) into value: string else ""
 
         match resource:
             "users":
@@ -66,7 +66,7 @@ let handle_users = f(server: ref Server, req: Request, parts: ref string[]): Res
     # Still inside the caller's region
 
     if req.method is "GET" and parts.len() >= 3:
-        let user_id = parts[2]
+        let user_id: string = guard parts.at(2) into value: string else ""
 
         # Read ARC cache (long-lived, shared) — no copy
         let cached = server.user_cache.get(user_id)

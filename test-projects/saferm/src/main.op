@@ -1,7 +1,7 @@
 import current_working_directory_sync from process
 import list_directory_sync, join_path_components, path_to_string, path_exists_sync, is_directory_sync, take_input from standard
 import print_help from ./help
-import force_options, prompt_each_options, prompt_once_options, prompt_never_options, recursive_options, preserve_root_options, preserve_root_all_options, no_preserve_root_options, verbose_options, dir_options, one_file_system_options, help_options, version_options, contains_string from ./options
+import force_options, prompt_each_options, prompt_once_options, prompt_never_options, recursive_options, preserve_root_options, preserve_root_all_options, no_preserve_root_options, verbose_options, dir_options, one_file_system_options, help_options, version_options, contains_string, starts_with_dash from ./options
 import trash_directory, create_trash_path_if_not_exists, get_trash_entries, move_to_destination, trash_entry_exists, targets_current_directory, targets_root_directory from ./trash
 
 ##
@@ -20,18 +20,19 @@ let should_confirm = f(prompt: string): boolean =>
 
     This is a Unix-only program, not meant for Windows
 ##
-entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, InvalidEnvironmentVariableNameError, InvalidUtf8Error =>
+entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, InvalidEnvironmentVariableNameError, InvalidUtf8Error, IndexOutOfBoundsError =>
     let dest = propagate trash_directory()
 
     if args.length < 2:
         print('Please provide the names of the files you wish to remove after the call. Example: "saferm myfile1.txt myfile2.txt"')
         return void
 
-    if args[1] is '--help' or args[1] is 'help':
+    let first_arg = propagate args.at(1)
+    if first_arg is '--help' or first_arg is 'help':
         print_help(dest)
         return void
 
-    if args[1] is '--version':
+    if first_arg is '--version':
         print('saferm 1.0.0')
         return void
 
@@ -59,7 +60,7 @@ entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDe
 
     let mutable option_index = 1
     while option_index < args.length:
-        let arg = args[option_index]
+        let arg: string = propagate args.at(option_index)
 
         if parse_options:
             let mutable handled_option = false
@@ -136,6 +137,9 @@ entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDe
                 handled_option = true
 
             if handled_option is false:
+                if starts_with_dash(arg):
+                    print('saferm: unrecognized option {arg}')
+                    return void
                 operands.push(arg)
                 operand_count = operand_count + 1
         else:

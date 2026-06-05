@@ -29,10 +29,11 @@ This is less flexible than no-newline output, but it matches the current testing
 ```opal
 import print_line from standard
 
-let print_board = f(board: int32[][]): void errors WriteFailureError, SinkClosedError =>
+let print_board = f(board: int32[][]): void errors WriteFailureError, SinkClosedError, IndexOutOfBoundsError =>
     let mutable row_index: int64 = 0
     while row_index < board.length:
-        propagate print_line(render_row(board[row_index]))
+        let row = propagate board.at(row_index)
+        propagate print_line(render_row(row))
         row_index = row_index + 1
     return void
 ```

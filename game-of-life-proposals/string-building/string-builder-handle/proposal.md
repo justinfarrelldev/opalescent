@@ -25,11 +25,12 @@ Prior art includes Java `StringBuilder`, C# `StringBuilder`, Rust `String`, Swif
 ```opal
 import string_builder_new, string_builder_push, string_builder_finish from standard
 
-let render_row = f(row: int32[]): string =>
+let render_row = f(row: int32[]): string errors IndexOutOfBoundsError =>
     let builder = string_builder_new()
     let mutable column: int64 = 0
     while column < row.length:
-        if row[column] is (1 as int32):
+        let cell = propagate row.at(column)
+        if cell is (1 as int32):
             string_builder_push(builder, '#')
         else:
             string_builder_push(builder, '.')
@@ -42,11 +43,12 @@ let render_row = f(row: int32[]): string =>
 ```opal
 import string_builder_new, string_builder_push, string_builder_finish from standard
 
-let render_board = f(board: int32[][]): string =>
+let render_board = f(board: int32[][]): string errors IndexOutOfBoundsError =>
     let builder = string_builder_new()
     let mutable row_index: int64 = 0
     while row_index < board.length:
-        string_builder_push(builder, render_row(board[row_index]))
+        let row = propagate board.at(row_index)
+        string_builder_push(builder, propagate render_row(row))
         string_builder_push(builder, '\n')
         row_index = row_index + 1
     return string_builder_finish(builder)

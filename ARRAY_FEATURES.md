@@ -79,7 +79,10 @@ entry main = f(args: string[]): void =>
 
     let mutable i: int64 = 0
     while i < scores.length:
-        print('Score: {scores[i]}')
+        guard scores.at(i) into score else err =>
+            print('Could not read score: {err}')
+            return void
+        print('Score: {score}')
         i = i + 1
 
     return void
@@ -90,13 +93,14 @@ entry main = f(args: string[]): void =>
 ```opal
 import append, read_lines_sync, path_from from standard
 
-let collect_non_empty = f(path: string): string[] errors FileNotFoundError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, PermissionDeniedError =>
+let collect_non_empty = f(path: string): string[] errors FileNotFoundError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, PermissionDeniedError, IndexOutOfBoundsError =>
     let lines = propagate read_lines_sync(path_from(path))
     let mutable result: string[] = []
     let mutable i: int64 = 0
     while i < lines.length:
-        if lines[i].length > 0:
-            result = append(result, lines[i])
+        let line = propagate lines.at(i)
+        if line.length > 0:
+            result = append(result, line)
         i = i + 1
     return result
 
@@ -113,22 +117,28 @@ entry main = f(args: string[]): void =>
 ```opal
 import append from standard
 
-let concat_arrays = f(left: int32[], right: int32[]): int32[] =>
+let concat_arrays = f(left: int32[], right: int32[]): int32[] errors IndexOutOfBoundsError =>
     let mutable out = left
     let mutable i: int64 = 0
     while i < right.length:
-        out = append(out, right[i])
+        let value = propagate right.at(i)
+        out = append(out, value)
         i = i + 1
     return out
 
 entry main = f(args: string[]): void =>
     let a: int32[] = [1 as int32, 2 as int32, 3 as int32]
     let b: int32[] = [4 as int32, 5 as int32, 6 as int32]
-    let combined = concat_arrays(a, b)
+    guard concat_arrays(a, b) into combined else err =>
+        print('Could not combine arrays: {err}')
+        return void
 
     let mutable i: int64 = 0
     while i < combined.length:
-        print('{combined[i]}')
+        guard combined.at(i) into value else err =>
+            print('Could not print combined value: {err}')
+            return void
+        print('{value}')
         i = i + 1
 
     return void
@@ -139,11 +149,12 @@ entry main = f(args: string[]): void =>
 ```opal
 import append, string_to_int32 from standard
 
-let parse_valid_numbers = f(inputs: string[]): int32[] =>
+let parse_valid_numbers = f(inputs: string[]): int32[] errors IndexOutOfBoundsError =>
     let mutable valid: int32[] = []
     let mutable i: int64 = 0
     while i < inputs.length:
-        guard string_to_int32(inputs[i]) into n else err =>
+        let raw = propagate inputs.at(i)
+        guard string_to_int32(raw) into n else err =>
             print('Skipping invalid number: {err}')
             i = i + 1
             continue
@@ -153,7 +164,9 @@ let parse_valid_numbers = f(inputs: string[]): int32[] =>
 
 entry main = f(args: string[]): void =>
     let raw: string[] = ['42', 'hello', '7', 'world', '100']
-    let numbers = parse_valid_numbers(raw)
+    guard parse_valid_numbers(raw) into numbers else err =>
+        print('Could not parse numbers: {err}')
+        return void
     print('Parsed {numbers.length} valid numbers')
     return void
 ```
@@ -265,15 +278,16 @@ let grid: boolean[][] = ...
 # Literal
 let matrix: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
 
-# Access — each [] consumes one dimension
-let value = matrix[row][col]
+# Access, each `.at(...)` consumes one dimension
+let row_values = propagate matrix.at(row)
+let value = propagate row_values.at(col)
 ```
 
 ### Rules
 
 - `T[][]` means "array of `T[]`". `T[][][]` would be "array of `T[][]`", and so on.
-- Index access is left-to-right: `grid[r][c]` first resolves row `r`, then column `c`.
-- Each inner array has its own `.length`. `grid.length` is the number of rows; `grid[r].length` is the width of row `r`.
+- Access is left-to-right: `grid.at(r)` resolves row `r`, then `.at(c)` resolves a column within that row.
+- Each inner array has its own `.length`. `grid.length` is the number of rows; after `guard grid.at(r) into row else err => ...`, `row.length` is the width of that row.
 - Jagged arrays (rows of different lengths) are permitted. There is no built-in rectangular enforcement.
 
 ### Value Semantics and Aliasing
@@ -284,21 +298,17 @@ value. Constructing a grid from a shared row binding does not create aliases:
 ```opal
 let row: int32[] = [1 as int32, 2 as int32]
 let grid: int32[][] = [row, row]
-# grid[0] and grid[1] are independent copies (or COW-shared until either is mutated).
-# Writing to grid[0] will NOT affect grid[1].
+# The first and second rows are independent copies (or COW-shared until either is mutated).
+# Writing through one row binding will NOT affect the other.
 ```
 
 This is intentional and safe but differs from languages with reference semantics, where
-`grid[0]` and `grid[1]` would alias the same underlying storage. Be aware of this when
+re-reading the first and second rows could alias the same underlying storage. Be aware of this when
 porting algorithms that rely on aliased rows.
 
 ### Length Tracking
 
-`grid.length` is the number of rows and is straightforward. `grid[r].length` requires
-per-row length tracking at runtime — a single compile-time constant is not sufficient
-for jagged arrays. The codegen must maintain a separate length binding for each
-extracted row value, not just for the outer array. This is one of the concrete open
-implementation items.
+`grid.length` is the number of rows and is straightforward. After `guard grid.at(r) into row else err => ...`, `row.length` requires per-row length tracking at runtime, because a single compile-time constant is not sufficient for jagged arrays. The codegen must maintain a separate length binding for each extracted row value, not just for the outer array. This is one of the concrete open implementation items.
 
 ### Rectangular Arrays and `Matrix<T>`
 
@@ -309,7 +319,7 @@ per row access.
 
 A future `Matrix<T>` type backed by a flat `T[]` with explicit `width` and `height`
 fields is the right solution for rectangular data. It gives a single contiguous
-allocation, O(1) `[row][col]` indexing via a single multiply-add, and enforced
+allocation, O(1) row-and-column addressing via a single multiply-add, and enforced
 rectangular invariants. The flat manual-index encoding shown in Example 2
 (`cell_index` helper) is the practical workaround until then.
 
@@ -327,9 +337,16 @@ entry main = f(args: string[]): void =>
 
     let mutable row: int64 = 0
     while row < matrix.length:
+        guard matrix.at(row) into row_values else err =>
+            print('Could not read row: {err}')
+            return void
+
         let mutable col: int64 = 0
-        while col < matrix[row].length:
-            print('{matrix[row][col]} ')
+        while col < row_values.length:
+            guard row_values.at(col) into value else err =>
+                print('Could not read matrix value: {err}')
+                return void
+            print('{value} ')
             col = col + 1
         print('')
         row = row + 1
@@ -365,7 +382,10 @@ entry main = f(args: string[]): void =>
         let mutable col: int64 = 0
         while col < width:
             let idx = cell_index(row, col, width)
-            if grid[idx] is 1 as int32:
+            guard grid.at(idx) into cell else err =>
+                print('Could not read cell: {err}')
+                return void
+            if cell is 1 as int32:
                 print('#')
             else:
                 print('.')
@@ -383,7 +403,9 @@ entry main = f(args: string[]): void =>
 #     [0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32],
 #     [0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32]
 # ]
-# let alive = grid[row][col] is 1 as int32
+# guard grid.at(row) into row_values else err => return void
+# guard row_values.at(col) into alive else err => return void
+# let is_alive = alive is 1 as int32
 ```
 
 **Example 3 — Adjacency list (jagged 2D array)**
@@ -404,9 +426,15 @@ entry main = f(args: string[]): void =>
     let mutable node: int64 = 0
     while node < adjacency.length:
         print('Node {node} neighbours: ')
+        guard adjacency.at(node) into neighbours else err =>
+            print('Could not read adjacency row: {err}')
+            return void
         let mutable n: int64 = 0
-        while n < adjacency[node].length:
-            print('{adjacency[node][n]} ')
+        while n < neighbours.length:
+            guard neighbours.at(n) into neighbour else err =>
+                print('Could not read neighbour: {err}')
+                return void
+            print('{neighbour} ')
             n = n + 1
         print('')
         node = node + 1
@@ -419,16 +447,19 @@ entry main = f(args: string[]): void =>
 ```opal
 import append from standard
 
-let transpose = f(matrix: int32[][]): int32[][] =>
+let transpose = f(matrix: int32[][]): int32[][] errors IndexOutOfBoundsError =>
     let rows = matrix.length
-    let cols = matrix[0].length
+    let first_row = propagate matrix.at(0)
+    let cols = first_row.length
     let mutable result: int32[][] = []
     let mutable c: int64 = 0
     while c < cols:
         let mutable row_out: int32[] = []
         let mutable r: int64 = 0
         while r < rows:
-            row_out = append(row_out, matrix[r][c])
+            let source_row = propagate matrix.at(r)
+            let value = propagate source_row.at(c)
+            row_out = append(row_out, value)
             r = r + 1
         result = append(result, row_out)
         c = c + 1
@@ -436,13 +467,21 @@ let transpose = f(matrix: int32[][]): int32[][] =>
 
 entry main = f(args: string[]): void =>
     let m: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32]]
-    let t = transpose(m)
+    guard transpose(m) into t else err =>
+        print('Could not transpose matrix: {err}')
+        return void
 
     let mutable r: int64 = 0
     while r < t.length:
+        guard t.at(r) into row_values else err =>
+            print('Could not read transposed row: {err}')
+            return void
         let mutable c: int64 = 0
-        while c < t[r].length:
-            print('{t[r][c]} ')
+        while c < row_values.length:
+            guard row_values.at(c) into value else err =>
+                print('Could not read transposed value: {err}')
+                return void
+            print('{value} ')
             c = c + 1
         print('')
         r = r + 1
@@ -456,7 +495,7 @@ entry main = f(args: string[]): void =>
 |---|---|---|---|
 | `T[][]` type annotation | ✅ | ✅ | ⚠️ Partial |
 | `[[...], [...]]` literal | ✅ | ✅ | ❌ Not yet |
-| `arr[r][c]` read access | ✅ | ✅ | ❌ Not yet |
+| `arr.at(r)` then `.at(c)` read access | ✅ | ✅ | ❌ Not yet |
 | `arr[r][c] = val` write | ✅ | ✅ | ❌ Not yet |
 
 The parser and type system handle `T[][]` correctly throughout. The codegen gap is that

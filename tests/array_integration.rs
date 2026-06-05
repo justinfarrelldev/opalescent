@@ -166,7 +166,7 @@ mod tests {
     fn array_append_unique_input_pure() {
         let temp_dir = write_temp_project_source(
             "array-append-unique-input-pure",
-            "import append from standard\n\n##\n  Description: Verifies append returns a new array without mutating a unique receiver.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = [1 as int32, 2 as int32]\n    let grown = append(xs, 3 as int32)\n    print('xs length {xs.length}')\n    print('xs values {xs[0]} {xs[1]}')\n    print('grown length {grown.length}')\n    print('grown values {grown[0]} {grown[1]} {grown[2]}')\n    return void\n",
+            "import append from standard\n\n##\n  Description: Verifies append returns a new array without mutating a unique receiver.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let xs: int32[] = [1 as int32, 2 as int32]\n    let grown = append(xs, 3 as int32)\n    print('xs length {xs.length}')\n    print('xs values {propagate xs.at(0)} {propagate xs.at(1)}')\n    print('grown length {grown.length}')\n    print('grown values {propagate grown.at(0)} {propagate grown.at(1)} {propagate grown.at(2)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -188,7 +188,7 @@ mod tests {
     fn array_append_shared_input_pure() {
         let temp_dir = write_temp_project_source(
             "array-append-shared-input-pure",
-            "import append from standard\n\n##\n  Description: Verifies append leaves all shared aliases unchanged.\n##\nentry main = f(args: string[]): void =>\n    let base: int32[] = [4 as int32, 5 as int32]\n    let shared = base\n    let grown = append(base, 6 as int32)\n    print('base length {base.length}')\n    print('base values {base[0]} {base[1]}')\n    print('shared length {shared.length}')\n    print('shared values {shared[0]} {shared[1]}')\n    print('grown length {grown.length}')\n    print('grown values {grown[0]} {grown[1]} {grown[2]}')\n    return void\n",
+            "import append from standard\n\n##\n  Description: Verifies append leaves all shared aliases unchanged.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let base: int32[] = [4 as int32, 5 as int32]\n    let shared = base\n    let grown = append(base, 6 as int32)\n    print('base length {base.length}')\n    print('base values {propagate base.at(0)} {propagate base.at(1)}')\n    print('shared length {shared.length}')\n    print('shared values {propagate shared.at(0)} {propagate shared.at(1)}')\n    print('grown length {grown.length}')\n    print('grown values {propagate grown.at(0)} {propagate grown.at(1)} {propagate grown.at(2)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -225,19 +225,22 @@ mod tests {
     fn array_double_nested_out_of_bounds_reports_row_length() {
         let temp_dir = write_temp_project_source(
             "array-double-nested-bounds",
-            "##\n  Description: Verifies nested array bounds checks use the inner row length.\n##\nentry main = f(args: string[]): void =>\n    let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]\n    let value = jagged[1][0]\n    print('value {value}')\n    return void\n",
+            "##\n  Description: Verifies nested array .at(...) uses the inner row length semantics.\n##\nentry main = f(args: string[]): void =>\n    let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]\n    let row: int32[] = guard jagged.at(1) into found_row: int32[] else []\n    let value: int32 = guard row.at(0) into found_value: int32 else -1 as int32\n    print('value {value}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let combined = format!("{stdout}\n{stderr}");
         assert!(
-            !output.status.success() || combined.contains("index 0 is out of bounds for length 0"),
-            "nested bounds fixture should report a runtime bounds error, stdout/stderr: {combined}"
+            output.status.success(),
+            "nested .at(...) bounds fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
         );
-        assert!(
-            combined.contains("index 0 is out of bounds for length 0"),
-            "nested bounds output should mention the inner row length, stdout/stderr: {combined}"
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(
+            actual,
+            "value -1\n",
+            "nested .at(...) fixture should use the inner row length and fall back for the empty row"
         );
     }
 
@@ -245,7 +248,7 @@ mod tests {
     fn array_zip_equal_lengths() {
         let temp_dir = write_temp_project_source(
             "array-zip-equal",
-            "##\n  Description: Verifies zip preserves all pairs when both arrays have equal length.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [1 as int32, 2 as int32]\n    let right: string[] = ['a', 'b']\n    let pairs = left.zip(right)\n    print('length {pairs.length}')\n    print('pair0 {pairs[0].first} {pairs[0].second}')\n    print('pair1 {pairs[1].first} {pairs[1].second}')\n    return void\n",
+            "##\n  Description: Verifies zip preserves all pairs when both arrays have equal length.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [1 as int32, 2 as int32]\n    let right: string[] = ['a', 'b']\n    let pairs = left.zip(right)\n    let mutable pair_index: int64 = 0\n    print('length {pairs.length}')\n    for pair in pairs:\n        if pair_index is 0:\n            print('pair0 {pair.first} {pair.second}')\n        if pair_index is 1:\n            print('pair1 {pair.first} {pair.second}')\n        pair_index = pair_index + 1\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -299,7 +302,7 @@ mod tests {
     fn array_push_cow_alias() {
         let temp_dir = write_temp_project_source(
             "array-push-cow-alias",
-            "##\n  Description: Verifies push uses alias-preserving COW rebinding.\n##\nentry main = f(args: string[]): void =>\n    let base: int32[] = [1 as int32, 2 as int32]\n    let mutable grown = base\n    grown.push(3 as int32)\n    print('base length {base.length}')\n    print('base values {base[0]} {base[1]}')\n    print('grown length {grown.length}')\n    print('grown values {grown[0]} {grown[1]} {grown[2]}')\n    return void\n",
+            "##\n  Description: Verifies push uses alias-preserving COW rebinding.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let base: int32[] = [1 as int32, 2 as int32]\n    let mutable grown = base\n    grown.push(3 as int32)\n    print('base length {base.length}')\n    print('base values {propagate base.at(0)} {propagate base.at(1)}')\n    print('grown length {grown.length}')\n    print('grown values {propagate grown.at(0)} {propagate grown.at(1)} {propagate grown.at(2)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -365,9 +368,10 @@ mod tests {
 
     #[test]
     fn array_index_assignment_unique_in_place() {
+        // Indexed assignment remains a supported compile-pass regression while legacy bracket reads are retired separately.
         let temp_dir = write_temp_project_source(
             "array-index-assignment-unique-in-place",
-            "##\n  Description: Verifies identifier-backed indexed assignment mutates in-place when the receiver is uniquely owned.\n##\nentry main = f(args: string[]): void =>\n    let mutable xs: int32[] = [1 as int32, 2 as int32, 3 as int32]\n    xs[1] = 9 as int32\n    print('length {xs.length}')\n    print('values {xs[0]} {xs[1]} {xs[2]}')\n    return void\n",
+            "##\n  Description: Verifies identifier-backed indexed assignment mutates in-place when the receiver is uniquely owned.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let mutable xs: int32[] = [1 as int32, 2 as int32, 3 as int32]\n    xs[1] = 9 as int32\n    print('length {xs.length}')\n    print('values {propagate xs.at(0)} {propagate xs.at(1)} {propagate xs.at(2)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -386,7 +390,7 @@ mod tests {
     fn array_index_assignment_cow_alias() {
         let temp_dir = write_temp_project_source(
             "array-index-assignment-cow-alias",
-            "##\n  Description: Verifies indexed assignment only rebinds the mutable identifier.\n##\nentry main = f(args: string[]): void =>\n    let base: int32[] = [1 as int32, 2 as int32, 3 as int32]\n    let mutable xs = base\n    xs[1] = 9 as int32\n    xs[0] = 7 as int32\n    print('base length {base.length}')\n    print('base values {base[0]} {base[1]} {base[2]}')\n    print('xs length {xs.length}')\n    print('xs values {xs[0]} {xs[1]} {xs[2]}')\n    return void\n",
+            "##\n  Description: Verifies indexed assignment only rebinds the mutable identifier.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let base: int32[] = [1 as int32, 2 as int32, 3 as int32]\n    let mutable xs = base\n    xs[1] = 9 as int32\n    xs[0] = 7 as int32\n    print('base length {base.length}')\n    print('base values {propagate base.at(0)} {propagate base.at(1)} {propagate base.at(2)}')\n    print('xs length {xs.length}')\n    print('xs values {propagate xs.at(0)} {propagate xs.at(1)} {propagate xs.at(2)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -408,7 +412,7 @@ mod tests {
     fn array_index_assignment_rc_nested_row_rebind() {
         let temp_dir = write_temp_project_source(
             "array-index-assignment-rc-nested-row-rebind",
-            "##\n  Description: Verifies indexed assignment handles RC-backed nested array elements via COW rebinding.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [1 as int32, 2 as int32]\n    let right: int32[] = [8 as int32, 9 as int32]\n    let base: int32[][] = [left, left]\n    let mutable xs = base\n    xs[1] = right\n    print('base left {base[0][0]} {base[0][1]}')\n    print('base right {base[1][0]} {base[1][1]}')\n    print('xs left {xs[0][0]} {xs[0][1]}')\n    print('xs right {xs[1][0]} {xs[1][1]}')\n    return void\n",
+            "##\n  Description: Verifies indexed assignment handles RC-backed nested array elements via COW rebinding.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let left: int32[] = [1 as int32, 2 as int32]\n    let right: int32[] = [8 as int32, 9 as int32]\n    let base: int32[][] = [left, left]\n    let mutable xs = base\n    xs[1] = right\n    let base_left: int32[] = propagate base.at(0)\n    let base_right: int32[] = propagate base.at(1)\n    let xs_left: int32[] = propagate xs.at(0)\n    let xs_right: int32[] = propagate xs.at(1)\n    print('base left {propagate base_left.at(0)} {propagate base_left.at(1)}')\n    print('base right {propagate base_right.at(0)} {propagate base_right.at(1)}')\n    print('xs left {propagate xs_left.at(0)} {propagate xs_left.at(1)}')\n    print('xs right {propagate xs_right.at(0)} {propagate xs_right.at(1)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -430,7 +434,7 @@ mod tests {
     fn array_self_assignment_rc_safe() {
         let temp_dir = write_temp_project_source(
             "array-self-assignment-rc-safe",
-            "##\n  Description: Verifies self-assignment keeps RC-bearing array binding stable and value-preserving.\n##\nentry main = f(args: string[]): void =>\n    let row: int32[] = [4 as int32]\n    let mutable rows: int32[][] = [row]\n    rows = rows\n    print('rows length {rows.length}')\n    print('rows first {rows[0][0]}')\n    return void\n",
+            "##\n  Description: Verifies self-assignment keeps RC-bearing array binding stable and value-preserving.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let row: int32[] = [4 as int32]\n    let mutable rows: int32[][] = [row]\n    rows = rows\n    let row0: int32[] = propagate rows.at(0)\n    print('rows length {rows.length}')\n    print('rows first {propagate row0.at(0)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -449,7 +453,7 @@ mod tests {
     fn array_rebind_releases_old_preserves_alias() {
         let temp_dir = write_temp_project_source(
             "array-rebind-releases-old-preserves-alias",
-            "##\n  Description: Verifies rebinding a mutable array variable releases old binding while preserving aliases.\n##\nentry main = f(args: string[]): void =>\n    let base: int32[] = [1 as int32, 2 as int32]\n    let mutable xs = base\n    let replacement: int32[] = [7 as int32, 8 as int32, 9 as int32]\n    xs = replacement\n    print('base length {base.length}')\n    print('base values {base[0]} {base[1]}')\n    print('xs length {xs.length}')\n    print('xs values {xs[0]} {xs[1]} {xs[2]}')\n    return void\n",
+            "##\n  Description: Verifies rebinding a mutable array variable releases old binding while preserving aliases.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let base: int32[] = [1 as int32, 2 as int32]\n    let mutable xs = base\n    let replacement: int32[] = [7 as int32, 8 as int32, 9 as int32]\n    xs = replacement\n    print('base length {base.length}')\n    print('base values {propagate base.at(0)} {propagate base.at(1)}')\n    print('xs length {xs.length}')\n    print('xs values {propagate xs.at(0)} {propagate xs.at(1)} {propagate xs.at(2)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -471,7 +475,7 @@ mod tests {
     fn array_param_local_alias_mutation_rc_safe() {
         let temp_dir = write_temp_project_source(
             "array-param-local-alias-mutation-rc-safe",
-            "##\n  Description: Verifies function parameter/local array alias mutation uses COW rebinding and preserves caller aliases.\n##\n##\n  Description: Mutates a local alias of the parameter and prints local values.\n##\nlet grow_once = f(source: int32[]): void =>\n    let mutable local = source\n    local.push(3 as int32)\n    print('local length {local.length}')\n    print('local values {local[0]} {local[1]} {local[2]}')\n    return void\n\n##\n  Description: Calls grow_once then prints the original array alias.\n##\nentry main = f(args: string[]): void =>\n    let base: int32[] = [1 as int32, 2 as int32]\n    grow_once(base)\n    print('base length {base.length}')\n    print('base values {base[0]} {base[1]}')\n    return void\n",
+            "##\n  Description: Verifies function parameter/local array alias mutation uses COW rebinding and preserves caller aliases.\n##\n##\n  Description: Mutates a local alias of the parameter and prints local values.\n##\nlet grow_once = f(source: int32[]): void errors IndexOutOfBoundsError =>\n    let mutable local = source\n    local.push(3 as int32)\n    print('local length {local.length}')\n    print('local values {propagate local.at(0)} {propagate local.at(1)} {propagate local.at(2)}')\n    return void\n\n##\n  Description: Calls grow_once then prints the original array alias.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let base: int32[] = [1 as int32, 2 as int32]\n    propagate grow_once(base)\n    print('base length {base.length}')\n    print('base values {propagate base.at(0)} {propagate base.at(1)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -493,7 +497,7 @@ mod tests {
     fn array_nested_read_returns_correct_jagged_value() {
         let temp_dir = write_temp_project_source(
             "array-nested-read-returns-correct-jagged-value",
-            "##\n  Description: Verifies jagged nested array reads load the selected row before loading the selected cell.\n##\nentry main = f(args: string[]): void =>\n    let rows: int32[][] = [[1 as int32], [4 as int32, 5 as int32, 6 as int32], [9 as int32, 8 as int32]]\n    print('row1col2 {rows[1][2]}')\n    print('row2col0 {rows[2][0]}')\n    return void\n",
+            "##\n  Description: Verifies jagged nested array reads load the selected row before loading the selected cell.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let rows: int32[][] = [[1 as int32], [4 as int32, 5 as int32, 6 as int32], [9 as int32, 8 as int32]]\n    let row1: int32[] = propagate rows.at(1)\n    let row2: int32[] = propagate rows.at(2)\n    print('row1col2 {propagate row1.at(2)}')\n    print('row2col0 {propagate row2.at(0)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -512,7 +516,7 @@ mod tests {
     fn array_nested_assignment_unique_row() {
         let temp_dir = write_temp_project_source(
             "array-nested-assignment-unique-row",
-            "##\n  Description: Verifies nested indexed assignment mutates a unique outer array and unique inner row in place.\n##\nentry main = f(args: string[]): void =>\n    let mutable rows: int32[][] = [[1 as int32, 2 as int32], [3 as int32, 4 as int32, 5 as int32]]\n    rows[1][1] = 9 as int32\n    print('row0 {rows[0][0]} {rows[0][1]}')\n    print('row1 {rows[1][0]} {rows[1][1]} {rows[1][2]}')\n    return void\n",
+            "##\n  Description: Verifies nested indexed assignment mutates a unique outer array and unique inner row in place.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let mutable rows: int32[][] = [[1 as int32, 2 as int32], [3 as int32, 4 as int32, 5 as int32]]\n    rows[1][1] = 9 as int32\n    let row0: int32[] = propagate rows.at(0)\n    let row1: int32[] = propagate rows.at(1)\n    print('row0 {propagate row0.at(0)} {propagate row0.at(1)}')\n    print('row1 {propagate row1.at(0)} {propagate row1.at(1)} {propagate row1.at(2)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -531,7 +535,7 @@ mod tests {
     fn array_nested_assignment_shared_inner_row_cow() {
         let temp_dir = write_temp_project_source(
             "array-nested-assignment-shared-inner-row-cow",
-            "##\n  Description: Verifies nested indexed assignment clones the inner row before writing when the row is shared inside a unique outer array.\n##\nentry main = f(args: string[]): void =>\n    let shared: int32[] = [1 as int32, 2 as int32, 3 as int32]\n    let mutable rows: int32[][] = [shared, shared]\n    rows[1][1] = 9 as int32\n    print('row0 {rows[0][0]} {rows[0][1]} {rows[0][2]}')\n    print('row1 {rows[1][0]} {rows[1][1]} {rows[1][2]}')\n    return void\n",
+            "##\n  Description: Verifies nested indexed assignment clones the inner row before writing when the row is shared inside a unique outer array.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let shared: int32[] = [1 as int32, 2 as int32, 3 as int32]\n    let mutable rows: int32[][] = [shared, shared]\n    rows[1][1] = 9 as int32\n    let row0: int32[] = propagate rows.at(0)\n    let row1: int32[] = propagate rows.at(1)\n    print('row0 {propagate row0.at(0)} {propagate row0.at(1)} {propagate row0.at(2)}')\n    print('row1 {propagate row1.at(0)} {propagate row1.at(1)} {propagate row1.at(2)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -550,7 +554,7 @@ mod tests {
     fn array_nested_assignment_shared_outer_unique_inner_row_cow() {
         let temp_dir = write_temp_project_source(
             "array-nested-assignment-shared-outer-unique-inner-row-cow",
-            "##\n  Description: Verifies nested indexed assignment clones through the outer array when the outer array is shared even if the selected inner row is unique.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [1 as int32, 2 as int32]\n    let right: int32[] = [7 as int32, 8 as int32]\n    let base: int32[][] = [left, right]\n    let mutable rows = base\n    rows[1][0] = 5 as int32\n    print('base row1 {base[1][0]} {base[1][1]}')\n    print('rows row1 {rows[1][0]} {rows[1][1]}')\n    return void\n",
+            "##\n  Description: Verifies nested indexed assignment clones through the outer array when the outer array is shared even if the selected inner row is unique.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let left: int32[] = [1 as int32, 2 as int32]\n    let right: int32[] = [7 as int32, 8 as int32]\n    let base: int32[][] = [left, right]\n    let mutable rows = base\n    rows[1][0] = 5 as int32\n    let base_row1: int32[] = propagate base.at(1)\n    let rows_row1: int32[] = propagate rows.at(1)\n    print('base row1 {propagate base_row1.at(0)} {propagate base_row1.at(1)}')\n    print('rows row1 {propagate rows_row1.at(0)} {propagate rows_row1.at(1)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -569,7 +573,7 @@ mod tests {
     fn array_nested_assignment_shared_outer_and_inner_cow() {
         let temp_dir = write_temp_project_source(
             "array-nested-assignment-shared-outer-and-inner-cow",
-            "##\n  Description: Verifies nested indexed assignment preserves aliases when both the outer array and selected inner row are shared.\n##\nentry main = f(args: string[]): void =>\n    let shared: int32[] = [1 as int32, 2 as int32]\n    let base: int32[][] = [shared, shared]\n    let mutable rows = base\n    rows[1][0] = 6 as int32\n    print('base row0 {base[0][0]} {base[0][1]}')\n    print('base row1 {base[1][0]} {base[1][1]}')\n    print('rows row0 {rows[0][0]} {rows[0][1]}')\n    print('rows row1 {rows[1][0]} {rows[1][1]}')\n    return void\n",
+            "##\n  Description: Verifies nested indexed assignment preserves aliases when both the outer array and selected inner row are shared.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let shared: int32[] = [1 as int32, 2 as int32]\n    let base: int32[][] = [shared, shared]\n    let mutable rows = base\n    rows[1][0] = 6 as int32\n    let base_row0: int32[] = propagate base.at(0)\n    let base_row1: int32[] = propagate base.at(1)\n    let rows_row0: int32[] = propagate rows.at(0)\n    let rows_row1: int32[] = propagate rows.at(1)\n    print('base row0 {propagate base_row0.at(0)} {propagate base_row0.at(1)}')\n    print('base row1 {propagate base_row1.at(0)} {propagate base_row1.at(1)}')\n    print('rows row0 {propagate rows_row0.at(0)} {propagate rows_row0.at(1)}')\n    print('rows row1 {propagate rows_row1.at(0)} {propagate rows_row1.at(1)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -630,7 +634,7 @@ mod tests {
     fn array_filled() {
         let temp_dir = write_temp_project_source(
             "array-filled",
-            "import array_filled from standard\n\n##\n  Description: Verifies array_filled allocates len=cap=length and repeats values.\n##\nentry main = f(args: string[]): void =>\n    let values: int32[] = array_filled(3 as int64, 7 as int32)\n    print('length {values.length}')\n    print('values {values[0]} {values[1]} {values[2]}')\n    let row: int32[] = [9 as int32]\n    let nested: int32[][] = array_filled(2 as int64, row)\n    print('nested length {nested.length}')\n    print('nested values {nested[0][0]} {nested[1][0]}')\n    return void\n",
+            "import array_filled from standard\n\n##\n  Description: Verifies array_filled allocates len=cap=length and repeats values.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let values: int32[] = array_filled(3 as int64, 7 as int32)\n    let nested_row0 = propagate values.at(0)\n    let nested_row1 = propagate values.at(1)\n    print('length {values.length}')\n    print('values {propagate values.at(0)} {propagate values.at(1)} {propagate values.at(2)}')\n    let row: int32[] = [9 as int32]\n    let nested: int32[][] = array_filled(2 as int64, row)\n    let nested0: int32[] = propagate nested.at(0)\n    let nested1: int32[] = propagate nested.at(1)\n    print('nested length {nested.length}')\n    print('nested values {propagate nested0.at(0)} {propagate nested1.at(0)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -653,7 +657,7 @@ mod tests {
     fn array_reserve() {
         let temp_dir = write_temp_project_source(
             "array-reserve",
-            "import reserve from standard\n\n##\n  Description: Verifies reserve is functional and preserves source aliases.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = [1 as int32, 2 as int32]\n    let reserved: int32[] = reserve(xs, 10 as int64)\n    print('xs length {xs.length}')\n    print('xs values {xs[0]} {xs[1]}')\n    print('reserved length {reserved.length}')\n    print('reserved values {reserved[0]} {reserved[1]}')\n    return void\n",
+            "import reserve from standard\n\n##\n  Description: Verifies reserve is functional and preserves source aliases.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let xs: int32[] = [1 as int32, 2 as int32]\n    let reserved: int32[] = reserve(xs, 10 as int64)\n    print('xs length {xs.length}')\n    print('xs values {propagate xs.at(0)} {propagate xs.at(1)}')\n    print('reserved length {reserved.length}')\n    print('reserved values {propagate reserved.at(0)} {propagate reserved.at(1)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -676,7 +680,7 @@ mod tests {
     fn array_clear() {
         let temp_dir = write_temp_project_source(
             "array-clear",
-            "import clear from standard\n\n##\n  Description: Verifies clear returns fresh len=0 array and keeps source unchanged.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = [4 as int32, 5 as int32, 6 as int32]\n    let emptied: int32[] = clear(xs)\n    print('xs length {xs.length}')\n    print('xs values {xs[0]} {xs[1]} {xs[2]}')\n    print('emptied length {emptied.length}')\n    return void\n",
+            "import clear from standard\n\n##\n  Description: Verifies clear returns fresh len=0 array and keeps source unchanged.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let xs: int32[] = [4 as int32, 5 as int32, 6 as int32]\n    let emptied: int32[] = clear(xs)\n    print('xs length {xs.length}')\n    print('xs values {propagate xs.at(0)} {propagate xs.at(1)} {propagate xs.at(2)}')\n    print('emptied length {emptied.length}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -696,7 +700,7 @@ mod tests {
     fn array_rc_elements() {
         let temp_dir = write_temp_project_source(
             "array-rc-elements",
-            "import append, array_filled, reserve, clear from standard\n\n##\n  Description: Verifies RC-bearing nested-array elements survive literal, append, push, array_filled, reserve, and clear paths.\n##\nentry main = f(args: string[]): void =>\n    let row: int32[] = [7 as int32]\n    let literal: int32[][] = [row]\n    let appended: int32[][] = append(literal, row)\n    let mutable pushed: int32[][] = literal\n    pushed.push(row)\n    let filled: int32[][] = array_filled(2 as int64, row)\n    let reserved: int32[][] = reserve(appended, 6 as int64)\n    let cleared: int32[][] = clear(reserved)\n    print('literal {literal.length} {literal[0][0]}')\n    print('appended {appended.length} {appended[0][0]} {appended[1][0]}')\n    print('pushed {pushed.length} {pushed[0][0]} {pushed[1][0]}')\n    print('filled {filled.length} {filled[0][0]} {filled[1][0]}')\n    print('reserved {reserved.length} {reserved[0][0]} {reserved[1][0]}')\n    print('cleared {cleared.length}')\n    return void\n",
+            "import append, array_filled, reserve, clear from standard\n\n##\n  Description: Verifies RC-bearing nested-array elements survive literal, append, push, array_filled, reserve, and clear paths.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let row: int32[] = [7 as int32]\n    let literal: int32[][] = [row]\n    let appended: int32[][] = append(literal, row)\n    let mutable pushed: int32[][] = literal\n    pushed.push(row)\n    let filled: int32[][] = array_filled(2 as int64, row)\n    let reserved: int32[][] = reserve(appended, 6 as int64)\n    let cleared: int32[][] = clear(reserved)\n    let literal_row: int32[] = propagate literal.at(0)\n    let appended_row0: int32[] = propagate appended.at(0)\n    let appended_row1: int32[] = propagate appended.at(1)\n    let pushed_row0: int32[] = propagate pushed.at(0)\n    let pushed_row1: int32[] = propagate pushed.at(1)\n    let filled_row0: int32[] = propagate filled.at(0)\n    let filled_row1: int32[] = propagate filled.at(1)\n    let reserved_row0: int32[] = propagate reserved.at(0)\n    let reserved_row1: int32[] = propagate reserved.at(1)\n    print('literal {literal.length} {propagate literal_row.at(0)}')\n    print('appended {appended.length} {propagate appended_row0.at(0)} {propagate appended_row1.at(0)}')\n    print('pushed {pushed.length} {propagate pushed_row0.at(0)} {propagate pushed_row1.at(0)}')\n    print('filled {filled.length} {propagate filled_row0.at(0)} {propagate filled_row1.at(0)}')\n    print('reserved {reserved.length} {propagate reserved_row0.at(0)} {propagate reserved_row1.at(0)}')\n    print('cleared {cleared.length}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -719,7 +723,7 @@ mod tests {
     fn array_memory_churn_sanitizer_fixture() {
         let temp_dir = write_temp_project_source(
             "array-memory-churn-sanitizer-fixture",
-            "import append, array_filled, reserve, clear from standard\n\n##\n  Description: Exercises RC array churn paths for sanitizer coverage: append, push, indexed overwrite, nested arrays, array_filled, reserve, and clear.\n##\nentry main = f(args: string[]): void =>\n    let row_a: int32[] = [1 as int32]\n    let row_b: int32[] = [9 as int32]\n    let base: int32[][] = [row_a, row_a]\n    let appended: int32[][] = append(base, row_b)\n    let mutable pushed: int32[][] = appended\n    pushed.push(row_a)\n    pushed[1] = row_b\n    let filled: int32[][] = array_filled(2 as int64, row_a)\n    let reserved: int32[][] = reserve(pushed, 8 as int64)\n    let cleared: int32[][] = clear(reserved)\n    print('base {base.length} {base[0][0]} {base[1][0]}')\n    print('appended {appended.length} {appended[0][0]} {appended[1][0]} {appended[2][0]}')\n    print('pushed {pushed.length} {pushed[0][0]} {pushed[1][0]} {pushed[2][0]} {pushed[3][0]}')\n    print('filled {filled.length} {filled[0][0]} {filled[1][0]}')\n    print('reserved {reserved.length} {reserved[0][0]} {reserved[1][0]} {reserved[2][0]} {reserved[3][0]}')\n    print('cleared {cleared.length}')\n    return void\n",
+            "import append, array_filled, reserve, clear from standard\n\n##\n  Description: Exercises RC array churn paths for sanitizer coverage: append, push, indexed overwrite, nested arrays, array_filled, reserve, and clear.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let row_a: int32[] = [1 as int32]\n    let row_b: int32[] = [9 as int32]\n    let base: int32[][] = [row_a, row_a]\n    let appended: int32[][] = append(base, row_b)\n    let mutable pushed: int32[][] = appended\n    pushed.push(row_a)\n    pushed[1] = row_b\n    let filled: int32[][] = array_filled(2 as int64, row_a)\n    let reserved: int32[][] = reserve(pushed, 8 as int64)\n    let cleared: int32[][] = clear(reserved)\n    let base_row0: int32[] = propagate base.at(0)\n    let base_row1: int32[] = propagate base.at(1)\n    let appended_row0: int32[] = propagate appended.at(0)\n    let appended_row1: int32[] = propagate appended.at(1)\n    let appended_row2: int32[] = propagate appended.at(2)\n    let pushed_row0: int32[] = propagate pushed.at(0)\n    let pushed_row1: int32[] = propagate pushed.at(1)\n    let pushed_row2: int32[] = propagate pushed.at(2)\n    let pushed_row3: int32[] = propagate pushed.at(3)\n    let filled_row0: int32[] = propagate filled.at(0)\n    let filled_row1: int32[] = propagate filled.at(1)\n    let reserved_row0: int32[] = propagate reserved.at(0)\n    let reserved_row1: int32[] = propagate reserved.at(1)\n    let reserved_row2: int32[] = propagate reserved.at(2)\n    let reserved_row3: int32[] = propagate reserved.at(3)\n    print('base {base.length} {propagate base_row0.at(0)} {propagate base_row1.at(0)}')\n    print('appended {appended.length} {propagate appended_row0.at(0)} {propagate appended_row1.at(0)} {propagate appended_row2.at(0)}')\n    print('pushed {pushed.length} {propagate pushed_row0.at(0)} {propagate pushed_row1.at(0)} {propagate pushed_row2.at(0)} {propagate pushed_row3.at(0)}')\n    print('filled {filled.length} {propagate filled_row0.at(0)} {propagate filled_row1.at(0)}')\n    print('reserved {reserved.length} {propagate reserved_row0.at(0)} {propagate reserved_row1.at(0)} {propagate reserved_row2.at(0)} {propagate reserved_row3.at(0)}')\n    print('cleared {cleared.length}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -742,7 +746,7 @@ mod tests {
     fn array_game_of_life_churn_sanitizer_fixture() {
         let temp_dir = write_temp_project_source(
             "array-game-of-life-churn-sanitizer-fixture",
-            "##\n  Description: Exercises Game-of-Life-style two-board churn with indexed updates and board swapping for sanitizer coverage.\n##\nentry main = f(args: string[]): void =>\n    let mutable board: int32[] = [0 as int32, 1 as int32, 0 as int32, 0 as int32, 0 as int32, 1 as int32, 1 as int32, 1 as int32, 1 as int32]\n    let mutable next: int32[] = [0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32]\n    let mutable tick: int32 = 0 as int32\n    while tick < (10 as int32):\n        next[0] = board[2]\n        next[1] = board[1]\n        next[2] = board[0]\n        next[3] = board[5]\n        next[4] = board[4]\n        next[5] = board[3]\n        next[6] = board[8]\n        next[7] = board[7]\n        next[8] = board[6]\n        let swap = board\n        board = next\n        next = swap\n        tick = tick + (1 as int32)\n    print('board {board[0]} {board[1]} {board[2]}')\n    print('board {board[3]} {board[4]} {board[5]}')\n    print('board {board[6]} {board[7]} {board[8]}')\n    return void\n",
+            "##\n  Description: Exercises Game-of-Life-style two-board churn with indexed updates and board swapping for sanitizer coverage.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let mutable board: int32[] = [0 as int32, 1 as int32, 0 as int32, 0 as int32, 0 as int32, 1 as int32, 1 as int32, 1 as int32, 1 as int32]\n    let mutable next: int32[] = [0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32, 0 as int32]\n    let mutable tick: int32 = 0 as int32\n    while tick < (10 as int32):\n        next[0] = propagate board.at(2)\n        next[1] = propagate board.at(1)\n        next[2] = propagate board.at(0)\n        next[3] = propagate board.at(5)\n        next[4] = propagate board.at(4)\n        next[5] = propagate board.at(3)\n        next[6] = propagate board.at(8)\n        next[7] = propagate board.at(7)\n        next[8] = propagate board.at(6)\n        let swap = board\n        board = next\n        next = swap\n        tick = tick + (1 as int32)\n    print('board {propagate board.at(0)} {propagate board.at(1)} {propagate board.at(2)}')\n    print('board {propagate board.at(3)} {propagate board.at(4)} {propagate board.at(5)}')\n    print('board {propagate board.at(6)} {propagate board.at(7)} {propagate board.at(8)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -764,7 +768,7 @@ mod tests {
     fn array_nested_rc_drop() {
         let temp_dir = write_temp_project_source(
             "array-nested-rc-drop",
-            "##\n  Description: Verifies nested RC-backed child arrays survive until parent-array drop at program exit.\n##\nentry main = f(args: string[]): void =>\n    let child_a: int32[] = [1 as int32, 2 as int32]\n    let child_b: int32[] = [3 as int32, 4 as int32]\n    let rows: int32[][] = [child_a, child_b]\n    print('rows {rows.length} {rows[0][0]} {rows[1][1]}')\n    return void\n",
+            "##\n  Description: Verifies nested RC-backed child arrays survive until parent-array drop at program exit.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let child_a: int32[] = [1 as int32, 2 as int32]\n    let child_b: int32[] = [3 as int32, 4 as int32]\n    let rows: int32[][] = [child_a, child_b]\n    let row0: int32[] = propagate rows.at(0)\n    let row1: int32[] = propagate rows.at(1)\n    print('rows {rows.length} {propagate row0.at(0)} {propagate row1.at(1)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -783,7 +787,7 @@ mod tests {
     fn array_index_assignment_rc_elements() {
         let temp_dir = write_temp_project_source(
             "array-index-assignment-rc-elements",
-            "##\n  Description: Verifies identifier-backed indexed assignment preserves RC-bearing nested arrays across overwrite.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [1 as int32]\n    let middle: int32[] = [2 as int32]\n    let right: int32[] = [3 as int32]\n    let mutable rows: int32[][] = [left, middle]\n    rows[1] = right\n    print('rows {rows.length} {rows[0][0]} {rows[1][0]}')\n    return void\n",
+            "##\n  Description: Verifies identifier-backed indexed assignment preserves RC-bearing nested arrays across overwrite.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let left: int32[] = [1 as int32]\n    let middle: int32[] = [2 as int32]\n    let right: int32[] = [3 as int32]\n    let mutable rows: int32[][] = [left, middle]\n    rows[1] = right\n    let row0: int32[] = propagate rows.at(0)\n    let row1: int32[] = propagate rows.at(1)\n    print('rows {rows.length} {propagate row0.at(0)} {propagate row1.at(0)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -802,7 +806,7 @@ mod tests {
     fn array_push_unique_reuses_capacity() {
         let temp_dir = write_temp_project_source(
             "array-push-unique-reuses-capacity",
-            "import reserve from standard\n\n##\n  Description: Verifies unique push can consume reserved capacity without changing values.\n##\nentry main = f(args: string[]): void =>\n    let mutable xs: int32[] = [1 as int32, 2 as int32]\n    xs = reserve(xs, 8 as int64)\n    xs.push(3 as int32)\n    xs.push(4 as int32)\n    print('length {xs.length}')\n    print('values {xs[0]} {xs[1]} {xs[2]} {xs[3]}')\n    return void\n",
+            "import reserve from standard\n\n##\n  Description: Verifies unique push can consume reserved capacity without changing values.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let mutable xs: int32[] = [1 as int32, 2 as int32]\n    xs = reserve(xs, 8 as int64)\n    xs.push(3 as int32)\n    xs.push(4 as int32)\n    print('length {xs.length}')\n    print('values {propagate xs.at(0)} {propagate xs.at(1)} {propagate xs.at(2)} {propagate xs.at(3)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -824,7 +828,7 @@ mod tests {
     fn array_pop_rc_element_ownership_transfer() {
         let temp_dir = write_temp_project_source(
             "array-pop-rc-element-ownership-transfer",
-            "##\n  Description: Verifies popped RC-bearing row remains valid after receiver rebind and clear.\n##\nentry main = f(args: string[]): void =>\n    let left: int32[] = [7 as int32]\n    let right: int32[] = [9 as int32]\n    let mutable rows: int32[][] = [left, right]\n    let popped: int32[] = rows.pop()\n    rows = []\n    print('rows length {rows.length}')\n    print('popped length {popped.length}')\n    print('popped value {popped[0]}')\n    return void\n",
+            "##\n  Description: Verifies popped RC-bearing row remains valid after receiver rebind and clear.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let left: int32[] = [7 as int32]\n    let right: int32[] = [9 as int32]\n    let mutable rows: int32[][] = [left, right]\n    let popped: int32[] = rows.pop()\n    rows = []\n    print('rows length {rows.length}')\n    print('popped length {popped.length}')\n    print('popped value {propagate popped.at(0)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -846,7 +850,7 @@ mod tests {
     fn array_reserve_noop_when_within_capacity() {
         let temp_dir = write_temp_project_source(
             "array-reserve-noop-when-within-capacity",
-            "import reserve from standard\n\n##\n  Description: Verifies reserve with <= current capacity keeps logical contents unchanged.\n##\nentry main = f(args: string[]): void =>\n    let mutable xs: int32[] = [1 as int32, 2 as int32]\n    xs = reserve(xs, 8 as int64)\n    let same_cap: int32[] = reserve(xs, 8 as int64)\n    let lower_cap: int32[] = reserve(xs, 0 as int64)\n    print('xs length {xs.length}')\n    print('same length {same_cap.length}')\n    print('lower length {lower_cap.length}')\n    print('same values {same_cap[0]} {same_cap[1]}')\n    print('lower values {lower_cap[0]} {lower_cap[1]}')\n    return void\n",
+            "import reserve from standard\n\n##\n  Description: Verifies reserve with <= current capacity keeps logical contents unchanged.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let mutable xs: int32[] = [1 as int32, 2 as int32]\n    xs = reserve(xs, 8 as int64)\n    let same_cap: int32[] = reserve(xs, 8 as int64)\n    let lower_cap: int32[] = reserve(xs, 0 as int64)\n    print('xs length {xs.length}')\n    print('same length {same_cap.length}')\n    print('lower length {lower_cap.length}')\n    print('same values {propagate same_cap.at(0)} {propagate same_cap.at(1)}')\n    print('lower values {propagate lower_cap.at(0)} {propagate lower_cap.at(1)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(
@@ -949,7 +953,7 @@ entry main = f(args: string[]): void =>
     fn array_filter_all_pass_preserves_order() {
         let temp_dir = write_temp_project_source(
             "array-filter-all-pass",
-            "##\n  Description: Verifies array filter keeps all elements in original order when every predicate check passes.\n##\nentry main = f(args: string[]): void =>\n    let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]\n    let all_values = xs.filter(f(x: int32): boolean => x > (0 as int32))\n    print('length {all_values.length}')\n    print('values {all_values[0]} {all_values[1]} {all_values[2]} {all_values[3]}')\n    print('source length {xs.length}')\n    print('source values {xs[0]} {xs[1]} {xs[2]} {xs[3]}')\n    return void\n",
+            "##\n  Description: Verifies array filter keeps all elements in original order when every predicate check passes.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError =>\n    let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]\n    let all_values = xs.filter(f(x: int32): boolean => x > (0 as int32))\n    print('length {all_values.length}')\n    print('values {propagate all_values.at(0)} {propagate all_values.at(1)} {propagate all_values.at(2)} {propagate all_values.at(3)}')\n    print('source length {xs.length}')\n    print('source values {propagate xs.at(0)} {propagate xs.at(1)} {propagate xs.at(2)} {propagate xs.at(3)}')\n    return void\n",
         );
         let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
         assert!(

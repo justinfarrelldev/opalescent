@@ -220,6 +220,32 @@ pub enum TypeError {
         /// Source span highlighting where the invalid operation was attempted
         span: SourceSpan,
     },
+    /// Legacy string bracket value reads must migrate to `.at(...)`.
+    #[error("Legacy string bracket value reads are no longer supported")]
+    #[diagnostic(
+        code(opalescent::type_system::legacy_string_bracket_read),
+        help(
+            "Use `str.at(i)` or another string `.at(...)` call instead. `.at(...)` can fail with `IndexOutOfBoundsError`, so handle it with `guard` or `propagate` in a function that declares `errors IndexOutOfBoundsError`."
+        )
+    )]
+    LegacyStringBracketRead {
+        #[label("replace this legacy string bracket read")]
+        /// Source span covering the legacy bracket read.
+        span: SourceSpan,
+    },
+    /// Legacy array bracket value reads must migrate to `.at(...)`.
+    #[error("Legacy array bracket value reads are no longer supported")]
+    #[diagnostic(
+        code(opalescent::type_system::legacy_array_bracket_read),
+        help(
+            "Use `array.at(i)` or another array `.at(...)` call instead. `.at(...)` can fail with `IndexOutOfBoundsError`, so handle it with `guard` or `propagate` in a function that declares `errors IndexOutOfBoundsError`."
+        )
+    )]
+    LegacyArrayBracketRead {
+        #[label("replace this legacy array bracket read")]
+        /// Source span covering the legacy bracket read.
+        span: SourceSpan,
+    },
     /// Assignment attempted on an immutable `let` binding.
     #[error("Cannot assign to immutable variable '{name}'")]
     #[diagnostic(

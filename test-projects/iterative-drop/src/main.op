@@ -2,11 +2,11 @@
 ##
 	Description: Nests string arrays to exercise iterative drop traversal paths
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
 	let alpha = 'alpha'
 	let beta = 'beta'
 	let pair: string[] = [alpha, beta]
-	let nested: string[] = [pair[0], pair[1], 'done']
-	let final_word: string = nested[2]
+	let nested: string[] = [propagate pair.at(0), propagate pair.at(1), 'done']
+	let final_word: string = propagate nested.at(2)
 	print('iterative-drop: {final_word}')
 	return void

@@ -39,12 +39,12 @@ type GoodView:
 
 ```opal
 # COMPILE ERROR: cannot return a ref
-# let first = f(items: ref int32[]): ref int32 =>
-#     return items[0]
+# let first = f(items: ref int32[]): ref int32 errors IndexOutOfBoundsError =>
+#     return propagate items.at(0)
 
 # Instead: return an owned copy
-let first = f(items: ref int32[]): int32 =>
-    return items[0]   # copies the int32 out (cheap for primitives)
+let first = f(items: ref int32[]): int32 errors IndexOutOfBoundsError =>
+    return propagate items.at(0)   # copies the int32 out (cheap for primitives)
 ```
 
 ### Multiple Borrows Are Fine (Immutable by Default)

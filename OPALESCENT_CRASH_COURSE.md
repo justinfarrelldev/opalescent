@@ -179,20 +179,29 @@ let text = 'hello'
 print('length: {text.length}')
 ```
 
-You can also index a string by zero-based Unicode scalar position. The result is still a `string`, so there is no separate public `char` type:
+You can also read a string by zero-based Unicode scalar position with fallible `.at(...)`. The result is still a `string`, so there is no separate public `char` type:
 
 ```opal
 let message = 'aéf'
-let first: string = message[0]
-let last: string = message[message.length - 1]
-let unicode: string = message[1]
+
+guard message.at(0) into first else err =>
+    print('string access failed: {err}')
+    return void
+
+guard message.at(message.length - 1) into last else err =>
+    print('string access failed: {err}')
+    return void
+
+guard message.at(1) into unicode else err =>
+    print('string access failed: {err}')
+    return void
 
 print('first={first}')
 print('last={last}')
 print('unicode={unicode}')
 ```
 
-If the index is outside `0 <= index < message.length`, the compiler runtime reports a source-anchored Miette diagnostic that points at the exact `message[index]` expression.
+If the index is outside `0 <= index < message.length`, `.at(...)` returns `IndexOutOfBoundsError`, so the read must be handled with `guard` or `propagate`. If it is left unhandled, the runtime currently prints `IndexOutOfBoundsError` on stderr.
 
 ## 8. Functions
 
@@ -324,10 +333,12 @@ scores.push(20)
 print('count: {scores.length}')
 ```
 
-Use indexing to read an element:
+Use fallible `.at(...)` to read an element:
 
 ```opal
-let first = scores[0]
+guard scores.at(0) into first else err =>
+    print('array access failed: {err}')
+    return void
 ```
 
 Arrays support helpers such as `push`, `pop`, `map`, `filter`, `reduce`, and `zip`. Fixture directories under `test-projects/array-*` show concrete examples.

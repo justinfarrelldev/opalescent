@@ -31,11 +31,15 @@ type AlertReport:
 let parse_logs = f(lines: string[]): LogEntry[] =>
     return map<string, LogEntry>(lines, f(line: string): LogEntry =>
         let parts = split(line, "|")
+        let timestamp_text: string = guard parts.at(0) into value: string else "0"
+        let level: string = guard parts.at(1) into value: string else ""
+        let service: string = guard parts.at(2) into value: string else ""
+        let message: string = guard parts.at(3) into value: string else ""
         return LogEntry{
-            timestamp: parse_int64(parts[0]),
-            level: parts[1],
-            service: parts[2],
-            message: parts[3]
+            timestamp: parse_int64(timestamp_text),
+            level: level,
+            service: service,
+            message: message
         }
     )
     # Perceus: 'lines' memory reused for the LogEntry array

@@ -6,6 +6,9 @@
 )]
 extern crate alloc;
 
+use crate::build_system::targets::TargetTriple;
+use crate::compiler::{CompileError, CompileRunPolicy, compile_project_with_run_policy};
+use crate::errors::renderer::render_report;
 use crate::runtime::arrays::{allocate_array, array_index, array_length};
 use crate::runtime::errors::{RuntimeError, RuntimeResult, RuntimeResultExt};
 use crate::runtime::io::{IoHandler, print, take_input};
@@ -25,6 +28,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,6 +93,298 @@ impl RandomIntSource for MockRandomSource {
     fn next_u32(&mut self) -> u32 {
         self.values.pop_front().unwrap_or_default()
     }
+}
+
+struct CompiledRuntimeProject {
+    _temp_dir: tempfile::TempDir,
+    binary_path: PathBuf,
+}
+
+fn format_runtime_test_compile_error(error: &CompileError) -> String {
+    match error {
+        CompileError::Report {
+            source_path,
+            report,
+            normalized_source,
+        } => render_report(source_path, normalized_source, report),
+        other => format!("{other:?}"),
+    }
+}
+
+fn compile_runtime_red_project(test_name: &str, main_source: &str) -> CompiledRuntimeProject {
+    let temp_dir = tempfile::tempdir().expect("create temp runtime project");
+    let src_dir = temp_dir.path().join("src");
+    fs::create_dir_all(&src_dir).expect("create runtime project src dir");
+    fs::write(
+        temp_dir.path().join("opal.toml"),
+        format!("name = \"{test_name}\"\nversion = \"0.1.0\"\n"),
+    )
+    .expect("write runtime project opal.toml");
+    fs::write(
+        src_dir.join("bounds.types.op"),
+        "public type IndexOutOfBoundsError:\n    OutOfBounds\n",
+    )
+    .expect("write runtime project error type fixture");
+    let main_source = main_source
+        .replacen(
+            "import print from standard\n",
+            "import print from standard\nimport type IndexOutOfBoundsError from ./bounds.types\n",
+            1,
+        )
+        .replacen(
+            "\n\nentry main =",
+            "\n\n##\n    Description: Entry function runs the runtime .at(...) RED scenario\n##\nentry main =",
+            1,
+        )
+        .replace(" else -1\n", " else -1 as int32\n");
+    fs::write(src_dir.join("main.op"), main_source).expect("write runtime project main source");
+
+    let target = TargetTriple::host();
+    let output_dir = temp_dir.path().join("target");
+    let binary_result = compile_project_with_run_policy(
+        temp_dir.path(),
+        &output_dir,
+        &target,
+        CompileRunPolicy::bounded_for_test_harness(),
+    );
+    assert!(
+        binary_result.is_ok(),
+        "runtime .at(...) RED fixture '{test_name}' should compile so its runtime behavior can be exercised; current failure:\n{}",
+        binary_result
+            .as_ref()
+            .err()
+            .map_or_else(String::new, format_runtime_test_compile_error)
+    );
+    let Ok(binary_path) = binary_result else {
+        unreachable!("compile assertion above should return early on failure")
+    };
+
+    CompiledRuntimeProject {
+        _temp_dir: temp_dir,
+        binary_path,
+    }
+}
+
+fn run_compiled_runtime_project(binary_path: &Path) -> std::process::Output {
+    Command::new(binary_path)
+        .output()
+        .unwrap_or_else(|error| panic!("failed to run compiled runtime RED binary: {error}"))
+}
+
+#[test]
+fn string_at_runtime_returns_first_scalar_for_index_zero() {
+    let project = compile_runtime_red_project(
+        "string-at-runtime-first-index-zero",
+        "import print from standard\n\n##\n    Description: String .at(0) should return the first Unicode scalar through the error ABI\n##\nlet read_first = f(): string errors IndexOutOfBoundsError => {\n    let message = 'hé🙂'\n    return propagate message.at(0)\n}\n\nentry main = f(): void errors IndexOutOfBoundsError => {\n    let scalar: string = propagate read_first()\n    print(scalar)\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(
+        output.status.success(),
+        "string .at(0) runtime success fixture should exit successfully:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "h\n",
+        "string .at(0) should print the first scalar"
+    );
+}
+
+#[test]
+fn string_at_runtime_returns_last_scalar_for_length_minus_one() {
+    let project = compile_runtime_red_project(
+        "string-at-runtime-last-valid-index",
+        "import print from standard\n\n##\n    Description: String .at(length - 1) should return the last Unicode scalar through the error ABI\n##\nlet read_last = f(): string errors IndexOutOfBoundsError => {\n    let message = 'hé🙂'\n    return propagate message.at(message.length - 1)\n}\n\nentry main = f(): void errors IndexOutOfBoundsError => {\n    let scalar: string = propagate read_last()\n    print(scalar)\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(output.status.success(), "string .at(length - 1) should exit successfully");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "🙂\n",
+        "string .at(length - 1) should print the last scalar"
+    );
+}
+
+#[test]
+fn string_at_runtime_returns_middle_scalar_for_dynamic_index() {
+    let project = compile_runtime_red_project(
+        "string-at-runtime-dynamic-index",
+        "import print from standard\n\n##\n    Description: String .at(dynamic_index) should return the selected scalar through the error ABI\n##\nlet read_dynamic = f(): string errors IndexOutOfBoundsError => {\n    let message = 'hé🙂'\n    let index: int64 = 1\n    return propagate message.at(index)\n}\n\nentry main = f(): void errors IndexOutOfBoundsError => {\n    let scalar: string = propagate read_dynamic()\n    print(scalar)\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(output.status.success(), "string .at(dynamic_index) should exit successfully");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "é\n",
+        "string .at(dynamic_index) should print the selected scalar"
+    );
+}
+
+#[test]
+fn string_at_runtime_falls_back_for_negative_index() {
+    let project = compile_runtime_red_project(
+        "string-at-runtime-negative-index",
+        "import print from standard\n\n##\n    Description: String .at(-1) should take the IndexOutOfBoundsError path\n##\nlet read_negative = f(): string errors IndexOutOfBoundsError => {\n    let message = 'hé🙂'\n    return propagate message.at(-1)\n}\n\nentry main = f(): void => {\n    let scalar: string = guard read_negative() into value: string else 'IndexOutOfBoundsError'\n    print(scalar)\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(output.status.success(), "negative string .at(...) guard should keep the program successful");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "IndexOutOfBoundsError\n",
+        "negative string .at(...) should route through the IndexOutOfBoundsError guard path"
+    );
+}
+
+#[test]
+fn string_at_runtime_falls_back_for_empty_string_index_zero() {
+    let project = compile_runtime_red_project(
+        "string-at-runtime-empty-index-zero",
+        "import print from standard\n\n##\n    Description: Empty-string .at(0) should take the IndexOutOfBoundsError path\n##\nlet read_empty = f(): string errors IndexOutOfBoundsError => {\n    let message = ''\n    return propagate message.at(0)\n}\n\nentry main = f(): void => {\n    let scalar: string = guard read_empty() into value: string else 'IndexOutOfBoundsError'\n    print(scalar)\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(output.status.success(), "empty string .at(0) guard should keep the program successful");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "IndexOutOfBoundsError\n",
+        "empty string .at(0) should route through the IndexOutOfBoundsError guard path"
+    );
+}
+
+#[test]
+fn string_at_runtime_falls_back_for_one_past_end_index() {
+    let project = compile_runtime_red_project(
+        "string-at-runtime-one-past-end",
+        "import print from standard\n\n##\n    Description: String .at(length) should take the IndexOutOfBoundsError path\n##\nlet read_oob = f(): string errors IndexOutOfBoundsError => {\n    let message = 'hé🙂'\n    return propagate message.at(message.length)\n}\n\nentry main = f(): void => {\n    let scalar: string = guard read_oob() into value: string else 'IndexOutOfBoundsError'\n    print(scalar)\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(output.status.success(), "string .at(length) guard should keep the program successful");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "IndexOutOfBoundsError\n",
+        "string .at(length) should route through the IndexOutOfBoundsError guard path"
+    );
+}
+
+#[test]
+fn array_at_runtime_returns_first_element_for_index_zero() {
+    let project = compile_runtime_red_project(
+        "array-at-runtime-first-index-zero",
+        "import print from standard\n\n##\n    Description: Array .at(0) should return the first element through the error ABI\n##\nlet read_first = f(): int32 errors IndexOutOfBoundsError => {\n    let values: int32[] = [10 as int32, 20 as int32, 30 as int32]\n    return propagate values.at(0)\n}\n\nentry main = f(): void errors IndexOutOfBoundsError => {\n    let value: int32 = propagate read_first()\n    print('{value}')\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(output.status.success(), "array .at(0) should exit successfully");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "10\n",
+        "array .at(0) should print the first element"
+    );
+}
+
+#[test]
+fn array_at_runtime_returns_last_element_for_length_minus_one() {
+    let project = compile_runtime_red_project(
+        "array-at-runtime-last-valid-index",
+        "import print from standard\n\n##\n    Description: Array .at(length - 1) should return the last element through the error ABI\n##\nlet read_last = f(): int32 errors IndexOutOfBoundsError => {\n    let values: int32[] = [10 as int32, 20 as int32, 30 as int32]\n    return propagate values.at(values.length - 1)\n}\n\nentry main = f(): void errors IndexOutOfBoundsError => {\n    let value: int32 = propagate read_last()\n    print('{value}')\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(output.status.success(), "array .at(length - 1) should exit successfully");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "30\n",
+        "array .at(length - 1) should print the last element"
+    );
+}
+
+#[test]
+fn array_at_runtime_returns_middle_element_for_dynamic_index() {
+    let project = compile_runtime_red_project(
+        "array-at-runtime-dynamic-index",
+        "import print from standard\n\n##\n    Description: Array .at(dynamic_index) should return the selected element through the error ABI\n##\nlet read_dynamic = f(): int32 errors IndexOutOfBoundsError => {\n    let values: int32[] = [10 as int32, 20 as int32, 30 as int32]\n    let index: int64 = 1\n    return propagate values.at(index)\n}\n\nentry main = f(): void errors IndexOutOfBoundsError => {\n    let value: int32 = propagate read_dynamic()\n    print('{value}')\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(output.status.success(), "array .at(dynamic_index) should exit successfully");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "20\n",
+        "array .at(dynamic_index) should print the selected element"
+    );
+}
+
+#[test]
+fn array_at_runtime_falls_back_for_negative_index() {
+    let project = compile_runtime_red_project(
+        "array-at-runtime-negative-index",
+        "import print from standard\n\n##\n    Description: Array .at(-1) should take the IndexOutOfBoundsError path\n##\nlet read_negative = f(): int32 errors IndexOutOfBoundsError => {\n    let values: int32[] = [10 as int32, 20 as int32, 30 as int32]\n    return propagate values.at(-1)\n}\n\nentry main = f(): void => {\n    let value: int32 = guard read_negative() into found: int32 else -1\n    print('{value}')\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(output.status.success(), "negative array .at(...) guard should keep the program successful");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "-1\n",
+        "negative array .at(...) should route through the IndexOutOfBoundsError guard path"
+    );
+}
+
+#[test]
+fn array_at_runtime_falls_back_for_empty_array_index_zero() {
+    let project = compile_runtime_red_project(
+        "array-at-runtime-empty-index-zero",
+        "import print from standard\n\n##\n    Description: Empty-array .at(0) should take the IndexOutOfBoundsError path\n##\nlet read_empty = f(): int32 errors IndexOutOfBoundsError => {\n    let values: int32[] = []\n    return propagate values.at(0)\n}\n\nentry main = f(): void => {\n    let value: int32 = guard read_empty() into found: int32 else -1\n    print('{value}')\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(output.status.success(), "empty array .at(0) guard should keep the program successful");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "-1\n",
+        "empty array .at(0) should route through the IndexOutOfBoundsError guard path"
+    );
+}
+
+#[test]
+fn array_at_runtime_falls_back_for_one_past_end_index() {
+    let project = compile_runtime_red_project(
+        "array-at-runtime-one-past-end",
+        "import print from standard\n\n##\n    Description: Array .at(length) should take the IndexOutOfBoundsError path\n##\nlet read_oob = f(): int32 errors IndexOutOfBoundsError => {\n    let values: int32[] = [10 as int32, 20 as int32, 30 as int32]\n    return propagate values.at(values.length)\n}\n\nentry main = f(): void => {\n    let value: int32 = guard read_oob() into found: int32 else -1\n    print('{value}')\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(output.status.success(), "array .at(length) guard should keep the program successful");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "-1\n",
+        "array .at(length) should route through the IndexOutOfBoundsError guard path"
+    );
+}
+
+#[test]
+fn array_at_runtime_nested_access_uses_inner_row_length() {
+    let project = compile_runtime_red_project(
+        "array-at-runtime-nested-inner-row-length",
+        "import print from standard\n\n##\n    Description: Nested array .at(...) should use the selected row length for the inner access\n##\nlet read_nested = f(): int32 errors IndexOutOfBoundsError => {\n    let rows: int32[][] = [[10 as int32], [], [30 as int32, 40 as int32]]\n    let row: int32[] = propagate rows.at(1)\n    return propagate row.at(0)\n}\n\nentry main = f(): void => {\n    let value: int32 = guard read_nested() into found: int32 else -1 as int32\n    print('{value}')\n    return void\n}\n",
+    );
+
+    let output = run_compiled_runtime_project(&project.binary_path);
+    assert!(
+        output.status.success(),
+        "nested array .at(...) guard should keep the program successful"
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "-1\n",
+        "nested array .at(...) should route through the inner row IndexOutOfBoundsError path"
+    );
 }
 
 #[test]

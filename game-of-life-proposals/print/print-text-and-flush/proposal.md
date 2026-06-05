@@ -31,10 +31,11 @@ Prior art includes C `fputs` and `fflush`, Rust `write!` plus `flush`, Python `p
 ```opal
 import print_text, flush_standard_output_sync from standard
 
-let print_row = f(row: int32[]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
+let print_row = f(row: int32[]): void errors WriteFailureError, FlushFailureError, SinkClosedError, IndexOutOfBoundsError =>
     let mutable column: int64 = 0
     while column < row.length:
-        if row[column] is (1 as int32):
+        let cell = propagate row.at(column)
+        if cell is (1 as int32):
             propagate print_text('#')
         else:
             propagate print_text('.')

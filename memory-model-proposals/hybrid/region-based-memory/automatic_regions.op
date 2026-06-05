@@ -48,7 +48,7 @@ type Stats:
 ##
 pure let compute_stats = f(numbers: int32[]): Stats =>
     let mutable sum = 0
-    let mutable max_val = numbers[0]
+    let mutable max_val: int32 = guard numbers.at(0) into value: int32 else 0
 
     for n in numbers:
         sum = sum + n

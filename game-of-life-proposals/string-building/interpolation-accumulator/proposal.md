@@ -17,11 +17,12 @@ This is already valid Opalescent syntax and works today for small boards.
 No new functions are required.
 
 ```opal
-let render_row = f(row: int32[]): string =>
+let render_row = f(row: int32[]): string errors IndexOutOfBoundsError =>
     let mutable output = ''
     let mutable column: int64 = 0
     while column < row.length:
-        if row[column] is (1 as int32):
+        let cell = propagate row.at(column)
+        if cell is (1 as int32):
             output = '{output}#'
         else:
             output = '{output}.'
@@ -32,11 +33,12 @@ let render_row = f(row: int32[]): string =>
 ## Example Application
 
 ```opal
-let render_board = f(board: int32[][]): string =>
+let render_board = f(board: int32[][]): string errors IndexOutOfBoundsError =>
     let mutable frame = ''
     let mutable row_index: int64 = 0
     while row_index < board.length:
-        let row_text = render_row(board[row_index])
+        let row = propagate board.at(row_index)
+        let row_text = propagate render_row(row)
         frame = '{frame}{row_text}\n'
         row_index = row_index + 1
     return frame

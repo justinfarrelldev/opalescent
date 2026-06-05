@@ -6,11 +6,12 @@
 )]
 extern crate alloc;
 
-use crate::ast::{Expr, Type};
+use crate::ast::{Expr, Stmt, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::expressions_array::{
+    codegen_array_at_call, codegen_string_at_call, infer_expression_core_type,
     load_array_data_ptr_for_element_type, load_array_length_from_value,
     materialize_runtime_array_from_raw_elements,
 };
@@ -264,6 +265,18 @@ pub fn codegen_call_expression<'context>(
         ..
     } = *callee
     {
+        if member == "at" && args.len() == 1 {
+            match infer_expression_core_type(env, object.as_ref()) {
+                Some(CoreType::String) => {
+                    return codegen_string_at_call(codegen_context, env, object.as_ref(), &args[0]);
+                }
+                Some(CoreType::Array(_)) => {
+                    return codegen_array_at_call(codegen_context, env, object.as_ref(), &args[0]);
+                }
+                _ => {}
+            }
+        }
+
         if let Expr::Identifier { ref name, .. } = *object.as_ref() {
             if env
                 .variables
@@ -683,6 +696,7 @@ pub fn codegen_guard_expression<'context>(
     env: &mut CodegenEnv<'context>,
     guarded_expr: &Expr,
     binding_name: &str,
+    else_branch: &Stmt,
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let value = if let Expr::Call {
@@ -705,30 +719,90 @@ pub fn codegen_guard_expression<'context>(
     if value.is_struct_value() {
         let struct_value = value.into_struct_value();
         let field_count = struct_value.get_type().count_fields();
-        if field_count >= 1 {
+        if field_count >= 2 {
             let success_value = codegen_context.builder.build_extract_value(
                 struct_value,
                 0,
                 env.next_name("guard.ok").as_str(),
             )?;
-            let alloca = codegen_context.builder.build_alloca(
-                success_value.get_type(),
-                env.next_name("guard.bind").as_str(),
+            let error_field_index = crate::codegen::error_abi::error_field_index(field_count);
+            let error_value = codegen_context.builder.build_extract_value(
+                struct_value,
+                error_field_index,
+                env.next_name("guard.err").as_str(),
             )?;
-            let _store = codegen_context.builder.build_store(alloca, success_value)?;
-            let binding_core_type =
-                infer_guard_binding_core_type(env, guarded_expr, success_value.get_type());
-            env.variables.insert(
-                binding_name.to_owned(),
-                VariableBinding {
-                    alloca,
-                    core_type: binding_core_type,
-                    length: None,
-                    capacity: None,
-                    is_mutable: false,
-                },
-            );
-            return Ok(success_value);
+            if error_value.is_pointer_value() {
+                let Stmt::Expression { ref expr, .. } = *else_branch else {
+                    return Err(CodegenError::new(String::from(
+                        "guard expression else branch must yield a value",
+                    )));
+                };
+
+                let binding_alloca = codegen_context.builder.build_alloca(
+                    success_value.get_type(),
+                    env.next_name("guard.bind").as_str(),
+                )?;
+                let binding_core_type =
+                    infer_guard_binding_core_type(env, guarded_expr, success_value.get_type());
+                env.variables.insert(
+                    binding_name.to_owned(),
+                    VariableBinding {
+                        alloca: binding_alloca,
+                        core_type: binding_core_type,
+                        length: None,
+                        capacity: None,
+                        is_mutable: false,
+                    },
+                );
+
+                let current_fn = current_function(codegen_context)?;
+                let success_block = codegen_context
+                    .context
+                    .append_basic_block(current_fn, env.next_name("guard.expr.success").as_str());
+                let else_block = codegen_context
+                    .context
+                    .append_basic_block(current_fn, env.next_name("guard.expr.else").as_str());
+                let merge_block = codegen_context
+                    .context
+                    .append_basic_block(current_fn, env.next_name("guard.expr.merge").as_str());
+                let error_ptr = error_value.into_pointer_value();
+                let is_success = codegen_context
+                    .builder
+                    .build_is_null(error_ptr, env.next_name("guard.expr.is_success").as_str())?;
+                codegen_context.builder.build_conditional_branch(
+                    is_success,
+                    success_block,
+                    else_block,
+                )?;
+
+                codegen_context.builder.position_at_end(success_block);
+                codegen_context
+                    .builder
+                    .build_store(binding_alloca, success_value)?;
+                let success_end = codegen_context.builder.get_insert_block().ok_or_else(|| {
+                    CodegenError::new(String::from("guard expression success block missing"))
+                })?;
+                codegen_context
+                    .builder
+                    .build_unconditional_branch(merge_block)?;
+
+                codegen_context.builder.position_at_end(else_block);
+                let else_value = codegen_expression(codegen_context, env, expr, expected_type)?;
+                let else_end = codegen_context.builder.get_insert_block().ok_or_else(|| {
+                    CodegenError::new(String::from("guard expression else block missing"))
+                })?;
+                codegen_context
+                    .builder
+                    .build_unconditional_branch(merge_block)?;
+
+                codegen_context.builder.position_at_end(merge_block);
+                let phi = codegen_context.builder.build_phi(
+                    success_value.get_type(),
+                    env.next_name("guard.expr.phi").as_str(),
+                )?;
+                phi.add_incoming(&[(&success_value, success_end), (&else_value, else_end)]);
+                return Ok(phi.as_basic_value());
+            }
         }
     }
     Ok(value)

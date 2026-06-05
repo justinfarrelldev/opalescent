@@ -771,6 +771,14 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                 SymbolType::Function,
             ),
             (
+                String::from("IndexOutOfBoundsError"),
+                CoreType::Generic {
+                    name: String::from("IndexOutOfBoundsError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
                 String::from("StdoutWriter"),
                 CoreType::Generic {
                     name: String::from("StdoutWriter"),

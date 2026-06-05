@@ -429,6 +429,68 @@ fn mutable_ref_fails_to_compile() {
     );
 }
 
+fn assert_legacy_bracket_read_fails_to_compile(
+    project_name: &str,
+    source_path: &str,
+    source: &str,
+) -> Result<(), String> {
+    let temp_dir = unique_probe_target_dir(project_name);
+    let prepare = prepare_dir(&temp_dir);
+    assert!(prepare.is_ok(), "{project_name} target directory should be created");
+
+    let execution_result: Result<(), String> = (|| {
+        let compile_result = compile_program_for_tests(
+            Path::new(source_path),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        );
+
+        if compile_result.is_ok() {
+            return Err(format!(
+                "{project_name} source should fail to compile, but compilation succeeded"
+            ));
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(cleanup.is_ok(), "{project_name} target directory should be removed");
+
+    let failure_message = execution_result.err().unwrap_or_default();
+    assert!(
+        failure_message.is_empty(),
+        "{project_name} should be rejected at compile time: {failure_message}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn legacy_string_bracket_read_fails_to_compile() {
+    let source = "##\n  Description: Legacy string bracket indexing should be rejected after migration.\n##\nentry main = f(): void =>\n    let message = 'opal'\n    let first: string = message[0]\n    print(first)\n    return void\n";
+
+    let result = assert_legacy_bracket_read_fails_to_compile(
+        "legacy-string-bracket-read",
+        "test-projects/string-indexing-legacy-fail/src/main.op",
+        source,
+    );
+    assert!(result.is_ok(), "legacy string bracket read should fail: {result:?}");
+}
+
+#[test]
+fn legacy_array_bracket_read_fails_to_compile() {
+    let source = "##\n  Description: Legacy array bracket indexing should be rejected after migration.\n##\nentry main = f(): void =>\n    let xs: int32[] = [1 as int32, 2 as int32]\n    let first: int32 = xs[0]\n    print('first {first}')\n    return void\n";
+
+    let result = assert_legacy_bracket_read_fails_to_compile(
+        "legacy-array-bracket-read",
+        "test-projects/array-index-legacy-fail/src/main.op",
+        source,
+    );
+    assert!(result.is_ok(), "legacy array bracket read should fail: {result:?}");
+}
+
 #[test]
 fn ambiguous_guard_if_project_fails_with_miette_help() {
     let cwd = std::env::current_dir();

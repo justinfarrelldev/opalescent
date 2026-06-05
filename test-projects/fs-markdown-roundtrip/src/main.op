@@ -18,7 +18,7 @@ let should_blockquote = f(index: int64): boolean =>
 ##
   Description: Runs a deterministic read-transform-write markdown roundtrip and reports exact byte count.
 ##
-entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, WriteFailureError, FilesystemFullError =>
+entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, WriteFailureError, FilesystemFullError, IndexOutOfBoundsError =>
     let project_root = 'test-projects/fs-markdown-roundtrip/'
     let input_path = path_from('{project_root}fixtures/input.md')
     let expected_path = path_from('{project_root}fixtures/expected_output.md')
@@ -31,7 +31,7 @@ entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedE
     let mutable rendered_lines: string[] = []
     let mutable index: int64 = 0
     while index < lines.length:
-        let line = lines[index]
+        let line = propagate lines.at(index)
         if should_blockquote(index):
             rendered_lines.push('> {line}\n')
         else:

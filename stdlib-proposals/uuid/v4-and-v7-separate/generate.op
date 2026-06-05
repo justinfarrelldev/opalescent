@@ -34,16 +34,18 @@ let generate_uuid_v7 = f(rng: RandomNumberGenerator, timestamp_milliseconds: int
 ##
     Description: Convert a UUID byte array to its RFC 4122 string representation.
 ##
-let uuid_bytes_to_string = f(bytes: uint8[]): string =>
+let uuid_bytes_to_string = f(bytes: uint8[]): string errors IndexOutOfBoundsError =>
     let hex_chars = '0123456789abcdef'
     let mutable result: string = ''
     let mutable i: int32 = 0
     while i < 16:
-        let byte: uint8 = bytes[i]
+        let byte: uint8 = propagate bytes.at(i)
         let high: uint8 = 0
         let low: uint8 = 0
-        result = result + string_from_char(hex_chars[high])
-        result = result + string_from_char(hex_chars[low])
+        let high_text = propagate hex_chars.at(high as int32)
+        let low_text = propagate hex_chars.at(low as int32)
+        result = result + high_text
+        result = result + low_text
         if i is 3 or i is 5 or i is 7 or i is 9:
             result = result + '-'
         i = i + 1

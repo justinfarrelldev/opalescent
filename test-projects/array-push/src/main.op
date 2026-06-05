@@ -1,11 +1,11 @@
 ##
   Description: Runs the push red fixture for mutable array growth behavior.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
     let mutable xs: int32[] = []
     xs.push(10 as int32)
     xs.push(25 as int32)
     xs.push(8 as int32)
     print('length {xs.length}')
-    print('values {xs[0]} {xs[1]} {xs[2]}')
+    print('values {propagate xs.at(0)} {propagate xs.at(1)} {propagate xs.at(2)}')
     return void

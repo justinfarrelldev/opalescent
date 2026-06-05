@@ -53,11 +53,13 @@ let handle_file = f(path: string): string =>
 
 ```opal
 # Suggest the compiler inline and stack-allocate aggressively
-inline let dot_product = f(a: borrow float64[], b: borrow float64[]): float64 =>
+inline let dot_product = f(a: borrow float64[], b: borrow float64[]): float64 errors IndexOutOfBoundsError =>
     let mutable sum = 0.0
     let mutable i = 0
     while i < a.len():
-        sum = sum + a[i] * b[i]
+        let left = propagate a.at(i)
+        let right = propagate b.at(i)
+        sum = sum + left * right
         i = i + 1
     return sum
 ```

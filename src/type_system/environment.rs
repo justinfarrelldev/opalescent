@@ -64,6 +64,13 @@ impl TypeEnvironment {
                 type_args: Vec::new(),
             },
         );
+        self.types.insert(
+            "IndexOutOfBoundsError".to_owned(),
+            CoreType::Generic {
+                name: "IndexOutOfBoundsError".to_owned(),
+                type_args: Vec::new(),
+            },
+        );
     }
 
     /// Register a built-in function signature in the environment.

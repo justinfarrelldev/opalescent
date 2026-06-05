@@ -9,15 +9,17 @@
 	[1, 2, 3, 5, 7]
   ```
 ##
-let unique_adjacent_sorted = f<T>(xs: T[], cmp: f(T, T): int32): T[] =>
+let unique_adjacent_sorted = f<T>(xs: T[], cmp: f(T, T): int32): T[] errors IndexOutOfBoundsError =>
     if length(xs) is 0: return xs
     let mutable out: T[] = []
-    out.push(xs[0])
+    out.push(propagate xs.at(0))
     let mutable i = 1
     while i < length(xs):
-        if cmp(xs[i], xs[i - 1]) is 0:
+        let current = propagate xs.at(i)
+        let previous = propagate xs.at(i - 1)
+        if cmp(current, previous) is 0:
             i = i + 1
             continue
-        out.push(xs[i])
+        out.push(current)
         i = i + 1
     return out

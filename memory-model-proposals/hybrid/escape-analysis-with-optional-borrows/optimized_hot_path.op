@@ -23,7 +23,7 @@ type AnalysisResult:
 ##
 let analyze_readings = f(readings: borrow SensorReading[]): AnalysisResult =>
     let mutable sum = 0.0
-    let mutable max_val = readings[0].value
+    let mutable max_val = 0.0
     let mutable anomalies = 0
     let threshold = 100.0
 
@@ -69,7 +69,8 @@ inline let compute_moving_average = f(
         let mutable sum = 0.0
         let mutable j = i - window + 1
         while j <= i:
-            sum = sum + values[j]
+            let value_at_j: float64 = guard values.at(j) into value: float64 else 0.0
+            sum = sum + value_at_j
             j = j + 1
         averages.push(sum / (window as float64))
         i = i + 1

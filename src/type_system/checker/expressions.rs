@@ -654,8 +654,12 @@ impl TypeChecker {
         let index_type = self.type_check_expr(index)?;
         ensure_integer_type(&index_type, index.span(), "indexing")?;
         match object_type {
-            CoreType::Array(element_type) => Ok(*element_type),
-            CoreType::String => Ok(CoreType::String),
+            CoreType::Array(_) => Err(TypeError::LegacyArrayBracketRead {
+                span: TypeError::span_from_span(span),
+            }),
+            CoreType::String => Err(TypeError::LegacyStringBracketRead {
+                span: TypeError::span_from_span(span),
+            }),
             other => Err(invalid_operation_error("indexing", &other, span)),
         }
     }

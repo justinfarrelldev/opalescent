@@ -8,8 +8,8 @@ extern crate alloc;
 
 use super::control_flow::{GuardBindingInfo, GuardCheckRequest, GuardUsage};
 use super::helpers::{
-    coerce_literal_to_expected, ensure_boolean_type, invalid_operation_error, is_integer_type,
-    type_mismatch_error,
+    coerce_literal_to_expected, ensure_boolean_type, ensure_integer_type,
+    invalid_operation_error, is_integer_type, type_mismatch_error,
 };
 use crate::ast::{AstNode, Expr, LabeledValue, LetBinding, LiteralValue, Stmt, Type};
 use crate::token::Span;
@@ -560,22 +560,7 @@ impl TypeChecker {
             }
         }
 
-        let target_type = match *target {
-            Expr::Identifier {
-                ref name,
-                span: identifier_span,
-                ..
-            } => self
-                .symbol_table()
-                .lookup(name)
-                .map(|symbol| symbol.core_type.clone())
-                .ok_or_else(|| TypeError::SymbolNotFound {
-                    name: name.clone(),
-                    suggestion: None,
-                    span: TypeError::span_from_span(identifier_span),
-                })?,
-            _ => self.type_check_expr(target)?,
-        };
+        let target_type = self.type_check_assignment_target(target)?;
         let value_type = self.type_check_expr(value)?;
         let reconciled_value_type = if self.types_compatible(&target_type, &value_type) {
             value_type
@@ -609,6 +594,40 @@ impl TypeChecker {
         }
 
         validity
+    }
+
+    fn type_check_assignment_target(&mut self, target: &Expr) -> Result<CoreType, TypeError> {
+        match *target {
+            Expr::Identifier {
+                ref name,
+                span: identifier_span,
+                ..
+            } => self
+                .symbol_table()
+                .lookup(name)
+                .map(|symbol| symbol.core_type.clone())
+                .ok_or_else(|| TypeError::SymbolNotFound {
+                    name: name.clone(),
+                    suggestion: None,
+                    span: TypeError::span_from_span(identifier_span),
+                }),
+            Expr::Index {
+                ref object,
+                ref index,
+                span,
+                ..
+            } => {
+                let object_type = self.type_check_assignment_target(object)?;
+                let index_type = self.type_check_expr(index)?;
+                ensure_integer_type(&index_type, index.span(), "indexing")?;
+                match object_type {
+                    CoreType::Array(element_type) => Ok(*element_type),
+                    CoreType::String => Ok(CoreType::String),
+                    other => Err(invalid_operation_error("index assignment", &other, span)),
+                }
+            }
+            _ => self.type_check_expr(target),
+        }
     }
 
     /// Validate a return statement against the function's expected return type,

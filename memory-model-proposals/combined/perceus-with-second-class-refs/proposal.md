@@ -35,10 +35,11 @@ let sum = f(items: ref int32[]): int32 =>
     return total
 
 # 'mutable ref' for in-place modification — still parameter-only
-let normalize = f(scores: mutable ref float64[], factor: float64): void =>
+let normalize = f(scores: mutable ref float64[], factor: float64): void errors IndexOutOfBoundsError =>
     let mutable i = 0
     while i < scores.len():
-        scores[i] = scores[i] / factor
+        let current = propagate scores.at(i)
+        scores[i] = current / factor
         i = i + 1
     return void
 ```

@@ -63,6 +63,8 @@ let slice = f<T>(xs: T[], start: int32, end_exclusive: int32): T[] errors OutOfR
     let mutable out: T[] = []
     let mutable i = start
     while i < end_exclusive:
-        out.push(xs[i])
+        guard xs.at(i) into value else _ =>
+            return propagate CollectionErrors.OutOfRange
+        out.push(value)
         i = i + 1
     return out

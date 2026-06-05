@@ -110,6 +110,31 @@ fn test_format_codegen_error_uses_standardized_code() {
 }
 
 #[test]
+fn test_legacy_bracket_read_diagnostics_surface_at_guidance() {
+    let string_rendered = format_diagnostic(
+        CompilerPhase::TypeChecker,
+        &CompilerError::TypeChecker(TypeError::LegacyStringBracketRead {
+            span: test_source_span(4, 10),
+        }),
+    );
+    assert!(string_rendered.contains("opalescent::type_system::legacy_string_bracket_read"));
+    assert!(string_rendered.contains("str.at(i)"));
+    assert!(string_rendered.contains("IndexOutOfBoundsError"));
+    assert!(string_rendered.contains("guard") || string_rendered.contains("propagate"));
+
+    let array_rendered = format_diagnostic(
+        CompilerPhase::TypeChecker,
+        &CompilerError::TypeChecker(TypeError::LegacyArrayBracketRead {
+            span: test_source_span(4, 5),
+        }),
+    );
+    assert!(array_rendered.contains("opalescent::type_system::legacy_array_bracket_read"));
+    assert!(array_rendered.contains("array.at(i)"));
+    assert!(array_rendered.contains("IndexOutOfBoundsError"));
+    assert!(array_rendered.contains("guard") || array_rendered.contains("propagate"));
+}
+
+#[test]
 fn test_error_bundle_joins_multiple_entries() {
     let entries = vec![
         (

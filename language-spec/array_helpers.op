@@ -55,11 +55,12 @@ let reduce = f<T, U>(xs: T[], init: U, step: f(U, T): U): U =>
 ##
   Description: non-mutating slice [start, end) (pure).
 ##
-let slice = f<T>(xs: T[], start: int32, end_exclusive: int32): T[] =>
+let slice = f<T>(xs: T[], start: int32, end_exclusive: int32): T[] errors IndexOutOfBoundsError =>
     let mutable out: T[] = []
     let mutable i = start
     while i < end_exclusive:
-        out.push(xs[i])
+        let value = propagate xs.at(i)
+        out.push(value)
         i = i + 1
     return out
 

@@ -8,6 +8,7 @@ use crate::compiler::compiler_helpers::{
     collect_module_symbol_signatures, collect_program_adt_field_indices,
     collect_program_adt_field_layouts, compile_checked_program_to_module, parse_source_to_program,
 };
+use crate::errors::renderer::render_report;
 use crate::errors::reporter::CompilerError;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
@@ -417,7 +418,7 @@ fn imported_public_array_values_compile_through_loop_length_and_indexing() {
     .expect("write flags module");
     std::fs::write(
         src_dir.join("main.op"),
-        "import flags from ./flags\n\n##\n    Description: Entry function exercises imported public array values\n##\nentry main = f(): void =>\n    let mutable total: int64 = 0\n    for flag in flags:\n        total = total + flag\n    let count: int64 = flags.length\n    let second_flag: int64 = flags[1]\n    if total < count + second_flag:\n        return void\n    return void\n",
+        "import flags from ./flags\n\n##\n    Description: Entry function exercises imported public array values\n##\nentry main = f(): void errors IndexOutOfBoundsError =>\n    let mutable total: int64 = 0\n    for flag in flags:\n        total = total + flag\n    let count: int64 = flags.length\n    let second_flag: int64 = propagate flags.at(1)\n    if total < count + second_flag:\n        return void\n    return void\n",
     )
     .expect("write main source");
 
@@ -430,7 +431,7 @@ fn imported_public_array_values_compile_through_loop_length_and_indexing() {
     );
     assert!(
         result.is_ok(),
-        "imported public array values should compile through loop, length, and indexing: {result:?}"
+        "imported public array values should compile through loop, length, and .at(...): {result:?}"
     );
 }
 
@@ -462,6 +463,146 @@ fn imported_public_scalar_values_compile_in_expressions() {
     assert!(
         result.is_ok(),
         "imported public scalar values should compile inside normal expressions: {result:?}"
+    );
+}
+
+#[test]
+fn legacy_string_bracket_value_read_reports_at_guidance() {
+    let temp_dir = tempfile::tempdir().expect("create temp project");
+    let src_dir = temp_dir.path().join("src");
+    std::fs::create_dir_all(&src_dir).expect("create src dir");
+    std::fs::write(
+        temp_dir.path().join("opal.toml"),
+        "name = \"legacy-string-bracket-read\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("write opal.toml");
+    std::fs::write(
+        src_dir.join("errors.types.op"),
+        "type IndexOutOfBoundsError:\n    OutOfBounds\n",
+    )
+    .expect("write error type fixture");
+    std::fs::write(
+        src_dir.join("main.op"),
+        "##\n    Description: Legacy string bracket read should now report .at guidance\n##\nentry main = f(): string =>\n    let message = 'hello'\n    return message[0]\n",
+    )
+    .expect("write main source");
+
+    let target = TargetTriple::host();
+    let result = super::compile_project_with_run_policy(
+        temp_dir.path(),
+        &temp_dir.path().join("target"),
+        &target,
+        CompileRunPolicy::default(),
+    );
+
+    let Err(CompileError::Report {
+        source_path,
+        report,
+        normalized_source,
+    }) = result
+    else {
+        panic!(
+            "legacy string bracket reads in value position should fail with str.at(...) guidance and IndexOutOfBoundsError"
+        );
+    };
+
+    assert_eq!(
+        source_path,
+        src_dir.join("main.op").display().to_string(),
+        "legacy string bracket read report should point at the main source file"
+    );
+    assert!(
+        report
+            .entries()
+            .iter()
+            .any(|entry| matches!(entry, &(_, CompilerError::TypeChecker(_)))),
+        "legacy string bracket read should surface a type-checker diagnostic"
+    );
+
+    let rendered = render_report(&source_path, &normalized_source, &report);
+    assert!(
+        rendered.contains("str.at(...)") || rendered.contains("str.at("),
+        "legacy string bracket read diagnostic should guide users toward str.at(...): {rendered}"
+    );
+    assert!(
+        rendered.contains("IndexOutOfBoundsError"),
+        "legacy string bracket read diagnostic should mention IndexOutOfBoundsError: {rendered}"
+    );
+}
+
+#[test]
+fn legacy_array_bracket_value_read_reports_at_guidance() {
+    let temp_dir = tempfile::tempdir().expect("create temp project");
+    let src_dir = temp_dir.path().join("src");
+    std::fs::create_dir_all(&src_dir).expect("create src dir");
+    std::fs::write(
+        temp_dir.path().join("opal.toml"),
+        "name = \"legacy-array-bracket-read\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("write opal.toml");
+    std::fs::write(
+        src_dir.join("errors.types.op"),
+        "type IndexOutOfBoundsError:\n    OutOfBounds\n",
+    )
+    .expect("write error type fixture");
+    std::fs::write(
+        src_dir.join("main.op"),
+        "##\n    Description: Legacy array bracket read should now report .at guidance\n##\nentry main = f(): int64 =>\n    let xs: int64[] = [1 as int64, 2 as int64, 3 as int64]\n    return xs[0]\n",
+    )
+    .expect("write main source");
+
+    let target = TargetTriple::host();
+    let result = super::compile_project_with_run_policy(
+        temp_dir.path(),
+        &temp_dir.path().join("target"),
+        &target,
+        CompileRunPolicy::default(),
+    );
+
+    let Err(CompileError::Report {
+        source_path,
+        report,
+        normalized_source,
+    }) = result
+    else {
+        panic!(
+            "legacy array bracket reads in value position should fail with array.at(...) guidance and IndexOutOfBoundsError"
+        );
+    };
+
+    assert_eq!(
+        source_path,
+        src_dir.join("main.op").display().to_string(),
+        "legacy array bracket read report should point at the main source file"
+    );
+    assert!(
+        report
+            .entries()
+            .iter()
+            .any(|entry| matches!(entry, &(_, CompilerError::TypeChecker(_)))),
+        "legacy array bracket read should surface a type-checker diagnostic"
+    );
+
+    let rendered = render_report(&source_path, &normalized_source, &report);
+    assert!(
+        rendered.contains("array.at(...)") || rendered.contains("array.at("),
+        "legacy array bracket read diagnostic should guide users toward array.at(...): {rendered}"
+    );
+    assert!(
+        rendered.contains("IndexOutOfBoundsError"),
+        "legacy array bracket read diagnostic should mention IndexOutOfBoundsError: {rendered}"
+    );
+}
+
+#[test]
+fn indexed_assignment_with_identifier_index_still_compiles() {
+    let context = Context::create();
+    let source = "##\n  Description: Indexed assignment with identifier index remains supported\n##\nentry main = f(): void => {\n    let mutable xs: int64[] = [1 as int64, 2 as int64, 3 as int64]\n    let i: int64 = 1 as int64\n    xs[i] = 9 as int64\n    return void\n}";
+    let result = compile_to_module(&context, Path::new("test.op"), source);
+
+    assert!(
+        result.is_ok(),
+        "indexed assignment xs[i] = v should remain accepted: {result:?}"
     );
 }
 

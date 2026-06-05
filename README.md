@@ -126,8 +126,8 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [x] Algebraic data types: product types, sum types, enums, and recursive types
 - [x] Generic type syntax and selected generic surfaces such as `Weak<T>` and standard-library array helpers
 - [x] String interpolation with single-quoted strings such as `'Hello {name}'`
-- [x] Strings with `.length` and zero-based Unicode scalar indexing such as `message[0]` and `message[message.length - 1]`, returning `string` values with no public `char` type
-- [x] Arrays with `.length`, indexing, `push`, `pop`, `map`, `filter`, `reduce`, `zip`, and related helpers
+- [x] Strings with `.length` and zero-based Unicode scalar access through fallible `.at(...)` reads such as `message.at(0)` and `message.at(message.length - 1)`, returning `string` values with no public `char` type
+- [x] Arrays with `.length`, fallible `.at(...)` reads, indexed assignment, `push`, `pop`, `map`, `filter`, `reduce`, `zip`, and related helpers
 - [x] Algebraic data type parsing/type work and `is`-based ADT/value checks in fixtures
 - [x] `if`, `while`, `for`, `while true`, `continue`, and the fixture-backed `loop => ... break name: value` expression form
 - [x] Fallible functions with `errors ...` clauses
@@ -237,11 +237,23 @@ Generate Markdown docs from a source file:
 ./target/release/opalescent doc test-projects/hello-world/src/main.op
 ```
 
-## String indexing
+## String access
 
-Public string indexing uses zero-based Unicode scalar positions. `message[0]` returns a one-scalar `string`, and `message[message.length - 1]` returns the last scalar as another `string`. Opalescent does not expose a public `char` or `rune` type for this feature.
+Public string access uses zero-based Unicode scalar positions through fallible `.at(...)` calls. `message.at(0)` returns a one-scalar `string` on success, and `message.at(message.length - 1)` returns the last scalar as another `string`. Opalescent does not expose a public `char` or `rune` type for this feature.
 
-If a string index is out of bounds, the runtime reports a source-anchored Miette diagnostic with the file path, source line, highlighted `message[index]` expression, and help text for `0 <= index < string.length`.
+```opal
+entry main = f(args: string[]): void =>
+    let message = 'aéf'
+
+    guard message.at(1) into unicode else err =>
+        print('index error: {err}')
+        return void
+
+    print('unicode={unicode}')
+    return void
+```
+
+Out-of-bounds `.at(...)` reads surface `IndexOutOfBoundsError`, so callers must use `guard` or `propagate`. When left unhandled, the runtime currently prints `IndexOutOfBoundsError` on stderr.
 
 ## CLI reference
 

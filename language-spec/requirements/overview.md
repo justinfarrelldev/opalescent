@@ -51,14 +51,15 @@ Cast syntax: (expr as T)
 
 Use miette for formatting of the output.
 
-# String Indexing
+# String Access
 
-Public string indexing uses `value[index]` with zero-based Unicode scalar positions.
+Public string access uses `value.at(index)` with zero-based Unicode scalar positions.
 
-- `value[index]` returns `string`
-- `value[value.length - 1]` is valid when the string is non-empty
+- `value.at(index)` returns `string` on success
+- `value.at(value.length - 1)` is valid when the string is non-empty
 - Opalescent does not introduce a public `char` or `rune` type for indexed string access
-- Out-of-bounds string indexing must produce a source-anchored Miette diagnostic that includes the file path, source line, highlighted `value[index]` expression, and help text for `0 <= index < string.length`
+- Out-of-bounds string access surfaces `IndexOutOfBoundsError`, so callers must use `guard` or `propagate`
+- Unhandled out-of-bounds string access currently prints `IndexOutOfBoundsError` on stderr
 
 # Whitespace
 

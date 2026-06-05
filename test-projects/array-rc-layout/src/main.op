@@ -3,7 +3,7 @@ import append from standard
 ##
   Description: Pins the future RC-backed array payload semantics for literals and alias-preserving mutation.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
     let empty: int32[] = []
     print('empty length {empty.length}')
 
@@ -11,16 +11,16 @@ entry main = f(args: string[]): void =>
     let alias = literal
     let appended = append(literal, 3 as int32)
     print('literal length {literal.length}')
-    print('literal values {literal[0]} {literal[1]}')
-    print('alias sees literal {alias[0]} {alias[1]}')
+    print('literal values {propagate literal.at(0)} {propagate literal.at(1)}')
+    print('alias sees literal {propagate alias.at(0)} {propagate alias.at(1)}')
     print('appended length {appended.length}')
-    print('appended values {appended[0]} {appended[1]} {appended[2]}')
+    print('appended values {propagate appended.at(0)} {propagate appended.at(1)} {propagate appended.at(2)}')
 
     let mutable rebound: int32[] = [7 as int32, 8 as int32]
     let rebound_alias = rebound
     rebound.push(9 as int32)
     print('rebound length {rebound.length}')
-    print('rebound values {rebound[0]} {rebound[1]} {rebound[2]}')
+    print('rebound values {propagate rebound.at(0)} {propagate rebound.at(1)} {propagate rebound.at(2)}')
     print('alias length {rebound_alias.length}')
-    print('alias values {rebound_alias[0]} {rebound_alias[1]}')
+    print('alias values {propagate rebound_alias.at(0)} {propagate rebound_alias.at(1)}')
     return void

@@ -35,11 +35,12 @@ This is the most ergonomic option for grid simulations because the application t
 ```opal
 import terminal_draw_rows_sync from standard
 
-let draw_board = f(board: int32[][]): void errors UnsupportedTerminalError, OutputNotTerminalError, ControlWriteFailureError, WriteFailureError, FlushFailureError, SinkClosedError =>
+let draw_board = f(board: int32[][]): void errors UnsupportedTerminalError, OutputNotTerminalError, ControlWriteFailureError, WriteFailureError, FlushFailureError, SinkClosedError, IndexOutOfBoundsError =>
     let mutable rows: string[] = []
     let mutable row_index: int64 = 0
     while row_index < board.length:
-        rows.push(render_row(board[row_index]))
+        let row = propagate board.at(row_index)
+        rows.push(render_row(row))
         row_index = row_index + 1
     propagate terminal_draw_rows_sync(rows)
     return void

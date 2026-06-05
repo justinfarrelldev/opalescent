@@ -13,5 +13,5 @@ public let expected_raw_text = f(): string =>
 ##
   Description: Joins four known lines with LF to model normalized line policy.
 ##
-public let join_four_lines = f(lines: string[]): string =>
-    return '{lines[0]}\n{lines[1]}\n{lines[2]}\n{lines[3]}\n'
+public let join_four_lines = f(lines: string[]): string errors IndexOutOfBoundsError =>
+    return '{propagate lines.at(0)}\n{propagate lines.at(1)}\n{propagate lines.at(2)}\n{propagate lines.at(3)}\n'

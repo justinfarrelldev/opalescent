@@ -45,10 +45,11 @@ let append_exclaim = f(text: mutable ref string): void =>
 
 
 ##
-  Description: returns a ref into the input slice — lifetime auto-elided
+  Description: returns the first item from the input slice using fallible access
 ##
-let first = f<T>(items: ref T[]): ref T =>
-    return items[0]
+let first = f<T>(items: ref T[], fallback: T): T =>
+    let first_item: T = guard items.at(0) into value: T else fallback
+    return first_item
 
 
 ##

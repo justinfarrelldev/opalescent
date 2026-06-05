@@ -51,7 +51,11 @@ let to_have_been_called_with = f(call_records: InvocationRecord[], expected_argu
                        expected_arguments: expected_arguments
                        actual_arguments: []
 
-    let first_record = call_records[0]
+    guard call_records.at(0) into first_record else _ =>
+        return new TestFailure:
+                   MockArgumentsMismatch:
+                       expected_arguments: expected_arguments
+                       actual_arguments: []
     if first_record.arguments_text.length is not expected_arguments.length:
         return new TestFailure:
                    MockArgumentsMismatch:

@@ -1,24 +1,31 @@
 ##
   Description: Runs double-array literals, lengths, and nested reads.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+    let uniform_row_1: int32[] = propagate uniform.at(1)
+    let uniform_row_2: int32[] = propagate uniform.at(2)
     print('uniform outer {uniform.length}')
-    print('uniform inner {uniform[1].length}')
-    print('uniform value {uniform[2][1]}')
+    print('uniform inner {uniform_row_1.length}')
+    print('uniform value {propagate uniform_row_2.at(1)}')
 
     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    let jagged_row_0: int32[] = propagate jagged.at(0)
+    let jagged_row_1: int32[] = propagate jagged.at(1)
+    let jagged_row_2: int32[] = propagate jagged.at(2)
     print('jagged outer {jagged.length}')
-    print('jagged row0 {jagged[0].length}')
-    print('jagged row1 {jagged[1].length}')
-    print('jagged row2 {jagged[2].length}')
-    print('jagged value {jagged[2][2]}')
+    print('jagged row0 {jagged_row_0.length}')
+    print('jagged row1 {jagged_row_1.length}')
+    print('jagged row2 {jagged_row_2.length}')
+    print('jagged value {propagate jagged_row_2.at(2)}')
 
     let single_row: int32[][] = [[10 as int32, 11 as int32, 12 as int32]]
-    print('single row {single_row.length} {single_row[0].length} {single_row[0][2]}')
+    let single_row_0: int32[] = propagate single_row.at(0)
+    print('single row {single_row.length} {single_row_0.length} {propagate single_row_0.at(2)}')
 
     let single_col: int32[][] = [[20 as int32], [21 as int32], [22 as int32]]
-    print('single col {single_col.length} {single_col[2].length} {single_col[2][0]}')
+    let single_col_2: int32[] = propagate single_col.at(2)
+    print('single col {single_col.length} {single_col_2.length} {propagate single_col_2.at(0)}')
 
     let empty_outer: int32[][] = []
     print('empty outer {empty_outer.length}')

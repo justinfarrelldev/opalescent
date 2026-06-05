@@ -25,7 +25,9 @@ public let in_bounds = f(width: int64, height: int64, x: int64, y: int64): boole
 ##
 public let cell_at = f(board: int8[], width: int64, height: int64, x: int64, y: int64): int8 =>
     if in_bounds(width, height, x, y):
-        return board[board_index(width, x, y)]
+        guard board.at(board_index(width, x, y)) into cell else e =>
+            return dead_cell()
+        return cell
     return dead_cell()
 
 ##

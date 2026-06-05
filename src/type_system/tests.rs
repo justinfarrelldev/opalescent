@@ -8755,10 +8755,10 @@ fn string_indexing_invalid_index_type() {
 #[test]
 fn test_string_indexing_type_checks_as_string() {
     const SOURCE: &str = "
-entry demo = f(): string => {
+entry demo = f(): string errors IndexOutOfBoundsError => {
 let message = 'hello'
-let first: string = message[0]
-let last: string = message[message.length - 1]
+let first: string = propagate message.at(0)
+let last: string = propagate message.at(message.length - 1)
 return first
 }
 ";
@@ -8767,7 +8767,7 @@ return first
     let result = checker.type_check_program(&program);
     assert!(
         result.is_ok(),
-        "string indexing should type check as string for both message[0] and message[message.length - 1]: {result:?}"
+        "string .at(...) should type check as string for both message.at(0) and message.at(message.length - 1): {result:?}"
     );
 }
 
@@ -8812,5 +8812,127 @@ return values.length
     assert!(
         result.is_ok(),
         "array .length should type check as int64: {result:?}"
+    );
+}
+
+#[test]
+fn test_string_at_bare_call_requires_handling() {
+    const SOURCE: &str = "
+let demo = f(): string => {
+let message = 'hello'
+return message.at(0)
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("bare string .at(...) should require explicit fallible handling");
+
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::UnhandledCallError { .. })),
+        "expected UnhandledCallError for bare string .at(...), got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_array_at_bare_call_requires_handling() {
+    const SOURCE: &str = "
+let demo = f(): int32 => {
+let values: int32[] = [1 as int32, 2 as int32, 3 as int32]
+return values.at(0)
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("bare array .at(...) should require explicit fallible handling");
+
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error, TypeError::UnhandledCallError { .. })),
+        "expected UnhandledCallError for bare array .at(...), got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_string_at_propagate_requires_index_out_of_bounds_error_declaration() {
+    const SOURCE: &str = "
+let demo = f(): string errors ParseError => {
+let message = 'hello'
+return propagate message.at(0)
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("propagating string .at(...) should require errors IndexOutOfBoundsError");
+
+    assert!(
+        errors.iter().any(|error| matches!(
+            error,
+            TypeError::PropagateErrorMismatch { found, .. }
+                if found.contains("IndexOutOfBoundsError")
+        )),
+        "expected PropagateErrorMismatch naming IndexOutOfBoundsError for string .at(...), got: {errors:?}"
+    );
+}
+
+#[test]
+fn test_string_at_guard_type_checks_with_local_fallback() {
+    const SOURCE: &str = "
+entry main = f(): string => {
+let message = 'hello'
+let scalar: string = guard message.at(0) into ch: string else 'fallback'
+return scalar
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "string .at(...) should type check inside guard with local fallback: {result:?}"
+    );
+}
+
+#[test]
+fn test_array_at_guard_type_checks_with_element_fallback() {
+    const SOURCE: &str = "
+entry main = f(): int32 => {
+let values: int32[] = [1 as int32, 2 as int32, 3 as int32]
+let value: int32 = guard values.at(1) into found: int32 else -1 as int32
+return value
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "array .at(...) should type check inside guard with int32 fallback: {result:?}"
+    );
+}
+
+#[test]
+fn test_array_at_propagate_type_checks_and_returns_element_type() {
+    const SOURCE: &str = "
+entry main = f(): int32 errors IndexOutOfBoundsError => {
+let values: int32[] = [1 as int32, 2 as int32, 3 as int32]
+let value: int32 = propagate values.at(1)
+return value
+}
+";
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "array .at(...) should propagate IndexOutOfBoundsError and return int32 for int32[]: {result:?}"
     );
 }

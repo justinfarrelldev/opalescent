@@ -43,6 +43,18 @@ impl TypeChecker {
                 error_types: Vec::new(),
             },
         );
+        self.register_builtin_method(
+            "[t].at",
+            CoreType::Function {
+                generic_params: vec![generic_t.clone()],
+                parameters: vec![CoreType::Int64],
+                return_types: vec![element_t.clone()],
+                error_types: vec![CoreType::Generic {
+                    name: "IndexOutOfBoundsError".to_owned(),
+                    type_args: Vec::new(),
+                }],
+            },
+        );
         self.register_array_transform_intrinsics(generic_t, element_t);
     }
 

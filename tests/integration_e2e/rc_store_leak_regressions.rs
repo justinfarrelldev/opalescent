@@ -337,9 +337,9 @@ let identity_value = f(x: int32): int32 =>
 ##
   Description: RC store regression near second-class-reference adjacency and assignment overwrite.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
     let mutable values: int32[] = [4, 5]
-    let first_cell = values[0]
+    let first_cell = propagate values.at(0)
     let head = identity_value(first_cell)
     if head > 0:
         values = [head, 6]
@@ -360,13 +360,13 @@ fn board_reassignment_from_user_fn_no_leak() {
 ##
   Description: Builds the next generation as a fresh local board for reassignment leak coverage.
 ##
-let next_generation = f(board: int8[], width: int64, height: int64): int8[] =>
+let next_generation = f(board: int8[], width: int64, height: int64): int8[] errors IndexOutOfBoundsError =>
     let mutable next_board: int8[] = []
     let mutable y: int64 = 0
     while y < height:
         let mutable x: int64 = 0
         while x < width:
-            next_board.push(board[(y * width) + x])
+            next_board.push(propagate board.at((y * width) + x))
             x = x + 1
         y = y + 1
     return next_board
@@ -374,13 +374,14 @@ let next_generation = f(board: int8[], width: int64, height: int64): int8[] =>
 ##
   Description: Reassigns a mutable board from a fresh user function return many times.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
     let width: int64 = 2
     let height: int64 = 2
     let mutable board: int8[] = [1, 0, 1, 0]
     let mutable generation: int64 = 0
     while generation < 128:
-        board = next_generation(board, width, height)
+        let next_board: int8[] = propagate next_generation(board, width, height)
+        board = next_board
         generation = generation + 1
     return void
 ";

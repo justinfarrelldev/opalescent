@@ -24,7 +24,8 @@ Current Opalescent already supports this shape:
 let mutable rendered = ''
 let mutable index: int64 = 0
 while index < lines.length:
-    let line = lines[index]
+    guard lines.at(index) into line else err =>
+        return void
     rendered = '{rendered}{line}\n'
     index = index + 1
 ```

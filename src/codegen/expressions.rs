@@ -216,12 +216,14 @@ pub fn codegen_expression<'context>(
         Expr::Guard {
             ref expr,
             ref binding_name,
+            ref else_branch,
             ..
         } => codegen_guard_expression(
             codegen_context,
             env,
             expr.as_ref(),
             binding_name.as_str(),
+            else_branch.as_ref(),
             expected_type,
         ),
         Expr::Propagate { ref call, .. } => {

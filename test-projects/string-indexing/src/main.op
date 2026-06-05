@@ -3,17 +3,18 @@ import print from standard
 ##
     Description: minimal fixture proving string indexing and comparison
 ##
-entry main = f(): void => {
+entry main = f(): void errors IndexOutOfBoundsError => {
     let message = 'aéf'
-    let first: string = message[0]
-    let last: string = message[message.length - 1]
-    let unicode: string = message[1]
+    let first: string = propagate message.at(0)
+    let last: string = propagate message.at(message.length - 1)
+    let unicode: string = propagate message.at(1)
+    let condition_char: string = propagate message.at(0)
 
     print('first={first}')
     print('last={last}')
     print('unicode={unicode}')
 
-    if message[0] is 'a' {
+    if condition_char is 'a' {
         print('condition=true')
     }
 

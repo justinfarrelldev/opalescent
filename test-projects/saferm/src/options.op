@@ -71,3 +71,12 @@ public let contains_string = f(values: string[], candidate: string): boolean =>
         if candidate is value:
             return true
     return false
+
+##
+    Description: Tests whether a candidate string begins with a dash.
+##
+public let starts_with_dash = f(candidate: string): boolean =>
+    let first_char: string = guard candidate.at(0) into value: string else ''
+    if first_char is '-':
+        return true
+    return false
