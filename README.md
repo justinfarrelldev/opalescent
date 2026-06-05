@@ -56,7 +56,33 @@ entry main = f(args: string[]): void =>
     return void
 ```
 
-### Game of Life — types and rules ([test-projects/game-of-life-full](test-projects/game-of-life-full/src/))
+### Labeled multiple returns ([test-projects/multiple-returns-basic](test-projects/multiple-returns-basic/src/main.op))
+
+`test-projects/multiple-returns-basic` is a runnable fixture that shows the tested multi-return surface: required labels in the function signature, exact-name destructuring, explicit `returned_label: local_name` renaming, and `return other_multi()` pass-through.
+
+```
+let pair = f(): first: int32, second: int32 =>
+    return first: 11 as int32, second: 22 as int32
+
+let forwarded_pair = f(): first: int32, second: int32 =>
+    return pair()
+
+let pass_through_total = f(): int32 =>
+    let first, second = forwarded_pair()
+    return first + second
+
+entry main = f(args: string[]): void =>
+    let first, second = forwarded_pair()
+    let first: renamed_first, second: renamed_second = pair()
+    print('EXACT={first},{second}')
+    print('RENAMED={renamed_first},{renamed_second}')
+    print('PASS_THROUGH={pass_through_total()}')
+    return void
+```
+
+For fallible success destructuring with `propagate` and statement `guard`, see `test-projects/multiple-returns-fallible/src/main.op`.
+
+### Game of Life, types and rules ([test-projects/game-of-life-full](test-projects/game-of-life-full/src/))
 
 A multi-file project with separate modules for board state, rendering, patterns, configuration, and rules. The two excerpts below are just a slice — see [test-projects/game-of-life-full](test-projects/game-of-life-full/src/) for the full project. They demonstrate product types, cross-file imports, `public let`, nested `while` loops, and flat `int8[]` boards.
 
@@ -122,6 +148,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [x] `entry main` program entry points
 - [x] `let` bindings, `mutable` bindings, assignment, and explicit `return`
 - [x] Functions declared with `f(...)` signatures
+- [x] Labeled multiple returns with required signature labels, labeled return sites, exact-name destructuring, explicit `returned_label: local_name` renaming, return pass-through, cross-module label metadata, and the fixture-backed fallible `propagate` and statement `guard` success destructuring forms
 - [x] Primitive types: `boolean`, `string`, `void`, signed/unsigned integer widths, and floating-point widths
 - [x] Algebraic data types: product types, sum types, enums, and recursive types
 - [x] Generic type syntax and selected generic surfaces such as `Weak<T>` and standard-library array helpers
@@ -130,6 +157,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [x] Arrays with `.length`, fallible `.at(...)` reads, indexed assignment, `push`, `pop`, `map`, `filter`, `reduce`, `zip`, and related helpers
 - [x] Algebraic data type parsing/type work and `is`-based ADT/value checks in fixtures
 - [x] `if`, `while`, `for`, `while true`, `continue`, and the fixture-backed `loop => ... break name: value` expression form
+- [x] Multiple return limitations documented and tested: labels are ordered metadata for callers, docs, diagnostics, and cross-module checks, not tuple storage, not function type identity, not ABI identity, and not a value-reordering mechanism
 - [x] Fallible functions with `errors ...` clauses
 - [x] `propagate`, `guard ... else`, and `guard ... into ... else` error handling
 - [x] Importing functions and types from other files

@@ -226,6 +226,48 @@ let add = f(a: int32, b: int32): int32 =>
     return a + b
 ```
 
+### Labeled multiple returns
+
+A function can return more than one value, but every multi-return function must declare labels in its signature.
+
+```opal
+let pair = f(): first: int32, second: int32 =>
+    return first: 11 as int32, second: 22 as int32
+```
+
+Those labels are required metadata. Callers, generated docs, diagnostics, and imported modules can see them. The returned values still stay in declaration order.
+
+Unlabeled destructuring only works when the local names exactly match the returned labels in the same order:
+
+```opal
+let first, second = pair()
+```
+
+If you want different local names, write the returned label on the left and the local name on the right:
+
+```opal
+let first: renamed_first, second: renamed_second = pair()
+```
+
+That syntax means `returned_label: local_name`. It verifies intent, but it never reorders values. If a function returns `first, second`, then `let second, first = pair()` is wrong, and `let second: b, first: a = pair()` is wrong too.
+
+Return pass-through is also tested:
+
+```opal
+let forwarded_pair = f(): first: int32, second: int32 =>
+    return pair()
+```
+
+Important limits:
+
+- There is no tuple type for these results.
+- There is no first-class multi-value storage. You destructure at the call site or pass the whole result straight through with `return other_multi()`.
+- Labels are not function type identity.
+- Labels are not ABI identity.
+- Labels do not let callers reorder returned values.
+
+The working ordinary fixture is `test-projects/multiple-returns-basic/src/main.op`. Cross-module label metadata is covered by `test-projects/multiple-returns-cross-module/src/`.
+
 ## 9. `entry main`
 
 Every runnable program has one entry point:
@@ -463,6 +505,21 @@ Read this as: “try to read the text; if it fails, stop this function and send 
 
 The function containing that line must declare compatible error types.
 
+This also works with tested fallible multiple returns. The success values keep their declared order, and the labels still act as metadata only:
+
+```opal
+let parse_pair = f(left_text: string, right_text: string): left: int32, right: int32 errors ParseError =>
+    let left = propagate string_to_int32(left_text)
+    let right = propagate string_to_int32(right_text)
+    return left: left, right: right
+
+let sum_pair = f(left_text: string, right_text: string): int32 errors ParseError =>
+    let left, right = propagate parse_pair(left_text, right_text)
+    return left + right
+```
+
+The tested success ABI shape for this form is ordered success fields plus trailing error state. That is why `propagate` can destructure the success side positionally while labels still stay outside ABI identity.
+
 ## 20. `guard ... else`
 
 Use `guard` when you want to handle an error right here.
@@ -478,6 +535,22 @@ print(text)
 ```
 
 The `into text` part names the successful result. The `else err =>` part runs only on failure.
+
+Statement `guard` also supports the tested multiple-return success forms:
+
+```opal
+guard parse_pair('5', '6') into left, right else err =>
+    print('UNEXPECTED_GUARD_ERROR={err}')
+    propagate err
+
+print('GUARD_SUCCESS={left},{right}')
+
+guard parse_pair('oops', '9') into left: failed_left, right: failed_right else err =>
+    print('GUARD_HANDLED={err}')
+    propagate err
+```
+
+The unlabeled form still requires exact local names in order. The explicit form still means `returned_label: local_name`. Labels verify the success binding shape, but they do not change value order.
 
 Guard footguns:
 

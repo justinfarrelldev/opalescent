@@ -253,16 +253,40 @@ fn check_stmt(stmt: &Stmt, violations: &mut Vec<NamingViolation>) {
         Stmt::Guard {
             ref expression,
             ref success_binding,
+            ref success_bindings,
             ref error_binding,
             ref else_body,
             ..
-        } => check_guard_statement(
-            expression,
-            success_binding.as_deref(),
-            error_binding,
-            else_body,
-            violations,
-        ),
+        } => {
+            if success_bindings.is_empty() {
+                check_guard_statement(
+                    expression,
+                    success_binding.as_deref(),
+                    error_binding,
+                    else_body,
+                    violations,
+                );
+            } else {
+                for binding in success_bindings {
+                    if !is_snake_case(binding.name.as_str()) {
+                        violations.push(NamingViolation {
+                            name: binding.name.clone(),
+                            expected: NamingStyle::SnakeCase,
+                            location: "guard success binding".to_owned(),
+                        });
+                    }
+                }
+                if !is_snake_case(error_binding) {
+                    violations.push(NamingViolation {
+                        name: error_binding.to_owned(),
+                        expected: NamingStyle::SnakeCase,
+                        location: "guard error binding".to_owned(),
+                    });
+                }
+                check_expr(expression, violations);
+                check_stmt(else_body, violations);
+            }
+        }
         Stmt::PropagateGuardError {
             ref error_binding, ..
         } => {

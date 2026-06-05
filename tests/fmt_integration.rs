@@ -577,6 +577,42 @@ mod tests {
     }
 
     #[test]
+    fn fmt_output_labeled_multi_return_golden() {
+        let input = fmt_test_src("input-labeled-multi-return.op");
+        let expected = fmt_test_expected("input-labeled-multi-return.expected.op");
+        let output = temp_output_path("fmt_output_labeled_multi_return_golden");
+
+        let binary = binary_path();
+        let status = run_command_status_with_timeout(
+            Command::new(&binary)
+                .arg("fmt")
+                .arg("--output")
+                .arg(&output)
+                .arg(&input),
+            "fmt output labeled multi return golden",
+        );
+
+        assert!(
+            status.success(),
+            "formatter should succeed on input-labeled-multi-return.op"
+        );
+
+        let actual = fs::read_to_string(&output).expect("output file should be readable");
+        let golden =
+            fs::read_to_string(&expected).expect("expected golden file should be readable");
+        assert_eq!(
+            actual, golden,
+            "formatter output should match golden file for input-labeled-multi-return.op"
+        );
+
+        let cleanup = cleanup_temp(&output);
+        assert!(
+            cleanup.is_ok(),
+            "temp directory for fmt_output_labeled_multi_return_golden test should be removed after test"
+        );
+    }
+
+    #[test]
     fn fmt_output_simple_quiz_idempotent() {
         let expected = fmt_test_expected("input-simple-quiz.expected.op");
         let output = temp_output_path("fmt_output_simple_quiz_idempotent");

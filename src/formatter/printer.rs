@@ -312,6 +312,7 @@ impl Formatter {
                 ref visibility,
                 ref is_entry,
                 ref doc_comment,
+                ref metadata,
                 ..
             } => {
                 let vis = if *visibility == Visibility::Public {
@@ -327,7 +328,16 @@ impl Formatter {
                 let params_str = params.join(", ");
                 let returns = match *return_types {
                     Some(ref types) if !types.is_empty() => {
-                        let ret_strs: Vec<String> = types.iter().map(print_type).collect();
+                        let ret_strs: Vec<String> = types
+                            .iter()
+                            .enumerate()
+                            .map(|(index, ty)| {
+                                metadata.return_labels.get(index).map_or_else(
+                                    || print_type(ty),
+                                    |label| format!("{label}: {}", print_type(ty)),
+                                )
+                            })
+                            .collect();
                         format!(": {}", ret_strs.join(", "))
                     }
                     _ => String::new(),
@@ -604,7 +614,12 @@ impl Formatter {
             } => {
                 let names: Vec<String> = bindings
                     .iter()
-                    .map(|binding| binding.name.clone())
+                    .map(|binding| {
+                        binding.returned_label.as_ref().map_or_else(
+                            || binding.name.clone(),
+                            |returned_label| format!("{returned_label}: {}", binding.name),
+                        )
+                    })
                     .collect();
                 format!(
                     "{indent}let {} = {}",
@@ -689,27 +704,48 @@ impl Formatter {
                 ref success_binding,
                 ref success_binding_type,
                 ref success_binding_is_mutable,
+                ref success_bindings,
                 ref error_binding,
                 ref else_body,
                 ..
             } => {
                 let expression_str = self.print_expr(expression, depth);
-                let guard_header = success_binding.as_ref().map_or_else(
-                    || format!("{indent}guard {expression_str} else {error_binding} =>"),
-                    |binding| {
-                        let binding_type = success_binding_type
-                            .as_ref()
-                            .map_or_else(String::new, |ty| format!(": {}", print_type(ty)));
-                        let mutable = if *success_binding_is_mutable {
-                            " mutable"
-                        } else {
-                            ""
-                        };
-                        format!(
-                            "{indent}guard {expression_str} into {binding}{binding_type}{mutable} else {error_binding} =>"
-                        )
-                    },
-                );
+                let uses_multi_bindings = success_bindings.len() > 1
+                    || success_bindings
+                        .first()
+                        .is_some_and(|binding| binding.returned_label.is_some());
+                let guard_header = if uses_multi_bindings {
+                    let rendered_bindings = success_bindings
+                        .iter()
+                        .map(|binding| {
+                            binding.returned_label.as_ref().map_or_else(
+                                || binding.name.clone(),
+                                |returned_label| format!("{returned_label}: {}", binding.name),
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    format!(
+                        "{indent}guard {expression_str} into {rendered_bindings} else {error_binding} =>"
+                    )
+                } else {
+                    success_binding.as_ref().map_or_else(
+                        || format!("{indent}guard {expression_str} else {error_binding} =>"),
+                        |binding| {
+                            let binding_type = success_binding_type
+                                .as_ref()
+                                .map_or_else(String::new, |ty| format!(": {}", print_type(ty)));
+                            let mutable = if *success_binding_is_mutable {
+                                " mutable"
+                            } else {
+                                ""
+                            };
+                            format!(
+                                "{indent}guard {expression_str} into {binding}{binding_type}{mutable} else {error_binding} =>"
+                            )
+                        },
+                    )
+                };
                 if let Stmt::Block { ref statements, .. } = **else_body {
                     let mut lines = vec![guard_header];
                     lines.extend(

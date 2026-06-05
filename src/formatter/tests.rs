@@ -427,6 +427,41 @@ mod formatter_tests {
         }
     }
 
+    #[test]
+    fn test_naming_let_destructure_uses_local_binding_names_not_return_labels() {
+        let source = concat!(
+            "entry main = f(): void =>\n",
+            "    let left: LeftValue, right: RightValue = pair()\n",
+            "    return void\n"
+        );
+        let lexer = crate::lexer::Lexer::new(source);
+        let (tokens, _) = lexer.tokenize();
+        let parser = crate::parser::Parser::new(tokens);
+        let (prog, _) = parser.parse();
+        assert!(prog.is_some(), "source should parse successfully: {source}");
+        if let Some(program) = prog {
+            let violations = check_program(&program);
+            assert!(
+                violations
+                    .iter()
+                    .any(|v| v.name == "LeftValue" && v.location == "let destructure binding"),
+                "local destructured bindings should be validated, got: {violations:?}"
+            );
+            assert!(
+                violations
+                    .iter()
+                    .any(|v| v.name == "RightValue" && v.location == "let destructure binding"),
+                "local destructured bindings should be validated, got: {violations:?}"
+            );
+            assert!(
+                violations
+                    .iter()
+                    .all(|v| v.name != "left" && v.name != "right"),
+                "returned labels should stay metadata only and not be treated as naming targets: {violations:?}"
+            );
+        }
+    }
+
     // ─── Formatter / Printer Tests ───────────────────────────────────────────────
 
     /// Formatting a simple function declaration produces syntactically valid
