@@ -2,6 +2,7 @@
     warnings,
     clippy::all,
     clippy::panic,
+    clippy::pattern_type_mismatch,
     reason = "test harness uses panic-based assertions"
 )]
 extern crate alloc;
@@ -200,7 +201,10 @@ fn string_at_runtime_returns_last_scalar_for_length_minus_one() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(output.status.success(), "string .at(length - 1) should exit successfully");
+    assert!(
+        output.status.success(),
+        "string .at(length - 1) should exit successfully"
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "🙂\n",
@@ -216,7 +220,10 @@ fn string_at_runtime_returns_middle_scalar_for_dynamic_index() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(output.status.success(), "string .at(dynamic_index) should exit successfully");
+    assert!(
+        output.status.success(),
+        "string .at(dynamic_index) should exit successfully"
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "é\n",
@@ -232,7 +239,10 @@ fn string_at_runtime_falls_back_for_negative_index() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(output.status.success(), "negative string .at(...) guard should keep the program successful");
+    assert!(
+        output.status.success(),
+        "negative string .at(...) guard should keep the program successful"
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "IndexOutOfBoundsError\n",
@@ -248,7 +258,10 @@ fn string_at_runtime_falls_back_for_empty_string_index_zero() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(output.status.success(), "empty string .at(0) guard should keep the program successful");
+    assert!(
+        output.status.success(),
+        "empty string .at(0) guard should keep the program successful"
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "IndexOutOfBoundsError\n",
@@ -264,7 +277,10 @@ fn string_at_runtime_falls_back_for_one_past_end_index() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(output.status.success(), "string .at(length) guard should keep the program successful");
+    assert!(
+        output.status.success(),
+        "string .at(length) guard should keep the program successful"
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "IndexOutOfBoundsError\n",
@@ -280,7 +296,10 @@ fn array_at_runtime_returns_first_element_for_index_zero() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(output.status.success(), "array .at(0) should exit successfully");
+    assert!(
+        output.status.success(),
+        "array .at(0) should exit successfully"
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "10\n",
@@ -296,7 +315,10 @@ fn array_at_runtime_returns_last_element_for_length_minus_one() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(output.status.success(), "array .at(length - 1) should exit successfully");
+    assert!(
+        output.status.success(),
+        "array .at(length - 1) should exit successfully"
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "30\n",
@@ -312,7 +334,10 @@ fn array_at_runtime_returns_middle_element_for_dynamic_index() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(output.status.success(), "array .at(dynamic_index) should exit successfully");
+    assert!(
+        output.status.success(),
+        "array .at(dynamic_index) should exit successfully"
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "20\n",
@@ -328,7 +353,10 @@ fn array_at_runtime_falls_back_for_negative_index() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(output.status.success(), "negative array .at(...) guard should keep the program successful");
+    assert!(
+        output.status.success(),
+        "negative array .at(...) guard should keep the program successful"
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "-1\n",
@@ -344,7 +372,10 @@ fn array_at_runtime_falls_back_for_empty_array_index_zero() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(output.status.success(), "empty array .at(0) guard should keep the program successful");
+    assert!(
+        output.status.success(),
+        "empty array .at(0) guard should keep the program successful"
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "-1\n",
@@ -360,7 +391,10 @@ fn array_at_runtime_falls_back_for_one_past_end_index() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(output.status.success(), "array .at(length) guard should keep the program successful");
+    assert!(
+        output.status.success(),
+        "array .at(length) guard should keep the program successful"
+    );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "-1\n",

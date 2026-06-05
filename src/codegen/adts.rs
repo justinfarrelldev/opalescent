@@ -1,3 +1,7 @@
+#![allow(
+    clippy::needless_borrowed_reference,
+    reason = "internal ADT lowering patterns intentionally match borrowed layout metadata directly"
+)]
 extern crate alloc;
 
 use crate::ast::{Expr, Pattern};
@@ -730,7 +734,10 @@ fn codegen_sum_variant_constructor<'context>(
 }
 
 #[doc = "Lower product constructors to plain LLVM struct values or heap-backed nominal payloads."]
-#[expect(clippy::too_many_lines, reason = "product constructor lowering is centralized here")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "product constructor lowering is centralized here"
+)]
 fn codegen_product_constructor<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,

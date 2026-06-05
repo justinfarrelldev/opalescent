@@ -1,3 +1,7 @@
+#![allow(
+    clippy::pattern_type_mismatch,
+    reason = "compiler helper layout scans intentionally destructure borrowed field tuples directly"
+)]
 extern crate alloc;
 use crate::ast::{
     Decl, Expr, ImportItem, LabeledValue, LambdaBody, NodeId, Program, Stmt, TypeDef,
@@ -125,7 +129,7 @@ pub fn collect_program_adt_field_indices(
     let mut adt_field_indices = BTreeMap::new();
     for (name, fields) in collect_program_adt_field_layouts(program) {
         let mut field_indices = BTreeMap::new();
-        for (index, &(ref field_name, ref _field_type)) in fields.iter().enumerate() {
+        for (index, (field_name, _field_type)) in fields.iter().enumerate() {
             let Ok(converted_index) = u32::try_from(index) else {
                 continue;
             };
@@ -249,7 +253,10 @@ pub fn collect_imported_symbol_signatures(
 }
 
 /// Compiles a type-checked program into an LLVM module.
-#[expect(clippy::too_many_arguments, reason = "compilation inputs are threaded through explicitly")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "compilation inputs are threaded through explicitly"
+)]
 pub fn compile_checked_program_to_module<'context>(
     context: &'context Context,
     source_path: &Path,

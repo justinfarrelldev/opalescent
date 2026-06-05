@@ -238,8 +238,7 @@ mod tests {
             .strip_prefix("target/program\n")
             .unwrap_or_else(|| raw_stdout.as_ref());
         assert_eq!(
-            actual,
-            "value -1\n",
+            actual, "value -1\n",
             "nested .at(...) fixture should use the inner row length and fall back for the empty row"
         );
     }
@@ -291,6 +290,43 @@ mod tests {
                 .unwrap_or_else(|| raw_stdout.as_ref());
             assert_eq!(actual, "length 0\n", "{project_name} stdout should match");
         }
+    }
+
+    #[test]
+    fn ordinary_multiple_return_destructure_and_pass_through_runs() {
+        let temp_dir = write_temp_project_source(
+            "ordinary-multiple-return-destructure",
+            "##\n  Description: Verifies ordinary labeled multi-return calls destructure safely and pass through return values unchanged.\n##\nlet pair = f(): x: int32, y: int32 =>\n    return x: 7 as int32, y: 9 as int32\n\nlet forward = f(): x: int32, y: int32 =>\n    return pair()\n\n##\n  Description: Exercises direct destructuring and return pass-through for ordinary labeled multi-return calls.\n##\nentry main = f(args: string[]): void =>\n    let x, y = forward()\n    let x: left, y: right = pair()\n    print('{x} {y}')\n    print('{left} {right}')\n    return void\n",
+        );
+        let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            output.status.success(),
+            "ordinary multi-return fixture should run successfully, stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let raw_stdout = String::from_utf8_lossy(&output.stdout);
+        let actual = raw_stdout
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| raw_stdout.as_ref());
+        assert_eq!(actual, "7 9\n7 9\n");
+    }
+
+    #[test]
+    fn ordinary_multiple_return_reversed_explicit_labels_rejected() {
+        let temp_dir = write_temp_project_source(
+            "ordinary-multiple-return-reversed-labels",
+            "##\n  Description: Verifies explicit multi-return labels validate positional intent and never reorder.\n##\nlet pair = f(): x: int32, y: int32 =>\n    return x: 1 as int32, y: 2 as int32\n\n##\n  Description: Ensures reversed explicit labels fail before ordinary multi-return code generation runs.\n##\nentry main = f(args: string[]): void =>\n    let y: y_val, x: x_val = pair()\n    print('{y_val} {x_val}')\n    return void\n",
+        );
+        let output = run_opal_check(&temp_dir.path().join("src").join("main.op"));
+        assert!(
+            !output.status.success(),
+            "reversed explicit-label fixture should fail compilation"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("do not reorder"),
+            "reversed explicit-label diagnostic should mention non-reordering intent, stderr: {stderr}"
+        );
     }
 
     #[test]

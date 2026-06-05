@@ -1,3 +1,7 @@
+#![allow(
+    clippy::panic,
+    reason = "compiler regression tests use explicit panic messages to preserve failing diagnostic context"
+)]
 use super::{
     CompileError, CompileRunPolicy, RUNTIME_SOURCE, build_linker_command, compile_program,
     compile_runtime_c_to_obj_with_policy, compile_to_module, compile_to_module_for_target,

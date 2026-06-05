@@ -1,4 +1,9 @@
 #![cfg(feature = "integration")]
+#![allow(
+    clippy::panic_in_result_fn,
+    clippy::unnecessary_wraps,
+    reason = "compile-failure probe helpers intentionally use assertion-style setup and teardown in Result-returning test utilities"
+)]
 
 use super::fs_helpers::unique_probe_target_dir;
 use super::*;
@@ -436,7 +441,10 @@ fn assert_legacy_bracket_read_fails_to_compile(
 ) -> Result<(), String> {
     let temp_dir = unique_probe_target_dir(project_name);
     let prepare = prepare_dir(&temp_dir);
-    assert!(prepare.is_ok(), "{project_name} target directory should be created");
+    assert!(
+        prepare.is_ok(),
+        "{project_name} target directory should be created"
+    );
 
     let execution_result: Result<(), String> = (|| {
         let compile_result = compile_program_for_tests(
@@ -456,7 +464,10 @@ fn assert_legacy_bracket_read_fails_to_compile(
     })();
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "{project_name} target directory should be removed");
+    assert!(
+        cleanup.is_ok(),
+        "{project_name} target directory should be removed"
+    );
 
     let failure_message = execution_result.err().unwrap_or_default();
     assert!(
@@ -476,7 +487,10 @@ fn legacy_string_bracket_read_fails_to_compile() {
         "test-projects/string-indexing-legacy-fail/src/main.op",
         source,
     );
-    assert!(result.is_ok(), "legacy string bracket read should fail: {result:?}");
+    assert!(
+        result.is_ok(),
+        "legacy string bracket read should fail: {result:?}"
+    );
 }
 
 #[test]
@@ -488,7 +502,10 @@ fn legacy_array_bracket_read_fails_to_compile() {
         "test-projects/array-index-legacy-fail/src/main.op",
         source,
     );
-    assert!(result.is_ok(), "legacy array bracket read should fail: {result:?}");
+    assert!(
+        result.is_ok(),
+        "legacy array bracket read should fail: {result:?}"
+    );
 }
 
 #[test]

@@ -605,13 +605,7 @@ mod tests {
 
     fn let_stmt(name: &str, initializer: Expr, id: usize) -> Stmt {
         Stmt::Let {
-            binding: LetBinding {
-                name: name.to_string(),
-                type_annotation: None,
-                is_mutable: false,
-                span: span(),
-                id: NodeId(id + 100),
-            },
+            binding: LetBinding { name: name.to_string(), returned_label: None, type_annotation: None, is_mutable: false, span: span(), id: NodeId(id + 100) },
             initializer: Some(initializer),
             span: span(),
             id: NodeId(id),
@@ -628,13 +622,7 @@ mod tests {
 
     fn typed_let_stmt(name: &str, type_name: &str, initializer: Expr, id: usize) -> Stmt {
         Stmt::Let {
-            binding: LetBinding {
-                name: name.to_string(),
-                type_annotation: Some(basic_type(type_name)),
-                is_mutable: false,
-                span: span(),
-                id: NodeId(id + 300),
-            },
+            binding: LetBinding { name: name.to_string(), returned_label: None, type_annotation: Some(basic_type(type_name)), is_mutable: false, span: span(), id: NodeId(id + 300) },
             initializer: Some(initializer),
             span: span(),
             id: NodeId(id),
