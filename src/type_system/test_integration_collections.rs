@@ -313,8 +313,8 @@ entry main = f(text: string): string => {
     #[test]
     fn test_string_join_accepts_string_array() {
         const SOURCE: &str = "
-entry main = f(parts: string[]): string =>
-    return ','.join(parts)
+entry main = f(parts: string[]): string errors AllocationFailureError =>
+    return propagate ','.join(parts)
 ";
 
         let program = parse_pipeline(SOURCE);
@@ -322,9 +322,31 @@ entry main = f(parts: string[]): string =>
         let result = checker.type_check_program(&program);
         assert!(
             result.is_ok(),
-            "string join intrinsic should type check: {result:?}",
+            "handled string join intrinsic should type check: {result:?}",
         );
     }
+
+#[test]
+fn string_join_allocation_failure_contract() {
+    const SOURCE: &str = "
+entry main = f(parts: string[]): string => {
+    return ','.join(parts)
+}
+";
+    let program = parse_pipeline(SOURCE);
+    let mut checker = TypeChecker::new();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("bare string_join should now require explicit AllocationFailureError handling");
+
+    assert!(
+        errors.iter().any(|error| matches!(
+            *error,
+            crate::type_system::errors::TypeError::UnhandledCallError { .. }
+        )),
+        "expected UnhandledCallError for bare string_join, got: {errors:?}"
+    );
+}
 
     #[test]
     fn test_for_loop_over_string_iterable_type_checks() {

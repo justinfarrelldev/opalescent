@@ -19,6 +19,16 @@ const STRING_BUILDER_TYPE_NAME: &str = "StringBuilder";
 const BUILDER_FINISHED_ERROR: &str = "BuilderFinishedError";
 /// Interned error name for string-builder allocation failures.
 const ALLOCATION_FAILURE_ERROR: &str = "AllocationFailureError";
+/// Interned error name for empty string-search patterns.
+const STRING_EMPTY_SEARCH_TEXT_ERROR: &str = "StringEmptySearchTextError";
+/// Interned error name for missing string-search patterns.
+const STRING_PATTERN_NOT_FOUND_ERROR: &str = "StringPatternNotFoundError";
+/// Interned error name for negative string range counts.
+const STRING_NEGATIVE_COUNT_ERROR: &str = "StringNegativeCountError";
+/// Interned error name for out-of-bounds string ranges.
+const STRING_RANGE_OUT_OF_BOUNDS_ERROR: &str = "StringRangeOutOfBoundsError";
+/// Interned error name for reversed string ranges.
+const STRING_RANGE_ORDER_ERROR: &str = "StringRangeOrderError";
 
 impl TypeChecker {
     /// Register additive string helpers and the nominal `StringBuilder` type.
@@ -32,7 +42,78 @@ impl TypeChecker {
                 CoreType::String,
             ],
             vec![CoreType::String],
+            vec![error_core_type(ALLOCATION_FAILURE_ERROR)],
+        );
+
+        self.register_string_builtin(
+            "string_find_index_or",
+            vec![CoreType::String, CoreType::String, CoreType::Int64],
+            vec![CoreType::Int64],
             Vec::new(),
+        );
+
+        self.register_string_builtin(
+            "string_find_last_index_of_text",
+            vec![CoreType::String, CoreType::String],
+            vec![CoreType::Int64],
+            vec![
+                error_core_type(STRING_EMPTY_SEARCH_TEXT_ERROR),
+                error_core_type(STRING_PATTERN_NOT_FOUND_ERROR),
+            ],
+        );
+
+        self.register_string_builtin(
+            "string_split_lines",
+            vec![CoreType::String],
+            vec![CoreType::Array(alloc::boxed::Box::new(CoreType::String))],
+            vec![error_core_type(ALLOCATION_FAILURE_ERROR)],
+        );
+
+        self.register_string_builtin(
+            "string_is_blank",
+            vec![CoreType::String],
+            vec![CoreType::Boolean],
+            Vec::new(),
+        );
+
+        self.register_string_builtin(
+            "string_trim_whitespace",
+            vec![CoreType::String],
+            vec![CoreType::String],
+            vec![error_core_type(ALLOCATION_FAILURE_ERROR)],
+        );
+
+        self.register_string_builtin(
+            "string_take_prefix",
+            vec![CoreType::String, CoreType::Int64],
+            vec![CoreType::String],
+            vec![
+                error_core_type(STRING_NEGATIVE_COUNT_ERROR),
+                error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
+                error_core_type(ALLOCATION_FAILURE_ERROR),
+            ],
+        );
+
+        self.register_string_builtin(
+            "string_take_suffix",
+            vec![CoreType::String, CoreType::Int64],
+            vec![CoreType::String],
+            vec![
+                error_core_type(STRING_NEGATIVE_COUNT_ERROR),
+                error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
+                error_core_type(ALLOCATION_FAILURE_ERROR),
+            ],
+        );
+
+        self.register_string_builtin(
+            "string_extract_range",
+            vec![CoreType::String, CoreType::Int64, CoreType::Int64],
+            vec![CoreType::String],
+            vec![
+                error_core_type(STRING_RANGE_ORDER_ERROR),
+                error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
+                error_core_type(ALLOCATION_FAILURE_ERROR),
+            ],
         );
 
         self.register_string_builtin(
@@ -76,6 +157,26 @@ impl TypeChecker {
         self.environment.register_type(
             ALLOCATION_FAILURE_ERROR.to_owned(),
             error_core_type(ALLOCATION_FAILURE_ERROR),
+        );
+        self.environment.register_type(
+            STRING_EMPTY_SEARCH_TEXT_ERROR.to_owned(),
+            error_core_type(STRING_EMPTY_SEARCH_TEXT_ERROR),
+        );
+        self.environment.register_type(
+            STRING_PATTERN_NOT_FOUND_ERROR.to_owned(),
+            error_core_type(STRING_PATTERN_NOT_FOUND_ERROR),
+        );
+        self.environment.register_type(
+            STRING_NEGATIVE_COUNT_ERROR.to_owned(),
+            error_core_type(STRING_NEGATIVE_COUNT_ERROR),
+        );
+        self.environment.register_type(
+            STRING_RANGE_OUT_OF_BOUNDS_ERROR.to_owned(),
+            error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
+        );
+        self.environment.register_type(
+            STRING_RANGE_ORDER_ERROR.to_owned(),
+            error_core_type(STRING_RANGE_ORDER_ERROR),
         );
     }
 

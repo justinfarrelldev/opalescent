@@ -451,7 +451,9 @@ pub enum TypeError {
         span: SourceSpan,
     },
     /// A call to an error-producing function was made without `guard` or `propagate`.
-    #[error("Call to error-producing function `{name}` must be wrapped in `guard` or `propagate`")]
+    #[error(
+        "Call to error-producing function `{name}` must be wrapped in `guard` or `propagate` (declared errors: {error_types})"
+    )]
     #[diagnostic(
         code(opalescent::type_system::unhandled_call_error),
         help(
@@ -461,6 +463,8 @@ pub enum TypeError {
     UnhandledCallError {
         /// Name of the called function, or a placeholder for non-identifier callees.
         name: String,
+        /// Comma-separated declared error types for the call.
+        error_types: String,
         #[label("unhandled error-producing call")]
         /// The source span where the bare call occurred.
         span: SourceSpan,

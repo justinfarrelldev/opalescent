@@ -9344,3 +9344,113 @@ return value
         "array .at(...) should propagate IndexOutOfBoundsError and return int32 for int32[]: {result:?}"
     );
 }
+
+#[test]
+fn string_search_stdlib_signatures() {
+    let cases = [
+        (
+            "string_find_index_or",
+            "
+entry demo = f(text: string): int64 => {
+    return string_find_index_or(text, '🙂', -1 as int64)
+}
+",
+        ),
+        (
+            "string_find_last_index_of_text",
+            "
+entry demo = f(text: string): int64 errors StringEmptySearchTextError, StringPatternNotFoundError => {
+    return propagate string_find_last_index_of_text(text, '🙂')
+}
+",
+        ),
+    ];
+
+    for (label, source) in cases {
+        let program = parse_program_from_source(source);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "{label} signature should type check, got: {result:?}"
+        );
+    }
+}
+
+#[test]
+fn string_stdlib_signatures() {
+    let cases = [
+        (
+            "string_split_lines",
+            "
+entry demo = f(text: string): string[] errors AllocationFailureError => {
+    return propagate string_split_lines(text)
+}
+",
+        ),
+        (
+            "string_is_blank",
+            "
+entry demo = f(text: string): boolean => {
+    return string_is_blank(text)
+}
+",
+        ),
+        (
+            "string_trim_whitespace",
+            "
+entry demo = f(text: string): string errors AllocationFailureError => {
+    return propagate string_trim_whitespace(text)
+}
+",
+        ),
+        (
+            "string_take_prefix",
+            "
+entry demo = f(text: string): string errors StringNegativeCountError, StringRangeOutOfBoundsError, AllocationFailureError => {
+    return propagate string_take_prefix(text, 2 as int64)
+}
+",
+        ),
+        (
+            "string_take_suffix",
+            "
+entry demo = f(text: string): string errors StringNegativeCountError, StringRangeOutOfBoundsError, AllocationFailureError => {
+    return propagate string_take_suffix(text, 2 as int64)
+}
+",
+        ),
+        (
+            "string_extract_range",
+            "
+entry demo = f(text: string): string errors StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError => {
+    return propagate string_extract_range(text, 1 as int64, 3 as int64)
+}
+",
+        ),
+        (
+            "string_join",
+            "
+entry demo = f(parts: string[]): string errors AllocationFailureError => {
+    return propagate string_join(parts, ',')
+}
+",
+        ),
+    ];
+    let mut failures = Vec::new();
+
+    for (name, source) in cases {
+        let program = parse_program_from_source(source);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        if let Err(error) = result {
+            failures.push(format!("{name} => {error:?}"));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "planned string stdlib signatures still fail:\n{}",
+        failures.join("\n")
+    );
+}

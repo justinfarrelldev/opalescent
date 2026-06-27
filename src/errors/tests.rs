@@ -221,6 +221,44 @@ fn test_error_doc_link_stable_generation() {
 }
 
 #[test]
+fn test_string_join_allocation_failure_error_renders_with_docs() {
+    let context = inkwell::context::Context::create();
+    let source = "##\nDescription: Join contract diagnostic test\n##\nentry main = f(parts: string[]): string => {\n    return ','.join(parts)\n}";
+    let result = crate::compiler::compile_to_module(
+        &context,
+        std::path::Path::new("string_join.op"),
+        source,
+    );
+
+    assert!(
+        result.is_err(),
+        "bare string_join should require AllocationFailureError handling"
+    );
+
+    let Err((report, normalized_source)) = result else {
+        return;
+    };
+
+    assert!(
+        report
+            .entries()
+            .iter()
+            .any(|entry| matches!(entry, &(_, CompilerError::TypeChecker(_)))),
+        "expected a type-checker diagnostic for bare string_join"
+    );
+
+    let rendered = crate::errors::renderer::render_report(
+        "string_join.op",
+        &normalized_source,
+        &report,
+    );
+    assert!(
+        rendered.contains("AllocationFailureError"),
+        "expected AllocationFailureError to appear in string_join diagnostic, got: {rendered}"
+    );
+}
+
+#[test]
 fn test_format_diagnostic_uses_codegen_variant_with_codegen_error_message() {
     let codegen_error = CodegenError::new(String::from("invalid gep index"));
     let rendered = format_diagnostic(

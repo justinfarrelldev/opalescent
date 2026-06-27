@@ -45,7 +45,10 @@ impl TypeChecker {
                 generic_params: Vec::new(),
                 parameters: vec![CoreType::Array(Box::new(CoreType::String))],
                 return_types: vec![CoreType::String],
-                error_types: Vec::new(),
+                error_types: vec![CoreType::Generic {
+                    name: "AllocationFailureError".to_owned(),
+                    type_args: Vec::new(),
+                }],
             },
         );
         self.register_string_predicate_and_case_intrinsics();

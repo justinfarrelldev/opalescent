@@ -8,6 +8,10 @@ use alloc::{string::String, vec::Vec};
 #[path = "standard_symbols_core_io_and_bytes_foundational_filesystem.rs"]
 mod foundational_filesystem;
 use self::foundational_filesystem::standard_symbols_bytes_and_foundational_filesystem;
+#[path = "standard_symbols_core_io_and_bytes_strings.rs"]
+#[doc = "String builtin symbol registrations extracted to satisfy line-count limits."]
+mod strings;
+use self::strings::standard_symbols_string_helpers;
 
 /// Macro-wrapped symbol literal to keep the provider function concise for clippy.
 macro_rules! standard_symbols_core_io_and_bytes_vec {
@@ -292,19 +296,6 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                     generic_params: Vec::new(),
                     parameters: vec![CoreType::String],
                     return_types: vec![CoreType::Int64],
-                    error_types: Vec::new(),
-                },
-                SymbolType::Function,
-            ),
-            (
-                String::from("string_join"),
-                CoreType::Function {
-                    generic_params: Vec::new(),
-                    parameters: vec![
-                        CoreType::Array(alloc::boxed::Box::new(CoreType::String)),
-                        CoreType::String,
-                    ],
-                    return_types: vec![CoreType::String],
                     error_types: Vec::new(),
                 },
                 SymbolType::Function,
@@ -859,14 +850,6 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                 SymbolType::Type,
             ),
             (
-                String::from("AllocationFailureError"),
-                CoreType::Generic {
-                    name: String::from("AllocationFailureError"),
-                    type_args: Vec::new(),
-                },
-                SymbolType::Type,
-            ),
-            (
                 String::from("InvalidFrameRateError"),
                 CoreType::Generic {
                     name: String::from("InvalidFrameRateError"),
@@ -881,6 +864,7 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
 /// Core runtime, conversion, bytes, and foundational file-I/O builtins.
 pub(super) fn standard_symbols_core_io_and_bytes() -> Vec<(String, CoreType, SymbolType)> {
     let mut symbols = standard_symbols_core_io_and_bytes_vec!();
+    symbols.extend(standard_symbols_string_helpers());
     symbols.extend(standard_symbols_bytes_and_foundational_filesystem());
     symbols
 }

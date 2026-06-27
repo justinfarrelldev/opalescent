@@ -206,8 +206,14 @@ impl TypeChecker {
                     } else {
                         "<expression>".to_owned()
                     };
+                    let declared_error_types = error_types
+                        .iter()
+                        .map(CoreType::to_string)
+                        .collect::<Vec<_>>()
+                        .join(", ");
                     return Err(TypeError::UnhandledCallError {
                         name: callee_name,
+                        error_types: declared_error_types,
                         span: TypeError::span_from_span(span),
                     });
                 }
