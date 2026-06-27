@@ -14,7 +14,7 @@ Game of Life rendering repeatedly builds rows and full frames. Opalescent can al
 
 ## Recommendation
 
-Start with `string_join(values, separator)` because it is small, pure, and useful beyond games. Add `StringBuilder` once performance matters for large terminal frames. Keep interpolation accumulation as the current fallback and as a teaching pattern.
+Start with `string_join(values, separator)` because it is small and useful beyond games. In the current stdlib direction it is allocation-fallible, so examples should use `propagate` or `guard`. Add `StringBuilder` once performance matters for large terminal frames. Keep interpolation accumulation as the current fallback and as a teaching pattern.
 
 ## Existing Syntax Anchor
 

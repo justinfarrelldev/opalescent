@@ -45,7 +45,7 @@ Reference counting is used for heap-allocated types:
 
 Primitives (e.g., `int32`, `float64`, `boolean`) are stored inline and are **not** RC-managed.
 
-For public language semantics, fallible string access still yields a `string` on success. `value.at(0)` and `value.at(value.length - 1)` produce one-scalar strings, using zero-based Unicode scalar positions. This model does not add a public `char` or `rune` type, and out-of-bounds access surfaces `IndexOutOfBoundsError` for callers to handle with `guard` or `propagate`.
+For public language semantics, fallible string access still yields a `string` on success. `value.at(0)` and `value.at(value.length - 1)` produce one-scalar strings, using zero-based Unicode scalar positions. This model does not add a public `char` or `rune` type, and out-of-bounds access surfaces `IndexOutOfBoundsError` for callers to handle with `guard` or `propagate`. The additive string helpers (`string_find_index_or`, `string_find_last_index_of_text`, `string_take_prefix`, `string_take_suffix`, and `string_extract_range`) follow the same scalar-position contract.
 
 ### 3.2 RC Object Header Layout (ABI-stable)
 Every RC-managed object is preceded by a 24-byte header. The user pointer points directly to the payload, with the header residing at `pointer - 24`.

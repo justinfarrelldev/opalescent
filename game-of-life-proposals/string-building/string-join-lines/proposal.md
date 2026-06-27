@@ -2,7 +2,7 @@
 
 ## Overview
 
-This proposal adds a pure `string_join` helper that joins an array of strings with a separator. Game of Life can render each row independently, push it into `string[]`, and join rows with `\n`.
+This proposal adds a `string_join` helper that joins an array of strings with a separator. In the current stdlib direction it is allocation-fallible, so callers handle `AllocationFailureError` explicitly. Game of Life can render each row independently, push it into `string[]`, and join rows with `\n`.
 
 Prior art includes Python `separator.join(values)`, JavaScript `array.join(separator)`, Rust slice `join`, and many standard library collection APIs.
 
@@ -10,12 +10,12 @@ Prior art includes Python `separator.join(values)`, JavaScript `array.join(separ
 
 - Arrays of strings are already supported.
 - `string_join` allocates once when possible.
-- The function is pure and returns a new string.
+- The function returns a new string and may raise `AllocationFailureError` if the runtime cannot allocate the result.
 
 ## Proposed API
 
 ```opal
-# string_join(values: string[], separator: string): string
+# string_join(values: string[], separator: string): string errors AllocationFailureError
 ```
 
 ## Syntax Design
@@ -23,14 +23,14 @@ Prior art includes Python `separator.join(values)`, JavaScript `array.join(separ
 ```opal
 import string_join from standard
 
-let render_board = f(board: int32[][]): string errors IndexOutOfBoundsError =>
+let render_board = f(board: int32[][]): string errors IndexOutOfBoundsError, AllocationFailureError =>
     let mutable rows: string[] = []
     let mutable row_index: int64 = 0
     while row_index < board.length:
         let row = propagate board.at(row_index)
         rows.push(propagate render_row(row))
         row_index = row_index + 1
-    return string_join(rows, '\n')
+    return propagate string_join(rows, '\n')
 ```
 
 ## Example Application
@@ -38,11 +38,11 @@ let render_board = f(board: int32[][]): string errors IndexOutOfBoundsError =>
 ```opal
 import string_join from standard
 
-let render_status = f(generation: int64, live_cells: int64): string =>
+let render_status = f(generation: int64, live_cells: int64): string errors AllocationFailureError =>
     let mutable parts: string[] = []
     parts.push('generation={generation}')
     parts.push('live={live_cells}')
-    return string_join(parts, ' ')
+    return propagate string_join(parts, ' ')
 ```
 
 ## Strengths

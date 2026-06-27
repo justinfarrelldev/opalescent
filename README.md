@@ -267,7 +267,7 @@ Generate Markdown docs from a source file:
 
 ## String access
 
-Public string access uses zero-based Unicode scalar positions through fallible `.at(...)` calls. `message.at(0)` returns a one-scalar `string` on success, and `message.at(message.length - 1)` returns the last scalar as another `string`. Opalescent does not expose a public `char` or `rune` type for this feature.
+Public string access uses zero-based Unicode scalar positions through fallible `.at(...)` calls. `message.at(0)` returns a one-scalar `string` on success, and `message.at(message.length - 1)` returns the last scalar as another `string`. Opalescent does not expose a public `char` or `rune` type for this feature. New string helper functions such as `string_find_index_or`, `string_find_last_index_of_text`, `string_take_prefix`, `string_take_suffix`, and `string_extract_range` follow the same Unicode-scalar indexing model.
 
 ```opal
 entry main = f(args: string[]): void =>
@@ -281,7 +281,7 @@ entry main = f(args: string[]): void =>
     return void
 ```
 
-Out-of-bounds `.at(...)` reads surface `IndexOutOfBoundsError`, so callers must use `guard` or `propagate`. When left unhandled, the runtime currently prints `IndexOutOfBoundsError` on stderr.
+Out-of-bounds `.at(...)` reads surface `IndexOutOfBoundsError`, so callers must use `guard` or `propagate`. When left unhandled, the runtime currently prints `IndexOutOfBoundsError` on stderr. Likewise, `string_join` is now allocation-fallible and must be handled with `guard` or `propagate`.
 
 ## CLI reference
 
@@ -320,7 +320,7 @@ Then build an Opalescent project with:
 opal build --target x86_64-pc-windows-msvc
 ```
 
-Use the scripts and Windows integration tests as the source of truth when changing this area.
+Use the scripts and Windows integration tests as the source of truth when changing this area. For text-processing APIs, document `\n`, `\r\n`, and bare `\r` behavior explicitly rather than assuming platform newline normalization.
 
 ## Documentation
 

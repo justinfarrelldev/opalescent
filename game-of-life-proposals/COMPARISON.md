@@ -31,7 +31,7 @@ The recommendations draw from three sources:
 - Add `print_text(value: string): void errors WriteFailureError, SinkClosedError` and `flush_standard_output_sync(): void errors FlushFailureError, SinkClosedError`.
 - Add `sleep_ms_sync(milliseconds: int32): void errors InvalidDurationError`.
 - Add `terminal_clear_screen_sync(): void errors UnsupportedTerminalError, OutputNotTerminalError, ControlWriteFailureError` and `terminal_move_cursor_sync(row: int32, column: int32): void errors UnsupportedTerminalError, OutputNotTerminalError, InvalidCursorPositionError, ControlWriteFailureError`.
-- Add `string_join(lines: string[], separator: string): string`.
+- Add `string_join(lines: string[], separator: string): string errors AllocationFailureError`.
 
 This gets a pleasant animated terminal Life with very little compiler work.
 

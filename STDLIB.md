@@ -2,6 +2,13 @@
 
 This is the user-facing reference for functions imported from `standard` plus the runtime helpers that the compiler may lower to internally. Every public entry below includes what the function does, not just its name.
 
+## Compatibility notes
+
+- Public string indexing and range-style string helpers use zero-based Unicode scalar positions, not byte offsets.
+- `string_is_blank` and `string_trim_whitespace` use the Unicode `White_Space` property for the Unicode version bundled with this Opalescent release.
+- `string_split_lines` recognizes `\n`, `\r\n`, and bare `\r` as line terminators and does not create an extra trailing empty line for a final terminator.
+- `string_join` is allocation-fallible and must be handled with `propagate` or `guard`.
+
 The authoritative implementation is split across:
 
 - `src/type_system/module_resolver/` for language-level signatures and error types.
@@ -63,7 +70,7 @@ import string_to_int8, string_to_int16, string_to_int32, string_to_int64,
 from standard
 ```
 
-These parse decimal text into the requested numeric type. They skip leading whitespace, require the whole trimmed input to be valid, and fail with `ParseError` for invalid digits, empty input, or values outside the target range.
+These parse decimal text into the requested numeric type. They skip leading Unicode `White_Space`, require the whole trimmed input to be valid, and fail with `ParseError` for invalid digits, empty input, or values outside the target range.
 
 | Function | What it returns | Description |
 |---|---|---|
@@ -116,7 +123,10 @@ print('roundtrip: ok ({int64_to_string(actual.length)} bytes match)')
 ## Strings
 
 ```opal
-import string_length, string_join, string_builder_new, string_builder_push,
+import string_length, string_find_index_or, string_find_last_index_of_text,
+    string_split_lines, string_is_blank, string_trim_whitespace,
+    string_take_prefix, string_take_suffix, string_extract_range,
+    string_join, string_builder_new, string_builder_push,
     string_builder_finish
 from standard
 ```
@@ -130,14 +140,86 @@ let text = 'hello'
 print('length: {text.length}')
 ```
 
-### `string_join(parts: string[], separator: string): string`
+### `string_find_index_or(text: string, search_text: string, fallback_index: int64): int64`
+
+Returns the first Unicode scalar index where `search_text` appears in `text`.
+
+- If `search_text` is empty, returns `fallback_index`.
+- If `search_text` does not appear, returns `fallback_index`.
+
+```opal
+let index = string_find_index_or('hé🙂z', '🙂', -1 as int64)
+```
+
+### `string_find_last_index_of_text(text: string, search_text: string): int64 errors StringEmptySearchTextError, StringPatternNotFoundError`
+
+Returns the last Unicode scalar index where `search_text` appears in `text`.
+
+- `StringEmptySearchTextError` — `search_text` is empty.
+- `StringPatternNotFoundError` — `search_text` does not appear in `text`.
+
+```opal
+let last = propagate string_find_last_index_of_text('bananana', 'ana')
+```
+
+### `string_split_lines(text: string): string[] errors AllocationFailureError`
+
+Splits `text` into logical lines.
+
+- Recognized line terminators: `\n`, `\r\n`, and `\r`
+- Line terminators are not included in the returned strings
+- A final trailing terminator does not create an extra empty string
+
+```opal
+let lines = propagate string_split_lines('a\n\nb')
+# ['a', '', 'b']
+```
+
+### `string_is_blank(text: string): boolean`
+
+Returns `true` when `text` is empty or every Unicode scalar value in `text` has the Unicode `White_Space` property for this Opalescent release.
+
+### `string_trim_whitespace(text: string): string errors AllocationFailureError`
+
+Removes leading and trailing Unicode `White_Space` scalar values. Interior whitespace is preserved.
+
+### `string_take_prefix(text: string, count: int64): string errors StringNegativeCountError, StringRangeOutOfBoundsError, AllocationFailureError`
+
+Returns the first `count` Unicode scalar values from `text`.
+
+- `count == 0` returns `''`
+- `count == text.length` returns the full string
+- `StringNegativeCountError` — `count < 0`
+- `StringRangeOutOfBoundsError` — `count > text.length`
+
+### `string_take_suffix(text: string, count: int64): string errors StringNegativeCountError, StringRangeOutOfBoundsError, AllocationFailureError`
+
+Returns the last `count` Unicode scalar values from `text`.
+
+- `count == 0` returns `''`
+- `count == text.length` returns the full string
+- `StringNegativeCountError` — `count < 0`
+- `StringRangeOutOfBoundsError` — `count > text.length`
+
+### `string_extract_range(text: string, start: int64, end: int64): string errors StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError`
+
+Returns the Unicode scalar range `[start, end)`.
+
+- `start == end` returns `''`
+- `[0, text.length)` returns the full string
+- `StringRangeOrderError` — `end < start`
+- `StringRangeOutOfBoundsError` — negative index or `end > text.length`
+
+### `string_join(parts: string[], separator: string): string errors AllocationFailureError`
 
 Returns one string made by placing `separator` between each element of `parts`. Use it for line rendering and simple accumulation.
 
 ```opal
 let lines: string[] = ['a', 'b', 'c']
-let text = string_join(lines, '\n')
+let text = propagate string_join(lines, '\n')
 ```
+
+`string_join` now participates in explicit error handling because allocation may fail.
 
 ### `string_builder_new(): StringBuilder`
 

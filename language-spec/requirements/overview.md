@@ -63,4 +63,8 @@ Public string access uses `value.at(index)` with zero-based Unicode scalar posit
 
 # Whitespace
 
-Mixed whitespace is not allowed. Only either spaces or tabs are allowed in a project, and all files must match. This will eventually be enforced with a formatter.
+Source formatting whitespace is separate from text-processing whitespace semantics.
+
+- Mixed indentation whitespace is not allowed. Only either spaces or tabs are allowed in a project, and all files must match. This will eventually be enforced with a formatter.
+- `string_is_blank` and `string_trim_whitespace` use the Unicode `White_Space` property for the Unicode version bundled with the current Opalescent release.
+- `string_split_lines` treats `\n`, `\r\n`, and bare `\r` as line terminators.

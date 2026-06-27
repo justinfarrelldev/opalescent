@@ -589,7 +589,7 @@ This simplified version of the markdown roundtrip fixture reads lines, joins the
 ```opal
 import path_from, read_lines_sync, read_text_sync, write_text_sync, string_join from standard
 
-entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, WriteFailureError, FilesystemFullError =>
+entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, WriteFailureError, FilesystemFullError, AllocationFailureError =>
     let input_path = path_from('input.md')
     let output_path = path_from('output.md')
 
@@ -597,7 +597,7 @@ entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedE
         print(err)
         propagate err
 
-    let rendered = string_join(lines, '\n')
+    let rendered = propagate string_join(lines, '\n')
 
     guard write_text_sync(output_path, rendered) else err =>
         print(err)
