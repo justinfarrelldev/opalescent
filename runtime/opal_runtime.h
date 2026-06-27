@@ -13,7 +13,10 @@ extern const char* opal_runtime_string_index_source_text;
 typedef struct { int8_t value;   const char* error; } ParseResultI8;
 typedef struct { int16_t value;  const char* error; } ParseResultI16;
 typedef struct { int32_t value;  const char* error; } ParseResultI32;
+#ifndef OPAL_PARSE_RESULT_I64_DEFINED
 typedef struct { int64_t value;  const char* error; } ParseResultI64;
+#define OPAL_PARSE_RESULT_I64_DEFINED 1
+#endif
 typedef struct { uint8_t value;  const char* error; } ParseResultU8;
 typedef struct { uint16_t value; const char* error; } ParseResultU16;
 typedef struct { uint32_t value; const char* error; } ParseResultU32;
@@ -70,10 +73,12 @@ char* float64_to_string(double value);
 char* bool_to_string(int8_t value);
 int64_t string_length(const char* value);
 char* string_index(const char* value, int64_t index);
-char* string_join(const char** values, int64_t count, const char* separator);
+int64_t string_find_index_or(const char* value, const char* search_text, int64_t fallback_index);
+ParseResultI64 string_find_last_index_of_text(const char* value, const char* search_text);
 typedef struct OpalStringBuilder OpalStringBuilder;
 typedef struct { void* value; const char* error; } StringBuilderVoidResult;
 typedef struct { char* value; const char* error; } StringBuilderStringResult;
+StringBuilderStringResult string_join(const char** values, int64_t count, const char* separator);
 OpalStringBuilder* string_builder_new(void);
 StringBuilderVoidResult string_builder_push(OpalStringBuilder* builder, const char* value);
 StringBuilderStringResult string_builder_finish(OpalStringBuilder* builder);
@@ -179,6 +184,12 @@ FsBytesResult read_contents_sync(const char* path);
 FsStringResult read_text_sync(const char* path);
 FsStringResult read_first_line_sync(const char* path);
 FsStringArrayResult read_lines_sync(const char* path);
+FsStringArrayResult string_split_lines(const char* value);
+int8_t string_is_blank(const char* value);
+FsStringResult string_trim_whitespace(const char* value);
+FsStringResult string_take_prefix(const char* value, int64_t count);
+FsStringResult string_take_suffix(const char* value, int64_t count);
+FsStringResult string_extract_range(const char* value, int64_t start, int64_t end);
 FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_t length);
 FsVoidResult write_contents_sync(const char* path, OpalBytes* data);
 FsVoidResult write_text_sync(const char* path, const char* text);

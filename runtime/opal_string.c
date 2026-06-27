@@ -111,6 +111,15 @@ typedef struct OpalStringBuilder {
 
 typedef struct { void* value; const char* error; } StringBuilderVoidResult;
 typedef struct { char* value; const char* error; } StringBuilderStringResult;
+#ifndef OPAL_PARSE_RESULT_I64_DEFINED
+typedef struct { int64_t value; const char* error; } ParseResultI64;
+#define OPAL_PARSE_RESULT_I64_DEFINED 1
+#endif
+#ifndef OPAL_FS_STRING_RESULT_TYPES_DEFINED
+typedef struct { char* value; const char* error; } FsStringResult;
+typedef struct { char** value; int64_t count; const char* error; } FsStringArrayResult;
+#define OPAL_FS_STRING_RESULT_TYPES_DEFINED 1
+#endif
 
 typedef struct OpalStringBuilderNode {
     OpalStringBuilder* builder;
@@ -123,6 +132,15 @@ static int OPAL_STRING_BUILDERS_CLEANUP_REGISTERED = 0;
 static char* opal_string_duplicate_or_die(const char* source) {
     char* copy = opal_strdup(source ? source : "");
     if (!copy) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    return copy;
+}
+
+static char* opal_string_duplicate(const char* source) {
+    char* copy = opal_strdup(source ? source : "");
+    if (!copy) {
+        return NULL;
+    }
     opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     return copy;
 }
@@ -191,12 +209,94 @@ char* bool_to_string(int8_t value) {
     return result;
 }
 
+static int opal_utf8_is_scalar_start(unsigned char byte) {
+    return (byte & 0xC0u) != 0x80u;
+}
+
+static int64_t opal_utf8_scalar_index_from_ptr(const char* value, const char* target) {
+    int64_t index = 0;
+    const unsigned char* cursor = (const unsigned char*)value;
+    const unsigned char* end = (const unsigned char*)target;
+    while (cursor < end && *cursor != '\0') {
+        if (opal_utf8_is_scalar_start(*cursor)) {
+            index++;
+        }
+        cursor++;
+    }
+    return index;
+}
+
+static int opal_utf8_decode_scalar(const unsigned char* cursor, uint32_t* codepoint, size_t* scalar_len) {
+    if (!cursor || !codepoint || !scalar_len) {
+        return 0;
+    }
+    if (cursor[0] < 0x80u) {
+        *codepoint = cursor[0];
+        *scalar_len = 1u;
+        return 1;
+    }
+    if ((cursor[0] & 0xE0u) == 0xC0u) {
+        *codepoint = ((uint32_t)(cursor[0] & 0x1Fu) << 6) | (uint32_t)(cursor[1] & 0x3Fu);
+        *scalar_len = 2u;
+        return 1;
+    }
+    if ((cursor[0] & 0xF0u) == 0xE0u) {
+        *codepoint = ((uint32_t)(cursor[0] & 0x0Fu) << 12)
+                   | ((uint32_t)(cursor[1] & 0x3Fu) << 6)
+                   | (uint32_t)(cursor[2] & 0x3Fu);
+        *scalar_len = 3u;
+        return 1;
+    }
+    if ((cursor[0] & 0xF8u) == 0xF0u) {
+        *codepoint = ((uint32_t)(cursor[0] & 0x07u) << 18)
+                   | ((uint32_t)(cursor[1] & 0x3Fu) << 12)
+                   | ((uint32_t)(cursor[2] & 0x3Fu) << 6)
+                   | (uint32_t)(cursor[3] & 0x3Fu);
+        *scalar_len = 4u;
+        return 1;
+    }
+    return 0;
+}
+
+static int opal_is_unicode_white_space(uint32_t codepoint) {
+    switch (codepoint) {
+        case 0x0009u:
+        case 0x000Au:
+        case 0x000Bu:
+        case 0x000Cu:
+        case 0x000Du:
+        case 0x0020u:
+        case 0x0085u:
+        case 0x00A0u:
+        case 0x1680u:
+        case 0x2000u:
+        case 0x2001u:
+        case 0x2002u:
+        case 0x2003u:
+        case 0x2004u:
+        case 0x2005u:
+        case 0x2006u:
+        case 0x2007u:
+        case 0x2008u:
+        case 0x2009u:
+        case 0x200Au:
+        case 0x2028u:
+        case 0x2029u:
+        case 0x202Fu:
+        case 0x205Fu:
+        case 0x3000u:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 int64_t string_length(const char* value) {
     if (!value) { fprintf(stderr, "Runtime error: string_length called with NULL string pointer\n"); exit(1); }
     int64_t length = 0;
     const unsigned char* cursor = (const unsigned char*)value;
     while (*cursor != '\0') {
-        if ((*cursor & 0xC0u) != 0x80u) {
+        if (opal_utf8_is_scalar_start(*cursor)) {
             length++;
         }
         cursor++;
@@ -244,7 +344,378 @@ char* string_index(const char* value, int64_t index) {
     return result;
 }
 
-char* string_join(const char** values, int64_t count, const char* separator) {
+int64_t string_find_index_or(const char* value, const char* search_text, int64_t fallback_index) {
+    if (!value) { fprintf(stderr, "Runtime error: string_find_index_or called with NULL string pointer\n"); exit(1); }
+    if (!search_text || search_text[0] == '\0') {
+        return fallback_index;
+    }
+
+    const size_t needle_length = strlen(search_text);
+    const unsigned char* cursor = (const unsigned char*)value;
+    while (*cursor != '\0') {
+        if (opal_utf8_is_scalar_start(*cursor)
+            && strncmp((const char*)cursor, search_text, needle_length) == 0) {
+            return opal_utf8_scalar_index_from_ptr(value, (const char*)cursor);
+        }
+        cursor++;
+    }
+
+    return fallback_index;
+}
+
+ParseResultI64 string_find_last_index_of_text(const char* value, const char* search_text) {
+    ParseResultI64 result = { 0, NULL };
+    if (!value) { fprintf(stderr, "Runtime error: string_find_last_index_of_text called with NULL string pointer\n"); exit(1); }
+    if (!search_text || search_text[0] == '\0') {
+        result.error = "StringEmptySearchTextError";
+        return result;
+    }
+
+    const size_t needle_length = strlen(search_text);
+    const unsigned char* cursor = (const unsigned char*)value;
+    const char* last_match = NULL;
+    while (*cursor != '\0') {
+        if (opal_utf8_is_scalar_start(*cursor)
+            && strncmp((const char*)cursor, search_text, needle_length) == 0) {
+            last_match = (const char*)cursor;
+        }
+        cursor++;
+    }
+
+    if (!last_match) {
+        result.error = "StringPatternNotFoundError";
+        return result;
+    }
+
+    result.value = opal_utf8_scalar_index_from_ptr(value, last_match);
+    return result;
+}
+
+FsStringArrayResult string_split_lines(const char* value) {
+    FsStringArrayResult r;
+    r.value = NULL;
+    r.count = 0;
+    r.error = NULL;
+
+    if (!value) { fprintf(stderr, "Runtime error: string_split_lines called with NULL string pointer\n"); exit(1); }
+    if (value[0] == '\0') {
+        return r;
+    }
+
+    size_t length = strlen(value);
+    size_t line_count = 0u;
+    size_t start = 0u;
+    size_t index = 0u;
+    while (index < length) {
+        if (value[index] == '\n') {
+            line_count++;
+            index++;
+            start = index;
+            continue;
+        }
+        if (value[index] == '\r') {
+            line_count++;
+            index++;
+            if (index < length && value[index] == '\n') {
+                index++;
+            }
+            start = index;
+            continue;
+        }
+        index++;
+    }
+    if (start < length) {
+        line_count++;
+    }
+    if (line_count == 0u) {
+        return r;
+    }
+    if (line_count > (size_t)INT64_MAX) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+
+    char** lines = (char**)calloc(line_count, sizeof(char*));
+    if (!lines) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+
+    size_t out = 0u;
+    start = 0u;
+    index = 0u;
+    while (index < length) {
+        if (value[index] == '\n' || value[index] == '\r') {
+            size_t segment_len = index - start;
+            char* segment = (char*)malloc(segment_len + 1u);
+            if (!segment) {
+                for (size_t i = 0; i < out; i++) {
+                    opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
+                    free(lines[i]);
+                }
+                free(lines);
+                r.error = "AllocationFailureError";
+                return r;
+            }
+            memcpy(segment, value + start, segment_len);
+            segment[segment_len] = '\0';
+            opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+            lines[out++] = segment;
+            index++;
+            if (value[index - 1] == '\r' && index < length && value[index] == '\n') {
+                index++;
+            }
+            start = index;
+            continue;
+        }
+        index++;
+    }
+    if (start < length) {
+        size_t segment_len = length - start;
+        char* segment = (char*)malloc(segment_len + 1u);
+        if (!segment) {
+            for (size_t i = 0; i < out; i++) {
+                opal_rc_debug_note_free(OPAL_RC_DEBUG_COUNTER_STRINGS);
+                free(lines[i]);
+            }
+            free(lines);
+            r.error = "AllocationFailureError";
+            return r;
+        }
+        memcpy(segment, value + start, segment_len);
+        segment[segment_len] = '\0';
+        opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+        lines[out++] = segment;
+    }
+
+    r.value = lines;
+    r.count = (int64_t)out;
+    return r;
+}
+
+int8_t string_is_blank(const char* value) {
+    if (!value) { fprintf(stderr, "Runtime error: string_is_blank called with NULL string pointer\n"); exit(1); }
+    if (value[0] == '\0') {
+        return 1;
+    }
+    const unsigned char* cursor = (const unsigned char*)value;
+    while (*cursor != '\0') {
+        uint32_t codepoint = 0u;
+        size_t scalar_len = 0u;
+        if (!opal_utf8_decode_scalar(cursor, &codepoint, &scalar_len)) {
+            return 0;
+        }
+        if (!opal_is_unicode_white_space(codepoint)) {
+            return 0;
+        }
+        cursor += scalar_len;
+    }
+    return 1;
+}
+
+FsStringResult string_trim_whitespace(const char* value) {
+    FsStringResult r;
+    r.value = NULL;
+    r.error = NULL;
+
+    if (!value) { fprintf(stderr, "Runtime error: string_trim_whitespace called with NULL string pointer\n"); exit(1); }
+    if (value[0] == '\0') {
+        r.value = opal_string_duplicate("");
+        if (!r.value) {
+            r.error = "AllocationFailureError";
+        }
+        return r;
+    }
+
+    const unsigned char* cursor = (const unsigned char*)value;
+    const char* start = NULL;
+    const char* end = NULL;
+    while (*cursor != '\0') {
+        uint32_t codepoint = 0u;
+        size_t scalar_len = 0u;
+        if (!opal_utf8_decode_scalar(cursor, &codepoint, &scalar_len)) {
+            r.value = opal_string_duplicate((const char*)cursor);
+            if (!r.value) {
+                r.error = "AllocationFailureError";
+            }
+            return r;
+        }
+        if (!opal_is_unicode_white_space(codepoint)) {
+            if (!start) {
+                start = (const char*)cursor;
+            }
+            end = (const char*)cursor + scalar_len;
+        }
+        cursor += scalar_len;
+    }
+
+    if (!start) {
+        r.value = opal_string_duplicate("");
+        if (!r.value) {
+            r.error = "AllocationFailureError";
+        }
+        return r;
+    }
+
+    size_t trimmed_len = (size_t)(end - start);
+    char* result = (char*)malloc(trimmed_len + 1u);
+    if (!result) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+    memcpy(result, start, trimmed_len);
+    result[trimmed_len] = '\0';
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    r.value = result;
+    return r;
+}
+
+FsStringResult string_take_prefix(const char* value, int64_t count) {
+    FsStringResult r;
+    r.value = NULL;
+    r.error = NULL;
+    if (!value) { fprintf(stderr, "Runtime error: string_take_prefix called with NULL string pointer\n"); exit(1); }
+    if (count < 0) {
+        r.error = "StringNegativeCountError";
+        return r;
+    }
+    int64_t length = string_length(value);
+    if (count > length) {
+        r.error = "StringRangeOutOfBoundsError";
+        return r;
+    }
+    if (count == 0) {
+        r.value = opal_string_duplicate("");
+        if (!r.value) {
+            r.error = "AllocationFailureError";
+        }
+        return r;
+    }
+    const unsigned char* cursor = (const unsigned char*)value;
+    int64_t seen = 0;
+    while (*cursor != '\0' && seen < count) {
+        uint32_t codepoint = 0u;
+        size_t scalar_len = 0u;
+        if (!opal_utf8_decode_scalar(cursor, &codepoint, &scalar_len)) {
+            break;
+        }
+        cursor += scalar_len;
+        seen++;
+    }
+    size_t prefix_len = (size_t)((const char*)cursor - value);
+    char* result = (char*)malloc(prefix_len + 1u);
+    if (!result) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+    memcpy(result, value, prefix_len);
+    result[prefix_len] = '\0';
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    r.value = result;
+    return r;
+}
+
+FsStringResult string_take_suffix(const char* value, int64_t count) {
+    FsStringResult r;
+    r.value = NULL;
+    r.error = NULL;
+    if (!value) { fprintf(stderr, "Runtime error: string_take_suffix called with NULL string pointer\n"); exit(1); }
+    if (count < 0) {
+        r.error = "StringNegativeCountError";
+        return r;
+    }
+    int64_t length = string_length(value);
+    if (count > length) {
+        r.error = "StringRangeOutOfBoundsError";
+        return r;
+    }
+    if (count == 0) {
+        r.value = opal_string_duplicate("");
+        if (!r.value) {
+            r.error = "AllocationFailureError";
+        }
+        return r;
+    }
+    int64_t start_index = length - count;
+    const unsigned char* cursor = (const unsigned char*)value;
+    const char* start = value;
+    int64_t seen = 0;
+    while (*cursor != '\0') {
+        if (opal_utf8_is_scalar_start(*cursor)) {
+            if (seen == start_index) {
+                start = (const char*)cursor;
+                break;
+            }
+            seen++;
+        }
+        cursor++;
+    }
+    r.value = opal_string_duplicate(start);
+    if (!r.value) {
+        r.error = "AllocationFailureError";
+    }
+    return r;
+}
+
+FsStringResult string_extract_range(const char* value, int64_t start_index, int64_t end_index) {
+    FsStringResult r;
+    r.value = NULL;
+    r.error = NULL;
+    if (!value) { fprintf(stderr, "Runtime error: string_extract_range called with NULL string pointer\n"); exit(1); }
+    if (start_index < 0 || end_index < 0) {
+        r.error = "StringRangeOutOfBoundsError";
+        return r;
+    }
+    if (end_index < start_index) {
+        r.error = "StringRangeOrderError";
+        return r;
+    }
+    int64_t length = string_length(value);
+    if (end_index > length) {
+        r.error = "StringRangeOutOfBoundsError";
+        return r;
+    }
+    const unsigned char* cursor = (const unsigned char*)value;
+    const char* start = value;
+    const char* end = value;
+    int64_t seen = 0;
+    while (*cursor != '\0') {
+        if (opal_utf8_is_scalar_start(*cursor)) {
+            if (seen == start_index) {
+                start = (const char*)cursor;
+            }
+            if (seen == end_index) {
+                end = (const char*)cursor;
+                break;
+            }
+            seen++;
+        }
+        cursor++;
+    }
+    if (end_index == length) {
+        end = (const char*)cursor;
+    }
+    if (start_index == length) {
+        start = (const char*)cursor;
+        end = (const char*)cursor;
+    }
+    size_t range_len = (size_t)(end - start);
+    char* result = (char*)malloc(range_len + 1u);
+    if (!result) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+    memcpy(result, start, range_len);
+    result[range_len] = '\0';
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    r.value = result;
+    return r;
+}
+
+StringBuilderStringResult string_join(const char** values, int64_t count, const char* separator) {
+    StringBuilderStringResult result;
+    result.value = NULL;
+    result.error = NULL;
     if (!values && count != 0) { fprintf(stderr, "Runtime error: string_join called with NULL array pointer and non-zero length\n"); exit(1); }
     if (count < 0) { fprintf(stderr, "Runtime error: string_join called with negative length\n"); exit(1); }
 
@@ -269,22 +740,26 @@ char* string_join(const char** values, int64_t count, const char* separator) {
         }
     }
 
-    char* result = (char*)malloc(total_length + 1u);
-    if (!result) { fprintf(stderr, "Runtime error: out of memory\n"); exit(1); }
+    char* joined = (char*)malloc(total_length + 1u);
+    if (!joined) {
+        result.error = "AllocationFailureError";
+        return result;
+    }
     opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
 
     size_t offset = 0;
     for (int64_t index = 0; index < count; index++) {
         const char* value = values[index] ? values[index] : "";
         size_t value_length = strlen(value);
-        memcpy(result + offset, value, value_length);
+        memcpy(joined + offset, value, value_length);
         offset += value_length;
         if (index + 1 < count) {
-            memcpy(result + offset, safe_separator, separator_length);
+            memcpy(joined + offset, safe_separator, separator_length);
             offset += separator_length;
         }
     }
-    result[offset] = '\0';
+    joined[offset] = '\0';
+    result.value = joined;
     return result;
 }
 

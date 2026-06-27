@@ -20,7 +20,12 @@ pub use stdlib::{
     DefaultRandomIntSource, RandomIntSource, format_interpolated_string, opal_array_slice,
     random_int32, random_int32_with_source, string_to_int32,
 };
-pub use strings::{string_compare, string_concat, string_equals, string_index, string_length};
+pub use strings::{
+    string_compare, string_concat, string_equals, string_find_index_or,
+    string_find_last_index_of_text, string_index, string_is_blank, string_length,
+    string_split_lines, string_take_prefix, string_take_suffix, string_trim_whitespace,
+    string_extract_range,
+};
 
 #[cfg(test)]
 mod tests;

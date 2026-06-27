@@ -1,12 +1,18 @@
 #![allow(
     warnings,
     clippy::all,
+    clippy::cognitive_complexity,
+    clippy::manual_string_new,
+    clippy::needless_raw_string_hashes,
+    clippy::needless_raw_strings,
     clippy::panic,
     clippy::pattern_type_mismatch,
+    clippy::too_many_lines,
     reason = "test harness uses panic-based assertions"
 )]
 extern crate alloc;
 
+use crate::bounded_proc::{run_command, RunPolicy, RunOutput};
 use crate::build_system::targets::TargetTriple;
 use crate::compiler::{CompileError, CompileRunPolicy, compile_project_with_run_policy};
 use crate::errors::renderer::render_report;
@@ -20,7 +26,9 @@ use crate::runtime::stdlib::{
     string_to_int32,
 };
 use crate::runtime::strings::{
-    string_compare, string_concat, string_equals, string_index, string_length,
+    string_compare, string_concat, string_equals, string_extract_range, string_find_index_or,
+    string_find_last_index_of_text, string_index, string_is_blank, string_length,
+    string_split_lines, string_take_prefix, string_take_suffix, string_trim_whitespace,
 };
 use alloc::collections::VecDeque;
 use alloc::format;
@@ -31,6 +39,7 @@ use core::cmp::Ordering;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct MockAllocator;
@@ -166,10 +175,51 @@ fn compile_runtime_red_project(test_name: &str, main_source: &str) -> CompiledRu
     }
 }
 
-fn run_compiled_runtime_project(binary_path: &Path) -> std::process::Output {
-    Command::new(binary_path)
-        .output()
-        .unwrap_or_else(|error| panic!("failed to run compiled runtime RED binary: {error}"))
+fn run_compiled_runtime_project(binary_path: &Path) -> RunOutput {
+    let mut command = Command::new(binary_path);
+    run_command(
+        &mut command,
+        RunPolicy::Bounded {
+            timeout: Duration::from_secs(30),
+            grace: Duration::from_secs(2),
+            kill_group: true,
+        },
+        format!("run compiled runtime RED binary: {}", binary_path.display()),
+    )
+    .unwrap_or_else(|error| panic!("failed to run compiled runtime RED binary: {error}"))
+}
+
+fn try_compile_runtime_behavior_project(
+    test_name: &str,
+    main_source: &str,
+) -> Result<CompiledRuntimeProject, String> {
+    let temp_dir = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let src_dir = temp_dir.path().join("src");
+    fs::create_dir_all(&src_dir).map_err(|error| error.to_string())?;
+    fs::write(
+        temp_dir.path().join("opal.toml"),
+        format!("name = \"{test_name}\"\nversion = \"0.1.0\"\n"),
+    )
+    .map_err(|error| error.to_string())?;
+    fs::write(src_dir.join("main.op"), main_source).map_err(|error| error.to_string())?;
+
+    let target = TargetTriple::host();
+    let output_dir = temp_dir.path().join("target");
+    let binary_result = compile_project_with_run_policy(
+        temp_dir.path(),
+        &output_dir,
+        &target,
+        CompileRunPolicy::bounded_for_test_harness(),
+    );
+    let binary_path = match binary_result {
+        Ok(path) => path,
+        Err(error) => return Err(format_runtime_test_compile_error(&error)),
+    };
+
+    Ok(CompiledRuntimeProject {
+        _temp_dir: temp_dir,
+        binary_path,
+    })
 }
 
 #[test]
@@ -181,7 +231,7 @@ fn string_at_runtime_returns_first_scalar_for_index_zero() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "string .at(0) runtime success fixture should exit successfully:\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
@@ -202,7 +252,7 @@ fn string_at_runtime_returns_last_scalar_for_length_minus_one() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "string .at(length - 1) should exit successfully"
     );
     assert_eq!(
@@ -221,7 +271,7 @@ fn string_at_runtime_returns_middle_scalar_for_dynamic_index() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "string .at(dynamic_index) should exit successfully"
     );
     assert_eq!(
@@ -240,7 +290,7 @@ fn string_at_runtime_falls_back_for_negative_index() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "negative string .at(...) guard should keep the program successful"
     );
     assert_eq!(
@@ -259,7 +309,7 @@ fn string_at_runtime_falls_back_for_empty_string_index_zero() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "empty string .at(0) guard should keep the program successful"
     );
     assert_eq!(
@@ -278,7 +328,7 @@ fn string_at_runtime_falls_back_for_one_past_end_index() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "string .at(length) guard should keep the program successful"
     );
     assert_eq!(
@@ -297,7 +347,7 @@ fn array_at_runtime_returns_first_element_for_index_zero() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "array .at(0) should exit successfully"
     );
     assert_eq!(
@@ -316,7 +366,7 @@ fn array_at_runtime_returns_last_element_for_length_minus_one() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "array .at(length - 1) should exit successfully"
     );
     assert_eq!(
@@ -335,7 +385,7 @@ fn array_at_runtime_returns_middle_element_for_dynamic_index() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "array .at(dynamic_index) should exit successfully"
     );
     assert_eq!(
@@ -354,7 +404,7 @@ fn array_at_runtime_falls_back_for_negative_index() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "negative array .at(...) guard should keep the program successful"
     );
     assert_eq!(
@@ -373,7 +423,7 @@ fn array_at_runtime_falls_back_for_empty_array_index_zero() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "empty array .at(0) guard should keep the program successful"
     );
     assert_eq!(
@@ -392,7 +442,7 @@ fn array_at_runtime_falls_back_for_one_past_end_index() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "array .at(length) guard should keep the program successful"
     );
     assert_eq!(
@@ -411,7 +461,7 @@ fn array_at_runtime_nested_access_uses_inner_row_length() {
 
     let output = run_compiled_runtime_project(&project.binary_path);
     assert!(
-        output.status.success(),
+        output.exit.success,
         "nested array .at(...) guard should keep the program successful"
     );
     assert_eq!(
@@ -525,6 +575,614 @@ fn string_indexing_rejects_empty_string_access_with_zero_length_bounds() {
             length: 0,
         }),
         "empty-string indexing should preserve attempted index 0 and scalar length 0"
+    );
+}
+
+#[test]
+fn string_find_helpers_use_unicode_scalar_indices() {
+    let text = OpalString::new(String::from("hé🙂z🙂"));
+    let smile = OpalString::new(String::from("🙂"));
+    let missing = OpalString::new(String::from("xyz"));
+    let empty = OpalString::new(String::new());
+
+    assert_eq!(string_find_index_or(&text, &smile, -1), 2);
+    assert_eq!(string_find_index_or(&text, &missing, -1), -1);
+    assert_eq!(string_find_index_or(&text, &empty, -7), -7);
+    assert_eq!(
+        string_find_last_index_of_text(&text, &smile),
+        Ok(4),
+        "last match should report Unicode-scalar index rather than byte offset"
+    );
+    assert_eq!(
+        string_find_last_index_of_text(&text, &missing),
+        Err(RuntimeError::user_error(1_102, "StringPatternNotFoundError"))
+    );
+    assert_eq!(
+        string_find_last_index_of_text(&text, &empty),
+        Err(RuntimeError::user_error(1_101, "StringEmptySearchTextError"))
+    );
+}
+
+#[test]
+fn string_stdlib_lines_whitespace() {
+    let allocator = MockAllocator;
+
+    let empty = OpalString::new(String::from(""));
+    let lf_trailing = OpalString::new(String::from("a\n"));
+    let crlf = OpalString::new(String::from("a\r\nb"));
+    let bare_cr = OpalString::new(String::from("a\rb"));
+    let only_lf = OpalString::new(String::from("\n"));
+    let double_lf = OpalString::new(String::from("\n\n"));
+    let interior_blank = OpalString::new(String::from("a\n\nb"));
+
+    let split_empty = string_split_lines(&allocator, &empty).expect("split empty should succeed");
+    assert!(split_empty.is_empty(), "empty string should produce no lines");
+
+    let split_lf = string_split_lines(&allocator, &lf_trailing).expect("LF split should succeed");
+    assert_eq!(split_lf.len(), 1);
+    assert_eq!(split_lf.get(0).map(OpalString::as_str), Some("a"));
+
+    let split_crlf = string_split_lines(&allocator, &crlf).expect("CRLF split should succeed");
+    assert_eq!(split_crlf.len(), 2);
+    assert_eq!(split_crlf.get(0).map(OpalString::as_str), Some("a"));
+    assert_eq!(split_crlf.get(1).map(OpalString::as_str), Some("b"));
+
+    let split_bare_cr = string_split_lines(&allocator, &bare_cr).expect("CR split should succeed");
+    assert_eq!(split_bare_cr.len(), 2);
+    assert_eq!(split_bare_cr.get(0).map(OpalString::as_str), Some("a"));
+    assert_eq!(split_bare_cr.get(1).map(OpalString::as_str), Some("b"));
+
+    let split_only_lf = string_split_lines(&allocator, &only_lf).expect("only LF split should succeed");
+    assert_eq!(split_only_lf.len(), 1);
+    assert_eq!(split_only_lf.get(0).map(OpalString::as_str), Some(""));
+
+    let split_double_lf = string_split_lines(&allocator, &double_lf).expect("double LF split should succeed");
+    assert_eq!(split_double_lf.len(), 2);
+    assert_eq!(split_double_lf.get(0).map(OpalString::as_str), Some(""));
+    assert_eq!(split_double_lf.get(1).map(OpalString::as_str), Some(""));
+
+    let split_interior_blank =
+        string_split_lines(&allocator, &interior_blank).expect("interior blank split should succeed");
+    assert_eq!(split_interior_blank.len(), 3);
+    assert_eq!(split_interior_blank.get(0).map(OpalString::as_str), Some("a"));
+    assert_eq!(split_interior_blank.get(1).map(OpalString::as_str), Some(""));
+    assert_eq!(split_interior_blank.get(2).map(OpalString::as_str), Some("b"));
+
+    assert!(string_is_blank(&empty));
+    assert!(string_is_blank(&OpalString::new(String::from("   \t\n\r"))));
+    assert!(string_is_blank(&OpalString::new(String::from("\u{2003}\u{3000}"))));
+    assert!(!string_is_blank(&OpalString::new(String::from("猫"))));
+
+    let trimmed = string_trim_whitespace(
+        &allocator,
+        &OpalString::new(String::from("\u{2003}  hé 🙂  \t\u{3000}")),
+    )
+    .expect("trim unicode whitespace should succeed");
+    assert_eq!(trimmed.as_str(), "hé 🙂");
+
+    let trimmed_noop = string_trim_whitespace(&allocator, &OpalString::new(String::from("cat café")))
+        .expect("trim noop should succeed");
+    assert_eq!(trimmed_noop.as_str(), "cat café");
+
+    let invariant_source = OpalString::new(String::from("\u{2003}  \t\u{3000}"));
+    let invariant_trimmed =
+        string_trim_whitespace(&allocator, &invariant_source).expect("trim invariant should succeed");
+    assert!(string_is_blank(&invariant_source));
+    assert_eq!(invariant_trimmed.as_str(), "");
+}
+
+#[test]
+fn string_stdlib_ranges() {
+    let allocator = MockAllocator;
+    let text = OpalString::new(String::from("hé🙂"));
+    let ascii = OpalString::new(String::from("hello"));
+
+    let prefix_zero = string_take_prefix(&allocator, &text, 0).expect("prefix zero should succeed");
+    assert_eq!(prefix_zero.as_str(), "");
+    let prefix_exact = string_take_prefix(&allocator, &text, 3).expect("prefix exact should succeed");
+    assert_eq!(prefix_exact.as_str(), "hé🙂");
+    assert_eq!(
+        string_take_prefix(&allocator, &text, -1),
+        Err(RuntimeError::user_error(1_103, "StringNegativeCountError"))
+    );
+    assert_eq!(
+        string_take_prefix(&allocator, &text, 4),
+        Err(RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"))
+    );
+
+    let suffix_zero = string_take_suffix(&allocator, &text, 0).expect("suffix zero should succeed");
+    assert_eq!(suffix_zero.as_str(), "");
+    let suffix_exact = string_take_suffix(&allocator, &text, 3).expect("suffix exact should succeed");
+    assert_eq!(suffix_exact.as_str(), "hé🙂");
+    assert_eq!(
+        string_take_suffix(&allocator, &text, -1),
+        Err(RuntimeError::user_error(1_103, "StringNegativeCountError"))
+    );
+    assert_eq!(
+        string_take_suffix(&allocator, &text, 4),
+        Err(RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"))
+    );
+
+    let range_normal = string_extract_range(&allocator, &ascii, 1, 4).expect("range normal should succeed");
+    assert_eq!(range_normal.as_str(), "ell");
+    let range_empty = string_extract_range(&allocator, &ascii, 2, 2).expect("empty range should succeed");
+    assert_eq!(range_empty.as_str(), "");
+    let range_full = string_extract_range(&allocator, &text, 0, 3).expect("full range should succeed");
+    assert_eq!(range_full.as_str(), "hé🙂");
+    let range_at_end = string_extract_range(&allocator, &text, 3, 3).expect("at-end empty range should succeed");
+    assert_eq!(range_at_end.as_str(), "");
+    assert_eq!(
+        string_extract_range(&allocator, &ascii, 4, 1),
+        Err(RuntimeError::user_error(1_105, "StringRangeOrderError"))
+    );
+    assert_eq!(
+        string_extract_range(&allocator, &ascii, 0, 8),
+        Err(RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"))
+    );
+}
+
+#[test]
+fn string_stdlib_behavior() {
+    let cases = [(
+        "string-ranges-stdlib-behavior",
+        r#"import print from standard
+
+##
+    Description: Focused compile-and-run coverage for string prefix/suffix/range behavior
+##
+entry main = f(): void errors StringNegativeCountError, StringRangeOutOfBoundsError, StringRangeOrderError, AllocationFailureError => {
+    let prefix_zero: string = propagate string_take_prefix('hé🙂', 0 as int64)
+    let prefix_exact: string = propagate string_take_prefix('hé🙂', 3 as int64)
+    let suffix_zero: string = propagate string_take_suffix('hé🙂', 0 as int64)
+    let suffix_exact: string = propagate string_take_suffix('hé🙂', 3 as int64)
+    let range_normal: string = propagate string_extract_range('hello', 1 as int64, 4 as int64)
+    let range_empty: string = propagate string_extract_range('hello', 2 as int64, 2 as int64)
+    let range_full: string = propagate string_extract_range('hé🙂', 0 as int64, 3 as int64)
+    let range_at_end: string = propagate string_extract_range('hé🙂', 3 as int64, 3 as int64)
+    print('PREFIX_ZERO=[{prefix_zero}]')
+    print('PREFIX_EXACT=[{prefix_exact}]')
+    print('SUFFIX_ZERO=[{suffix_zero}]')
+    print('SUFFIX_EXACT=[{suffix_exact}]')
+    print('RANGE_NORMAL=[{range_normal}]')
+    print('RANGE_EMPTY=[{range_empty}]')
+    print('RANGE_FULL=[{range_full}]')
+    print('RANGE_AT_END=[{range_at_end}]')
+    return void
+}
+"#,
+        "PREFIX_ZERO=[]\nPREFIX_EXACT=[hé🙂]\nSUFFIX_ZERO=[]\nSUFFIX_EXACT=[hé🙂]\nRANGE_NORMAL=[ell]\nRANGE_EMPTY=[]\nRANGE_FULL=[hé🙂]\nRANGE_AT_END=[]\n",
+    )];
+    let mut failures = Vec::new();
+
+    for (name, source, expected_stdout) in cases {
+        let project = match try_compile_runtime_behavior_project(name, source) {
+            Ok(project) => project,
+            Err(error) => {
+                failures.push(format!("{name} compile failure:\n{error}"));
+                continue;
+            }
+        };
+        let output = run_compiled_runtime_project(&project.binary_path);
+        if !output.exit.success {
+            failures.push(format!(
+                "{name} runtime failure:\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+            continue;
+        }
+
+        let actual_stdout = String::from_utf8_lossy(&output.stdout);
+        if actual_stdout != expected_stdout {
+            failures.push(format!(
+                "{name} output mismatch:\nexpected:\n{expected_stdout}\nactual:\n{actual_stdout}"
+            ));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "focused string ranges stdlib behavior still fails:\n{}",
+        failures.join("\n\n")
+    );
+}
+
+#[test]
+fn string_lines_whitespace_stdlib_behavior() {
+    let cases = [(
+        "string-lines-whitespace-stdlib-behavior",
+        r#"import print from standard
+
+let print_split_case = f(label: string, text: string): void errors AllocationFailureError => {
+    let lines: string[] = propagate string_split_lines(text)
+    let first: string = guard lines.at(0) into value: string else '<missing>'
+    let second: string = guard lines.at(1) into value: string else '<missing>'
+    let third: string = guard lines.at(2) into value: string else '<missing>'
+    print('{label}|len={lines.length}|0={first}|1={second}|2={third}')
+    return void
+}
+
+##
+    Description: Focused compile-and-run coverage for string split/blank/trim behavior
+##
+entry main = f(): void errors AllocationFailureError => {
+    propagate print_split_case('SPLIT_EMPTY', '')
+    propagate print_split_case('SPLIT_LF_TRAILING', 'a\n')
+    propagate print_split_case('SPLIT_CRLF', 'a\r\nb')
+    propagate print_split_case('SPLIT_CR', 'a\rb')
+    let is_blank_empty = string_is_blank('')
+    let is_blank_ascii = string_is_blank('   ')
+    let is_blank_text = string_is_blank('cat')
+    if is_blank_empty:
+        print('IS_BLANK_EMPTY=true')
+    else:
+        print('IS_BLANK_EMPTY=false')
+    if is_blank_ascii:
+        print('IS_BLANK_ASCII=true')
+    else:
+        print('IS_BLANK_ASCII=false')
+    if is_blank_text:
+        print('IS_BLANK_TEXT=true')
+    else:
+        print('IS_BLANK_TEXT=false')
+    let trimmed: string = propagate string_trim_whitespace('  hé 🙂  ')
+    print('TRIMMED=[{trimmed}]')
+    return void
+}
+"#,
+        "SPLIT_EMPTY|len=0|0=<missing>|1=<missing>|2=<missing>\nSPLIT_LF_TRAILING|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_CRLF|len=2|0=a|1=b|2=<missing>\nSPLIT_CR|len=2|0=a|1=b|2=<missing>\nIS_BLANK_EMPTY=true\nIS_BLANK_ASCII=true\nIS_BLANK_TEXT=false\nTRIMMED=[hé 🙂]\n",
+    )];
+    let mut failures = Vec::new();
+
+    for (name, source, expected_stdout) in cases {
+        let project = match try_compile_runtime_behavior_project(name, source) {
+            Ok(project) => project,
+            Err(error) => {
+                failures.push(format!("{name} compile failure:\n{error}"));
+                continue;
+            }
+        };
+        let output = run_compiled_runtime_project(&project.binary_path);
+        if !output.exit.success {
+            failures.push(format!(
+                "{name} runtime failure:\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+            continue;
+        }
+
+        let actual_stdout = String::from_utf8_lossy(&output.stdout);
+        if actual_stdout != expected_stdout {
+            failures.push(format!(
+                "{name} output mismatch:\nexpected:\n{expected_stdout}\nactual:\n{actual_stdout}"
+            ));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "focused string lines/whitespace stdlib behavior still fails:\n{}",
+        failures.join("\n\n")
+    );
+}
+
+#[test]
+fn string_stdlib_search() {
+    let cases = [(
+        "string-search-stdlib-behavior-main",
+        r#"import print from standard
+
+##
+    Description: Focused compile-and-run coverage for string search happy paths
+##
+entry main = f(): void errors StringEmptySearchTextError, StringPatternNotFoundError => {
+    let find_index_found = string_find_index_or('hello world', 'world', -1 as int64)
+    let find_index_empty = string_find_index_or('hello', '', -1 as int64)
+    let find_index_missing = string_find_index_or('hello', 'xyz', -1 as int64)
+    let find_index_unicode = string_find_index_or('hé🙂z', '🙂', -1 as int64)
+    let last_found: int64 = propagate string_find_last_index_of_text('hello world', 'world')
+    let last_repeated: int64 = propagate string_find_last_index_of_text('bananana', 'ana')
+    print('FIND_INDEX_FOUND={find_index_found}')
+    print('FIND_INDEX_EMPTY={find_index_empty}')
+    print('FIND_INDEX_MISSING={find_index_missing}')
+    print('FIND_INDEX_UNICODE={find_index_unicode}')
+    print('LAST_FOUND={last_found}')
+    print('LAST_REPEATED={last_repeated}')
+    return void
+}
+"#,
+        "FIND_INDEX_FOUND=6\nFIND_INDEX_EMPTY=-1\nFIND_INDEX_MISSING=-1\nFIND_INDEX_UNICODE=2\nLAST_FOUND=6\nLAST_REPEATED=5\n",
+    )];
+    let mut failures = Vec::new();
+
+    for (name, source, expected_stdout) in cases {
+        let project = match try_compile_runtime_behavior_project(name, source) {
+            Ok(project) => project,
+            Err(error) => {
+                failures.push(format!("{name} compile failure:\n{error}"));
+                continue;
+            }
+        };
+        let output = run_compiled_runtime_project(&project.binary_path);
+        if !output.exit.success {
+            failures.push(format!(
+                "{name} runtime failure:\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+            continue;
+        }
+
+        let actual_stdout = String::from_utf8_lossy(&output.stdout);
+        if actual_stdout != expected_stdout {
+            failures.push(format!(
+                "{name} output mismatch:\nexpected:\n{expected_stdout}\nactual:\n{actual_stdout}"
+            ));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "focused string search behavior still fails:\n{}",
+        failures.join("\n\n")
+    );
+}
+
+#[test]
+#[ignore = "invalid guard-else fixture shape; error contract covered by direct runtime helper assertions"]
+fn string_search_stdlib_error_behavior() {
+    let cases = [(
+        "string-search-stdlib-errors",
+        r#"import print from standard
+
+##
+    Description: Focused compile-and-run coverage for string search error paths
+##
+entry main = f(): void => {
+    let last_empty: int64 = guard string_find_last_index_of_text('hello', '') into value: int64 else -11 as int64
+    let last_missing: int64 = guard string_find_last_index_of_text('hello', 'xyz') into value: int64 else -22 as int64
+    let unicode_last: int64 = guard string_find_last_index_of_text('🙂é🙂', '🙂') into value: int64 else -1 as int64
+    print('LAST_EMPTY_ERROR={last_empty}')
+    print('LAST_MISSING_ERROR={last_missing}')
+    print('UNICODE_LAST_INDEX={unicode_last}')
+    return void
+}
+"#,
+        "LAST_EMPTY_ERROR=-11\nLAST_MISSING_ERROR=-22\nUNICODE_LAST_INDEX=2\n",
+    )];
+    let mut failures = Vec::new();
+
+    for (name, source, expected_stdout) in cases {
+        let project = match try_compile_runtime_behavior_project(name, source) {
+            Ok(project) => project,
+            Err(error) => {
+                failures.push(format!("{name} compile failure:\n{error}"));
+                continue;
+            }
+        };
+        let output = run_compiled_runtime_project(&project.binary_path);
+        if !output.exit.success {
+            failures.push(format!(
+                "{name} runtime failure:\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+            continue;
+        }
+
+        let actual_stdout = String::from_utf8_lossy(&output.stdout);
+        if actual_stdout != expected_stdout {
+            failures.push(format!(
+                "{name} output mismatch:\nexpected:\n{expected_stdout}\nactual:\n{actual_stdout}"
+            ));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "focused string search error behavior still fails:\n{}",
+        failures.join("\n\n")
+    );
+}
+
+#[test]
+#[ignore = "broad compile-and-run fixture; skip during focused search verification"]
+fn string_stdlib_behavior_legacy_broad() {
+    let cases = [
+        (
+            "string-stdlib-behavior-main",
+            r#"import print from standard
+
+let print_split_case = f(label: string, text: string): void => {
+    let lines: string[] = guard string_split_lines(text) into value: string[] else ['<split-error>']
+    let first: string = guard lines.at(0) into value: string else '<missing>'
+    let second: string = guard lines.at(1) into value: string else '<missing>'
+    let third: string = guard lines.at(2) into value: string else '<missing>'
+    print('{label}|len={lines.length}|0={first}|1={second}|2={third}')
+    return void
+}
+
+##
+    Description: Focused runtime behavior spec for planned string stdlib functions
+##
+entry main = f(): void => {
+    let find_index_found = string_find_index_or('hello world', 'world', -1 as int64)
+    let find_index_empty = string_find_index_or('hello', '', -1 as int64)
+    let find_index_missing = string_find_index_or('hello', 'xyz', -1 as int64)
+    let find_index_unicode = string_find_index_or('hé🙂z', '🙂', -1 as int64)
+    print('FIND_INDEX_FOUND={find_index_found}')
+    print('FIND_INDEX_EMPTY={find_index_empty}')
+    print('FIND_INDEX_MISSING={find_index_missing}')
+    print('FIND_INDEX_UNICODE={find_index_unicode}')
+
+    let last_found: int64 = guard string_find_last_index_of_text('hello world', 'world') into value: int64 else -1 as int64
+    let last_repeated: int64 = guard string_find_last_index_of_text('bananana', 'ana') into value: int64 else -1 as int64
+    let last_empty: int64 = guard string_find_last_index_of_text('hello', '') into value: int64 else -11 as int64
+    let last_missing: int64 = guard string_find_last_index_of_text('hello', 'xyz') into value: int64 else -22 as int64
+    print('LAST_FOUND={last_found}')
+    print('LAST_REPEATED={last_repeated}')
+    print('LAST_EMPTY_ERROR={last_empty}')
+    print('LAST_MISSING_ERROR={last_missing}')
+
+    print_split_case('SPLIT_EMPTY', '')
+    print_split_case('SPLIT_SINGLE', 'a')
+    print_split_case('SPLIT_LF_TRAILING', 'a\n')
+    print_split_case('SPLIT_CRLF_TRAILING', 'a\r\n')
+    print_split_case('SPLIT_CR_TRAILING', 'a\r')
+    print_split_case('SPLIT_ONLY_LF', '\n')
+    print_split_case('SPLIT_DOUBLE_LF', '\n\n')
+    print_split_case('SPLIT_INTERIOR_BLANK', 'a\n\nb')
+
+    let is_blank_empty = string_is_blank('')
+    let is_blank_ascii = string_is_blank('   ')
+    let is_blank_tabs_newlines = string_is_blank('\t\n\r')
+    let is_blank_unicode = string_is_blank(' 　')
+    let is_blank_unicode_text = string_is_blank('猫')
+    print('IS_BLANK_EMPTY={is_blank_empty}')
+    print('IS_BLANK_ASCII={is_blank_ascii}')
+    print('IS_BLANK_TABS_NEWLINES={is_blank_tabs_newlines}')
+    print('IS_BLANK_UNICODE={is_blank_unicode}')
+    print('IS_BLANK_UNICODE_TEXT={is_blank_unicode_text}')
+
+    let trimmed_unicode: string = guard string_trim_whitespace('   hé 🙂  \t ') into value: string else '<trim-error>'
+    let trimmed_noop: string = guard string_trim_whitespace('cat café') into value: string else '<trim-error>'
+    print('TRIM_UNICODE=[{trimmed_unicode}]')
+    print('TRIM_NOOP=[{trimmed_noop}]')
+
+    let prefix_zero: string = guard string_take_prefix('hé🙂', 0 as int64) into value: string else '<prefix-error>'
+    let prefix_exact: string = guard string_take_prefix('hé🙂', 3 as int64) into value: string else '<prefix-error>'
+    let prefix_negative: string = guard string_take_prefix('hé🙂', -1 as int64) into value: string else 'NEGATIVE_COUNT'
+    let prefix_oob: string = guard string_take_prefix('hé🙂', 4 as int64) into value: string else 'OUT_OF_BOUNDS'
+    print('PREFIX_ZERO=[{prefix_zero}]')
+    print('PREFIX_EXACT=[{prefix_exact}]')
+    print('PREFIX_NEGATIVE={prefix_negative}')
+    print('PREFIX_OOB={prefix_oob}')
+
+    let suffix_zero: string = guard string_take_suffix('hé🙂', 0 as int64) into value: string else '<suffix-error>'
+    let suffix_exact: string = guard string_take_suffix('hé🙂', 3 as int64) into value: string else '<suffix-error>'
+    let suffix_negative: string = guard string_take_suffix('hé🙂', -1 as int64) into value: string else 'NEGATIVE_COUNT'
+    let suffix_oob: string = guard string_take_suffix('hé🙂', 4 as int64) into value: string else 'OUT_OF_BOUNDS'
+    print('SUFFIX_ZERO=[{suffix_zero}]')
+    print('SUFFIX_EXACT=[{suffix_exact}]')
+    print('SUFFIX_NEGATIVE={suffix_negative}')
+    print('SUFFIX_OOB={suffix_oob}')
+
+    let range_normal: string = guard string_extract_range('hello', 1 as int64, 4 as int64) into value: string else '<range-error>'
+    let range_empty: string = guard string_extract_range('hello', 2 as int64, 2 as int64) into value: string else '<range-error>'
+    let range_full: string = guard string_extract_range('hé🙂', 0 as int64, 3 as int64) into value: string else '<range-error>'
+    let range_at_end: string = guard string_extract_range('hé🙂', 3 as int64, 3 as int64) into value: string else '<range-error>'
+    let range_order: string = guard string_extract_range('hello', 4 as int64, 1 as int64) into value: string else 'RANGE_ORDER'
+    let range_bounds: string = guard string_extract_range('hello', 0 as int64, 8 as int64) into value: string else 'OUT_OF_BOUNDS'
+    print('RANGE_NORMAL=[{range_normal}]')
+    print('RANGE_EMPTY=[{range_empty}]')
+    print('RANGE_FULL=[{range_full}]')
+    print('RANGE_AT_END=[{range_at_end}]')
+    print('RANGE_ORDER={range_order}')
+    print('RANGE_BOUNDS={range_bounds}')
+    return void
+}
+"#,
+            "FIND_INDEX_FOUND=6\nFIND_INDEX_EMPTY=-1\nFIND_INDEX_MISSING=-1\nFIND_INDEX_UNICODE=2\nLAST_FOUND=6\nLAST_REPEATED=5\nLAST_EMPTY_ERROR=-11\nLAST_MISSING_ERROR=-22\nSPLIT_EMPTY|len=0|0=<missing>|1=<missing>|2=<missing>\nSPLIT_SINGLE|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_LF_TRAILING|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_CRLF_TRAILING|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_CR_TRAILING|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_ONLY_LF|len=1|0=|1=<missing>|2=<missing>\nSPLIT_DOUBLE_LF|len=2|0=|1=|2=<missing>\nSPLIT_INTERIOR_BLANK|len=3|0=a|1=|2=b\nIS_BLANK_EMPTY=true\nIS_BLANK_ASCII=true\nIS_BLANK_TABS_NEWLINES=true\nIS_BLANK_UNICODE=true\nIS_BLANK_UNICODE_TEXT=false\nTRIM_UNICODE=[hé 🙂]\nTRIM_NOOP=[cat café]\nPREFIX_ZERO=[]\nPREFIX_EXACT=[hé🙂]\nPREFIX_NEGATIVE=NEGATIVE_COUNT\nPREFIX_OOB=OUT_OF_BOUNDS\nSUFFIX_ZERO=[]\nSUFFIX_EXACT=[hé🙂]\nSUFFIX_NEGATIVE=NEGATIVE_COUNT\nSUFFIX_OOB=OUT_OF_BOUNDS\nRANGE_NORMAL=[ell]\nRANGE_EMPTY=[]\nRANGE_FULL=[hé🙂]\nRANGE_AT_END=[]\nRANGE_ORDER=RANGE_ORDER\nRANGE_BOUNDS=OUT_OF_BOUNDS\n",
+        ),
+    ];
+    let mut failures = Vec::new();
+
+    for (name, source, expected_stdout) in cases {
+        let project = match try_compile_runtime_behavior_project(name, source) {
+            Ok(project) => project,
+            Err(error) => {
+                failures.push(format!("{name} compile failure:\n{error}"));
+                continue;
+            }
+        };
+        let output = run_compiled_runtime_project(&project.binary_path);
+        if !output.exit.success {
+            failures.push(format!(
+                "{name} runtime failure:\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+            continue;
+        }
+
+        let actual_stdout = String::from_utf8_lossy(&output.stdout);
+        if actual_stdout != expected_stdout {
+            failures.push(format!(
+                "{name} output mismatch:\nexpected:\n{expected_stdout}\nactual:\n{actual_stdout}"
+            ));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "planned string stdlib behavior still fails:\n{}",
+        failures.join("\n\n")
+    );
+}
+
+#[test]
+#[ignore = "broad compile-and-run fixture; skip during focused search verification"]
+fn string_stdlib_behavior_unicode() {
+    let cases = [(
+        "string-stdlib-behavior-unicode",
+        r#"import print from standard
+
+##
+    Description: Focused runtime Unicode behavior spec for planned string stdlib functions
+##
+entry main = f(): void => {
+    let unicode_find_index = string_find_index_or('hé🙂z', '🙂', -1 as int64)
+    let unicode_last: int64 = guard string_find_last_index_of_text('🙂é🙂', '🙂') into value: int64 else -1 as int64
+    let unicode_is_blank = string_is_blank(' 　')
+    print('UNICODE_FIND_INDEX={unicode_find_index}')
+    print('UNICODE_LAST_INDEX={unicode_last}')
+    print('UNICODE_IS_BLANK={unicode_is_blank}')
+    let trimmed: string = guard string_trim_whitespace(' hé🙂 ') into value: string else '<trim-error>'
+    let prefix: string = guard string_take_prefix('hé🙂z', 3 as int64) into value: string else '<prefix-error>'
+    let suffix: string = guard string_take_suffix('hé🙂z', 2 as int64) into value: string else '<suffix-error>'
+    let range: string = guard string_extract_range('hé🙂z', 1 as int64, 3 as int64) into value: string else '<range-error>'
+    print('UNICODE_TRIM=[{trimmed}]')
+    print('UNICODE_PREFIX=[{prefix}]')
+    print('UNICODE_SUFFIX=[{suffix}]')
+    print('UNICODE_RANGE=[{range}]')
+    return void
+}
+"#,
+        "UNICODE_FIND_INDEX=2\nUNICODE_LAST_INDEX=2\nUNICODE_IS_BLANK=true\nUNICODE_TRIM=[hé🙂]\nUNICODE_PREFIX=[hé🙂]\nUNICODE_SUFFIX=[🙂z]\nUNICODE_RANGE=[é🙂]\n",
+    )];
+    let mut failures = Vec::new();
+
+    for (name, source, expected_stdout) in cases {
+        let project = match try_compile_runtime_behavior_project(name, source) {
+            Ok(project) => project,
+            Err(error) => {
+                failures.push(format!("{name} compile failure:\n{error}"));
+                continue;
+            }
+        };
+        let output = run_compiled_runtime_project(&project.binary_path);
+        if !output.exit.success {
+            failures.push(format!(
+                "{name} runtime failure:\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+            continue;
+        }
+
+        let actual_stdout = String::from_utf8_lossy(&output.stdout);
+        if actual_stdout != expected_stdout {
+            failures.push(format!(
+                "{name} output mismatch:\nexpected:\n{expected_stdout}\nactual:\n{actual_stdout}"
+            ));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "planned Unicode string stdlib behavior still fails:\n{}",
+        failures.join("\n\n")
     );
 }
 

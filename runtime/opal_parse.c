@@ -10,7 +10,10 @@
 typedef struct { int8_t value;   const char* error; } ParseResultI8;
 typedef struct { int16_t value;  const char* error; } ParseResultI16;
 typedef struct { int32_t value;  const char* error; } ParseResultI32;
+#ifndef OPAL_PARSE_RESULT_I64_DEFINED
 typedef struct { int64_t value;  const char* error; } ParseResultI64;
+#define OPAL_PARSE_RESULT_I64_DEFINED 1
+#endif
 typedef struct { uint8_t value;  const char* error; } ParseResultU8;
 typedef struct { uint16_t value; const char* error; } ParseResultU16;
 typedef struct { uint32_t value; const char* error; } ParseResultU32;

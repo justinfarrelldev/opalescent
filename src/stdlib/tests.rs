@@ -2,6 +2,11 @@
 //!
 //! All tests are inline with no filesystem I/O. Tests follow TDD red-green-refactor
 //! discipline: they were written before the corresponding implementation.
+#![allow(
+    clippy::doc_markdown,
+    clippy::manual_string_new,
+    reason = "stdlib tests use descriptive prose and explicit empty-string expectations"
+)]
 #[cfg(test)]
 #[expect(
     clippy::module_inception,
@@ -458,6 +463,116 @@ mod tests {
     fn test_strings_find_empty_needle() {
         let result = strings::find("hello", "");
         assert_eq!(result, Some(0_usize), "empty needle always found at 0");
+    }
+
+    /// Verify find_index_or returns scalar index on success.
+    #[test]
+    fn test_strings_find_index_or_found() {
+        let result = strings::find_index_or("hé🙂z", "🙂", usize::MAX);
+        assert_eq!(result, 2_usize, "find_index_or should return Unicode scalar index");
+    }
+
+    /// Verify find_index_or returns fallback for empty and missing patterns.
+    #[test]
+    fn test_strings_find_index_or_fallback() {
+        assert_eq!(
+            strings::find_index_or("hello", "", 7_usize),
+            7_usize,
+            "empty search text should use fallback"
+        );
+        assert_eq!(
+            strings::find_index_or("hello", "xyz", 9_usize),
+            9_usize,
+            "missing search text should use fallback"
+        );
+    }
+
+    /// Verify find_last_index_of_text returns Unicode scalar index.
+    #[test]
+    fn test_strings_find_last_index_of_text_found() {
+        let result = strings::find_last_index_of_text("🙂é🙂", "🙂");
+        assert_eq!(result, Some(2_usize), "last match should use scalar index");
+    }
+
+    /// Verify find_last_index_of_text rejects empty search text and missing patterns.
+    #[test]
+    fn test_strings_find_last_index_of_text_contract_failures() {
+        assert_eq!(
+            strings::find_last_index_of_text("hello", ""),
+            None,
+            "empty search text should fail"
+        );
+        assert_eq!(
+            strings::find_last_index_of_text("hello", "xyz"),
+            None,
+            "missing search text should fail"
+        );
+    }
+
+    #[test]
+    fn test_strings_split_lines_contract() {
+        assert_eq!(strings::split_lines(""), Vec::<String>::new());
+        assert_eq!(strings::split_lines("a\n"), vec![String::from("a")]);
+        assert_eq!(strings::split_lines("a\r\n"), vec![String::from("a")]);
+        assert_eq!(strings::split_lines("a\r"), vec![String::from("a")]);
+        assert_eq!(strings::split_lines("\n"), vec![String::from("")]);
+        assert_eq!(strings::split_lines("\n\n"), vec![String::from(""), String::from("")]);
+        assert_eq!(
+            strings::split_lines("a\n\nb"),
+            vec![String::from("a"), String::from(""), String::from("b")]
+        );
+        assert_eq!(
+            strings::split_lines("a\rb"),
+            vec![String::from("a"), String::from("b")]
+        );
+    }
+
+    #[test]
+    fn test_strings_blank_and_trim_whitespace_contract() {
+        assert!(strings::is_blank(""));
+        assert!(strings::is_blank("   \t\n\r"));
+        assert!(strings::is_blank("\u{2003}\u{3000}"));
+        assert!(!strings::is_blank("猫"));
+        assert_eq!(strings::trim_whitespace("\u{2003}  hé 🙂  \t\u{3000}"), "hé 🙂");
+        assert_eq!(strings::trim_whitespace("cat café"), "cat café");
+    }
+
+    #[test]
+    fn test_strings_take_prefix_suffix_and_extract_range_contract() {
+        assert_eq!(strings::take_prefix("hé🙂", 0), Ok(String::from("")));
+        assert_eq!(strings::take_prefix("hé🙂", 3), Ok(String::from("hé🙂")));
+        assert_eq!(
+            strings::take_prefix("hé🙂", -1),
+            Err(strings::StringRangeError::NegativeCount)
+        );
+        assert_eq!(
+            strings::take_prefix("hé🙂", 4),
+            Err(strings::StringRangeError::OutOfBounds)
+        );
+
+        assert_eq!(strings::take_suffix("hé🙂", 0), Ok(String::from("")));
+        assert_eq!(strings::take_suffix("hé🙂", 3), Ok(String::from("hé🙂")));
+        assert_eq!(
+            strings::take_suffix("hé🙂", -1),
+            Err(strings::StringRangeError::NegativeCount)
+        );
+        assert_eq!(
+            strings::take_suffix("hé🙂", 4),
+            Err(strings::StringRangeError::OutOfBounds)
+        );
+
+        assert_eq!(strings::extract_range("hello", 1, 4), Ok(String::from("ell")));
+        assert_eq!(strings::extract_range("hello", 2, 2), Ok(String::from("")));
+        assert_eq!(strings::extract_range("hé🙂", 0, 3), Ok(String::from("hé🙂")));
+        assert_eq!(strings::extract_range("hé🙂", 3, 3), Ok(String::from("")));
+        assert_eq!(
+            strings::extract_range("hello", 4, 1),
+            Err(strings::StringRangeError::RangeOrder)
+        );
+        assert_eq!(
+            strings::extract_range("hello", 0, 8),
+            Err(strings::StringRangeError::OutOfBounds)
+        );
     }
 
     /// Verify replace substitutes occurrences.
