@@ -1,0 +1,21 @@
+import string_split_lines, string_is_blank, string_trim_whitespace from standard
+
+##
+  Description: Verifies split-lines, blank detection, and whitespace trimming semantics.
+##
+entry main = f(args: string[]): void errors AllocationFailureError =>
+    let lines = propagate string_split_lines('alpha\r\nbeta\n')
+    let first: string = guard lines.at(0) into value: string else '<missing>'
+    let second: string = guard lines.at(1) into value: string else '<missing>'
+    let trimmed = propagate string_trim_whitespace('  hi  ')
+    print('lines:{lines.length}:{first}:{second}')
+    if string_is_blank('   '):
+        print('blank-spaces:true')
+    else:
+        print('blank-spaces:false')
+    if string_is_blank('  ok  '):
+        print('blank-text:true')
+    else:
+        print('blank-text:false')
+    print('trimmed:[{trimmed}]')
+    return void

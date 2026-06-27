@@ -1,0 +1,13 @@
+import string_take_prefix, string_take_suffix, string_extract_range from standard
+
+##
+  Description: Verifies prefix, suffix, and range extraction use Unicode-scalar bounds.
+##
+entry main = f(args: string[]): void errors StringNegativeCountError, StringRangeOutOfBoundsError, StringRangeOrderError, AllocationFailureError =>
+    let prefix = propagate string_take_prefix('hé🙂z', 3)
+    let suffix = propagate string_take_suffix('hé🙂z', 2)
+    let range = propagate string_extract_range('hé🙂z', 1, 3)
+    print('prefix:[{prefix}]')
+    print('suffix:[{suffix}]')
+    print('range:[{range}]')
+    return void
