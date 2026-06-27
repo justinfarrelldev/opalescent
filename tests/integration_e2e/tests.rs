@@ -83,9 +83,10 @@ mod stdout_writer_stdlib;
 mod string_builder_stdlib;
 mod string_indexing;
 mod string_indexing_bounds;
-mod string_stdlib_failures;
-mod string_stdlib_success;
 mod string_join_stdlib;
+mod string_stdlib_failures;
+mod string_stdlib_projects;
+mod string_stdlib_success;
 mod terminal_stdlib;
 mod time_stdlib;
 
