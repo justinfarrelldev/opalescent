@@ -1,5 +1,6 @@
 #![allow(
     clippy::all,
+    clippy::match_same_arms,
     clippy::too_many_lines,
     reason = "runtime return mapping is intentionally explicit and grouped by API surface"
 )]
@@ -47,8 +48,15 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "read_text_sync"
         | "read_first_line_sync"
         | "string_builder_finish"
+        | "string_join"
+        | "string_trim_whitespace"
+        | "string_take_prefix"
+        | "string_take_suffix"
+        | "string_extract_range"
         | "get_environment_variable"
         | "get_environment_variable_or" => Some(CoreType::String),
+        "string_find_index_or" | "string_find_last_index_of_text" => Some(CoreType::Int64),
+        "string_split_lines" => Some(CoreType::Array(alloc::boxed::Box::new(CoreType::String))),
         "random_int8" => Some(CoreType::Int8),
         "random_int16" => Some(CoreType::Int16),
         "random_int32" | "bytes_length" => Some(CoreType::Int32),
@@ -162,6 +170,7 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "is_file_nofollow_sync"
         | "is_directory_sync"
         | "is_directory_nofollow_sync"
+        | "string_is_blank"
         | "environment_variable_exists" => Some(CoreType::Boolean),
         "read_metadata_sync" | "read_metadata_nofollow_sync" => Some(CoreType::Generic {
             name: String::from("FileMetadata"),
@@ -178,6 +187,8 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
 /// Map known runtime result wrappers to the success type produced by `guard`.
 pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
     match name {
+        "string_find_last_index_of_text" | "string_find_index_or" => Some(CoreType::Int64),
+        "string_split_lines" => Some(CoreType::Array(alloc::boxed::Box::new(CoreType::String))),
         "string_to_int8" => Some(CoreType::Int8),
         "string_to_int16" => Some(CoreType::Int16),
         "string_to_int32" => Some(CoreType::Int32),
@@ -199,8 +210,13 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
             type_args: Vec::new(),
         }),
         "string_builder_finish"
+        | "string_join"
         | "read_text_sync"
         | "read_first_line_sync"
+        | "string_trim_whitespace"
+        | "string_take_prefix"
+        | "string_take_suffix"
+        | "string_extract_range"
         | "get_environment_variable"
         | "get_environment_variable_or" => Some(CoreType::String),
         "stdout_terminal" => Some(CoreType::Generic {

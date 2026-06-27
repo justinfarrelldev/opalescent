@@ -8,6 +8,11 @@ use inkwell::AddressSpace;
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::values::FunctionValue;
 
+#[path = "functions_stdlib_string.rs"]
+#[doc = "String-specific stdlib declaration helpers extracted to satisfy line-count limits."]
+mod string;
+use self::string::{STRING_STDLIB_NAMES, declare_string_stdlib_function};
+
 #[doc = "Declare a stdlib function in the LLVM module if not already present."]
 #[expect(
     clippy::too_many_lines,
@@ -26,7 +31,10 @@ pub fn declare_stdlib_function<'context>(
     #[cfg(not(test))]
     let is_test_fallible_constructor = false;
 
-    if !STDLIB_NAMES.contains(&name) && !is_test_fallible_constructor {
+    if !STDLIB_NAMES.contains(&name)
+        && !STRING_STDLIB_NAMES.contains(&name)
+        && !is_test_fallible_constructor
+    {
         return None;
     }
 
@@ -197,41 +205,9 @@ pub fn declare_stdlib_function<'context>(
             let ft = i8_ptr.fn_type(&[i8_type.into()], false);
             Some(module.add_function("bool_to_string", ft, None))
         }),
-        "string_length" => module.get_function("string_length").or_else(|| {
-            let ft = i64_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("string_length", ft, None))
-        }),
-        "string_index" => module.get_function("string_index").or_else(|| {
-            let ft = i8_ptr.fn_type(&[i8_ptr.into(), i64_type.into()], false);
-            Some(module.add_function("string_index", ft, None))
-        }),
-        "string_join" => module.get_function("string_join").or_else(|| {
-            let ft = i8_ptr.fn_type(
-                &[
-                    i8_ptr.ptr_type(AddressSpace::default()).into(),
-                    i64_type.into(),
-                    i8_ptr.into(),
-                ],
-                false,
-            );
-            Some(module.add_function("string_join", ft, None))
-        }),
-        "string_builder_new" => module.get_function("string_builder_new").or_else(|| {
-            let ft = i8_ptr.fn_type(&[], false);
-            Some(module.add_function("string_builder_new", ft, None))
-        }),
-        "string_builder_push" => module.get_function("string_builder_push").or_else(|| {
-            Some(declare_fs_result_function(
-                codegen_context,
-                "string_builder_push",
-                void_error_result_type,
-                &[i8_ptr.into(), i8_ptr.into()],
-            ))
-        }),
-        "string_builder_finish" => module.get_function("string_builder_finish").or_else(|| {
-            let ft = pointer_error_result_type.fn_type(&[i8_ptr.into()], false);
-            Some(module.add_function("string_builder_finish", ft, None))
-        }),
+        name if STRING_STDLIB_NAMES.contains(&name) => {
+            declare_string_stdlib_function(codegen_context, name)
+        }
         "print_text_sync" => module.get_function("print_text_sync").or_else(|| {
             Some(declare_fs_result_function(
                 codegen_context,
@@ -783,7 +759,7 @@ pub fn declare_stdlib_function<'context>(
 }
 
 /// Declare a filesystem helper using direct returns or an `sret` out-parameter.
-fn declare_fs_result_function<'context>(
+pub(super) fn declare_fs_result_function<'context>(
     codegen_context: &CodegenContext<'context>,
     name: &str,
     result_type: inkwell::types::StructType<'context>,
@@ -835,13 +811,18 @@ pub fn resolve_imported_runtime_name(
     symbol_name: &str,
 ) -> Result<String, CodegenError> {
     match (module_name, symbol_name) {
-        ("standard" | "math" | "process", name) if STDLIB_NAMES.contains(&name) => {
+        ("standard" | "math" | "process", name) if is_stdlib_runtime_name(name) => {
             Ok(name.to_owned())
         }
         _ => Err(CodegenError::new(format!(
             "unknown import symbol '{symbol_name}' in module '{module_name}'"
         ))),
     }
+}
+
+#[must_use]
+pub fn is_stdlib_runtime_name(name: &str) -> bool {
+    STDLIB_NAMES.contains(&name) || STRING_STDLIB_NAMES.contains(&name)
 }
 
 #[doc = "Authoritative list of all stdlib function names."]
@@ -889,12 +870,6 @@ pub const STDLIB_NAMES: &[&str] = &[
     "float32_to_string",
     "float64_to_string",
     "bool_to_string",
-    "string_length",
-    "string_index",
-    "string_join",
-    "string_builder_new",
-    "string_builder_push",
-    "string_builder_finish",
     "print_text_sync",
     "flush_standard_output_sync",
     "stdout_writer",
@@ -975,29 +950,15 @@ mod tests {
     #[test]
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
-            STDLIB_NAMES.len(),
-            120,
-            "stdlib registry should have 120 names"
+            STDLIB_NAMES.len() + STRING_STDLIB_NAMES.len(),
+            128,
+            "stdlib registry should have 128 names"
         );
-        assert!(
-            STDLIB_NAMES.contains(&"opal_runtime_error"),
-            "opal_runtime_error should be in registry"
-        );
-        assert!(
-            STDLIB_NAMES.contains(&"print"),
-            "print should be in registry"
-        );
-        assert!(
-            STDLIB_NAMES.contains(&"random_int32"),
-            "random_int32 should be in registry"
-        );
-        assert!(
-            STDLIB_NAMES.contains(&"current_working_directory_sync"),
-            "current_working_directory_sync should be in registry"
-        );
-        assert!(
-            STDLIB_NAMES.contains(&"exit_process"),
-            "exit_process should be in registry"
-        );
+        assert!(is_stdlib_runtime_name("opal_runtime_error"));
+        assert!(is_stdlib_runtime_name("print"));
+        assert!(is_stdlib_runtime_name("random_int32"));
+        assert!(is_stdlib_runtime_name("current_working_directory_sync"));
+        assert!(is_stdlib_runtime_name("exit_process"));
+        assert!(is_stdlib_runtime_name("string_builder_push"));
     }
 }

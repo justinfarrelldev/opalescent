@@ -260,11 +260,11 @@ import string_join from standard
 ##
   Description: Scope leak red fixture for block exit cleanup.
 ##
-entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+entry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>
     let outer: string[] = ['outer']
     if outer.length > 0:
         let scoped: string[] = ['block', 'exit']
-        let joined = string_join(scoped, '-')
+        let joined = propagate string_join(scoped, '-')
         print(joined)
     print(propagate outer.at(0))
     return void
@@ -282,11 +282,11 @@ import string_join from standard
 ##
   Description: Scope leak red fixture for for-loop iteration binding cleanup.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors AllocationFailureError =>
     let values: string[] = ['alpha', 'beta', 'gamma']
     for value in values:
         let row: string[] = [value, 'iter']
-        let joined = string_join(row, '-')
+        let joined = propagate string_join(row, '-')
         print(joined)
     return void
 ";
@@ -303,11 +303,11 @@ import string_join from standard
 ##
   Description: Scope leak red fixture for early return cleanup.
 ##
-entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+entry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>
     let values: string[] = ['early', 'return']
     if values.length > 0:
         let payload: string[] = [propagate values.at(0), 'path']
-        let joined = string_join(payload, '-')
+        let joined = propagate string_join(payload, '-')
         print(joined)
         return void
     print('unreachable')
@@ -326,10 +326,10 @@ import string_join from standard
 ##
   Description: Scope leak red fixture for break cleanup.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors AllocationFailureError =>
     let outcome = loop =>
         let parts: string[] = ['break', 'scope']
-        let text = string_join(parts, '-')
+        let text = propagate string_join(parts, '-')
         print(text)
         break outcome: text
     print(outcome)
@@ -348,11 +348,11 @@ import string_join from standard
 ##
   Description: Scope leak red fixture for continue cleanup.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors AllocationFailureError =>
     let values: string[] = ['one', 'two', 'three']
     for value in values:
         let parts: string[] = [value, 'continue']
-        let joined = string_join(parts, '-')
+        let joined = propagate string_join(parts, '-')
         print(joined)
         continue
     return void
@@ -370,16 +370,16 @@ import string_join from standard
 ##
   Description: Scope leak fixture for return transfer ownership.
 ##
-let make_message = f(): string =>
+let make_message = f(): string errors AllocationFailureError =>
     let parts: string[] = ['owned', 'value']
-    let message = string_join(parts, '-')
+    let message = propagate string_join(parts, '-')
     return message
 
 ##
   Description: Exercises returned ownership in caller scope.
 ##
-entry main = f(args: string[]): void =>
-    let returned = make_message()
+entry main = f(args: string[]): void errors AllocationFailureError =>
+    let returned = propagate make_message()
     print(returned)
     return void
 ";
@@ -400,11 +400,11 @@ import string_join from standard
 ##
   Description: Scope leak red fixture for string array element drop cleanup.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors AllocationFailureError =>
     let first = 'alpha'
     let second = 'beta'
     let values: string[] = [first, second, 'gamma']
-    let combined = string_join(values, ',')
+    let combined = propagate string_join(values, ',')
     print(combined)
     return void
 ";
@@ -452,20 +452,20 @@ import string_join from standard
 ##
   Description: Scope leak red fixture for nested if/else branch cleanup.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors AllocationFailureError =>
     let values: string[] = ['nested']
     if values.length > 0:
         if values.length > 1:
             let branch: string[] = ['inner', 'if']
-            let joined = string_join(branch, '-')
+            let joined = propagate string_join(branch, '-')
             print(joined)
         else:
             let branch: string[] = ['inner', 'else']
-            let joined = string_join(branch, '-')
+            let joined = propagate string_join(branch, '-')
             print(joined)
     else:
         let branch: string[] = ['outer', 'else']
-        let joined = string_join(branch, '-')
+        let joined = propagate string_join(branch, '-')
         print(joined)
     return void
 ";
