@@ -1,7 +1,7 @@
 import string_join, string_builder_push, string_builder_finish, stdout_writer, writer_write_sync, writer_flush_sync, stdout_terminal, terminal_draw_rows_sync, sleep_ms_sync from standard
 
-let row = f(a: string, b: string, c: string, d: string, e: string): string =>
-    return string_join([a, b, c, d, e], '')
+let row = f(a: string, b: string, c: string, d: string, e: string): string errors AllocationFailureError =>
+    return propagate string_join([a, b, c, d, e], '')
 
 let frame_header = f(frame: int64): string =>
     return 'Frame {frame}'
@@ -22,10 +22,10 @@ entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError
 
         propagate writer_write_sync(writer, header_text)
         if frame % 2 is 0:
-            let even_rows: string[] = [row('.', '.', '.', '.', '.'), row('.', '.', '#', '.', '.'), row('.', '.', '#', '.', '.'), row('.', '.', '#', '.', '.'), row('.', '.', '.', '.', '.')]
+            let even_rows: string[] = [propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '.', '.', '.')]
             propagate terminal_draw_rows_sync(terminal, even_rows)
         else:
-            let odd_rows: string[] = [row('.', '.', '.', '.', '.'), row('.', '.', '.', '.', '.'), row('.', '#', '#', '#', '.'), row('.', '.', '.', '.', '.'), row('.', '.', '.', '.', '.')]
+            let odd_rows: string[] = [propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '.', '.', '.'), propagate row('.', '#', '#', '#', '.'), propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '.', '.', '.')]
             propagate terminal_draw_rows_sync(terminal, odd_rows)
         propagate writer_write_sync(writer, '\n')
 
