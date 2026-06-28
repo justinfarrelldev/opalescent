@@ -178,7 +178,9 @@ impl Parser {
                 Ok(Box::new(block_stmt))
             }
         } else if let Some((first_comment, trailing_comments)) = leading_comments.split_first() {
-            if self.is_at_end() && first_comment.span().start.column > 1 {
+            if (self.is_at_end() || self.check(&TokenType::Else))
+                && first_comment.span().start.column > 1
+            {
                 let start = first_comment.span().start;
                 let end = trailing_comments
                     .last()

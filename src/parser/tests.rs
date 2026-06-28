@@ -3293,6 +3293,37 @@ fn test_if_statement_comment_only_body_parses() {
 }
 
 #[test]
+fn test_if_statement_comment_only_body_before_else_parses() {
+    let parsed = parse_statement_from_string(
+        "if condition:\n    # TODO: implement later\nelse:\n    return void",
+    )
+    .expect("comment-only if body should parse before else");
+
+    match parsed {
+        Stmt::If {
+            then_branch,
+            else_branch,
+            ..
+        } => {
+            match *then_branch {
+                Stmt::Block { statements, .. } => {
+                    assert_eq!(
+                        statements.len(),
+                        1,
+                        "comment-only if body should keep its comment"
+                    );
+                    assert!(matches!(statements[0], Stmt::Comment { .. }));
+                }
+                other => panic!("expected block statement in then branch, found: {other:?}"),
+            }
+
+            assert!(matches!(else_branch.as_deref(), Some(Stmt::Block { .. })));
+        }
+        other => panic!("expected if statement, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_if_statement_outdented_comment_only_body_rejects() {
     let result = parse_statement_from_string("if condition:\n# TODO: implement later\n");
 
