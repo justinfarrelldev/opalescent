@@ -469,7 +469,10 @@ mod tests {
     #[test]
     fn test_strings_find_index_or_found() {
         let result = strings::find_index_or("hé🙂z", "🙂", usize::MAX);
-        assert_eq!(result, 2_usize, "find_index_or should return Unicode scalar index");
+        assert_eq!(
+            result, 2_usize,
+            "find_index_or should return Unicode scalar index"
+        );
     }
 
     /// Verify find_index_or returns fallback for empty and missing patterns.
@@ -516,7 +519,10 @@ mod tests {
         assert_eq!(strings::split_lines("a\r\n"), vec![String::from("a")]);
         assert_eq!(strings::split_lines("a\r"), vec![String::from("a")]);
         assert_eq!(strings::split_lines("\n"), vec![String::from("")]);
-        assert_eq!(strings::split_lines("\n\n"), vec![String::from(""), String::from("")]);
+        assert_eq!(
+            strings::split_lines("\n\n"),
+            vec![String::from(""), String::from("")]
+        );
         assert_eq!(
             strings::split_lines("a\n\nb"),
             vec![String::from("a"), String::from(""), String::from("b")]
@@ -533,7 +539,10 @@ mod tests {
         assert!(strings::is_blank("   \t\n\r"));
         assert!(strings::is_blank("\u{2003}\u{3000}"));
         assert!(!strings::is_blank("猫"));
-        assert_eq!(strings::trim_whitespace("\u{2003}  hé 🙂  \t\u{3000}"), "hé 🙂");
+        assert_eq!(
+            strings::trim_whitespace("\u{2003}  hé 🙂  \t\u{3000}"),
+            "hé 🙂"
+        );
         assert_eq!(strings::trim_whitespace("cat café"), "cat café");
     }
 
@@ -561,9 +570,15 @@ mod tests {
             Err(strings::StringRangeError::OutOfBounds)
         );
 
-        assert_eq!(strings::extract_range("hello", 1, 4), Ok(String::from("ell")));
+        assert_eq!(
+            strings::extract_range("hello", 1, 4),
+            Ok(String::from("ell"))
+        );
         assert_eq!(strings::extract_range("hello", 2, 2), Ok(String::from("")));
-        assert_eq!(strings::extract_range("hé🙂", 0, 3), Ok(String::from("hé🙂")));
+        assert_eq!(
+            strings::extract_range("hé🙂", 0, 3),
+            Ok(String::from("hé🙂"))
+        );
         assert_eq!(strings::extract_range("hé🙂", 3, 3), Ok(String::from("")));
         assert_eq!(
             strings::extract_range("hello", 4, 1),

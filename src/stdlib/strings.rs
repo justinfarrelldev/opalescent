@@ -191,7 +191,9 @@ pub fn trim_whitespace(source: &str) -> String {
         }
     }
 
-    start.map_or_else(String::new, |start_index| String::from(&source[start_index..end]))
+    start.map_or_else(String::new, |start_index| {
+        String::from(&source[start_index..end])
+    })
 }
 
 /// Return the first `count` Unicode scalar values.
