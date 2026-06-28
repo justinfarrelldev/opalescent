@@ -247,11 +247,8 @@ fn test_string_join_allocation_failure_error_renders_with_docs() {
         "expected a type-checker diagnostic for bare string_join"
     );
 
-    let rendered = crate::errors::renderer::render_report(
-        "string_join.op",
-        &normalized_source,
-        &report,
-    );
+    let rendered =
+        crate::errors::renderer::render_report("string_join.op", &normalized_source, &report);
     assert!(
         rendered.contains("AllocationFailureError"),
         "expected AllocationFailureError to appear in string_join diagnostic, got: {rendered}"
