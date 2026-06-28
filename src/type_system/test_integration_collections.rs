@@ -326,27 +326,27 @@ entry main = f(parts: string[]): string errors AllocationFailureError =>
         );
     }
 
-#[test]
-fn string_join_allocation_failure_contract() {
-    const SOURCE: &str = "
+    #[test]
+    fn string_join_allocation_failure_contract() {
+        const SOURCE: &str = "
 entry main = f(parts: string[]): string => {
     return ','.join(parts)
 }
 ";
-    let program = parse_pipeline(SOURCE);
-    let mut checker = TypeChecker::new();
-    let errors = checker
-        .type_check_program(&program)
-        .expect_err("bare string_join should now require explicit AllocationFailureError handling");
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let errors = checker.type_check_program(&program).expect_err(
+            "bare string_join should now require explicit AllocationFailureError handling",
+        );
 
-    assert!(
-        errors.iter().any(|error| matches!(
-            *error,
-            crate::type_system::errors::TypeError::UnhandledCallError { .. }
-        )),
-        "expected UnhandledCallError for bare string_join, got: {errors:?}"
-    );
-}
+        assert!(
+            errors.iter().any(|error| matches!(
+                *error,
+                crate::type_system::errors::TypeError::UnhandledCallError { .. }
+            )),
+            "expected UnhandledCallError for bare string_join, got: {errors:?}"
+        );
+    }
 
     #[test]
     fn test_for_loop_over_string_iterable_type_checks() {

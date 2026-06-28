@@ -9,7 +9,8 @@ const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[test]
 fn string_stdlib_failure_unhandled_string_join_reports_allocation_failure_error() {
-    const SOURCE_PATH: &str = "test-projects/string-stdlib-failures/src/unhandled-string-join.main.op";
+    const SOURCE_PATH: &str =
+        "test-projects/string-stdlib-failures/src/unhandled-string-join.main.op";
     const SOURCE: &str = "##\n    Description: Entry function verifies bare string_join compile failure\n##\nentry main = f(parts: string[]): string => {\n    return string_join(parts, ',')\n}\n";
     let temp_dir = unique_probe_target_dir("string-stdlib-unhandled-join");
     let prepare = prepare_dir(&temp_dir);
@@ -38,11 +39,8 @@ fn string_stdlib_failure_unhandled_string_join_reports_allocation_failure_error(
             ));
         };
 
-        let rendered = opalescent::errors::renderer::render_report(
-            SOURCE_PATH,
-            &normalized_source,
-            &report,
-        );
+        let rendered =
+            opalescent::errors::renderer::render_report(SOURCE_PATH, &normalized_source, &report);
         if !rendered.contains("AllocationFailureError")
             || !rendered.contains("unhandled_call_error")
         {
@@ -69,7 +67,8 @@ fn string_stdlib_failure_unhandled_string_join_reports_allocation_failure_error(
 
 #[test]
 fn string_stdlib_failure_unhandled_search_error_surfaces_runtime_error_name() {
-    const SOURCE_PATH: &str = "test-projects/string-stdlib-failures/src/unhandled-search-error.main.op";
+    const SOURCE_PATH: &str =
+        "test-projects/string-stdlib-failures/src/unhandled-search-error.main.op";
     const SOURCE: &str = "import string_find_last_index_of_text from standard\n\n##\n    Description: Entry function verifies propagated StringEmptySearchTextError reaches stderr\n##\nentry main = f(): void errors StringEmptySearchTextError, StringPatternNotFoundError => {\n    let _last: int64 = propagate string_find_last_index_of_text('hello', '')\n    return void\n}\n";
     let temp_dir = unique_probe_target_dir("string-stdlib-unhandled-search-error");
     let prepare = prepare_dir(&temp_dir);
@@ -86,7 +85,9 @@ fn string_stdlib_failure_unhandled_search_error_surfaces_runtime_error_name() {
             &TargetTriple::host(),
         )
         .map_err(|error| {
-            format!("string-stdlib-unhandled-search-error source should compile into a binary: {error}")
+            format!(
+                "string-stdlib-unhandled-search-error source should compile into a binary: {error}"
+            )
         })?;
 
         let run_output = run_binary_output_with_timeout(
