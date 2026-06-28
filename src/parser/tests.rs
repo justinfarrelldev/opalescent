@@ -3261,6 +3261,48 @@ fn test_if_statements() {
 }
 
 #[test]
+fn test_if_statement_comment_only_body_parses() {
+    let parsed = parse_statement_from_string("if condition:\n  # TODO: implement later\n")
+        .expect("comment-only if body should parse as a statement");
+
+    match parsed {
+        Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+            ..
+        } => {
+            assert!(matches!(condition, Expr::Identifier { name, .. } if name == "condition"));
+
+            match *then_branch {
+                Stmt::Block { statements, .. } => {
+                    assert_eq!(
+                        statements.len(),
+                        1,
+                        "comment-only if body should keep its comment"
+                    );
+                    assert!(matches!(statements[0], Stmt::Comment { .. }));
+                }
+                other => panic!("expected block statement in then branch, found: {other:?}"),
+            }
+
+            assert!(else_branch.is_none());
+        }
+        other => panic!("expected if statement, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_if_statement_outdented_comment_only_body_rejects() {
+    let result = parse_statement_from_string("if condition:\n# TODO: implement later\n");
+
+    assert!(
+        result.is_err(),
+        "outdented comment-only if body should be rejected"
+    );
+}
+
+#[test]
 fn test_if_expression_parses_in_expression_position() {
     let parsed = parse_expression_from_string("if true { 1 } else { 2 }");
     assert!(
