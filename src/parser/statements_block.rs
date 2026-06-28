@@ -177,28 +177,25 @@ impl Parser {
             } else {
                 Ok(Box::new(block_stmt))
             }
-        } else if !leading_comments.is_empty()
-            && self.is_at_end()
-            && leading_comments
-                .first()
-                .is_some_and(|comment| comment.span().start.column > 1)
-        {
-            let start = leading_comments
-                .first()
-                .expect("leading_comments is non-empty")
-                .span()
-                .start;
-            let end = leading_comments
-                .last()
-                .expect("leading_comments is non-empty")
-                .span()
-                .end;
+        } else if let Some((first_comment, trailing_comments)) = leading_comments.split_first() {
+            if self.is_at_end() && first_comment.span().start.column > 1 {
+                let start = first_comment.span().start;
+                let end = trailing_comments
+                    .last()
+                    .map_or(first_comment.span().end, |comment| comment.span().end);
 
-            Ok(Box::new(Stmt::Block {
-                statements: leading_comments,
-                span: Span::new(start, end),
-                id: self.next_node_id(),
-            }))
+                Ok(Box::new(Stmt::Block {
+                    statements: leading_comments,
+                    span: Span::new(start, end),
+                    id: self.next_node_id(),
+                }))
+            } else {
+                Err(ParseError::UnexpectedToken {
+                    expected: "'{' or ':' after if condition".to_owned(),
+                    found: format!("{}", self.current_token().token_type),
+                    span: ParseError::span_from_token(self.current_token()),
+                })
+            }
         } else {
             Err(ParseError::UnexpectedToken {
                 expected: "'{' or ':' after if condition".to_owned(),
