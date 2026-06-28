@@ -83,8 +83,7 @@ pub fn string_find_index_or(
         .as_str()
         .find(search_text.as_str())
         .map_or(fallback_index, |byte_offset| {
-            i64::try_from(value.as_str()[..byte_offset].chars().count())
-                .unwrap_or(fallback_index)
+            i64::try_from(value.as_str()[..byte_offset].chars().count()).unwrap_or(fallback_index)
         })
 }
 
@@ -208,7 +207,10 @@ where
     let source = value.as_str();
     let char_count = source.chars().count();
     if count > char_count {
-        return Err(RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"));
+        return Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError",
+        ));
     }
     let result: alloc::string::String = source.chars().take(count).collect();
     allocator.allocate_string(&result)
@@ -231,7 +233,10 @@ where
     let source = value.as_str();
     let char_count = source.chars().count();
     if count > char_count {
-        return Err(RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"));
+        return Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError",
+        ));
     }
     let result: alloc::string::String = source
         .chars()
@@ -251,7 +256,10 @@ where
     Allocator: RuntimeAllocator,
 {
     if start < 0 || end < 0 {
-        return Err(RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"));
+        return Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError",
+        ));
     }
     if end < start {
         return Err(RuntimeError::user_error(1_105, "StringRangeOrderError"));
@@ -263,7 +271,10 @@ where
     let source = value.as_str();
     let char_count = source.chars().count();
     if end > char_count {
-        return Err(RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"));
+        return Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError",
+        ));
     }
     let result: alloc::string::String = source
         .chars()

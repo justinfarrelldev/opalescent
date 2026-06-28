@@ -12,7 +12,7 @@
 )]
 extern crate alloc;
 
-use crate::bounded_proc::{run_command, RunPolicy, RunOutput};
+use crate::bounded_proc::{RunOutput, RunPolicy, run_command};
 use crate::build_system::targets::TargetTriple;
 use crate::compiler::{CompileError, CompileRunPolicy, compile_project_with_run_policy};
 use crate::errors::renderer::render_report;
@@ -346,10 +346,7 @@ fn array_at_runtime_returns_first_element_for_index_zero() {
     );
 
     let output = run_compiled_runtime_project(&project.binary_path);
-    assert!(
-        output.exit.success,
-        "array .at(0) should exit successfully"
-    );
+    assert!(output.exit.success, "array .at(0) should exit successfully");
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "10\n",
@@ -595,11 +592,17 @@ fn string_find_helpers_use_unicode_scalar_indices() {
     );
     assert_eq!(
         string_find_last_index_of_text(&text, &missing),
-        Err(RuntimeError::user_error(1_102, "StringPatternNotFoundError"))
+        Err(RuntimeError::user_error(
+            1_102,
+            "StringPatternNotFoundError"
+        ))
     );
     assert_eq!(
         string_find_last_index_of_text(&text, &empty),
-        Err(RuntimeError::user_error(1_101, "StringEmptySearchTextError"))
+        Err(RuntimeError::user_error(
+            1_101,
+            "StringEmptySearchTextError"
+        ))
     );
 }
 
@@ -616,7 +619,10 @@ fn string_stdlib_lines_whitespace() {
     let interior_blank = OpalString::new(String::from("a\n\nb"));
 
     let split_empty = string_split_lines(&allocator, &empty).expect("split empty should succeed");
-    assert!(split_empty.is_empty(), "empty string should produce no lines");
+    assert!(
+        split_empty.is_empty(),
+        "empty string should produce no lines"
+    );
 
     let split_lf = string_split_lines(&allocator, &lf_trailing).expect("LF split should succeed");
     assert_eq!(split_lf.len(), 1);
@@ -632,25 +638,38 @@ fn string_stdlib_lines_whitespace() {
     assert_eq!(split_bare_cr.get(0).map(OpalString::as_str), Some("a"));
     assert_eq!(split_bare_cr.get(1).map(OpalString::as_str), Some("b"));
 
-    let split_only_lf = string_split_lines(&allocator, &only_lf).expect("only LF split should succeed");
+    let split_only_lf =
+        string_split_lines(&allocator, &only_lf).expect("only LF split should succeed");
     assert_eq!(split_only_lf.len(), 1);
     assert_eq!(split_only_lf.get(0).map(OpalString::as_str), Some(""));
 
-    let split_double_lf = string_split_lines(&allocator, &double_lf).expect("double LF split should succeed");
+    let split_double_lf =
+        string_split_lines(&allocator, &double_lf).expect("double LF split should succeed");
     assert_eq!(split_double_lf.len(), 2);
     assert_eq!(split_double_lf.get(0).map(OpalString::as_str), Some(""));
     assert_eq!(split_double_lf.get(1).map(OpalString::as_str), Some(""));
 
-    let split_interior_blank =
-        string_split_lines(&allocator, &interior_blank).expect("interior blank split should succeed");
+    let split_interior_blank = string_split_lines(&allocator, &interior_blank)
+        .expect("interior blank split should succeed");
     assert_eq!(split_interior_blank.len(), 3);
-    assert_eq!(split_interior_blank.get(0).map(OpalString::as_str), Some("a"));
-    assert_eq!(split_interior_blank.get(1).map(OpalString::as_str), Some(""));
-    assert_eq!(split_interior_blank.get(2).map(OpalString::as_str), Some("b"));
+    assert_eq!(
+        split_interior_blank.get(0).map(OpalString::as_str),
+        Some("a")
+    );
+    assert_eq!(
+        split_interior_blank.get(1).map(OpalString::as_str),
+        Some("")
+    );
+    assert_eq!(
+        split_interior_blank.get(2).map(OpalString::as_str),
+        Some("b")
+    );
 
     assert!(string_is_blank(&empty));
     assert!(string_is_blank(&OpalString::new(String::from("   \t\n\r"))));
-    assert!(string_is_blank(&OpalString::new(String::from("\u{2003}\u{3000}"))));
+    assert!(string_is_blank(&OpalString::new(String::from(
+        "\u{2003}\u{3000}"
+    ))));
     assert!(!string_is_blank(&OpalString::new(String::from("猫"))));
 
     let trimmed = string_trim_whitespace(
@@ -660,13 +679,14 @@ fn string_stdlib_lines_whitespace() {
     .expect("trim unicode whitespace should succeed");
     assert_eq!(trimmed.as_str(), "hé 🙂");
 
-    let trimmed_noop = string_trim_whitespace(&allocator, &OpalString::new(String::from("cat café")))
-        .expect("trim noop should succeed");
+    let trimmed_noop =
+        string_trim_whitespace(&allocator, &OpalString::new(String::from("cat café")))
+            .expect("trim noop should succeed");
     assert_eq!(trimmed_noop.as_str(), "cat café");
 
     let invariant_source = OpalString::new(String::from("\u{2003}  \t\u{3000}"));
-    let invariant_trimmed =
-        string_trim_whitespace(&allocator, &invariant_source).expect("trim invariant should succeed");
+    let invariant_trimmed = string_trim_whitespace(&allocator, &invariant_source)
+        .expect("trim invariant should succeed");
     assert!(string_is_blank(&invariant_source));
     assert_eq!(invariant_trimmed.as_str(), "");
 }
@@ -679,7 +699,8 @@ fn string_stdlib_ranges() {
 
     let prefix_zero = string_take_prefix(&allocator, &text, 0).expect("prefix zero should succeed");
     assert_eq!(prefix_zero.as_str(), "");
-    let prefix_exact = string_take_prefix(&allocator, &text, 3).expect("prefix exact should succeed");
+    let prefix_exact =
+        string_take_prefix(&allocator, &text, 3).expect("prefix exact should succeed");
     assert_eq!(prefix_exact.as_str(), "hé🙂");
     assert_eq!(
         string_take_prefix(&allocator, &text, -1),
@@ -687,12 +708,16 @@ fn string_stdlib_ranges() {
     );
     assert_eq!(
         string_take_prefix(&allocator, &text, 4),
-        Err(RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"))
+        Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError"
+        ))
     );
 
     let suffix_zero = string_take_suffix(&allocator, &text, 0).expect("suffix zero should succeed");
     assert_eq!(suffix_zero.as_str(), "");
-    let suffix_exact = string_take_suffix(&allocator, &text, 3).expect("suffix exact should succeed");
+    let suffix_exact =
+        string_take_suffix(&allocator, &text, 3).expect("suffix exact should succeed");
     assert_eq!(suffix_exact.as_str(), "hé🙂");
     assert_eq!(
         string_take_suffix(&allocator, &text, -1),
@@ -700,16 +725,23 @@ fn string_stdlib_ranges() {
     );
     assert_eq!(
         string_take_suffix(&allocator, &text, 4),
-        Err(RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"))
+        Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError"
+        ))
     );
 
-    let range_normal = string_extract_range(&allocator, &ascii, 1, 4).expect("range normal should succeed");
+    let range_normal =
+        string_extract_range(&allocator, &ascii, 1, 4).expect("range normal should succeed");
     assert_eq!(range_normal.as_str(), "ell");
-    let range_empty = string_extract_range(&allocator, &ascii, 2, 2).expect("empty range should succeed");
+    let range_empty =
+        string_extract_range(&allocator, &ascii, 2, 2).expect("empty range should succeed");
     assert_eq!(range_empty.as_str(), "");
-    let range_full = string_extract_range(&allocator, &text, 0, 3).expect("full range should succeed");
+    let range_full =
+        string_extract_range(&allocator, &text, 0, 3).expect("full range should succeed");
     assert_eq!(range_full.as_str(), "hé🙂");
-    let range_at_end = string_extract_range(&allocator, &text, 3, 3).expect("at-end empty range should succeed");
+    let range_at_end =
+        string_extract_range(&allocator, &text, 3, 3).expect("at-end empty range should succeed");
     assert_eq!(range_at_end.as_str(), "");
     assert_eq!(
         string_extract_range(&allocator, &ascii, 4, 1),
@@ -717,7 +749,10 @@ fn string_stdlib_ranges() {
     );
     assert_eq!(
         string_extract_range(&allocator, &ascii, 0, 8),
-        Err(RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"))
+        Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError"
+        ))
     );
 }
 
@@ -989,10 +1024,9 @@ entry main = f(): void => {
 #[test]
 #[ignore = "broad compile-and-run fixture; skip during focused search verification"]
 fn string_stdlib_behavior_legacy_broad() {
-    let cases = [
-        (
-            "string-stdlib-behavior-main",
-            r#"import print from standard
+    let cases = [(
+        "string-stdlib-behavior-main",
+        r#"import print from standard
 
 let print_split_case = f(label: string, text: string): void => {
     let lines: string[] = guard string_split_lines(text) into value: string[] else ['<split-error>']
@@ -1083,9 +1117,8 @@ entry main = f(): void => {
     return void
 }
 "#,
-            "FIND_INDEX_FOUND=6\nFIND_INDEX_EMPTY=-1\nFIND_INDEX_MISSING=-1\nFIND_INDEX_UNICODE=2\nLAST_FOUND=6\nLAST_REPEATED=5\nLAST_EMPTY_ERROR=-11\nLAST_MISSING_ERROR=-22\nSPLIT_EMPTY|len=0|0=<missing>|1=<missing>|2=<missing>\nSPLIT_SINGLE|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_LF_TRAILING|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_CRLF_TRAILING|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_CR_TRAILING|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_ONLY_LF|len=1|0=|1=<missing>|2=<missing>\nSPLIT_DOUBLE_LF|len=2|0=|1=|2=<missing>\nSPLIT_INTERIOR_BLANK|len=3|0=a|1=|2=b\nIS_BLANK_EMPTY=true\nIS_BLANK_ASCII=true\nIS_BLANK_TABS_NEWLINES=true\nIS_BLANK_UNICODE=true\nIS_BLANK_UNICODE_TEXT=false\nTRIM_UNICODE=[hé 🙂]\nTRIM_NOOP=[cat café]\nPREFIX_ZERO=[]\nPREFIX_EXACT=[hé🙂]\nPREFIX_NEGATIVE=NEGATIVE_COUNT\nPREFIX_OOB=OUT_OF_BOUNDS\nSUFFIX_ZERO=[]\nSUFFIX_EXACT=[hé🙂]\nSUFFIX_NEGATIVE=NEGATIVE_COUNT\nSUFFIX_OOB=OUT_OF_BOUNDS\nRANGE_NORMAL=[ell]\nRANGE_EMPTY=[]\nRANGE_FULL=[hé🙂]\nRANGE_AT_END=[]\nRANGE_ORDER=RANGE_ORDER\nRANGE_BOUNDS=OUT_OF_BOUNDS\n",
-        ),
-    ];
+        "FIND_INDEX_FOUND=6\nFIND_INDEX_EMPTY=-1\nFIND_INDEX_MISSING=-1\nFIND_INDEX_UNICODE=2\nLAST_FOUND=6\nLAST_REPEATED=5\nLAST_EMPTY_ERROR=-11\nLAST_MISSING_ERROR=-22\nSPLIT_EMPTY|len=0|0=<missing>|1=<missing>|2=<missing>\nSPLIT_SINGLE|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_LF_TRAILING|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_CRLF_TRAILING|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_CR_TRAILING|len=1|0=a|1=<missing>|2=<missing>\nSPLIT_ONLY_LF|len=1|0=|1=<missing>|2=<missing>\nSPLIT_DOUBLE_LF|len=2|0=|1=|2=<missing>\nSPLIT_INTERIOR_BLANK|len=3|0=a|1=|2=b\nIS_BLANK_EMPTY=true\nIS_BLANK_ASCII=true\nIS_BLANK_TABS_NEWLINES=true\nIS_BLANK_UNICODE=true\nIS_BLANK_UNICODE_TEXT=false\nTRIM_UNICODE=[hé 🙂]\nTRIM_NOOP=[cat café]\nPREFIX_ZERO=[]\nPREFIX_EXACT=[hé🙂]\nPREFIX_NEGATIVE=NEGATIVE_COUNT\nPREFIX_OOB=OUT_OF_BOUNDS\nSUFFIX_ZERO=[]\nSUFFIX_EXACT=[hé🙂]\nSUFFIX_NEGATIVE=NEGATIVE_COUNT\nSUFFIX_OOB=OUT_OF_BOUNDS\nRANGE_NORMAL=[ell]\nRANGE_EMPTY=[]\nRANGE_FULL=[hé🙂]\nRANGE_AT_END=[]\nRANGE_ORDER=RANGE_ORDER\nRANGE_BOUNDS=OUT_OF_BOUNDS\n",
+    )];
     let mut failures = Vec::new();
 
     for (name, source, expected_stdout) in cases {
