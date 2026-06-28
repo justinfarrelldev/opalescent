@@ -8,9 +8,7 @@ use crate::codegen::expressions_array::{
     load_array_data_ptr_for_element_type, load_array_length_from_value,
     materialize_runtime_array_from_raw_elements,
 };
-use crate::codegen::functions_call::call_arg_cleanup::{
-    CallArgCleanupRecord, lower_call_argument,
-};
+use crate::codegen::functions_call::call_arg_cleanup::{CallArgCleanupRecord, lower_call_argument};
 use crate::type_system::types::CoreType;
 use alloc::{boxed::Box, string::String, vec::Vec};
 use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum, IntValue, PointerValue};
@@ -77,7 +75,8 @@ fn lower_string_array_argument<'context>(
         )));
     }
     let array_payload = argument_value.into_pointer_value();
-    let length_value = load_array_length_from_value(codegen_context, env, array_payload, "call.arg")?;
+    let length_value =
+        load_array_length_from_value(codegen_context, env, array_payload, "call.arg")?;
     Ok((
         load_array_data_ptr_for_element_type(
             codegen_context,
@@ -115,7 +114,8 @@ pub(super) fn maybe_lower_specialized_string_array_call<'context>(
                 &args[1],
                 Some(&CoreType::Array(Box::new(CoreType::String))),
             )?;
-            let (rows_ptr, rows_count) = lower_string_array_argument(codegen_context, env, rows_argument)?;
+            let (rows_ptr, rows_count) =
+                lower_string_array_argument(codegen_context, env, rows_argument)?;
             lowered_args.clear();
             lowered_args.push(codegen_expression(codegen_context, env, &args[0], None)?.into());
             lowered_args.push(rows_ptr.into());
@@ -162,7 +162,8 @@ pub(super) fn maybe_lower_specialized_string_array_call<'context>(
                 None,
                 cleanup_records,
             )?;
-            let (array_ptr, length_value) = lower_string_array_argument(codegen_context, env, array_argument)?;
+            let (array_ptr, length_value) =
+                lower_string_array_argument(codegen_context, env, array_argument)?;
             lowered_args.clear();
             lowered_args.push(array_ptr.into());
             lowered_args.push(length_value.into());

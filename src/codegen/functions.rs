@@ -90,9 +90,8 @@ pub fn codegen_function_declaration<'context>(
             generic_params: Vec::new(),
         },
     );
-    let function_returns_owned_string = !is_entry
-        && returns.len() == 1
-        && returns.first() == Some(&CoreType::String);
+    let function_returns_owned_string =
+        !is_entry && returns.len() == 1 && returns.first() == Some(&CoreType::String);
     let function_name = if is_entry {
         format!("__opalescent_entry_{name}")
     } else {

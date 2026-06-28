@@ -45,9 +45,7 @@ mod tail;
 use self::array::{
     codegen_array_intrinsic_call, codegen_array_member_call, is_array_intrinsic_name,
 };
-use self::call_arg_cleanup::{
-    cleanup_call_argument_temporaries, lower_call_argument,
-};
+use self::call_arg_cleanup::{cleanup_call_argument_temporaries, lower_call_argument};
 use self::functions_call_helpers::{
     caller_returns_error_aggregate, current_function, emit_function_default_return,
     infer_guard_binding_core_type, llvm_metadata_type_to_core_type, uses_aggregate_result_dispatch,
@@ -84,7 +82,6 @@ pub fn emit_c_main_wrapper<'context>(
 ) -> Result<(), CodegenError> {
     tail::emit_c_main_wrapper(codegen_context, entry_function)
 }
-
 
 fn lower_array_argument<'context>(
     codegen_context: &CodegenContext<'context>,
@@ -833,9 +830,9 @@ fn resolve_callee_function<'context>(
 ) -> Result<FunctionValue<'context>, CodegenError> {
     match *callee {
         Expr::Identifier { ref name, .. } => {
-            let is_stdlib_name = crate::codegen::functions_stdlib::is_stdlib_runtime_name(
-                name.as_str(),
-            ) || is_array_intrinsic_name(name.as_str());
+            let is_stdlib_name =
+                crate::codegen::functions_stdlib::is_stdlib_runtime_name(name.as_str())
+                    || is_array_intrinsic_name(name.as_str());
             let base_function = if let Some(imported_runtime_name) =
                 env.imported_functions.get(name)
             {

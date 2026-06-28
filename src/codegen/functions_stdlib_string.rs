@@ -81,16 +81,14 @@ pub(super) fn declare_string_stdlib_function<'context>(
             let ft = i8_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("string_is_blank", ft, None))
         }),
-        "string_trim_whitespace" => module
-            .get_function("string_trim_whitespace")
-            .or_else(|| {
-                Some(declare_fs_result_function(
-                    codegen_context,
-                    "string_trim_whitespace",
-                    fs_string_result_type,
-                    &[i8_ptr.into()],
-                ))
-            }),
+        "string_trim_whitespace" => module.get_function("string_trim_whitespace").or_else(|| {
+            Some(declare_fs_result_function(
+                codegen_context,
+                "string_trim_whitespace",
+                fs_string_result_type,
+                &[i8_ptr.into()],
+            ))
+        }),
         "string_take_prefix" => module.get_function("string_take_prefix").or_else(|| {
             Some(declare_fs_result_function(
                 codegen_context,
