@@ -301,6 +301,14 @@ let last = values.pop()
 
 Implemented/tested fixture areas include `array-map`, `array-filter`, `array-reduce`, `array-zip`, and `array-pair` under `test-projects/`.
 
+### `.at(index: int64): T errors IndexOutOfBoundsError`
+
+`values.at(index)` returns the element at a zero-based index. Negative, empty-array, and out-of-range accesses return `IndexOutOfBoundsError`, so callers must use `guard` or `propagate`.
+
+```opal
+let value = propagate values.at(0)
+```
+
 ## Bytes
 
 ```opal
@@ -587,23 +595,23 @@ Returns a terminal handle for standard output.
 
 Returns whether the terminal supports ANSI control sequences.
 
-### `terminal_clear_screen_on_sync(terminal: StdoutTerminal): void errors TerminalWriteFailureError`
+### `terminal_clear_screen_on_sync(terminal: StdoutTerminal): void errors TerminalWriteFailureError, SinkClosedError`
 
 Clears the screen for the given terminal handle.
 
-### `terminal_move_cursor_on_sync(terminal: StdoutTerminal, row: int32, column: int32): void errors TerminalWriteFailureError, InvalidCursorPositionError`
+### `terminal_move_cursor_on_sync(terminal: StdoutTerminal, row: int32, column: int32): void errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError`
 
 Moves the cursor for the given terminal handle. Invalid row or column values fail with `InvalidCursorPositionError`.
 
-### `terminal_draw_rows_sync(terminal: StdoutTerminal, rows: string[]): void errors TerminalWriteFailureError`
+### `terminal_draw_rows_sync(terminal: StdoutTerminal, rows: string[]): void errors TerminalWriteFailureError, SinkClosedError`
 
 Draws multiple rows to the terminal.
 
-### `terminal_clear_screen_sync(): void errors TerminalWriteFailureError`
+### `terminal_clear_screen_sync(): void errors TerminalWriteFailureError, SinkClosedError`
 
 Convenience form that clears standard output's terminal.
 
-### `terminal_move_cursor_sync(row: int32, column: int32): void errors TerminalWriteFailureError, InvalidCursorPositionError`
+### `terminal_move_cursor_sync(row: int32, column: int32): void errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError`
 
 Convenience form that moves the cursor on standard output's terminal.
 
@@ -615,7 +623,7 @@ The Game of Life project uses this family to redraw the terminal. See `test-proj
 import sleep_ms_sync, frame_clock_new, frame_clock_wait_next_sync from standard
 ```
 
-### `sleep_ms_sync(milliseconds: int32): void errors InvalidSleepDurationError`
+### `sleep_ms_sync(milliseconds: int32): void errors InvalidDurationError`
 
 Blocks the current thread for the requested number of milliseconds. Negative or otherwise invalid durations fail.
 
@@ -623,7 +631,7 @@ Blocks the current thread for the requested number of milliseconds. Negative or 
 
 Creates a frame clock for fixed-rate loops. Invalid frame rates fail.
 
-### `frame_clock_wait_next_sync(clock: FrameClock): void`
+### `frame_clock_wait_next_sync(clock: FrameClock): void errors InvalidFrameRateError`
 
 Waits until the next frame deadline for the frame clock and updates the next deadline.
 
@@ -718,42 +726,45 @@ These names appear in the compiler/runtime registry but are not normal user-faci
 | `opal_array_bounds_error` | Reports generated-code array bounds failures. |
 | `opal_runtime_error` | Reports generated-code runtime failures. |
 
-## Error names used by the standard library
+## Standard-library error families
 
-Common standard-library error types include:
+Function signatures above deliberately list the precise leaf errors their implementation can emit. The family declarations below are compatibility declarations: a family may be used in an `errors` clause to cover exactly its listed leaves, without changing the function's emitted leaf set.
 
-- `ParseError`
-- `HexDecodeError`
-- `SliceRangeError`
-- `FileNotFoundError`
-- `PermissionDeniedError`
-- `ReadFailureError`
-- `WriteFailureError`
-- `FlushFailureError`
-- `BuilderFinishedError`
-- `AllocationFailureError`
-- `SinkClosedError`
-- `IsADirectoryError`
-- `IsNotADirectoryError`
-- `DirectoryNotFoundError`
-- `DirectoryNotEmptyError`
-- `InvalidPathError`
-- `InvalidUtf8Error`
-- `OffsetOutOfRangeError`
-- `FilesystemFullError`
-- `CreateFailureError`
-- `DeleteFailureError`
-- `CopyFailureError`
-- `MoveFailureError`
-- `MetadataUnavailableError`
-- `TerminalWriteFailureError`
-- `InvalidCursorPositionError`
-- `InvalidSleepDurationError`
-- `InvalidFrameRateError`
-- `CurrentWorkingDirectoryUnavailableError`
-- `CurrentExecutablePathUnavailableError`
-- `EnvironmentVariableNotFoundError`
-- `InvalidEnvironmentVariableNameError`
+Every individual leaf remains valid. For example, `errors HexDecodeError` is still accepted even though `BytesError` covers `HexDecodeError` and `SliceRangeError`. `ParseError` and `IndexAccessError` are singleton declaration families, so they provide coverage but no shorter-list suggestion.
+
+| Family | Exact leaf members | Suggestion warning |
+|---|---|---:|
+| `ParseError` | `ParseError` | No |
+| `BytesError` | `HexDecodeError`, `SliceRangeError` | Yes |
+| `StringSearchError` | `StringEmptySearchTextError`, `StringPatternNotFoundError` | Yes |
+| `StringRangeError` | `StringNegativeCountError`, `StringRangeOutOfBoundsError`, `StringRangeOrderError` | Yes |
+| `StringBuilderError` | `BuilderFinishedError`, `AllocationFailureError` | Yes |
+| `OutputError` | `WriteFailureError`, `FlushFailureError`, `SinkClosedError` | Yes |
+| `TerminalError` | `TerminalWriteFailureError`, `InvalidCursorPositionError`, `SinkClosedError` | Yes |
+| `TimeError` | `InvalidDurationError`, `InvalidFrameRateError` | Yes |
+| `ProcessPathError` | `PermissionDeniedError`, `InvalidPathError`, `CurrentWorkingDirectoryUnavailableError`, `CurrentExecutablePathUnavailableError`, `FileNotFoundError`, `IsNotADirectoryError` | Yes |
+| `ProcessEnvError` | `EnvironmentVariableNotFoundError`, `InvalidEnvironmentVariableNameError`, `InvalidUtf8Error` | Yes |
+| `FilesystemPathError` | `InvalidPathError`, `PermissionDeniedError` | Yes |
+| `FilesystemReadError` | `FileNotFoundError`, `PermissionDeniedError`, `ReadFailureError`, `IsADirectoryError`, `InvalidPathError`, `InvalidUtf8Error`, `OffsetOutOfRangeError` | Yes |
+| `FilesystemWriteError` | `FileNotFoundError`, `PermissionDeniedError`, `WriteFailureError`, `IsADirectoryError`, `InvalidPathError`, `FilesystemFullError`, `OffsetOutOfRangeError` | Yes |
+| `FilesystemCreateError` | `FileAlreadyExistsError`, `PermissionDeniedError`, `CreateFailureError`, `InvalidPathError`, `FilesystemFullError` | Yes |
+| `FilesystemDeleteError` | `FileNotFoundError`, `PermissionDeniedError`, `DeleteFailureError`, `IsADirectoryError`, `InvalidPathError` | Yes |
+| `FilesystemDirectoryDeleteError` | `DirectoryNotFoundError`, `PermissionDeniedError`, `DeleteFailureError`, `DirectoryNotEmptyError`, `IsNotADirectoryError`, `InvalidPathError` | Yes |
+| `FilesystemCopyMoveError` | `FileNotFoundError`, `PermissionDeniedError`, `CopyFailureError`, `MoveFailureError`, `IsADirectoryError`, `FileAlreadyExistsError`, `InvalidPathError`, `FilesystemFullError` | Yes |
+| `FilesystemMetadataError` | `FileNotFoundError`, `PermissionDeniedError`, `MetadataUnavailableError`, `InvalidPathError` | Yes |
+| `FilesystemListError` | `DirectoryNotFoundError`, `PermissionDeniedError`, `ReadFailureError`, `IsNotADirectoryError`, `InvalidPathError` | Yes |
+| `FilesystemError` | The union of the filesystem leaves above, plus registered-but-unproduced `LineOutOfRangeError` and `SetPermissionsError` | No |
+| `IndexAccessError` | `IndexOutOfBoundsError` | No |
+
+A complete explicit leaf list may produce a non-fatal warning that suggests the applicable family. This is guidance only: it never rewrites source, never rejects a declaration, and never turns a valid manual leaf declaration into an error.
+
+```opal
+let decode = f(text: string): Bytes errors BytesError =>
+    return propagate bytes_from_hex(text)
+
+let decode_with_leaf = f(text: string): Bytes errors HexDecodeError =>
+    return propagate bytes_from_hex(text)
+```
 
 If a function lists an error type, the compiler expects callers to handle or propagate it.
 

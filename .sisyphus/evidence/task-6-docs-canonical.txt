@@ -1,0 +1,43 @@
+24:entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error =>
+73:These parse decimal text into the requested numeric type. They skip leading Unicode `White_Space`, require the whole trimmed input to be valid, and fail with `ParseError` for invalid digits, empty input, or values outside the target range.
+77:| `string_to_int8(text: string): int8 errors ParseError` | `int8` | Parses a signed 8-bit integer. |
+78:| `string_to_int16(text: string): int16 errors ParseError` | `int16` | Parses a signed 16-bit integer. |
+79:| `string_to_int32(text: string): int32 errors ParseError` | `int32` | Parses a signed 32-bit integer. |
+80:| `string_to_int64(text: string): int64 errors ParseError` | `int64` | Parses a signed 64-bit integer. |
+81:| `string_to_uint8(text: string): uint8 errors ParseError` | `uint8` | Parses an unsigned 8-bit integer. |
+82:| `string_to_uint16(text: string): uint16 errors ParseError` | `uint16` | Parses an unsigned 16-bit integer. |
+83:| `string_to_uint32(text: string): uint32 errors ParseError` | `uint32` | Parses an unsigned 32-bit integer. |
+84:| `string_to_uint64(text: string): uint64 errors ParseError` | `uint64` | Parses an unsigned 64-bit integer. |
+85:| `string_to_float32(text: string): float32 errors ParseError` | `float32` | Parses a 32-bit floating-point value. |
+86:| `string_to_float64(text: string): float64 errors ParseError` | `float64` | Parses a 64-bit floating-point value. |
+304:### `.at(index: int64): T errors IndexOutOfBoundsError`
+306:`values.at(index)` returns the element at a zero-based index. Negative, empty-array, and out-of-range accesses return `IndexOutOfBoundsError`, so callers must use `guard` or `propagate`.
+338:### `bytes_from_hex(text: string): Bytes errors HexDecodeError`
+420:### `read_text_sync(path: FilesystemPath): string errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error`
+422:Reads the whole file as UTF-8 text. It fails with `InvalidUtf8Error` if the bytes are not valid UTF-8.
+424:### `read_first_line_sync(path: FilesystemPath): string errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidUtf8Error, OffsetOutOfRangeError, ReadFailureError`
+428:### `read_lines_sync(path: FilesystemPath): string[] errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error`
+570:### `print_text_sync(text: string): void errors WriteFailureError, SinkClosedError`
+574:### `flush_standard_output_sync(): void errors FlushFailureError, SinkClosedError`
+582:### `writer_write_sync(writer: StdoutWriter, text: string): void errors WriteFailureError, SinkClosedError`
+586:### `writer_flush_sync(writer: StdoutWriter): void errors FlushFailureError, SinkClosedError`
+598:### `terminal_clear_screen_on_sync(terminal: StdoutTerminal): void errors TerminalWriteFailureError, SinkClosedError`
+602:### `terminal_move_cursor_on_sync(terminal: StdoutTerminal, row: int32, column: int32): void errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError`
+606:### `terminal_draw_rows_sync(terminal: StdoutTerminal, rows: string[]): void errors TerminalWriteFailureError, SinkClosedError`
+610:### `terminal_clear_screen_sync(): void errors TerminalWriteFailureError, SinkClosedError`
+614:### `terminal_move_cursor_sync(row: int32, column: int32): void errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError`
+626:### `sleep_ms_sync(milliseconds: int32): void errors InvalidDurationError`
+630:### `frame_clock_new(frames_per_second: int32): FrameClock errors InvalidFrameRateError`
+634:### `frame_clock_wait_next_sync(clock: FrameClock): void errors InvalidFrameRateError`
+690:**Errors:** `EnvironmentVariableNotFoundError`, `InvalidEnvironmentVariableNameError`, `InvalidUtf8Error`
+696:**Errors:** `InvalidEnvironmentVariableNameError`, `InvalidUtf8Error`
+733:Every individual leaf remains valid. For example, `errors HexDecodeError` is still accepted even though `BytesError` covers `HexDecodeError` and `SliceRangeError`. `ParseError` and `IndexAccessError` are singleton declaration families, so they provide coverage but no shorter-list suggestion.
+737:| `ParseError` | `ParseError` | No |
+738:| `BytesError` | `HexDecodeError`, `SliceRangeError` | Yes |
+742:| `OutputError` | `WriteFailureError`, `FlushFailureError`, `SinkClosedError` | Yes |
+743:| `TerminalError` | `TerminalWriteFailureError`, `InvalidCursorPositionError`, `SinkClosedError` | Yes |
+744:| `TimeError` | `InvalidDurationError`, `InvalidFrameRateError` | Yes |
+746:| `ProcessEnvError` | `EnvironmentVariableNotFoundError`, `InvalidEnvironmentVariableNameError`, `InvalidUtf8Error` | Yes |
+748:| `FilesystemReadError` | `FileNotFoundError`, `PermissionDeniedError`, `ReadFailureError`, `IsADirectoryError`, `InvalidPathError`, `InvalidUtf8Error`, `OffsetOutOfRangeError` | Yes |
+757:| `IndexAccessError` | `IndexOutOfBoundsError` | No |
+765:let decode_with_leaf = f(text: string): Bytes errors HexDecodeError =>

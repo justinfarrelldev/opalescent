@@ -1,0 +1,3 @@
+733:Every individual leaf remains valid. For example, `errors HexDecodeError` is still accepted even though `BytesError` covers `HexDecodeError` and `SliceRangeError`. `ParseError` and `IndexAccessError` are singleton declaration families, so they provide coverage but no shorter-list suggestion.
+738:| `BytesError` | `HexDecodeError`, `SliceRangeError` | Yes |
+744:| `TimeError` | `InvalidDurationError`, `InvalidFrameRateError` | Yes |
