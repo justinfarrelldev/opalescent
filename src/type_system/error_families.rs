@@ -259,15 +259,17 @@ pub fn error_type_is_covered_by_declared_type(emitted_leaf: &str, declared_type:
             .is_some_and(|family| family.members.contains(&emitted_leaf))
 }
 
+/// Construct the payload-free nominal type used by every stdlib error leaf and family.
+pub fn stdlib_error_core_type(name: &str) -> CoreType {
+    CoreType::Generic {
+        name: name.to_owned(),
+        type_args: Vec::new(),
+    }
+}
+
 /// Register declaration-only stdlib family names without changing precise leaf signatures.
 pub fn register_stdlib_error_family_types(environment: &mut TypeEnvironment) {
     for family in STDLIB_ERROR_FAMILIES {
-        environment.register_type(
-            family.name.to_owned(),
-            CoreType::Generic {
-                name: family.name.to_owned(),
-                type_args: Vec::new(),
-            },
-        );
+        environment.register_type(family.name.to_owned(), stdlib_error_core_type(family.name));
     }
 }
