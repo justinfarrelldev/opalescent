@@ -17,7 +17,7 @@ use crate::build_system::config::{ProjectConfig, Version, parse_config};
 use crate::build_system::targets::{BuildTarget, parse_target_triple};
 use crate::compiler::{CompileError, compile_program, compile_project};
 use crate::doc_gen::generate_markdown_for_program;
-use crate::errors::renderer::render_report;
+use crate::errors::renderer::{render_diagnostic, render_report};
 use crate::errors::reporter::CompilationErrorReport;
 use crate::formatter::command::FormatCommand;
 use crate::formatter::config::FormatterConfig;
@@ -612,6 +612,9 @@ fn run_check_command(args: &[String]) -> Result<(), i32> {
         report.extend_type_errors(errors);
         eprintln!("{}", render_report(source_path, &source, &report));
         return Err(1);
+    }
+    for warning in checker.warnings() {
+        eprintln!("{}", render_diagnostic(source_path, &source, warning));
     }
     println!("check passed");
     Ok(())
