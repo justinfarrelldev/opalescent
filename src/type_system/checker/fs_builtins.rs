@@ -12,6 +12,7 @@
 extern crate alloc;
 
 use crate::type_system::checker::TypeChecker;
+use crate::type_system::error_families::stdlib_error_core_type;
 use crate::type_system::types::CoreType;
 use alloc::borrow::ToOwned;
 
@@ -78,7 +79,7 @@ impl TypeChecker {
     fn register_fs_error_types(&mut self) {
         for name in FS_ERROR_NAMES {
             self.environment
-                .register_type((*name).to_owned(), nominal_type(name));
+                .register_type((*name).to_owned(), stdlib_error_core_type(name));
         }
     }
 }
