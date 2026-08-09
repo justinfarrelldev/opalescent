@@ -1,0 +1,74 @@
+Task 8 — stdlib error leaf structural audit
+===========================================
+
+Scope
+-----
+- Registry: src/type_system/error_families.rs (21 declaration-only families).
+- Registration/producers audited with AST/grep across src/type_system/checker/**/*.rs and
+  src/type_system/module_resolver/**/*.rs.
+- Current produced-leaf baseline: CURRENT_STDLIB_EMITTED_LEAVES in
+  src/type_system/tests.rs::test_stdlib_error_family_taxonomy_covers_all_current_leaves.
+- Result: every one of the 39 produced unique leaves is covered by at least one registered family.
+
+Produced leaves and family coverage
+-----------------------------------
+- ParseError -> ParseError
+- HexDecodeError -> BytesError
+- SliceRangeError -> BytesError
+- StringEmptySearchTextError -> StringSearchError
+- StringPatternNotFoundError -> StringSearchError
+- StringNegativeCountError -> StringRangeError
+- StringRangeOutOfBoundsError -> StringRangeError
+- StringRangeOrderError -> StringRangeError
+- BuilderFinishedError -> StringBuilderError
+- AllocationFailureError -> StringBuilderError
+- WriteFailureError -> OutputError, FilesystemWriteError, FilesystemError
+- FlushFailureError -> OutputError
+- SinkClosedError -> OutputError, TerminalError
+- TerminalWriteFailureError -> TerminalError
+- InvalidCursorPositionError -> TerminalError
+- InvalidDurationError -> TimeError
+- InvalidFrameRateError -> TimeError
+- PermissionDeniedError -> ProcessPathError, FilesystemPathError, FilesystemReadError, FilesystemWriteError, FilesystemCreateError, FilesystemDeleteError, FilesystemDirectoryDeleteError, FilesystemCopyMoveError, FilesystemMetadataError, FilesystemListError, FilesystemError
+- InvalidPathError -> ProcessPathError, FilesystemPathError, FilesystemReadError, FilesystemWriteError, FilesystemCreateError, FilesystemDeleteError, FilesystemDirectoryDeleteError, FilesystemCopyMoveError, FilesystemMetadataError, FilesystemListError, FilesystemError
+- CurrentWorkingDirectoryUnavailableError -> ProcessPathError
+- CurrentExecutablePathUnavailableError -> ProcessPathError
+- FileNotFoundError -> ProcessPathError, FilesystemReadError, FilesystemWriteError, FilesystemDeleteError, FilesystemCopyMoveError, FilesystemError
+- IsNotADirectoryError -> ProcessPathError, FilesystemDirectoryDeleteError, FilesystemListError, FilesystemError
+- EnvironmentVariableNotFoundError -> ProcessEnvError
+- InvalidEnvironmentVariableNameError -> ProcessEnvError
+- InvalidUtf8Error -> ProcessEnvError, FilesystemReadError, FilesystemError
+- ReadFailureError -> FilesystemReadError, FilesystemListError, FilesystemError
+- IsADirectoryError -> FilesystemReadError, FilesystemWriteError, FilesystemDeleteError, FilesystemCopyMoveError, FilesystemError
+- OffsetOutOfRangeError -> FilesystemReadError, FilesystemWriteError, FilesystemError
+- FilesystemFullError -> FilesystemWriteError, FilesystemCreateError, FilesystemCopyMoveError, FilesystemError
+- FileAlreadyExistsError -> FilesystemCreateError, FilesystemCopyMoveError, FilesystemError
+- CreateFailureError -> FilesystemCreateError, FilesystemError
+- DeleteFailureError -> FilesystemDeleteError, FilesystemDirectoryDeleteError, FilesystemError
+- DirectoryNotFoundError -> FilesystemDirectoryDeleteError, FilesystemListError, FilesystemError
+- DirectoryNotEmptyError -> FilesystemDirectoryDeleteError, FilesystemError
+- CopyFailureError -> FilesystemCopyMoveError, FilesystemError
+- MoveFailureError -> FilesystemCopyMoveError, FilesystemError
+- MetadataUnavailableError -> FilesystemMetadataError, FilesystemError
+- IndexOutOfBoundsError -> IndexAccessError
+
+Registration and producer inventory
+-----------------------------------
+- ParseError: core standard builtin registration/signatures in src/type_system/checker.rs and module resolver.
+- Bytes leaves: src/type_system/checker/bytes_builtins.rs.
+- String leaves: src/type_system/checker/string_builtins.rs.
+- Output and terminal leaves: src/type_system/checker/stdout_text_builtins.rs.
+- Time leaves: src/type_system/checker/time_builtins.rs.
+- Process-specific leaves: src/type_system/checker/process_builtins.rs and process module resolver signatures.
+- Filesystem leaves: src/type_system/checker/fs_builtins.rs and filesystem module resolver signatures.
+- IndexOutOfBoundsError: array/string collection builtin signatures in src/type_system/checker/collections/.
+
+Registered but unproduced
+-------------------------
+- LineOutOfRangeError: registered in FS_ERROR_NAMES and catalogued by FilesystemError; absent from CURRENT_STDLIB_EMITTED_LEAVES and from active stdlib function signatures.
+- SetPermissionsError: registered in FS_ERROR_NAMES and catalogued by FilesystemError; absent from CURRENT_STDLIB_EMITTED_LEAVES and from active stdlib function signatures.
+
+Refactor confirmation
+----------------------
+- stdlib_error_core_type is the single constructor for payload-free stdlib error nominal CoreTypes.
+- The refactor preserves every registered name, every family member list, and every builtin error signature.
