@@ -15,6 +15,14 @@ struct Fixture {
     leaves: &'static str,
 }
 
+struct SafermWarning {
+    source: &'static str,
+    line: usize,
+    label: &'static str,
+    family: &'static str,
+    leaves: &'static str,
+}
+
 const REMEDIATED_FIXTURES: &[Fixture] = &[
     Fixture {
         source: "test-projects/_absolute_path_sync/src/main.op",
@@ -173,34 +181,46 @@ const REMEDIATED_FIXTURES: &[Fixture] = &[
     },
 ];
 
-const SAFERM_PRE_REMEDIATION_WARNINGS: &[Fixture] = &[
-    Fixture {
+const SAFERM_PRE_REMEDIATION_WARNINGS: &[SafermWarning] = &[
+    SafermWarning {
         source: "src/main.op",
+        line: 23,
+        label: "entry main = f(args: string[]): void errors",
         family: "FilesystemPathError",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
-    Fixture {
-        source: "src/trash.op:unique_destination_for",
+    SafermWarning {
+        source: "src/trash.op",
+        line: 28,
+        label: "public let unique_destination_for = f(destination_root: FilesystemPath, name: string): FilesystemPath errors",
         family: "FilesystemPathError",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
-    Fixture {
-        source: "src/trash.op:trash_entry_exists",
+    SafermWarning {
+        source: "src/trash.op",
+        line: 43,
+        label: "public let trash_entry_exists = f(dest: FilesystemPath, requested_name: string): boolean errors",
         family: "FilesystemPathError",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
-    Fixture {
-        source: "src/trash.op:move_to_destination",
+    SafermWarning {
+        source: "src/trash.op",
+        line: 70,
+        label: "public let move_to_destination = f(arg: string, source_root: FilesystemPath, destination_root: FilesystemPath, force: boolean, verbose: boolean): void errors",
         family: "FilesystemPathError",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
-    Fixture {
-        source: "src/trash.op:create_trash_path_if_not_exists",
+    SafermWarning {
+        source: "src/trash.op",
+        line: 95,
+        label: "public let create_trash_path_if_not_exists = f(dest: FilesystemPath): void errors",
         family: "FilesystemPathError",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
-    Fixture {
-        source: "src/trash.op:get_trash_entries",
+    SafermWarning {
+        source: "src/trash.op",
+        line: 110,
+        label: "public let get_trash_entries = f(dest: FilesystemPath): string[] errors",
         family: "FilesystemPathError",
         leaves: "InvalidPathError, PermissionDeniedError",
     },
@@ -471,7 +491,7 @@ fn restore_saferm_pre_remediation_sources(project_dir: &Path) -> Result<(), Stri
 
 fn assert_saferm_project_build(
     project_dir: &Path,
-    expected_warnings: &[Fixture],
+    expected_warnings: &[SafermWarning],
 ) -> Result<(), String> {
     let mut command = Command::new(opalescent_binary_path());
     command.arg("build").current_dir(project_dir);
@@ -504,19 +524,34 @@ fn assert_saferm_project_build(
             expected_warnings.len()
         ));
     }
+
+    let mut warning_blocks = stderr
+        .split(REPLACEABLE_ERROR_LIST_CODE)
+        .skip(1)
+        .collect::<Vec<_>>();
     for fixture in expected_warnings {
+        let source_location = format!("{}:{}", fixture.source, fixture.line);
         let help = format!(
             "Replace `errors {}` with `errors {}`.",
             fixture.leaves, fixture.family
         );
-        for expected in [fixture.family, fixture.leaves, help.as_str()] {
-            if !stderr.contains(expected) {
-                return Err(format!(
-                    "{} should render {expected:?}, stderr: {stderr}",
-                    fixture.source
-                ));
-            }
-        }
+        let Some(block_index) = warning_blocks.iter().position(|block| {
+            [
+                source_location.as_str(),
+                fixture.label,
+                fixture.family,
+                fixture.leaves,
+                help.as_str(),
+            ]
+            .into_iter()
+            .all(|expected| block.contains(expected))
+        }) else {
+            return Err(format!(
+                "{} ({}) should have one matching replacement warning, remaining warnings: {warning_blocks:#?}",
+                source_location, fixture.label
+            ));
+        };
+        warning_blocks.remove(block_index);
     }
     Ok(())
 }
