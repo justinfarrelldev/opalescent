@@ -2,8 +2,11 @@
   Description: Verifies FrameClock constructor rejects negative fps.
 ##
 entry main = f(args: string[]): void errors InvalidFrameRateError =>
+    let zero: int32 = 0
+    let one: int32 = 1
+    let invalid_fps = zero - one
     guard new FrameClock:
-        frames_per_second: (0 - 1) as int32
+        frames_per_second: invalid_fps
     else err =>
         print('fps=-1:{err}')
         propagate err

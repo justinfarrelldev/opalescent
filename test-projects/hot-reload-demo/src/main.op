@@ -1,0 +1,8 @@
+import greet from ./greeting
+
+##
+  Description: Prints the message supplied by the replaceable greeting module.
+##
+entry main = f(args: string[]): void =>
+	print(greet())
+	return void

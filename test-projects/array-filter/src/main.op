@@ -2,13 +2,16 @@
   Description: Runs the filter fixture for array predicate behavior.
 ##
 entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
-    let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
-    let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+    let xs: int32[] = [1, 2, 3, 4]
+    let divisor: int32 = 2
+    let zero: int32 = 0
+    let upper_bound: int32 = 10
+    let evens = xs.filter(f(x: int32): boolean => (x % divisor) is zero)
     print('length {evens.length}')
     print('values {propagate evens.at(0)} {propagate evens.at(1)}')
-    let none = xs.filter(f(x: int32): boolean => x > (10 as int32))
+    let none = xs.filter(f(x: int32): boolean => x > upper_bound)
     print('none length {none.length}')
-    let all_values = xs.filter(f(x: int32): boolean => x > (0 as int32))
+    let all_values = xs.filter(f(x: int32): boolean => x > zero)
     print('all length {all_values.length}')
     print('source length {xs.length}')
     return void

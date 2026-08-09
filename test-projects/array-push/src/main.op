@@ -3,9 +3,9 @@
 ##
 entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
     let mutable xs: int32[] = []
-    xs.push(10 as int32)
-    xs.push(25 as int32)
-    xs.push(8 as int32)
+    xs.push(10)
+    xs.push(25)
+    xs.push(8)
     print('length {xs.length}')
     print('values {propagate xs.at(0)} {propagate xs.at(1)} {propagate xs.at(2)}')
     return void

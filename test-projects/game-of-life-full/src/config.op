@@ -26,10 +26,10 @@ public let board_cell_count = f(width: int64, height: int64): int64 =>
   Description: Returns the numeric value used for living cells in the flat board array.
 ##
 public let alive_cell = f(): int8 =>
-    return 1 as int8
+    return 1
 
 ##
   Description: Returns the numeric value used for empty cells in the flat board array.
 ##
 public let dead_cell = f(): int8 =>
-    return 0 as int8
+    return 0

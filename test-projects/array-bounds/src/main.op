@@ -2,6 +2,6 @@
   Description: starting point of the application — tests array bounds checking
 ##
 entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
-    let arr: int32[] = [1 as int32, 2 as int32, 3 as int32]
+    let arr: int32[] = [1, 2, 3]
     let x = propagate arr.at(5)
     return void

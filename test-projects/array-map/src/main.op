@@ -2,8 +2,9 @@
   Description: Runs the map fixture for array transformation behavior.
 ##
 entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
-    let xs: int32[] = [1 as int32, 2 as int32, 3 as int32]
-    let doubled = xs.map(f(x: int32): int32 => x * (2 as int32))
+    let xs: int32[] = [1, 2, 3]
+    let multiplier: int32 = 2
+    let doubled = xs.map(f(x: int32): int32 => x * multiplier)
     print('length {doubled.length}')
     print('values {propagate doubled.at(0)} {propagate doubled.at(1)} {propagate doubled.at(2)}')
     return void

@@ -28,12 +28,12 @@ pure handle_divide = f(num1: float64, num2: float64): float64 =>
 ##
   Description: starting point of the basic calculator application
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors ParseError =>
     print('Enter the first number:')
     let input1 = take_input()
     guard string_to_float64(input1) into num1 else e =>
         print('Error: {e}')
-        return void
+        propagate e
 
     print('Enter an operation (+, -, *, /):')
     let operation = take_input()
@@ -42,7 +42,7 @@ entry main = f(args: string[]): void =>
     let input2 = take_input()
     guard string_to_float64(input2) into num2 else e =>
         print('Error: {e}')
-        return void
+        propagate e
 
     if operation is '+':
         let result = handle_add(num1, num2)

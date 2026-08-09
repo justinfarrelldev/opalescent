@@ -2,7 +2,7 @@
   Description: Runs the pop red fixture for mutable array shrink behavior.
 ##
 entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
-    let mutable xs: int32[] = [4 as int32, 5 as int32, 6 as int32]
+    let mutable xs: int32[] = [4, 5, 6]
     let last = xs.pop()
     print('last {last}')
     print('length {xs.length}')

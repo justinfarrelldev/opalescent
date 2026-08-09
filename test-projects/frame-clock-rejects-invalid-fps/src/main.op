@@ -1,19 +1,24 @@
-import FrameClock from standard
+##
+  Description: Creates a frame clock while preserving its validation error.
+##
+let create_frame_clock = f(fps: int32): FrameClock errors InvalidFrameRateError =>
+    return propagate new FrameClock:
+        frames_per_second: fps
 
 ##
   Description: Captures the InvalidFrameRateError text for one invalid frame rate.
 ##
-let invalid_frame_rate_message = f(fps: int32): string =>
-    guard new FrameClock:
-        frames_per_second: fps
-    else _e =>
+let invalid_frame_rate_message = f(fps: int32, fallback: FrameClock): string =>
+    let _clock: FrameClock = guard create_frame_clock(fps) into value: FrameClock else fallback
+    if _clock is fallback:
         return 'fps={fps}:InvalidFrameRateError'
     return 'UNEXPECTED_SUCCESS fps={fps}'
 
 ##
   Description: Verifies FrameClock rejects zero and negative frame rates.
 ##
-entry main = f(args: string[]): void =>
-    print(invalid_frame_rate_message(0))
-    print(invalid_frame_rate_message(-1))
+entry main = f(args: string[]): void errors InvalidFrameRateError =>
+    let fallback = propagate create_frame_clock(1)
+    print(invalid_frame_rate_message(0, fallback))
+    print(invalid_frame_rate_message(-1, fallback))
     return void

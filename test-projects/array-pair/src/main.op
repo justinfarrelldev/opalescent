@@ -3,7 +3,7 @@
 ##
 entry main = f(args: string[]): void =>
     let pair = new Pair:
-        first: 7 as int32
+        first: 7
         second: 'seven'
     print('first {pair.first}')
     print('second {pair.second}')

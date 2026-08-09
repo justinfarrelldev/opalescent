@@ -8,7 +8,7 @@ let wait_for_input = f(message: string): void =>
 ##
   Description: Moves every child entry from the configured Downloads folder into the Desktop To-Be-Deleted folder.
 ##
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors FilesystemError =>
     let folder = path_from('C:\\Users\\justi\\Downloads')
     let desktop_folder = path_from('C:\\Users\\justi\\OneDrive\\Desktop')
     let destination_folder = path_from('C:\\Users\\justi\\OneDrive\\Desktop\\To-Be-Deleted')
@@ -18,7 +18,7 @@ entry main = f(args: string[]): void =>
     guard path_exists_sync(desktop_folder) into desktop_exists else desktop_exists_err =>
         print('DESKTOP_EXISTS_ERR={desktop_exists_err}')
         wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
-        return void
+        propagate desktop_exists_err
 
     if desktop_exists:
         wait_for_input('DESKTOP_EXISTS={path_to_string(desktop_folder)}; press Enter to check To-Be-Deleted')
@@ -31,7 +31,7 @@ entry main = f(args: string[]): void =>
     guard path_exists_sync(destination_folder) into destination_exists else exists_err =>
         print('DEST_EXISTS_ERR={exists_err}')
         wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
-        return void
+        propagate exists_err
 
     if destination_exists:
         wait_for_input('DEST_EXISTS: press Enter to list Downloads')
@@ -40,13 +40,13 @@ entry main = f(args: string[]): void =>
         guard create_directory_sync(destination_folder) else create_err =>
             print('CREATE_ERR={create_err}')
             wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
-            return void
+            propagate create_err
         wait_for_input('DEST_CREATED: press Enter to list Downloads')
 
     guard list_directory_sync(folder) into entries else err =>
         print('LIST_ERR={err}')
         wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
-        return void
+        propagate err
 
     wait_for_input('LIST_OK: found {int64_to_string(entries.length)} entries; press Enter to begin moving')
 
@@ -58,7 +58,8 @@ entry main = f(args: string[]): void =>
 
         guard move_path_sync(child, destination) else move_err =>
             print('MOVE_ERR={path_to_string(child)} -> {path_to_string(destination)}: {move_err}')
-            wait_for_input('PAUSE_AFTER_ERROR: press Enter to continue')
+            wait_for_input('PAUSE_AFTER_ERROR: press Enter to exit')
+            propagate move_err
 
         wait_for_input('MOVE_ATTEMPT_DONE={path_to_string(child)}; press Enter to continue')
 

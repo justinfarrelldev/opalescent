@@ -2,7 +2,7 @@
   Description: Produces a labeled pair for ordinary multiple return fixture coverage.
 ##
 let pair = f(): first: int32, second: int32 =>
-    return first: 11 as int32, second: 22 as int32
+    return first: 11, second: 22
 
 ##
   Description: Returns another labeled multi-return call unchanged to validate pass-through behavior.

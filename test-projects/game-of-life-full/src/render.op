@@ -13,7 +13,7 @@ public let prepare_display = f(): void errors TerminalWriteFailureError, SinkClo
 ##
   Description: Clears supported terminals, streams one complete frame, and flushes after the final row.
 ##
-public let write_frame = f(width: int64, height: int64, board: int8[], generation: int64): void errors WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError =>
+public let write_frame = f(width: int64, height: int64, board: int8[], generation: int64): void errors OutputError, TerminalWriteFailureError =>
     let terminal = stdout_terminal()
     let writer = stdout_writer()
     if terminal_supports_ansi(terminal):
