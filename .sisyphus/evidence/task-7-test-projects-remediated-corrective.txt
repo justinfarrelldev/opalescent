@@ -1,4 +1,4 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
      Running unittests src/lib.rs (target/debug/deps/opalescent-83f8a0bd47312ed9)
 
 running 0 tests
@@ -32,16 +32,17 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; fini
      Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-9831fa647b08422c)
 
 running 5 tests
-test tests::stdlib_error_family_test_projects::stdlib_error_family_test_projects_saferm_project_pre_remediation_warning ... ignored, pre-remediation evidence; run explicitly before replacing saferm clauses
 test tests::stdlib_error_family_test_projects::stdlib_error_family_test_projects_inventory_classifies_all_clauses ... ok
+test tests::stdlib_error_family_test_projects::stdlib_error_family_test_projects_saferm_project_pre_remediation_warning ... ok
 test tests::stdlib_error_family_test_projects::stdlib_error_family_test_projects_saferm_project ... ok
 test tests::stdlib_error_family_test_projects::stdlib_error_family_test_projects ... ok
 test tests::stdlib_error_family_test_projects::stdlib_error_family_test_projects_pre_remediation_warnings ... ok
 
-test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 218 filtered out; finished in 0.84s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 218 filtered out; finished in 0.84s
 
      Running tests/integration_print.rs (target/debug/deps/integration_print-58562b79db935200)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+

@@ -173,6 +173,39 @@ const REMEDIATED_FIXTURES: &[Fixture] = &[
     },
 ];
 
+const SAFERM_PRE_REMEDIATION_WARNINGS: &[Fixture] = &[
+    Fixture {
+        source: "src/main.op",
+        family: "FilesystemPathError",
+        leaves: "InvalidPathError, PermissionDeniedError",
+    },
+    Fixture {
+        source: "src/trash.op:unique_destination_for",
+        family: "FilesystemPathError",
+        leaves: "InvalidPathError, PermissionDeniedError",
+    },
+    Fixture {
+        source: "src/trash.op:trash_entry_exists",
+        family: "FilesystemPathError",
+        leaves: "InvalidPathError, PermissionDeniedError",
+    },
+    Fixture {
+        source: "src/trash.op:move_to_destination",
+        family: "FilesystemPathError",
+        leaves: "InvalidPathError, PermissionDeniedError",
+    },
+    Fixture {
+        source: "src/trash.op:create_trash_path_if_not_exists",
+        family: "FilesystemPathError",
+        leaves: "InvalidPathError, PermissionDeniedError",
+    },
+    Fixture {
+        source: "src/trash.op:get_trash_entries",
+        family: "FilesystemPathError",
+        leaves: "InvalidPathError, PermissionDeniedError",
+    },
+];
+
 const INTENTIONALLY_EXACT_CLAUSES: &[&str] = &[
     "test-projects/_fs_append_log/src/logger.op:6",
     "test-projects/_fs_write_text_atomic/src/atomic.op:6",
@@ -387,14 +420,65 @@ fn assert_check(source: &Path, expected_warning: Option<&Fixture>) -> Result<(),
     Ok(())
 }
 
-fn assert_saferm_project_build(expected_warning: bool) -> Result<(), String> {
-    let project_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/saferm");
+fn copy_dir_recursive(source: &Path, destination: &Path) -> Result<(), String> {
+    fs::create_dir_all(destination).map_err(|error| {
+        format!(
+            "{} should be created before copying the saferm fixture: {error}",
+            destination.display()
+        )
+    })?;
+
+    for entry in fs::read_dir(source)
+        .map_err(|error| format!("{} should be readable: {error}", source.display()))?
+    {
+        let entry =
+            entry.map_err(|error| format!("saferm fixture entry should be readable: {error}"))?;
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        if entry
+            .file_type()
+            .map_err(|error| format!("{} type should be readable: {error}", source_path.display()))?
+            .is_dir()
+        {
+            copy_dir_recursive(&source_path, &destination_path)?;
+        } else {
+            fs::copy(&source_path, &destination_path).map_err(|error| {
+                format!(
+                    "{} should copy to {}: {error}",
+                    source_path.display(),
+                    destination_path.display()
+                )
+            })?;
+        }
+    }
+    Ok(())
+}
+
+fn restore_saferm_pre_remediation_sources(project_dir: &Path) -> Result<(), String> {
+    for source in ["src/main.op", "src/trash.op"] {
+        let source_path = project_dir.join(source);
+        let source_text = fs::read_to_string(&source_path)
+            .map_err(|error| format!("{} should be readable: {error}", source_path.display()))?;
+        let restored = source_text.replace(
+            "FilesystemPathError",
+            "PermissionDeniedError, InvalidPathError",
+        );
+        fs::write(&source_path, restored)
+            .map_err(|error| format!("{} should be writable: {error}", source_path.display()))?;
+    }
+    Ok(())
+}
+
+fn assert_saferm_project_build(
+    project_dir: &Path,
+    expected_warnings: &[Fixture],
+) -> Result<(), String> {
     let mut command = Command::new(opalescent_binary_path());
-    command.arg("build").current_dir(&project_dir);
+    command.arg("build").current_dir(project_dir);
     let output = run_command_output_with_timeout(
         &mut command,
         CLI_WARNING_TEST_TIMEOUT,
-        "saferm opal build",
+        &format!("saferm opal build in {}", project_dir.display()),
     )?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -404,24 +488,35 @@ fn assert_saferm_project_build(expected_warning: bool) -> Result<(), String> {
         ));
     }
 
-    if expected_warning {
-        let help = "Replace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.";
-        for expected in [
-            REPLACEABLE_ERROR_LIST_CODE,
-            "FilesystemPathError",
-            "InvalidPathError, PermissionDeniedError",
-            help,
-        ] {
+    if expected_warnings.is_empty() {
+        if stderr.contains(REPLACEABLE_ERROR_LIST_CODE) {
+            return Err(format!(
+                "saferm project build should not render a replacement warning, stderr: {stderr}"
+            ));
+        }
+        return Ok(());
+    }
+
+    let warning_count = stderr.matches(REPLACEABLE_ERROR_LIST_CODE).count();
+    if warning_count != expected_warnings.len() {
+        return Err(format!(
+            "saferm project build should render {} replacement warnings, found {warning_count}, stderr: {stderr}",
+            expected_warnings.len()
+        ));
+    }
+    for fixture in expected_warnings {
+        let help = format!(
+            "Replace `errors {}` with `errors {}`.",
+            fixture.leaves, fixture.family
+        );
+        for expected in [fixture.family, fixture.leaves, help.as_str()] {
             if !stderr.contains(expected) {
                 return Err(format!(
-                    "saferm project build should render {expected:?}, stderr: {stderr}"
+                    "{} should render {expected:?}, stderr: {stderr}",
+                    fixture.source
                 ));
             }
         }
-    } else if stderr.contains(REPLACEABLE_ERROR_LIST_CODE) {
-        return Err(format!(
-            "saferm project build should not render a replacement warning, stderr: {stderr}"
-        ));
     }
     Ok(())
 }
@@ -462,15 +557,27 @@ fn stdlib_error_family_test_projects() -> Result<(), String> {
 }
 
 #[test]
-#[ignore = "pre-remediation evidence; run explicitly before replacing saferm clauses"]
 fn stdlib_error_family_test_projects_saferm_project_pre_remediation_warning() -> Result<(), String>
 {
-    assert_saferm_project_build(true)
+    let fixture_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/saferm");
+    let temp_dir = unique_probe_target_dir("saferm-pre-remediation");
+    prepare_dir(&temp_dir)
+        .map_err(|error| format!("temporary directory should be created: {error}"))?;
+    let preparation = (|| {
+        copy_dir_recursive(&fixture_dir, &temp_dir)?;
+        restore_saferm_pre_remediation_sources(&temp_dir)
+    })();
+    let result = preparation
+        .and_then(|()| assert_saferm_project_build(&temp_dir, SAFERM_PRE_REMEDIATION_WARNINGS));
+    cleanup_dir(&temp_dir)
+        .map_err(|error| format!("temporary directory should be removed: {error}"))?;
+    result
 }
 
 #[test]
 fn stdlib_error_family_test_projects_saferm_project() -> Result<(), String> {
-    assert_saferm_project_build(false)
+    let project_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/saferm");
+    assert_saferm_project_build(&project_dir, &[])
 }
 
 #[test]
