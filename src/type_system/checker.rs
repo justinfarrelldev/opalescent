@@ -765,6 +765,29 @@ impl TypeChecker {
         }
         Ok(resolved)
     }
+
+    /// Return whether a declared error type covers an emitted error type.
+    pub(super) fn declared_error_type_covers(emitted: &CoreType, declared: &CoreType) -> bool {
+        match (emitted, declared) {
+            (
+                &CoreType::Generic {
+                    name: ref emitted_name,
+                    type_args: ref emitted_args,
+                },
+                &CoreType::Generic {
+                    name: ref declared_name,
+                    type_args: ref declared_args,
+                },
+            ) if emitted_args.is_empty() && declared_args.is_empty() => {
+                crate::type_system::error_families::error_type_is_covered_by_declared_type(
+                    emitted_name,
+                    declared_name,
+                )
+            }
+            _ => emitted == declared,
+        }
+    }
+
     /// Type check a pattern match expression
     /// Ensures all patterns and arms are type compatible
     ///

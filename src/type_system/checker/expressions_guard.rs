@@ -639,9 +639,11 @@ impl TypeChecker {
             .last()
             .cloned()
             .unwrap_or_default();
-        let is_subset = active_guard_errors
-            .iter()
-            .all(|error_type| current_fn_error_types.contains(error_type));
+        let is_subset = active_guard_errors.iter().all(|error_type| {
+            current_fn_error_types
+                .iter()
+                .any(|declared_error| Self::declared_error_type_covers(error_type, declared_error))
+        });
         if !is_subset {
             return Err(TypeError::PropagateErrorMismatch {
                 expected: Self::format_error_type_list(&current_fn_error_types),
@@ -747,7 +749,7 @@ impl TypeChecker {
         let wrapper_type = self.type_check_expr(&expr)?;
         if current_fn_error_types
             .iter()
-            .any(|declared_error| self.types_compatible(declared_error, &wrapper_type))
+            .any(|declared_error| Self::declared_error_type_covers(&wrapper_type, declared_error))
         {
             Ok(())
         } else {

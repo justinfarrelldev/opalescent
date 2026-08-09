@@ -75,9 +75,11 @@ impl TypeChecker {
             }
         }
 
-        let is_subset = error_types
-            .iter()
-            .all(|error_type| current_fn_error_types.contains(error_type));
+        let is_subset = error_types.iter().all(|error_type| {
+            current_fn_error_types
+                .iter()
+                .any(|declared_error| Self::declared_error_type_covers(error_type, declared_error))
+        });
 
         if !is_subset {
             return Err(TypeError::PropagateErrorMismatch {

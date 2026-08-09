@@ -9780,3 +9780,169 @@ entry demo = f(): int32 errors HexDecodeError, ParseError, IndexOutOfBoundsError
         "StringSearchError"
     ));
 }
+
+#[test]
+fn test_stdlib_error_families_cover_function_declaration_members() {
+    let cases = [
+        (
+            "manual_parse_leaf",
+            "
+entry demo = f(input: string): int32 errors ParseError => {
+    return propagate string_to_int32(input)
+}
+",
+        ),
+        (
+            "bytes_family",
+            "
+entry demo = f(hex: string): Bytes errors BytesError => {
+    return propagate bytes_from_hex(hex)
+}
+",
+        ),
+        (
+            "manual_hex_leaf",
+            "
+entry demo = f(hex: string): Bytes errors HexDecodeError => {
+    return propagate bytes_from_hex(hex)
+}
+",
+        ),
+        (
+            "string_range_family",
+            "
+entry demo = f(text: string): string errors StringRangeError, AllocationFailureError => {
+    return propagate string_take_prefix(text, 1 as int64)
+}
+",
+        ),
+        (
+            "manual_string_range_leaf",
+            "
+entry demo = f(text: string): string errors StringNegativeCountError, StringRangeOutOfBoundsError, AllocationFailureError => {
+    return propagate string_take_prefix(text, 1 as int64)
+}
+",
+        ),
+        (
+            "output_family",
+            "
+entry demo = f(text: string): void errors OutputError => {
+    propagate print_text_sync(text)
+    return void
+}
+",
+        ),
+        (
+            "terminal_family",
+            "
+entry demo = f(): void errors TerminalError => {
+    propagate terminal_clear_screen_sync()
+    return void
+}
+",
+        ),
+        (
+            "time_family",
+            "
+entry demo = f(rate: int32): FrameClock errors TimeError => {
+    return propagate frame_clock_new(rate)
+}
+",
+        ),
+        (
+            "process_environment_family",
+            "
+import get_environment_variable from process
+
+entry demo = f(name: string): string errors ProcessEnvError => {
+    return propagate get_environment_variable(name)
+}
+",
+        ),
+        (
+            "filesystem_operation_family",
+            "
+import FilesystemPath, absolute_path_sync from standard
+
+entry demo = f(path: FilesystemPath): FilesystemPath errors FilesystemPathError => {
+    return propagate absolute_path_sync(path)
+}
+",
+        ),
+    ];
+
+    let mut failures = Vec::new();
+    for (name, source) in cases {
+        let program = parse_program_from_source(source);
+        let mut checker = TypeChecker::new();
+        if let Err(errors) = checker.type_check_program(&program) {
+            failures.push(format!("{name} => {errors:?}"));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "declared stdlib error families and manual leaves must cover emitted members:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn test_stdlib_error_families_cover_lambda_members() {
+    const VALID_SOURCE: &str = "
+entry demo = f(): void => {
+    let decoder = f(hex: string): Bytes errors BytesError => {
+        return propagate bytes_from_hex(hex)
+    }
+    let clock = f(rate: int32): FrameClock errors TimeError => {
+        return propagate frame_clock_new(rate)
+    }
+    return void
+}
+";
+    let valid_program = parse_program_from_source(VALID_SOURCE);
+    let mut valid_checker = TypeChecker::new();
+    let valid_result = valid_checker.type_check_program(&valid_program);
+    assert!(
+        valid_result.is_ok(),
+        "lambda errors BytesError and TimeError must cover emitted leaves: {valid_result:?}"
+    );
+
+    for (name, source) in [
+        (
+            "hex_under_string_range",
+            "
+entry demo = f(): void => {
+    let decoder = f(hex: string): Bytes errors StringRangeError => {
+        return propagate bytes_from_hex(hex)
+    }
+    return void
+}
+",
+        ),
+        (
+            "frame_rate_under_process_env",
+            "
+entry demo = f(): void => {
+    let clock = f(rate: int32): FrameClock errors ProcessEnvError => {
+        return propagate frame_clock_new(rate)
+    }
+    return void
+}
+",
+        ),
+    ] {
+        let program = parse_program_from_source(source);
+        let mut checker = TypeChecker::new();
+        let errors = checker
+            .type_check_program(&program)
+            .expect_err("wrong-family lambda declaration must fail");
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(error, TypeError::PropagateErrorMismatch { .. })),
+            "{name} must retain PropagateErrorMismatch diagnostics: {errors:?}"
+        );
+    }
+}
