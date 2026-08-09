@@ -536,15 +536,15 @@ fn assert_saferm_project_build(
             fixture.leaves, fixture.family
         );
         let Some(block_index) = warning_blocks.iter().position(|block| {
-            [
-                source_location.as_str(),
-                fixture.label,
-                fixture.family,
-                fixture.leaves,
-                help.as_str(),
-            ]
-            .into_iter()
-            .all(|expected| block.contains(expected))
+            block_contains_exact_source_location(block, &source_location)
+                && [
+                    fixture.label,
+                    fixture.family,
+                    fixture.leaves,
+                    help.as_str(),
+                ]
+                .into_iter()
+                .all(|expected| block.contains(expected))
         }) else {
             return Err(format!(
                 "{} ({}) should have one matching replacement warning, remaining warnings: {warning_blocks:#?}",
@@ -554,6 +554,16 @@ fn assert_saferm_project_build(
         warning_blocks.remove(block_index);
     }
     Ok(())
+}
+
+fn block_contains_exact_source_location(block: &str, source_location: &str) -> bool {
+    block.match_indices(source_location).any(|(index, _)| {
+        let end = index.saturating_add(source_location.len());
+        block
+            .as_bytes()
+            .get(end)
+            .is_none_or(|byte| !byte.is_ascii_digit())
+    })
 }
 
 fn restored_pre_remediation_source(fixture: &Fixture) -> Result<String, String> {
@@ -613,6 +623,18 @@ fn stdlib_error_family_test_projects_saferm_project_pre_remediation_warning() ->
 fn stdlib_error_family_test_projects_saferm_project() -> Result<(), String> {
     let project_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/saferm");
     assert_saferm_project_build(&project_dir, &[])
+}
+
+#[test]
+fn stdlib_error_family_test_projects_saferm_source_location_requires_boundary() {
+    assert!(block_contains_exact_source_location(
+        "warning at src/main.op:23: replacement",
+        "src/main.op:23"
+    ));
+    assert!(!block_contains_exact_source_location(
+        "warning at src/main.op:230: replacement",
+        "src/main.op:23"
+    ));
 }
 
 #[test]
