@@ -184,12 +184,6 @@ const INTENTIONALLY_EXACT_CLAUSES: &[&str] = &[
     "test-projects/fs-markdown-roundtrip/src/processing/serialize.op:6",
     "test-projects/game-of-life-full/src/main.op:11",
     "test-projects/game-of-life-full/src/render.op:16",
-    "test-projects/saferm/src/main.op:23",
-    "test-projects/saferm/src/trash.op:28",
-    "test-projects/saferm/src/trash.op:43",
-    "test-projects/saferm/src/trash.op:70",
-    "test-projects/saferm/src/trash.op:95",
-    "test-projects/saferm/src/trash.op:110",
 ];
 
 const ELIGIBLE_FAMILIES: &[(&str, &[&str])] = &[
@@ -393,6 +387,45 @@ fn assert_check(source: &Path, expected_warning: Option<&Fixture>) -> Result<(),
     Ok(())
 }
 
+fn assert_saferm_project_build(expected_warning: bool) -> Result<(), String> {
+    let project_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("test-projects/saferm");
+    let mut command = Command::new(opalescent_binary_path());
+    command.arg("build").current_dir(&project_dir);
+    let output = run_command_output_with_timeout(
+        &mut command,
+        CLI_WARNING_TEST_TIMEOUT,
+        "saferm opal build",
+    )?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !output.status.success() {
+        return Err(format!(
+            "saferm build should succeed, stdout: {stdout}, stderr: {stderr}"
+        ));
+    }
+
+    if expected_warning {
+        let help = "Replace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.";
+        for expected in [
+            REPLACEABLE_ERROR_LIST_CODE,
+            "FilesystemPathError",
+            "InvalidPathError, PermissionDeniedError",
+            help,
+        ] {
+            if !stderr.contains(expected) {
+                return Err(format!(
+                    "saferm project build should render {expected:?}, stderr: {stderr}"
+                ));
+            }
+        }
+    } else if stderr.contains(REPLACEABLE_ERROR_LIST_CODE) {
+        return Err(format!(
+            "saferm project build should not render a replacement warning, stderr: {stderr}"
+        ));
+    }
+    Ok(())
+}
+
 fn restored_pre_remediation_source(fixture: &Fixture) -> Result<String, String> {
     let source = fs::read_to_string(fixture.source)
         .map_err(|error| format!("{} should be readable: {error}", fixture.source))?;
@@ -426,6 +459,18 @@ fn stdlib_error_family_test_projects() -> Result<(), String> {
         assert_check(Path::new(fixture.source), None)?;
     }
     Ok(())
+}
+
+#[test]
+#[ignore = "pre-remediation evidence; run explicitly before replacing saferm clauses"]
+fn stdlib_error_family_test_projects_saferm_project_pre_remediation_warning() -> Result<(), String>
+{
+    assert_saferm_project_build(true)
+}
+
+#[test]
+fn stdlib_error_family_test_projects_saferm_project() -> Result<(), String> {
+    assert_saferm_project_build(false)
 }
 
 #[test]

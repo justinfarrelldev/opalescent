@@ -16,6 +16,7 @@ use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
 use crate::codegen::functions::{codegen_function_declaration, codegen_import_declaration};
 use crate::error::LexError;
+use crate::errors::renderer::render_diagnostic;
 use crate::errors::reporter::{CompilationErrorReport, CompilerError};
 use crate::lexer::Lexer;
 use crate::module_loader::{
@@ -824,6 +825,19 @@ pub fn compile_project_with_run_policy(
             }
         }
 
+        for warning in first_checker.warnings() {
+            eprintln!(
+                "{}",
+                render_diagnostic(
+                    first_module_path.to_string_lossy().as_ref(),
+                    module_sources
+                        .get(first_module_path)
+                        .map_or("", String::as_str),
+                    warning,
+                )
+            );
+        }
+
         let first_module_key = first_module_path.display().to_string();
         let Some(first_module_interface) = first_checker.module_interface(&first_module_key) else {
             return Err(CompileError::Type(TypeError::ConstraintSolvingFailed {
@@ -906,6 +920,17 @@ pub fn compile_project_with_run_policy(
                     normalized_source,
                 });
             }
+        }
+
+        for warning in checker.warnings() {
+            eprintln!(
+                "{}",
+                render_diagnostic(
+                    module_path.to_string_lossy().as_ref(),
+                    module_sources.get(module_path).map_or("", String::as_str),
+                    warning,
+                )
+            );
         }
 
         let module_path_key = module_path.display().to_string();

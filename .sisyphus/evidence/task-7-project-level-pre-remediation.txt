@@ -1,0 +1,434 @@
+=== _fs_append_log ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/_fs_append_log
+exit: 0
+stdout:
+target/program
+
+stderr:
+
+=== _fs_write_text_atomic ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/_fs_write_text_atomic
+exit: 0
+stdout:
+target/program
+
+stderr:
+
+=== fs-directory-operations ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/fs-directory-operations
+exit: 0
+stdout:
+target/program
+
+stderr:
+
+=== fs-markdown-roundtrip ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/fs-markdown-roundtrip
+exit: 0
+stdout:
+target/program
+
+stderr:
+
+=== game-of-life-full ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/game-of-life-full
+exit: 1
+stdout:
+
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int8' may lose data
+    ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/game-of-life-full/src/config.op:29:14[0m]
+ [2m28[0m │ public let alive_cell = f(): int8 =>
+ [2m29[0m │     return 1 as int8
+    · [35;1m             ───┬───[0m
+    ·                 [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m30[0m │
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int8' may lose data
+    ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/game-of-life-full/src/config.op:35:14[0m]
+ [2m34[0m │ public let dead_cell = f(): int8 =>
+ [2m35[0m │     return 0 as int8
+    · [35;1m             ───┬───[0m
+    ·                 [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::guard::missing_terminal[0m
+
+  [31m×[0m named guard error clause does not handle the bound error
+    ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/game-of-life-full/src/board.op:29:13[0m]
+ [2m28[0m │         guard board.at(board_index(width, x, y)) into cell else e =>
+ [2m29[0m │             return dead_cell()
+    · [35;1m            ─────────┬────────[0m
+    ·                      [35;1m╰── [35;1mthis clause exits without propagating or wrapping the bound error[0m[0m
+ [2m30[0m │         return cell
+    ╰────
+[36m  help: [0mA named `else err =>` clause must end by forwarding `err` with `propagate err`, or by returning an error wrapper whose `source` field is exactly `err`. Logging, cleanup, fallback values, and
+        `return void` do not count as handling the error.
+
+
+error: aborting due to 1 previous error
+
+=== saferm ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/saferm
+exit: 0
+stdout:
+target/program
+
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/saferm/src/trash.op:28:37[0m]
+ [2m27[0m │     ##
+ [2m28[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let unique_destination_for = f(destination_root: FilesystemPath, name: string): FilesystemPath errors PermissionDeniedError, InvalidPathError =>
+ [2m29[0m │ [35;1m│[0m       let mutable candidate_name = name
+ [2m30[0m │ [35;1m│[0m       let mutable candidate = join_path_components(destination_root, [candidate_name])
+ [2m31[0m │ [35;1m│[0m       let mutable suffix: int64 = 1
+ [2m32[0m │ [35;1m│[0m
+ [2m33[0m │ [35;1m│[0m       while propagate path_exists_sync(candidate):
+ [2m34[0m │ [35;1m│[0m           candidate_name = '{name}.{int64_to_string(suffix)}'
+ [2m35[0m │ [35;1m│[0m           candidate = join_path_components(destination_root, [candidate_name])
+ [2m36[0m │ [35;1m│[0m           suffix = suffix + 1
+ [2m37[0m │ [35;1m│[0m
+ [2m38[0m │ [35;1m│[0m       return candidate
+ [2m39[0m │ [35;1m│[0m
+ [2m40[0m │ [35;1m│[0m   ##
+ [2m41[0m │ [35;1m│[0m       Description: Returns true when a requested restore name is an actual top-level trash entry.
+ [2m42[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m ##
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+ [2m43[0m │     public let trash_entry_exists = f(dest: FilesystemPath, requested_name: string): boolean errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError =>
+ [2m44[0m │         let entries = propagate list_directory_sync(dest)
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/saferm/src/trash.op:43:33[0m]
+ [2m42[0m │     ##
+ [2m43[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let trash_entry_exists = f(dest: FilesystemPath, requested_name: string): boolean errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError =>
+ [2m44[0m │ [35;1m│[0m       let entries = propagate list_directory_sync(dest)
+ [2m45[0m │ [35;1m│[0m       for trash_entry in entries:
+ [2m46[0m │ [35;1m│[0m           if path_to_string(trash_entry) is requested_name:
+ [2m47[0m │ [35;1m│[0m               return true
+ [2m48[0m │ [35;1m│[0m       return false
+ [2m49[0m │ [35;1m│[0m
+ [2m50[0m │ [35;1m│[0m   ##
+ [2m51[0m │ [35;1m│[0m       Description: Returns true when an operand resolves to the process working directory.
+ [2m52[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m ##
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+ [2m53[0m │     public let targets_current_directory = f(cwd: FilesystemPath, source: FilesystemPath): boolean =>
+ [2m54[0m │         return path_to_string(source) is path_to_string(cwd)
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/saferm/src/trash.op:70:34[0m]
+ [2m69[0m │     ##
+ [2m70[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let move_to_destination = f(arg: string, source_root: FilesystemPath, destination_root: FilesystemPath, force: boolean, verbose: boolean): void errors PermissionDeniedError, InvalidPathError, FileAlreadyExistsError, FileNotFoundError, MoveFailureError =>
+ [2m71[0m │ [35;1m│[0m       let source = join_path_components(source_root, [arg])
+ [2m72[0m │ [35;1m│[0m       let exists = propagate path_exists_sync(source)
+ [2m73[0m │ [35;1m│[0m
+ [2m74[0m │ [35;1m│[0m       if exists:
+ [2m75[0m │ [35;1m│[0m           let target = propagate unique_destination_for(destination_root, target_name_for(source))
+ [2m76[0m │ [35;1m│[0m           if verbose:
+ [2m77[0m │ [35;1m│[0m               print('Moving {path_to_string(source)} to {path_to_string(target)}')
+ [2m78[0m │ [35;1m│[0m           guard move_path_sync(source, target) else e =>
+ [2m79[0m │ [35;1m│[0m               print('An error occurred while moving {path_to_string(source)}: {e}')
+ [2m80[0m │ [35;1m│[0m               propagate e
+ [2m81[0m │ [35;1m│[0m           if verbose:
+ [2m82[0m │ [35;1m│[0m               print('Moved {path_to_string(source)} to {path_to_string(target)} successfully')
+ [2m83[0m │ [35;1m│[0m           return void
+ [2m84[0m │ [35;1m│[0m
+ [2m85[0m │ [35;1m│[0m       if force:
+ [2m86[0m │ [35;1m│[0m           return void
+ [2m87[0m │ [35;1m│[0m
+ [2m88[0m │ [35;1m│[0m       guard move_path_sync(source, propagate unique_destination_for(destination_root, target_name_for(source))) else e =>
+ [2m89[0m │ [35;1m│[0m           print('An error occurred while moving {path_to_string(source)}: {e}')
+ [2m90[0m │ [35;1m│[0m           propagate e
+ [2m91[0m │ [35;1m│[0m
+ [2m92[0m │ [35;1m│[0m   ##
+ [2m93[0m │ [35;1m│[0m       Description: Creates the trash directory when it is not already present.
+ [2m94[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m ##
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+ [2m95[0m │     public let create_trash_path_if_not_exists = f(dest: FilesystemPath): void errors PermissionDeniedError, InvalidPathError, CreateFailureError, FilesystemFullError =>
+ [2m96[0m │         guard path_exists_sync(dest) into path_exists else e =>
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+     ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/saferm/src/trash.op:95:46[0m]
+ [2m 94[0m │     ##
+ [2m 95[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let create_trash_path_if_not_exists = f(dest: FilesystemPath): void errors PermissionDeniedError, InvalidPathError, CreateFailureError, FilesystemFullError =>
+ [2m 96[0m │ [35;1m│[0m       guard path_exists_sync(dest) into path_exists else e =>
+ [2m 97[0m │ [35;1m│[0m           print('An error occurred while checking if {path_to_string(dest)} exists')
+ [2m 98[0m │ [35;1m│[0m           propagate e
+ [2m 99[0m │ [35;1m│[0m
+ [2m100[0m │ [35;1m│[0m       if path_exists:
+ [2m101[0m │ [35;1m│[0m           return void
+ [2m102[0m │ [35;1m│[0m
+ [2m103[0m │ [35;1m│[0m       guard create_directory_recursive_sync(dest) else e =>
+ [2m104[0m │ [35;1m│[0m           print('An error occurred while making the directory {path_to_string(dest)}: {e}')
+ [2m105[0m │ [35;1m│[0m           propagate e
+ [2m106[0m │ [35;1m│[0m
+ [2m107[0m │ [35;1m│[0m   ##
+ [2m108[0m │ [35;1m│[0m       Description: Returns trash entries as displayable path strings.
+ [2m109[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m ##
+     · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+ [2m110[0m │     public let get_trash_entries = f(dest: FilesystemPath): string[] errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError =>
+ [2m111[0m │         guard list_directory_sync(dest) into dirs else e =>
+     ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+     ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/saferm/src/trash.op:110:32[0m]
+ [2m109[0m │     ##
+ [2m110[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let get_trash_entries = f(dest: FilesystemPath): string[] errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError =>
+ [2m111[0m │ [35;1m│[0m       guard list_directory_sync(dest) into dirs else e =>
+ [2m112[0m │ [35;1m│[0m           print('An error occurred while reading {path_to_string(dest)}: {e}')
+ [2m113[0m │ [35;1m│[0m           propagate e
+ [2m114[0m │ [35;1m│[0m       let mutable str_entries: string[] = []
+ [2m115[0m │ [35;1m│[0m       for dir in dirs:
+ [2m116[0m │ [35;1m│[0m           str_entries.push(path_to_string(dir))
+ [2m117[0m │ [35;1m│[0m
+ [2m118[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return str_entries
+     · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+     ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+     ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/saferm/src/main.op:23:7[0m]
+ [2m 22[0m │     ##
+ [2m 23[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, InvalidEnvironmentVariableNameError, InvalidUtf8Error, IndexOutOfBoundsError =>
+ [2m 24[0m │ [35;1m│[0m       let dest = propagate trash_directory()
+ [2m 25[0m │ [35;1m│[0m
+ [2m 26[0m │ [35;1m│[0m       if args.length < 2:
+ [2m 27[0m │ [35;1m│[0m           print('Please provide the names of the files you wish to remove after the call. Example: "saferm myfile1.txt myfile2.txt"')
+ [2m 28[0m │ [35;1m│[0m           return void
+ [2m 29[0m │ [35;1m│[0m
+ [2m 30[0m │ [35;1m│[0m       let first_arg = propagate args.at(1)
+ [2m 31[0m │ [35;1m│[0m       if first_arg is '--help' or first_arg is 'help':
+ [2m 32[0m │ [35;1m│[0m           print_help(dest)
+ [2m 33[0m │ [35;1m│[0m           return void
+ [2m 34[0m │ [35;1m│[0m
+ [2m 35[0m │ [35;1m│[0m       if first_arg is '--version':
+ [2m 36[0m │ [35;1m│[0m           print('saferm 1.0.0')
+ [2m 37[0m │ [35;1m│[0m           return void
+ [2m 38[0m │ [35;1m│[0m
+ [2m 39[0m │ [35;1m│[0m       guard current_working_directory_sync() into cwd else e =>
+ [2m 40[0m │ [35;1m│[0m           print('An error occurred: {e}')
+ [2m 41[0m │ [35;1m│[0m           propagate e
+ [2m 42[0m │ [35;1m│[0m
+ [2m 43[0m │ [35;1m│[0m       guard create_trash_path_if_not_exists(dest) else e =>
+ [2m 44[0m │ [35;1m│[0m           print('An error occurred while creating {path_to_string(dest)}: {e}')
+ [2m 45[0m │ [35;1m│[0m           propagate e
+ [2m 46[0m │ [35;1m│[0m
+ [2m 47[0m │ [35;1m│[0m       let mutable force = false
+ [2m 48[0m │ [35;1m│[0m       let mutable verbose = false
+ [2m 49[0m │ [35;1m│[0m       let mutable recursive = false
+ [2m 50[0m │ [35;1m│[0m       let mutable dir_mode = false
+ [2m 51[0m │ [35;1m│[0m       let mutable preserve_root = true
+ [2m 52[0m │ [35;1m│[0m       let mutable preserve_root_all = false
+ [2m 53[0m │ [35;1m│[0m       let mutable one_file_system = false
+ [2m 54[0m │ [35;1m│[0m       let mutable prompt_each = false
+ [2m 55[0m │ [35;1m│[0m       let mutable prompt_once = false
+ [2m 56[0m │ [35;1m│[0m       let mutable restore = false
+ [2m 57[0m │ [35;1m│[0m       let mutable parse_options = true
+ [2m 58[0m │ [35;1m│[0m       let mutable operands: string[] = []
+ [2m 59[0m │ [35;1m│[0m       let mutable operand_count: int64 = 0
+ [2m 60[0m │ [35;1m│[0m
+ [2m 61[0m │ [35;1m│[0m       let mutable option_index = 1
+ [2m 62[0m │ [35;1m│[0m       while option_index < args.length:
+ [2m 63[0m │ [35;1m│[0m           let arg: string = propagate args.at(option_index)
+ [2m 64[0m │ [35;1m│[0m
+ [2m 65[0m │ [35;1m│[0m           if parse_options:
+ [2m 66[0m │ [35;1m│[0m               let mutable handled_option = false
+ [2m 67[0m │ [35;1m│[0m
+ [2m 68[0m │ [35;1m│[0m               # `--` is getopt's end-of-options marker; everything after it is a path.
+ [2m 69[0m │ [35;1m│[0m               if arg is '--':
+ [2m 70[0m │ [35;1m│[0m                   parse_options = false
+ [2m 71[0m │ [35;1m│[0m                   handled_option = true
+ [2m 72[0m │ [35;1m│[0m
+ [2m 73[0m │ [35;1m│[0m               if arg is '--restore':
+ [2m 74[0m │ [35;1m│[0m                   restore = true
+ [2m 75[0m │ [35;1m│[0m                   handled_option = true
+ [2m 76[0m │ [35;1m│[0m
+ [2m 77[0m │ [35;1m│[0m               if contains_string(help_options, arg):
+ [2m 78[0m │ [35;1m│[0m                   print_help(dest)
+ [2m 79[0m │ [35;1m│[0m                   return void
+ [2m 80[0m │ [35;1m│[0m
+ [2m 81[0m │ [35;1m│[0m               if contains_string(version_options, arg):
+ [2m 82[0m │ [35;1m│[0m                   print('saferm 1.0.0')
+ [2m 83[0m │ [35;1m│[0m                   return void
+ [2m 84[0m │ [35;1m│[0m
+ [2m 85[0m │ [35;1m│[0m               if contains_string(force_options, arg):
+ [2m 86[0m │ [35;1m│[0m                   force = true
+ [2m 87[0m │ [35;1m│[0m                   prompt_each = false
+ [2m 88[0m │ [35;1m│[0m                   prompt_once = false
+ [2m 89[0m │ [35;1m│[0m                   handled_option = true
+ [2m 90[0m │ [35;1m│[0m
+ [2m 91[0m │ [35;1m│[0m               if contains_string(prompt_each_options, arg):
+ [2m 92[0m │ [35;1m│[0m                   prompt_each = true
+ [2m 93[0m │ [35;1m│[0m                   prompt_once = false
+ [2m 94[0m │ [35;1m│[0m                   force = false
+ [2m 95[0m │ [35;1m│[0m                   handled_option = true
+ [2m 96[0m │ [35;1m│[0m
+ [2m 97[0m │ [35;1m│[0m               if contains_string(prompt_once_options, arg):
+ [2m 98[0m │ [35;1m│[0m                   prompt_each = false
+ [2m 99[0m │ [35;1m│[0m                   prompt_once = true
+ [2m100[0m │ [35;1m│[0m                   force = false
+ [2m101[0m │ [35;1m│[0m                   handled_option = true
+ [2m102[0m │ [35;1m│[0m
+ [2m103[0m │ [35;1m│[0m               if contains_string(prompt_never_options, arg):
+ [2m104[0m │ [35;1m│[0m                   prompt_each = false
+ [2m105[0m │ [35;1m│[0m                   prompt_once = false
+ [2m106[0m │ [35;1m│[0m                   handled_option = true
+ [2m107[0m │ [35;1m│[0m
+ [2m108[0m │ [35;1m│[0m               if contains_string(recursive_options, arg):
+ [2m109[0m │ [35;1m│[0m                   recursive = true
+ [2m110[0m │ [35;1m│[0m                   handled_option = true
+ [2m111[0m │ [35;1m│[0m
+ [2m112[0m │ [35;1m│[0m               if contains_string(no_preserve_root_options, arg):
+ [2m113[0m │ [35;1m│[0m                   preserve_root = false
+ [2m114[0m │ [35;1m│[0m                   preserve_root_all = false
+ [2m115[0m │ [35;1m│[0m                   handled_option = true
+ [2m116[0m │ [35;1m│[0m
+ [2m117[0m │ [35;1m│[0m               if contains_string(preserve_root_options, arg):
+ [2m118[0m │ [35;1m│[0m                   preserve_root = true
+ [2m119[0m │ [35;1m│[0m                   preserve_root_all = false
+ [2m120[0m │ [35;1m│[0m                   handled_option = true
+ [2m121[0m │ [35;1m│[0m
+ [2m122[0m │ [35;1m│[0m               if contains_string(preserve_root_all_options, arg):
+ [2m123[0m │ [35;1m│[0m                   preserve_root = true
+ [2m124[0m │ [35;1m│[0m                   preserve_root_all = true
+ [2m125[0m │ [35;1m│[0m                   handled_option = true
+ [2m126[0m │ [35;1m│[0m
+ [2m127[0m │ [35;1m│[0m               if contains_string(verbose_options, arg):
+ [2m128[0m │ [35;1m│[0m                   verbose = true
+ [2m129[0m │ [35;1m│[0m                   handled_option = true
+ [2m130[0m │ [35;1m│[0m
+ [2m131[0m │ [35;1m│[0m               if contains_string(dir_options, arg):
+ [2m132[0m │ [35;1m│[0m                   dir_mode = true
+ [2m133[0m │ [35;1m│[0m                   handled_option = true
+ [2m134[0m │ [35;1m│[0m
+ [2m135[0m │ [35;1m│[0m               if contains_string(one_file_system_options, arg):
+ [2m136[0m │ [35;1m│[0m                   one_file_system = true
+ [2m137[0m │ [35;1m│[0m                   handled_option = true
+ [2m138[0m │ [35;1m│[0m
+ [2m139[0m │ [35;1m│[0m               if handled_option is false:
+ [2m140[0m │ [35;1m│[0m                   if starts_with_dash(arg):
+ [2m141[0m │ [35;1m│[0m                       print('saferm: unrecognized option {arg}')
+ [2m142[0m │ [35;1m│[0m                       return void
+ [2m143[0m │ [35;1m│[0m                   operands.push(arg)
+ [2m144[0m │ [35;1m│[0m                   operand_count = operand_count + 1
+ [2m145[0m │ [35;1m│[0m           else:
+ [2m146[0m │ [35;1m│[0m               operands.push(arg)
+ [2m147[0m │ [35;1m│[0m               operand_count = operand_count + 1
+ [2m148[0m │ [35;1m│[0m
+ [2m149[0m │ [35;1m│[0m           option_index = option_index + 1
+ [2m150[0m │ [35;1m│[0m
+ [2m151[0m │ [35;1m│[0m       if preserve_root_all:
+ [2m152[0m │ [35;1m│[0m           print('saferm: --preserve-root=all requires filesystem device identity support that Opalescent does not expose yet')
+ [2m153[0m │ [35;1m│[0m           return void
+ [2m154[0m │ [35;1m│[0m
+ [2m155[0m │ [35;1m│[0m       if one_file_system:
+ [2m156[0m │ [35;1m│[0m           print('saferm: --one-file-system requires filesystem device identity support that Opalescent does not expose yet')
+ [2m157[0m │ [35;1m│[0m           return void
+ [2m158[0m │ [35;1m│[0m
+ [2m159[0m │ [35;1m│[0m       if restore and operand_count is 0:
+ [2m160[0m │ [35;1m│[0m           print('Options that can be restored:')
+ [2m161[0m │ [35;1m│[0m           let trash_files: string[] = propagate get_trash_entries(dest)
+ [2m162[0m │ [35;1m│[0m
+ [2m163[0m │ [35;1m│[0m           for file in trash_files:
+ [2m164[0m │ [35;1m│[0m               print('- {file}')
+ [2m165[0m │ [35;1m│[0m
+ [2m166[0m │ [35;1m│[0m           return void
+ [2m167[0m │ [35;1m│[0m
+ [2m168[0m │ [35;1m│[0m       if operand_count is 0:
+ [2m169[0m │ [35;1m│[0m           if force:
+ [2m170[0m │ [35;1m│[0m               return void
+ [2m171[0m │ [35;1m│[0m           print('Please provide the names of the files you wish to remove after the call. Example: "saferm myfile1.txt myfile2.txt"')
+ [2m172[0m │ [35;1m│[0m           return void
+ [2m173[0m │ [35;1m│[0m
+ [2m174[0m │ [35;1m│[0m       if prompt_once:
+ [2m175[0m │ [35;1m│[0m           if operand_count > 3 or recursive:
+ [2m176[0m │ [35;1m│[0m               if should_confirm('saferm: move selected items to trash?'):
+ [2m177[0m │ [35;1m│[0m                   print('saferm: proceeding')
+ [2m178[0m │ [35;1m│[0m               else:
+ [2m179[0m │ [35;1m│[0m                   return void
+ [2m180[0m │ [35;1m│[0m
+ [2m181[0m │ [35;1m│[0m       for operand in operands:
+ [2m182[0m │ [35;1m│[0m           let source = join_path_components(cwd, [operand])
+ [2m183[0m │ [35;1m│[0m
+ [2m184[0m │ [35;1m│[0m           if restore is false:
+ [2m185[0m │ [35;1m│[0m               if operand is '.' or operand is '..':
+ [2m186[0m │ [35;1m│[0m                   print('saferm: refusing to remove . or .. directory')
+ [2m187[0m │ [35;1m│[0m                   continue
+ [2m188[0m │ [35;1m│[0m
+ [2m189[0m │ [35;1m│[0m               if targets_current_directory(cwd, source):
+ [2m190[0m │ [35;1m│[0m                   print('saferm: refusing to remove . or .. directory')
+ [2m191[0m │ [35;1m│[0m                   continue
+ [2m192[0m │ [35;1m│[0m
+ [2m193[0m │ [35;1m│[0m               if preserve_root and recursive:
+ [2m194[0m │ [35;1m│[0m                   if targets_root_directory(source):
+ [2m195[0m │ [35;1m│[0m                       print('saferm: it is dangerous to operate recursively on /')
+ [2m196[0m │ [35;1m│[0m                       continue
+ [2m197[0m │ [35;1m│[0m
+ [2m198[0m │ [35;1m│[0m           if prompt_each:
+ [2m199[0m │ [35;1m│[0m               if should_confirm('saferm: move {operand} to trash?'):
+ [2m200[0m │ [35;1m│[0m                   if verbose:
+ [2m201[0m │ [35;1m│[0m                       print('saferm: confirmed {operand}')
+ [2m202[0m │ [35;1m│[0m               else:
+ [2m203[0m │ [35;1m│[0m                   continue
+ [2m204[0m │ [35;1m│[0m
+ [2m205[0m │ [35;1m│[0m           if restore:
+ [2m206[0m │ [35;1m│[0m               if propagate trash_entry_exists(dest, operand):
+ [2m207[0m │ [35;1m│[0m                   guard move_to_destination(operand, dest, cwd, force, verbose) else e =>
+ [2m208[0m │ [35;1m│[0m                       print('An error occurred while restoring {operand}: {e}')
+ [2m209[0m │ [35;1m│[0m                       propagate e
+ [2m210[0m │ [35;1m│[0m               else:
+ [2m211[0m │ [35;1m│[0m                   if force:
+ [2m212[0m │ [35;1m│[0m                       continue
+ [2m213[0m │ [35;1m│[0m                   print('saferm: cannot restore {operand}: not a trash entry')
+ [2m214[0m │ [35;1m│[0m           else:
+ [2m215[0m │ [35;1m│[0m               if propagate path_exists_sync(source):
+ [2m216[0m │ [35;1m│[0m                   if propagate is_directory_sync(source):
+ [2m217[0m │ [35;1m│[0m                       if recursive is false and dir_mode is false:
+ [2m218[0m │ [35;1m│[0m                           print('saferm: cannot remove {operand}: Is a directory')
+ [2m219[0m │ [35;1m│[0m                           continue
+ [2m220[0m │ [35;1m│[0m
+ [2m221[0m │ [35;1m│[0m                       if recursive is false and dir_mode:
+ [2m222[0m │ [35;1m│[0m                           let directory_entries = propagate list_directory_sync(source)
+ [2m223[0m │ [35;1m│[0m                           if directory_entries.length > 0:
+ [2m224[0m │ [35;1m│[0m                               print('saferm: cannot remove {operand}: Directory not empty')
+ [2m225[0m │ [35;1m│[0m                               continue
+ [2m226[0m │ [35;1m│[0m
+ [2m227[0m │ [35;1m│[0m               guard move_to_destination(operand, cwd, dest, force, verbose) else e =>
+ [2m228[0m │ [35;1m│[0m                   print('An error occurred while moving {operand}: {e}')
+ [2m229[0m │ [35;1m│[0m                   propagate e
+ [2m230[0m │ [35;1m│[0m
+ [2m231[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+     · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+     ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.

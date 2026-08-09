@@ -1,0 +1,90 @@
+=== _fs_append_log ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/_fs_append_log
+exit: 0
+stdout:
+target/program
+
+stderr:
+
+=== _fs_write_text_atomic ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/_fs_write_text_atomic
+exit: 0
+stdout:
+target/program
+
+stderr:
+
+=== fs-directory-operations ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/fs-directory-operations
+exit: 0
+stdout:
+target/program
+
+stderr:
+
+=== fs-markdown-roundtrip ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/fs-markdown-roundtrip
+exit: 0
+stdout:
+target/program
+
+stderr:
+
+=== game-of-life-full ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/game-of-life-full
+exit: 1
+stdout:
+
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int8' may lose data
+    ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/game-of-life-full/src/config.op:29:14[0m]
+ [2m28[0m │ public let alive_cell = f(): int8 =>
+ [2m29[0m │     return 1 as int8
+    · [35;1m             ───┬───[0m
+    ·                 [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m30[0m │
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int8' may lose data
+    ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/game-of-life-full/src/config.op:35:14[0m]
+ [2m34[0m │ public let dead_cell = f(): int8 =>
+ [2m35[0m │     return 0 as int8
+    · [35;1m             ───┬───[0m
+    ·                 [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::guard::missing_terminal[0m
+
+  [31m×[0m named guard error clause does not handle the bound error
+    ╭─[[36;1;4m/home/justi/Projects/opalescent/test-projects/game-of-life-full/src/board.op:29:13[0m]
+ [2m28[0m │         guard board.at(board_index(width, x, y)) into cell else e =>
+ [2m29[0m │             return dead_cell()
+    · [35;1m            ─────────┬────────[0m
+    ·                      [35;1m╰── [35;1mthis clause exits without propagating or wrapping the bound error[0m[0m
+ [2m30[0m │         return cell
+    ╰────
+[36m  help: [0mA named `else err =>` clause must end by forwarding `err` with `propagate err`, or by returning an error wrapper whose `source` field is exactly `err`. Logging, cleanup, fallback values, and
+        `return void` do not count as handling the error.
+
+
+error: aborting due to 1 previous error
+
+=== saferm ===
+command: /home/justi/Projects/opalescent/target/debug/opalescent build
+cwd: test-projects/saferm
+exit: 0
+stdout:
+target/program
+
+stderr:
