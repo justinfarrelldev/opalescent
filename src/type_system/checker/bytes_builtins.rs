@@ -12,6 +12,7 @@ extern crate alloc;
 
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
+use crate::type_system::error_families::stdlib_error_core_type;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 use alloc::borrow::ToOwned;
@@ -62,14 +63,14 @@ impl TypeChecker {
             "bytes_from_hex",
             vec![CoreType::String],
             vec![bytes_core_type()],
-            vec![error_core_type(HEX_DECODE_ERROR)],
+            vec![stdlib_error_core_type(HEX_DECODE_ERROR)],
         );
 
         self.register_bytes_builtin(
             "bytes_slice",
             vec![bytes_core_type(), CoreType::Int32, CoreType::Int32],
             vec![bytes_core_type()],
-            vec![error_core_type(SLICE_RANGE_ERROR)],
+            vec![stdlib_error_core_type(SLICE_RANGE_ERROR)],
         );
     }
 
@@ -79,11 +80,11 @@ impl TypeChecker {
             .register_type(BYTES_TYPE_NAME.to_owned(), bytes_core_type());
         self.environment.register_type(
             HEX_DECODE_ERROR.to_owned(),
-            error_core_type(HEX_DECODE_ERROR),
+            stdlib_error_core_type(HEX_DECODE_ERROR),
         );
         self.environment.register_type(
             SLICE_RANGE_ERROR.to_owned(),
-            error_core_type(SLICE_RANGE_ERROR),
+            stdlib_error_core_type(SLICE_RANGE_ERROR),
         );
     }
 
@@ -123,14 +124,6 @@ impl TypeChecker {
 fn bytes_core_type() -> CoreType {
     CoreType::Generic {
         name: BYTES_TYPE_NAME.to_owned(),
-        type_args: Vec::new(),
-    }
-}
-
-/// Construct a nominal error [`CoreType`] with no parameters.
-fn error_core_type(name: &str) -> CoreType {
-    CoreType::Generic {
-        name: name.to_owned(),
         type_args: Vec::new(),
     }
 }

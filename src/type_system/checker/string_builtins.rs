@@ -7,6 +7,7 @@ extern crate alloc;
 
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
+use crate::type_system::error_families::stdlib_error_core_type;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 use alloc::borrow::ToOwned;
@@ -42,7 +43,7 @@ impl TypeChecker {
                 CoreType::String,
             ],
             vec![CoreType::String],
-            vec![error_core_type(ALLOCATION_FAILURE_ERROR)],
+            vec![stdlib_error_core_type(ALLOCATION_FAILURE_ERROR)],
         );
 
         self.register_string_builtin(
@@ -57,8 +58,8 @@ impl TypeChecker {
             vec![CoreType::String, CoreType::String],
             vec![CoreType::Int64],
             vec![
-                error_core_type(STRING_EMPTY_SEARCH_TEXT_ERROR),
-                error_core_type(STRING_PATTERN_NOT_FOUND_ERROR),
+                stdlib_error_core_type(STRING_EMPTY_SEARCH_TEXT_ERROR),
+                stdlib_error_core_type(STRING_PATTERN_NOT_FOUND_ERROR),
             ],
         );
 
@@ -66,7 +67,7 @@ impl TypeChecker {
             "string_split_lines",
             vec![CoreType::String],
             vec![CoreType::Array(alloc::boxed::Box::new(CoreType::String))],
-            vec![error_core_type(ALLOCATION_FAILURE_ERROR)],
+            vec![stdlib_error_core_type(ALLOCATION_FAILURE_ERROR)],
         );
 
         self.register_string_builtin(
@@ -80,7 +81,7 @@ impl TypeChecker {
             "string_trim_whitespace",
             vec![CoreType::String],
             vec![CoreType::String],
-            vec![error_core_type(ALLOCATION_FAILURE_ERROR)],
+            vec![stdlib_error_core_type(ALLOCATION_FAILURE_ERROR)],
         );
 
         self.register_string_builtin(
@@ -88,9 +89,9 @@ impl TypeChecker {
             vec![CoreType::String, CoreType::Int64],
             vec![CoreType::String],
             vec![
-                error_core_type(STRING_NEGATIVE_COUNT_ERROR),
-                error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
-                error_core_type(ALLOCATION_FAILURE_ERROR),
+                stdlib_error_core_type(STRING_NEGATIVE_COUNT_ERROR),
+                stdlib_error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
+                stdlib_error_core_type(ALLOCATION_FAILURE_ERROR),
             ],
         );
 
@@ -99,9 +100,9 @@ impl TypeChecker {
             vec![CoreType::String, CoreType::Int64],
             vec![CoreType::String],
             vec![
-                error_core_type(STRING_NEGATIVE_COUNT_ERROR),
-                error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
-                error_core_type(ALLOCATION_FAILURE_ERROR),
+                stdlib_error_core_type(STRING_NEGATIVE_COUNT_ERROR),
+                stdlib_error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
+                stdlib_error_core_type(ALLOCATION_FAILURE_ERROR),
             ],
         );
 
@@ -110,9 +111,9 @@ impl TypeChecker {
             vec![CoreType::String, CoreType::Int64, CoreType::Int64],
             vec![CoreType::String],
             vec![
-                error_core_type(STRING_RANGE_ORDER_ERROR),
-                error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
-                error_core_type(ALLOCATION_FAILURE_ERROR),
+                stdlib_error_core_type(STRING_RANGE_ORDER_ERROR),
+                stdlib_error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
+                stdlib_error_core_type(ALLOCATION_FAILURE_ERROR),
             ],
         );
 
@@ -128,8 +129,8 @@ impl TypeChecker {
             vec![string_builder_core_type(), CoreType::String],
             vec![CoreType::Unit],
             vec![
-                error_core_type(BUILDER_FINISHED_ERROR),
-                error_core_type(ALLOCATION_FAILURE_ERROR),
+                stdlib_error_core_type(BUILDER_FINISHED_ERROR),
+                stdlib_error_core_type(ALLOCATION_FAILURE_ERROR),
             ],
         );
 
@@ -138,8 +139,8 @@ impl TypeChecker {
             vec![string_builder_core_type()],
             vec![CoreType::String],
             vec![
-                error_core_type(BUILDER_FINISHED_ERROR),
-                error_core_type(ALLOCATION_FAILURE_ERROR),
+                stdlib_error_core_type(BUILDER_FINISHED_ERROR),
+                stdlib_error_core_type(ALLOCATION_FAILURE_ERROR),
             ],
         );
     }
@@ -152,31 +153,31 @@ impl TypeChecker {
         );
         self.environment.register_type(
             BUILDER_FINISHED_ERROR.to_owned(),
-            error_core_type(BUILDER_FINISHED_ERROR),
+            stdlib_error_core_type(BUILDER_FINISHED_ERROR),
         );
         self.environment.register_type(
             ALLOCATION_FAILURE_ERROR.to_owned(),
-            error_core_type(ALLOCATION_FAILURE_ERROR),
+            stdlib_error_core_type(ALLOCATION_FAILURE_ERROR),
         );
         self.environment.register_type(
             STRING_EMPTY_SEARCH_TEXT_ERROR.to_owned(),
-            error_core_type(STRING_EMPTY_SEARCH_TEXT_ERROR),
+            stdlib_error_core_type(STRING_EMPTY_SEARCH_TEXT_ERROR),
         );
         self.environment.register_type(
             STRING_PATTERN_NOT_FOUND_ERROR.to_owned(),
-            error_core_type(STRING_PATTERN_NOT_FOUND_ERROR),
+            stdlib_error_core_type(STRING_PATTERN_NOT_FOUND_ERROR),
         );
         self.environment.register_type(
             STRING_NEGATIVE_COUNT_ERROR.to_owned(),
-            error_core_type(STRING_NEGATIVE_COUNT_ERROR),
+            stdlib_error_core_type(STRING_NEGATIVE_COUNT_ERROR),
         );
         self.environment.register_type(
             STRING_RANGE_OUT_OF_BOUNDS_ERROR.to_owned(),
-            error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
+            stdlib_error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
         );
         self.environment.register_type(
             STRING_RANGE_ORDER_ERROR.to_owned(),
-            error_core_type(STRING_RANGE_ORDER_ERROR),
+            stdlib_error_core_type(STRING_RANGE_ORDER_ERROR),
         );
     }
 
@@ -215,14 +216,6 @@ impl TypeChecker {
 fn string_builder_core_type() -> CoreType {
     CoreType::Generic {
         name: STRING_BUILDER_TYPE_NAME.to_owned(),
-        type_args: Vec::new(),
-    }
-}
-
-/// Build the nominal core type for a payload-free string builtin error.
-fn error_core_type(name: &str) -> CoreType {
-    CoreType::Generic {
-        name: name.to_owned(),
         type_args: Vec::new(),
     }
 }

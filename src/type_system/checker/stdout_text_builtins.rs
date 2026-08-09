@@ -7,6 +7,7 @@ extern crate alloc;
 
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
+use crate::type_system::error_families::stdlib_error_core_type;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 use alloc::borrow::ToOwned;
@@ -45,8 +46,8 @@ impl TypeChecker {
             vec![CoreType::String],
             vec![CoreType::Unit],
             vec![
-                error_core_type(WRITE_FAILURE_ERROR),
-                error_core_type(SINK_CLOSED_ERROR),
+                stdlib_error_core_type(WRITE_FAILURE_ERROR),
+                stdlib_error_core_type(SINK_CLOSED_ERROR),
             ],
         );
 
@@ -55,8 +56,8 @@ impl TypeChecker {
             Vec::new(),
             vec![CoreType::Unit],
             vec![
-                error_core_type(FLUSH_FAILURE_ERROR),
-                error_core_type(SINK_CLOSED_ERROR),
+                stdlib_error_core_type(FLUSH_FAILURE_ERROR),
+                stdlib_error_core_type(SINK_CLOSED_ERROR),
             ],
         );
 
@@ -72,8 +73,8 @@ impl TypeChecker {
             vec![stdout_writer_core_type(), CoreType::String],
             vec![CoreType::Unit],
             vec![
-                error_core_type(WRITE_FAILURE_ERROR),
-                error_core_type(SINK_CLOSED_ERROR),
+                stdlib_error_core_type(WRITE_FAILURE_ERROR),
+                stdlib_error_core_type(SINK_CLOSED_ERROR),
             ],
         );
 
@@ -82,8 +83,8 @@ impl TypeChecker {
             vec![stdout_writer_core_type()],
             vec![CoreType::Unit],
             vec![
-                error_core_type(FLUSH_FAILURE_ERROR),
-                error_core_type(SINK_CLOSED_ERROR),
+                stdlib_error_core_type(FLUSH_FAILURE_ERROR),
+                stdlib_error_core_type(SINK_CLOSED_ERROR),
             ],
         );
     }
@@ -109,8 +110,8 @@ impl TypeChecker {
             vec![stdout_terminal_core_type()],
             vec![CoreType::Unit],
             vec![
-                error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
-                error_core_type(SINK_CLOSED_ERROR),
+                stdlib_error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
+                stdlib_error_core_type(SINK_CLOSED_ERROR),
             ],
         );
 
@@ -123,9 +124,9 @@ impl TypeChecker {
             ],
             vec![CoreType::Unit],
             vec![
-                error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
-                error_core_type(INVALID_CURSOR_POSITION_ERROR),
-                error_core_type(SINK_CLOSED_ERROR),
+                stdlib_error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
+                stdlib_error_core_type(INVALID_CURSOR_POSITION_ERROR),
+                stdlib_error_core_type(SINK_CLOSED_ERROR),
             ],
         );
 
@@ -137,8 +138,8 @@ impl TypeChecker {
             ],
             vec![CoreType::Unit],
             vec![
-                error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
-                error_core_type(SINK_CLOSED_ERROR),
+                stdlib_error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
+                stdlib_error_core_type(SINK_CLOSED_ERROR),
             ],
         );
 
@@ -147,8 +148,8 @@ impl TypeChecker {
             Vec::new(),
             vec![CoreType::Unit],
             vec![
-                error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
-                error_core_type(SINK_CLOSED_ERROR),
+                stdlib_error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
+                stdlib_error_core_type(SINK_CLOSED_ERROR),
             ],
         );
 
@@ -157,9 +158,9 @@ impl TypeChecker {
             vec![CoreType::Int32, CoreType::Int32],
             vec![CoreType::Unit],
             vec![
-                error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
-                error_core_type(INVALID_CURSOR_POSITION_ERROR),
-                error_core_type(SINK_CLOSED_ERROR),
+                stdlib_error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
+                stdlib_error_core_type(INVALID_CURSOR_POSITION_ERROR),
+                stdlib_error_core_type(SINK_CLOSED_ERROR),
             ],
         );
     }
@@ -180,23 +181,23 @@ impl TypeChecker {
     fn register_stdout_text_error_types(&mut self) {
         self.environment.register_type(
             WRITE_FAILURE_ERROR.to_owned(),
-            error_core_type(WRITE_FAILURE_ERROR),
+            stdlib_error_core_type(WRITE_FAILURE_ERROR),
         );
         self.environment.register_type(
             FLUSH_FAILURE_ERROR.to_owned(),
-            error_core_type(FLUSH_FAILURE_ERROR),
+            stdlib_error_core_type(FLUSH_FAILURE_ERROR),
         );
         self.environment.register_type(
             SINK_CLOSED_ERROR.to_owned(),
-            error_core_type(SINK_CLOSED_ERROR),
+            stdlib_error_core_type(SINK_CLOSED_ERROR),
         );
         self.environment.register_type(
             TERMINAL_WRITE_FAILURE_ERROR.to_owned(),
-            error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
+            stdlib_error_core_type(TERMINAL_WRITE_FAILURE_ERROR),
         );
         self.environment.register_type(
             INVALID_CURSOR_POSITION_ERROR.to_owned(),
-            error_core_type(INVALID_CURSOR_POSITION_ERROR),
+            stdlib_error_core_type(INVALID_CURSOR_POSITION_ERROR),
         );
     }
 
@@ -243,14 +244,6 @@ fn stdout_writer_core_type() -> CoreType {
 fn stdout_terminal_core_type() -> CoreType {
     CoreType::Generic {
         name: STDOUT_TERMINAL_TYPE_NAME.to_owned(),
-        type_args: Vec::new(),
-    }
-}
-
-/// Build the nominal core type for a payload-free stdout builtin error.
-fn error_core_type(name: &str) -> CoreType {
-    CoreType::Generic {
-        name: name.to_owned(),
         type_args: Vec::new(),
     }
 }

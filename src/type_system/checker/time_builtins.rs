@@ -6,6 +6,7 @@ extern crate alloc;
 
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
+use crate::type_system::error_families::stdlib_error_core_type;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 use alloc::borrow::ToOwned;
@@ -24,11 +25,11 @@ impl TypeChecker {
     pub(super) fn register_time_builtins(&mut self) {
         self.environment.register_type(
             INVALID_DURATION_ERROR.to_owned(),
-            error_core_type(INVALID_DURATION_ERROR),
+            stdlib_error_core_type(INVALID_DURATION_ERROR),
         );
         self.environment.register_type(
             INVALID_FRAME_RATE_ERROR.to_owned(),
-            error_core_type(INVALID_FRAME_RATE_ERROR),
+            stdlib_error_core_type(INVALID_FRAME_RATE_ERROR),
         );
         self.environment
             .register_type(FRAME_CLOCK_TYPE_NAME.to_owned(), frame_clock_core_type());
@@ -37,19 +38,19 @@ impl TypeChecker {
             "sleep_ms_sync",
             vec![CoreType::Int32],
             vec![CoreType::Unit],
-            vec![error_core_type(INVALID_DURATION_ERROR)],
+            vec![stdlib_error_core_type(INVALID_DURATION_ERROR)],
         );
         self.register_time_builtin(
             "frame_clock_new",
             vec![CoreType::Int32],
             vec![frame_clock_core_type()],
-            vec![error_core_type(INVALID_FRAME_RATE_ERROR)],
+            vec![stdlib_error_core_type(INVALID_FRAME_RATE_ERROR)],
         );
         self.register_time_builtin(
             "frame_clock_wait_next_sync",
             vec![frame_clock_core_type()],
             vec![CoreType::Unit],
-            vec![error_core_type(INVALID_FRAME_RATE_ERROR)],
+            vec![stdlib_error_core_type(INVALID_FRAME_RATE_ERROR)],
         );
     }
 
@@ -88,14 +89,6 @@ impl TypeChecker {
 fn frame_clock_core_type() -> CoreType {
     CoreType::Generic {
         name: FRAME_CLOCK_TYPE_NAME.to_owned(),
-        type_args: Vec::new(),
-    }
-}
-
-/// Build the nominal core type for a payload-free time builtin error.
-fn error_core_type(name: &str) -> CoreType {
-    CoreType::Generic {
-        name: name.to_owned(),
         type_args: Vec::new(),
     }
 }
