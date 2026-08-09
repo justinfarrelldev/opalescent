@@ -4,7 +4,7 @@ import path_to_string, path_exists_sync, is_directory_sync from standard
 ##
   Description: Exercises process cwd/path runtime functions with structural checks only.
 ##
-entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError =>
+entry main = f(args: string[]): void errors FilesystemPathError, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError =>
     let original_cwd = propagate current_working_directory_sync()
     let original_cwd_string = path_to_string(original_cwd)
     let original_cwd_exists = propagate path_exists_sync(original_cwd)

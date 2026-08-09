@@ -1,6 +1,6 @@
 import read_lines_sync, path_from from standard
 
-let cat_file = f(path: string): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, IndexOutOfBoundsError => 
+let cat_file = f(path: string): void errors FileNotFoundError, FilesystemPathError, ReadFailureError, IsADirectoryError, InvalidUtf8Error, IndexOutOfBoundsError =>
     let lines = propagate read_lines_sync(path_from(path))
     let mutable i = 0
     while i < lines.length:

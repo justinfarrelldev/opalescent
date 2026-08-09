@@ -90,6 +90,7 @@ mod string_stdlib_success;
 mod terminal_stdlib;
 mod time_stdlib;
 
+mod stdlib_error_family_test_projects;
 mod warning_diagnostics;
 
 #[cfg(feature = "windows-wine")]

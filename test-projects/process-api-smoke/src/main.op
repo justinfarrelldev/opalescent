@@ -4,7 +4,7 @@ import path_exists_sync, is_directory_sync, path_to_string from standard
 ##
   Description: Smoke fixture that imports all process APIs and exercises non-terminating surfaces.
 ##
-entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError, EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error =>
+entry main = f(args: string[]): void errors FilesystemPathError, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError, ProcessEnvError =>
     let cwd = propagate current_working_directory_sync()
     let exe_path = propagate current_executable_path_sync()
     let exe_dir = propagate current_executable_directory_sync()

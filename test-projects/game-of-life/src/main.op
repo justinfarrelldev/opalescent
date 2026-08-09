@@ -9,7 +9,7 @@ let frame_header = f(frame: int64): string =>
 ##
   Description: Renders a bounded deterministic ten-frame Game of Life transcript for integration testing.
 ##
-entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError, InvalidDurationError, BuilderFinishedError, AllocationFailureError =>
+entry main = f(args: string[]): void errors OutputError, TerminalWriteFailureError, InvalidDurationError, StringBuilderError =>
     let writer = stdout_writer()
     let terminal = stdout_terminal()
     let mutable frame: int64 = 0

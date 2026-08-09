@@ -8,7 +8,7 @@ let string_match = f(actual: string, expected: string): int64 =>
 ##
   Description: Runs a 50-case path algebra showcase and prints a deterministic pass count.
 ##
-entry main = f(args: string[]): void errors InvalidPathError, PermissionDeniedError =>
+entry main = f(args: string[]): void errors FilesystemPathError =>
     let mutable passed: int64 = 0
     let total: int64 = 50
 

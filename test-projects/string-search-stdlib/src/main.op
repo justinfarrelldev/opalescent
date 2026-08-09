@@ -3,7 +3,7 @@ import string_find_index_or, string_find_last_index_of_text from standard
 ##
   Description: Verifies search helpers return Unicode-scalar positions and fallback values.
 ##
-entry main = f(args: string[]): void errors StringEmptySearchTextError, StringPatternNotFoundError =>
+entry main = f(args: string[]): void errors StringSearchError =>
     let found = string_find_index_or('hé🙂z', '🙂', -1)
     let fallback = string_find_index_or('hé🙂z', 'q', 7)
     let last = propagate string_find_last_index_of_text('bananana', 'ana')

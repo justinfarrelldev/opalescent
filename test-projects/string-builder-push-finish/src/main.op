@@ -3,7 +3,7 @@ import string_builder_push, string_builder_finish from standard
 ##
   Description: Verifies StringBuilder accumulates pushed text and finishes successfully.
 ##
-entry main = f(args: string[]): void errors BuilderFinishedError, AllocationFailureError =>
+entry main = f(args: string[]): void errors StringBuilderError =>
     let builder: StringBuilder = new StringBuilder
     propagate string_builder_push(builder, 'row-1')
     propagate string_builder_push(builder, '\n')

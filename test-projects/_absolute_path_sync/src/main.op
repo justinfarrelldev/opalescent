@@ -3,7 +3,7 @@ import path_from, absolute_path_sync, path_file_name, path_to_string from standa
 ##
   Description: Prints four absolute_path_sync edge-case resolution outcomes.
 ##
-entry main = f(args: string[]): void errors InvalidPathError, PermissionDeniedError =>
+entry main = f(args: string[]): void errors FilesystemPathError =>
     let existing_raw = './test-projects/_absolute_path_sync/src/main.op'
     guard absolute_path_sync(path_from(existing_raw)) into existing_abs else err =>
         print('{existing_raw}: error')

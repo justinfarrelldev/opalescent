@@ -17,7 +17,7 @@ import bytes_from_hex, bytes_to_hex, bytes_concatenate, bytes_slice from standar
   3. Slices the concatenation back to the first half.
   4. Re-encodes the slice and prints it.
 ##
-entry main = f(args: string[]): void errors HexDecodeError, SliceRangeError =>
+entry main = f(args: string[]): void errors BytesError =>
     guard bytes_from_hex('deadbeef') into buffer else decode_error =>
         print('decode error: {decode_error}')
         propagate decode_error

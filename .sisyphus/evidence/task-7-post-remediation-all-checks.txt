@@ -1,0 +1,1552 @@
+=== test-projects/_absolute_path_sync/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/_absolute_path_sync/src/main.op:9:9[0m]
+ [2m 8[0m │         guard absolute_path_sync(path_from(existing_raw)) into existing_abs else err =>
+ [2m 9[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('{existing_raw}: error')
+ [2m10[0m │ [35;1m│[0m           propagate err
+ [2m11[0m │ [35;1m│[0m
+ [2m12[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     if path_file_name(existing_abs) is 'main.op':
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m13[0m │             print('{existing_raw} -> {path_to_string(existing_abs)}')
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/_absolute_path_sync/src/main.op:19:9[0m]
+ [2m18[0m │         guard absolute_path_sync(path_from(missing_raw)) into missing_abs else err =>
+ [2m19[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('{missing_raw}: error')
+ [2m20[0m │ [35;1m│[0m           propagate err
+ [2m21[0m │ [35;1m│[0m
+ [2m22[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     if path_file_name(missing_abs) is 'does_not_exist.txt':
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m23[0m │             print('{missing_raw} -> {path_to_string(missing_abs)}')
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/_absolute_path_sync/src/main.op:29:9[0m]
+ [2m28[0m │         guard absolute_path_sync(path_from(dotdot_raw)) into dotdot_abs else err =>
+ [2m29[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('{dotdot_raw}: error')
+ [2m30[0m │ [35;1m│[0m           propagate err
+ [2m31[0m │ [35;1m│[0m
+ [2m32[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     if path_file_name(dotdot_abs) is 'README.md':
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m33[0m │             print('{dotdot_raw} -> {path_to_string(dotdot_abs)}')
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/_absolute_path_sync/src/main.op:39:9[0m]
+ [2m38[0m │         guard absolute_path_sync(path_from(absolute_raw)) into absolute_abs else err =>
+ [2m39[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('{absolute_raw}: error')
+ [2m40[0m │ [35;1m│[0m           propagate err
+ [2m41[0m │ [35;1m│[0m
+ [2m42[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     if path_file_name(absolute_abs) is '':
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m43[0m │             print('{absolute_raw} -> {path_to_string(absolute_abs)}')
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/_fs_append_log/src/logger.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/_fs_append_log/src/logger.op:1:1[0m]
+ [2m1[0m │ import path_from, append_text_sync from standard
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/_fs_append_log/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/_fs_dir_inventory/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/_fs_read_text_lines/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/_fs_read_text_lines/src/summary.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/_fs_read_text_lines/src/summary.op:1:1[0m]
+ [2m1[0m │ ##
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │   Description: Helpers for _fs_read_text_lines fixture summary output.
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/_fs_write_text_atomic/src/atomic.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/_fs_write_text_atomic/src/atomic.op:1:1[0m]
+ [2m1[0m │ import write_text_sync, move_path_sync from standard
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/_fs_write_text_atomic/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/ambiguous-guard-if/src/main.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::parser::guard_ambiguous_if_else[0m
+
+  [31m×[0m Ambiguous guarded if/else expression in guard statement
+   ╭─[[36;1;4mtest-projects/ambiguous-guard-if/src/main.op:5:32[0m]
+ [2m4[0m │ let parse = f(): int32 errors ParseError => {
+ [2m5[0m │     guard if true { return 1 } else { return 0 } else err =>
+   · [35;1m                               ──┬─[0m
+   ·                                  [35;1m╰── [35;1mthis `else` can be read as part of `if ... else ...` instead of the guard handler[0m[0m
+ [2m6[0m │         return 42
+   ╰────
+[36m  help: [0mWrap the guarded if-expression in parentheses, for example: `guard (if ... else ...) else err =>`
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/array-append/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-append/src/main.op:7:32[0m]
+ [2m6[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m7[0m │     let original: int32[] = [1 as int32, 2 as int32]
+   · [35;1m                               ────┬───[0m
+   ·                                    [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m8[0m │     let grown = append(original, 3 as int32)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-append/src/main.op:7:44[0m]
+ [2m6[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m7[0m │     let original: int32[] = [1 as int32, 2 as int32]
+   · [35;1m                                           ────┬───[0m
+   ·                                                [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m8[0m │     let grown = append(original, 3 as int32)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-append/src/main.op:8:36[0m]
+ [2m7[0m │     let original: int32[] = [1 as int32, 2 as int32]
+ [2m8[0m │     let grown = append(original, 3 as int32)
+   · [35;1m                                   ────┬───[0m
+   ·                                        [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m9[0m │     print('original length {original.length}')
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-bounds/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-bounds/src/main.op:5:27[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let arr: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                          ────┬───[0m
+   ·                               [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let x = propagate arr.at(5)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-bounds/src/main.op:5:39[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let arr: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                                      ────┬───[0m
+   ·                                           [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let x = propagate arr.at(5)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-bounds/src/main.op:5:51[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let arr: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                                                  ────┬───[0m
+   ·                                                       [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let x = propagate arr.at(5)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'x' is never used
+   ╭─[[36;1;4mtest-projects/array-bounds/src/main.op:6:9[0m]
+ [2m5[0m │     let arr: int32[] = [1 as int32, 2 as int32, 3 as int32]
+ [2m6[0m │     let x = propagate arr.at(5)
+   · [35;1m        ┬[0m
+   ·         [35;1m╰── [35;1munused variable[0m[0m
+ [2m7[0m │     return void
+   ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/array-double/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:34[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                 ────┬───[0m
+   ·                                      [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:46[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                             ────┬───[0m
+   ·                                                  [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:58[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                         ────┬───[0m
+   ·                                                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:72[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                       ────┬───[0m
+   ·                                                                            [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:84[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                                   ────┬───[0m
+   ·                                                                                        [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:96[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                                               ────┬───[0m
+   ·                                                                                                    [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:110[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                                                             ────┬───[0m
+   ·                                                                                                                  [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:122[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                                                                         ────┬───[0m
+   ·                                                                                                                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:134[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                                                                                     ────┬───[0m
+   ·                                                                                                                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:12:33[0m]
+ [2m11[0m │
+ [2m12[0m │     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    · [35;1m                                ────┬───[0m
+    ·                                     [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     let jagged_row_0: int32[] = propagate jagged.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:12:45[0m]
+ [2m11[0m │
+ [2m12[0m │     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    · [35;1m                                            ────┬───[0m
+    ·                                                 [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     let jagged_row_0: int32[] = propagate jagged.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:12:63[0m]
+ [2m11[0m │
+ [2m12[0m │     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    · [35;1m                                                              ────┬───[0m
+    ·                                                                   [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     let jagged_row_0: int32[] = propagate jagged.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:12:75[0m]
+ [2m11[0m │
+ [2m12[0m │     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    · [35;1m                                                                          ────┬───[0m
+    ·                                                                               [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     let jagged_row_0: int32[] = propagate jagged.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:12:87[0m]
+ [2m11[0m │
+ [2m12[0m │     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    · [35;1m                                                                                      ────┬───[0m
+    ·                                                                                           [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     let jagged_row_0: int32[] = propagate jagged.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:22:38[0m]
+ [2m21[0m │
+ [2m22[0m │     let single_row: int32[][] = [[10 as int32, 11 as int32, 12 as int32]]
+    · [35;1m                                     ────┬───[0m
+    ·                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m23[0m │     let single_row_0: int32[] = propagate single_row.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:22:51[0m]
+ [2m21[0m │
+ [2m22[0m │     let single_row: int32[][] = [[10 as int32, 11 as int32, 12 as int32]]
+    · [35;1m                                                  ────┬───[0m
+    ·                                                       [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m23[0m │     let single_row_0: int32[] = propagate single_row.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:22:64[0m]
+ [2m21[0m │
+ [2m22[0m │     let single_row: int32[][] = [[10 as int32, 11 as int32, 12 as int32]]
+    · [35;1m                                                               ────┬───[0m
+    ·                                                                    [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m23[0m │     let single_row_0: int32[] = propagate single_row.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:26:38[0m]
+ [2m25[0m │
+ [2m26[0m │     let single_col: int32[][] = [[20 as int32], [21 as int32], [22 as int32]]
+    · [35;1m                                     ────┬───[0m
+    ·                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m27[0m │     let single_col_2: int32[] = propagate single_col.at(2)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:26:53[0m]
+ [2m25[0m │
+ [2m26[0m │     let single_col: int32[][] = [[20 as int32], [21 as int32], [22 as int32]]
+    · [35;1m                                                    ────┬───[0m
+    ·                                                         [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m27[0m │     let single_col_2: int32[] = propagate single_col.at(2)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:26:68[0m]
+ [2m25[0m │
+ [2m26[0m │     let single_col: int32[][] = [[20 as int32], [21 as int32], [22 as int32]]
+    · [35;1m                                                                   ────┬───[0m
+    ·                                                                        [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m27[0m │     let single_col_2: int32[] = propagate single_col.at(2)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-filter/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:5:26[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+   · [35;1m                         ────┬───[0m
+   ·                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:5:38[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+   · [35;1m                                     ────┬───[0m
+   ·                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:5:50[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+   · [35;1m                                                 ────┬───[0m
+   ·                                                      [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:5:62[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+   · [35;1m                                                             ────┬───[0m
+   ·                                                                  [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:6:59[0m]
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   · [35;1m                                                          ────┬───[0m
+   ·                                                               [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m7[0m │     print('length {evens.length}')
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:6:76[0m]
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   · [35;1m                                                                           ────┬───[0m
+   ·                                                                                [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m7[0m │     print('length {evens.length}')
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-filter/src/main.op:9:58[0m]
+ [2m 8[0m │     print('values {propagate evens.at(0)} {propagate evens.at(1)}')
+ [2m 9[0m │     let none = xs.filter(f(x: int32): boolean => x > (10 as int32))
+    · [35;1m                                                         ────┬───[0m
+    ·                                                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m10[0m │     print('none length {none.length}')
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-filter/src/main.op:11:63[0m]
+ [2m10[0m │     print('none length {none.length}')
+ [2m11[0m │     let all_values = xs.filter(f(x: int32): boolean => x > (0 as int32))
+    · [35;1m                                                              ────┬───[0m
+    ·                                                                   [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m12[0m │     print('all length {all_values.length}')
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-map/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-map/src/main.op:5:26[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                         ────┬───[0m
+   ·                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let doubled = xs.map(f(x: int32): int32 => x * (2 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-map/src/main.op:5:38[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                                     ────┬───[0m
+   ·                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let doubled = xs.map(f(x: int32): int32 => x * (2 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-map/src/main.op:5:50[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                                                 ────┬───[0m
+   ·                                                      [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let doubled = xs.map(f(x: int32): int32 => x * (2 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-map/src/main.op:6:55[0m]
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32]
+ [2m6[0m │     let doubled = xs.map(f(x: int32): int32 => x * (2 as int32))
+   · [35;1m                                                      ────┬───[0m
+   ·                                                           [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m7[0m │     print('length {doubled.length}')
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-pop/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-pop/src/main.op:5:34[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let mutable xs: int32[] = [4 as int32, 5 as int32, 6 as int32]
+   · [35;1m                                 ────┬───[0m
+   ·                                      [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let last = xs.pop()
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-pop/src/main.op:5:46[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let mutable xs: int32[] = [4 as int32, 5 as int32, 6 as int32]
+   · [35;1m                                             ────┬───[0m
+   ·                                                  [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let last = xs.pop()
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-pop/src/main.op:5:58[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let mutable xs: int32[] = [4 as int32, 5 as int32, 6 as int32]
+   · [35;1m                                                         ────┬───[0m
+   ·                                                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let last = xs.pop()
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-push/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-push/src/main.op:6:16[0m]
+ [2m5[0m │     let mutable xs: int32[] = []
+ [2m6[0m │     xs.push(10 as int32)
+   · [35;1m               ────┬───[0m
+   ·                    [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m7[0m │     xs.push(25 as int32)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-push/src/main.op:7:16[0m]
+ [2m6[0m │     xs.push(10 as int32)
+ [2m7[0m │     xs.push(25 as int32)
+   · [35;1m               ────┬───[0m
+   ·                    [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m8[0m │     xs.push(8 as int32)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-push/src/main.op:8:15[0m]
+ [2m7[0m │     xs.push(25 as int32)
+ [2m8[0m │     xs.push(8 as int32)
+   · [35;1m              ────┬───[0m
+   ·                   [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m9[0m │     print('length {xs.length}')
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-rc-layout/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:10:31[0m]
+ [2m 9[0m │
+ [2m10[0m │     let literal: int32[] = [1 as int32, 2 as int32]
+    · [35;1m                              ────┬───[0m
+    ·                                   [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m11[0m │     let alias = literal
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:10:43[0m]
+ [2m 9[0m │
+ [2m10[0m │     let literal: int32[] = [1 as int32, 2 as int32]
+    · [35;1m                                          ────┬───[0m
+    ·                                               [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m11[0m │     let alias = literal
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:12:38[0m]
+ [2m11[0m │     let alias = literal
+ [2m12[0m │     let appended = append(literal, 3 as int32)
+    · [35;1m                                     ────┬───[0m
+    ·                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     print('literal length {literal.length}')
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:19:39[0m]
+ [2m18[0m │
+ [2m19[0m │     let mutable rebound: int32[] = [7 as int32, 8 as int32]
+    · [35;1m                                      ────┬───[0m
+    ·                                           [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m20[0m │     let rebound_alias = rebound
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:19:51[0m]
+ [2m18[0m │
+ [2m19[0m │     let mutable rebound: int32[] = [7 as int32, 8 as int32]
+    · [35;1m                                                  ────┬───[0m
+    ·                                                       [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m20[0m │     let rebound_alias = rebound
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:21:20[0m]
+ [2m20[0m │     let rebound_alias = rebound
+ [2m21[0m │     rebound.push(9 as int32)
+    · [35;1m                   ────┬───[0m
+    ·                        [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m22[0m │     print('rebound length {rebound.length}')
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/bytes-hex-roundtrip/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/delete-downloads/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/delete-downloads-legal/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/delete-downloads-legal/src/main.op:9:9[0m]
+ [2m 8[0m │         guard string_to_int32(path_to_string(folder)) into entry_count: int32 else err =>
+ [2m 9[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('LEGAL_LIST_ERR=handled-before-propagate')
+ [2m10[0m │ [35;1m│[0m           propagate err
+ [2m11[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return entry_count
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m12[0m │
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/delete-downloads-strict/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/delete-downloads-strict-legal/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/delete-downloads-strict-legal/src/main.op:9:9[0m]
+ [2m 8[0m │         guard string_to_int32(path_to_string(folder)) into entry_count: int32 else err =>
+ [2m 9[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('STRICT_LEGAL_LIST_ERR=handled-before-propagate')
+ [2m10[0m │ [35;1m│[0m           propagate err
+ [2m11[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return entry_count
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m12[0m │
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/frame-clock-30fps-ten-waits-timing/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/frame-clock-rejects-negative-fps/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/frame-clock-rejects-negative-fps/src/main.op:6:36[0m]
+ [2m5[0m │     guard new FrameClock:
+ [2m6[0m │         frames_per_second: (0 - 1) as int32
+   · [35;1m                                   ────┬───[0m
+   ·                                        [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m7[0m │     else err =>
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/frame-clock-rejects-zero-fps/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/fs-directory-operations/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/fs-directory-operations/src/operations/create.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/fs-directory-operations/src/operations/create.op:1:1[0m]
+ [2m1[0m │ import path_from, create_directory_sync, write_text_sync from standard
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/fs-directory-operations/src/operations/list.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::parser::invalid_syntax[0m
+
+  [31m×[0m Invalid syntax: 'propagate' must be followed by a function call expression
+   ╭─[[36;1;4mtest-projects/fs-directory-operations/src/operations/list.op:8:26[0m]
+ [2m7[0m │     guard list_directory_sync(path_from('{project_root}{raw_path}')) into listed else err =>
+ [2m8[0m │         return propagate err
+   · [35;1m                         ─┬─[0m
+   ·                           [35;1m╰── [35;1minvalid syntax[0m[0m
+ [2m9[0m │     return 'entries={int64_to_string(listed.length)}'
+   ╰────
+[36m  help: [0mCheck the language specification for correct syntax
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/fs-directory-operations/src/operations/remove.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/fs-directory-operations/src/operations/remove.op:1:1[0m]
+ [2m1[0m │ import path_from, delete_file_sync, delete_directory_sync from standard
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/fs-markdown-roundtrip/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/fs-markdown-roundtrip/src/processing/parse.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::propagate_error_mismatch[0m
+
+  [31m×[0m Propagated error types are not compatible with the function's declared errors
+   ╭─[[36;1;4mtest-projects/fs-markdown-roundtrip/src/processing/parse.op:6:28[0m]
+ [2m5[0m │     ##
+ [2m6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let parse_summary = f(raw_path: string): string errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidUtf8Error, ReadFailureError =>
+ [2m7[0m │ [35;1m│[0m       let lines = propagate read_lines_sync(path_from(raw_path))
+   · [35;1m│[0m   [33;1m                          ──────────────────┬─────────────────[0m
+   · [35;1m│[0m                                               [33;1m╰── [33;1mthis call can produce errors: FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error[0m[0m
+ [2m8[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return 'lines={int64_to_string(lines.length)}'
+   · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mthis function declares errors: FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidUtf8Error, ReadFailureError[0m
+   ╰────
+[36m  help: [0mThe errors from the called function must be a subset of the errors declared by the current function.
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/fs-markdown-roundtrip/src/processing/serialize.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/fs-markdown-roundtrip/src/processing/serialize.op:1:1[0m]
+ [2m1[0m │ import path_from, write_text_sync from standard
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/fs-path-manipulation/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/game-of-life/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/game-of-life-full/src/main.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './config'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:2:8[0m]
+ [2m1[0m │ import frame_clock_wait_next_sync from standard
+ [2m2[0m │ import board_width, board_height, target_frames_per_second from ./config
+   · [35;1m       ─────┬─────[0m
+   ·             [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │ import create_seed_board from ./patterns
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './patterns'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:3:8[0m]
+ [2m2[0m │ import board_width, board_height, target_frames_per_second from ./config
+ [2m3[0m │ import create_seed_board from ./patterns
+   · [35;1m       ────────┬────────[0m
+   ·                [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m4[0m │ import next_generation from ./rules
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './rules'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:4:8[0m]
+ [2m3[0m │ import create_seed_board from ./patterns
+ [2m4[0m │ import next_generation from ./rules
+   · [35;1m       ───────┬───────[0m
+   ·               [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m5[0m │ import prepare_display, write_frame from ./render
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './render'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:5:8[0m]
+ [2m4[0m │ import next_generation from ./rules
+ [2m5[0m │ import prepare_display, write_frame from ./render
+   · [35;1m       ───────┬───────[0m
+   ·               [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m6[0m │ import type LifeConfig from ./life.types
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './life.types'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:6:13[0m]
+ [2m5[0m │ import prepare_display, write_frame from ./render
+ [2m6[0m │ import type LifeConfig from ./life.types
+   · [35;1m            ─────┬────[0m
+   ·                  [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m7[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::invalid_operation[0m
+
+  [31m×[0m Invalid operation 'constructor field initialization' for type 'LifeConfig'
+    ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:12:30[0m]
+ [2m11[0m │     entry main = f(args: string[]): void errors InvalidFrameRateError, WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError =>
+ [2m12[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m     let config: LifeConfig = new LifeConfig:
+ [2m13[0m │ [35;1m│[0m           width: board_width()
+ [2m14[0m │ [35;1m│[0m           height: board_height()
+ [2m15[0m │ [35;1m│[0m           frames_per_second: target_frames_per_second()
+ [2m16[0m │ [35;1m│[0m
+ [2m17[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     let clock = propagate new FrameClock:
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1minvalid operation here[0m
+ [2m18[0m │             frames_per_second: config.frames_per_second
+    ╰────
+[36m  help: [0mThis operation is not supported for this type. Check the language reference for valid operations
+
+
+error: aborting due to 6 previous errors
+
+=== test-projects/game-of-life-full/src/render.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './board'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/render.op:2:8[0m]
+ [2m1[0m │ import stdout_writer, writer_write_sync, writer_flush_sync, stdout_terminal, terminal_supports_ansi, terminal_clear_screen_on_sync, int64_to_string from standard
+ [2m2[0m │ import is_alive_at from ./board
+   · [35;1m       ─────┬─────[0m
+   ·             [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::symbol_not_found[0m
+
+  [31m×[0m Symbol 'is_alive_at' not found in this scope
+    ╭─[[36;1;4mtest-projects/game-of-life-full/src/render.op:31:16[0m]
+ [2m30[0m │         while x < width:
+ [2m31[0m │             if is_alive_at(board, width, height, x, y):
+    · [35;1m               ─────┬─────[0m
+    ·                     [35;1m╰── [35;1mundefined symbol[0m[0m
+ [2m32[0m │                 propagate writer_write_sync(writer, '#')
+    ╰────
+[36m  help: [0mEnsure the symbol is declared before use or imported from the correct module
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/guard-stmt-bare-fallible-append/src/main.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unhandled_call_error[0m
+
+  [31m×[0m Call to error-producing function `append_text_sync` must be wrapped in `guard` or `propagate` (declared errors: FileNotFoundError, PermissionDeniedError, WriteFailureError, IsADirectoryError,
+  [31m│[0m InvalidPathError, FilesystemFullError)
+   ╭─[[36;1;4mtest-projects/guard-stmt-bare-fallible-append/src/main.op:8:9[0m]
+ [2m7[0m │     guard string_to_int32(text) into value: int32 else err =>
+ [2m8[0m │         append_text_sync(path_from('debug.log'), 'parse failed\n')
+   · [35;1m        ─────────────────────────────┬────────────────────────────[0m
+   ·                                      [35;1m╰── [35;1munhandled error-producing call[0m[0m
+ [2m9[0m │         propagate err
+   ╰────
+[36m  help: [0mWrap this call in `guard ... into ... else ...` to handle errors locally, or use `propagate` in an error-declaring function
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/guard-stmt-only-propagate/src/main.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::guard::shorthand_required[0m
+
+  [31m×[0m use shorthand propagation instead of a guard that only rethrows
+   ╭─[[36;1;4mtest-projects/guard-stmt-only-propagate/src/main.op:8:9[0m]
+ [2m7[0m │     guard string_to_int32(text) into value: int32 else err =>
+ [2m8[0m │         propagate err
+   · [35;1m        ──────┬──────[0m
+   ·               [35;1m╰── [35;1mthis guard handler only rethrows; shorthand propagation is clearer[0m[0m
+ [2m9[0m │     return value
+   ╰────
+[36m  help: [0mIf the handler only forwards the fallible result, prefer `let value = propagate fallible_call()` over `guard ... else err => propagate err`. Use a named guard only when you add context
+        before the terminal propagation or wrapper return.
+
+
+[31mopalescent::guard::missing_terminal[0m
+
+  [31m×[0m named guard error clause does not handle the bound error
+    ╭─[[36;1;4mtest-projects/guard-stmt-only-propagate/src/main.op:17:9[0m]
+ [2m16[0m │         print('UNEXPECTED_ONLY_PROPAGATE_HANDLER={err}')
+ [2m17[0m │         return void
+    · [35;1m        ─────┬─────[0m
+    ·              [35;1m╰── [35;1mthis clause exits without propagating or wrapping the bound error[0m[0m
+ [2m18[0m │     print('UNEXPECTED_SUCCESS')
+    ╰────
+[36m  help: [0mA named `else err =>` clause must end by forwarding `err` with `propagate err`, or by returning an error wrapper whose `source` field is exactly `err`. Logging, cleanup, fallback values, and
+        `return void` do not count as handling the error.
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/guard-stmt-propagate-call-valid/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/guard-stmt-propagate-err/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/guard-stmt-typed-binding/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/guard-stmt-wrapper-invalid-alias/src/wrapper.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './wrapper.types'
+   ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-alias/src/wrapper.op:2:13[0m]
+ [2m1[0m │ import string_to_int32 from standard
+ [2m2[0m │ import type ParseError, WrappedParseError from ./wrapper.types
+   · [35;1m            ─────┬────[0m
+   ·                  [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::undeclared_error_type[0m
+
+  [31m×[0m Undeclared error type 'WrappedParseError'
+    ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-alias/src/wrapper.op:7:39[0m]
+ [2m 6[0m │     ##
+ [2m 7[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let parse_with_wrapper_alias = f(text: string): int32 errors WrappedParseError =>
+ [2m 8[0m │ [35;1m│[0m       guard string_to_int32(text) into value: int32 else err =>
+ [2m 9[0m │ [35;1m│[0m           let alias_err: ParseError = err
+ [2m10[0m │ [35;1m│[0m           return new WrappedParseError.Reading:
+ [2m11[0m │ [35;1m│[0m               source: alias_err
+ [2m12[0m │ [35;1m│[0m               context: 'bad-input={text}'
+ [2m13[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return value
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mundeclared error type[0m
+    ╰────
+[36m  help: [0mEnsure the error type 'WrappedParseError' is defined and visible in the current scope.
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/guard-stmt-wrapper-invalid-missing-source/src/wrapper.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './wrapper.types'
+   ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-missing-source/src/wrapper.op:2:13[0m]
+ [2m1[0m │ import string_to_int32 from standard
+ [2m2[0m │ import type WrappedParseError from ./wrapper.types
+   · [35;1m            ────────┬────────[0m
+   ·                     [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::undeclared_error_type[0m
+
+  [31m×[0m Undeclared error type 'WrappedParseError'
+    ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-missing-source/src/wrapper.op:7:48[0m]
+ [2m 6[0m │     ##
+ [2m 7[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let parse_with_wrapper_missing_source = f(text: string): int32 errors WrappedParseError =>
+ [2m 8[0m │ [35;1m│[0m       guard string_to_int32(text) into value: int32 else err =>
+ [2m 9[0m │ [35;1m│[0m           return new WrappedParseError.Reading:
+ [2m10[0m │ [35;1m│[0m               context: 'bad-input={text}'
+ [2m11[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return value
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mundeclared error type[0m
+    ╰────
+[36m  help: [0mEnsure the error type 'WrappedParseError' is defined and visible in the current scope.
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/guard-stmt-wrapper-invalid-shadowed/src/wrapper.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './wrapper.types'
+   ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-shadowed/src/wrapper.op:2:13[0m]
+ [2m1[0m │ import string_to_int32 from standard
+ [2m2[0m │ import type ParseError, WrappedParseError from ./wrapper.types
+   · [35;1m            ─────┬────[0m
+   ·                  [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::undeclared_error_type[0m
+
+  [31m×[0m Undeclared error type 'WrappedParseError'
+    ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-shadowed/src/wrapper.op:7:42[0m]
+ [2m 6[0m │     ##
+ [2m 7[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let parse_with_wrapper_shadowed = f(text: string): int32 errors WrappedParseError =>
+ [2m 8[0m │ [35;1m│[0m       guard string_to_int32(text) into value: int32 else err =>
+ [2m 9[0m │ [35;1m│[0m           let err: ParseError = ParseError.Invalid
+ [2m10[0m │ [35;1m│[0m           return new WrappedParseError.Reading:
+ [2m11[0m │ [35;1m│[0m               source: err
+ [2m12[0m │ [35;1m│[0m               context: 'bad-input={text}'
+ [2m13[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return value
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mundeclared error type[0m
+    ╰────
+[36m  help: [0mEnsure the error type 'WrappedParseError' is defined and visible in the current scope.
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/guard-stmt-wrapper-valid/src/wrapper.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './wrapper.types'
+   ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-valid/src/wrapper.op:2:13[0m]
+ [2m1[0m │ import string_to_int32 from standard
+ [2m2[0m │ import type WrappedParseError from ./wrapper.types
+   · [35;1m            ────────┬────────[0m
+   ·                     [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::undeclared_error_type[0m
+
+  [31m×[0m Undeclared error type 'WrappedParseError'
+    ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-valid/src/wrapper.op:7:33[0m]
+ [2m 6[0m │     ##
+ [2m 7[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let parse_with_wrapper = f(text: string): int32 errors WrappedParseError =>
+ [2m 8[0m │ [35;1m│[0m       guard string_to_int32(text) into value: int32 else err =>
+ [2m 9[0m │ [35;1m│[0m           return new WrappedParseError.Reading:
+ [2m10[0m │ [35;1m│[0m               source: err
+ [2m11[0m │ [35;1m│[0m               context: 'bad-input={text}'
+ [2m12[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return value
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mundeclared error type[0m
+    ╰────
+[36m  help: [0mEnsure the error type 'WrappedParseError' is defined and visible in the current scope.
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/iterative-drop/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/multiple-returns-fallible/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/op-cat/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/print-text-flush-without-newline/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/process-api-smoke/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/process-cwd/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/process-env/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/process-paths/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'restored_cwd_string' is never used
+    ╭─[[36;1;4mtest-projects/process-paths/src/main.op:74:9[0m]
+ [2m73[0m │     let restored_cwd = propagate current_working_directory_sync()
+ [2m74[0m │     let restored_cwd_string = path_to_string(restored_cwd)
+    · [35;1m        ─────────┬─────────[0m
+    ·                  [35;1m╰── [35;1munused variable[0m[0m
+ [2m75[0m │     if restored_cwd_string is original_cwd_string:
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/saferm/src/main.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './help'
+   ╭─[[36;1;4mtest-projects/saferm/src/main.op:3:8[0m]
+ [2m2[0m │ import list_directory_sync, join_path_components, path_to_string, path_exists_sync, is_directory_sync, take_input from standard
+ [2m3[0m │ import print_help from ./help
+   · [35;1m       ─────┬────[0m
+   ·             [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m4[0m │ import force_options, prompt_each_options, prompt_once_options, prompt_never_options, recursive_options, preserve_root_options, preserve_root_all_options, no_preserve_root_options, verbose_options, dir_options, one_file_system_options, help_options, version_options, contains_string, starts_with_dash from ./options
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './options'
+   ╭─[[36;1;4mtest-projects/saferm/src/main.op:4:8[0m]
+ [2m3[0m │ import print_help from ./help
+ [2m4[0m │ import force_options, prompt_each_options, prompt_once_options, prompt_never_options, recursive_options, preserve_root_options, preserve_root_all_options, no_preserve_root_options, verbose_options, dir_options, one_file_system_options, help_options, version_options, contains_string, starts_with_dash from ./options
+   · [35;1m       ──────┬──────[0m
+   ·              [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m5[0m │ import trash_directory, create_trash_path_if_not_exists, get_trash_entries, move_to_destination, trash_entry_exists, targets_current_directory, targets_root_directory from ./trash
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './trash'
+   ╭─[[36;1;4mtest-projects/saferm/src/main.op:5:8[0m]
+ [2m4[0m │ import force_options, prompt_each_options, prompt_once_options, prompt_never_options, recursive_options, preserve_root_options, preserve_root_all_options, no_preserve_root_options, verbose_options, dir_options, one_file_system_options, help_options, version_options, contains_string, starts_with_dash from ./options
+ [2m5[0m │ import trash_directory, create_trash_path_if_not_exists, get_trash_entries, move_to_destination, trash_entry_exists, targets_current_directory, targets_root_directory from ./trash
+   · [35;1m       ───────┬───────[0m
+   ·               [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m6[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::symbol_not_found[0m
+
+  [31m×[0m Symbol 'trash_directory' not found in this scope
+    ╭─[[36;1;4mtest-projects/saferm/src/main.op:24:26[0m]
+ [2m23[0m │ entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, InvalidEnvironmentVariableNameError, InvalidUtf8Error, IndexOutOfBoundsError =>
+ [2m24[0m │     let dest = propagate trash_directory()
+    · [35;1m                         ───────┬───────[0m
+    ·                                 [35;1m╰── [35;1mundefined symbol[0m[0m
+ [2m25[0m │
+    ╰────
+[36m  help: [0mEnsure the symbol is declared before use or imported from the correct module
+
+
+error: aborting due to 4 previous errors
+
+=== test-projects/saferm/src/main_backup.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/saferm/src/trash.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/saferm/src/trash.op:1:1[0m]
+ [2m1[0m │ import get_environment_variable_or from process
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │ import list_directory_sync, join_path_components, move_path_sync, path_to_string, path_from, path_exists_sync, create_directory_recursive_sync, path_file_name, path_parent_directory, int64_to_string from standard
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/should-print-final-result/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/sleep-ms-sync-50ms-timing/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/sleep-ms-sync-rejects-negative/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/stdout-writer-interleaves-with-print-text/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/stdout-writer-write-flush/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-builder-push-finish/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-builder-use-after-finish-errors/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-indexing/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-indexing-bounds/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-join-basic-smoke/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-join-empty-and-single/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-lines-whitespace-stdlib/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-ranges-stdlib/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-search-stdlib/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/terminal-clear-screen-ansi-bytes/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/terminal-draw-rows-bytes/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/terminal-move-cursor-rejects-negative-column/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/terminal-move-cursor-rejects-negative-row/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/terminal-move-cursor-zero-based-ansi-bytes/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/windows-file-ops/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'summary_readback' is never used
+    ╭─[[36;1;4mtest-projects/windows-file-ops/src/main.op:97:9[0m]
+ [2m96[0m │     propagate write_text_sync(summary_file, summary_text)
+ [2m97[0m │     let summary_readback = propagate read_text_sync(summary_file)
+    · [35;1m        ────────┬───────[0m
+    ·                 [35;1m╰── [35;1munused variable[0m[0m
+ [2m98[0m │     if summary_readback is summary_text:
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally

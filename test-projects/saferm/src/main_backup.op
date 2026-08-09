@@ -9,7 +9,7 @@ import join_path_components, move_path_sync, path_to_string, path_from, path_exi
 
     This is a Unix-only program, not meant for Windows
 ##
-entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, PermissionDeniedError, MoveFailureError, FileAlreadyExistsError, InvalidPathError => 
+entry main = f(args: string[]): void errors FilesystemPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError =>
     let dest = path_from('~/.local/share/op-trash/')
 
     if args.length < 2:

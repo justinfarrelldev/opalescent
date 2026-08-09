@@ -1,0 +1,2813 @@
+=== test-projects/_absolute_path_sync/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/_absolute_path_sync/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors InvalidPathError, PermissionDeniedError =>
+ [2m 7[0m │ [35;1m│[0m       let existing_raw = './test-projects/_absolute_path_sync/src/main.op'
+ [2m 8[0m │ [35;1m│[0m       guard absolute_path_sync(path_from(existing_raw)) into existing_abs else err =>
+ [2m 9[0m │ [35;1m│[0m           print('{existing_raw}: error')
+ [2m10[0m │ [35;1m│[0m           propagate err
+ [2m11[0m │ [35;1m│[0m
+ [2m12[0m │ [35;1m│[0m       if path_file_name(existing_abs) is 'main.op':
+ [2m13[0m │ [35;1m│[0m           print('{existing_raw} -> {path_to_string(existing_abs)}')
+ [2m14[0m │ [35;1m│[0m       else:
+ [2m15[0m │ [35;1m│[0m           print('{existing_raw}: error')
+ [2m16[0m │ [35;1m│[0m
+ [2m17[0m │ [35;1m│[0m       let missing_raw = './test-projects/_absolute_path_sync/does_not_exist.txt'
+ [2m18[0m │ [35;1m│[0m       guard absolute_path_sync(path_from(missing_raw)) into missing_abs else err =>
+ [2m19[0m │ [35;1m│[0m           print('{missing_raw}: error')
+ [2m20[0m │ [35;1m│[0m           propagate err
+ [2m21[0m │ [35;1m│[0m
+ [2m22[0m │ [35;1m│[0m       if path_file_name(missing_abs) is 'does_not_exist.txt':
+ [2m23[0m │ [35;1m│[0m           print('{missing_raw} -> {path_to_string(missing_abs)}')
+ [2m24[0m │ [35;1m│[0m       else:
+ [2m25[0m │ [35;1m│[0m           print('{missing_raw}: error')
+ [2m26[0m │ [35;1m│[0m
+ [2m27[0m │ [35;1m│[0m       let dotdot_raw = './test-projects/_absolute_path_sync/src/../README.md'
+ [2m28[0m │ [35;1m│[0m       guard absolute_path_sync(path_from(dotdot_raw)) into dotdot_abs else err =>
+ [2m29[0m │ [35;1m│[0m           print('{dotdot_raw}: error')
+ [2m30[0m │ [35;1m│[0m           propagate err
+ [2m31[0m │ [35;1m│[0m
+ [2m32[0m │ [35;1m│[0m       if path_file_name(dotdot_abs) is 'README.md':
+ [2m33[0m │ [35;1m│[0m           print('{dotdot_raw} -> {path_to_string(dotdot_abs)}')
+ [2m34[0m │ [35;1m│[0m       else:
+ [2m35[0m │ [35;1m│[0m           print('{dotdot_raw}: error')
+ [2m36[0m │ [35;1m│[0m
+ [2m37[0m │ [35;1m│[0m       let absolute_raw = '/'
+ [2m38[0m │ [35;1m│[0m       guard absolute_path_sync(path_from(absolute_raw)) into absolute_abs else err =>
+ [2m39[0m │ [35;1m│[0m           print('{absolute_raw}: error')
+ [2m40[0m │ [35;1m│[0m           propagate err
+ [2m41[0m │ [35;1m│[0m
+ [2m42[0m │ [35;1m│[0m       if path_file_name(absolute_abs) is '':
+ [2m43[0m │ [35;1m│[0m           print('{absolute_raw} -> {path_to_string(absolute_abs)}')
+ [2m44[0m │ [35;1m│[0m       else:
+ [2m45[0m │ [35;1m│[0m           print('{absolute_raw}: error')
+ [2m46[0m │ [35;1m│[0m
+ [2m47[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/_absolute_path_sync/src/main.op:9:9[0m]
+ [2m 8[0m │         guard absolute_path_sync(path_from(existing_raw)) into existing_abs else err =>
+ [2m 9[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('{existing_raw}: error')
+ [2m10[0m │ [35;1m│[0m           propagate err
+ [2m11[0m │ [35;1m│[0m
+ [2m12[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     if path_file_name(existing_abs) is 'main.op':
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m13[0m │             print('{existing_raw} -> {path_to_string(existing_abs)}')
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/_absolute_path_sync/src/main.op:19:9[0m]
+ [2m18[0m │         guard absolute_path_sync(path_from(missing_raw)) into missing_abs else err =>
+ [2m19[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('{missing_raw}: error')
+ [2m20[0m │ [35;1m│[0m           propagate err
+ [2m21[0m │ [35;1m│[0m
+ [2m22[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     if path_file_name(missing_abs) is 'does_not_exist.txt':
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m23[0m │             print('{missing_raw} -> {path_to_string(missing_abs)}')
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/_absolute_path_sync/src/main.op:29:9[0m]
+ [2m28[0m │         guard absolute_path_sync(path_from(dotdot_raw)) into dotdot_abs else err =>
+ [2m29[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('{dotdot_raw}: error')
+ [2m30[0m │ [35;1m│[0m           propagate err
+ [2m31[0m │ [35;1m│[0m
+ [2m32[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     if path_file_name(dotdot_abs) is 'README.md':
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m33[0m │             print('{dotdot_raw} -> {path_to_string(dotdot_abs)}')
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/_absolute_path_sync/src/main.op:39:9[0m]
+ [2m38[0m │         guard absolute_path_sync(path_from(absolute_raw)) into absolute_abs else err =>
+ [2m39[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('{absolute_raw}: error')
+ [2m40[0m │ [35;1m│[0m           propagate err
+ [2m41[0m │ [35;1m│[0m
+ [2m42[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     if path_file_name(absolute_abs) is '':
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m43[0m │             print('{absolute_raw} -> {path_to_string(absolute_abs)}')
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/_fs_append_log/src/logger.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/_fs_append_log/src/logger.op:1:1[0m]
+ [2m1[0m │ import path_from, append_text_sync from standard
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/_fs_append_log/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/_fs_append_log/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, WriteFailureError, FilesystemFullError, ReadFailureError, InvalidUtf8Error =>
+ [2m 7[0m │ [35;1m│[0m       let log_path = '/tmp/opalescent-fs-append-log.txt'
+ [2m 8[0m │ [35;1m│[0m
+ [2m 9[0m │ [35;1m│[0m       propagate append_text_sync(path_from(log_path), 'line-1\n')
+ [2m10[0m │ [35;1m│[0m       propagate append_text_sync(path_from(log_path), 'line-2\n')
+ [2m11[0m │ [35;1m│[0m       propagate append_text_sync(path_from(log_path), 'line-3\n')
+ [2m12[0m │ [35;1m│[0m       propagate append_text_sync(path_from(log_path), 'line-4\n')
+ [2m13[0m │ [35;1m│[0m       propagate append_text_sync(path_from(log_path), 'line-5\n')
+ [2m14[0m │ [35;1m│[0m
+ [2m15[0m │ [35;1m│[0m       guard read_lines_sync(path_from(log_path)) into lines else err =>
+ [2m16[0m │ [35;1m│[0m           print(err)
+ [2m17[0m │ [35;1m│[0m           propagate err
+ [2m18[0m │ [35;1m│[0m
+ [2m19[0m │ [35;1m│[0m       guard read_text_sync(path_from(log_path)) into full_text else err =>
+ [2m20[0m │ [35;1m│[0m           print(err)
+ [2m21[0m │ [35;1m│[0m           propagate err
+ [2m22[0m │ [35;1m│[0m
+ [2m23[0m │ [35;1m│[0m       if full_text is 'line-1\nline-2\nline-3\nline-4\nline-5\n':
+ [2m24[0m │ [35;1m│[0m           print('appended 5 lines; readback confirmed')
+ [2m25[0m │ [35;1m│[0m       else:
+ [2m26[0m │ [35;1m│[0m           print('readback count mismatch')
+ [2m27[0m │ [35;1m│[0m
+ [2m28[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/_fs_dir_inventory/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/_fs_dir_inventory/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors FileNotFoundError, DirectoryNotFoundError, PermissionDeniedError, IsADirectoryError, IsNotADirectoryError, InvalidPathError, CreateFailureError, FileAlreadyExistsError, WriteFailureError, ReadFailureError, InvalidUtf8Error, DeleteFailureError, DirectoryNotEmptyError, FilesystemFullError =>
+ [2m 7[0m │ [35;1m│[0m       let workspace_dir = path_from('workspace')
+ [2m 8[0m │ [35;1m│[0m       let inventory_dir = path_from('workspace/inventory')
+ [2m 9[0m │ [35;1m│[0m       let file_a = path_from('workspace/inventory/a.txt')
+ [2m10[0m │ [35;1m│[0m       let file_b = path_from('workspace/inventory/b.txt')
+ [2m11[0m │ [35;1m│[0m       let file_c = path_from('workspace/inventory/c.txt')
+ [2m12[0m │ [35;1m│[0m
+ [2m13[0m │ [35;1m│[0m       guard delete_file_sync(file_a) else cleanup_a_err =>
+ [2m14[0m │ [35;1m│[0m           let _unused_cleanup_a_error = cleanup_a_err
+ [2m15[0m │ [35;1m│[0m       guard delete_file_sync(file_b) else cleanup_b_err =>
+ [2m16[0m │ [35;1m│[0m           let _unused_cleanup_b_error = cleanup_b_err
+ [2m17[0m │ [35;1m│[0m       guard delete_file_sync(file_c) else cleanup_c_err =>
+ [2m18[0m │ [35;1m│[0m           let _unused_cleanup_c_error = cleanup_c_err
+ [2m19[0m │ [35;1m│[0m       guard delete_directory_sync(inventory_dir) else cleanup_dir_err =>
+ [2m20[0m │ [35;1m│[0m           let _unused_cleanup_dir_error = cleanup_dir_err
+ [2m21[0m │ [35;1m│[0m
+ [2m22[0m │ [35;1m│[0m       guard create_directory_sync(workspace_dir) else workspace_create_err =>
+ [2m23[0m │ [35;1m│[0m           let _unused_workspace_create_error = workspace_create_err
+ [2m24[0m │ [35;1m│[0m       guard create_directory_sync(inventory_dir) else inventory_create_err =>
+ [2m25[0m │ [35;1m│[0m           let _unused_inventory_create_error = inventory_create_err
+ [2m26[0m │ [35;1m│[0m
+ [2m27[0m │ [35;1m│[0m       propagate write_text_sync(file_a, 'alpha')
+ [2m28[0m │ [35;1m│[0m       propagate write_text_sync(file_b, 'beta')
+ [2m29[0m │ [35;1m│[0m       propagate write_text_sync(file_c, 'gamma')
+ [2m30[0m │ [35;1m│[0m
+ [2m31[0m │ [35;1m│[0m       let _text_a = propagate read_text_sync(file_a)
+ [2m32[0m │ [35;1m│[0m       let _text_b = propagate read_text_sync(file_b)
+ [2m33[0m │ [35;1m│[0m       let _text_c = propagate read_text_sync(file_c)
+ [2m34[0m │ [35;1m│[0m
+ [2m35[0m │ [35;1m│[0m       propagate delete_file_sync(file_a)
+ [2m36[0m │ [35;1m│[0m       propagate delete_file_sync(file_b)
+ [2m37[0m │ [35;1m│[0m       propagate delete_file_sync(file_c)
+ [2m38[0m │ [35;1m│[0m       propagate delete_directory_sync(inventory_dir)
+ [2m39[0m │ [35;1m│[0m
+ [2m40[0m │ [35;1m│[0m       print('inventory: 3 files; cleanup ok')
+ [2m41[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/_fs_read_text_lines/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/_fs_read_text_lines/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, OffsetOutOfRangeError =>
+ [2m 7[0m │ [35;1m│[0m       guard read_lines_sync(path_from('/home/justi/Projects/opalescent/test-projects/_fs_read_text_lines/fixtures/sample.txt')) into lines else err =>
+ [2m 8[0m │ [35;1m│[0m           print(err)
+ [2m 9[0m │ [35;1m│[0m           propagate err
+ [2m10[0m │ [35;1m│[0m
+ [2m11[0m │ [35;1m│[0m       print('lines={int64_to_string(lines.length)}')
+ [2m12[0m │ [35;1m│[0m
+ [2m13[0m │ [35;1m│[0m       guard read_first_line_sync(path_from('/home/justi/Projects/opalescent/test-projects/_fs_read_text_lines/fixtures/sample.txt')) into first else err =>
+ [2m14[0m │ [35;1m│[0m           print(err)
+ [2m15[0m │ [35;1m│[0m           propagate err
+ [2m16[0m │ [35;1m│[0m
+ [2m17[0m │ [35;1m│[0m       print('first={first}')
+ [2m18[0m │ [35;1m│[0m
+ [2m19[0m │ [35;1m│[0m       guard read_text_sync(path_from('/home/justi/Projects/opalescent/test-projects/_fs_read_text_lines/fixtures/sample.txt')) into full_text else err =>
+ [2m20[0m │ [35;1m│[0m           print(err)
+ [2m21[0m │ [35;1m│[0m           propagate err
+ [2m22[0m │ [35;1m│[0m
+ [2m23[0m │ [35;1m│[0m       let lines_read_ok = true
+ [2m24[0m │ [35;1m│[0m       let raw_matches = full_text is 'alpha\r\nbeta\ngamma\r\ndelta\n'
+ [2m25[0m │ [35;1m│[0m       let first_matches = first is 'alpha'
+ [2m26[0m │ [35;1m│[0m
+ [2m27[0m │ [35;1m│[0m       let matches_all = lines_read_ok and raw_matches and first_matches
+ [2m28[0m │ [35;1m│[0m       if matches_all:
+ [2m29[0m │ [35;1m│[0m           print('match=true')
+ [2m30[0m │ [35;1m│[0m       else:
+ [2m31[0m │ [35;1m│[0m           print('match=false')
+ [2m32[0m │ [35;1m│[0m
+ [2m33[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/_fs_read_text_lines/src/summary.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/_fs_read_text_lines/src/summary.op:1:1[0m]
+ [2m1[0m │ ##
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │   Description: Helpers for _fs_read_text_lines fixture summary output.
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/_fs_write_text_atomic/src/atomic.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/_fs_write_text_atomic/src/atomic.op:1:1[0m]
+ [2m1[0m │ import write_text_sync, move_path_sync from standard
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/_fs_write_text_atomic/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/_fs_write_text_atomic/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidPathError, WriteFailureError, FilesystemFullError, MoveFailureError, FileAlreadyExistsError, DeleteFailureError, ReadFailureError, InvalidUtf8Error =>
+ [2m 7[0m │ [35;1m│[0m       let work_dir_raw = '/tmp'
+ [2m 8[0m │ [35;1m│[0m       let work_dir = path_from(work_dir_raw)
+ [2m 9[0m │ [35;1m│[0m       let target_path = join_path_components(work_dir, ['opalescent-fs-write-text-atomic-strict.txt'])
+ [2m10[0m │ [35;1m│[0m       let tmp_path = join_path_components(work_dir, ['opalescent-fs-write-text-atomic-strict.txt.tmp.1'])
+ [2m11[0m │ [35;1m│[0m       let payload = 'atomic payload'
+ [2m12[0m │ [35;1m│[0m
+ [2m13[0m │ [35;1m│[0m       propagate write_text_sync(tmp_path, payload)
+ [2m14[0m │ [35;1m│[0m
+ [2m15[0m │ [35;1m│[0m       propagate move_path_sync(tmp_path, target_path)
+ [2m16[0m │ [35;1m│[0m
+ [2m17[0m │ [35;1m│[0m       let written = propagate read_text_sync(target_path)
+ [2m18[0m │ [35;1m│[0m       print('wrote atomically: {int64_to_string(written.length)}')
+ [2m19[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/ambiguous-guard-if/src/main.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::parser::guard_ambiguous_if_else[0m
+
+  [31m×[0m Ambiguous guarded if/else expression in guard statement
+   ╭─[[36;1;4mtest-projects/ambiguous-guard-if/src/main.op:5:32[0m]
+ [2m4[0m │ let parse = f(): int32 errors ParseError => {
+ [2m5[0m │     guard if true { return 1 } else { return 0 } else err =>
+   · [35;1m                               ──┬─[0m
+   ·                                  [35;1m╰── [35;1mthis `else` can be read as part of `if ... else ...` instead of the guard handler[0m[0m
+ [2m6[0m │         return 42
+   ╰────
+[36m  help: [0mWrap the guarded if-expression in parentheses, for example: `guard (if ... else ...) else err =>`
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/array-append/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-append/src/main.op:7:32[0m]
+ [2m6[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m7[0m │     let original: int32[] = [1 as int32, 2 as int32]
+   · [35;1m                               ────┬───[0m
+   ·                                    [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m8[0m │     let grown = append(original, 3 as int32)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-append/src/main.op:7:44[0m]
+ [2m6[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m7[0m │     let original: int32[] = [1 as int32, 2 as int32]
+   · [35;1m                                           ────┬───[0m
+   ·                                                [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m8[0m │     let grown = append(original, 3 as int32)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-append/src/main.op:8:36[0m]
+ [2m7[0m │     let original: int32[] = [1 as int32, 2 as int32]
+ [2m8[0m │     let grown = append(original, 3 as int32)
+   · [35;1m                                   ────┬───[0m
+   ·                                        [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m9[0m │     print('original length {original.length}')
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-bounds/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-bounds/src/main.op:5:27[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let arr: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                          ────┬───[0m
+   ·                               [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let x = propagate arr.at(5)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-bounds/src/main.op:5:39[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let arr: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                                      ────┬───[0m
+   ·                                           [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let x = propagate arr.at(5)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-bounds/src/main.op:5:51[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let arr: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                                                  ────┬───[0m
+   ·                                                       [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let x = propagate arr.at(5)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'x' is never used
+   ╭─[[36;1;4mtest-projects/array-bounds/src/main.op:6:9[0m]
+ [2m5[0m │     let arr: int32[] = [1 as int32, 2 as int32, 3 as int32]
+ [2m6[0m │     let x = propagate arr.at(5)
+   · [35;1m        ┬[0m
+   ·         [35;1m╰── [35;1munused variable[0m[0m
+ [2m7[0m │     return void
+   ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/array-double/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:34[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                 ────┬───[0m
+   ·                                      [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:46[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                             ────┬───[0m
+   ·                                                  [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:58[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                         ────┬───[0m
+   ·                                                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:72[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                       ────┬───[0m
+   ·                                                                            [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:84[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                                   ────┬───[0m
+   ·                                                                                        [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:96[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                                               ────┬───[0m
+   ·                                                                                                    [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:110[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                                                             ────┬───[0m
+   ·                                                                                                                  [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:122[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                                                                         ────┬───[0m
+   ·                                                                                                                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-double/src/main.op:5:134[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let uniform: int32[][] = [[1 as int32, 2 as int32, 3 as int32], [4 as int32, 5 as int32, 6 as int32], [7 as int32, 8 as int32, 9 as int32]]
+   · [35;1m                                                                                                                                     ────┬───[0m
+   ·                                                                                                                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let uniform_row_1: int32[] = propagate uniform.at(1)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:12:33[0m]
+ [2m11[0m │
+ [2m12[0m │     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    · [35;1m                                ────┬───[0m
+    ·                                     [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     let jagged_row_0: int32[] = propagate jagged.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:12:45[0m]
+ [2m11[0m │
+ [2m12[0m │     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    · [35;1m                                            ────┬───[0m
+    ·                                                 [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     let jagged_row_0: int32[] = propagate jagged.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:12:63[0m]
+ [2m11[0m │
+ [2m12[0m │     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    · [35;1m                                                              ────┬───[0m
+    ·                                                                   [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     let jagged_row_0: int32[] = propagate jagged.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:12:75[0m]
+ [2m11[0m │
+ [2m12[0m │     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    · [35;1m                                                                          ────┬───[0m
+    ·                                                                               [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     let jagged_row_0: int32[] = propagate jagged.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:12:87[0m]
+ [2m11[0m │
+ [2m12[0m │     let jagged: int32[][] = [[1 as int32, 2 as int32], [], [3 as int32, 4 as int32, 5 as int32]]
+    · [35;1m                                                                                      ────┬───[0m
+    ·                                                                                           [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     let jagged_row_0: int32[] = propagate jagged.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:22:38[0m]
+ [2m21[0m │
+ [2m22[0m │     let single_row: int32[][] = [[10 as int32, 11 as int32, 12 as int32]]
+    · [35;1m                                     ────┬───[0m
+    ·                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m23[0m │     let single_row_0: int32[] = propagate single_row.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:22:51[0m]
+ [2m21[0m │
+ [2m22[0m │     let single_row: int32[][] = [[10 as int32, 11 as int32, 12 as int32]]
+    · [35;1m                                                  ────┬───[0m
+    ·                                                       [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m23[0m │     let single_row_0: int32[] = propagate single_row.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:22:64[0m]
+ [2m21[0m │
+ [2m22[0m │     let single_row: int32[][] = [[10 as int32, 11 as int32, 12 as int32]]
+    · [35;1m                                                               ────┬───[0m
+    ·                                                                    [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m23[0m │     let single_row_0: int32[] = propagate single_row.at(0)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:26:38[0m]
+ [2m25[0m │
+ [2m26[0m │     let single_col: int32[][] = [[20 as int32], [21 as int32], [22 as int32]]
+    · [35;1m                                     ────┬───[0m
+    ·                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m27[0m │     let single_col_2: int32[] = propagate single_col.at(2)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:26:53[0m]
+ [2m25[0m │
+ [2m26[0m │     let single_col: int32[][] = [[20 as int32], [21 as int32], [22 as int32]]
+    · [35;1m                                                    ────┬───[0m
+    ·                                                         [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m27[0m │     let single_col_2: int32[] = propagate single_col.at(2)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-double/src/main.op:26:68[0m]
+ [2m25[0m │
+ [2m26[0m │     let single_col: int32[][] = [[20 as int32], [21 as int32], [22 as int32]]
+    · [35;1m                                                                   ────┬───[0m
+    ·                                                                        [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m27[0m │     let single_col_2: int32[] = propagate single_col.at(2)
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-filter/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:5:26[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+   · [35;1m                         ────┬───[0m
+   ·                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:5:38[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+   · [35;1m                                     ────┬───[0m
+   ·                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:5:50[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+   · [35;1m                                                 ────┬───[0m
+   ·                                                      [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:5:62[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+   · [35;1m                                                             ────┬───[0m
+   ·                                                                  [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:6:59[0m]
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   · [35;1m                                                          ────┬───[0m
+   ·                                                               [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m7[0m │     print('length {evens.length}')
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-filter/src/main.op:6:76[0m]
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32, 4 as int32]
+ [2m6[0m │     let evens = xs.filter(f(x: int32): boolean => (x % (2 as int32)) is (0 as int32))
+   · [35;1m                                                                           ────┬───[0m
+   ·                                                                                [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m7[0m │     print('length {evens.length}')
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-filter/src/main.op:9:58[0m]
+ [2m 8[0m │     print('values {propagate evens.at(0)} {propagate evens.at(1)}')
+ [2m 9[0m │     let none = xs.filter(f(x: int32): boolean => x > (10 as int32))
+    · [35;1m                                                         ────┬───[0m
+    ·                                                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m10[0m │     print('none length {none.length}')
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-filter/src/main.op:11:63[0m]
+ [2m10[0m │     print('none length {none.length}')
+ [2m11[0m │     let all_values = xs.filter(f(x: int32): boolean => x > (0 as int32))
+    · [35;1m                                                              ────┬───[0m
+    ·                                                                   [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m12[0m │     print('all length {all_values.length}')
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-map/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-map/src/main.op:5:26[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                         ────┬───[0m
+   ·                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let doubled = xs.map(f(x: int32): int32 => x * (2 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-map/src/main.op:5:38[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                                     ────┬───[0m
+   ·                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let doubled = xs.map(f(x: int32): int32 => x * (2 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-map/src/main.op:5:50[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32]
+   · [35;1m                                                 ────┬───[0m
+   ·                                                      [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let doubled = xs.map(f(x: int32): int32 => x * (2 as int32))
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-map/src/main.op:6:55[0m]
+ [2m5[0m │     let xs: int32[] = [1 as int32, 2 as int32, 3 as int32]
+ [2m6[0m │     let doubled = xs.map(f(x: int32): int32 => x * (2 as int32))
+   · [35;1m                                                      ────┬───[0m
+   ·                                                           [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m7[0m │     print('length {doubled.length}')
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-pop/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-pop/src/main.op:5:34[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let mutable xs: int32[] = [4 as int32, 5 as int32, 6 as int32]
+   · [35;1m                                 ────┬───[0m
+   ·                                      [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let last = xs.pop()
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-pop/src/main.op:5:46[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let mutable xs: int32[] = [4 as int32, 5 as int32, 6 as int32]
+   · [35;1m                                             ────┬───[0m
+   ·                                                  [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let last = xs.pop()
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-pop/src/main.op:5:58[0m]
+ [2m4[0m │ entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m5[0m │     let mutable xs: int32[] = [4 as int32, 5 as int32, 6 as int32]
+   · [35;1m                                                         ────┬───[0m
+   ·                                                              [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m6[0m │     let last = xs.pop()
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-push/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-push/src/main.op:6:16[0m]
+ [2m5[0m │     let mutable xs: int32[] = []
+ [2m6[0m │     xs.push(10 as int32)
+   · [35;1m               ────┬───[0m
+   ·                    [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m7[0m │     xs.push(25 as int32)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-push/src/main.op:7:16[0m]
+ [2m6[0m │     xs.push(10 as int32)
+ [2m7[0m │     xs.push(25 as int32)
+   · [35;1m               ────┬───[0m
+   ·                    [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m8[0m │     xs.push(8 as int32)
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/array-push/src/main.op:8:15[0m]
+ [2m7[0m │     xs.push(25 as int32)
+ [2m8[0m │     xs.push(8 as int32)
+   · [35;1m              ────┬───[0m
+   ·                   [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m9[0m │     print('length {xs.length}')
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/array-rc-layout/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:10:31[0m]
+ [2m 9[0m │
+ [2m10[0m │     let literal: int32[] = [1 as int32, 2 as int32]
+    · [35;1m                              ────┬───[0m
+    ·                                   [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m11[0m │     let alias = literal
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:10:43[0m]
+ [2m 9[0m │
+ [2m10[0m │     let literal: int32[] = [1 as int32, 2 as int32]
+    · [35;1m                                          ────┬───[0m
+    ·                                               [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m11[0m │     let alias = literal
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:12:38[0m]
+ [2m11[0m │     let alias = literal
+ [2m12[0m │     let appended = append(literal, 3 as int32)
+    · [35;1m                                     ────┬───[0m
+    ·                                          [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m13[0m │     print('literal length {literal.length}')
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:19:39[0m]
+ [2m18[0m │
+ [2m19[0m │     let mutable rebound: int32[] = [7 as int32, 8 as int32]
+    · [35;1m                                      ────┬───[0m
+    ·                                           [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m20[0m │     let rebound_alias = rebound
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:19:51[0m]
+ [2m18[0m │
+ [2m19[0m │     let mutable rebound: int32[] = [7 as int32, 8 as int32]
+    · [35;1m                                                  ────┬───[0m
+    ·                                                       [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m20[0m │     let rebound_alias = rebound
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+    ╭─[[36;1;4mtest-projects/array-rc-layout/src/main.op:21:20[0m]
+ [2m20[0m │     let rebound_alias = rebound
+ [2m21[0m │     rebound.push(9 as int32)
+    · [35;1m                   ────┬───[0m
+    ·                        [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m22[0m │     print('rebound length {rebound.length}')
+    ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/bytes-hex-roundtrip/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'BytesError'
+    ╭─[[36;1;4mtest-projects/bytes-hex-roundtrip/src/main.op:20:7[0m]
+ [2m19[0m │     ##
+ [2m20[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors HexDecodeError, SliceRangeError =>
+ [2m21[0m │ [35;1m│[0m       guard bytes_from_hex('deadbeef') into buffer else decode_error =>
+ [2m22[0m │ [35;1m│[0m           print('decode error: {decode_error}')
+ [2m23[0m │ [35;1m│[0m           propagate decode_error
+ [2m24[0m │ [35;1m│[0m
+ [2m25[0m │ [35;1m│[0m       let original_length: int32 = buffer.length
+ [2m26[0m │ [35;1m│[0m       print('length: {original_length}')
+ [2m27[0m │ [35;1m│[0m
+ [2m28[0m │ [35;1m│[0m       let hex_first: string = bytes_to_hex(buffer)
+ [2m29[0m │ [35;1m│[0m       print('first: {hex_first}')
+ [2m30[0m │ [35;1m│[0m
+ [2m31[0m │ [35;1m│[0m       let doubled: Bytes = bytes_concatenate(buffer, buffer)
+ [2m32[0m │ [35;1m│[0m       let doubled_length: int32 = doubled.length
+ [2m33[0m │ [35;1m│[0m       print('doubled: {doubled_length}')
+ [2m34[0m │ [35;1m│[0m
+ [2m35[0m │ [35;1m│[0m       guard bytes_slice(doubled, 0, 4) into first_half else slice_error =>
+ [2m36[0m │ [35;1m│[0m           print('slice error: {slice_error}')
+ [2m37[0m │ [35;1m│[0m           propagate slice_error
+ [2m38[0m │ [35;1m│[0m
+ [2m39[0m │ [35;1m│[0m       let hex_slice: string = bytes_to_hex(first_half)
+ [2m40[0m │ [35;1m│[0m       print('slice: {hex_slice}')
+ [2m41[0m │ [35;1m│[0m       return void
+ [2m42[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors HexDecodeError, SliceRangeError` with `errors BytesError`.
+
+
+=== test-projects/delete-downloads/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/delete-downloads/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError, DeleteFailureError, CreateFailureError, FilesystemFullError =>
+ [2m 7[0m │ [35;1m│[0m       let folder = path_from('test-projects/delete-downloads/workspace')
+ [2m 8[0m │ [35;1m│[0m
+ [2m 9[0m │ [35;1m│[0m       guard create_directory_recursive_sync(folder) into _ else err =>
+ [2m10[0m │ [35;1m│[0m           print('LIST_ERR={err}')
+ [2m11[0m │ [35;1m│[0m           propagate err
+ [2m12[0m │ [35;1m│[0m
+ [2m13[0m │ [35;1m│[0m       guard list_directory_sync(folder) into entries else err =>
+ [2m14[0m │ [35;1m│[0m           print('LIST_ERR={err}')
+ [2m15[0m │ [35;1m│[0m           propagate err
+ [2m16[0m │ [35;1m│[0m
+ [2m17[0m │ [35;1m│[0m       for item in entries:
+ [2m18[0m │ [35;1m│[0m           let child = join_path_components(folder, [item])
+ [2m19[0m │ [35;1m│[0m           guard delete_directory_recursive_sync(child) into _ else err =>
+ [2m20[0m │ [35;1m│[0m               print('DELETE_ERR={path_to_string(child)}: {err}')
+ [2m21[0m │ [35;1m│[0m               propagate err
+ [2m22[0m │ [35;1m│[0m
+ [2m23[0m │ [35;1m│[0m       print('removed_or_attempted={int64_to_string(entries.length)}')
+ [2m24[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/delete-downloads-legal/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/delete-downloads-legal/src/main.op:9:9[0m]
+ [2m 8[0m │         guard string_to_int32(path_to_string(folder)) into entry_count: int32 else err =>
+ [2m 9[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('LEGAL_LIST_ERR=handled-before-propagate')
+ [2m10[0m │ [35;1m│[0m           propagate err
+ [2m11[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return entry_count
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m12[0m │
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/delete-downloads-strict/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/delete-downloads-strict/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError, DeleteFailureError, CreateFailureError, FilesystemFullError =>
+ [2m 7[0m │ [35;1m│[0m       let folder = path_from('test-projects/delete-downloads-strict/workspace')
+ [2m 8[0m │ [35;1m│[0m
+ [2m 9[0m │ [35;1m│[0m       guard create_directory_recursive_sync(folder) into _ else err =>
+ [2m10[0m │ [35;1m│[0m           print('LIST_ERR={err}')
+ [2m11[0m │ [35;1m│[0m           propagate err
+ [2m12[0m │ [35;1m│[0m
+ [2m13[0m │ [35;1m│[0m       guard list_directory_sync(folder) into entries else err =>
+ [2m14[0m │ [35;1m│[0m           print('LIST_ERR={err}')
+ [2m15[0m │ [35;1m│[0m           propagate err
+ [2m16[0m │ [35;1m│[0m
+ [2m17[0m │ [35;1m│[0m       for item in entries:
+ [2m18[0m │ [35;1m│[0m           let child = join_path_components(folder, [item])
+ [2m19[0m │ [35;1m│[0m           guard delete_directory_recursive_sync(child) into _ else err =>
+ [2m20[0m │ [35;1m│[0m               print('DELETE_ERR={path_to_string(child)}: {err}')
+ [2m21[0m │ [35;1m│[0m               propagate err
+ [2m22[0m │ [35;1m│[0m
+ [2m23[0m │ [35;1m│[0m       print('removed_or_attempted={int64_to_string(entries.length)}')
+ [2m24[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/delete-downloads-strict-legal/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'err' is never used
+    ╭─[[36;1;4mtest-projects/delete-downloads-strict-legal/src/main.op:9:9[0m]
+ [2m 8[0m │         guard string_to_int32(path_to_string(folder)) into entry_count: int32 else err =>
+ [2m 9[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         print('STRICT_LEGAL_LIST_ERR=handled-before-propagate')
+ [2m10[0m │ [35;1m│[0m           propagate err
+ [2m11[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return entry_count
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1munused variable[0m
+ [2m12[0m │
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/error-display/src/main.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::type_mismatch[0m
+
+  [31m×[0m Type mismatch: expected 'int32', found 'string'
+   ╭─[[36;1;4mtest-projects/error-display/src/main.op:6:12[0m]
+ [2m5[0m │     # Type error 1: assigning string to int32
+ [2m6[0m │     let x: int32 = 'hello'
+   · [35;1m           ──┬──[0m[33;1m   ───┬───[0m
+   ·              [35;1m│[0m        [33;1m╰── [33;1mtype 'string' found here[0m[0m
+   ·              [35;1m╰── [35;1mtype 'int32' expected here[0m[0m
+ [2m7[0m │
+   ╰────
+[36m  help: [0mConsider using an explicit cast if this conversion is intentional, or change one of the types to match
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/fmt-test/src/input-simple-quiz.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unreachable_code[0m
+
+  [31m×[0m Unreachable code detected
+    ╭─[[36;1;4mtest-projects/fmt-test/src/input-simple-quiz.op:50:55[0m]
+ [2m49[0m │             # it makes it easy to skim and determine what is going on
+ [2m50[0m │                 break user_input: s, user_number: n   # success -> exit loop returning both values. Treated similar to a multiple-return
+    · [35;1m                                                      ─────────────────────────────────────────┬─────────────────────────────────────────[0m
+    ·                                                                                                [35;1m╰── [35;1munreachable code[0m[0m
+ [2m51[0m │
+ [2m52[0m │     print('{user_number}, huh? Let\'s see how close you are, {name}...')
+    ╰────
+[36m  help: [0mRemove unreachable statements or refactor control flow
+
+[31mopalescent::type_system::warning::unreachable_code[0m
+
+  [31m×[0m Unreachable code detected
+    ╭─[[36;1;4mtest-projects/fmt-test/src/input-simple-quiz.op:70:17[0m]
+ [2m69[0m │
+ [2m70[0m │     return void # explicit "return void" is always required to ensure termination of functions is intentional
+    · [35;1m                ───────────────────────────────────────────────┬──────────────────────────────────────────────[0m
+    ·                                                                [35;1m╰── [35;1munreachable code[0m[0m
+ [2m71[0m │
+ [2m72[0m │
+    ╰────
+[36m  help: [0mRemove unreachable statements or refactor control flow
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'user_input' is never used
+    ╭─[[36;1;4mtest-projects/fmt-test/src/input-simple-quiz.op:24:9[0m]
+ [2m23[0m │     # These variables (user_input, user_number) are still immutable
+ [2m24[0m │     let user_input, user_number =
+    · [35;1m        ─────┬────[0m
+    ·              [35;1m╰── [35;1munused variable[0m[0m
+ [2m25[0m │             loop =>
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/frame-clock-30fps-ten-waits-timing/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/frame-clock-rejects-negative-fps/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unsafe_cast[0m
+
+  [31m×[0m Unsafe cast from 'int64' to 'int32' may lose data
+   ╭─[[36;1;4mtest-projects/frame-clock-rejects-negative-fps/src/main.op:6:36[0m]
+ [2m5[0m │     guard new FrameClock:
+ [2m6[0m │         frames_per_second: (0 - 1) as int32
+   · [35;1m                                   ────┬───[0m
+   ·                                        [35;1m╰── [35;1munsafe narrowing cast[0m[0m
+ [2m7[0m │     else err =>
+   ╰────
+[36m  help: [0mThis cast is narrowing and may lose data. Consider validating the value before casting or using a checked conversion API.
+
+
+=== test-projects/frame-clock-rejects-zero-fps/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/fs-directory-operations/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+     ╭─[[36;1;4mtest-projects/fs-directory-operations/src/main.op:9:7[0m]
+ [2m  8[0m │     ##
+ [2m  9[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors FileNotFoundError, DirectoryNotFoundError, PermissionDeniedError, IsADirectoryError, IsNotADirectoryError, InvalidPathError, ReadFailureError, InvalidUtf8Error, WriteFailureError, DeleteFailureError, DirectoryNotEmptyError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, IndexOutOfBoundsError =>
+ [2m 10[0m │ [35;1m│[0m       let project_root = 'test-projects/fs-directory-operations/'
+ [2m 11[0m │ [35;1m│[0m       let seed_path = path_from('{project_root}fixtures/seed.txt')
+ [2m 12[0m │ [35;1m│[0m
+ [2m 13[0m │ [35;1m│[0m       guard read_text_sync(seed_path) into seed_text else err =>
+ [2m 14[0m │ [35;1m│[0m           print(err)
+ [2m 15[0m │ [35;1m│[0m           propagate err
+ [2m 16[0m │ [35;1m│[0m
+ [2m 17[0m │ [35;1m│[0m       guard read_lines_sync(seed_path) into lines else err =>
+ [2m 18[0m │ [35;1m│[0m           print(err)
+ [2m 19[0m │ [35;1m│[0m           propagate err
+ [2m 20[0m │ [35;1m│[0m
+ [2m 21[0m │ [35;1m│[0m       if seed_text.length is 0:
+ [2m 22[0m │ [35;1m│[0m           print('fs-directory-operations: seed empty')
+ [2m 23[0m │ [35;1m│[0m           return void
+ [2m 24[0m │ [35;1m│[0m
+ [2m 25[0m │ [35;1m│[0m       let mutable created_count = 0
+ [2m 26[0m │ [35;1m│[0m       for line in lines:
+ [2m 27[0m │ [35;1m│[0m           if line is 'workspace/|':
+ [2m 28[0m │ [35;1m│[0m               propagate create_directory_sync(path_from('{project_root}workspace/'))
+ [2m 29[0m │ [35;1m│[0m           if line is 'workspace/alpha/|':
+ [2m 30[0m │ [35;1m│[0m               propagate create_directory_sync(path_from('{project_root}workspace/alpha/'))
+ [2m 31[0m │ [35;1m│[0m           if line is 'workspace/alpha/docs/|':
+ [2m 32[0m │ [35;1m│[0m               propagate create_directory_sync(path_from('{project_root}workspace/alpha/docs/'))
+ [2m 33[0m │ [35;1m│[0m           if line is 'workspace/alpha/images/|':
+ [2m 34[0m │ [35;1m│[0m               propagate create_directory_sync(path_from('{project_root}workspace/alpha/images/'))
+ [2m 35[0m │ [35;1m│[0m           if line is 'workspace/alpha/logs/|':
+ [2m 36[0m │ [35;1m│[0m               propagate create_directory_sync(path_from('{project_root}workspace/alpha/logs/'))
+ [2m 37[0m │ [35;1m│[0m           if line is 'workspace/alpha/readme.txt|alpha readme':
+ [2m 38[0m │ [35;1m│[0m               guard write_text_sync(path_from('{project_root}workspace/alpha/readme.txt'), 'alpha readme') else err =>
+ [2m 39[0m │ [35;1m│[0m                   print(err)
+ [2m 40[0m │ [35;1m│[0m                   propagate err
+ [2m 41[0m │ [35;1m│[0m           if line is 'workspace/alpha/todo.txt|ship tests':
+ [2m 42[0m │ [35;1m│[0m               guard write_text_sync(path_from('{project_root}workspace/alpha/todo.txt'), 'ship tests') else err =>
+ [2m 43[0m │ [35;1m│[0m                   print(err)
+ [2m 44[0m │ [35;1m│[0m                   propagate err
+ [2m 45[0m │ [35;1m│[0m           if line is 'workspace/alpha/notes.txt|clean output':
+ [2m 46[0m │ [35;1m│[0m               guard write_text_sync(path_from('{project_root}workspace/alpha/notes.txt'), 'clean output') else err =>
+ [2m 47[0m │ [35;1m│[0m                   print(err)
+ [2m 48[0m │ [35;1m│[0m                   propagate err
+ [2m 49[0m │ [35;1m│[0m           if line is 'workspace/alpha/config.txt|mode=demo':
+ [2m 50[0m │ [35;1m│[0m               guard write_text_sync(path_from('{project_root}workspace/alpha/config.txt'), 'mode=demo') else err =>
+ [2m 51[0m │ [35;1m│[0m                   print(err)
+ [2m 52[0m │ [35;1m│[0m                   propagate err
+ [2m 53[0m │ [35;1m│[0m           if line is 'workspace/alpha/data.txt|42':
+ [2m 54[0m │ [35;1m│[0m               guard write_text_sync(path_from('{project_root}workspace/alpha/data.txt'), '42') else err =>
+ [2m 55[0m │ [35;1m│[0m                   print(err)
+ [2m 56[0m │ [35;1m│[0m                   propagate err
+ [2m 57[0m │ [35;1m│[0m           if is_counted_entry(line):
+ [2m 58[0m │ [35;1m│[0m               created_count = created_count + 1
+ [2m 59[0m │ [35;1m│[0m
+ [2m 60[0m │ [35;1m│[0m       guard list_directory_sync(path_from('{project_root}workspace/alpha/')) into listed else err =>
+ [2m 61[0m │ [35;1m│[0m           print(err)
+ [2m 62[0m │ [35;1m│[0m           propagate err
+ [2m 63[0m │ [35;1m│[0m
+ [2m 64[0m │ [35;1m│[0m       let listed_count = listed.length
+ [2m 65[0m │ [35;1m│[0m       let mutable removed_count = 0
+ [2m 66[0m │ [35;1m│[0m       let mutable remove_index = lines.length
+ [2m 67[0m │ [35;1m│[0m       while remove_index > 0:
+ [2m 68[0m │ [35;1m│[0m           remove_index = remove_index - 1
+ [2m 69[0m │ [35;1m│[0m           let line = propagate lines.at(remove_index)
+ [2m 70[0m │ [35;1m│[0m           if line is 'workspace/alpha/data.txt|42':
+ [2m 71[0m │ [35;1m│[0m               guard delete_file_sync(path_from('{project_root}workspace/alpha/data.txt')) else err =>
+ [2m 72[0m │ [35;1m│[0m                   print(err)
+ [2m 73[0m │ [35;1m│[0m                   propagate err
+ [2m 74[0m │ [35;1m│[0m           if line is 'workspace/alpha/config.txt|mode=demo':
+ [2m 75[0m │ [35;1m│[0m               guard delete_file_sync(path_from('{project_root}workspace/alpha/config.txt')) else err =>
+ [2m 76[0m │ [35;1m│[0m                   print(err)
+ [2m 77[0m │ [35;1m│[0m                   propagate err
+ [2m 78[0m │ [35;1m│[0m           if line is 'workspace/alpha/notes.txt|clean output':
+ [2m 79[0m │ [35;1m│[0m               guard delete_file_sync(path_from('{project_root}workspace/alpha/notes.txt')) else err =>
+ [2m 80[0m │ [35;1m│[0m                   print(err)
+ [2m 81[0m │ [35;1m│[0m                   propagate err
+ [2m 82[0m │ [35;1m│[0m           if line is 'workspace/alpha/todo.txt|ship tests':
+ [2m 83[0m │ [35;1m│[0m               guard delete_file_sync(path_from('{project_root}workspace/alpha/todo.txt')) else err =>
+ [2m 84[0m │ [35;1m│[0m                   print(err)
+ [2m 85[0m │ [35;1m│[0m                   propagate err
+ [2m 86[0m │ [35;1m│[0m           if line is 'workspace/alpha/readme.txt|alpha readme':
+ [2m 87[0m │ [35;1m│[0m               guard delete_file_sync(path_from('{project_root}workspace/alpha/readme.txt')) else err =>
+ [2m 88[0m │ [35;1m│[0m                   print(err)
+ [2m 89[0m │ [35;1m│[0m                   propagate err
+ [2m 90[0m │ [35;1m│[0m           if line is 'workspace/alpha/logs/|':
+ [2m 91[0m │ [35;1m│[0m               guard delete_directory_sync(path_from('{project_root}workspace/alpha/logs/')) else err =>
+ [2m 92[0m │ [35;1m│[0m                   print(err)
+ [2m 93[0m │ [35;1m│[0m                   propagate err
+ [2m 94[0m │ [35;1m│[0m           if line is 'workspace/alpha/images/|':
+ [2m 95[0m │ [35;1m│[0m               guard delete_directory_sync(path_from('{project_root}workspace/alpha/images/')) else err =>
+ [2m 96[0m │ [35;1m│[0m                   print(err)
+ [2m 97[0m │ [35;1m│[0m                   propagate err
+ [2m 98[0m │ [35;1m│[0m           if line is 'workspace/alpha/docs/|':
+ [2m 99[0m │ [35;1m│[0m               guard delete_directory_sync(path_from('{project_root}workspace/alpha/docs/')) else err =>
+ [2m100[0m │ [35;1m│[0m                   print(err)
+ [2m101[0m │ [35;1m│[0m                   propagate err
+ [2m102[0m │ [35;1m│[0m           if line is 'workspace/alpha/|':
+ [2m103[0m │ [35;1m│[0m               guard delete_directory_sync(path_from('{project_root}workspace/alpha/')) else err =>
+ [2m104[0m │ [35;1m│[0m                   print(err)
+ [2m105[0m │ [35;1m│[0m                   propagate err
+ [2m106[0m │ [35;1m│[0m           if line is 'workspace/|':
+ [2m107[0m │ [35;1m│[0m               guard delete_directory_sync(path_from('{project_root}workspace/')) else err =>
+ [2m108[0m │ [35;1m│[0m                   print(err)
+ [2m109[0m │ [35;1m│[0m                   propagate err
+ [2m110[0m │ [35;1m│[0m           if is_counted_entry(line):
+ [2m111[0m │ [35;1m│[0m               removed_count = removed_count + 1
+ [2m112[0m │ [35;1m│[0m
+ [2m113[0m │ [35;1m│[0m       if created_count is listed_count and listed_count is removed_count:
+ [2m114[0m │ [35;1m│[0m           print('fs-directory-operations: created {int64_to_string(created_count)} entries, listed {int64_to_string(listed_count)}, removed {int64_to_string(removed_count)} — all match')
+ [2m115[0m │ [35;1m│[0m       else:
+ [2m116[0m │ [35;1m│[0m           print('fs-directory-operations: created {int64_to_string(created_count)} entries, listed {int64_to_string(listed_count)}, removed {int64_to_string(removed_count)} — mismatch')
+ [2m117[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+     · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+     ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/fs-directory-operations/src/operations/create.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/fs-directory-operations/src/operations/create.op:1:1[0m]
+ [2m1[0m │ import path_from, create_directory_sync, write_text_sync from standard
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/fs-directory-operations/src/operations/list.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::parser::invalid_syntax[0m
+
+  [31m×[0m Invalid syntax: 'propagate' must be followed by a function call expression
+   ╭─[[36;1;4mtest-projects/fs-directory-operations/src/operations/list.op:8:26[0m]
+ [2m7[0m │     guard list_directory_sync(path_from('{project_root}{raw_path}')) into listed else err =>
+ [2m8[0m │         return propagate err
+   · [35;1m                         ─┬─[0m
+   ·                           [35;1m╰── [35;1minvalid syntax[0m[0m
+ [2m9[0m │     return 'entries={int64_to_string(listed.length)}'
+   ╰────
+[36m  help: [0mCheck the language specification for correct syntax
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/fs-directory-operations/src/operations/remove.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/fs-directory-operations/src/operations/remove.op:1:1[0m]
+ [2m1[0m │ import path_from, delete_file_sync, delete_directory_sync from standard
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/fs-markdown-roundtrip/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/fs-markdown-roundtrip/src/main.op:21:7[0m]
+ [2m20[0m │     ##
+ [2m21[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, WriteFailureError, FilesystemFullError, IndexOutOfBoundsError, AllocationFailureError =>
+ [2m22[0m │ [35;1m│[0m       let project_root = 'test-projects/fs-markdown-roundtrip/'
+ [2m23[0m │ [35;1m│[0m       let input_path = path_from('{project_root}fixtures/input.md')
+ [2m24[0m │ [35;1m│[0m       let expected_path = path_from('{project_root}fixtures/expected_output.md')
+ [2m25[0m │ [35;1m│[0m       let output_path = path_from('{project_root}workspace/output.md')
+ [2m26[0m │ [35;1m│[0m
+ [2m27[0m │ [35;1m│[0m       guard read_lines_sync(input_path) into lines else err =>
+ [2m28[0m │ [35;1m│[0m           print(err)
+ [2m29[0m │ [35;1m│[0m           propagate err
+ [2m30[0m │ [35;1m│[0m
+ [2m31[0m │ [35;1m│[0m       let mutable rendered_lines: string[] = []
+ [2m32[0m │ [35;1m│[0m       let mutable index: int64 = 0
+ [2m33[0m │ [35;1m│[0m       while index < lines.length:
+ [2m34[0m │ [35;1m│[0m           let line = propagate lines.at(index)
+ [2m35[0m │ [35;1m│[0m           if should_blockquote(index):
+ [2m36[0m │ [35;1m│[0m               rendered_lines.push('> {line}\n')
+ [2m37[0m │ [35;1m│[0m           else:
+ [2m38[0m │ [35;1m│[0m               rendered_lines.push('{line}\n')
+ [2m39[0m │ [35;1m│[0m           index = index + 1
+ [2m40[0m │ [35;1m│[0m
+ [2m41[0m │ [35;1m│[0m       let rendered = propagate string_join(rendered_lines, '')
+ [2m42[0m │ [35;1m│[0m
+ [2m43[0m │ [35;1m│[0m       guard write_text_sync(output_path, rendered) else err =>
+ [2m44[0m │ [35;1m│[0m           print(err)
+ [2m45[0m │ [35;1m│[0m           propagate err
+ [2m46[0m │ [35;1m│[0m
+ [2m47[0m │ [35;1m│[0m       guard read_text_sync(output_path) into actual else err =>
+ [2m48[0m │ [35;1m│[0m           print(err)
+ [2m49[0m │ [35;1m│[0m           propagate err
+ [2m50[0m │ [35;1m│[0m
+ [2m51[0m │ [35;1m│[0m       guard read_text_sync(expected_path) into expected else err =>
+ [2m52[0m │ [35;1m│[0m           print(err)
+ [2m53[0m │ [35;1m│[0m           propagate err
+ [2m54[0m │ [35;1m│[0m
+ [2m55[0m │ [35;1m│[0m       if actual is expected:
+ [2m56[0m │ [35;1m│[0m           print('roundtrip: ok ({int64_to_string(actual.length)} bytes match)')
+ [2m57[0m │ [35;1m│[0m       else:
+ [2m58[0m │ [35;1m│[0m           print('roundtrip: mismatch')
+ [2m59[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/fs-markdown-roundtrip/src/processing/parse.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::propagate_error_mismatch[0m
+
+  [31m×[0m Propagated error types are not compatible with the function's declared errors
+   ╭─[[36;1;4mtest-projects/fs-markdown-roundtrip/src/processing/parse.op:6:28[0m]
+ [2m5[0m │     ##
+ [2m6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let parse_summary = f(raw_path: string): string errors FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidUtf8Error, ReadFailureError =>
+ [2m7[0m │ [35;1m│[0m       let lines = propagate read_lines_sync(path_from(raw_path))
+   · [35;1m│[0m   [33;1m                          ──────────────────┬─────────────────[0m
+   · [35;1m│[0m                                               [33;1m╰── [33;1mthis call can produce errors: FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error[0m[0m
+ [2m8[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return 'lines={int64_to_string(lines.length)}'
+   · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mthis function declares errors: FileNotFoundError, PermissionDeniedError, IsADirectoryError, InvalidUtf8Error, ReadFailureError[0m
+   ╰────
+[36m  help: [0mThe errors from the called function must be a subset of the errors declared by the current function.
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/fs-markdown-roundtrip/src/processing/serialize.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/fs-markdown-roundtrip/src/processing/serialize.op:1:1[0m]
+ [2m1[0m │ import path_from, write_text_sync from standard
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/fs-path-manipulation/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+     ╭─[[36;1;4mtest-projects/fs-path-manipulation/src/main.op:11:7[0m]
+ [2m 10[0m │     ##
+ [2m 11[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors InvalidPathError, PermissionDeniedError =>
+ [2m 12[0m │ [35;1m│[0m       let mutable passed: int64 = 0
+ [2m 13[0m │ [35;1m│[0m       let total: int64 = 50
+ [2m 14[0m │ [35;1m│[0m
+ [2m 15[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from(''))), '')
+ [2m 16[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('.'))), '')
+ [2m 17[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('./a'))), 'a')
+ [2m 18[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('a//b'))), 'a/b')
+ [2m 19[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('a/./b'))), 'a/b')
+ [2m 20[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('a/b/..'))), 'a')
+ [2m 21[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('a/b/../../c'))), 'c')
+ [2m 22[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('/a//b//c'))), '/a/b/c')
+ [2m 23[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('/a/b/../../..'))), '')
+ [2m 24[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('C:/Users/foo/../bar.txt'))), 'C:/Users/bar.txt')
+ [2m 25[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('C:\\Users\\foo\\..\\bar.txt'))), 'C:/Users/bar.txt')
+ [2m 26[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('\\\\server\\share\\dir\\..\\file.ext'))), '//server/share/file.ext')
+ [2m 27[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('alpha/beta/../gamma'))), 'alpha/gamma')
+ [2m 28[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('nested///path///leaf'))), 'nested/path/leaf')
+ [2m 29[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(normalize_path(path_from('root/./branch/leaf.txt'))), 'root/branch/leaf.txt')
+ [2m 30[0m │ [35;1m│[0m
+ [2m 31[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('home'), ['user', 'docs'])), 'home/user/docs')
+ [2m 32[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('a/'), ['b'])), 'a/b')
+ [2m 33[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('a'), ['/b', 'c'])), '/b/c')
+ [2m 34[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('a'), [])), 'a')
+ [2m 35[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from(''), ['x'])), 'x')
+ [2m 36[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('/root'), ['child'])), '/root/child')
+ [2m 37[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('base'), ['C:\\abs'])), 'C:/abs')
+ [2m 38[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('base/child'), ['C:/abs', 'leaf'])), 'C:/abs/leaf')
+ [2m 39[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('base'), ['\\\\server\\share\\dir', 'file.ext'])), '//server/share/dir/file.ext')
+ [2m 40[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('alpha/beta'), ['..', 'gamma'])), 'alpha/gamma')
+ [2m 41[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('alpha'), ['.', 'beta'])), 'alpha/beta')
+ [2m 42[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('alpha//'), ['beta', './leaf'])), 'alpha/beta/leaf')
+ [2m 43[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(join_path_components(path_from('base'), ['nested///path', 'file.txt'])), 'base/nested/path/file.txt')
+ [2m 44[0m │ [35;1m│[0m
+ [2m 45[0m │ [35;1m│[0m       let q0 = path_from('/home/user/doc.pdf')
+ [2m 46[0m │ [35;1m│[0m       if path_file_name(q0) is 'doc.pdf' and path_file_extension(q0) is 'pdf' and path_to_string(path_parent_directory(q0)) is '/home/user':
+ [2m 47[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 48[0m │ [35;1m│[0m       let q1 = path_from('/home/user/')
+ [2m 49[0m │ [35;1m│[0m       if path_file_name(q1) is '' and path_file_extension(q1) is '' and path_to_string(path_parent_directory(q1)) is '/home/user':
+ [2m 50[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 51[0m │ [35;1m│[0m       let q2 = path_from('noext')
+ [2m 52[0m │ [35;1m│[0m       if path_file_name(q2) is 'noext' and path_file_extension(q2) is '' and path_to_string(path_parent_directory(q2)) is '.':
+ [2m 53[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 54[0m │ [35;1m│[0m       let q3 = path_from('a/b/c.tar.gz')
+ [2m 55[0m │ [35;1m│[0m       if path_file_name(q3) is 'c.tar.gz' and path_file_extension(q3) is 'gz' and path_to_string(path_parent_directory(q3)) is 'a/b':
+ [2m 56[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 57[0m │ [35;1m│[0m       let q4 = path_from('/')
+ [2m 58[0m │ [35;1m│[0m       if path_file_name(q4) is '' and path_file_extension(q4) is '' and path_to_string(path_parent_directory(q4)) is '/':
+ [2m 59[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 60[0m │ [35;1m│[0m       let q5 = path_from('alpha/beta.txt')
+ [2m 61[0m │ [35;1m│[0m       if path_file_name(q5) is 'beta.txt' and path_file_extension(q5) is 'txt' and path_to_string(path_parent_directory(q5)) is 'alpha':
+ [2m 62[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 63[0m │ [35;1m│[0m       let q6 = path_from('archive.tar')
+ [2m 64[0m │ [35;1m│[0m       if path_file_name(q6) is 'archive.tar' and path_file_extension(q6) is 'tar' and path_to_string(path_parent_directory(q6)) is '.':
+ [2m 65[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 66[0m │ [35;1m│[0m       let q7 = path_from('dir/subdir/')
+ [2m 67[0m │ [35;1m│[0m       if path_file_name(q7) is '' and path_file_extension(q7) is '' and path_to_string(path_parent_directory(q7)) is 'dir/subdir':
+ [2m 68[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 69[0m │ [35;1m│[0m       let q8 = path_from('relative/path/file')
+ [2m 70[0m │ [35;1m│[0m       if path_file_name(q8) is 'file' and path_file_extension(q8) is '' and path_to_string(path_parent_directory(q8)) is 'relative/path':
+ [2m 71[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 72[0m │ [35;1m│[0m       let q9 = path_from('double.dot/name.with.many.parts')
+ [2m 73[0m │ [35;1m│[0m       if path_file_name(q9) is 'name.with.many.parts' and path_file_extension(q9) is 'parts' and path_to_string(path_parent_directory(q9)) is 'double.dot':
+ [2m 74[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 75[0m │ [35;1m│[0m       let q10 = path_from('C:\\Users\\foo\\bar.txt')
+ [2m 76[0m │ [35;1m│[0m       if path_file_name(q10) is 'bar.txt' and path_file_extension(q10) is 'txt' and path_to_string(path_parent_directory(q10)) is 'C:\\Users\\foo':
+ [2m 77[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 78[0m │ [35;1m│[0m       let q11 = path_from('C:/Users/foo/bar.txt')
+ [2m 79[0m │ [35;1m│[0m       if path_file_name(q11) is 'bar.txt' and path_file_extension(q11) is 'txt' and path_to_string(path_parent_directory(q11)) is 'C:/Users/foo':
+ [2m 80[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 81[0m │ [35;1m│[0m       let q12 = path_from('\\\\server\\share\\dir\\file.ext')
+ [2m 82[0m │ [35;1m│[0m       if path_file_name(q12) is 'file.ext' and path_file_extension(q12) is 'ext' and path_to_string(path_parent_directory(q12)) is '\\\\server\\share\\dir':
+ [2m 83[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 84[0m │ [35;1m│[0m       let q13 = path_from('relative/path/noext')
+ [2m 85[0m │ [35;1m│[0m       if path_file_name(q13) is 'noext' and path_file_extension(q13) is '' and path_to_string(path_parent_directory(q13)) is 'relative/path':
+ [2m 86[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 87[0m │ [35;1m│[0m
+ [2m 88[0m │ [35;1m│[0m       let a0 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/main.op'))
+ [2m 89[0m │ [35;1m│[0m       if path_file_name(path_parent_directory(a0)) is 'src' and path_file_name(a0) is 'main.op':
+ [2m 90[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 91[0m │ [35;1m│[0m
+ [2m 92[0m │ [35;1m│[0m       let a1 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/path_ops/normalize.op'))
+ [2m 93[0m │ [35;1m│[0m       if path_file_name(path_parent_directory(a1)) is 'path_ops' and path_file_name(a1) is 'normalize.op':
+ [2m 94[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 95[0m │ [35;1m│[0m
+ [2m 96[0m │ [35;1m│[0m       let a2 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/path_ops/join.op'))
+ [2m 97[0m │ [35;1m│[0m       if path_file_name(path_parent_directory(a2)) is 'path_ops' and path_file_name(a2) is 'join.op':
+ [2m 98[0m │ [35;1m│[0m           passed = passed + 1
+ [2m 99[0m │ [35;1m│[0m
+ [2m100[0m │ [35;1m│[0m       let a3 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/fixtures/sample.txt'))
+ [2m101[0m │ [35;1m│[0m       if path_file_name(path_parent_directory(a3)) is 'fixtures' and path_file_name(a3) is 'sample.txt':
+ [2m102[0m │ [35;1m│[0m           passed = passed + 1
+ [2m103[0m │ [35;1m│[0m
+ [2m104[0m │ [35;1m│[0m       let a4 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/fixtures/sample.bad.txt'))
+ [2m105[0m │ [35;1m│[0m       if path_file_name(path_parent_directory(a4)) is 'fixtures' and path_file_name(a4) is 'sample.bad.txt':
+ [2m106[0m │ [35;1m│[0m           passed = passed + 1
+ [2m107[0m │ [35;1m│[0m
+ [2m108[0m │ [35;1m│[0m       let a5 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/fixtures/ghost.txt'))
+ [2m109[0m │ [35;1m│[0m       if path_file_name(path_parent_directory(a5)) is 'fixtures' and path_file_name(a5) is 'ghost.txt':
+ [2m110[0m │ [35;1m│[0m           passed = passed + 1
+ [2m111[0m │ [35;1m│[0m
+ [2m112[0m │ [35;1m│[0m       let a6 = propagate absolute_path_sync(path_from('./test-projects/fs-path-manipulation/src/../README.md'))
+ [2m113[0m │ [35;1m│[0m       if path_file_name(path_parent_directory(a6)) is 'fs-path-manipulation' and path_file_name(a6) is 'README.md':
+ [2m114[0m │ [35;1m│[0m           passed = passed + 1
+ [2m115[0m │ [35;1m│[0m
+ [2m116[0m │ [35;1m│[0m       let a7 = propagate absolute_path_sync(path_from('/'))
+ [2m117[0m │ [35;1m│[0m       passed = passed + string_match(path_to_string(a7), '/')
+ [2m118[0m │ [35;1m│[0m
+ [2m119[0m │ [35;1m│[0m       print('passed {int64_to_string(passed)}/{int64_to_string(total)}')
+ [2m120[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+     · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+     ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/game-of-life/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'StringBuilderError'
+    ╭─[[36;1;4mtest-projects/game-of-life/src/main.op:12:7[0m]
+ [2m11[0m │     ##
+ [2m12[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError, InvalidDurationError, BuilderFinishedError, AllocationFailureError =>
+ [2m13[0m │ [35;1m│[0m       let writer = stdout_writer()
+ [2m14[0m │ [35;1m│[0m       let terminal = stdout_terminal()
+ [2m15[0m │ [35;1m│[0m       let mutable frame: int64 = 0
+ [2m16[0m │ [35;1m│[0m
+ [2m17[0m │ [35;1m│[0m       while frame < 10:
+ [2m18[0m │ [35;1m│[0m           let header_builder: StringBuilder = new StringBuilder
+ [2m19[0m │ [35;1m│[0m           propagate string_builder_push(header_builder, frame_header(frame))
+ [2m20[0m │ [35;1m│[0m           propagate string_builder_push(header_builder, '\n')
+ [2m21[0m │ [35;1m│[0m           let header_text = propagate string_builder_finish(header_builder)
+ [2m22[0m │ [35;1m│[0m
+ [2m23[0m │ [35;1m│[0m           propagate writer_write_sync(writer, header_text)
+ [2m24[0m │ [35;1m│[0m           if frame % 2 is 0:
+ [2m25[0m │ [35;1m│[0m               let even_rows: string[] = [propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '#', '.', '.'), propagate row('.', '.', '.', '.', '.')]
+ [2m26[0m │ [35;1m│[0m               propagate terminal_draw_rows_sync(terminal, even_rows)
+ [2m27[0m │ [35;1m│[0m           else:
+ [2m28[0m │ [35;1m│[0m               let odd_rows: string[] = [propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '.', '.', '.'), propagate row('.', '#', '#', '#', '.'), propagate row('.', '.', '.', '.', '.'), propagate row('.', '.', '.', '.', '.')]
+ [2m29[0m │ [35;1m│[0m               propagate terminal_draw_rows_sync(terminal, odd_rows)
+ [2m30[0m │ [35;1m│[0m           propagate writer_write_sync(writer, '\n')
+ [2m31[0m │ [35;1m│[0m
+ [2m32[0m │ [35;1m│[0m           propagate sleep_ms_sync(0)
+ [2m33[0m │ [35;1m│[0m           frame = frame + 1
+ [2m34[0m │ [35;1m│[0m
+ [2m35[0m │ [35;1m│[0m       propagate writer_flush_sync(writer)
+ [2m36[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors BuilderFinishedError, AllocationFailureError` with `errors StringBuilderError`.
+
+
+=== test-projects/game-of-life-full/src/main.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './config'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:2:8[0m]
+ [2m1[0m │ import frame_clock_wait_next_sync from standard
+ [2m2[0m │ import board_width, board_height, target_frames_per_second from ./config
+   · [35;1m       ─────┬─────[0m
+   ·             [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │ import create_seed_board from ./patterns
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './patterns'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:3:8[0m]
+ [2m2[0m │ import board_width, board_height, target_frames_per_second from ./config
+ [2m3[0m │ import create_seed_board from ./patterns
+   · [35;1m       ────────┬────────[0m
+   ·                [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m4[0m │ import next_generation from ./rules
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './rules'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:4:8[0m]
+ [2m3[0m │ import create_seed_board from ./patterns
+ [2m4[0m │ import next_generation from ./rules
+   · [35;1m       ───────┬───────[0m
+   ·               [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m5[0m │ import prepare_display, write_frame from ./render
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './render'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:5:8[0m]
+ [2m4[0m │ import next_generation from ./rules
+ [2m5[0m │ import prepare_display, write_frame from ./render
+   · [35;1m       ───────┬───────[0m
+   ·               [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m6[0m │ import type LifeConfig from ./life.types
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './life.types'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:6:13[0m]
+ [2m5[0m │ import prepare_display, write_frame from ./render
+ [2m6[0m │ import type LifeConfig from ./life.types
+   · [35;1m            ─────┬────[0m
+   ·                  [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m7[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::invalid_operation[0m
+
+  [31m×[0m Invalid operation 'constructor field initialization' for type 'LifeConfig'
+    ╭─[[36;1;4mtest-projects/game-of-life-full/src/main.op:12:30[0m]
+ [2m11[0m │     entry main = f(args: string[]): void errors InvalidFrameRateError, WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError =>
+ [2m12[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m     let config: LifeConfig = new LifeConfig:
+ [2m13[0m │ [35;1m│[0m           width: board_width()
+ [2m14[0m │ [35;1m│[0m           height: board_height()
+ [2m15[0m │ [35;1m│[0m           frames_per_second: target_frames_per_second()
+ [2m16[0m │ [35;1m│[0m
+ [2m17[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     let clock = propagate new FrameClock:
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1minvalid operation here[0m
+ [2m18[0m │             frames_per_second: config.frames_per_second
+    ╰────
+[36m  help: [0mThis operation is not supported for this type. Check the language reference for valid operations
+
+
+error: aborting due to 6 previous errors
+
+=== test-projects/game-of-life-full/src/render.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './board'
+   ╭─[[36;1;4mtest-projects/game-of-life-full/src/render.op:2:8[0m]
+ [2m1[0m │ import stdout_writer, writer_write_sync, writer_flush_sync, stdout_terminal, terminal_supports_ansi, terminal_clear_screen_on_sync, int64_to_string from standard
+ [2m2[0m │ import is_alive_at from ./board
+   · [35;1m       ─────┬─────[0m
+   ·             [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::symbol_not_found[0m
+
+  [31m×[0m Symbol 'is_alive_at' not found in this scope
+    ╭─[[36;1;4mtest-projects/game-of-life-full/src/render.op:31:16[0m]
+ [2m30[0m │         while x < width:
+ [2m31[0m │             if is_alive_at(board, width, height, x, y):
+    · [35;1m               ─────┬─────[0m
+    ·                     [35;1m╰── [35;1mundefined symbol[0m[0m
+ [2m32[0m │                 propagate writer_write_sync(writer, '#')
+    ╰────
+[36m  help: [0mEnsure the symbol is declared before use or imported from the correct module
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/guard-stmt-bare-fallible-append/src/main.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unhandled_call_error[0m
+
+  [31m×[0m Call to error-producing function `append_text_sync` must be wrapped in `guard` or `propagate` (declared errors: FileNotFoundError, PermissionDeniedError, WriteFailureError, IsADirectoryError,
+  [31m│[0m InvalidPathError, FilesystemFullError)
+   ╭─[[36;1;4mtest-projects/guard-stmt-bare-fallible-append/src/main.op:8:9[0m]
+ [2m7[0m │     guard string_to_int32(text) into value: int32 else err =>
+ [2m8[0m │         append_text_sync(path_from('debug.log'), 'parse failed\n')
+   · [35;1m        ─────────────────────────────┬────────────────────────────[0m
+   ·                                      [35;1m╰── [35;1munhandled error-producing call[0m[0m
+ [2m9[0m │         propagate err
+   ╰────
+[36m  help: [0mWrap this call in `guard ... into ... else ...` to handle errors locally, or use `propagate` in an error-declaring function
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/guard-stmt-only-propagate/src/main.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::guard::shorthand_required[0m
+
+  [31m×[0m use shorthand propagation instead of a guard that only rethrows
+   ╭─[[36;1;4mtest-projects/guard-stmt-only-propagate/src/main.op:8:9[0m]
+ [2m7[0m │     guard string_to_int32(text) into value: int32 else err =>
+ [2m8[0m │         propagate err
+   · [35;1m        ──────┬──────[0m
+   ·               [35;1m╰── [35;1mthis guard handler only rethrows; shorthand propagation is clearer[0m[0m
+ [2m9[0m │     return value
+   ╰────
+[36m  help: [0mIf the handler only forwards the fallible result, prefer `let value = propagate fallible_call()` over `guard ... else err => propagate err`. Use a named guard only when you add context
+        before the terminal propagation or wrapper return.
+
+
+[31mopalescent::guard::missing_terminal[0m
+
+  [31m×[0m named guard error clause does not handle the bound error
+    ╭─[[36;1;4mtest-projects/guard-stmt-only-propagate/src/main.op:17:9[0m]
+ [2m16[0m │         print('UNEXPECTED_ONLY_PROPAGATE_HANDLER={err}')
+ [2m17[0m │         return void
+    · [35;1m        ─────┬─────[0m
+    ·              [35;1m╰── [35;1mthis clause exits without propagating or wrapping the bound error[0m[0m
+ [2m18[0m │     print('UNEXPECTED_SUCCESS')
+    ╰────
+[36m  help: [0mA named `else err =>` clause must end by forwarding `err` with `propagate err`, or by returning an error wrapper whose `source` field is exactly `err`. Logging, cleanup, fallback values, and
+        `return void` do not count as handling the error.
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/guard-stmt-propagate-call-valid/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/guard-stmt-propagate-err/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/guard-stmt-typed-binding/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/guard-stmt-wrapper-invalid-alias/src/wrapper.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './wrapper.types'
+   ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-alias/src/wrapper.op:2:13[0m]
+ [2m1[0m │ import string_to_int32 from standard
+ [2m2[0m │ import type ParseError, WrappedParseError from ./wrapper.types
+   · [35;1m            ─────┬────[0m
+   ·                  [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::undeclared_error_type[0m
+
+  [31m×[0m Undeclared error type 'WrappedParseError'
+    ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-alias/src/wrapper.op:7:39[0m]
+ [2m 6[0m │     ##
+ [2m 7[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let parse_with_wrapper_alias = f(text: string): int32 errors WrappedParseError =>
+ [2m 8[0m │ [35;1m│[0m       guard string_to_int32(text) into value: int32 else err =>
+ [2m 9[0m │ [35;1m│[0m           let alias_err: ParseError = err
+ [2m10[0m │ [35;1m│[0m           return new WrappedParseError.Reading:
+ [2m11[0m │ [35;1m│[0m               source: alias_err
+ [2m12[0m │ [35;1m│[0m               context: 'bad-input={text}'
+ [2m13[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return value
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mundeclared error type[0m
+    ╰────
+[36m  help: [0mEnsure the error type 'WrappedParseError' is defined and visible in the current scope.
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/guard-stmt-wrapper-invalid-missing-source/src/wrapper.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './wrapper.types'
+   ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-missing-source/src/wrapper.op:2:13[0m]
+ [2m1[0m │ import string_to_int32 from standard
+ [2m2[0m │ import type WrappedParseError from ./wrapper.types
+   · [35;1m            ────────┬────────[0m
+   ·                     [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::undeclared_error_type[0m
+
+  [31m×[0m Undeclared error type 'WrappedParseError'
+    ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-missing-source/src/wrapper.op:7:48[0m]
+ [2m 6[0m │     ##
+ [2m 7[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let parse_with_wrapper_missing_source = f(text: string): int32 errors WrappedParseError =>
+ [2m 8[0m │ [35;1m│[0m       guard string_to_int32(text) into value: int32 else err =>
+ [2m 9[0m │ [35;1m│[0m           return new WrappedParseError.Reading:
+ [2m10[0m │ [35;1m│[0m               context: 'bad-input={text}'
+ [2m11[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return value
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mundeclared error type[0m
+    ╰────
+[36m  help: [0mEnsure the error type 'WrappedParseError' is defined and visible in the current scope.
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/guard-stmt-wrapper-invalid-shadowed/src/wrapper.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './wrapper.types'
+   ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-shadowed/src/wrapper.op:2:13[0m]
+ [2m1[0m │ import string_to_int32 from standard
+ [2m2[0m │ import type ParseError, WrappedParseError from ./wrapper.types
+   · [35;1m            ─────┬────[0m
+   ·                  [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::undeclared_error_type[0m
+
+  [31m×[0m Undeclared error type 'WrappedParseError'
+    ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-invalid-shadowed/src/wrapper.op:7:42[0m]
+ [2m 6[0m │     ##
+ [2m 7[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let parse_with_wrapper_shadowed = f(text: string): int32 errors WrappedParseError =>
+ [2m 8[0m │ [35;1m│[0m       guard string_to_int32(text) into value: int32 else err =>
+ [2m 9[0m │ [35;1m│[0m           let err: ParseError = ParseError.Invalid
+ [2m10[0m │ [35;1m│[0m           return new WrappedParseError.Reading:
+ [2m11[0m │ [35;1m│[0m               source: err
+ [2m12[0m │ [35;1m│[0m               context: 'bad-input={text}'
+ [2m13[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return value
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mundeclared error type[0m
+    ╰────
+[36m  help: [0mEnsure the error type 'WrappedParseError' is defined and visible in the current scope.
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/guard-stmt-wrapper-valid/src/wrapper.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './wrapper.types'
+   ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-valid/src/wrapper.op:2:13[0m]
+ [2m1[0m │ import string_to_int32 from standard
+ [2m2[0m │ import type WrappedParseError from ./wrapper.types
+   · [35;1m            ────────┬────────[0m
+   ·                     [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m3[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::undeclared_error_type[0m
+
+  [31m×[0m Undeclared error type 'WrappedParseError'
+    ╭─[[36;1;4mtest-projects/guard-stmt-wrapper-valid/src/wrapper.op:7:33[0m]
+ [2m 6[0m │     ##
+ [2m 7[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m public let parse_with_wrapper = f(text: string): int32 errors WrappedParseError =>
+ [2m 8[0m │ [35;1m│[0m       guard string_to_int32(text) into value: int32 else err =>
+ [2m 9[0m │ [35;1m│[0m           return new WrappedParseError.Reading:
+ [2m10[0m │ [35;1m│[0m               source: err
+ [2m11[0m │ [35;1m│[0m               context: 'bad-input={text}'
+ [2m12[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return value
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mundeclared error type[0m
+    ╰────
+[36m  help: [0mEnsure the error type 'WrappedParseError' is defined and visible in the current scope.
+
+
+error: aborting due to 2 previous errors
+
+=== test-projects/iterative-drop/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/multiple-returns-fallible/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/op-cat/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/op-cat/src/main.op:3:16[0m]
+ [2m 2[0m │
+ [2m 3[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m let cat_file = f(path: string): void errors FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, IndexOutOfBoundsError =>
+ [2m 4[0m │ [35;1m│[0m       let lines = propagate read_lines_sync(path_from(path))
+ [2m 5[0m │ [35;1m│[0m       let mutable i = 0
+ [2m 6[0m │ [35;1m│[0m       while i < lines.length:
+ [2m 7[0m │ [35;1m│[0m           print(propagate lines.at(i))
+ [2m 8[0m │ [35;1m│[0m           i = i + 1
+ [2m 9[0m │ [35;1m│[0m       return void
+ [2m10[0m │ [35;1m│[0m
+ [2m11[0m │ [35;1m│[0m   ##
+ [2m12[0m │ [35;1m│[0m       Description: Entry point for op-cat, an Opalescent port for the Unix cat command
+ [2m13[0m │ [35;1m│[0m       This project is mostly a test project
+ [2m14[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m ##
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+ [2m15[0m │     entry main = f(args: string[]): void errors IndexOutOfBoundsError =>
+ [2m16[0m │         let mutable i = 1
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/print-text-flush-without-newline/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'OutputError'
+   ╭─[[36;1;4mtest-projects/print-text-flush-without-newline/src/main.op:6:7[0m]
+ [2m5[0m │     ##
+ [2m6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
+ [2m7[0m │ [35;1m│[0m       propagate print_text_sync('abc')
+ [2m8[0m │ [35;1m│[0m       propagate flush_standard_output_sync()
+ [2m9[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+   · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+   ╰────
+[36m  help: [0mReplace `errors WriteFailureError, FlushFailureError, SinkClosedError` with `errors OutputError`.
+
+
+=== test-projects/process-api-smoke/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/process-api-smoke/src/main.op:7:7[0m]
+ [2m 6[0m │     ##
+ [2m 7[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError, EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error =>
+ [2m 8[0m │ [35;1m│[0m       let cwd = propagate current_working_directory_sync()
+ [2m 9[0m │ [35;1m│[0m       let exe_path = propagate current_executable_path_sync()
+ [2m10[0m │ [35;1m│[0m       let exe_dir = propagate current_executable_directory_sync()
+ [2m11[0m │ [35;1m│[0m
+ [2m12[0m │ [35;1m│[0m       let cwd_exists = propagate path_exists_sync(cwd)
+ [2m13[0m │ [35;1m│[0m       let exe_path_exists = propagate path_exists_sync(exe_path)
+ [2m14[0m │ [35;1m│[0m       let exe_dir_is_directory = propagate is_directory_sync(exe_dir)
+ [2m15[0m │ [35;1m│[0m
+ [2m16[0m │ [35;1m│[0m       if cwd_exists and exe_path_exists and exe_dir_is_directory:
+ [2m17[0m │ [35;1m│[0m           print('process_api_smoke_paths_ok=true')
+ [2m18[0m │ [35;1m│[0m       else:
+ [2m19[0m │ [35;1m│[0m           print('process_api_smoke_paths_ok=false')
+ [2m20[0m │ [35;1m│[0m
+ [2m21[0m │ [35;1m│[0m       let env_present = propagate get_environment_variable_or('OPAL_PROCESS_TEST_VALUE', 'fallback')
+ [2m22[0m │ [35;1m│[0m       let env_exists = propagate environment_variable_exists('OPAL_PROCESS_TEST_VALUE')
+ [2m23[0m │ [35;1m│[0m       if env_present is 'present-value' and env_exists:
+ [2m24[0m │ [35;1m│[0m           print('process_api_smoke_env_ok=true')
+ [2m25[0m │ [35;1m│[0m       else:
+ [2m26[0m │ [35;1m│[0m           print('process_api_smoke_env_ok=false')
+ [2m27[0m │ [35;1m│[0m
+ [2m28[0m │ [35;1m│[0m       guard get_environment_variable('OPAL_PROCESS_TEST_VALUE') into exact_value else err =>
+ [2m29[0m │ [35;1m│[0m           print(err)
+ [2m30[0m │ [35;1m│[0m           propagate err
+ [2m31[0m │ [35;1m│[0m
+ [2m32[0m │ [35;1m│[0m       if exact_value is env_present:
+ [2m33[0m │ [35;1m│[0m           print('process_api_smoke_get_ok=true')
+ [2m34[0m │ [35;1m│[0m       else:
+ [2m35[0m │ [35;1m│[0m           print('process_api_smoke_get_ok=false')
+ [2m36[0m │ [35;1m│[0m
+ [2m37[0m │ [35;1m│[0m       # Mention exit_process in a branch that never executes to validate import wiring safely.
+ [2m38[0m │ [35;1m│[0m       if args.length < 0:
+ [2m39[0m │ [35;1m│[0m           exit_process(42)
+ [2m40[0m │ [35;1m│[0m
+ [2m41[0m │ [35;1m│[0m       propagate set_current_working_directory_sync(cwd)
+ [2m42[0m │ [35;1m│[0m
+ [2m43[0m │ [35;1m│[0m       print('process_api_smoke_done=true')
+ [2m44[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/process-cwd/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/process-cwd/src/main.op:7:7[0m]
+ [2m 6[0m │     ##
+ [2m 7[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, DirectoryNotFoundError, IsNotADirectoryError, CreateFailureError, FileAlreadyExistsError, FilesystemFullError, DeleteFailureError, DirectoryNotEmptyError =>
+ [2m 8[0m │ [35;1m│[0m       let mutable original_cwd = propagate current_working_directory_sync()
+ [2m 9[0m │ [35;1m│[0m
+ [2m10[0m │ [35;1m│[0m       let fixture_workspace = path_from('test-projects/process-cwd/workspace')
+ [2m11[0m │ [35;1m│[0m       let fixture_workspace_exists = propagate path_exists_sync(fixture_workspace)
+ [2m12[0m │ [35;1m│[0m       if fixture_workspace_exists is false:
+ [2m13[0m │ [35;1m│[0m           propagate create_directory_sync(fixture_workspace)
+ [2m14[0m │ [35;1m│[0m
+ [2m15[0m │ [35;1m│[0m       guard set_current_working_directory_sync(fixture_workspace) else change_err =>
+ [2m16[0m │ [35;1m│[0m           print(change_err)
+ [2m17[0m │ [35;1m│[0m           propagate change_err
+ [2m18[0m │ [35;1m│[0m
+ [2m19[0m │ [35;1m│[0m       let mutated_cwd = propagate current_working_directory_sync()
+ [2m20[0m │ [35;1m│[0m       let mutated_is_directory = propagate is_directory_sync(mutated_cwd)
+ [2m21[0m │ [35;1m│[0m       if mutated_is_directory:
+ [2m22[0m │ [35;1m│[0m           print('cwd_mutation_applied=true')
+ [2m23[0m │ [35;1m│[0m       else:
+ [2m24[0m │ [35;1m│[0m           print('cwd_mutation_applied=false')
+ [2m25[0m │ [35;1m│[0m
+ [2m26[0m │ [35;1m│[0m       guard set_current_working_directory_sync(original_cwd) else restore_err =>
+ [2m27[0m │ [35;1m│[0m           print(restore_err)
+ [2m28[0m │ [35;1m│[0m           propagate restore_err
+ [2m29[0m │ [35;1m│[0m
+ [2m30[0m │ [35;1m│[0m       let restored_cwd = propagate current_working_directory_sync()
+ [2m31[0m │ [35;1m│[0m       if path_to_string(restored_cwd) is path_to_string(original_cwd):
+ [2m32[0m │ [35;1m│[0m           print('cwd_mutation_restored=true')
+ [2m33[0m │ [35;1m│[0m       else:
+ [2m34[0m │ [35;1m│[0m           print('cwd_mutation_restored=false')
+ [2m35[0m │ [35;1m│[0m
+ [2m36[0m │ [35;1m│[0m       let cleanup_exists = propagate path_exists_sync(fixture_workspace)
+ [2m37[0m │ [35;1m│[0m       if cleanup_exists:
+ [2m38[0m │ [35;1m│[0m           propagate delete_directory_sync(fixture_workspace)
+ [2m39[0m │ [35;1m│[0m
+ [2m40[0m │ [35;1m│[0m       print('cwd_fixture_done=true')
+ [2m41[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/process-env/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'ProcessEnvError'
+    ╭─[[36;1;4mtest-projects/process-env/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error =>
+ [2m 7[0m │ [35;1m│[0m       let present_value = propagate get_environment_variable('OPAL_PROCESS_TEST_VALUE')
+ [2m 8[0m │ [35;1m│[0m       print('present_value={present_value}')
+ [2m 9[0m │ [35;1m│[0m
+ [2m10[0m │ [35;1m│[0m       let present_exists = propagate environment_variable_exists('OPAL_PROCESS_TEST_VALUE')
+ [2m11[0m │ [35;1m│[0m       if present_exists:
+ [2m12[0m │ [35;1m│[0m           print('present_exists=true')
+ [2m13[0m │ [35;1m│[0m       else:
+ [2m14[0m │ [35;1m│[0m           print('present_exists=false')
+ [2m15[0m │ [35;1m│[0m
+ [2m16[0m │ [35;1m│[0m       let missing_exists = propagate environment_variable_exists('OPAL_PROCESS_TEST_MISSING')
+ [2m17[0m │ [35;1m│[0m       if missing_exists:
+ [2m18[0m │ [35;1m│[0m           print('missing_exists=true')
+ [2m19[0m │ [35;1m│[0m       else:
+ [2m20[0m │ [35;1m│[0m           print('missing_exists=false')
+ [2m21[0m │ [35;1m│[0m
+ [2m22[0m │ [35;1m│[0m       let missing_default = propagate get_environment_variable_or('OPAL_PROCESS_TEST_MISSING', 'fallback-value')
+ [2m23[0m │ [35;1m│[0m       print('missing_default={missing_default}')
+ [2m24[0m │ [35;1m│[0m
+ [2m25[0m │ [35;1m│[0m       let empty_present = propagate get_environment_variable('OPAL_PROCESS_TEST_EMPTY')
+ [2m26[0m │ [35;1m│[0m       print('empty_present={empty_present}')
+ [2m27[0m │ [35;1m│[0m
+ [2m28[0m │ [35;1m│[0m       let empty_default = propagate get_environment_variable_or('OPAL_PROCESS_TEST_EMPTY', 'should-not-appear')
+ [2m29[0m │ [35;1m│[0m       print('empty_default={empty_default}')
+ [2m30[0m │ [35;1m│[0m
+ [2m31[0m │ [35;1m│[0m       let present_default = propagate get_environment_variable_or('OPAL_PROCESS_TEST_VALUE', 'should-not-appear')
+ [2m32[0m │ [35;1m│[0m       print('present_default={present_default}')
+ [2m33[0m │ [35;1m│[0m
+ [2m34[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error` with `errors ProcessEnvError`.
+
+
+=== test-projects/process-paths/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/process-paths/src/main.op:7:7[0m]
+ [2m 6[0m │     ##
+ [2m 7[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError =>
+ [2m 8[0m │ [35;1m│[0m       let original_cwd = propagate current_working_directory_sync()
+ [2m 9[0m │ [35;1m│[0m       let original_cwd_string = path_to_string(original_cwd)
+ [2m10[0m │ [35;1m│[0m       let original_cwd_exists = propagate path_exists_sync(original_cwd)
+ [2m11[0m │ [35;1m│[0m       let original_cwd_is_directory = propagate is_directory_sync(original_cwd)
+ [2m12[0m │ [35;1m│[0m       if original_cwd_string.length > 0:
+ [2m13[0m │ [35;1m│[0m           print('cwd_non_empty=true')
+ [2m14[0m │ [35;1m│[0m       else:
+ [2m15[0m │ [35;1m│[0m           print('cwd_non_empty=false')
+ [2m16[0m │ [35;1m│[0m       if original_cwd_exists:
+ [2m17[0m │ [35;1m│[0m           print('cwd_exists=true')
+ [2m18[0m │ [35;1m│[0m       else:
+ [2m19[0m │ [35;1m│[0m           print('cwd_exists=false')
+ [2m20[0m │ [35;1m│[0m       if original_cwd_is_directory:
+ [2m21[0m │ [35;1m│[0m           print('cwd_is_directory=true')
+ [2m22[0m │ [35;1m│[0m       else:
+ [2m23[0m │ [35;1m│[0m           print('cwd_is_directory=false')
+ [2m24[0m │ [35;1m│[0m
+ [2m25[0m │ [35;1m│[0m       let executable_path = propagate current_executable_path_sync()
+ [2m26[0m │ [35;1m│[0m       let executable_path_string = path_to_string(executable_path)
+ [2m27[0m │ [35;1m│[0m       let executable_path_exists = propagate path_exists_sync(executable_path)
+ [2m28[0m │ [35;1m│[0m       if executable_path_string.length > 0:
+ [2m29[0m │ [35;1m│[0m           print('exe_path_non_empty=true')
+ [2m30[0m │ [35;1m│[0m       else:
+ [2m31[0m │ [35;1m│[0m           print('exe_path_non_empty=false')
+ [2m32[0m │ [35;1m│[0m       if executable_path_exists:
+ [2m33[0m │ [35;1m│[0m           print('exe_path_exists=true')
+ [2m34[0m │ [35;1m│[0m       else:
+ [2m35[0m │ [35;1m│[0m           print('exe_path_exists=false')
+ [2m36[0m │ [35;1m│[0m
+ [2m37[0m │ [35;1m│[0m       let executable_directory = propagate current_executable_directory_sync()
+ [2m38[0m │ [35;1m│[0m       let executable_directory_string = path_to_string(executable_directory)
+ [2m39[0m │ [35;1m│[0m       let executable_directory_exists = propagate path_exists_sync(executable_directory)
+ [2m40[0m │ [35;1m│[0m       let executable_directory_is_directory = propagate is_directory_sync(executable_directory)
+ [2m41[0m │ [35;1m│[0m       if executable_directory_string.length > 0:
+ [2m42[0m │ [35;1m│[0m           print('exe_dir_non_empty=true')
+ [2m43[0m │ [35;1m│[0m       else:
+ [2m44[0m │ [35;1m│[0m           print('exe_dir_non_empty=false')
+ [2m45[0m │ [35;1m│[0m       if executable_directory_exists:
+ [2m46[0m │ [35;1m│[0m           print('exe_dir_exists=true')
+ [2m47[0m │ [35;1m│[0m       else:
+ [2m48[0m │ [35;1m│[0m           print('exe_dir_exists=false')
+ [2m49[0m │ [35;1m│[0m       if executable_directory_is_directory:
+ [2m50[0m │ [35;1m│[0m           print('exe_dir_is_directory=true')
+ [2m51[0m │ [35;1m│[0m       else:
+ [2m52[0m │ [35;1m│[0m           print('exe_dir_is_directory=false')
+ [2m53[0m │ [35;1m│[0m
+ [2m54[0m │ [35;1m│[0m       propagate set_current_working_directory_sync(executable_directory)
+ [2m55[0m │ [35;1m│[0m       let changed_cwd = propagate current_working_directory_sync()
+ [2m56[0m │ [35;1m│[0m       let changed_cwd_string = path_to_string(changed_cwd)
+ [2m57[0m │ [35;1m│[0m       let changed_cwd_exists = propagate path_exists_sync(changed_cwd)
+ [2m58[0m │ [35;1m│[0m       let changed_cwd_is_directory = propagate is_directory_sync(changed_cwd)
+ [2m59[0m │ [35;1m│[0m       if changed_cwd_string.length > 0 and changed_cwd_exists and changed_cwd_is_directory:
+ [2m60[0m │ [35;1m│[0m           print('cwd_changed=true')
+ [2m61[0m │ [35;1m│[0m       else:
+ [2m62[0m │ [35;1m│[0m           print('cwd_changed=false')
+ [2m63[0m │ [35;1m│[0m       if changed_cwd_exists:
+ [2m64[0m │ [35;1m│[0m           print('changed_cwd_exists=true')
+ [2m65[0m │ [35;1m│[0m       else:
+ [2m66[0m │ [35;1m│[0m           print('changed_cwd_exists=false')
+ [2m67[0m │ [35;1m│[0m       if changed_cwd_is_directory:
+ [2m68[0m │ [35;1m│[0m           print('changed_cwd_is_directory=true')
+ [2m69[0m │ [35;1m│[0m       else:
+ [2m70[0m │ [35;1m│[0m           print('changed_cwd_is_directory=false')
+ [2m71[0m │ [35;1m│[0m
+ [2m72[0m │ [35;1m│[0m       propagate set_current_working_directory_sync(original_cwd)
+ [2m73[0m │ [35;1m│[0m       let restored_cwd = propagate current_working_directory_sync()
+ [2m74[0m │ [35;1m│[0m       let restored_cwd_string = path_to_string(restored_cwd)
+ [2m75[0m │ [35;1m│[0m       if restored_cwd_string is original_cwd_string:
+ [2m76[0m │ [35;1m│[0m           print('cwd_restored=true')
+ [2m77[0m │ [35;1m│[0m       else:
+ [2m78[0m │ [35;1m│[0m           print('cwd_restored=false')
+ [2m79[0m │ [35;1m│[0m
+ [2m80[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'restored_cwd_string' is never used
+    ╭─[[36;1;4mtest-projects/process-paths/src/main.op:74:9[0m]
+ [2m73[0m │     let restored_cwd = propagate current_working_directory_sync()
+ [2m74[0m │     let restored_cwd_string = path_to_string(restored_cwd)
+    · [35;1m        ─────────┬─────────[0m
+    ·                  [35;1m╰── [35;1munused variable[0m[0m
+ [2m75[0m │     if restored_cwd_string is original_cwd_string:
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/saferm/src/main.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './help'
+   ╭─[[36;1;4mtest-projects/saferm/src/main.op:3:8[0m]
+ [2m2[0m │ import list_directory_sync, join_path_components, path_to_string, path_exists_sync, is_directory_sync, take_input from standard
+ [2m3[0m │ import print_help from ./help
+   · [35;1m       ─────┬────[0m
+   ·             [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m4[0m │ import force_options, prompt_each_options, prompt_once_options, prompt_never_options, recursive_options, preserve_root_options, preserve_root_all_options, no_preserve_root_options, verbose_options, dir_options, one_file_system_options, help_options, version_options, contains_string, starts_with_dash from ./options
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './options'
+   ╭─[[36;1;4mtest-projects/saferm/src/main.op:4:8[0m]
+ [2m3[0m │ import print_help from ./help
+ [2m4[0m │ import force_options, prompt_each_options, prompt_once_options, prompt_never_options, recursive_options, preserve_root_options, preserve_root_all_options, no_preserve_root_options, verbose_options, dir_options, one_file_system_options, help_options, version_options, contains_string, starts_with_dash from ./options
+   · [35;1m       ──────┬──────[0m
+   ·              [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m5[0m │ import trash_directory, create_trash_path_if_not_exists, get_trash_entries, move_to_destination, trash_entry_exists, targets_current_directory, targets_root_directory from ./trash
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::unresolved_import[0m
+
+  [31m×[0m Unresolved import path './trash'
+   ╭─[[36;1;4mtest-projects/saferm/src/main.op:5:8[0m]
+ [2m4[0m │ import force_options, prompt_each_options, prompt_once_options, prompt_never_options, recursive_options, preserve_root_options, preserve_root_all_options, no_preserve_root_options, verbose_options, dir_options, one_file_system_options, help_options, version_options, contains_string, starts_with_dash from ./options
+ [2m5[0m │ import trash_directory, create_trash_path_if_not_exists, get_trash_entries, move_to_destination, trash_entry_exists, targets_current_directory, targets_root_directory from ./trash
+   · [35;1m       ───────┬───────[0m
+   ·               [35;1m╰── [35;1mimport cannot be resolved[0m[0m
+ [2m6[0m │
+   ╰────
+[36m  help: [0mCheck the import path and ensure the target module is registered
+
+
+[31mopalescent::type_system::symbol_not_found[0m
+
+  [31m×[0m Symbol 'trash_directory' not found in this scope
+    ╭─[[36;1;4mtest-projects/saferm/src/main.op:24:26[0m]
+ [2m23[0m │ entry main = f(args: string[]): void errors DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, InvalidEnvironmentVariableNameError, InvalidUtf8Error, IndexOutOfBoundsError =>
+ [2m24[0m │     let dest = propagate trash_directory()
+    · [35;1m                         ───────┬───────[0m
+    ·                                 [35;1m╰── [35;1mundefined symbol[0m[0m
+ [2m25[0m │
+    ╰────
+[36m  help: [0mEnsure the symbol is declared before use or imported from the correct module
+
+
+error: aborting due to 4 previous errors
+
+=== test-projects/saferm/src/main_backup.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+    ╭─[[36;1;4mtest-projects/saferm/src/main_backup.op:12:7[0m]
+ [2m11[0m │     ##
+ [2m12[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, PermissionDeniedError, MoveFailureError, FileAlreadyExistsError, InvalidPathError =>
+ [2m13[0m │ [35;1m│[0m       let dest = path_from('~/.local/share/op-trash/')
+ [2m14[0m │ [35;1m│[0m
+ [2m15[0m │ [35;1m│[0m       if args.length < 2:
+ [2m16[0m │ [35;1m│[0m           print('Please provide the names of the files you wish to remove after the call. Example: "saferm myfile1.txt myfile2.txt"')
+ [2m17[0m │ [35;1m│[0m
+ [2m18[0m │ [35;1m│[0m       guard current_working_directory_sync() into cwd else e =>
+ [2m19[0m │ [35;1m│[0m           print('An error occurred: {e}')
+ [2m20[0m │ [35;1m│[0m           propagate e
+ [2m21[0m │ [35;1m│[0m
+ [2m22[0m │ [35;1m│[0m       let mutable i = 0
+ [2m23[0m │ [35;1m│[0m       for arg in args:
+ [2m24[0m │ [35;1m│[0m           if i is 0:
+ [2m25[0m │ [35;1m│[0m               # we don't want to accidentally remove the program or something
+ [2m26[0m │ [35;1m│[0m               i = i + 1
+ [2m27[0m │ [35;1m│[0m               continue
+ [2m28[0m │ [35;1m│[0m           let path = join_path_components(cwd, [arg])
+ [2m29[0m │ [35;1m│[0m
+ [2m30[0m │ [35;1m│[0m           # I also really want a better error story for path_to_string being required
+ [2m31[0m │ [35;1m│[0m           # right now, the "path can't become string" error is almost nonexistant and ugly
+ [2m32[0m │ [35;1m│[0m           print('Moving {path_to_string(path)} to {path_to_string(dest)}')
+ [2m33[0m │ [35;1m│[0m
+ [2m34[0m │ [35;1m│[0m           # this line is the culprit
+ [2m35[0m │ [35;1m│[0m           if not propagate path_exists_sync(dest):
+ [2m36[0m │ [35;1m│[0m               print('Directory {path_to_string(dest)} does not exist yet, creating {path_to_string(dest)}')
+ [2m37[0m │ [35;1m│[0m
+ [2m38[0m │ [35;1m│[0m
+ [2m39[0m │ [35;1m│[0m           guard move_path_sync(path, dest) else e =>
+ [2m40[0m │ [35;1m│[0m               print('An error occurred: {e}')
+ [2m41[0m │ [35;1m│[0m               propagate e
+ [2m42[0m │ [35;1m│[0m           print('Moved {path_to_string(path)} to {path_to_string(dest)} successfully')
+ [2m43[0m │ [35;1m│[0m           i = i + 1
+ [2m44[0m │ [35;1m│[0m
+ [2m45[0m │ [35;1m│[0m
+ [2m46[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+
+=== test-projects/saferm/src/trash.op exit=1 ===
+stdout:
+stderr:
+[31mopalescent::type_system::missing_entry_point[0m
+
+  [31m×[0m Program is missing an `entry` function
+   ╭─[[36;1;4mtest-projects/saferm/src/trash.op:1:1[0m]
+ [2m1[0m │ import get_environment_variable_or from process
+   · [35;1m▲[0m
+   · [35;1m╰── [35;1mno entry function declared[0m[0m
+ [2m2[0m │ import list_directory_sync, join_path_components, move_path_sync, path_to_string, path_from, path_exists_sync, create_directory_recursive_sync, path_file_name, path_parent_directory, int64_to_string from standard
+   ╰────
+[36m  help: [0mDefine exactly one `entry` function to mark the program entry point
+
+
+error: aborting due to 1 previous error
+
+=== test-projects/should-print-final-result/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/simple-quiz/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::unreachable_code[0m
+
+  [31m×[0m Unreachable code detected
+    ╭─[[36;1;4mtest-projects/simple-quiz/src/main.op:50:55[0m]
+ [2m49[0m │             # it makes it easy to skim and determine what is going on
+ [2m50[0m │                 break user_input: s, user_number: n   # success -> exit loop returning both values. Treated similar to a multiple-return
+    · [35;1m                                                      ─────────────────────────────────────────┬────────────────────────────────────────[0m
+    ·                                                                                                [35;1m╰── [35;1munreachable code[0m[0m
+ [2m51[0m │
+    ╰────
+[36m  help: [0mRemove unreachable statements or refactor control flow
+
+[31mopalescent::type_system::warning::unreachable_code[0m
+
+  [31m×[0m Unreachable code detected
+    ╭─[[36;1;4mtest-projects/simple-quiz/src/main.op:70:17[0m]
+ [2m69[0m │
+ [2m70[0m │     return void # explicit "return void" is always required to ensure termination of functions is intentional
+    · [35;1m                ──────────────────────────────────────────────┬──────────────────────────────────────────────[0m
+    ·                                                               [35;1m╰── [35;1munreachable code[0m[0m
+ [2m71[0m │
+    ╰────
+[36m  help: [0mRemove unreachable statements or refactor control flow
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'user_input' is never used
+    ╭─[[36;1;4mtest-projects/simple-quiz/src/main.op:24:9[0m]
+ [2m23[0m │     # These variables (user_input, user_number) are still immutable
+ [2m24[0m │     let user_input, user_number =
+    · [35;1m        ─────┬────[0m
+    ·              [35;1m╰── [35;1munused variable[0m[0m
+ [2m25[0m │             loop =>
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally
+
+
+=== test-projects/sleep-ms-sync-50ms-timing/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/sleep-ms-sync-rejects-negative/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/stdout-writer-interleaves-with-print-text/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'OutputError'
+    ╭─[[36;1;4mtest-projects/stdout-writer-interleaves-with-print-text/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
+ [2m 7[0m │ [35;1m│[0m       let writer = stdout_writer()
+ [2m 8[0m │ [35;1m│[0m       propagate writer_write_sync(writer, 'A')
+ [2m 9[0m │ [35;1m│[0m       propagate print_text_sync('1')
+ [2m10[0m │ [35;1m│[0m       propagate writer_write_sync(writer, 'B')
+ [2m11[0m │ [35;1m│[0m       propagate print_text_sync('2')
+ [2m12[0m │ [35;1m│[0m       propagate writer_flush_sync(writer)
+ [2m13[0m │ [35;1m│[0m       propagate flush_standard_output_sync()
+ [2m14[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors WriteFailureError, FlushFailureError, SinkClosedError` with `errors OutputError`.
+
+
+=== test-projects/stdout-writer-write-flush/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'OutputError'
+    ╭─[[36;1;4mtest-projects/stdout-writer-write-flush/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
+ [2m 7[0m │ [35;1m│[0m       let writer = stdout_writer()
+ [2m 8[0m │ [35;1m│[0m       propagate writer_write_sync(writer, 'frame')
+ [2m 9[0m │ [35;1m│[0m       propagate writer_flush_sync(writer)
+ [2m10[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors WriteFailureError, FlushFailureError, SinkClosedError` with `errors OutputError`.
+
+
+=== test-projects/string-builder-push-finish/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'StringBuilderError'
+    ╭─[[36;1;4mtest-projects/string-builder-push-finish/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors BuilderFinishedError, AllocationFailureError =>
+ [2m 7[0m │ [35;1m│[0m       let builder: StringBuilder = new StringBuilder
+ [2m 8[0m │ [35;1m│[0m       propagate string_builder_push(builder, 'row-1')
+ [2m 9[0m │ [35;1m│[0m       propagate string_builder_push(builder, '\n')
+ [2m10[0m │ [35;1m│[0m       propagate string_builder_push(builder, 'row-2')
+ [2m11[0m │ [35;1m│[0m       let text = propagate string_builder_finish(builder)
+ [2m12[0m │ [35;1m│[0m       print(text)
+ [2m13[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors BuilderFinishedError, AllocationFailureError` with `errors StringBuilderError`.
+
+
+=== test-projects/string-builder-use-after-finish-errors/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'StringBuilderError'
+    ╭─[[36;1;4mtest-projects/string-builder-use-after-finish-errors/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors BuilderFinishedError, AllocationFailureError =>
+ [2m 7[0m │ [35;1m│[0m       let builder: StringBuilder = new StringBuilder
+ [2m 8[0m │ [35;1m│[0m       propagate string_builder_push(builder, 'done')
+ [2m 9[0m │ [35;1m│[0m       let text = propagate string_builder_finish(builder)
+ [2m10[0m │ [35;1m│[0m       print(text)
+ [2m11[0m │ [35;1m│[0m
+ [2m12[0m │ [35;1m│[0m       guard string_builder_push(builder, '!') else err =>
+ [2m13[0m │ [35;1m│[0m           print('BuilderFinishedError:{err}')
+ [2m14[0m │ [35;1m│[0m           propagate err
+ [2m15[0m │ [35;1m│[0m
+ [2m16[0m │ [35;1m│[0m       print('UNEXPECTED_SUCCESS')
+ [2m17[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors BuilderFinishedError, AllocationFailureError` with `errors StringBuilderError`.
+
+
+=== test-projects/string-indexing/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-indexing-bounds/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-join-basic-smoke/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-join-empty-and-single/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-lines-whitespace-stdlib/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/string-ranges-stdlib/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'StringRangeError'
+    ╭─[[36;1;4mtest-projects/string-ranges-stdlib/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors StringNegativeCountError, StringRangeOutOfBoundsError, StringRangeOrderError, AllocationFailureError =>
+ [2m 7[0m │ [35;1m│[0m       let prefix = propagate string_take_prefix('hé🙂z', 3)
+ [2m 8[0m │ [35;1m│[0m       let suffix = propagate string_take_suffix('hé🙂z', 2)
+ [2m 9[0m │ [35;1m│[0m       let range = propagate string_extract_range('hé🙂z', 1, 3)
+ [2m10[0m │ [35;1m│[0m       print('prefix:[{prefix}]')
+ [2m11[0m │ [35;1m│[0m       print('suffix:[{suffix}]')
+ [2m12[0m │ [35;1m│[0m       print('range:[{range}]')
+ [2m13[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors StringNegativeCountError, StringRangeOutOfBoundsError, StringRangeOrderError` with `errors StringRangeError`.
+
+
+=== test-projects/string-search-stdlib/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'StringSearchError'
+    ╭─[[36;1;4mtest-projects/string-search-stdlib/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors StringEmptySearchTextError, StringPatternNotFoundError =>
+ [2m 7[0m │ [35;1m│[0m       let found = string_find_index_or('hé🙂z', '🙂', -1)
+ [2m 8[0m │ [35;1m│[0m       let fallback = string_find_index_or('hé🙂z', 'q', 7)
+ [2m 9[0m │ [35;1m│[0m       let last = propagate string_find_last_index_of_text('bananana', 'ana')
+ [2m10[0m │ [35;1m│[0m       print('found:{found}')
+ [2m11[0m │ [35;1m│[0m       print('fallback:{fallback}')
+ [2m12[0m │ [35;1m│[0m       print('last:{last}')
+ [2m13[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors StringEmptySearchTextError, StringPatternNotFoundError` with `errors StringSearchError`.
+
+
+=== test-projects/terminal-clear-screen-ansi-bytes/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/terminal-draw-rows-bytes/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+
+=== test-projects/terminal-move-cursor-rejects-negative-column/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'TerminalError'
+    ╭─[[36;1;4mtest-projects/terminal-move-cursor-rejects-negative-column/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError =>
+ [2m 7[0m │ [35;1m│[0m       guard terminal_move_cursor_sync(0, -1) else err =>
+ [2m 8[0m │ [35;1m│[0m           print('column=-1:{err}')
+ [2m 9[0m │ [35;1m│[0m           propagate err
+ [2m10[0m │ [35;1m│[0m
+ [2m11[0m │ [35;1m│[0m       print('UNEXPECTED_SUCCESS column=-1')
+ [2m12[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError` with `errors TerminalError`.
+
+
+=== test-projects/terminal-move-cursor-rejects-negative-row/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'TerminalError'
+    ╭─[[36;1;4mtest-projects/terminal-move-cursor-rejects-negative-row/src/main.op:6:7[0m]
+ [2m 5[0m │     ##
+ [2m 6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError =>
+ [2m 7[0m │ [35;1m│[0m       guard terminal_move_cursor_sync(-1, 0) else err =>
+ [2m 8[0m │ [35;1m│[0m           print('row=-1:{err}')
+ [2m 9[0m │ [35;1m│[0m           propagate err
+ [2m10[0m │ [35;1m│[0m
+ [2m11[0m │ [35;1m│[0m       print('UNEXPECTED_SUCCESS row=-1')
+ [2m12[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+    · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+    ╰────
+[36m  help: [0mReplace `errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError` with `errors TerminalError`.
+
+
+=== test-projects/terminal-move-cursor-zero-based-ansi-bytes/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'TerminalError'
+   ╭─[[36;1;4mtest-projects/terminal-move-cursor-zero-based-ansi-bytes/src/main.op:6:7[0m]
+ [2m5[0m │     ##
+ [2m6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors TerminalWriteFailureError, InvalidCursorPositionError, FlushFailureError, SinkClosedError =>
+ [2m7[0m │ [35;1m│[0m       propagate terminal_move_cursor_sync(0, 0)
+ [2m8[0m │ [35;1m│[0m       propagate flush_standard_output_sync()
+ [2m9[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+   · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+   ╰────
+[36m  help: [0mReplace `errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError` with `errors TerminalError`.
+
+
+=== test-projects/windows-file-ops/src/main.op exit=0 ===
+stdout:
+check passed
+stderr:
+[31mopalescent::type_system::warning::replaceable_error_list[0m
+
+  [31m×[0m Error declarations can be replaced with 'FilesystemPathError'
+     ╭─[[36;1;4mtest-projects/windows-file-ops/src/main.op:6:7[0m]
+ [2m  5[0m │     ##
+ [2m  6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(args: string[]): void errors PermissionDeniedError, InvalidPathError, CreateFailureError, FilesystemFullError, FileAlreadyExistsError, FileNotFoundError, WriteFailureError, IsADirectoryError, ReadFailureError, InvalidUtf8Error, DirectoryNotFoundError, DeleteFailureError, DirectoryNotEmptyError, IsNotADirectoryError, MoveFailureError, IndexOutOfBoundsError =>
+ [2m  7[0m │ [35;1m│[0m       let project_root = 'test-projects/windows-file-ops/'
+ [2m  8[0m │ [35;1m│[0m       let workspace = path_from('{project_root}workspace')
+ [2m  9[0m │ [35;1m│[0m       let nested_dir = path_from('{project_root}workspace/dir with spaces')
+ [2m 10[0m │ [35;1m│[0m       let unicode_dir = path_from('{project_root}workspace/dir with spaces/café')
+ [2m 11[0m │ [35;1m│[0m       let original_file = path_from('{project_root}workspace/dir with spaces/café/naïve file.txt')
+ [2m 12[0m │ [35;1m│[0m       let renamed_file = path_from('{project_root}workspace/dir with spaces/café/résumé final.txt')
+ [2m 13[0m │ [35;1m│[0m       let summary_file = path_from('{project_root}workspace/final-summary.txt')
+ [2m 14[0m │ [35;1m│[0m       let long_file_suffix = 'deep-file-name-that-keeps-the-path-over-two-hundred-sixty-characters.txt'
+ [2m 15[0m │ [35;1m│[0m       let long_nested_dir = join_path_components(path_from('{project_root}workspace'), ['segment-0-long-name', 'segment-1-long-name', 'segment-2-long-name', 'segment-3-long-name', 'segment-4-long-name', 'segment-5-long-name', 'segment-6-long-name', 'segment-7-long-name', 'segment-8-long-name', 'segment-9-long-name', 'segment-10-long-name', 'segment-11-long-name', 'segment-12-long-name', 'segment-13-long-name', 'segment-14-long-name', 'segment-15-long-name', 'segment-16-long-name', 'segment-17-long-name'])
+ [2m 16[0m │ [35;1m│[0m       let long_nested_file = join_path_components(long_nested_dir, [long_file_suffix])
+ [2m 17[0m │ [35;1m│[0m       let long_nested_file_string = path_to_string(long_nested_file)
+ [2m 18[0m │ [35;1m│[0m
+ [2m 19[0m │ [35;1m│[0m       guard delete_file_sync(summary_file) else cleanup_summary_err =>
+ [2m 20[0m │ [35;1m│[0m           let _ignored_cleanup_summary_err = cleanup_summary_err
+ [2m 21[0m │ [35;1m│[0m       guard delete_file_sync(renamed_file) else cleanup_renamed_err =>
+ [2m 22[0m │ [35;1m│[0m           let _ignored_cleanup_renamed_err = cleanup_renamed_err
+ [2m 23[0m │ [35;1m│[0m       guard delete_file_sync(original_file) else cleanup_original_err =>
+ [2m 24[0m │ [35;1m│[0m           let _ignored_cleanup_original_err = cleanup_original_err
+ [2m 25[0m │ [35;1m│[0m       guard delete_directory_sync(unicode_dir) else cleanup_unicode_err =>
+ [2m 26[0m │ [35;1m│[0m           let _ignored_cleanup_unicode_err = cleanup_unicode_err
+ [2m 27[0m │ [35;1m│[0m       guard delete_directory_sync(nested_dir) else cleanup_nested_err =>
+ [2m 28[0m │ [35;1m│[0m           let _ignored_cleanup_nested_err = cleanup_nested_err
+ [2m 29[0m │ [35;1m│[0m       guard delete_directory_recursive_sync(long_nested_dir) else cleanup_long_dir_err =>
+ [2m 30[0m │ [35;1m│[0m           let _ignored_cleanup_long_dir_err = cleanup_long_dir_err
+ [2m 31[0m │ [35;1m│[0m       guard delete_directory_sync(workspace) else cleanup_workspace_err =>
+ [2m 32[0m │ [35;1m│[0m           let _ignored_cleanup_workspace_err = cleanup_workspace_err
+ [2m 33[0m │ [35;1m│[0m
+ [2m 34[0m │ [35;1m│[0m       propagate create_directory_recursive_sync(unicode_dir)
+ [2m 35[0m │ [35;1m│[0m       print('MARKER:DIR_CREATED={path_to_string(unicode_dir)}')
+ [2m 36[0m │ [35;1m│[0m
+ [2m 37[0m │ [35;1m│[0m       propagate create_file_sync(original_file)
+ [2m 38[0m │ [35;1m│[0m       print('MARKER:FILE_CREATED={path_to_string(original_file)}')
+ [2m 39[0m │ [35;1m│[0m
+ [2m 40[0m │ [35;1m│[0m       propagate append_text_sync(original_file, 'alpha')
+ [2m 41[0m │ [35;1m│[0m       propagate append_text_sync(original_file, '\nbeta')
+ [2m 42[0m │ [35;1m│[0m       let original_text = propagate read_text_sync(original_file)
+ [2m 43[0m │ [35;1m│[0m       if original_text is 'alpha\nbeta':
+ [2m 44[0m │ [35;1m│[0m           print('MARKER:READ_BEFORE_RENAME=ok')
+ [2m 45[0m │ [35;1m│[0m       else:
+ [2m 46[0m │ [35;1m│[0m           print('MARKER:READ_BEFORE_RENAME=mismatch')
+ [2m 47[0m │ [35;1m│[0m
+ [2m 48[0m │ [35;1m│[0m       let listed = propagate list_directory_sync(unicode_dir)
+ [2m 49[0m │ [35;1m│[0m       let original_file_name = path_file_name(original_file)
+ [2m 50[0m │ [35;1m│[0m       let mutable original_match_count = 0
+ [2m 51[0m │ [35;1m│[0m       for listed_entry in listed:
+ [2m 52[0m │ [35;1m│[0m           if path_to_string(listed_entry) is original_file_name:
+ [2m 53[0m │ [35;1m│[0m               original_match_count = original_match_count + 1
+ [2m 54[0m │ [35;1m│[0m       print('MARKER:LIST_COUNT={int64_to_string(listed.length)}')
+ [2m 55[0m │ [35;1m│[0m       print('MARKER:LIST_HAS_ORIGINAL={int64_to_string(original_match_count)}')
+ [2m 56[0m │ [35;1m│[0m
+ [2m 57[0m │ [35;1m│[0m       let dir_open_ok = propagate is_directory_sync(unicode_dir)
+ [2m 58[0m │ [35;1m│[0m       if dir_open_ok:
+ [2m 59[0m │ [35;1m│[0m           print('MARKER:DIR_OPEN=ok')
+ [2m 60[0m │ [35;1m│[0m       else:
+ [2m 61[0m │ [35;1m│[0m           print('MARKER:DIR_OPEN=unexpected-false')
+ [2m 62[0m │ [35;1m│[0m
+ [2m 63[0m │ [35;1m│[0m       propagate move_path_sync(original_file, renamed_file)
+ [2m 64[0m │ [35;1m│[0m       print('MARKER:RENAMED_TO={path_to_string(renamed_file)}')
+ [2m 65[0m │ [35;1m│[0m
+ [2m 66[0m │ [35;1m│[0m       let original_exists_after_move = propagate path_exists_sync(original_file)
+ [2m 67[0m │ [35;1m│[0m       let renamed_exists_after_move = propagate path_exists_sync(renamed_file)
+ [2m 68[0m │ [35;1m│[0m       if original_exists_after_move:
+ [2m 69[0m │ [35;1m│[0m           print('MARKER:OLD_EXISTS_AFTER_MOVE=true')
+ [2m 70[0m │ [35;1m│[0m       else:
+ [2m 71[0m │ [35;1m│[0m           print('MARKER:OLD_EXISTS_AFTER_MOVE=false')
+ [2m 72[0m │ [35;1m│[0m       if renamed_exists_after_move:
+ [2m 73[0m │ [35;1m│[0m           print('MARKER:RENAMED_EXISTS_AFTER_MOVE=true')
+ [2m 74[0m │ [35;1m│[0m       else:
+ [2m 75[0m │ [35;1m│[0m           print('MARKER:RENAMED_EXISTS_AFTER_MOVE=false')
+ [2m 76[0m │ [35;1m│[0m
+ [2m 77[0m │ [35;1m│[0m       let renamed_text = propagate read_text_sync(renamed_file)
+ [2m 78[0m │ [35;1m│[0m       if renamed_text is 'alpha\nbeta':
+ [2m 79[0m │ [35;1m│[0m           print('MARKER:READ_AFTER_RENAME=ok')
+ [2m 80[0m │ [35;1m│[0m       else:
+ [2m 81[0m │ [35;1m│[0m           print('MARKER:READ_AFTER_RENAME=mismatch')
+ [2m 82[0m │ [35;1m│[0m
+ [2m 83[0m │ [35;1m│[0m       let nearest_supported_replace_note = 'move_path_sync used as nearest supported rename/replace operation'
+ [2m 84[0m │ [35;1m│[0m       print('MARKER:RENAME_REPLACE_NOTE={nearest_supported_replace_note}')
+ [2m 85[0m │ [35;1m│[0m
+ [2m 86[0m │ [35;1m│[0m       propagate create_directory_recursive_sync(long_nested_dir)
+ [2m 87[0m │ [35;1m│[0m       propagate write_text_sync(long_nested_file, 'Hello, Opal!\n')
+ [2m 88[0m │ [35;1m│[0m       let long_path_readback = propagate read_text_sync(long_nested_file)
+ [2m 89[0m │ [35;1m│[0m       if long_path_readback is 'Hello, Opal!\n':
+ [2m 90[0m │ [35;1m│[0m           print('MARKER:LONG_PATH_OK=true')
+ [2m 91[0m │ [35;1m│[0m       else:
+ [2m 92[0m │ [35;1m│[0m           print('MARKER:LONG_PATH_OK=false')
+ [2m 93[0m │ [35;1m│[0m       print('MARKER:LONG_PATH_LEN={int64_to_string(long_nested_file_string.length)}')
+ [2m 94[0m │ [35;1m│[0m
+ [2m 95[0m │ [35;1m│[0m       let summary_text = 'status=ready\nfile=résumé final.txt\ncontent=alpha\nbeta\ndir=dir with spaces/café'
+ [2m 96[0m │ [35;1m│[0m       propagate write_text_sync(summary_file, summary_text)
+ [2m 97[0m │ [35;1m│[0m       let summary_readback = propagate read_text_sync(summary_file)
+ [2m 98[0m │ [35;1m│[0m       if summary_readback is summary_text:
+ [2m 99[0m │ [35;1m│[0m           print('MARKER:SUMMARY_WRITE=ok')
+ [2m100[0m │ [35;1m│[0m       else:
+ [2m101[0m │ [35;1m│[0m           print('MARKER:SUMMARY_WRITE=mismatch')
+ [2m102[0m │ [35;1m│[0m
+ [2m103[0m │ [35;1m│[0m       propagate delete_file_sync(renamed_file)
+ [2m104[0m │ [35;1m│[0m       let renamed_exists_after_delete = propagate path_exists_sync(renamed_file)
+ [2m105[0m │ [35;1m│[0m       if renamed_exists_after_delete:
+ [2m106[0m │ [35;1m│[0m           print('MARKER:RENAMED_EXISTS_AFTER_DELETE=true')
+ [2m107[0m │ [35;1m│[0m       else:
+ [2m108[0m │ [35;1m│[0m           print('MARKER:RENAMED_EXISTS_AFTER_DELETE=false')
+ [2m109[0m │ [35;1m│[0m
+ [2m110[0m │ [35;1m│[0m       propagate delete_directory_sync(unicode_dir)
+ [2m111[0m │ [35;1m│[0m       let unicode_dir_exists_after_delete = propagate path_exists_sync(unicode_dir)
+ [2m112[0m │ [35;1m│[0m       if unicode_dir_exists_after_delete:
+ [2m113[0m │ [35;1m│[0m           print('MARKER:UNICODE_DIR_EXISTS_AFTER_DELETE=true')
+ [2m114[0m │ [35;1m│[0m       else:
+ [2m115[0m │ [35;1m│[0m           print('MARKER:UNICODE_DIR_EXISTS_AFTER_DELETE=false')
+ [2m116[0m │ [35;1m│[0m
+ [2m117[0m │ [35;1m│[0m       print('MARKER:FINAL_STATUS=ok')
+ [2m118[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+     · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mcomplete replaceable error list[0m
+     ╰────
+[36m  help: [0mReplace `errors InvalidPathError, PermissionDeniedError` with `errors FilesystemPathError`.
+
+[31mopalescent::type_system::unused_variable[0m
+
+  [31m×[0m Variable 'summary_readback' is never used
+    ╭─[[36;1;4mtest-projects/windows-file-ops/src/main.op:97:9[0m]
+ [2m96[0m │     propagate write_text_sync(summary_file, summary_text)
+ [2m97[0m │     let summary_readback = propagate read_text_sync(summary_file)
+    · [35;1m        ────────┬───────[0m
+    ·                 [35;1m╰── [35;1munused variable[0m[0m
+ [2m98[0m │     if summary_readback is summary_text:
+    ╰────
+[36m  help: [0mRemove the variable or prefix it with '_' if unused intentionally

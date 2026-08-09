@@ -3,7 +3,7 @@ import stdout_writer, writer_write_sync, writer_flush_sync, print_text_sync, flu
 ##
   Description: Verifies StdoutWriter and print_text_sync interleave deterministically on shared stdout.
 ##
-entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
+entry main = f(args: string[]): void errors OutputError =>
     let writer = stdout_writer()
     propagate writer_write_sync(writer, 'A')
     propagate print_text_sync('1')
