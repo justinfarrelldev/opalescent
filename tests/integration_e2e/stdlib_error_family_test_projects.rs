@@ -537,14 +537,9 @@ fn assert_saferm_project_build(
         );
         let Some(block_index) = warning_blocks.iter().position(|block| {
             block_contains_exact_source_location(block, &source_location)
-                && [
-                    fixture.label,
-                    fixture.family,
-                    fixture.leaves,
-                    help.as_str(),
-                ]
-                .into_iter()
-                .all(|expected| block.contains(expected))
+                && [fixture.label, fixture.family, fixture.leaves, help.as_str()]
+                    .into_iter()
+                    .all(|expected| block.contains(expected))
         }) else {
             return Err(format!(
                 "{} ({}) should have one matching replacement warning, remaining warnings: {warning_blocks:#?}",
@@ -562,7 +557,8 @@ fn block_contains_exact_source_location(block: &str, source_location: &str) -> b
         block
             .as_bytes()
             .get(end)
-            .is_none_or(|byte| !byte.is_ascii_digit())
+            .copied()
+            .is_none_or(|byte| matches!(byte, b':' | b' ' | b'\n' | b'\r' | b'\t'))
     })
 }
 
@@ -633,6 +629,10 @@ fn stdlib_error_family_test_projects_saferm_source_location_requires_boundary() 
     ));
     assert!(!block_contains_exact_source_location(
         "warning at src/main.op:230: replacement",
+        "src/main.op:23"
+    ));
+    assert!(!block_contains_exact_source_location(
+        "warning at src/main.op:23x replacement",
         "src/main.op:23"
     ));
 }
