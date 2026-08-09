@@ -1,0 +1,42 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.10s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+running 1 test
+
+thread 'type_system::tests::test_stdlib_error_family_taxonomy_covers_all_current_leaves' panicked at src/type_system/tests.rs:9700:5:
+stdlib error family registry/coverage is incomplete; audited current leaves: ParseError, HexDecodeError, SliceRangeError, StringEmptySearchTextError, StringPatternNotFoundError, StringNegativeCountError, StringRangeOutOfBoundsError, StringRangeOrderError, BuilderFinishedError, AllocationFailureError, WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError, InvalidCursorPositionError, InvalidDurationError, InvalidFrameRateError, PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError, EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error, ReadFailureError, IsADirectoryError, OffsetOutOfRangeError, FilesystemFullError, FileAlreadyExistsError, CreateFailureError, DeleteFailureError, DirectoryNotFoundError, DirectoryNotEmptyError, CopyFailureError, MoveFailureError, MetadataUnavailableError, IndexOutOfBoundsError
+BytesError [HexDecodeError, SliceRangeError] => [UndeclaredErrorType { name: "BytesError", span: SourceSpan { offset: SourceOffset(79), length: 63 } }]
+StringSearchError [StringEmptySearchTextError, StringPatternNotFoundError] => [UndeclaredErrorType { name: "StringSearchError", span: SourceSpan { offset: SourceOffset(79), length: 70 } }]
+StringRangeError [StringNegativeCountError, StringRangeOutOfBoundsError, StringRangeOrderError] => [UndeclaredErrorType { name: "StringRangeError", span: SourceSpan { offset: SourceOffset(79), length: 69 } }]
+StringBuilderError [BuilderFinishedError, AllocationFailureError] => [UndeclaredErrorType { name: "StringBuilderError", span: SourceSpan { offset: SourceOffset(79), length: 71 } }]
+OutputError [WriteFailureError, FlushFailureError, SinkClosedError] => [UndeclaredErrorType { name: "OutputError", span: SourceSpan { offset: SourceOffset(79), length: 64 } }]
+TerminalError [TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError] => [UndeclaredErrorType { name: "TerminalError", span: SourceSpan { offset: SourceOffset(79), length: 66 } }]
+TimeError [InvalidDurationError, InvalidFrameRateError] => [UndeclaredErrorType { name: "TimeError", span: SourceSpan { offset: SourceOffset(79), length: 62 } }]
+ProcessPathError [PermissionDeniedError, InvalidPathError, CurrentWorkingDirectoryUnavailableError, CurrentExecutablePathUnavailableError, FileNotFoundError, IsNotADirectoryError] => [UndeclaredErrorType { name: "ProcessPathError", span: SourceSpan { offset: SourceOffset(79), length: 69 } }]
+ProcessEnvError [EnvironmentVariableNotFoundError, InvalidEnvironmentVariableNameError, InvalidUtf8Error] => [UndeclaredErrorType { name: "ProcessEnvError", span: SourceSpan { offset: SourceOffset(79), length: 68 } }]
+FilesystemPathError [InvalidPathError, PermissionDeniedError] => [UndeclaredErrorType { name: "FilesystemPathError", span: SourceSpan { offset: SourceOffset(79), length: 73 } }]
+FilesystemReadError [FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, OffsetOutOfRangeError] => [UndeclaredErrorType { name: "FilesystemReadError", span: SourceSpan { offset: SourceOffset(79), length: 73 } }]
+FilesystemWriteError [FileNotFoundError, PermissionDeniedError, WriteFailureError, IsADirectoryError, InvalidPathError, FilesystemFullError, OffsetOutOfRangeError] => [UndeclaredErrorType { name: "FilesystemWriteError", span: SourceSpan { offset: SourceOffset(79), length: 74 } }]
+FilesystemCreateError [FileAlreadyExistsError, PermissionDeniedError, CreateFailureError, InvalidPathError, FilesystemFullError] => [UndeclaredErrorType { name: "FilesystemCreateError", span: SourceSpan { offset: SourceOffset(79), length: 75 } }]
+FilesystemDeleteError [FileNotFoundError, PermissionDeniedError, DeleteFailureError, IsADirectoryError, InvalidPathError] => [UndeclaredErrorType { name: "FilesystemDeleteError", span: SourceSpan { offset: SourceOffset(79), length: 75 } }]
+FilesystemDirectoryDeleteError [DirectoryNotFoundError, PermissionDeniedError, DeleteFailureError, DirectoryNotEmptyError, IsNotADirectoryError, InvalidPathError] => [UndeclaredErrorType { name: "FilesystemDirectoryDeleteError", span: SourceSpan { offset: SourceOffset(79), length: 84 } }]
+FilesystemCopyMoveError [FileNotFoundError, PermissionDeniedError, CopyFailureError, MoveFailureError, IsADirectoryError, FileAlreadyExistsError, InvalidPathError, FilesystemFullError] => [UndeclaredErrorType { name: "FilesystemCopyMoveError", span: SourceSpan { offset: SourceOffset(79), length: 77 } }]
+FilesystemMetadataError [FileNotFoundError, PermissionDeniedError, MetadataUnavailableError, InvalidPathError] => [UndeclaredErrorType { name: "FilesystemMetadataError", span: SourceSpan { offset: SourceOffset(79), length: 77 } }]
+FilesystemListError [DirectoryNotFoundError, PermissionDeniedError, ReadFailureError, IsNotADirectoryError, InvalidPathError] => [UndeclaredErrorType { name: "FilesystemListError", span: SourceSpan { offset: SourceOffset(79), length: 73 } }]
+FilesystemError [FileNotFoundError, PermissionDeniedError, ReadFailureError, IsADirectoryError, InvalidPathError, InvalidUtf8Error, OffsetOutOfRangeError, WriteFailureError, FilesystemFullError, FileAlreadyExistsError, CreateFailureError, DeleteFailureError, DirectoryNotFoundError, DirectoryNotEmptyError, IsNotADirectoryError, CopyFailureError, MoveFailureError, MetadataUnavailableError, LineOutOfRangeError, SetPermissionsError] => [UndeclaredErrorType { name: "FilesystemError", span: SourceSpan { offset: SourceOffset(79), length: 69 } }]
+IndexAccessError [IndexOutOfBoundsError] => [UndeclaredErrorType { name: "IndexAccessError", span: SourceSpan { offset: SourceOffset(79), length: 70 } }]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test type_system::tests::test_stdlib_error_family_taxonomy_covers_all_current_leaves ... FAILED
+
+failures:
+
+failures:
+    type_system::tests::test_stdlib_error_family_taxonomy_covers_all_current_leaves
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1385 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--lib`

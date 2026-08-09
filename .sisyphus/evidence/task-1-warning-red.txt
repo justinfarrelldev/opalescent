@@ -1,0 +1,24 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.07s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+running 1 test
+
+thread 'type_system::tests::test_complete_leaf_list_warning_mentions_exact_replaceable_errors' panicked at src/type_system/tests.rs:9727:5:
+assertion `left == right` failed: expected exactly one BytesError suggestion for HexDecodeError, SliceRangeError with help `Replace `errors HexDecodeError, SliceRangeError` with `errors BytesError`.`; got: []
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test type_system::tests::test_complete_leaf_list_warning_mentions_exact_replaceable_errors ... FAILED
+
+failures:
+
+failures:
+    type_system::tests::test_complete_leaf_list_warning_mentions_exact_replaceable_errors
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1385 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

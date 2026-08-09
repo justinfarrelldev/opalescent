@@ -11,6 +11,9 @@ use alloc::collections::BTreeMap;
 use super::checker::TypeChecker;
 use super::constraints::TypeConstraint;
 use super::environment::TypeEnvironment;
+use super::error_families::{
+    error_type_is_covered_by_declared_type, stdlib_error_families, stdlib_error_family,
+};
 use super::errors::{TypeError, Warning};
 use super::fallible_constructors::{CanonicalTypeIdentity, lookup_fallible_constructor};
 use super::substitution::Substitution;
@@ -9453,4 +9456,327 @@ entry demo = f(parts: string[]): string errors AllocationFailureError => {
         "planned string stdlib signatures still fail:\n{}",
         failures.join("\n")
     );
+}
+
+#[test]
+fn test_stdlib_error_family_taxonomy_covers_all_current_leaves() {
+    const FAMILY_TAXONOMY: &[(&str, &[&str])] = &[
+        ("ParseError", &["ParseError"]),
+        ("BytesError", &["HexDecodeError", "SliceRangeError"]),
+        (
+            "StringSearchError",
+            &["StringEmptySearchTextError", "StringPatternNotFoundError"],
+        ),
+        (
+            "StringRangeError",
+            &[
+                "StringNegativeCountError",
+                "StringRangeOutOfBoundsError",
+                "StringRangeOrderError",
+            ],
+        ),
+        (
+            "StringBuilderError",
+            &["BuilderFinishedError", "AllocationFailureError"],
+        ),
+        (
+            "OutputError",
+            &["WriteFailureError", "FlushFailureError", "SinkClosedError"],
+        ),
+        (
+            "TerminalError",
+            &[
+                "TerminalWriteFailureError",
+                "InvalidCursorPositionError",
+                "SinkClosedError",
+            ],
+        ),
+        (
+            "TimeError",
+            &["InvalidDurationError", "InvalidFrameRateError"],
+        ),
+        (
+            "ProcessPathError",
+            &[
+                "PermissionDeniedError",
+                "InvalidPathError",
+                "CurrentWorkingDirectoryUnavailableError",
+                "CurrentExecutablePathUnavailableError",
+                "FileNotFoundError",
+                "IsNotADirectoryError",
+            ],
+        ),
+        (
+            "ProcessEnvError",
+            &[
+                "EnvironmentVariableNotFoundError",
+                "InvalidEnvironmentVariableNameError",
+                "InvalidUtf8Error",
+            ],
+        ),
+        (
+            "FilesystemPathError",
+            &["InvalidPathError", "PermissionDeniedError"],
+        ),
+        (
+            "FilesystemReadError",
+            &[
+                "FileNotFoundError",
+                "PermissionDeniedError",
+                "ReadFailureError",
+                "IsADirectoryError",
+                "InvalidPathError",
+                "InvalidUtf8Error",
+                "OffsetOutOfRangeError",
+            ],
+        ),
+        (
+            "FilesystemWriteError",
+            &[
+                "FileNotFoundError",
+                "PermissionDeniedError",
+                "WriteFailureError",
+                "IsADirectoryError",
+                "InvalidPathError",
+                "FilesystemFullError",
+                "OffsetOutOfRangeError",
+            ],
+        ),
+        (
+            "FilesystemCreateError",
+            &[
+                "FileAlreadyExistsError",
+                "PermissionDeniedError",
+                "CreateFailureError",
+                "InvalidPathError",
+                "FilesystemFullError",
+            ],
+        ),
+        (
+            "FilesystemDeleteError",
+            &[
+                "FileNotFoundError",
+                "PermissionDeniedError",
+                "DeleteFailureError",
+                "IsADirectoryError",
+                "InvalidPathError",
+            ],
+        ),
+        (
+            "FilesystemDirectoryDeleteError",
+            &[
+                "DirectoryNotFoundError",
+                "PermissionDeniedError",
+                "DeleteFailureError",
+                "DirectoryNotEmptyError",
+                "IsNotADirectoryError",
+                "InvalidPathError",
+            ],
+        ),
+        (
+            "FilesystemCopyMoveError",
+            &[
+                "FileNotFoundError",
+                "PermissionDeniedError",
+                "CopyFailureError",
+                "MoveFailureError",
+                "IsADirectoryError",
+                "FileAlreadyExistsError",
+                "InvalidPathError",
+                "FilesystemFullError",
+            ],
+        ),
+        (
+            "FilesystemMetadataError",
+            &[
+                "FileNotFoundError",
+                "PermissionDeniedError",
+                "MetadataUnavailableError",
+                "InvalidPathError",
+            ],
+        ),
+        (
+            "FilesystemListError",
+            &[
+                "DirectoryNotFoundError",
+                "PermissionDeniedError",
+                "ReadFailureError",
+                "IsNotADirectoryError",
+                "InvalidPathError",
+            ],
+        ),
+        (
+            "FilesystemError",
+            &[
+                "FileNotFoundError",
+                "PermissionDeniedError",
+                "ReadFailureError",
+                "IsADirectoryError",
+                "InvalidPathError",
+                "InvalidUtf8Error",
+                "OffsetOutOfRangeError",
+                "WriteFailureError",
+                "FilesystemFullError",
+                "FileAlreadyExistsError",
+                "CreateFailureError",
+                "DeleteFailureError",
+                "DirectoryNotFoundError",
+                "DirectoryNotEmptyError",
+                "IsNotADirectoryError",
+                "CopyFailureError",
+                "MoveFailureError",
+                "MetadataUnavailableError",
+                "LineOutOfRangeError",
+                "SetPermissionsError",
+            ],
+        ),
+        ("IndexAccessError", &["IndexOutOfBoundsError"]),
+    ];
+    const CURRENT_STDLIB_EMITTED_LEAVES: &[&str] = &[
+        "ParseError",
+        "HexDecodeError",
+        "SliceRangeError",
+        "StringEmptySearchTextError",
+        "StringPatternNotFoundError",
+        "StringNegativeCountError",
+        "StringRangeOutOfBoundsError",
+        "StringRangeOrderError",
+        "BuilderFinishedError",
+        "AllocationFailureError",
+        "WriteFailureError",
+        "FlushFailureError",
+        "SinkClosedError",
+        "TerminalWriteFailureError",
+        "InvalidCursorPositionError",
+        "InvalidDurationError",
+        "InvalidFrameRateError",
+        "PermissionDeniedError",
+        "InvalidPathError",
+        "CurrentWorkingDirectoryUnavailableError",
+        "CurrentExecutablePathUnavailableError",
+        "FileNotFoundError",
+        "IsNotADirectoryError",
+        "EnvironmentVariableNotFoundError",
+        "InvalidEnvironmentVariableNameError",
+        "InvalidUtf8Error",
+        "ReadFailureError",
+        "IsADirectoryError",
+        "OffsetOutOfRangeError",
+        "FilesystemFullError",
+        "FileAlreadyExistsError",
+        "CreateFailureError",
+        "DeleteFailureError",
+        "DirectoryNotFoundError",
+        "DirectoryNotEmptyError",
+        "CopyFailureError",
+        "MoveFailureError",
+        "MetadataUnavailableError",
+        "IndexOutOfBoundsError",
+    ];
+
+    let registered_families = stdlib_error_families();
+    assert_eq!(registered_families.len(), FAMILY_TAXONOMY.len());
+    for ((expected_name, expected_members), registered) in
+        FAMILY_TAXONOMY.iter().zip(registered_families)
+    {
+        assert_eq!(registered.name, *expected_name);
+        assert_eq!(registered.members, *expected_members);
+    }
+
+    let catalogued_leaves = FAMILY_TAXONOMY
+        .iter()
+        .flat_map(|(_, members)| members.iter().copied())
+        .collect::<Vec<_>>();
+    let missing_catalogue_coverage = CURRENT_STDLIB_EMITTED_LEAVES
+        .iter()
+        .filter(|leaf| !catalogued_leaves.contains(leaf))
+        .copied()
+        .collect::<Vec<_>>();
+    assert!(
+        missing_catalogue_coverage.is_empty(),
+        "current stdlib leaves must be covered by the family/singleton catalogue; missing: {missing_catalogue_coverage:?}"
+    );
+
+    let mut missing_families = Vec::new();
+    for (index, (family, members)) in FAMILY_TAXONOMY.iter().enumerate() {
+        let source = format!(
+            "entry taxonomy_{index} = f(): void errors {family} => {{\n    return void\n}}"
+        );
+        let program = parse_program_from_source(&source);
+        let mut checker = TypeChecker::new();
+        if let Err(errors) = checker.type_check_program(&program) {
+            missing_families.push(format!("{family} [{}] => {errors:?}", members.join(", ")));
+        }
+    }
+
+    assert!(
+        missing_families.is_empty(),
+        "stdlib error family registry/coverage is incomplete; audited current leaves: {}\n{}",
+        CURRENT_STDLIB_EMITTED_LEAVES.join(", "),
+        missing_families.join("\n")
+    );
+}
+
+#[test]
+fn test_complete_leaf_list_warning_mentions_exact_replaceable_errors() {
+    const EXPECTED_HELP: &str =
+        "Replace `errors HexDecodeError, SliceRangeError` with `errors BytesError`.";
+    const SOURCE: &str = "
+entry demo = f(): int32 errors HexDecodeError, SliceRangeError => {
+    return 0
+}
+";
+
+    let program = parse_program_from_source(SOURCE);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "complete BytesError leaf declarations must remain non-fatal: {result:?}"
+    );
+
+    let family = stdlib_error_family("BytesError").expect("BytesError must be registered");
+    assert!(family.warning_eligible);
+    assert_eq!(family.members, ["HexDecodeError", "SliceRangeError"]);
+    let replacement_help = format!(
+        "Replace `errors {}` with `errors {}`.",
+        family.members.join(", "),
+        family.name
+    );
+    assert_eq!(replacement_help, EXPECTED_HELP);
+    // Task 4 owns emitting this final-contract help as a warning diagnostic.
+}
+
+#[test]
+fn test_stdlib_family_preserves_manual_leaf_declarations() {
+    let source = "
+entry demo = f(): int32 errors HexDecodeError, ParseError, IndexOutOfBoundsError => {
+    return 0
+}
+";
+
+    let program = parse_program_from_source(source);
+    let mut checker = TypeChecker::new();
+    let result = checker.type_check_program(&program);
+    assert!(
+        result.is_ok(),
+        "manual stdlib leaf declarations must remain valid: {result:?}"
+    );
+
+    assert!(error_type_is_covered_by_declared_type(
+        "HexDecodeError",
+        "BytesError"
+    ));
+    assert!(error_type_is_covered_by_declared_type(
+        "HexDecodeError",
+        "HexDecodeError"
+    ));
+    assert!(!error_type_is_covered_by_declared_type(
+        "SliceRangeError",
+        "HexDecodeError"
+    ));
+    assert!(!error_type_is_covered_by_declared_type(
+        "HexDecodeError",
+        "StringSearchError"
+    ));
 }

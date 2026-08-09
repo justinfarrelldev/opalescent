@@ -1,0 +1,7 @@
+# Learnings
+
+- Task 1 adds `test_stdlib_error_family_taxonomy_covers_all_current_leaves` and `test_complete_leaf_list_warning_mentions_exact_replaceable_errors` in `src/type_system/tests.rs`.
+- The taxonomy test is declarative: it enumerates every approved family/member set and checks every current produced leaf is catalogued; the broad filesystem family additionally retains registered-but-unproduced `LineOutOfRangeError` and `SetPermissionsError`.
+- RED evidence is captured with `set -o pipefail` in `.sisyphus/evidence/task-1-taxonomy-red.txt` and `.sisyphus/evidence/task-1-warning-red.txt`.
+- Task 2 implements the declaration-only registry in `src/type_system/error_families.rs`, registers names from `TypeChecker::register_standard_builtins`, and retains leaf error signatures unchanged. `error_type_is_covered_by_declared_type` is directional: a declared family covers its listed emitted leaf, and a declared leaf covers only itself.
+- Task 2 verification passed: `cargo fmt --check`; `cargo test type_system::tests::test_stdlib_error_family_taxonomy_covers_all_current_leaves -- --nocapture`; `cargo test type_system::tests::test_stdlib_family_preserves_manual_leaf_declarations -- --nocapture`; `cargo test type_system::tests::test_complete_leaf_list_warning_mentions_exact_replaceable_errors -- --nocapture`; `cargo make test`; and `cargo clippy --all-targets --all-features -- -D warnings`.

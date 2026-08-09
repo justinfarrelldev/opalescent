@@ -365,6 +365,9 @@ impl TypeChecker {
         self.register_integer_intrinsics_for_type("uint32", &CoreType::UInt32);
         self.register_integer_intrinsics_for_type("uint64", &CoreType::UInt64);
         self.register_collection_intrinsics();
+        crate::type_system::error_families::register_stdlib_error_family_types(
+            &mut self.environment,
+        );
     }
     /// Register arithmetic intrinsics for a concrete integer type name.
     fn register_integer_intrinsics_for_type(&mut self, type_name: &str, integer_type: &CoreType) {

@@ -79,6 +79,7 @@ mod arithmetic;
 pub mod checker;
 mod constraints;
 mod environment;
+mod error_families;
 pub mod errors;
 pub mod fallible_constructors;
 pub mod heap_class;
