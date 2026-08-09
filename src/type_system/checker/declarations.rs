@@ -693,6 +693,7 @@ impl TypeChecker {
             .unwrap_or_else(|| vec![CoreType::Unit]);
 
         let core_errors = self.resolve_error_types(params.error_types, params.span)?;
+        self.warn_for_replaceable_error_list(core_errors.as_slice(), params.span);
 
         let mut effective_modifiers = params.modifiers.to_vec();
         if params.is_entry

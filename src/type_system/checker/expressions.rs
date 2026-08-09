@@ -789,6 +789,7 @@ impl TypeChecker {
             span,
         )?;
         let core_errors = self.resolve_error_types(error_types, span)?;
+        self.warn_for_replaceable_error_list(core_errors.as_slice(), span);
         self.symbol_table.enter_function(core_errors.clone(), span);
         self.begin_return_context(return_labels);
         let body_result = self.within_new_scope(|checker| -> Result<(), TypeError> {

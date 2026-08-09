@@ -970,6 +970,20 @@ pub enum Warning {
         /// Optional suppression annotation identifier for future warning controls.
         suppression_annotation: Option<String>,
     },
+    /// A complete error leaf list that can be replaced by a stdlib error family.
+    #[error("Error declarations can be replaced with '{family_name}'")]
+    #[diagnostic(
+        code(opalescent::type_system::warning::replaceable_error_list),
+        help("Replace `errors {replaceable_errors}` with `errors {family_name}`.")
+    )]
+    ReplaceableErrorList {
+        family_name: String,
+        replaceable_errors: String,
+        #[label("complete replaceable error list")]
+        span: SourceSpan,
+        /// Optional suppression annotation identifier for future warning controls.
+        suppression_annotation: Option<String>,
+    },
     /// Placeholder warning for future exhaustiveness analysis.
     #[error("Pattern match may be non-exhaustive")]
     #[diagnostic(
@@ -1001,6 +1015,10 @@ impl Warning {
                 ..
             }
             | Self::UnreachableCode {
+                ref suppression_annotation,
+                ..
+            }
+            | Self::ReplaceableErrorList {
                 ref suppression_annotation,
                 ..
             }

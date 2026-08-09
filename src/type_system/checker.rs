@@ -12,10 +12,17 @@ use super::substitution::Substitution;
 use super::symbol_table::{SymbolInfo, SymbolTable, SymbolType, Visibility};
 use super::type_mapping::AstTypeMappingError;
 use super::types::{CoreType, GenericTypeParameter, TypeVar};
-use crate::ast::FunctionModifier;
-use crate::token::Span;
-use crate::type_system::arithmetic::ArithmeticMode;
-use alloc::{collections::BTreeMap, format, string::String, vec::Vec};
+use crate::{
+    ast::FunctionModifier,
+    token::Span,
+    type_system::{arithmetic::ArithmeticMode, error_families::stdlib_error_families},
+};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    format,
+    string::String,
+    vec::Vec,
+};
 use hot_reload::FunctionHotReloadMetadata;
 // Sub-modules
 /// Bytes stdlib built-in signature registration.
@@ -736,11 +743,7 @@ impl TypeChecker {
     pub fn fresh_type_var_auto(&mut self, span: Span) -> Result<CoreType, TypeError> {
         self.fresh_type_var(format!("t{}", self.next_var_id), span)
     }
-    /// Resolve error type names into nominal [`CoreType`]s using the type environment.
-    ///
-    /// This ensures that error declarations reference existing types and produces an
-    /// [`UndeclaredErrorType`](TypeError::UndeclaredErrorType) diagnostic when a name
-    /// cannot be resolved.
+    /// Resolve error names into nominal [`CoreType`]s or emit [`UndeclaredErrorType`](TypeError::UndeclaredErrorType).
     fn resolve_error_types(
         &self,
         error_names: &[String],
@@ -764,6 +767,35 @@ impl TypeChecker {
             }
         }
         Ok(resolved)
+    }
+
+    /// Emit the most specific eligible replacement warning for a declared error list.
+    pub(super) fn warn_for_replaceable_error_list(&mut self, error_types: &[CoreType], span: Span) {
+        let declared_names = error_types
+            .iter()
+            .map(ToString::to_string)
+            .collect::<BTreeSet<_>>();
+
+        let replacement = stdlib_error_families()
+            .iter()
+            .filter(|family| {
+                family.warning_eligible
+                    && !declared_names.contains(family.name)
+                    && family
+                        .members
+                        .iter()
+                        .all(|member| declared_names.contains(*member))
+            })
+            .min_by_key(|family| (family.specificity_rank, family.members.len(), family.name));
+
+        if let Some(family) = replacement {
+            self.push_warning(Warning::ReplaceableErrorList {
+                family_name: family.name.to_owned(),
+                replaceable_errors: family.members.join(", "),
+                span: TypeError::span_from_span(span),
+                suppression_annotation: None,
+            });
+        }
     }
 
     /// Return whether a declared error type covers an emitted error type.

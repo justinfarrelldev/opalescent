@@ -11,9 +11,7 @@ use alloc::collections::BTreeMap;
 use super::checker::TypeChecker;
 use super::constraints::TypeConstraint;
 use super::environment::TypeEnvironment;
-use super::error_families::{
-    error_type_is_covered_by_declared_type, stdlib_error_families, stdlib_error_family,
-};
+use super::error_families::{error_type_is_covered_by_declared_type, stdlib_error_families};
 use super::errors::{TypeError, Warning};
 use super::fallible_constructors::{CanonicalTypeIdentity, lookup_fallible_constructor};
 use super::substitution::Substitution;
@@ -9719,8 +9717,6 @@ fn test_stdlib_error_family_taxonomy_covers_all_current_leaves() {
 
 #[test]
 fn test_complete_leaf_list_warning_mentions_exact_replaceable_errors() {
-    const EXPECTED_HELP: &str =
-        "Replace `errors HexDecodeError, SliceRangeError` with `errors BytesError`.";
     const SOURCE: &str = "
 entry demo = f(): int32 errors HexDecodeError, SliceRangeError => {
     return 0
@@ -9735,16 +9731,147 @@ entry demo = f(): int32 errors HexDecodeError, SliceRangeError => {
         "complete BytesError leaf declarations must remain non-fatal: {result:?}"
     );
 
-    let family = stdlib_error_family("BytesError").expect("BytesError must be registered");
-    assert!(family.warning_eligible);
-    assert_eq!(family.members, ["HexDecodeError", "SliceRangeError"]);
-    let replacement_help = format!(
-        "Replace `errors {}` with `errors {}`.",
-        family.members.join(", "),
-        family.name
+    let warnings = checker.warnings();
+    assert_eq!(
+        warnings.len(),
+        1,
+        "complete BytesError leaves emit one warning"
     );
-    assert_eq!(replacement_help, EXPECTED_HELP);
-    // Task 4 owns emitting this final-contract help as a warning diagnostic.
+    let warning = warnings
+        .first()
+        .expect("complete BytesError leaves should collect a warning");
+    assert_eq!(
+        warning
+            .code()
+            .map(|diagnostic_code| diagnostic_code.to_string())
+            .as_deref(),
+        Some("opalescent::type_system::warning::replaceable_error_list")
+    );
+    assert_eq!(
+        warning.help().map(|help| help.to_string()).as_deref(),
+        Some("Replace `errors HexDecodeError, SliceRangeError` with `errors BytesError`.")
+    );
+    assert!(
+        warning
+            .labels()
+            .expect("replaceable error list warning should label the clause")
+            .next()
+            .is_some()
+    );
+    assert!(
+        matches!(
+            warning,
+            Warning::ReplaceableErrorList {
+                family_name,
+                replaceable_errors,
+                ..
+            } if family_name == "BytesError"
+                && replaceable_errors == "HexDecodeError, SliceRangeError"
+        ),
+        "warning should name only the taxonomy-ordered BytesError leaves: {warning:?}"
+    );
+}
+
+#[test]
+fn test_stdlib_error_family_warning_selection_for_lambda_overlap_and_extra_errors() {
+    let cases = [
+        (
+            "lambda_time",
+            "
+entry demo = f(): void => {
+    let clock = f(): void errors InvalidDurationError, InvalidFrameRateError => {
+        return void
+    }
+    return void
+}
+",
+            "TimeError",
+            "InvalidDurationError, InvalidFrameRateError",
+        ),
+        (
+            "sink_closed_overlap",
+            "
+entry demo = f(): void errors WriteFailureError, FlushFailureError, SinkClosedError, TerminalWriteFailureError, InvalidCursorPositionError => {
+    return void
+}
+",
+            "OutputError",
+            "WriteFailureError, FlushFailureError, SinkClosedError",
+        ),
+        (
+            "bytes_with_extra_and_duplicate",
+            "
+entry demo = f(): void errors HexDecodeError, SliceRangeError, HexDecodeError, InvalidDurationError => {
+    return void
+}
+",
+            "BytesError",
+            "HexDecodeError, SliceRangeError",
+        ),
+    ];
+
+    for (name, source, expected_family, expected_leaves) in cases {
+        let program = parse_program_from_source(source);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(result.is_ok(), "{name} must remain non-fatal: {result:?}");
+        let alias_warnings: Vec<_> = checker
+            .warnings()
+            .iter()
+            .filter(|warning| matches!(warning, Warning::ReplaceableErrorList { .. }))
+            .collect();
+        assert_eq!(
+            alias_warnings.len(),
+            1,
+            "{name} should produce exactly one family suggestion"
+        );
+        assert!(
+            matches!(
+                alias_warnings.first(),
+                Some(Warning::ReplaceableErrorList {
+                    family_name,
+                    replaceable_errors,
+                    ..
+                }) if family_name == expected_family && replaceable_errors == expected_leaves
+            ),
+            "{name} should select {expected_family} with exact leaves: {:?}",
+            checker.warnings()
+        );
+    }
+}
+
+#[test]
+fn test_stdlib_error_family_warning_negative_cases() {
+    let cases = [
+        (
+            "partial_bytes",
+            "entry demo = f(): void errors HexDecodeError => { return void }",
+        ),
+        (
+            "already_declared_bytes_family",
+            "entry demo = f(): void errors BytesError, HexDecodeError, SliceRangeError => { return void }",
+        ),
+        (
+            "singleton_parse_error",
+            "entry demo = f(): void errors ParseError => { return void }",
+        ),
+        (
+            "intentional_manual_leaf",
+            "entry demo = f(): void errors SliceRangeError => { return void }",
+        ),
+    ];
+
+    for (name, source) in cases {
+        let program = parse_program_from_source(source);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(result.is_ok(), "{name} must remain valid: {result:?}");
+        assert!(
+            checker.warnings().is_empty(),
+            "{name} must not emit a replaceable-list warning: {:?}",
+            checker.warnings()
+        );
+    }
 }
 
 #[test]
