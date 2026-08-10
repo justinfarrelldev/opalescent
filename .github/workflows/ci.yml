@@ -24,6 +24,13 @@ jobs:
         run: |
           echo "LLVM_SYS_140_PREFIX=${{ steps.llvm.outputs.directory }}" >> "$GITHUB_ENV"
 
+      - name: Install C quality tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+          cargo install cargo-make --locked
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
@@ -34,6 +41,9 @@ jobs:
       - name: Run mandatory memory verification
         shell: bash
         run: bash scripts/array_memory_sanitizer.sh
+
+      - name: Run C runtime quality gates
+        run: cargo make c-quality
 
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings

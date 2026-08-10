@@ -6,6 +6,12 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#if defined(OPAL_ENABLE_INTERNAL_TESTING)
+#define malloc(size) opal_test_malloc_for_test(size)
+#define calloc(count, size) opal_test_calloc_for_test(count, size)
+#define realloc(ptr, size) opal_test_realloc_for_test(ptr, size)
+#endif
+
 uint64_t opal_runtime_string_index_span_start = 0u;
 uint64_t opal_runtime_string_index_span_len = 0u;
 const char* opal_runtime_string_index_source_path = NULL;
@@ -119,6 +125,14 @@ typedef struct { int64_t value; const char* error; } ParseResultI64;
 typedef struct { char* value; const char* error; } FsStringResult;
 typedef struct { char** value; int64_t count; const char* error; } FsStringArrayResult;
 #define OPAL_FS_STRING_RESULT_TYPES_DEFINED 1
+#endif
+
+#if defined(OPAL_ENABLE_INTERNAL_TESTING)
+void opal_string_builder_set_length_for_test(OpalStringBuilder* builder, size_t length) {
+    if (builder) {
+        builder->length = length;
+    }
+}
 #endif
 
 typedef struct OpalStringBuilderNode {
@@ -782,6 +796,11 @@ StringBuilderVoidResult string_builder_push(OpalStringBuilder* builder, const ch
 
     const char* safe_value = value ? value : "";
     size_t value_length = strlen(safe_value);
+    if (builder->length == SIZE_MAX ||
+        value_length > SIZE_MAX - builder->length - 1u) {
+        return (StringBuilderVoidResult){ NULL, "AllocationFailureError" };
+    }
+
     const char* capacity_error = string_builder_ensure_capacity(builder, builder->length + value_length + 1u);
     if (capacity_error) {
         return (StringBuilderVoidResult){ NULL, capacity_error };

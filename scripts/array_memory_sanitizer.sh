@@ -28,6 +28,11 @@ SANITIZED_SELECTORS=(
   "array_self_assignment_rc_safe"
   "array_rebind_releases_old_preserves_alias"
 )
+# This direct C harness returns normally after validating its clean overflow
+# error path, so it is safe for the ASan/LSan parent-process execution model.
+ASAN_SAFE_RUNTIME_TESTS=(
+  "string_builder_push_overflow_returns_allocation_failure_error"
+)
 MEMORY_VERIFICATION_TESTS=(
   "tests::memory_model_counters::memory_model_counters"
   "tests::rc_counter_negative_fixture::rc_counter_negative_fixture"
@@ -51,11 +56,20 @@ cleanup() {
 trap cleanup EXIT
 
 assert_sanitized_selectors_present() {
-  local test_file="${ROOT_DIR}/tests/array_integration.rs"
+  local array_test_file="${ROOT_DIR}/tests/array_integration.rs"
+  local runtime_test_file="${ROOT_DIR}/src/runtime/tests.rs"
   local selector
+
   for selector in "${SANITIZED_SELECTORS[@]}"; do
-    if ! grep -Fq "fn ${selector}()" "${test_file}"; then
-      echo "FAIL: expected sanitizer selector '${selector}' not found in ${test_file}." >&2
+    if ! grep -Fq "fn ${selector}()" "${array_test_file}"; then
+      echo "FAIL: expected sanitizer selector '${selector}' not found in ${array_test_file}." >&2
+      return 1
+    fi
+  done
+
+  for selector in "${ASAN_SAFE_RUNTIME_TESTS[@]}"; do
+    if ! grep -Fq "fn ${selector}()" "${runtime_test_file}"; then
+      echo "FAIL: expected ASan-safe runtime test '${selector}' not found in ${runtime_test_file}." >&2
       return 1
     fi
   done
@@ -104,6 +118,27 @@ run_selector_with_retries() {
   done
 }
 
+run_runtime_test_with_retries() {
+  local selector="$1"
+  local attempt=1
+  local max_attempts=5
+
+  while (( attempt <= max_attempts )); do
+    if cargo test --lib "${selector}" -- --nocapture --test-threads=1; then
+      return 0
+    fi
+
+    if (( attempt == max_attempts )); then
+      echo "FAIL: runtime test '${selector}' failed after ${max_attempts} attempts." >&2
+      return 1
+    fi
+
+    echo "WARN: runtime test '${selector}' failed on attempt ${attempt}; retrying serialized run." >&2
+    sleep 1
+    attempt=$((attempt + 1))
+  done
+}
+
 run_asan() {
   cat >"${CC_WRAPPER}" <<'EOF'
 #!/usr/bin/env bash
@@ -130,6 +165,10 @@ EOF
     local selector
     for selector in "${SANITIZED_SELECTORS[@]}"; do
       run_selector_with_retries "${selector}"
+    done
+
+    for selector in "${ASAN_SAFE_RUNTIME_TESTS[@]}"; do
+      run_runtime_test_with_retries "${selector}"
     done
   ) 2>&1 | tee "${LOG_FILE}"
 }

@@ -23,6 +23,20 @@ static uint64_t xorshift128plus(void) {
     return s0 + s1;
 }
 
+static uint64_t random_range_offset(uint64_t range) {
+    uint64_t draw = xorshift128plus();
+    return range == 0 ? draw : draw % range;
+}
+
+static int64_t int64_from_ordered_offset(uint64_t offset) {
+    const uint64_t sign_bit = UINT64_C(1) << 63;
+
+    if (offset < sign_bit) {
+        return INT64_MIN + (int64_t)offset;
+    }
+    return (int64_t)(offset - sign_bit);
+}
+
 static void seed_prng_once(void) {
     if (prng_seeded) return;
     uint64_t s0 = 0, s1 = 0;
@@ -79,10 +93,14 @@ int32_t random_int32(int32_t min, int32_t max) {
 }
 
 int64_t random_int64(int64_t min, int64_t max) {
+    const uint64_t sign_bit = UINT64_C(1) << 63;
+
     seed_prng_once();
     if (max <= min) return min;
-    uint64_t range = (uint64_t)max - (uint64_t)min + 1ULL;
-    return min + (int64_t)(xorshift128plus() % range);
+
+    uint64_t range = (uint64_t)max - (uint64_t)min + UINT64_C(1);
+    uint64_t min_offset = (uint64_t)min - sign_bit;
+    return int64_from_ordered_offset(min_offset + random_range_offset(range));
 }
 
 uint8_t random_uint8(uint8_t min, uint8_t max) {
@@ -106,5 +124,7 @@ uint32_t random_uint32(uint32_t min, uint32_t max) {
 uint64_t random_uint64(uint64_t min, uint64_t max) {
     seed_prng_once();
     if (max <= min) return min;
-    return min + (xorshift128plus() % (max - min + 1));
+
+    uint64_t range = max - min + UINT64_C(1);
+    return min + random_range_offset(range);
 }

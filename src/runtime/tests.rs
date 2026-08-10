@@ -1352,6 +1352,42 @@ fn random_int32_with_source_is_deterministic_and_range_checked() {
 }
 
 #[test]
+fn random_full_domain_ranges_are_safe_and_inclusive() {
+    compile_and_run_rng_c_test(
+        "random_full_domain_ranges_are_safe_and_inclusive",
+        r#"
+#include <stdint.h>
+#include <stdio.h>
+#include "opal_runtime.h"
+
+int main(void) {
+    uint64_t unsigned_full_domain = random_uint64(UINT64_C(0), UINT64_MAX);
+    int64_t signed_full_domain = random_int64(INT64_MIN, INT64_MAX);
+    uint64_t bounded = random_uint64(UINT64_C(4), UINT64_C(9));
+
+    (void)unsigned_full_domain;
+    (void)signed_full_domain;
+
+    if (bounded < UINT64_C(4) || bounded > UINT64_C(9)) {
+        fprintf(stderr, "bounded result was outside inclusive range\n");
+        return 1;
+    }
+    if (random_uint64(UINT64_C(7), UINT64_C(7)) != UINT64_C(7)) {
+        fprintf(stderr, "equal unsigned bounds should return min\n");
+        return 2;
+    }
+    if (random_int64(INT64_C(3), INT64_C(-2)) != INT64_C(3)) {
+        fprintf(stderr, "reversed signed bounds should return min\n");
+        return 3;
+    }
+
+    return 0;
+}
+"#,
+    );
+}
+
+#[test]
 fn interpolate_string_formats_mixed_placeholder_parts() {
     let values = vec![String::from("Ada"), String::from("4")];
     let formatted = format_interpolated_string("Hello, {name}! You rolled {value}.", &values);
@@ -1561,6 +1597,55 @@ fn weak_reference_upgrade_fails_after_strong_values_drop() {
     );
 }
 
+fn compile_and_run_rng_c_test(test_name: &str, source: &str) {
+    let temp_dir = tempfile::tempdir().expect("create temp dir for RNG C runtime test");
+    let source_path = temp_dir.path().join(format!("{test_name}.c"));
+    let binary_path = temp_dir.path().join(test_name);
+
+    fs::write(&source_path, source).expect("write RNG C runtime test source");
+
+    let compile_output = Command::new("gcc")
+        .args([
+            "-std=c11",
+            "-D_POSIX_C_SOURCE=200809L",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            source_path.to_str().expect("utf-8 source path"),
+            "runtime/opal_rng.c",
+            "-Iruntime",
+            "-o",
+            binary_path.to_str().expect("utf-8 binary path"),
+        ])
+        .output();
+
+    let compiled = match compile_output {
+        Ok(output) => output,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("gcc not found, skipping {test_name}");
+            return;
+        }
+        Err(error) => panic!("failed to invoke gcc for {test_name}: {error}"),
+    };
+
+    assert!(
+        compiled.status.success(),
+        "gcc failed for {test_name}:\n{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+
+    let run_output = Command::new(&binary_path)
+        .output()
+        .unwrap_or_else(|error| panic!("failed to run compiled test {test_name}: {error}"));
+
+    assert!(
+        run_output.status.success(),
+        "compiled C test {test_name} failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&run_output.stdout),
+        String::from_utf8_lossy(&run_output.stderr)
+    );
+}
+
 fn compile_and_run_array_rc_c_test(test_name: &str, source: &str) {
     let temp_dir = tempfile::tempdir().expect("create temp dir for C runtime test");
     let source_path = temp_dir.path().join(format!("{test_name}.c"));
@@ -1608,6 +1693,132 @@ fn compile_and_run_array_rc_c_test(test_name: &str, source: &str) {
         "compiled C test {test_name} failed:\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&run_output.stdout),
         String::from_utf8_lossy(&run_output.stderr)
+    );
+}
+
+fn compile_and_run_string_builder_c_test(test_name: &str, source: &str) {
+    let temp_dir = tempfile::tempdir().expect("create temp dir for string builder C runtime test");
+    let source_path = temp_dir.path().join(format!("{test_name}.c"));
+    let binary_path = temp_dir.path().join(test_name);
+
+    fs::write(&source_path, source).expect("write string builder C runtime test source");
+
+    let compile_output = Command::new("gcc")
+        .args([
+            "-std=c11",
+            "-D_POSIX_C_SOURCE=200809L",
+            "-DOPAL_ENABLE_INTERNAL_TESTING",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            source_path.to_str().expect("utf-8 source path"),
+            "runtime/opal_rc.c",
+            "runtime/opal_string.c",
+            "-Iruntime",
+            "-o",
+            binary_path.to_str().expect("utf-8 binary path"),
+        ])
+        .output();
+
+    let compiled = match compile_output {
+        Ok(output) => output,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("gcc not found, skipping {test_name}");
+            return;
+        }
+        Err(error) => panic!("failed to invoke gcc for {test_name}: {error}"),
+    };
+
+    assert!(
+        compiled.status.success(),
+        "gcc failed for {test_name}:\n{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+
+    let run_output = Command::new(&binary_path)
+        .output()
+        .unwrap_or_else(|error| panic!("failed to run compiled test {test_name}: {error}"));
+
+    assert!(
+        run_output.status.success(),
+        "compiled C test {test_name} failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&run_output.stdout),
+        String::from_utf8_lossy(&run_output.stderr)
+    );
+}
+
+fn compile_and_run_filesystem_c_test(test_name: &str, source: &str) -> std::process::Output {
+    let temp_dir = tempfile::tempdir().expect("create temp dir for filesystem C runtime test");
+    let source_path = temp_dir.path().join(format!("{test_name}.c"));
+    let binary_path = temp_dir.path().join(test_name);
+
+    fs::write(&source_path, source).expect("write filesystem C runtime test source");
+
+    let compile_output = Command::new("gcc")
+        .args([
+            "-std=c11",
+            "-D_POSIX_C_SOURCE=200809L",
+            "-DOPAL_ENABLE_INTERNAL_TESTING",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            source_path.to_str().expect("utf-8 source path"),
+            "runtime/opal_rc.c",
+            "runtime/opal_fs.c",
+            "-Iruntime",
+            "-o",
+            binary_path.to_str().expect("utf-8 binary path"),
+        ])
+        .output();
+
+    let compiled = match compile_output {
+        Ok(output) => output,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            panic!("gcc is required for {test_name}: {error}")
+        }
+        Err(error) => panic!("failed to invoke gcc for {test_name}: {error}"),
+    };
+
+    assert!(
+        compiled.status.success(),
+        "gcc failed for {test_name}:\n{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+
+    Command::new(&binary_path)
+        .output()
+        .unwrap_or_else(|error| panic!("failed to run compiled test {test_name}: {error}"))
+}
+
+#[test]
+fn string_builder_push_overflow_returns_allocation_failure_error() {
+    compile_and_run_string_builder_c_test(
+        "string_builder_push_overflow_returns_allocation_failure_error",
+        r#"
+#include "opal_runtime.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+void opal_string_builder_set_length_for_test(OpalStringBuilder* builder, size_t length);
+
+int main(void) {
+    OpalStringBuilder* builder = string_builder_new();
+    if (builder == NULL) {
+        fprintf(stderr, "builder allocation failed\n");
+        return 1;
+    }
+
+    opal_string_builder_set_length_for_test(builder, SIZE_MAX - 1u);
+    StringBuilderVoidResult result = string_builder_push(builder, "x");
+    if (result.value != NULL || result.error == NULL || strcmp(result.error, "AllocationFailureError") != 0) {
+        fprintf(stderr, "overflow should return AllocationFailureError\n");
+        return 2;
+    }
+
+    return 0;
+}
+"#,
     );
 }
 
@@ -1870,6 +2081,214 @@ int main(void) {
     return 0;
 }
 "#,
+    );
+}
+
+#[test]
+fn allocation_fault_injection_is_one_shot_resettable_and_preserves_realloc_input() {
+    compile_and_run_array_rc_c_test(
+        "allocation_fault_injection_is_one_shot_resettable_and_preserves_realloc_input",
+        r#"
+#include "opal_rc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include "opal_test_alloc.h"
+
+int main(void) {
+    char *buffer = (char *)malloc(8u);
+    char *zeroed = NULL;
+    char *reset_buffer = NULL;
+    void *object = NULL;
+    char *resized = NULL;
+
+    if (buffer == NULL) {
+        fprintf(stderr, "initial allocation failed\n");
+        return 1;
+    }
+    buffer[0] = 'x';
+
+    opal_test_fail_next_allocation_for_test();
+    if (opal_rc_alloc(sizeof(int), NULL) != NULL) {
+        fprintf(stderr, "armed runtime allocation should fail\n");
+        free(buffer);
+        return 2;
+    }
+
+    object = opal_rc_alloc(sizeof(int), NULL);
+    if (object == NULL) {
+        fprintf(stderr, "one-shot failure should be consumed\n");
+        free(buffer);
+        return 3;
+    }
+    opal_rc_dec(object);
+
+    opal_test_fail_next_allocation_for_test();
+    if (calloc(1u, 8u) != NULL) {
+        fprintf(stderr, "armed calloc should fail\n");
+        free(buffer);
+        return 4;
+    }
+
+    zeroed = (char *)calloc(1u, 8u);
+    if (zeroed == NULL) {
+        fprintf(stderr, "one-shot calloc failure should be consumed\n");
+        free(buffer);
+        return 5;
+    }
+    free(zeroed);
+
+    opal_test_fail_next_allocation_for_test();
+    opal_test_reset_allocation_failure_for_test();
+    reset_buffer = (char *)malloc(8u);
+    if (reset_buffer == NULL) {
+        fprintf(stderr, "reset should cancel pending malloc failure\n");
+        free(buffer);
+        return 6;
+    }
+    free(reset_buffer);
+
+    opal_test_fail_next_allocation_for_test();
+    resized = (char *)realloc(buffer, 16u);
+    if (resized != NULL || buffer[0] != 'x') {
+        fprintf(stderr, "failed realloc should preserve its input allocation\n");
+        free(buffer);
+        return 7;
+    }
+
+    free(buffer);
+    return 0;
+}
+"#,
+    );
+}
+
+#[test]
+fn rc_drop_stack_oom_fails_closed() {
+    compile_and_run_array_rc_c_test(
+        "rc_drop_stack_oom_fails_closed",
+        r#"
+#include "opal_rc.h"
+#include "opal_test_alloc.h"
+#include <stdio.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#define GROWTH_CHILD_COUNT 65u
+
+static void *growth_children[GROWTH_CHILD_COUNT];
+
+static void drop_growth_children(void *root, void ***stack, size_t *stack_top, size_t *stack_cap) {
+    size_t i = 0;
+    (void)root;
+
+    opal_test_fail_next_allocation_for_test();
+    for (i = 0; i < GROWTH_CHILD_COUNT; ++i) {
+        opal_rc_drop_child(growth_children[i], stack, stack_top, stack_cap);
+    }
+}
+
+static void trigger_initial_stack_oom(void) {
+    void *root = opal_rc_alloc(sizeof(int), NULL);
+    if (root == NULL) {
+        _exit(10);
+    }
+
+    opal_test_fail_next_allocation_for_test();
+    opal_rc_dec(root);
+    _exit(0);
+}
+
+static void trigger_growth_stack_oom(void) {
+    size_t i = 0;
+    void *root = NULL;
+
+    for (i = 0; i < GROWTH_CHILD_COUNT; ++i) {
+        growth_children[i] = opal_rc_alloc(sizeof(int), NULL);
+        if (growth_children[i] == NULL) {
+            _exit(11);
+        }
+    }
+
+    root = opal_rc_alloc(sizeof(int), drop_growth_children);
+    if (root == NULL) {
+        _exit(12);
+    }
+
+    opal_rc_dec(root);
+    _exit(0);
+}
+
+static int expect_nonzero_child_exit(void (*trigger)(void), const char *label) {
+    int status = 0;
+    pid_t child = fork();
+
+    if (child < 0) {
+        fprintf(stderr, "%s: fork failed\n", label);
+        return 1;
+    }
+    if (child == 0) {
+        trigger();
+    }
+    if (waitpid(child, &status, 0) != child) {
+        fprintf(stderr, "%s: waitpid failed\n", label);
+        return 2;
+    }
+    if (!WIFEXITED(status) || WEXITSTATUS(status) == 0) {
+        fprintf(stderr, "%s: expected nonzero fatal exit, status=%d\n", label, status);
+        return 3;
+    }
+
+    return 0;
+}
+
+int main(void) {
+    if (expect_nonzero_child_exit(trigger_initial_stack_oom, "initial stack allocation") != 0) {
+        return 1;
+    }
+    if (expect_nonzero_child_exit(trigger_growth_stack_oom, "stack growth allocation") != 0) {
+        return 2;
+    }
+
+    return 0;
+}
+"#,
+    );
+}
+
+#[test]
+fn path_normalization_oom_is_fatal_not_empty_sentinel() {
+    let run_output = compile_and_run_filesystem_c_test(
+        "path_normalization_oom_is_fatal_not_empty_sentinel",
+        r#"
+#include "opal_rc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+char *normalize_path(const char *path);
+
+int main(void) {
+    opal_test_fail_next_allocation_for_test();
+    char *normalized = normalize_path("stable/component");
+    fprintf(stderr, "normalization continued after forced OOM: %s\n", normalized ? normalized : "(null)");
+    free(normalized);
+    return 19;
+}
+"#,
+    );
+
+    assert_eq!(
+        run_output.status.code(),
+        Some(1_i32),
+        "forced filesystem OOM must terminate through the runtime fatal path; status: {:?}, stderr: {}",
+        run_output.status.code(),
+        String::from_utf8_lossy(&run_output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&run_output.stderr)
+            .contains("Runtime error: out of memory while normalizing filesystem path"),
+        "forced filesystem OOM must report the runtime fatal path; stderr: {}",
+        String::from_utf8_lossy(&run_output.stderr)
     );
 }
 

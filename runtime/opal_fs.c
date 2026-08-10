@@ -25,8 +25,15 @@
 #include "opal_fs_errors.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if defined(OPAL_ENABLE_INTERNAL_TESTING)
+#define malloc(size) opal_test_malloc_for_test(size)
+#define calloc(count, size) opal_test_calloc_for_test(count, size)
+#define realloc(ptr, size) opal_test_realloc_for_test(ptr, size)
+#endif
 
 #if !defined(OPAL_RC_DEBUG_NOTES_IMPLEMENTED) && (defined(__GNUC__) || defined(__clang__))
 __attribute__((weak)) void opal_rc_debug_note_alloc(OpalRcDebugCounterKind kind) {
@@ -81,6 +88,20 @@ static char* safe_strdup(const char* value) {
     char* copy = opal_strdup(value ? value : "");
     if (copy) {
         opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    }
+    return copy;
+}
+
+_Noreturn static void opal_fs_fatal_path_oom(void) {
+    fputs("Runtime error: out of memory while normalizing filesystem path\n", stderr);
+    fflush(stderr);
+    _Exit(EXIT_FAILURE);
+}
+
+static char* opal_fs_path_strdup_or_fatal(const char* value) {
+    char* copy = safe_strdup(value);
+    if (!copy) {
+        opal_fs_fatal_path_oom();
     }
     return copy;
 }
@@ -751,7 +772,7 @@ static int remove_directory_recursive_inner(const char* path, FsVoidResult* out)
 
 static char* lex_normalize_path(const char* path) {
     if (!path || path[0] == '\0') {
-        return safe_strdup("");
+        return opal_fs_path_strdup_or_fatal("");
     }
 
     size_t input_len = strlen(path);
@@ -761,7 +782,7 @@ static char* lex_normalize_path(const char* path) {
 
     char** segments = (char**)calloc(input_len + 1, sizeof(char*));
     if (!segments) {
-        return safe_strdup("");
+        opal_fs_fatal_path_oom();
     }
 
     int64_t segment_count = 0;
@@ -800,7 +821,7 @@ static char* lex_normalize_path(const char* path) {
             if (!segments[segment_count - 1]) {
                 free_path_segments(segments, segment_count - 1);
                 free(segments);
-                return safe_strdup("");
+                opal_fs_fatal_path_oom();
             }
             continue;
         }
@@ -809,7 +830,7 @@ static char* lex_normalize_path(const char* path) {
         if (!segment) {
             free_path_segments(segments, segment_count);
             free(segments);
-            return safe_strdup("");
+            opal_fs_fatal_path_oom();
         }
         memcpy(segment, path + start, length);
         segment[length] = '\0';
@@ -819,16 +840,19 @@ static char* lex_normalize_path(const char* path) {
     if (escaped_root) {
         free_path_segments(segments, segment_count);
         free(segments);
-        return safe_strdup("");
+        return opal_fs_path_strdup_or_fatal("");
     }
 
     if (segment_count == 0) {
         free(segments);
         if (is_absolute) {
             char* root_only = opal_strdup_root_preserving_style(path, &root);
-            return root_only ? root_only : safe_strdup("");
+            if (!root_only) {
+                opal_fs_fatal_path_oom();
+            }
+            return root_only;
         }
-        return safe_strdup("");
+        return opal_fs_path_strdup_or_fatal("");
     }
 
     char sep = opal_path_separator();
@@ -849,7 +873,7 @@ static char* lex_normalize_path(const char* path) {
     if (!output) {
         free_path_segments(segments, segment_count);
         free(segments);
-        return safe_strdup("");
+        opal_fs_fatal_path_oom();
     }
 
     size_t position = opal_append_normalized_root(output, path, &root);
@@ -902,13 +926,10 @@ char* join_path_components(const char* base, const char** components, int64_t co
         return lex_normalize_path(seed);
     }
     if (!components) {
-        return safe_strdup(seed);
+        return opal_fs_path_strdup_or_fatal(seed);
     }
 
-    char* accumulator = safe_strdup(seed);
-    if (!accumulator) {
-        return safe_strdup("");
-    }
+    char* accumulator = opal_fs_path_strdup_or_fatal(seed);
 
     char sep = opal_path_separator();
     for (int64_t i = 0; i < count; i++) {
@@ -919,10 +940,7 @@ char* join_path_components(const char* base, const char** components, int64_t co
 
         if (opal_parse_path_root(component).kind != OPAL_PATH_ROOT_NONE) {
             free(accumulator);
-            accumulator = safe_strdup(component);
-            if (!accumulator) {
-                return safe_strdup("");
-            }
+            accumulator = opal_fs_path_strdup_or_fatal(component);
             continue;
         }
 
@@ -939,7 +957,7 @@ char* join_path_components(const char* base, const char** components, int64_t co
         char* next = (char*)malloc(next_len + 1);
         if (!next) {
             free(accumulator);
-            return safe_strdup("");
+            opal_fs_fatal_path_oom();
         }
 
         memcpy(next, accumulator, base_len);

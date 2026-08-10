@@ -243,7 +243,10 @@ static char *duplicate_without_trailing_newline(const char *source) {
   }
   size_t len = strlen(raw);
   if (len > 0 && raw[len - 1] == '\n') {
-    raw[len - 1] = '\0';
+    raw[--len] = '\0';
+    if (len > 0 && raw[len - 1] == '\r') {
+      raw[--len] = '\0';
+    }
   }
 
   size_t trimmed_len = strlen(raw);

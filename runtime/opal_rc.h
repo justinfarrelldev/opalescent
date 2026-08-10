@@ -300,6 +300,17 @@ void opal_rc_debug_reset_counters_for_test(void);
 size_t opal_rc_debug_live_count_for_test(OpalRcDebugCounterKind kind);
 size_t opal_rc_debug_alloc_count_for_test(OpalRcDebugCounterKind kind);
 size_t opal_rc_debug_free_count_for_test(OpalRcDebugCounterKind kind);
+
+/**
+ * Test-only allocation fault injection. Arming fails exactly the next runtime
+ * malloc, calloc, or realloc routed through opal_test_alloc.h; reset cancels
+ * a pending failure. These helpers are unavailable in production builds.
+ */
+void opal_test_fail_next_allocation_for_test(void);
+void opal_test_reset_allocation_failure_for_test(void);
+void *opal_test_malloc_for_test(size_t size);
+void *opal_test_calloc_for_test(size_t count, size_t size);
+void *opal_test_realloc_for_test(void *ptr, size_t size);
 #endif
 
 /**

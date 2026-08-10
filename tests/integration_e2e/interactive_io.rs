@@ -134,3 +134,103 @@ fn simple_quiz_compiles_links_and_runs() {
         "simple-quiz end-to-end flow should compile, link, run with stdin, print prompts/results, and exit cleanly: {failure_message}"
     );
 }
+
+#[test]
+fn take_input_strips_terminal_newlines_and_preserves_eof() {
+    let temp_dir = unique_probe_target_dir("take-input-trimming");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "take-input trimming target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let source_path = Path::new("test-projects/simple-quiz/src/main.op");
+        let source = "import take_input from standard\n\n##\n    Description: reads a single line for trimming tests\n##\nentry main = f(args: string[]): void =>\n    let value = take_input()\n    print('<<{value}>>')\n    return void";
+
+        let binary_result =
+            compile_program_for_tests(source_path, source, &temp_dir, &TargetTriple::host());
+        let binary_path = match binary_result {
+            Ok(path) => path,
+            Err(error) => {
+                return Err(format!(
+                    "take-input trimming source should compile and link into a binary: {error:?}"
+                ));
+            }
+        };
+
+        let cases: [(&str, &[u8], &str); 4] = [
+            ("lf", b"hello\n", "<<hello>>\n"),
+            ("crlf", b"hello\r\n", "<<hello>>\n"),
+            ("empty", b"\n", "<<>>\n"),
+            ("eof-no-newline", b"hello", "<<hello>>\n"),
+        ];
+
+        for (label, input, expected_stdout) in cases {
+            let child_result = std::process::Command::new(&binary_path)
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn();
+            let mut child = match child_result {
+                Ok(child_process) => child_process,
+                Err(error) => {
+                    return Err(format!(
+                        "take-input trimming compiled binary should spawn with piped stdio for {label}: {error}"
+                    ));
+                }
+            };
+
+            if let Some(mut stdin) = child.stdin.take() {
+                let write_result = std::io::Write::write_all(&mut stdin, input);
+                if let Err(error) = write_result {
+                    return Err(format!(
+                        "take-input trimming stdin should accept scripted input for {label}: {error}"
+                    ));
+                }
+                drop(stdin);
+            } else {
+                return Err(format!(
+                    "take-input trimming process stdin should be piped so test input can be written for {label}"
+                ));
+            }
+
+            let run_output = super::fs_helpers::wait_for_child_output_with_timeout(
+                child,
+                INTERACTIVE_TEST_TIMEOUT,
+                &format!("take-input trimming compiled binary ({label})"),
+            )?;
+
+            let stdout = String::from_utf8_lossy(&run_output.stdout);
+            if stdout != expected_stdout {
+                return Err(format!(
+                    "take-input trimming stdout mismatch for {label}: expected '{expected_stdout}', got: '{stdout}'"
+                ));
+            }
+
+            if !run_output.status.success() {
+                return Err(format!(
+                    "take-input trimming binary should exit with status code 0 for {label}, got: {:?}",
+                    run_output.status.code()
+                ));
+            }
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "take-input trimming target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "take-input trimming should compile, run, and preserve CRLF/LF/empty/EOF input behavior: {failure_message}"
+    );
+}

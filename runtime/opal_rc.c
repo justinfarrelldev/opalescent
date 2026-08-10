@@ -17,6 +17,7 @@
 #include "opal_rc.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -38,6 +39,44 @@ typedef struct OpalRcDebugCounterEntry {
 static size_t opal_runtime_live_bytes = 0;
 static size_t opal_runtime_peak_bytes = 0;
 static OpalRcDebugCounterEntry opal_rc_debug_counters[OPAL_RC_DEBUG_COUNTER_KIND_COUNT];
+
+#if defined(OPAL_ENABLE_INTERNAL_TESTING)
+static int opal_test_fail_next_allocation = 0;
+
+static int opal_test_should_fail_allocation(void) {
+    if (!opal_test_fail_next_allocation) {
+        return 0;
+    }
+    opal_test_fail_next_allocation = 0;
+    return 1;
+}
+
+void opal_test_fail_next_allocation_for_test(void) {
+    opal_test_fail_next_allocation = 1;
+}
+
+void opal_test_reset_allocation_failure_for_test(void) {
+    opal_test_fail_next_allocation = 0;
+}
+
+void *opal_test_malloc_for_test(size_t size) {
+    return opal_test_should_fail_allocation() ? NULL : malloc(size);
+}
+
+void *opal_test_calloc_for_test(size_t count, size_t size) {
+    return opal_test_should_fail_allocation() ? NULL : calloc(count, size);
+}
+
+void *opal_test_realloc_for_test(void *ptr, size_t size) {
+    return opal_test_should_fail_allocation() ? NULL : realloc(ptr, size);
+}
+#endif
+
+#if defined(OPAL_ENABLE_INTERNAL_TESTING)
+#define malloc(size) opal_test_malloc_for_test(size)
+#define calloc(count, size) opal_test_calloc_for_test(count, size)
+#define realloc(ptr, size) opal_test_realloc_for_test(ptr, size)
+#endif
 
 /* -------------------------------------------------------------------------
  * Internal helpers
@@ -117,6 +156,33 @@ static int opal_size_mul_overflow(size_t left, size_t right, size_t *out) {
     }
     *out = left * right;
     return 0;
+}
+
+static void opal_rc_fatal_drop_stack_oom(void) {
+    fputs("Runtime error: out of memory while growing iterative RC drop stack\n", stderr);
+    fflush(stderr);
+    _Exit(EXIT_FAILURE);
+}
+
+static void opal_rc_grow_drop_stack(void ***stack, size_t *stack_cap) {
+    size_t new_cap = 0;
+    void **new_stack = NULL;
+
+    if (*stack_cap > SIZE_MAX - OPAL_DROP_STACK_INIT) {
+        opal_rc_fatal_drop_stack_oom();
+    }
+    new_cap = *stack_cap + OPAL_DROP_STACK_INIT;
+    if (new_cap > SIZE_MAX / sizeof(void *)) {
+        opal_rc_fatal_drop_stack_oom();
+    }
+
+    new_stack = (void **)realloc(*stack, new_cap * sizeof(void *));
+    if (!new_stack) {
+        opal_rc_fatal_drop_stack_oom();
+    }
+
+    *stack = new_stack;
+    *stack_cap = new_cap;
 }
 
 static OpalArrayPayloadHeader *opal_array_header(void *array) {
@@ -229,13 +295,7 @@ void opal_rc_drop_child(void *obj,
     }
 
     if (*stack_top == *stack_cap) {
-        size_t new_cap = *stack_cap + OPAL_DROP_STACK_INIT;
-        void **new_stack = (void **)realloc(*stack, new_cap * sizeof(void *));
-        if (!new_stack) {
-            return;
-        }
-        *stack = new_stack;
-        *stack_cap = new_cap;
+        opal_rc_grow_drop_stack(stack, stack_cap);
     }
 
     (*stack)[(*stack_top)++] = obj;
@@ -282,14 +342,7 @@ void opal_rc_drop_iterative(void *root_obj) {
     size_t stack_top = 0;
     void **stack = (void **)malloc(stack_cap * sizeof(void *));
     if (!stack) {
-        /* Allocation failure: best-effort free of root only */
-        OpalRcHeader *h = obj_to_header(root_obj);
-        if (h->weak_count == 0) {
-            opal_rc_debug_note_free(header_counter_kind(h));
-            opal_runtime_account_free(header_tracked_bytes(h));
-            free(header_to_allocation(h));
-        }
-        return;
+        opal_rc_fatal_drop_stack_oom();
     }
 
     /* Push the root object */
@@ -300,13 +353,8 @@ void opal_rc_drop_iterative(void *root_obj) {
         OpalRcHeader *header = obj_to_header(obj);
 
         if (header->drop_children_fn) {
-            if (stack_top + OPAL_DROP_STACK_INIT > stack_cap) {
-                size_t new_cap = stack_cap + OPAL_DROP_STACK_INIT;
-                void **new_stack = (void **)realloc(stack, new_cap * sizeof(void *));
-                if (new_stack) {
-                    stack = new_stack;
-                    stack_cap = new_cap;
-                }
+            if (stack_cap - stack_top < OPAL_DROP_STACK_INIT) {
+                opal_rc_grow_drop_stack(&stack, &stack_cap);
             }
             header->drop_children_fn(obj, &stack, &stack_top, &stack_cap);
         }

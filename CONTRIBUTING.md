@@ -295,6 +295,20 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 Note that `cargo make lint` is not run in CI - this is a fundamental schism that should be resolved soon.
 
+### Manual pre-commit checks
+
+Run these checks from the repository root before opening a pull request, especially when a change touches Rust code, the C runtime, or runtime tests:
+
+```bash
+cargo make lint
+cargo test --all-features
+bash scripts/array_memory_sanitizer.sh
+cargo make c-quality
+cargo fmt --check
+```
+
+These are manual recommendations. The installed `.git/hooks/pre-commit` hook is intentionally not modified, and this guide does not rely on private test hooks.
+
 ## Common footguns
 
 - The local binary is `opalescent`, not `opal`. Use an alias while developing.
