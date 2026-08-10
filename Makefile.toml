@@ -333,37 +333,57 @@ command = "cargo"
 args = ["run"]
 env = { RUST_LOG = "info" }
 
-[tasks.c-gcc-werror]
+[tasks.c-runtime-gcc-werror]
 description = "Syntax-check POSIX runtime C sources with GCC warnings as errors"
 script = [
-    "gcc -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror -fsyntax-only -Iruntime runtime/opal_bytes.c runtime/opal_error.c runtime/opal_fs.c runtime/opal_io.c runtime/opal_parse.c runtime/opal_print.c runtime/opal_rc.c runtime/opal_rng.c runtime/opal_runtime.c runtime/opal_string.c",
+    "gcc -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -Werror -fsyntax-only -Iruntime runtime/opal_bytes.c runtime/opal_error.c runtime/opal_fs.c runtime/opal_io.c runtime/opal_parse.c runtime/opal_print.c runtime/opal_rc.c runtime/opal_rng.c runtime/opal_runtime.c runtime/opal_string.c",
 ]
 condition = { platforms = ["linux"] }
 
-[tasks.c-clang-werror]
+[tasks.c-runtime-clang-werror]
 description = "Syntax-check POSIX runtime C sources with Clang warnings as errors"
 script = [
-    "clang -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror -fsyntax-only -Iruntime runtime/opal_bytes.c runtime/opal_error.c runtime/opal_fs.c runtime/opal_io.c runtime/opal_parse.c runtime/opal_print.c runtime/opal_rc.c runtime/opal_rng.c runtime/opal_runtime.c runtime/opal_string.c",
+    "clang -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -Werror -fsyntax-only -Iruntime runtime/opal_bytes.c runtime/opal_error.c runtime/opal_fs.c runtime/opal_io.c runtime/opal_parse.c runtime/opal_print.c runtime/opal_rc.c runtime/opal_rng.c runtime/opal_runtime.c runtime/opal_string.c",
 ]
 condition = { platforms = ["linux"] }
 
-[tasks.c-clang-analyzer]
+[tasks.c-runtime-clang-analyzer]
 description = "Run Clang analyzer as an error gate; only reviewed bytes/fs checker false positives are disabled per source"
 script = [
-    "clang --analyze -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror -Iruntime -Xanalyzer -analyzer-output=text -Xanalyzer -analyzer-werror -Xanalyzer -analyzer-disable-checker -Xanalyzer core.NonNullParamChecker -Xanalyzer -analyzer-disable-checker -Xanalyzer unix.cstring.NullArg runtime/opal_bytes.c",
-    "clang --analyze -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror -Iruntime -Xanalyzer -analyzer-output=text -Xanalyzer -analyzer-werror -Xanalyzer -analyzer-disable-checker -Xanalyzer unix.Malloc runtime/opal_fs.c",
-    "clang --analyze -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror -Iruntime -Xanalyzer -analyzer-output=text -Xanalyzer -analyzer-werror runtime/opal_error.c runtime/opal_io.c runtime/opal_parse.c runtime/opal_print.c runtime/opal_rc.c runtime/opal_rng.c runtime/opal_runtime.c runtime/opal_string.c",
+    "clang --analyze -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -Werror -Iruntime -Xanalyzer -analyzer-output=text -Xanalyzer -analyzer-werror -Xanalyzer -analyzer-disable-checker -Xanalyzer core.NonNullParamChecker -Xanalyzer -analyzer-disable-checker -Xanalyzer unix.cstring.NullArg runtime/opal_bytes.c",
+    "clang --analyze -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -Werror -Iruntime -Xanalyzer -analyzer-output=text -Xanalyzer -analyzer-werror -Xanalyzer -analyzer-disable-checker -Xanalyzer unix.Malloc runtime/opal_fs.c",
+    "clang --analyze -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -Werror -Iruntime -Xanalyzer -analyzer-output=text -Xanalyzer -analyzer-werror runtime/opal_error.c runtime/opal_io.c runtime/opal_parse.c runtime/opal_print.c runtime/opal_rc.c runtime/opal_rng.c runtime/opal_runtime.c runtime/opal_string.c",
 ]
 condition = { platforms = ["linux"] }
 
-[tasks.c-cppcheck]
+[tasks.c-runtime-cppcheck]
 description = "Run Cppcheck for POSIX C11 runtime sources and fail on findings"
 script = [
     "cppcheck --enable=warning,performance,portability --std=c11 --platform=unix64 --error-exitcode=1 -D_POSIX_C_SOURCE=200809L -DPRId64=\"ld\" -DPRIu64=\"lu\" -Iruntime runtime/opal_bytes.c runtime/opal_error.c runtime/opal_fs.c runtime/opal_io.c runtime/opal_parse.c runtime/opal_print.c runtime/opal_rc.c runtime/opal_rng.c runtime/opal_runtime.c runtime/opal_string.c",
 ]
 condition = { platforms = ["linux"] }
 
+[tasks.c-gcc-werror]
+description = "Compatibility alias for c-runtime-gcc-werror"
+dependencies = ["c-runtime-gcc-werror"]
+condition = { platforms = ["linux"] }
+
+[tasks.c-clang-werror]
+description = "Compatibility alias for c-runtime-clang-werror"
+dependencies = ["c-runtime-clang-werror"]
+condition = { platforms = ["linux"] }
+
+[tasks.c-clang-analyzer]
+description = "Compatibility alias for c-runtime-clang-analyzer"
+dependencies = ["c-runtime-clang-analyzer"]
+condition = { platforms = ["linux"] }
+
+[tasks.c-cppcheck]
+description = "Compatibility alias for c-runtime-cppcheck"
+dependencies = ["c-runtime-cppcheck"]
+condition = { platforms = ["linux"] }
+
 [tasks.c-quality]
 description = "Run all POSIX C runtime quality gates"
-dependencies = ["c-gcc-werror", "c-clang-werror", "c-clang-analyzer", "c-cppcheck"]
+dependencies = ["c-runtime-gcc-werror", "c-runtime-clang-werror", "c-runtime-clang-analyzer", "c-runtime-cppcheck"]
 condition = { platforms = ["linux"] }
