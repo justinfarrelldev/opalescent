@@ -96,4 +96,4 @@ Language and keyboard layout safety come first. Bind command gestures through co
 
 ## Evolution
 
-`TerminalInputEvent` is public and non-exhaustive with permanent tags, ABI hashes, and runtime-owned unknown-payload drop metadata. Minor versions add variants only. Changing or removing a variant or payload is major and ABI breaking. Chord code tests only known Key variants using `if ... is ... into`, so an unknown future event remains safe.
+`TerminalInputEvent` is public and non-exhaustive with permanent inline stable variant IDs, ABI history, payload-layout hashes, representation version, and runtime-owned unknown-payload drop metadata. Generated metadata retains active and retired IDs, and retired IDs cannot be reused. Minor versions add variants only when boxed runtime-described payloads can retain, drop, and forward them. Changing or removing a variant or payload is major and ABI breaking. Chord code tests only known Key variants using `if ... is ... into`, so an unknown future event remains safe.

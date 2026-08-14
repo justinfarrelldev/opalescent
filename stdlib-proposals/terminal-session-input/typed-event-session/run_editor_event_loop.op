@@ -65,7 +65,7 @@ let run_open_editor_session_sync = f(session: TerminalSession, token: Cancellati
                     propagate apply_pause_events_sync(pause_result.events)
                     hand_terminal_to_child_process_placeholder()
                     propagate terminal_session_resume_sync(session)
-                    output = propagate terminal_session_output_terminal(session)
+                    # The existing output view follows coordinator state at each fallible operation, so reacquisition is optional after resume.
                     let resumed_size = propagate terminal_session_size_sync(session)
                     redraw_editor_view(output, resumed_size)
 

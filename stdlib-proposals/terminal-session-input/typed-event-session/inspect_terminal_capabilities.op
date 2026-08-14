@@ -1,18 +1,22 @@
 import terminal_session_open_sync, terminal_session_restore_pending_open_sync, terminal_session_restore_pending_close_sync, terminal_session_capabilities, terminal_session_size_sync, terminal_session_write_sync, terminal_session_flush_sync from standard
 import type TerminalSession from standard
-import type TerminalSessionOptions, TerminalMouseTracking, TerminalCapabilities, TerminalFeatureCapability, TerminalColorCapability, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalInputSequenceTimeoutMilliseconds, TerminalPasteChunkByteLimit, TerminalPendingSequenceByteLimit, TerminalRetainedEventLimit, TerminalRetainedByteLimit from ./typed_event_session.types
+import type TerminalSessionOptions, TerminalMouseTracking, TerminalCapabilities, TerminalFeatureCapability, TerminalColorCapability, TerminalSessionState, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalInputSequenceTimeoutMilliseconds, TerminalPasteChunkByteLimit, TerminalPendingSequenceByteLimit, TerminalRetainedEventLimit, TerminalRetainedByteLimit from ./typed_event_session.types
 
 ##
-  Description: Opens a session after retrying only process-owned failed-open recovery.
+  Description: Opens a session and retries it once after successfully restoring only process-owned failed-open recovery. It does not retry TerminalAlreadyOwned or attempt failed-close recovery. Stdout views remain shared coordinator views; this helper does not acquire general output ownership.
   Visibility: Public because sibling proposal fixtures import this helper.
 ##
 public let open_terminal_session_with_recovery_sync = f(options: TerminalSessionOptions): TerminalSession errors TerminalSessionOpenError, TerminalSessionRestoreError =>
     guard terminal_session_open_sync(options) into session else open_error =>
         if open_error is TerminalSessionOpenError.RollbackFailed:
             propagate terminal_session_restore_pending_open_sync() cause open_error
-        if open_error is TerminalSessionOpenError.RecoveryPending:
-            propagate terminal_session_restore_pending_open_sync() cause open_error
-        propagate open_error
+            return propagate terminal_session_open_sync(options)
+        if open_error is TerminalSessionOpenError.RecoveryPending into pending:
+            let recovery_state = pending.diagnostic.state
+            if recovery_state is TerminalSessionState.FailedOpenRecovery:
+                propagate terminal_session_restore_pending_open_sync() cause open_error
+                return propagate terminal_session_open_sync(options)
+        return propagate open_error
     return session
 
 ##

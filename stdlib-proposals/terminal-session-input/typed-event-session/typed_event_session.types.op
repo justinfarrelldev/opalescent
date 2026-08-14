@@ -396,63 +396,47 @@ public type TerminalMouseButton:
     AuxiliaryTwo
 
 ##
-  Description: Represents public non-exhaustive normalized input. Numeric tags are permanent and never reused.
+  Description: Represents public non-exhaustive normalized input. Every explicit stable variant ID is permanent and never reused.
 ##
 public non_exhaustive type TerminalInputEvent:
-    @discriminant(1)
-    Key:
+    Key = 1:
         event_id: TerminalEventId
         key: TerminalLogicalKey
         occurrence: TerminalKeyOccurrence
         modifiers: TerminalModifiers
-    @discriminant(2)
-    TextInput:
+    TextInput = 2:
         text: TerminalCommittedText
         origin: TerminalTextInputOrigin
-    @discriminant(3)
-    CompositionStarted:
+    CompositionStarted = 3:
         composition_id: TerminalCompositionId
-    @discriminant(4)
-    CompositionUpdated:
+    CompositionUpdated = 4:
         composition_id: TerminalCompositionId
         preedit_text: TerminalCompositionPreeditText
         cursor: TerminalCompositionScalarIndex
-    @discriminant(5)
-    CompositionEnded:
+    CompositionEnded = 5:
         composition_id: TerminalCompositionId
         outcome: TerminalCompositionEnd
-    @discriminant(6)
-    Paste:
+    Paste = 6:
         text: TerminalPasteText
         phase: TerminalPastePhase
-    @discriminant(7)
-    Mouse:
+    Mouse = 7:
         action: TerminalMouseAction
         modifiers: TerminalModifiers
         row: TerminalRowIndex
         column: TerminalColumnIndex
-    @discriminant(8)
-    Resize:
+    Resize = 8:
         size: TerminalSize
-    @discriminant(9)
-    FocusGained
-    @discriminant(10)
-    FocusLost
-    @discriminant(11)
-    TimedOut
-    @discriminant(12)
-    Cancelled
-    @discriminant(13)
-    EndOfInput
-    @discriminant(14)
-    UnknownBytes:
+    FocusGained = 9
+    FocusLost = 10
+    TimedOut = 11
+    Cancelled = 12
+    EndOfInput = 13
+    UnknownBytes = 14:
         raw_bytes: uint8[]
         reason: TerminalUnknownBytesReason
-    @discriminant(15)
-    UnknownNative:
+    UnknownNative = 15:
         metadata: TerminalNativeMetadata
-    @discriminant(16)
-    InputReset:
+    InputReset = 16:
         reason: TerminalInputResetReason
 
 ##
@@ -596,6 +580,7 @@ public type TerminalDiscardedInput:
 
 ##
   Description: Reports failures while opening a terminal session.
+  Invariant: V1 exposes only the process's interactive standard-input/raw-output pair and admits at most one non-Closed TerminalSession for it. The slot is reserved atomically before terminal inspection or mutation and remains owned across Opening, Active, Paused, and RestorePending. TerminalAlreadyOwned means that session still owns the slot. RecoveryPending means a process-owned recovery ledger owns it, and its diagnostic state is exactly FailedOpenRecovery or FailedCloseRecovery so callers can select the matching recovery API. Admission failure does not inspect or mutate terminal state.
   Invariant: Diagnostic arrays are bounded by configured retained event and byte limits. Error suppressed causes are independently bounded by the language error ABI.
 ##
 public type TerminalSessionOpenError:
@@ -652,6 +637,8 @@ public type TerminalSessionWriteError:
   Invariant: Error suppressed causes are independently bounded by the language error ABI.
 ##
 public type TerminalSessionStateError:
+    SessionOpening:
+        diagnostic: TerminalDiagnostic
     SessionActive:
         diagnostic: TerminalDiagnostic
     SessionPaused:
@@ -664,7 +651,8 @@ public type TerminalSessionStateError:
         diagnostic: TerminalDiagnostic
 
 ##
-  Description: Reports restoration failure or ownership-ending input discard. If restoration and discard both fail, restoration is primary and discard is suppressed.
+  Description: Reports restoration failure, a recovery API invoked while an occupied slot lacks its matching process-owned ledger, or ownership-ending input discard.
+  Invariant: RecoveryOwnerMismatch reports the actual Opening, Active, Paused, RestorePending, FailedOpenRecovery, or FailedCloseRecovery state and performs no mutation or release. CloseDiscardedInput is constructed only after successful restoration, state becomes Closed, and the process-wide slot is released; restoration failure retains decoder data and never constructs or suppresses CloseDiscardedInput.
   Invariant: Diagnostic arrays are bounded by configured retained event and byte limits. Error suppressed causes are independently bounded by the language error ABI.
 ##
 public type TerminalSessionRestoreError:
@@ -682,6 +670,8 @@ public type TerminalSessionRestoreError:
         diagnostics: TerminalDiagnostic[]
     PendingCloseRestoreFailed:
         diagnostics: TerminalDiagnostic[]
+    RecoveryOwnerMismatch:
+        diagnostic: TerminalDiagnostic
     CloseDiscardedInput:
         discarded: TerminalDiscardedInput
         diagnostic: TerminalDiagnostic
