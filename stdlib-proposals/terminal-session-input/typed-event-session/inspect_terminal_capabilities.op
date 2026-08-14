@@ -1,0 +1,66 @@
+import terminal_session_open_sync, terminal_session_restore_pending_open_sync, terminal_session_restore_pending_close_sync, terminal_session_capabilities, terminal_session_size_sync, terminal_session_write_sync, terminal_session_flush_sync from standard
+import type TerminalSession from standard
+import type TerminalSessionOptions, TerminalMouseTracking, TerminalCapabilities, TerminalFeatureCapability, TerminalColorCapability, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalInputSequenceTimeoutMilliseconds, TerminalPasteChunkByteLimit, TerminalPendingSequenceByteLimit, TerminalRetainedEventLimit, TerminalRetainedByteLimit from ./typed_event_session.types
+
+##
+  Description: Opens a session after retrying only process-owned failed-open recovery.
+  Visibility: Public because sibling proposal fixtures import this helper.
+##
+public let open_terminal_session_with_recovery_sync = f(options: TerminalSessionOptions): TerminalSession errors TerminalSessionOpenError, TerminalSessionRestoreError =>
+    guard terminal_session_open_sync(options) into session else open_error =>
+        if open_error is TerminalSessionOpenError.RollbackFailed:
+            propagate terminal_session_restore_pending_open_sync() cause open_error
+        if open_error is TerminalSessionOpenError.RecoveryPending:
+            propagate terminal_session_restore_pending_open_sync() cause open_error
+        propagate open_error
+    return session
+
+##
+  Description: Retries process-owned pending close restoration and preserves the original cleanup error.
+  Visibility: Public because sibling proposal fixtures import this helper.
+##
+public let recover_pending_close_after_editor_sync = f(cleanup_error: TerminalSessionRestoreError): void errors TerminalSessionRestoreError =>
+    if cleanup_error is TerminalSessionRestoreError.CloseRestorePending:
+        propagate terminal_session_restore_pending_close_sync() cause cleanup_error
+    propagate cleanup_error
+
+let inspect_open_terminal_capabilities_sync = f(session: TerminalSession): void errors TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError =>
+    let capabilities = terminal_session_capabilities(session)
+    let size = propagate terminal_session_size_sync(session)
+    report_terminal_size(size)
+    let paste_capability = capabilities.bracketed_paste
+    if paste_capability is TerminalFeatureCapability.Unsupported into unsupported:
+        report_unsupported_capability(unsupported.evidence)
+    if paste_capability is TerminalFeatureCapability.Available into available:
+        report_available_capability(available.evidence)
+    if paste_capability is TerminalFeatureCapability.Enabled into enabled:
+        report_enabled_capability(enabled.evidence)
+
+    let color_capability = capabilities.color
+    if color_capability is TerminalColorCapability.Indexed into indexed:
+        report_indexed_color(indexed.count, indexed.evidence)
+    if color_capability is TerminalColorCapability.TrueColor into true_color:
+        report_true_color(true_color.evidence)
+    propagate terminal_session_write_sync(session, 'capability inspection complete\n')
+    propagate terminal_session_flush_sync(session)
+    return void
+
+let inspect_terminal_capabilities_sync = f(): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError =>
+    let options = new TerminalSessionOptions:
+        use_alternate_screen: false
+        hide_cursor: false
+        enable_bracketed_paste: false
+        require_trusted_paste_framing: false
+        enable_enhanced_key_identity: false
+        enable_focus_events: false
+        mouse_tracking: new TerminalMouseTracking.Disabled
+        capture_control_keys: false
+        require_requested_features: false
+        input_sequence_timeout: 25 as TerminalInputSequenceTimeoutMilliseconds
+        maximum_paste_chunk_bytes: 4096 as TerminalPasteChunkByteLimit
+        maximum_pending_sequence_bytes: 1024 as TerminalPendingSequenceByteLimit
+        maximum_retained_events: 64 as TerminalRetainedEventLimit
+        maximum_retained_bytes: 65536 as TerminalRetainedByteLimit
+    using session = propagate open_terminal_session_with_recovery_sync(options):
+        propagate inspect_open_terminal_capabilities_sync(session)
+    return void
