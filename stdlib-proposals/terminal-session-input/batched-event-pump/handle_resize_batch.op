@@ -1,0 +1,40 @@
+import terminal_event_pump_open_sync, terminal_event_pump_size_sync, terminal_event_pump_wait_sync, terminal_event_pump_write_sync, terminal_event_pump_close_sync from standard
+import type TerminalEventPumpOptions, TerminalMouseTracking, TerminalInputEventKind, TerminalEventPumpOpenError, TerminalEventPumpReadError, TerminalEventPumpOverflowError, TerminalEventPumpWriteError, TerminalEventPumpStateError, TerminalEventPumpRestoreError from ./batched_event_pump.types
+
+##
+  Description: Demonstrates bounded polling and newest-size handling after coalesced resize event bursts.
+##
+let handle_resize_batch_sync = f(): void errors TerminalEventPumpOpenError, TerminalEventPumpReadError, TerminalEventPumpOverflowError, TerminalEventPumpWriteError, TerminalEventPumpStateError, TerminalEventPumpRestoreError, IndexOutOfBoundsError =>
+    let mouse_tracking = new TerminalMouseTracking.Disabled
+    let options = new TerminalEventPumpOptions:
+        use_alternate_screen: false
+        hide_cursor: false
+        enable_bracketed_paste: false
+        enable_focus_events: false
+        mouse_tracking: mouse_tracking
+        capture_control_keys: false
+        require_requested_features: false
+        input_sequence_timeout_milliseconds: 25 as int32
+        maximum_paste_chunk_bytes: 4096 as int32
+        maximum_pending_sequence_bytes: 1024 as int32
+        maximum_pending_events: 128 as int32
+        maximum_pending_bytes: 65536 as int32
+        coalesce_mouse_motion: false
+        coalesce_resize_events: true
+
+    let pump = propagate terminal_event_pump_open_sync(options)
+    let batch = propagate terminal_event_pump_wait_sync(pump, 50 as int32, 32 as int32)
+    let mutable event_index: int64 = 0
+
+    while event_index < batch.events.length:
+        let event = propagate batch.events.at(event_index)
+        if event.kind is TerminalInputEventKind/Resize:
+            propagate terminal_event_pump_write_sync(pump, 'batch resize={event.size.columns}x{event.size.rows}\n')
+        event_index = event_index + 1
+
+    let current_size = propagate terminal_event_pump_size_sync(pump)
+    propagate terminal_event_pump_write_sync(pump, 'current size={current_size.columns}x{current_size.rows}\n')
+    propagate terminal_event_pump_write_sync(pump, 'coalesced resize events={batch.coalesced_resize_count}\n')
+
+    propagate terminal_event_pump_close_sync(pump)
+    return void

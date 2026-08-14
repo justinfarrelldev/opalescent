@@ -1,0 +1,274 @@
+##
+  Description: Selects how much mouse activity the terminal event pump should enqueue.
+##
+public type TerminalMouseTracking:
+    Disabled
+    Buttons
+    ButtonsAndDrag
+    AllMotion
+
+##
+  Description: Selects the visible text cursor shape used by the interactive editor pump.
+##
+public type TerminalCursorShape:
+    Default
+    BlinkingBlock
+    SteadyBlock
+    BlinkingUnderline
+    SteadyUnderline
+    BlinkingBar
+    SteadyBar
+
+##
+  Description: Configuration for terminal modes, payload bounds, queue bounds, and coalescing.
+##
+public type TerminalEventPumpOptions:
+    use_alternate_screen: boolean
+    hide_cursor: boolean
+    enable_bracketed_paste: boolean
+    enable_focus_events: boolean
+    mouse_tracking: TerminalMouseTracking
+    capture_control_keys: boolean
+    require_requested_features: boolean
+    input_sequence_timeout_milliseconds: int32
+    maximum_paste_chunk_bytes: int32
+    maximum_pending_sequence_bytes: int32
+    maximum_pending_events: int32
+    maximum_pending_bytes: int32
+    coalesce_mouse_motion: boolean
+    coalesce_resize_events: boolean
+
+##
+  Description: Explains how confidently the runtime knows one terminal feature is supported.
+##
+public type TerminalCapabilityEvidence:
+    Unsupported
+    NativeConfirmed
+    ProtocolQueried
+    EnvironmentInferred
+    ProtocolAssumed
+
+##
+  Description: Reports whether one terminal feature is supported and enabled with evidence provenance.
+##
+public type TerminalFeatureCapability:
+    supported: boolean
+    enabled: boolean
+    evidence: TerminalCapabilityEvidence
+
+##
+  Description: Portable terminal feature report cached when a terminal event pump is opened.
+##
+public type TerminalCapabilities:
+    alternate_screen: TerminalFeatureCapability
+    cursor_shape: TerminalFeatureCapability
+    bracketed_paste: TerminalFeatureCapability
+    focus_events: TerminalFeatureCapability
+    mouse_buttons: TerminalFeatureCapability
+    mouse_motion: TerminalFeatureCapability
+    key_release_events: TerminalFeatureCapability
+    true_color: TerminalFeatureCapability
+    color_count: int32
+
+##
+  Description: Positive terminal dimensions measured as character-cell column and row counts.
+##
+public type TerminalSize:
+    columns: int32
+    rows: int32
+
+##
+  Description: Modifier state normalized across Linux virtual terminals and Windows console records.
+##
+public type TerminalModifiers:
+    shift: boolean
+    control: boolean
+    alt: boolean
+    super_key: boolean
+    caps_lock: boolean
+    num_lock: boolean
+
+##
+  Description: Identifies which payload fields are meaningful in one normalized queued event.
+##
+public type TerminalInputEventKind:
+    Key
+    Paste
+    Mouse
+    Resize
+    FocusGained
+    FocusLost
+    Unknown
+
+##
+  Description: Portable keyboard code set covering text, navigation, editing, and function keys.
+##
+public type TerminalKeyCode:
+    None
+    Text
+    Enter
+    Escape
+    Backspace
+    Tab
+    BackTab
+    ArrowUp
+    ArrowDown
+    ArrowLeft
+    ArrowRight
+    Insert
+    Delete
+    Home
+    End
+    PageUp
+    PageDown
+    Function
+
+##
+  Description: Describes whether a queued key event presses, repeats, or releases a key code.
+##
+public type TerminalKeyAction:
+    None
+    Press
+    Repeat
+    Release
+
+##
+  Description: Identifies whether a paste payload is complete or one bounded chunk of a larger paste.
+##
+public type TerminalPastePhase:
+    None
+    Complete
+    Start
+    Continue
+    End
+
+##
+  Description: Portable mouse action reported in zero-based terminal character-cell coordinates.
+##
+public type TerminalMouseAction:
+    None
+    Press
+    Release
+    Move
+    Drag
+    ScrollUp
+    ScrollDown
+    ScrollLeft
+    ScrollRight
+
+##
+  Description: Portable mouse button associated with a queued mouse action when one exists.
+##
+public type TerminalMouseButton:
+    None
+    Left
+    Middle
+    Right
+    AuxiliaryOne
+    AuxiliaryTwo
+
+##
+  Description: Normalized queued terminal event whose kind determines meaningful payload fields.
+##
+public type TerminalInputEvent:
+    kind: TerminalInputEventKind
+    key_code: TerminalKeyCode
+    key_action: TerminalKeyAction
+    function_number: int32
+    control_code: int32
+    text: string
+    modifiers: TerminalModifiers
+    repeat_count: int32
+    paste_phase: TerminalPastePhase
+    mouse_action: TerminalMouseAction
+    mouse_button: TerminalMouseButton
+    row: int32
+    column: int32
+    size: TerminalSize
+    raw_bytes: uint8[]
+    native_event_name: string
+    native_event_code: int32
+
+##
+  Description: Ordered bounded event batch returned after one terminal event pump wait operation.
+##
+public type TerminalEventBatch:
+    events: TerminalInputEvent[]
+    timed_out: boolean
+    input_closed: boolean
+    coalesced_mouse_motion_count: int64
+    coalesced_resize_count: int64
+
+##
+  Description: Failure encountered while acquiring, resuming, or configuring terminal event pumping.
+##
+public type TerminalEventPumpOpenError:
+    InputNotInteractive
+    OutputNotInteractive
+    TerminalAlreadyOwned
+    InvalidOptions:
+        detail: string
+    UnsupportedFeature:
+        feature_name: string
+    ModeReadFailed:
+        detail: string
+    ModeWriteFailed:
+        detail: string
+    RollbackFailed:
+        detail: string
+    ResumeFailed:
+        detail: string
+
+##
+  Description: Failure encountered while waiting for or decoding terminal events into the queue.
+##
+public type TerminalEventPumpReadError:
+    InvalidTimeout:
+        timeout_milliseconds: int32
+    InvalidMaximumEvents:
+        maximum_events: int32
+    ReadFailed:
+        detail: string
+    InvalidUnicodeInput:
+        detail: string
+
+##
+  Description: Failure indicating bounded queue limits prevented another lossless terminal read.
+##
+public type TerminalEventPumpOverflowError:
+    EventQueueOverflow:
+        maximum_pending_events: int32
+        maximum_pending_bytes: int32
+        preserved_event_count: int32
+        preserved_byte_count: int32
+
+##
+  Description: Failure encountered while writing, flushing, or changing terminal cursor output.
+##
+public type TerminalEventPumpWriteError:
+    WriteFailed:
+        detail: string
+    FlushFailed:
+        detail: string
+    UnsupportedCursorShape
+
+##
+  Description: Failure produced when an operation is invalid for the current terminal event pump state.
+##
+public type TerminalEventPumpStateError:
+    EventPumpPaused
+    EventPumpRestorePending
+    EventPumpClosed
+
+##
+  Description: Failure encountered while restoring balanced protocol modes and exact operating-system flags.
+##
+public type TerminalEventPumpRestoreError:
+    RestoreInputModeFailed:
+        detail: string
+    RestoreOutputModeFailed:
+        detail: string
+    RestoreScreenStateFailed:
+        detail: string
+    MultipleRestoreStepsFailed:
+        failures: string[]

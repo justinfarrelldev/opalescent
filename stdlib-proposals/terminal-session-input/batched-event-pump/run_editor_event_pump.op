@@ -1,0 +1,78 @@
+import terminal_event_pump_open_sync, terminal_event_pump_capabilities, terminal_event_pump_output_terminal, terminal_event_pump_size_sync, terminal_event_pump_wait_sync, terminal_event_pump_write_sync, terminal_event_pump_flush_sync, terminal_event_pump_set_cursor_visible_sync, terminal_event_pump_set_cursor_shape_sync, terminal_event_pump_pause_sync, terminal_event_pump_resume_sync, terminal_event_pump_close_sync, terminal_supports_ansi from standard
+import type TerminalEventPumpOptions, TerminalMouseTracking, TerminalCursorShape, TerminalInputEventKind, TerminalEventPumpOpenError, TerminalEventPumpReadError, TerminalEventPumpOverflowError, TerminalEventPumpWriteError, TerminalEventPumpStateError, TerminalEventPumpRestoreError from ./batched_event_pump.types
+
+##
+  Description: Runs an editor-grade batched event loop and redraws after applying each available input burst.
+##
+let run_editor_event_pump_sync = f(): void errors TerminalEventPumpOpenError, TerminalEventPumpReadError, TerminalEventPumpOverflowError, TerminalEventPumpWriteError, TerminalEventPumpStateError, TerminalEventPumpRestoreError, IndexOutOfBoundsError =>
+    let mouse_tracking = new TerminalMouseTracking.ButtonsAndDrag
+    let options = new TerminalEventPumpOptions:
+        use_alternate_screen: true
+        hide_cursor: true
+        enable_bracketed_paste: true
+        enable_focus_events: true
+        mouse_tracking: mouse_tracking
+        capture_control_keys: true
+        require_requested_features: false
+        input_sequence_timeout_milliseconds: 25 as int32
+        maximum_paste_chunk_bytes: 4096 as int32
+        maximum_pending_sequence_bytes: 1024 as int32
+        maximum_pending_events: 4096 as int32
+        maximum_pending_bytes: 1048576 as int32
+        coalesce_mouse_motion: true
+        coalesce_resize_events: true
+
+    let pump = propagate terminal_event_pump_open_sync(options)
+    let capabilities = terminal_event_pump_capabilities(pump)
+    propagate terminal_event_pump_pause_sync(pump)
+    propagate terminal_event_pump_resume_sync(pump)
+    let output_terminal = propagate terminal_event_pump_output_terminal(pump)
+    let initial_size = propagate terminal_event_pump_size_sync(pump)
+    let block_cursor = new TerminalCursorShape.SteadyBlock
+
+    propagate terminal_event_pump_set_cursor_shape_sync(pump, block_cursor)
+    propagate terminal_event_pump_set_cursor_visible_sync(pump, false)
+    propagate terminal_event_pump_write_sync(pump, 'editor pump {initial_size.columns}x{initial_size.rows}\n')
+    propagate terminal_event_pump_flush_sync(pump)
+
+    if terminal_supports_ansi(output_terminal) is false:
+        propagate terminal_event_pump_write_sync(pump, 'native rendering fallback active\n')
+
+    if capabilities.mouse_buttons.enabled is false:
+        propagate terminal_event_pump_write_sync(pump, 'mouse input unavailable\n')
+
+    let mutable running = true
+    while running:
+        guard terminal_event_pump_wait_sync(pump, -1 as int32, 256 as int32) into batch else wait_error =>
+            if wait_error is TerminalEventPumpOverflowError/EventQueueOverflow:
+                continue
+            propagate wait_error
+        let mutable event_index: int64 = 0
+
+        while event_index < batch.events.length:
+            let event = propagate batch.events.at(event_index)
+
+            if event.kind is TerminalInputEventKind/Key:
+                if event.control_code is 17 and event.modifiers.control:
+                    running = false
+
+            if event.kind is TerminalInputEventKind/Paste:
+                propagate terminal_event_pump_write_sync(pump, event.text)
+
+            if event.kind is TerminalInputEventKind/Resize:
+                propagate terminal_event_pump_write_sync(pump, 'resize={event.size.columns}x{event.size.rows}\n')
+
+            if event.kind is TerminalInputEventKind/Unknown:
+                propagate terminal_event_pump_write_sync(pump, 'unknown input bytes={event.raw_bytes.length}\n')
+
+            event_index = event_index + 1
+
+        if batch.input_closed:
+            running = false
+
+        if batch.timed_out is false:
+            propagate terminal_event_pump_write_sync(pump, 'redraw\n')
+            propagate terminal_event_pump_flush_sync(pump)
+
+    propagate terminal_event_pump_close_sync(pump)
+    return void
