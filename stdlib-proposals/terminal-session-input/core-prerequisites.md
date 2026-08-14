@@ -1,0 +1,240 @@
+# Future Terminal Core Prerequisites
+
+## Status and authority
+
+This document is a blocked-time draft for a future `core-prerequisites.md`. Every declaration and rule below is a **future adoption prerequisite** for the terminal-session proposal. None is implemented by the current compiler, runtime, standard library, test runner, or `STDLIB.md` surface. It does not change any existing signature or behavior today.
+
+The future terminal proposal may adopt these facilities only after their language, core, standard-library, and test-runner support exists. `TerminalCoordinatorState` and `TerminalOperation` are terminal-owned declarations: their definitions and any ABI IDs belong only to `typed_event_session.types.op`. Standard error variants may import them as immutable payload types, but this prerequisite never redeclares, allocates, or assigns IDs to them. Genuinely core/system-owned wait, timer, process-control, generic error, and test-runner facilities have no terminal ABI IDs and must not be declared in terminal ABI history.
+
+## 1. Legacy standard-input and standard-output coordination
+
+### 1.1 Terminal payload imports and standard-owned errors
+
+`TerminalCoordinatorState` and `TerminalOperation` are terminal-owned types imported from `typed_event_session.types.op`. The selected `TerminalOperation` carries the required legacy classifications: `TakeInput`, `PrintText`, `FlushStandardOutput`, `StdoutWriter`, `WriterWrite`, `WriterFlush`, `StdoutTerminal`, `TerminalSupportsAnsi`, `TerminalClearScreenOn`, `TerminalMoveCursorOn`, `TerminalDrawRows`, `TerminalClearScreen`, and `TerminalMoveCursor`. This draft neither redeclares either type nor allocates terminal IDs.
+
+The declarations below are future **standard-owned** error carriers. Their immutable `state` and `operation` payload fields refer to the imported terminal-owned types only; this does not transfer terminal ABI ownership.
+
+```opal
+# public type StandardInputReadError:
+#     TerminalCoordinatorUnavailable:
+#         state: TerminalCoordinatorState
+#         operation: TerminalOperation
+#     EndOfInput
+#     ReadFailure
+#
+# public type StandardOutputHandleError:
+#     TerminalCoordinatorUnavailable:
+#         state: TerminalCoordinatorState
+#         operation: TerminalOperation
+#
+# public type StandardOutputCapabilityError:
+#     TerminalCoordinatorUnavailable:
+#         state: TerminalCoordinatorState
+#         operation: TerminalOperation
+#
+# public type WriteFailureError:
+#     TerminalCoordinatorUnavailable:
+#         state: TerminalCoordinatorState
+#         operation: TerminalOperation
+#
+# public type FlushFailureError:
+#     TerminalCoordinatorUnavailable:
+#         state: TerminalCoordinatorState
+#         operation: TerminalOperation
+#
+# public type TerminalWriteFailureError:
+#     TerminalCoordinatorUnavailable:
+#         state: TerminalCoordinatorState
+#         operation: TerminalOperation
+```
+
+The future replacement signature for the existing `take_input` is:
+
+```opal
+# take_input(): string errors StandardInputReadError
+```
+
+When the coordinator state is not `Free`, `take_input` fails with `StandardInputReadError.TerminalCoordinatorUnavailable`. Rejection happens before any standard-input read, buffering, EOF observation, decoder update, or byte consumption. The failed call changes neither the coordinator generation nor terminal/session state.
+
+A future coordinator-bound `StdoutWriter` and `StdoutTerminal` carry an opaque lease bound to a hidden, never-reused coordinator lease epoch. On every `Free` to `Opening` transition, the coordinator atomically replaces the epoch before publishing the reservation. An open failure, later close, recovery, or return to `Free` never restores an earlier epoch. Consequently, a handle acquired before an opening attempt remains stale forever after that attempt, including after the coordinator returns to `Free`; only a newly acquired lease for the current `Free` epoch can be used. Before every legacy inspection or mutation, the operation validates both the hidden lease epoch and the allowed coordinator state before touching stdout, terminal mode, a buffer, cursor state, readiness, or capability state. A mismatch, stale epoch, or disallowed state returns the operation's existing error family with `TerminalCoordinatorUnavailable { state, operation }` as its new future variant. Such a failure performs no output mutation, flush, cursor operation, terminal-mode change, handle refresh, epoch advance, or generation advance. The epoch is neither numeric nor publicly inspectable and exposes no session provenance or OS handle.
+
+### 1.2 Complete existing STDLIB inventory
+
+The following existing APIs are all covered by this future coordination rule. This list is an accounting inventory, not a claim that any signature has changed.
+
+| Existing API | Future coordination rule |
+|---|---|
+| `take_input(): string` | Becomes the fallible signature above. Rejection consumes no input. |
+| `print(value): void` | See the diagnostic-lane rule below. It never obtains a raw writer or terminal lease. |
+| `println(text: string): void` | See the diagnostic-lane rule below. It never obtains a raw writer or terminal lease. |
+| `print_text_sync(text: string): void errors WriteFailureError, SinkClosedError` | Validate generation before write. Add only the future coordinator-unavailable error variant to its existing family. |
+| `flush_standard_output_sync(): void errors FlushFailureError, SinkClosedError` | Validate generation before flush. |
+| `stdout_writer(): StdoutWriter` | Validate before issuing or refreshing a legacy lease. A rejected call returns a future fallible coordinator-unavailable result without issuing a handle. |
+| `writer_write_sync(writer: StdoutWriter, text: string): void errors WriteFailureError, SinkClosedError` | Validate the lease generation before write. |
+| `writer_flush_sync(writer: StdoutWriter): void errors FlushFailureError, SinkClosedError` | Validate the lease generation before flush. |
+| `stdout_terminal(): StdoutTerminal` | Validate before issuing or refreshing a legacy lease. A rejected call returns a future fallible coordinator-unavailable result without issuing a handle. |
+| `terminal_supports_ansi(terminal: StdoutTerminal): boolean` | Validate the lease before inspection. A stale or disallowed lease fails through its future coordinator-aware result rather than reporting a fabricated capability. |
+| `terminal_clear_screen_on_sync(terminal: StdoutTerminal): void errors TerminalWriteFailureError, SinkClosedError` | Validate before mutation. |
+| `terminal_move_cursor_on_sync(terminal: StdoutTerminal, row: int32, column: int32): void errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError` | Validate before mutation, including before cursor-position work that could touch the terminal. |
+| `terminal_draw_rows_sync(terminal: StdoutTerminal, rows: string[]): void errors TerminalWriteFailureError, SinkClosedError` | Validate before mutation. |
+| `terminal_clear_screen_sync(): void errors TerminalWriteFailureError, SinkClosedError` | Validate before mutation. |
+| `terminal_move_cursor_sync(row: int32, column: int32): void errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError` | Validate before mutation. |
+
+The exact future signature shape for lease creation and capability inspection is intentionally fallible and uses coherent standard-owned error families rather than a payload-only pseudo-type:
+
+```opal
+# stdout_writer(): StdoutWriter errors StandardOutputHandleError
+# stdout_terminal(): StdoutTerminal errors StandardOutputHandleError
+# terminal_supports_ansi(terminal: StdoutTerminal): boolean errors StandardOutputCapabilityError
+```
+
+For existing write operations, `WriteFailureError.TerminalCoordinatorUnavailable` is the standard-owned future variant. For flush operations, it is `FlushFailureError.TerminalCoordinatorUnavailable`; for terminal operations, it is `TerminalWriteFailureError.TerminalCoordinatorUnavailable`. Each carries terminal-owned `state` and `operation` payloads. No unrelated standard-library operation gains a coordinator error.
+
+### 1.3 Legacy I/O state matrix
+
+`Free` is the sole coordinator state with no process-owned terminal ledger and therefore the sole state permitting ordinary legacy input and fallible raw output. A directly closed session binding can remain inspectable as `TerminalSessionState.Closed`, but it retains no coordinator ownership and therefore corresponds to coordinator `Free`. `Opening` includes reservation and rollback before completion. `FailedOpenRecovery` and `FailedCloseRecovery` are process-owned recovery states, not session aliases.
+
+| Coordinator state | `take_input` | Fallible legacy output and handle operations | `print` / `println` |
+|---|---|---|---|
+| `Free` | Read under its normal future fallible contract. | Validate and perform the requested operation. | Best-effort bounded escaped diagnostic lane. |
+| `Opening` | `TerminalCoordinatorUnavailable`; consume no bytes. | `TerminalCoordinatorUnavailable`; no mutation. | Drop, no raw stdout touch. |
+| `Active` | `TerminalCoordinatorUnavailable`; consume no bytes. | `TerminalCoordinatorUnavailable`; no mutation. | Best-effort bounded escaped diagnostic lane only. |
+| `Paused` | `TerminalCoordinatorUnavailable`; consume no bytes. | `TerminalCoordinatorUnavailable`; no mutation. | Best-effort bounded escaped diagnostic lane only. |
+| `RestorePending` | `TerminalCoordinatorUnavailable`; consume no bytes. | `TerminalCoordinatorUnavailable`; no mutation. | Drop, no raw stdout touch. |
+| `FailedOpenRecovery` | `TerminalCoordinatorUnavailable`; consume no bytes. | `TerminalCoordinatorUnavailable`; no mutation. | Drop, no raw stdout touch. |
+| `FailedCloseRecovery` | `TerminalCoordinatorUnavailable`; consume no bytes. | `TerminalCoordinatorUnavailable`; no mutation. | Drop, no raw stdout touch. |
+
+The diagnostic lane accepts only displayable application diagnostics. It escapes C0 and C1 controls, ESC, DEL, bidi controls, noncharacters, and invalid display scalars; bounds its output; and adds a visible truncation marker. It gives no delivery, ordering, flush, atomicity, or preservation guarantee. In rows marked drop, it writes nothing and performs no buffering that could later reach stdout.
+
+## 2. Generic readiness and one affine wait set
+
+The following are future core/system declarations. `SystemWaitSetError` is a core/system-owned error family and receives no terminal ABI ID or terminal ABI-history entry.
+
+```opal
+# public type SystemWaitSetError:
+#     WrongSet
+#     UnauthenticatedRegistration
+#     RegistrationLifetimeInvalid
+#
+# @constructor_visibility(runtime)
+# public type SystemWaitWake:
+#     Ready:
+#         source: SystemReadinessSource
+#         generation: uint64
+#     Cancelled
+#
+# system_wait_set_new(): SystemWaitSet errors AllocationFailureError
+# system_wait_set_register(mutable ref wait_set: SystemWaitSet, source: SystemReadinessSource): SystemWaitRegistration errors SystemWaitSetError, AllocationFailureError
+# system_wait_set_remove(mutable ref wait_set: SystemWaitSet, registration: SystemWaitRegistration): void errors SystemWaitSetError
+# system_wait_set_wait_sync(mutable ref wait_set: SystemWaitSet, cancellation: CancellationToken): SystemWaitWake errors SystemWaitSetError
+```
+
+`SystemWaitSet` is affine, noncopyable, and non-publicly constructible except through `system_wait_set_new`. A sealed opaque registration belongs to exactly one live wait set and exactly one source identity. Registering the same source twice produces distinct registrations but one source identity. The first removal of a live registration by its owning live wait set succeeds and releases exactly that registration reference. Repeating removal of that exact already-removed registration through that same still-live owning set is idempotent success: it releases no further reference, does not change source readiness or generation, and does not mutate registration tables. A registration presented to a different set fails with `SystemWaitSetError.WrongSet`; an unauthentic registration fails with `SystemWaitSetError.UnauthenticatedRegistration`; and a registration whose owning set or required lifetime is invalid fails with `SystemWaitSetError.RegistrationLifetimeInvalid`. Each failure performs no mutation. Destroying a wait set releases each of its remaining live registrations exactly once; a previously removed registration is not released again.
+
+`SystemReadinessSource` is a cloneable, host-stable opaque identity. A source retains its host wake state while held by a source clone or a live wait-set registration. Removing a registration releases that registration reference exactly once, while source clones remain valid independently according to their source contract. A source never exposes an OS descriptor, HANDLE, registration key, or mutable host state.
+
+`SystemWaitWake` is a sealed core/system-owned sum with no terminal ABI ID or terminal ABI-history entry. `Ready` alone carries a source identity and observed generation. `Cancelled` carries neither a source identity nor an observed generation, and no inspector can fabricate either value. A `Ready` wake is a hint, not a successful operation: a source may become stale after the wait reports it because another consumer drained the condition, because its generation changed, or because a transition woke the set. Callers must refine `Ready` before reading its fields and reattempt the source-specific Poll operation. That operation reports its ordinary stale result, such as `TimedOut`, without pretending that the wait was incorrect.
+
+The following are future core/system cancellation declarations with no terminal ABI IDs:
+
+```opal
+# cancellation_source_new(): CancellationSource errors AllocationFailureError
+# cancellation_token(ref source: CancellationSource): CancellationToken
+# cancellation_request(mutable ref source: CancellationSource): void
+```
+
+`CancellationSource` is affine request authority. Creation allocates one new, never-reset cancellation generation; `cancellation_token` returns an immutable observation token for that exact source generation; and `cancellation_request` is synchronized and idempotent for that generation. Cancellation is sticky per source generation. Dropping the source permanently removes request authority but does not invalidate already-issued tokens: they retain their observation and wake state until the final token drops. Creating a new source creates a distinct generation that an old token cannot affect. These source and token lifetimes are core/system-owned and expose neither terminal ABI IDs nor terminal provenance.
+
+After already-published queued source work, a simultaneously ready cancelled token wins over new source consumption. The wait returns `SystemWaitWake.Cancelled`, carries no source or generation, and consumes no newly ready source work. Transition wakes are mandatory: a source changing observable availability, including terminal `TerminalSessionState.Active` to `Paused`, `Paused` to `Active`, `Active` or `Paused` to `RestorePending`, `RestorePending` to `TerminalSessionState.Closed`, or `Active` or `Paused` to `TerminalSessionState.Closed`, wakes all sets currently registered for that source.
+
+## 3. Affine monotonic timers
+
+```opal
+# monotonic_timer_new(): MonotonicTimer errors AllocationFailureError
+# monotonic_timer_readiness_source(ref timer: MonotonicTimer): SystemReadinessSource
+# monotonic_timer_arm(mutable ref timer: MonotonicTimer, deadline: MonotonicDeadline): uint64 errors MonotonicTimerError
+# monotonic_timer_disarm(mutable ref timer: MonotonicTimer): uint64 errors MonotonicTimerError
+# monotonic_timer_generation(ref timer: MonotonicTimer): uint64
+# monotonic_timer_deadline(ref timer: MonotonicTimer): MonotonicDeadline errors MonotonicTimerNotArmedError
+# monotonic_clock_now(): MonotonicDeadline
+```
+
+`MonotonicTimer` is affine. Its readiness source has one stable identity for the timer lifetime, including disarm and rearm. Each successful arm or disarm advances a never-reused generation before publishing the new state. Disarming an armed timer clears its deadline and advances the generation. Disarming an already-disarmed timer remains successfully disarmed and still advances a new generation, so defensive repeated disarm invalidates every previously published wake without reusing a generation. Generation exhaustion fails before changing the arm state, deadline, or generation. `monotonic_timer_deadline` continues to return `MonotonicTimerNotArmedError` while disarmed; no absent-deadline value or sentinel exists. `monotonic_timer_arm` is ready when `monotonic_clock_now()` is equal to or later than its deadline. Equality is expiration, not a one-tick delay.
+
+A `SystemWaitWake.Ready` carries a source identity and observed generation. A caller must compare its generation with `monotonic_timer_generation`; an old armed deadline, a disarmed timer, or a newer arm makes that Ready wake stale. A stale timer wake performs no timer mutation and the caller returns to the wait set. A timer arm has no hidden scheduler, polling loop, or terminal-specific identity.
+
+## 4. Separate process-control source
+
+`ProcessControlAcknowledgementError` and `ProcessControlResumeError` are core/system-owned error families with no terminal ABI IDs or terminal ABI-history entries.
+
+```opal
+# public type ProcessControlAcknowledgementError:
+#     WrongGeneration
+#     StaleGeneration
+#     HostSuspendFailed
+#
+# public type ProcessControlResumeError:
+#     WrongGeneration
+#     StaleGeneration
+#     HostApplicationResumeFailed
+#
+# process_control_source_new(): ProcessControlSource errors ProcessControlUnavailableError, AllocationFailureError
+# process_control_readiness_source(ref source: ProcessControlSource): SystemReadinessSource
+# process_control_poll(mutable ref source: ProcessControlSource): ProcessControlNotification errors ProcessControlError
+# process_control_acknowledge_suspend(mutable ref source: ProcessControlSource, generation: uint64): void errors ProcessControlAcknowledgementError
+# process_control_resume_application(mutable ref source: ProcessControlSource, generation: uint64): void errors ProcessControlResumeError
+```
+
+`ProcessControlNotification` has exactly `SuspendRequested(generation)` and `Continued(generation)` for this contract. It is a distinct generic source, never a terminal input event. On supported POSIX hosts it observes catchable job-control suspension and continuation. The contract has no Windows console-control equivalent and must report `ProcessControlUnavailableError` where unsupported.
+
+Each process-control generation has exactly one of these core/system states: `SuspendPending`, `AcknowledgedHostSuspended`, `ContinuedAwaitingApplicationResume`, or `Completed`. Publishing `SuspendRequested(generation)` immediately creates or exposes `SuspendPending`. Repeated requests before acknowledgement coalesce to that same pending generation. Before calling `process_control_acknowledge_suspend` for the correct pending generation, the caller must stop application work, complete terminal pause, and process the final `PauseBoundary`; `ProcessControlSource` neither observes nor validates those terminal/application conditions. Acknowledgement then requests host suspension. On success it enters `AcknowledgedHostSuspended`; a same-generation duplicate acknowledgement in that state is an idempotent no-op. On `HostSuspendFailed`, the already-existing generation remains `SuspendPending` and is retryable: no host-suspension, terminal-session, or application-resume state advances. Wrong or stale generations return the declared structured acknowledgement error before mutation.
+
+`Continued(generation)` moves only the matching acknowledged generation to `ContinuedAwaitingApplicationResume`. It marks readiness only and does not restore terminal state, resume a terminal session, or resume application work. The application explicitly resumes its terminal session, then calls `process_control_resume_application` for the matching generation. Success enters `Completed`; a same-generation duplicate resume in `Completed` is an idempotent no-op. On `HostApplicationResumeFailed`, the generation remains `ContinuedAwaitingApplicationResume` and is retryable while application work remains stopped. Wrong or stale generations return the declared structured resume error before mutation. Stale, duplicate, mismatched, or out-of-order notifications do not acknowledge, suspend, resume, or consume terminal input. Terminal and process-control sources remain separate, and Windows remains unavailable under this contract.
+
+## 5. `using` and affine cleanup
+
+The following future language rule defines `using` for affine resources. Acquisition is evaluated once. On successful acquisition, the binding owns one cleanup obligation. Cleanup runs exactly once on fallthrough, `return`, `break`, `continue`, and failure propagation leaving the lexical scope. An explicit successful close consumes the obligation; subsequent scope cleanup is a no-op. A failed explicit close retains the binding and its cleanup obligation unless the operation's declared contract transfers it to a recovery owner.
+
+| Body outcome | Cleanup outcome | Result leaving scope |
+|---|---|---|
+| success | success or explicit-close no-op | Body success. |
+| success | first cleanup failure | That cleanup error is primary. |
+| body error | success or explicit-close no-op | Original body error. |
+| body error | first cleanup failure | Cleanup error is primary, body error is its cause. |
+| any prior outcome | later cleanup failure | Preserve the existing primary; attach each later cleanup error as suppressed. |
+
+Nested `using` scopes clean up in strict reverse acquisition order. If multiple cleanup attempts fail, the innermost failing cleanup is primary. The body error follows as its cause when present. Remaining cleanup failures are suppressed in encounter order, which is outerward, and each resource's own inverse ledger is reverse-ledger order. Cleanup is attempted even after a prior cleanup failure when the resource remains safely owned.
+
+## 6. Immutable error values, propagation, and attachments
+
+```opal
+# propagate error_value
+# error_cause(error_value: Error): Error errors ErrorAttachmentAbsentError
+# error_suppressed_length(error_value: Error): int64
+# error_suppressed_at(error_value: Error, index: int64): Error errors IndexOutOfBoundsError
+# error_attachment_truncation(error_value: Error): ErrorAttachmentTruncation
+# error_attachment_truncation_cause_depth(truncation: ErrorAttachmentTruncation): boolean
+# error_attachment_truncation_suppressed_count(truncation: ErrorAttachmentTruncation): boolean
+# error_attachment_truncation_bytes(truncation: ErrorAttachmentTruncation): boolean
+```
+
+`propagate error_value` forwards exactly one already-evaluated immutable nominal error value. It neither calls a function nor re-evaluates an expression. It is legal only when the enclosing `errors` clause declares the value's family. The forwarded value remains the same primary value and receives no implicit wrapper, copy-visible mutation, cause, or suppression.
+
+`propagate call() cause prior_error` evaluates the call once. If it succeeds, it returns its success. If it fails, the call failure is primary and `prior_error` is attached as its cause. Errors are immutable and acyclic. The maximum attachment limits are depth 8 for cause chains, 8 suppressed values per primary, and 64 KiB total attachment storage. Cause precedes suppressed values. Core-owned truncation markers report cuts at cause depth, suppressed count, or attachment bytes. Preallocated attachment cells preserve the primary error if attachment allocation fails.
+
+## 7. Test-only availability and sealed runner authority
+
+```opal
+# @availability(test_only)
+# test_runner_terminal_authority(): TerminalTestAuthority
+```
+
+`@availability(test_only)` is a future declaration attribute. Test-only declarations may be imported and referenced only while compiling a test artifact under the sealed test runner. Production modules, production exported signatures, production metadata, and production artifacts cannot import, name, serialize, or depend on a test-only symbol. This is a compile-time availability boundary, not a runtime boolean.
+
+`TerminalTestAuthority` is opaque, sealed, nonconstructible, and issued only by the test runner for one test compilation. Test-only factories require an authority and enforce the same bounds and cross-field invariants as runtime construction. They may create bounded synthetic events, capabilities, diagnostics, and trusted-paste evidence only. They cannot construct a `TerminalSession`, forge a recovery token, mint coordinator leases, expose host handles, or bypass recovery provenance. Authentic recovery tokens in tests arise only through the ordinary lifecycle against a deterministic fake backend.
+
+Test-only declarations, authorities, factories, and test artifact identities have no production ABI exports or IDs. They do not appear in terminal ABI declarations or terminal ABI history.
+
+## Adoption checklist
+
+Before the terminal proposal can copy this draft into its proposal target, implementation work must separately establish the listed language syntax, checker behavior, core types, runtime synchronization, standard-library registration, and test-runner authority. Until then, existing `take_input`, legacy stdout APIs, `print`/`println`, `propagate`, and resource cleanup retain their current documented behavior.
