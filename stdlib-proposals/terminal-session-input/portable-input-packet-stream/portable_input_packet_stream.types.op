@@ -1,0 +1,160 @@
+##
+  Description: Selects how much mouse activity is translated into canonical terminal bytes.
+##
+public type TerminalMouseTracking:
+    Disabled
+    Buttons
+    ButtonsAndDrag
+    AllMotion
+
+##
+  Description: Selects the visible text cursor shape used by the raw editor input stream.
+##
+public type TerminalCursorShape:
+    Default
+    BlinkingBlock
+    SteadyBlock
+    BlinkingUnderline
+    SteadyUnderline
+    BlinkingBar
+    SteadyBar
+
+##
+  Description: Configuration applied transactionally while opening a bounded terminal packet stream.
+##
+public type TerminalInputStreamOptions:
+    use_alternate_screen: boolean
+    hide_cursor: boolean
+    enable_bracketed_paste: boolean
+    enable_focus_events: boolean
+    mouse_tracking: TerminalMouseTracking
+    capture_control_keys: boolean
+    require_requested_features: boolean
+    maximum_pending_bytes: int32
+
+##
+  Description: Explains how confidently the runtime knows one terminal feature is supported.
+##
+public type TerminalCapabilityEvidence:
+    Unsupported
+    NativeConfirmed
+    ProtocolQueried
+    EnvironmentInferred
+    ProtocolAssumed
+
+##
+  Description: Reports whether one terminal feature is supported and enabled with evidence provenance.
+##
+public type TerminalFeatureCapability:
+    supported: boolean
+    enabled: boolean
+    evidence: TerminalCapabilityEvidence
+
+##
+  Description: Portable terminal feature report cached when a raw input stream is opened.
+##
+public type TerminalCapabilities:
+    alternate_screen: TerminalFeatureCapability
+    cursor_shape: TerminalFeatureCapability
+    bracketed_paste: TerminalFeatureCapability
+    focus_events: TerminalFeatureCapability
+    mouse_buttons: TerminalFeatureCapability
+    mouse_motion: TerminalFeatureCapability
+    key_release_events: TerminalFeatureCapability
+    enhanced_keyboard_protocol: TerminalFeatureCapability
+    true_color: TerminalFeatureCapability
+    color_count: int32
+
+##
+  Description: Positive terminal dimensions measured as character-cell column and row counts.
+##
+public type TerminalSize:
+    columns: int32
+    rows: int32
+
+##
+  Description: Identifies whether a packet carries bytes, resize, native metadata, reset, or closure.
+##
+public type TerminalInputPacketKind:
+    Bytes
+    Resize
+    TimedOut
+    EndOfInput
+    NativeEvent
+    DecoderReset
+
+##
+  Description: Bounded raw terminal packet preserving binary input and structural transport state.
+##
+public type TerminalInputPacket:
+    kind: TerminalInputPacketKind
+    bytes: uint8[]
+    size: TerminalSize
+    native_event_name: string
+    native_event_code: int32
+
+##
+  Description: Failure encountered while acquiring, resuming, or configuring a terminal input stream.
+##
+public type TerminalInputStreamOpenError:
+    InputNotInteractive
+    OutputNotInteractive
+    TerminalAlreadyOwned
+    InvalidOptions:
+        detail: string
+    UnsupportedFeature:
+        feature_name: string
+    ModeReadFailed:
+        detail: string
+    ModeWriteFailed:
+        detail: string
+    RollbackFailed:
+        detail: string
+    ResumeFailed:
+        detail: string
+
+##
+  Description: Failure encountered while waiting for or translating bounded terminal input packets.
+##
+public type TerminalInputStreamReadError:
+    InvalidTimeout:
+        timeout_milliseconds: int32
+    InvalidMaximumBytes:
+        maximum_bytes: int32
+    ReadFailed:
+        detail: string
+    InvalidUnicodeInput:
+        detail: string
+    TranslationBufferOverflow:
+        maximum_pending_bytes: int32
+
+##
+  Description: Failure encountered while writing, flushing, or changing raw terminal stream output.
+##
+public type TerminalInputStreamWriteError:
+    WriteFailed:
+        detail: string
+    FlushFailed:
+        detail: string
+    UnsupportedCursorShape
+
+##
+  Description: Failure produced when an operation is invalid for the current terminal input stream state.
+##
+public type TerminalInputStreamStateError:
+    InputStreamPaused
+    InputStreamRestorePending
+    InputStreamClosed
+
+##
+  Description: Failure encountered while restoring balanced protocol modes and exact operating-system flags.
+##
+public type TerminalInputStreamRestoreError:
+    RestoreInputModeFailed:
+        detail: string
+    RestoreOutputModeFailed:
+        detail: string
+    RestoreScreenStateFailed:
+        detail: string
+    MultipleRestoreStepsFailed:
+        failures: string[]

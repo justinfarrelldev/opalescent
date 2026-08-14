@@ -1,0 +1,68 @@
+import terminal_input_stream_open_sync, terminal_input_stream_capabilities, terminal_input_stream_output_terminal, terminal_input_stream_size_sync, terminal_input_stream_read_sync, terminal_input_stream_write_sync, terminal_input_stream_flush_sync, terminal_input_stream_set_cursor_visible_sync, terminal_input_stream_set_cursor_shape_sync, terminal_input_stream_pause_sync, terminal_input_stream_resume_sync, terminal_input_stream_close_sync, terminal_supports_ansi from standard
+import recognize_csi_prefix from ./recognize_escape_prefix
+import type TerminalInputStreamOptions, TerminalMouseTracking, TerminalCursorShape, TerminalInputPacketKind, TerminalInputStreamOpenError, TerminalInputStreamReadError, TerminalInputStreamWriteError, TerminalInputStreamStateError, TerminalInputStreamRestoreError from ./portable_input_packet_stream.types
+
+##
+  Description: Runs a raw portable terminal packet loop while retaining partial decoder bytes between reads.
+##
+let run_editor_packet_stream_sync = f(): void errors TerminalInputStreamOpenError, TerminalInputStreamReadError, TerminalInputStreamWriteError, TerminalInputStreamStateError, TerminalInputStreamRestoreError =>
+    let mouse_tracking = new TerminalMouseTracking.ButtonsAndDrag
+    let options = new TerminalInputStreamOptions:
+        use_alternate_screen: true
+        hide_cursor: true
+        enable_bracketed_paste: true
+        enable_focus_events: true
+        mouse_tracking: mouse_tracking
+        capture_control_keys: true
+        require_requested_features: false
+        maximum_pending_bytes: 65536 as int32
+
+    let stream = propagate terminal_input_stream_open_sync(options)
+    let capabilities = terminal_input_stream_capabilities(stream)
+    propagate terminal_input_stream_pause_sync(stream)
+    propagate terminal_input_stream_resume_sync(stream)
+    let output_terminal = propagate terminal_input_stream_output_terminal(stream)
+    let initial_size = propagate terminal_input_stream_size_sync(stream)
+    let block_cursor = new TerminalCursorShape.SteadyBlock
+
+    propagate terminal_input_stream_set_cursor_shape_sync(stream, block_cursor)
+    propagate terminal_input_stream_set_cursor_visible_sync(stream, false)
+
+    # UTF-8 bytes for "Opal editor" followed by a line feed.
+    let startup_frame: uint8[] = [79 as uint8, 112 as uint8, 97 as uint8, 108 as uint8, 32 as uint8, 101 as uint8, 100 as uint8, 105 as uint8, 116 as uint8, 111 as uint8, 114 as uint8, 10 as uint8]
+    propagate terminal_input_stream_write_sync(stream, startup_frame)
+    propagate terminal_input_stream_flush_sync(stream)
+    if terminal_supports_ansi(output_terminal) is false or capabilities.bracketed_paste.enabled is false or initial_size.columns < 1:
+        let fallback_marker: uint8[] = [102 as uint8, 97 as uint8, 108 as uint8, 108 as uint8, 98 as uint8, 97 as uint8, 99 as uint8, 107 as uint8, 10 as uint8]
+        propagate terminal_input_stream_write_sync(stream, fallback_marker)
+
+    let mutable pending_bytes: uint8[] = []
+    let maximum_decoder_bytes: int64 = 65536
+    let mutable running = true
+    while running:
+        let packet = propagate terminal_input_stream_read_sync(stream, -1 as int32, 4096 as int32)
+
+        if packet.kind is TerminalInputPacketKind/Bytes:
+            for input_byte in packet.bytes:
+                pending_bytes.push(input_byte)
+
+            if pending_bytes.length > maximum_decoder_bytes:
+                pending_bytes = []
+
+            if recognize_csi_prefix(pending_bytes):
+                pending_bytes = []
+
+        if packet.kind is TerminalInputPacketKind/Resize:
+            let _latest_columns = packet.size.columns
+
+        if packet.kind is TerminalInputPacketKind/NativeEvent:
+            let _native_event_code = packet.native_event_code
+
+        if packet.kind is TerminalInputPacketKind/DecoderReset:
+            pending_bytes = []
+
+        if packet.kind is TerminalInputPacketKind/EndOfInput:
+            running = false
+
+    propagate terminal_input_stream_close_sync(stream)
+    return void

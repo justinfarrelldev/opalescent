@@ -1,0 +1,10 @@
+##
+  Description: Recognizes the two-byte Escape and left-bracket prefix that begins a CSI sequence.
+##
+public let recognize_csi_prefix = f(bytes: uint8[]): boolean =>
+    if bytes.length < 2:
+        return false
+
+    let escape_byte: uint8 = guard bytes.at(0) into value: uint8 else 0 as uint8
+    let bracket_byte: uint8 = guard bytes.at(1) into value: uint8 else 0 as uint8
+    return escape_byte is 27 as uint8 and bracket_byte is 91 as uint8
