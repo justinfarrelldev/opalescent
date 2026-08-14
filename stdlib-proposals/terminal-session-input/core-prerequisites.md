@@ -2,7 +2,7 @@
 
 ## Status and authority
 
-This document is a blocked-time draft for a future `core-prerequisites.md`. Every declaration and rule below is a **future adoption prerequisite** for the terminal-session proposal. None is implemented by the current compiler, runtime, standard library, test runner, or `STDLIB.md` surface. It does not change any existing signature or behavior today.
+This document is the terminal-session proposal's normative **future adoption prerequisite** contract. None of its facilities is implemented by the current compiler, runtime, standard library, test runner, or `STDLIB.md` surface. It does not change any existing signature or behavior today.
 
 The future terminal proposal may adopt these facilities only after their language, core, standard-library, and test-runner support exists. `TerminalCoordinatorState` and `TerminalOperation` are terminal-owned declarations: their definitions and any ABI IDs belong only to `typed_event_session.types.op`. Standard error variants may import them as immutable payload types, but this prerequisite never redeclares, allocates, or assigns IDs to them. Genuinely core/system-owned wait, timer, process-control, generic error, and test-runner facilities have no terminal ABI IDs and must not be declared in terminal ABI history.
 
@@ -10,7 +10,7 @@ The future terminal proposal may adopt these facilities only after their languag
 
 ### 1.1 Terminal payload imports and standard-owned errors
 
-`TerminalCoordinatorState` and `TerminalOperation` are terminal-owned types imported from `typed_event_session.types.op`. The selected `TerminalOperation` carries the required legacy classifications: `TakeInput`, `PrintText`, `FlushStandardOutput`, `StdoutWriter`, `WriterWrite`, `WriterFlush`, `StdoutTerminal`, `TerminalSupportsAnsi`, `TerminalClearScreenOn`, `TerminalMoveCursorOn`, `TerminalDrawRows`, `TerminalClearScreen`, and `TerminalMoveCursor`. This draft neither redeclares either type nor allocates terminal IDs.
+`TerminalCoordinatorState` and `TerminalOperation` are terminal-owned types imported from `typed_event_session.types.op`. The selected `TerminalOperation` carries the required legacy classifications: `TakeInput`, `PrintText`, `FlushStandardOutput`, `StdoutWriter`, `WriterWrite`, `WriterFlush`, `StdoutTerminal`, `TerminalSupportsAnsi`, `TerminalClearScreenOn`, `TerminalMoveCursorOn`, `TerminalDrawRows`, `TerminalClearScreen`, and `TerminalMoveCursor`. This prerequisite neither redeclares either type nor allocates terminal IDs.
 
 The declarations below are future **standard-owned** error carriers. Their immutable `state` and `operation` payload fields refer to the imported terminal-owned types only; this does not transfer terminal ABI ownership.
 
@@ -237,4 +237,4 @@ Test-only declarations, authorities, factories, and test artifact identities hav
 
 ## Adoption checklist
 
-Before the terminal proposal can copy this draft into its proposal target, implementation work must separately establish the listed language syntax, checker behavior, core types, runtime synchronization, standard-library registration, and test-runner authority. Until then, existing `take_input`, legacy stdout APIs, `print`/`println`, `propagate`, and resource cleanup retain their current documented behavior.
+Before the selected terminal proposal can adopt this contract, implementation work must separately establish the listed language syntax, checker behavior, core types, runtime synchronization, standard-library registration, and test-runner authority. Until then, existing `take_input`, legacy stdout APIs, `print`/`println`, `propagate`, and resource cleanup retain their current documented behavior.
