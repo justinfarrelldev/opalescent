@@ -1,0 +1,687 @@
+# Proposal-only declarations. This file is intentionally noncompiling until the listed language fixtures pass.
+
+##
+  Description: Returns whether a valid string contains no U+0000 code point for use by string constraints.
+##
+public predicate contains_no_nul(value: string): boolean
+
+##
+  Description: Returns the UTF-8 byte length of a valid string for use by string constraints.
+##
+public predicate utf8_byte_length(value: string): int64
+
+##
+  Description: Represents a valid legacy terminal control code.
+  Range: 0..31 or 127.
+##
+public constrained type TerminalControlCode: uint8 where value <= 31 or value is 127
+
+##
+  Description: Identifies a function key.
+  Range: 1..32767.
+##
+public constrained type TerminalFunctionKeyNumber: int32 where value >= 1 and value <= 32767
+
+##
+  Description: Represents a viewport column count.
+  Range: 1..2147483647.
+##
+public constrained type TerminalColumnCount: int32 where value >= 1 and value <= 2147483647
+
+##
+  Description: Represents a viewport row count.
+  Range: 1..2147483647.
+##
+public constrained type TerminalRowCount: int32 where value >= 1 and value <= 2147483647
+
+##
+  Description: Represents a zero-based viewport column index.
+  Range: 0..2147483647.
+  Invariant: Runtime use also requires the value to be within the current viewport.
+##
+public constrained type TerminalColumnIndex: int32 where value >= 0 and value <= 2147483647
+
+##
+  Description: Represents a zero-based viewport row index.
+  Range: 0..2147483647.
+  Invariant: Runtime use also requires the value to be within the current viewport.
+##
+public constrained type TerminalRowIndex: int32 where value >= 0 and value <= 2147483647
+
+##
+  Description: Counts key presses or repeats.
+  Range: 1..2147483647.
+##
+public constrained type TerminalKeyRepeatCount: int32 where value >= 1 and value <= 2147483647
+
+##
+  Description: Represents a bounded caller wait duration in milliseconds.
+  Range: 1..2147483647.
+##
+public constrained type TerminalWaitMilliseconds: int32 where value >= 1 and value <= 2147483647
+
+##
+  Description: Represents a parser inter-byte sequence deadline in milliseconds.
+  Range: 1..60000.
+##
+public constrained type TerminalInputSequenceTimeoutMilliseconds: int32 where value >= 1 and value <= 60000
+
+##
+  Description: Limits UTF-8 bytes in one paste chunk.
+  Range: 4..16777216.
+##
+public constrained type TerminalPasteChunkByteLimit: int32 where value >= 4 and value <= 16777216
+
+##
+  Description: Limits retained incomplete sequence bytes.
+  Range: 4..1048576.
+##
+public constrained type TerminalPendingSequenceByteLimit: int32 where value >= 4 and value <= 1048576
+
+##
+  Description: Limits retained normalized events.
+  Range: 1..1048576.
+##
+public constrained type TerminalRetainedEventLimit: int32 where value >= 1 and value <= 1048576
+
+##
+  Description: Limits total retained session bytes.
+  Range: 64..1073741824.
+##
+public constrained type TerminalRetainedByteLimit: int32 where value >= 64 and value <= 1073741824
+
+##
+  Description: Counts indexed colors.
+  Range: 1..16777216.
+##
+public constrained type TerminalColorCount: int32 where value >= 1 and value <= 16777216
+
+##
+  Description: Identifies a stable event.
+  Range: 1..18446744073709551615.
+##
+public constrained type TerminalEventId: uint64 where value >= 1
+
+##
+  Description: Identifies a stable composition.
+  Range: 1..18446744073709551615.
+##
+public constrained type TerminalCompositionId: uint64 where value >= 1
+
+##
+  Description: Represents a zero-based Unicode scalar index in composition preedit text.
+  Range: 0..9223372036854775807.
+  Invariant: Runtime use also requires the value to be at most the preedit scalar length.
+##
+public constrained type TerminalCompositionScalarIndex: int64 where value >= 0
+
+##
+  Description: Names an unsupported native input record.
+  Invariant: The value is nonempty, NUL-free valid UTF-8, and contains at most 256 UTF-8 bytes as measured by utf8_byte_length.
+##
+public constrained type TerminalNativeEventName: string where value.length > 0 and contains_no_nul(value) and utf8_byte_length(value) <= 256
+
+##
+  Description: Carries bounded detail for a terminal diagnostic.
+  Invariant: The value is NUL-free valid UTF-8 and contains at most 4096 UTF-8 bytes as measured by utf8_byte_length.
+##
+public constrained type TerminalDiagnosticDetail: string where contains_no_nul(value) and utf8_byte_length(value) <= 4096
+
+##
+  Description: Carries committed input text.
+  Invariant: The value is nonempty, NUL-free valid UTF-8 with at least one Unicode scalar. This constrained type imposes no separate byte limit.
+##
+public constrained type TerminalCommittedText: string where value.length > 0 and contains_no_nul(value)
+
+##
+  Description: Carries one paste text chunk.
+  Invariant: The value is nonempty, NUL-free valid UTF-8 with at least one Unicode scalar. Runtime use also requires its UTF-8 byte length to be at most configured maximum_paste_chunk_bytes.
+##
+public constrained type TerminalPasteText: string where value.length > 0 and contains_no_nul(value)
+
+##
+  Description: Carries composition preedit text.
+  Invariant: The value is NUL-free valid UTF-8. Runtime use also requires its UTF-8 byte length to be within the configured total retained byte limit, and composition scalar indexes are measured against its scalar length.
+##
+public constrained type TerminalCompositionPreeditText: string where contains_no_nul(value)
+
+##
+  Description: Counts input bytes discarded when close ends ownership.
+  Range: 0..1073741824.
+##
+public constrained type TerminalDiscardedByteCount: int32 where value >= 0 and value <= 1073741824
+
+##
+  Description: Counts normalized or native events discarded when close ends ownership.
+  Range: 0..1048576.
+##
+public constrained type TerminalDiscardedEventCount: int32 where value >= 0 and value <= 1048576
+
+##
+  Description: Configures requested mouse reporting.
+##
+public type TerminalMouseTracking:
+    Disabled
+    Buttons
+    ButtonsAndDrag
+    AllMotion
+
+##
+  Description: Requests a terminal cursor shape.
+##
+public type TerminalCursorShape:
+    Default
+    BlinkingBlock
+    SteadyBlock
+    BlinkingUnderline
+    SteadyUnderline
+    BlinkingBar
+    SteadyBar
+
+##
+  Description: Records why a feature can be used.
+##
+public type TerminalCapabilitySupportedEvidence:
+    NativeConfirmed
+    ProtocolQueried
+    EnvironmentInferred
+    ProtocolAssumed
+
+##
+  Description: Records why a feature cannot be used.
+##
+public type TerminalCapabilityUnsupportedEvidence:
+    NativeUnavailable
+    ProtocolRejected
+    EnvironmentMissing
+
+##
+  Description: Represents one feature state with its supporting evidence.
+##
+public type TerminalFeatureCapability:
+    Unsupported:
+        evidence: TerminalCapabilityUnsupportedEvidence
+    Available:
+        evidence: TerminalCapabilitySupportedEvidence
+    Enabled:
+        evidence: TerminalCapabilitySupportedEvidence
+
+##
+  Description: Represents one color capability with its supporting evidence.
+##
+public type TerminalColorCapability:
+    Unsupported:
+        evidence: TerminalCapabilityUnsupportedEvidence
+    Monochrome:
+        evidence: TerminalCapabilitySupportedEvidence
+    Indexed:
+        count: TerminalColorCount
+        evidence: TerminalCapabilitySupportedEvidence
+    TrueColor:
+        evidence: TerminalCapabilitySupportedEvidence
+
+##
+  Description: Collects negotiated terminal capabilities.
+##
+public type TerminalCapabilities:
+    alternate_screen: TerminalFeatureCapability
+    cursor_shape: TerminalFeatureCapability
+    bracketed_paste: TerminalFeatureCapability
+    focus_events: TerminalFeatureCapability
+    mouse_buttons: TerminalFeatureCapability
+    mouse_motion: TerminalFeatureCapability
+    key_release_events: TerminalFeatureCapability
+    composition_events: TerminalFeatureCapability
+    enhanced_key_identity: TerminalFeatureCapability
+    trusted_paste_framing: TerminalFeatureCapability
+    color: TerminalColorCapability
+
+##
+  Description: Holds current visible terminal dimensions.
+##
+public type TerminalSize:
+    columns: TerminalColumnCount
+    rows: TerminalRowCount
+
+##
+  Description: Holds modifier state for a command key or mouse event.
+##
+public type TerminalModifiers:
+    shift: boolean
+    control: boolean
+    alt: boolean
+    super_key: boolean
+    caps_lock: boolean
+    num_lock: boolean
+
+##
+  Description: Names command keys with no text identity.
+##
+public type TerminalNamedKey:
+    Enter
+    Escape
+    Backspace
+    Tab
+    BackTab
+    ArrowUp
+    ArrowDown
+    ArrowLeft
+    ArrowRight
+    Insert
+    Delete
+    Home
+    End
+    PageUp
+    PageDown
+
+##
+  Description: Describes a command identity. Text exists only when an enhanced backend independently reports layout-resolved identity.
+##
+public type TerminalLogicalKey:
+    Text:
+        logical_text: TerminalCommittedText
+    Control:
+        code: TerminalControlCode
+    Named:
+        key: TerminalNamedKey
+    Function:
+        number: TerminalFunctionKeyNumber
+
+##
+  Description: Describes a press, repeat, or release without sentinel counts.
+##
+public type TerminalKeyOccurrence:
+    Press:
+        count: TerminalKeyRepeatCount
+    Repeat:
+        count: TerminalKeyRepeatCount
+    Release
+
+##
+  Description: Links committed insertion to its source event when one exists.
+##
+public type TerminalTextInputOrigin:
+    Direct
+    Key:
+        event_id: TerminalEventId
+    Composition:
+        composition_id: TerminalCompositionId
+
+##
+  Description: Records composition completion.
+##
+public type TerminalCompositionEnd:
+    Committed
+    Cancelled
+
+##
+  Description: Marks the framing phase of a paste stream.
+##
+public type TerminalPastePhase:
+    Complete
+    Start
+    Continue
+    End
+
+##
+  Description: Explains bounded opaque bytes.
+##
+public type TerminalUnknownBytesReason:
+    UnrecognizedSequence
+    SequenceLimitExceeded
+    PasteContainsNul
+    PasteInvalidUtf8
+    BackendOverflow
+
+##
+  Description: Classifies a native record without flattening its open native domain.
+##
+public type TerminalNativeEventKind:
+    WindowsMenu
+    WindowsUnknownRecord
+    VtPrivateSequence
+    BackendSpecific
+    Other:
+        name: TerminalNativeEventName
+
+##
+  Description: Holds bounded metadata for an unsupported native input record.
+  Invariant: Native event codes remain primitive and open-domain in the backend's documented native domain.
+##
+public type TerminalNativeMetadata:
+    kind: TerminalNativeEventKind
+    code: TerminalOsCode
+
+##
+  Description: Explains an input discontinuity.
+##
+public type TerminalInputResetReason:
+    PauseBoundary
+    PasteFallback
+    SequenceLimitExceeded
+    BackendReset
+    BackendOverflow
+
+##
+  Description: Describes mouse movement or button activity.
+##
+public type TerminalMouseAction:
+    Press:
+        button: TerminalMouseButton
+    Release:
+        button: TerminalMouseButton
+    Move
+    Drag:
+        button: TerminalMouseButton
+    Scroll:
+        direction: TerminalScrollDirection
+
+##
+  Description: Names scroll direction without fabricating a mouse button.
+##
+public type TerminalScrollDirection:
+    Up
+    Down
+    Left
+    Right
+
+##
+  Description: Names a mouse button.
+##
+public type TerminalMouseButton:
+    Left
+    Middle
+    Right
+    AuxiliaryOne
+    AuxiliaryTwo
+
+##
+  Description: Represents public non-exhaustive normalized input. Numeric tags are permanent and never reused.
+##
+public non_exhaustive type TerminalInputEvent:
+    @discriminant(1)
+    Key:
+        event_id: TerminalEventId
+        key: TerminalLogicalKey
+        occurrence: TerminalKeyOccurrence
+        modifiers: TerminalModifiers
+    @discriminant(2)
+    TextInput:
+        text: TerminalCommittedText
+        origin: TerminalTextInputOrigin
+    @discriminant(3)
+    CompositionStarted:
+        composition_id: TerminalCompositionId
+    @discriminant(4)
+    CompositionUpdated:
+        composition_id: TerminalCompositionId
+        preedit_text: TerminalCompositionPreeditText
+        cursor: TerminalCompositionScalarIndex
+    @discriminant(5)
+    CompositionEnded:
+        composition_id: TerminalCompositionId
+        outcome: TerminalCompositionEnd
+    @discriminant(6)
+    Paste:
+        text: TerminalPasteText
+        phase: TerminalPastePhase
+    @discriminant(7)
+    Mouse:
+        action: TerminalMouseAction
+        modifiers: TerminalModifiers
+        row: TerminalRowIndex
+        column: TerminalColumnIndex
+    @discriminant(8)
+    Resize:
+        size: TerminalSize
+    @discriminant(9)
+    FocusGained
+    @discriminant(10)
+    FocusLost
+    @discriminant(11)
+    TimedOut
+    @discriminant(12)
+    Cancelled
+    @discriminant(13)
+    EndOfInput
+    @discriminant(14)
+    UnknownBytes:
+        raw_bytes: uint8[]
+        reason: TerminalUnknownBytesReason
+    @discriminant(15)
+    UnknownNative:
+        metadata: TerminalNativeMetadata
+    @discriminant(16)
+    InputReset:
+        reason: TerminalInputResetReason
+
+##
+  Description: Expresses a read deadline without a numeric absence sentinel.
+##
+public type TerminalWait:
+    Poll
+    Forever
+    For:
+        milliseconds: TerminalWaitMilliseconds
+
+##
+  Description: Configures one session and all retention limits.
+##
+public type TerminalSessionOptions:
+    use_alternate_screen: boolean
+    hide_cursor: boolean
+    enable_bracketed_paste: boolean
+    require_trusted_paste_framing: boolean
+    enable_enhanced_key_identity: boolean
+    enable_focus_events: boolean
+    mouse_tracking: TerminalMouseTracking
+    capture_control_keys: boolean
+    require_requested_features: boolean
+    input_sequence_timeout: TerminalInputSequenceTimeoutMilliseconds
+    maximum_paste_chunk_bytes: TerminalPasteChunkByteLimit
+    maximum_pending_sequence_bytes: TerminalPendingSequenceByteLimit
+    maximum_retained_events: TerminalRetainedEventLimit
+    maximum_retained_bytes: TerminalRetainedByteLimit
+
+##
+  Description: Returns parser-consumed events before ownership is handed off.
+  Invariant: The events array is bounded by configured retained event and byte limits.
+##
+public type TerminalPauseResult:
+    events: TerminalInputEvent[]
+
+##
+  Description: Names the backend that produced a diagnostic.
+##
+public type TerminalBackend:
+    LinuxVt
+    WindowsConsole
+    WindowsConPty
+    VtStream
+    UnsupportedPlatform
+
+##
+  Description: Names the operation that failed.
+##
+public type TerminalOperation:
+    Open
+    Read
+    Write
+    Flush
+    QuerySize
+    AcquireOutputTerminal
+    Pause
+    Resume
+    Close
+    RestorePendingOpen
+    RestorePendingClose
+    SetCursorVisibility
+    SetCursorShape
+    NegotiateCapability
+    Allocate
+
+##
+  Description: Names the stage of the operation that failed.
+##
+public type TerminalDiagnosticStage:
+    Snapshot
+    AcquireOwnership
+    ConfigureInput
+    ConfigureOutput
+    EnableProtocol
+    Wait
+    Decode
+    Allocate
+    ReverseProtocol
+    RestoreOperatingSystemState
+    ReleaseOwnership
+    ValidateState
+
+##
+  Description: Names a lifecycle state recorded in a diagnostic.
+##
+public type TerminalSessionState:
+    Opening
+    Active
+    Paused
+    RestorePending
+    Closed
+    FailedOpenRecovery
+    FailedCloseRecovery
+
+##
+  Description: Carries an operating-system status without a fabricated numeric sentinel.
+  Invariant: Posix errno remains int32. WindowsError is the uint32 GetLastError native domain. Native OS codes remain primitive and open-domain.
+##
+public type TerminalOsCode:
+    Unavailable
+    PosixErrno:
+        value: int32
+    WindowsError:
+        value: uint32
+
+##
+  Description: Describes a bounded structured terminal failure.
+##
+public type TerminalDiagnostic:
+    backend: TerminalBackend
+    operation: TerminalOperation
+    stage: TerminalDiagnosticStage
+    os_code: TerminalOsCode
+    state: TerminalSessionState
+    retryable: boolean
+    detail: TerminalDiagnosticDetail
+
+##
+  Description: Names a requested terminal feature in structured form.
+##
+public type TerminalFeature:
+    AlternateScreen
+    CursorShape
+    BracketedPaste
+    FocusEvents
+    MouseButtons
+    MouseMotion
+    KeyReleaseEvents
+    CompositionEvents
+    EnhancedKeyIdentity
+    TrustedPasteFraming
+
+##
+  Description: Counts ownership-ending discarded decoder input.
+##
+public type TerminalDiscardedInput:
+    bytes: TerminalDiscardedByteCount
+    events: TerminalDiscardedEventCount
+
+##
+  Description: Reports failures while opening a terminal session.
+  Invariant: Diagnostic arrays are bounded by configured retained event and byte limits. Error suppressed causes are independently bounded by the language error ABI.
+##
+public type TerminalSessionOpenError:
+    InputNotInteractive:
+        diagnostic: TerminalDiagnostic
+    OutputNotInteractive:
+        diagnostic: TerminalDiagnostic
+    TerminalAlreadyOwned:
+        diagnostic: TerminalDiagnostic
+    InvalidOptions:
+        diagnostic: TerminalDiagnostic
+    UnsupportedFeature:
+        feature: TerminalFeature
+        diagnostic: TerminalDiagnostic
+    ModeReadFailed:
+        diagnostic: TerminalDiagnostic
+    ModeWriteFailed:
+        diagnostic: TerminalDiagnostic
+    AllocationFailed:
+        diagnostic: TerminalDiagnostic
+    RollbackFailed:
+        diagnostics: TerminalDiagnostic[]
+    RecoveryPending:
+        diagnostic: TerminalDiagnostic
+    ResumeFailed:
+        diagnostic: TerminalDiagnostic
+
+##
+  Description: Reports a read or retained-buffer failure, including pause delivery allocation before restoration begins.
+  Invariant: Error suppressed causes are independently bounded by the language error ABI.
+##
+public type TerminalSessionReadError:
+    ReadFailed:
+        diagnostic: TerminalDiagnostic
+    AllocationFailed:
+        diagnostic: TerminalDiagnostic
+    PauseDeliveryFailed:
+        diagnostic: TerminalDiagnostic
+
+##
+  Description: Reports output, cursor, or flush failure.
+  Invariant: Error suppressed causes are independently bounded by the language error ABI.
+##
+public type TerminalSessionWriteError:
+    WriteFailed:
+        diagnostic: TerminalDiagnostic
+    FlushFailed:
+        diagnostic: TerminalDiagnostic
+    UnsupportedCursorShape:
+        diagnostic: TerminalDiagnostic
+
+##
+  Description: Reports an invalid operation for the current lifecycle state.
+  Invariant: Error suppressed causes are independently bounded by the language error ABI.
+##
+public type TerminalSessionStateError:
+    SessionActive:
+        diagnostic: TerminalDiagnostic
+    SessionPaused:
+        diagnostic: TerminalDiagnostic
+    SessionRestorePending:
+        diagnostic: TerminalDiagnostic
+    SessionClosed:
+        diagnostic: TerminalDiagnostic
+    SessionFailedRecovery:
+        diagnostic: TerminalDiagnostic
+
+##
+  Description: Reports restoration failure or ownership-ending input discard. If restoration and discard both fail, restoration is primary and discard is suppressed.
+  Invariant: Diagnostic arrays are bounded by configured retained event and byte limits. Error suppressed causes are independently bounded by the language error ABI.
+##
+public type TerminalSessionRestoreError:
+    RestoreInputModeFailed:
+        diagnostic: TerminalDiagnostic
+    RestoreOutputModeFailed:
+        diagnostic: TerminalDiagnostic
+    RestoreScreenStateFailed:
+        diagnostic: TerminalDiagnostic
+    MultipleRestoreStepsFailed:
+        diagnostics: TerminalDiagnostic[]
+    PendingOpenRollbackFailed:
+        diagnostics: TerminalDiagnostic[]
+    CloseRestorePending:
+        diagnostics: TerminalDiagnostic[]
+    PendingCloseRestoreFailed:
+        diagnostics: TerminalDiagnostic[]
+    CloseDiscardedInput:
+        discarded: TerminalDiscardedInput
+        diagnostic: TerminalDiagnostic
