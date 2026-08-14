@@ -156,6 +156,14 @@ Core testing runner/assertion/mocking strategy for stdlib users.
 Alternatives:
 - [`vitest-style-describe-it`](./testing-framework/vitest-style-describe-it/)
 
+### 20. [terminal-session-input](./terminal-session-input/)
+Interactive terminal ownership, raw input, resize delivery, mouse/focus/paste events, and exact mode restoration for full-screen applications.
+
+Alternatives:
+- [`typed-event-session`](./terminal-session-input/typed-event-session/)
+- [`batched-event-pump`](./terminal-session-input/batched-event-pump/)
+- [`portable-input-packet-stream`](./terminal-session-input/portable-input-packet-stream/)
+
 ## Tier Recommendations
 
 Recommended “most idiomatic for Opalescent” choice per concern (explicit errors, verbose names, no exceptions, Perceus model):
@@ -181,6 +189,7 @@ Recommended “most idiomatic for Opalescent” choice per concern (explicit err
 | uuid | `typed-uuid-wrappers` | Strong UUID wrapper types prevent accidental stringly misuse across module boundaries. |
 | subprocess-exec | `command-builder` | Builders make process setup explicit, readable, and easier to validate before execution. |
 | testing-framework | `vitest-style-describe-it` | It provides a full, familiar test surface while still mapping failures through explicit error paths. |
+| terminal-session-input | `typed-event-session` | One normalized event at a time is the smallest safe v1 contract; batching can be added later on the same session if profiling justifies it. |
 
 ## How to Read a Proposal
 
@@ -224,5 +233,5 @@ These are the binding cross-folder rules for `.op` examples:
 
 1. Start with [`error-strategy/COMPARISON.md`](./error-strategy/COMPARISON.md) (it shapes every other concern).
 2. Read module and type-surface foundations: `module-organization`, `optional-representation`, `byte-buffer-type`, `collections-api-shape`.
-3. Move to platform-facing concerns: file/network/serialization/time/crypto/compression/subprocess.
+3. Move to platform-facing concerns: file/network/serialization/time/crypto/compression/subprocess/terminal-session-input.
 4. Finish with developer-experience concerns: numeric math, random, logging, regex, uuid, testing framework.

@@ -179,6 +179,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [ ] Crypto hashing standard-library module (`stdlib-proposals/crypto-hashing/`)
 - [ ] HTTP/network standard-library layer (`stdlib-proposals/network-http-layer/`)
 - [ ] Subprocess execution API (`stdlib-proposals/subprocess-exec/`)
+- [ ] Terminal session/input API (`stdlib-proposals/terminal-session-input/`)
 - [ ] JSON/TOML serialization APIs (`stdlib-proposals/serialization/`)
 - [ ] Compression APIs (`stdlib-proposals/compression/`)
 - [ ] UUID APIs (`stdlib-proposals/uuid/`)

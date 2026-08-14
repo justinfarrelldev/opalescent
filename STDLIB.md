@@ -776,6 +776,7 @@ The following are proposal areas, not finished public APIs:
 - Crypto hashing
 - Network/HTTP
 - Subprocess execution
+- Terminal sessions and interactive input
 - Serialization
 - Compression
 - UUIDs
