@@ -1,186 +1,201 @@
 # Typed Event Session
 
-## Overview and status
+## Status, scope, and authority
 
-This is the recommended public v1 terminal-input API for a full-screen editor. A compiler-registered, nonconstructible `TerminalSession` exclusively owns the process's interactive standard-input/raw-output terminal pair. V1 does not open arbitrary terminal endpoints: each process has exactly one candidate pair, and at most one non-Closed `TerminalSession` may exist for it at a time. The runtime owns raw modes, VT parsing, Windows record translation, feature negotiation, bounded retention, cancellation wakeups, and restoration. Application code sees no file descriptor, Win32 handle, UTF-16 code unit, or escape sequence.
+This is the normative selected public v1 terminal-session/input design. It preserves Opalescent's explicit, nominal, errors-first identity: a compiler-registered affine `TerminalSession` owns restoration responsibility; every fallible operation declares errors; events, options, diagnostics, trust boundaries, and errors are nominal; and no platform handle enters the public API. No compiler/runtime implementation is part of this proposal package.
 
-Opalescent already declares nominal sums with one `type` and nested payload-bearing or payloadless variants, as shown in `language-spec/types_example.types.op` and the Crash Course. Payload variants are constructed with `new Type.Variant:`. Parser and checker support for those established declarations and constructors exists. Code generation, payload refinement, ABI, payload-layout evolution, and runtime drop support remain incomplete, so this proposal does not claim its examples compile today. It extends existing sum types, it does not invent TypeScript-style structural `A | B` unions.
+V1 owns only the process interactive standard-input/raw-output terminal pair. The host admits at most one session across Opening, Active, Paused, and RestorePending. Chord routing is a companion concern declared in `../terminal_chords.types.op` and specified by `../CHORDS.md`; it does not enlarge the session API.
 
-## Language prerequisites
+`typed_event_session.types.op` and `../terminal_chords.types.op` are the authoritative source declarations for terminal-owned public ABI IDs. The compiler generates one terminal ABI manifest containing active/retired IDs, payload hashes, representation versions, and ownership metadata. Prose never allocates a second ID history.
 
-### Narrow non-exhaustive refinement
+## Narrow language and core/system prerequisites
 
-Only these forms are required:
+### One `is` expression production
+
+The grammar keeps one `is` expression production with optional `into identifier`:
 
 ```opal
 if event is TerminalInputEvent.Key into key_event:
     handle_key(key_event)
 
-if event is TerminalInputEvent.Cancelled:
-    stop_editor()
+if left is right:
+    handle_equality()
 ```
 
-Use `Type.Variant` consistently. A payload binding is immutable and branch-local. Initially only a direct identifier scrutinee narrows; compound conditions do not narrow, and `is not` does not expose a payload. Untested future variants are ignored. This proposal requires neither match syntax nor exhaustive handling.
+Type checking treats the expression as nominal variant refinement only when the right-hand expression resolves to a nominal `Type.Variant` and the left side is a direct identifier. In that case optional `into` creates an immutable branch-local payload binding. In every other case `is` remains ordinary equality. `into` is legal only for a successful refinement classification; it cannot follow equality, `is not`, a compound left side, or a payloadless variant. No separate parser production, match, exhaustiveness, exceptions, or defer semantics are introduced.
 
-### Constrained types and cleanup
+Error values follow the same rule. Refining `error is TerminalSessionOpenError.InvalidOptions into invalid` proves stable family and variant identity. An `errors A, B` clause is a nominal family set, not a structural union; unknown additive variants remain propagatable members of their known family.
 
-`public constrained type Name: BaseType where <predicate>` is required. Constants and literals may cast only when proved. Runtime values require a checked constructor or cast returning a constraint error. Distinct constrained nominal types are not implicitly interchangeable. `contains_no_nul(value)` and `utf8_byte_length(value)` are required constexpr/runtime predicates for string constraints. Every numeric range and string invariant is documented in `typed_event_session.types.op`.
+### Constrained construction
 
-### Explicit stable variant IDs and formatter safety
-
-A payload variant uses `Variant = positive_integer:` and a payloadless variant uses `Variant = positive_integer`. `TerminalInputEvent` assigns stable variant IDs 1 through 16 inline in `typed_event_session.types.op`. A public ABI-stable non-exhaustive sum requires every variant to have a unique explicit uint64-range ID. Mixed implicit and explicit IDs are rejected, and declaration order has no ABI meaning. Private or closed sums may use implicit declaration order.
-
-Generated ABI metadata and manifests retain active and retired IDs, payload layout hashes, representation version, and drop metadata. Removing an ID retires it permanently, it cannot be reused. Source declarations remain authoritative. A future `reserved 3` spelling may make an intentional retirement visible in source, but is not required now. The compiler validates inline-ID parsing, uniqueness, uint64 range, and no reuse against ABI history, then rejects incompatible declarations.
-
-Unknown additive variants need boxed, runtime-described payloads with runtime-owned retain, drop, and forward operations. Without that representation, adding a variant is an ABI and hot-reload break even with a stable ID. Closed or private sums may use optimized inline layout.
-
-The standard safe diagnostic formatter accepts a `TerminalDiagnostic` or bounded diagnostic array and produces bounded display text with every control character escaped. Runtime diagnostics and untrusted input are never directly written to either terminal stream. This does not constrain trusted application rendering strings: full-screen rendering legitimately contains terminal controls.
-
-`using resource = fallible_expression:` is the only cleanup syntax needed. This proposal does not add or depend on `defer`. `TerminalSession` has compiler-registered fallible cleanup `terminal_session_close_sync`; every enclosing function declares cleanup errors. Cleanup runs on fallthrough, return, propagate, break, and continue that leave scope, in reverse nesting order. Body failure plus cleanup failure makes cleanup/restoration primary and body failure its error-value `cause`; all cleanups run and later failures become bounded error-value `suppressed_causes`.
-
-The language error ABI must provide stable family and variant identity, structured payload, optional error-value cause with bounded depth and count, and bounded suppressed causes. A pointer or string-only i8 ABI is insufficient. The explicit spelling `propagate fallible_call() cause prior_error` means that if the call fails, its error is propagated as primary with `prior_error` attached as its cause; on success execution continues normally. This cause form is required for failed-open recovery and is valid only when the propagated error and cause are both live error values accepted by the enclosing function's declared error set.
-
-## API surface
+Constraint predicates such as `contains_no_nul(value)`, `utf8_byte_length(value)`, and `unicode_scalar_count(value)` are compiler intrinsics usable only in `where` expressions. They are not public functions. Runtime values use:
 
 ```opal
-# CancellationSource and CancellationToken are opaque language-level resources.
-# cancellation_source_new(): CancellationSource
-# cancellation_token(source: CancellationSource): CancellationToken
-# cancellation_request(source: CancellationSource): void
-#
-# options contains constrained sequence, paste, retained-event, and retained-byte limits.
+let timeout = propagate constrain TerminalInputSequenceTimeoutMilliseconds from runtime_timeout
+```
+
+The core-owned `ConstraintViolationError` v1 payload contains exactly the stable constrained type ID and one bounded `ConstraintObservedValue`; it has no terminal-owned ABI ID. Every constrained nominal declaration has exactly one `where` clause, so there is no separate `constraint_id` mechanism. `as ConstrainedType` is allowed only for a literal or constexpr value statically proved to satisfy the clause.
+
+Every constrained terminal/chord type explicitly declares `@abi_evolution(closed_major_only)`. Constraint weakening or tightening is ABI-major because it changes accepted values.
+
+### Generic cancellation, readiness, and error attachments
+
+`CancellationSource`, `CancellationToken`, `SystemReadinessSource`, `ConstraintViolationError`, `ConstraintObservedValue`, and `ErrorAttachmentTruncation` are core/system declarations imported from `standard`; they are not terminal types and receive no terminal ABI IDs.
+
+Selected cancellation signatures use canonical borrow syntax:
+
+```opal
+# cancellation_source_new(): CancellationSource errors AllocationFailureError
+# cancellation_token(ref source: CancellationSource): CancellationToken
+# cancellation_request(mutable ref source: CancellationSource): void
+```
+
+`CancellationSource` is affine request authority. Creation allocates host wake state and is fallible. Authority may be moved into a coordinator thread, but Opalescent second-class references never cross thread boundaries: the destination thread borrows its own local binding only after the move completes. Request is idempotent, synchronized, and requires mutable authority. Source destruction is deterministic and infallible: dropping it permanently removes request authority and releases its authority reference. Existing immutable tokens retain observation/wake state until the final token drops. There is no reset; uncancelled work creates a new source/token generation, and an old token never affects a new generation.
+
+`SystemReadinessSource` is a host-stable, cloneable identity accepted by generic system wait sets for terminal, RPC, watch, process, and timer sources without exposing descriptors, HANDLEs, or registration keys. Wait-set removal releases that set's registration reference. General scheduling remains outside this concern.
+
+Core errors are immutable nominal acyclic values. The ABI-major attachment limits remain cause depth 8, suppressed count 8, and 64 KiB total attachment storage. Core-owned truncation markers identify cause-depth, suppressed-count, and attachment-byte cuts. Cause precedes suppressed values; suppressed cleanup order is inner-to-outer and reverse-ledger within one restoration attempt. Preallocated attachment cells preserve the primary if attachment allocation fails. `propagate call() cause prior_error` evaluates once and, only when the call fails, propagates that failure as primary with the prior error attached.
+
+## Constructor visibility, ABI evolution, and unload
+
+`@constructor_visibility(runtime)`, `(compiler)`, and `(standard_library)` are narrow opt-in declaration metadata. They suppress external construction while preserving public refinement and inspectors. Runtime events, capabilities, diagnostics, IDs, pause results, errors, constrained runtime payloads, and trusted-paste evidence remain sealed. Standard immutable `Bytes` carries UnknownBytes; the sealed event constructor proves its configured per-event bound.
+
+Every terminal-owned public type has an explicit stable uint64 type ID; every sum/error variant has an explicit positive stable uint64 ID. Every sum is either `non_exhaustive_additive` only where unknown variants are semantically ignorable, or `closed_major_only`. Removed IDs remain retired and cannot be reused.
+
+The permanent host supplies generic retain, drop, and opaque-forward operations for host-described boxes, so ordinary unknown additive payloads survive producer unload without calling producer code. A producer module is pinned only while a payload truly requires module-specific destruction not expressible through permanent host metadata; such payloads cannot be forwarded into an old module until the pin is retained. Module unload waits only for those exceptional pins, not every terminal value.
+
+## Affine ownership and lifecycle
+
+`TerminalSession` cannot be copied, implicitly dropped, or publicly constructed. `using session = propagate terminal_session_open_sync(options):` owns the binding. Read-only operations use canonical `ref session: TerminalSession`; state-changing operations use `mutable ref session: TerminalSession`. A borrow never transfers restoration responsibility.
+
+Direct close returns `TerminalCloseOutcome`. Success mutates the still-owned binding to Closed before returning; restoration failure retains the same binding in RestorePending for retry. Closing Closed is idempotent `Clean`. Scope cleanup attempts restoration, transfers a failed ledger, retained decoder state, and coordinator slot into host-owned FailedCloseRecovery, and only then consumes the binding. A preallocated ledger cell makes transfer allocation-independent.
+
+Opening reserves the process slot before terminal inspection/mutation. Pre-mutation failure releases it. Open records every applied step and inverse in a preallocated ledger. Successful rollback releases ownership and returns the original open error. Failed rollback transfers to FailedOpenRecovery and returns `RollbackFailed`. Recovery APIs are ledger-kind-specific; Free/no-ledger is idempotent success, mismatch performs no mutation, and matching success releases ownership.
+
+Capability retrieval is valid while the binding is explicitly Active, Paused, RestorePending, or Closed and returns the session's last immutable snapshot. Closed is still an owned affine binding until explicit scope consumption. A `using` binding that has been consumed is unavailable by affine typing. Resume refreshes the current snapshot without mutating snapshots already returned.
+
+## Readiness lifetime
+
+`terminal_session_readiness_source(ref session: TerminalSession)` always returns the same source identity for one session across Active, Pause, and Resume. Active input/resize/parser deadlines make it ready. Every transition Active→Paused, Paused→Active, Active/Paused→RestorePending, RestorePending→Closed, and Active/Paused→Closed wakes current waiters so they can observe state changes.
+
+RestorePending and Closed are terminal readiness states: the source is continuously ready rather than edge-only. Clones obtained before close remain terminally ready after close until individually dropped. They never expose or resurrect the session. Removing a source from a generic wait set releases registration; dropping the final source/registration after session consumption releases host readiness state.
+
+Readiness is a hint. Input may be drained by another consumer or readiness may represent resize, transition, cancellation, or a parser deadline. After a generic wait reports the terminal source, the caller invokes `terminal_session_read_event_sync(..., TerminalWait.Poll, ...)`; `TimedOut` is the required stale-readiness result and the caller returns to the shared wait.
+
+## Public API
+
+All signatures below are proposal syntax and use canonical Opalescent borrows.
+
+```opal
+# terminal_session_options_default(): TerminalSessionOptions
+# terminal_session_options_with_feature_policy(options: TerminalSessionOptions, policy: TerminalSessionFeaturePolicy): TerminalSessionOptions errors AllocationFailureError
+# terminal_session_options_with_resource_limits(options: TerminalSessionOptions, limits: TerminalSessionResourceLimits): TerminalSessionOptions errors AllocationFailureError
+# terminal_session_options_validate(options: TerminalSessionOptions): TerminalSessionOptions errors TerminalSessionOptionsError
+
 # terminal_session_open_sync(options: TerminalSessionOptions): TerminalSession errors TerminalSessionOpenError
 # terminal_session_restore_pending_open_sync(): void errors TerminalSessionRestoreError
 # terminal_session_restore_pending_close_sync(): void errors TerminalSessionRestoreError
-# terminal_session_capabilities(session: TerminalSession): TerminalCapabilities
-# terminal_session_output_terminal(session: TerminalSession): StdoutTerminal errors TerminalSessionStateError
-# terminal_session_size_sync(session: TerminalSession): TerminalSize errors TerminalSessionReadError, TerminalSessionStateError
-# wait is Poll, Forever, or For(milliseconds: TerminalWaitMilliseconds 1..2147483647).
-# terminal_session_read_event_sync(session: TerminalSession, wait: TerminalWait, cancellation: CancellationToken): TerminalInputEvent errors TerminalSessionReadError, TerminalSessionStateError
-# text is trusted application output; input payloads must never be passed directly.
-# terminal_session_write_sync(session: TerminalSession, text: string): void errors TerminalSessionWriteError, TerminalSessionStateError
-# terminal_session_flush_sync(session: TerminalSession): void errors TerminalSessionWriteError, TerminalSessionStateError
-# terminal_session_set_cursor_visible_sync(session: TerminalSession, visible: boolean): void errors TerminalSessionWriteError, TerminalSessionStateError
-# terminal_session_set_cursor_shape_sync(session: TerminalSession, shape: TerminalCursorShape): void errors TerminalSessionWriteError, TerminalSessionStateError
-# returned events are independently retained and bounded by configured retained limits.
-# terminal_session_pause_sync(session: TerminalSession): TerminalPauseResult errors TerminalSessionReadError, TerminalSessionRestoreError, TerminalSessionStateError
-# terminal_session_resume_sync(session: TerminalSession): void errors TerminalSessionOpenError, TerminalSessionStateError
-# terminal_session_close_sync(session: TerminalSession): void errors TerminalSessionRestoreError
-# Reserved future API only, not v1: terminal_session_read_events_sync(session, wait, cancellation, maximum_events) returns a bounded ordered event list.
+# terminal_session_capabilities(ref session: TerminalSession): TerminalCapabilities
+# terminal_capabilities_feature(capabilities: TerminalCapabilities, feature: TerminalOrdinaryFeature): TerminalFeatureCapability
+# terminal_capabilities_trusted_paste_framing(capabilities: TerminalCapabilities): TerminalTrustedPasteCapability
+# terminal_capabilities_color(capabilities: TerminalCapabilities): TerminalColorCapability
+# terminal_session_readiness_source(ref session: TerminalSession): SystemReadinessSource
+# terminal_session_output_terminal(ref session: TerminalSession): StdoutTerminal errors TerminalSessionStateError
+# terminal_session_size_sync(ref session: TerminalSession): TerminalSize errors TerminalSessionReadError, TerminalSessionStateError
+# terminal_session_read_event_sync(mutable ref session: TerminalSession, wait: TerminalWait, cancellation: CancellationToken): TerminalInputEvent errors TerminalSessionReadError, TerminalSessionStateError
+# terminal_session_write_sync(ref session: TerminalSession, output: TrustedTerminalOutput): void errors TerminalSessionWriteError, TerminalSessionStateError
+# terminal_session_write_diagnostic_sync(ref session: TerminalSession, output: SafeTerminalDiagnosticOutput): void errors TerminalSessionWriteError, TerminalSessionStateError
+# terminal_session_flush_sync(ref session: TerminalSession): void errors TerminalSessionWriteError, TerminalSessionStateError
+# terminal_session_set_cursor_visible_sync(ref session: TerminalSession, visible: boolean): void errors TerminalSessionWriteError, TerminalSessionStateError
+# terminal_session_set_cursor_shape_sync(ref session: TerminalSession, shape: TerminalCursorShape): void errors TerminalSessionWriteError, TerminalSessionStateError
+# terminal_session_pause_sync(mutable ref session: TerminalSession): TerminalPauseResult errors TerminalSessionReadError, TerminalSessionRestoreError, TerminalSessionStateError
+# terminal_session_resume_sync(mutable ref session: TerminalSession): void errors TerminalSessionOpenError, TerminalSessionStateError
+# terminal_session_close_sync(mutable ref session: TerminalSession): TerminalCloseOutcome errors TerminalSessionRestoreError
+
+# trusted_terminal_output_from_application_text(text: string): TrustedTerminalOutput errors AllocationFailureError
+# safe_terminal_diagnostic_format(diagnostic: TerminalDiagnostic): SafeTerminalDiagnosticOutput errors AllocationFailureError
+# safe_terminal_diagnostic_collection_format(diagnostics: TerminalDiagnosticCollection): SafeTerminalDiagnosticOutput errors AllocationFailureError
+# terminal_pause_events_length(events: TerminalPauseEvents): int64
+# terminal_pause_events_at(events: TerminalPauseEvents, index: int64): TerminalInputEvent errors IndexOutOfBoundsError
+# terminal_diagnostics_length(diagnostics: TerminalDiagnosticCollection): int64
+# terminal_diagnostics_at(diagnostics: TerminalDiagnosticCollection, index: int64): TerminalDiagnostic errors IndexOutOfBoundsError
+# terminal_diagnostic_state(diagnostic: TerminalDiagnostic): TerminalSessionState
 ```
 
-`TimedOut`, `Cancelled`, and `EndOfInput` are ordinary events, never read errors. `Poll` returns `TimedOut` only when no queued event or due parser deadline is available. A caller deadline never prematurely classifies an incomplete ESC sequence. Reads first return already-decoded queue entries. Once the queue is empty, cancellation and unread input becoming ready together linearize as cancellation first: `Cancelled` is returned and no new OS input is consumed. A cancelled token remains cancelled, so a reset or new token is required for a later read. Parser state remains for later reads unless pause or close resets it. EOF follows already decoded input and surfaced consumed bytes.
+The opaque default is stable for an ABI major: alternate screen off, cursor visible, bracketed-paste transport off, trusted-paste requirement off, enhanced/focus/mouse/control capture off, requested features non-strict, 25 ms sequence timeout, 4096-byte committed/preedit/paste chunks, 1024-byte unknown/pending chunks, 1024 retained events, 1 MiB retained bytes, 64 correlated events, 64 KiB correlated bytes, 16 diagnostics, and 64 KiB diagnostic collections.
 
-The future batching signature is reserved without source break. Implementation must preserve an explicit comment at the single-event/buffer boundary so backends and parser do not allocate intrinsically per returned event.
+`TerminalSessionFeaturePolicy` and `TerminalSessionResourceLimits` are application-constructible closed/major-only records. Each allocation-fallible functional API replaces its entire category in an immutable options snapshot; the two calls commute and never cross-validate, so setter order is irrelevant. Final validation returns the snapshot unchanged or structured `TerminalSessionOptionsError.InvalidOptions`. Open repeats validation. Future categories use new additive APIs rather than adding required fields to either v1 record.
 
-## Event, text, composition, and evolution contract
+`require_trusted_paste_framing` is backend-independent policy. Native trusted record boundaries satisfy it even when bracketed-paste transport is disabled. Enabling bracketed paste requests one possible transport; it neither proves nor is required for trusted framing. Validation must not declare those fields conflicting.
 
-`TerminalInputEvent` is a public non-exhaustive payload-bearing sum, never a flat discriminator product. Its permanent explicit stable variant IDs are declared inline in the type file. Unknown future payloads travel through old modules only through boxed runtime-described payloads with runtime-owned retain, drop, and forward operations, so known refinement tests remain safe. ABI metadata retains active and retired IDs, payload-layout hashes, representation version, and drop metadata. Minor releases may add variants only when that representation is available. Existing variants, stable variant IDs, and payload layouts change or disappear only in a major ABI-breaking release. Removed IDs are retired and never reused. No fake reserved variants exist.
+The centralized `terminal_capabilities_feature` accepts every `TerminalOrdinaryFeature`: alternate screen, cursor shape, bracketed paste, focus, mouse buttons, mouse motion, key release, composition, and enhanced key identity. Trusted paste uses its dedicated unforgeable evidence inspector; color uses its specialized cardinality inspector. These three functions make every opaque capability field inspectable.
 
-`Key` is command identity, not inserted text. `TerminalLogicalKey.Text` exists only where `enable_enhanced_key_identity` negotiated `enhanced_key_identity` as Enabled and the backend reports layout-resolved logical identity independently. Ordinary terminal character input that cannot make that distinction emits `TextInput` only. `Key` has no physical-key identity in v1. A `TextInput.Key(event_id)` is emitted only where a Key and committed text came from the same gesture. Legacy control keys use `TerminalLogicalKey.Control`; EnhancedText chord registration requires `enhanced_key_identity` Enabled and validation rejects it otherwise.
+## Events, text phases, and identifiers
 
-`TextInput` contains committed non-empty NUL-free UTF-8. Applications insert it. `CompositionStarted`, `CompositionUpdated`, and `CompositionEnded` maintain preedit state; updated cursor is a constrained scalar index checked against scalar length. Commit emits `TextInput.Composition(composition_id)` before `CompositionEnded.Committed`. Without preedit support, backends emit only `TextInput` and capability reports `composition_events` Unsupported. `Paste` contains `TerminalPasteText` plus Complete, Start, Continue, or End phase. Valid paste is chunked on Unicode scalar boundaries within the configured byte limit. Paste, composition, and TextInput never match chords.
+`Key` is command identity; `TextInput` is insertion. Ordinary terminals unable to separate them emit only `TextInput.Direct`. Enhanced backends may emit a Key followed by linked text. The complete Key/text group is admitted atomically against correlated and total capacity before publication. The Key is immediately followed by either one Complete chunk or adjacent Start, zero or more Continue, and End chunks with one unchanged event ID. Nothing interleaves.
 
-IDs are monotonically allocated per session, unique until Close. Allocation exhaustion is a structured allocation failure; no identifier is reused. IDs are assigned only to emitted Key and composition lifecycle records, never to raw fallback bytes.
+TextInput phase legality is origin-specific:
 
-`UnknownBytes` and `UnknownNative` are the only unknown-event forms. Native kind uses known structural variants or bounded `Other(name)`; its primitive code remains because OS code domains are open. Neither raw bytes nor native metadata are terminal commands.
+- `Direct` is always `Complete`. V1 has no direct-group ID. If direct committed text exceeds the chunk limit, emit multiple independent `Direct + Complete` events in order, each split only on scalar boundaries.
+- `Key(event_id)` is `Complete` or Start/Continue/End. Every chunk retains the same Key event ID and remains adjacent to that Key and its sibling chunks.
+- `Composition(composition_id)` is `Complete` or Start/Continue/End. Every chunk retains one composition ID, is contiguous, and appears immediately before the matching `CompositionEnded.Committed`.
 
-## Total bounds and malformed paste
+Any other origin/phase combination is an internal invariant violation and cannot be runtime-constructed. `Press(count)`/`Repeat(count)` contain the exact occurrences represented by one Key. Linked text is already expanded and is never multiplied implicitly by count. Companion chord routing emits at most one activation for that Key and carries the exact `TerminalKeyOccurrence`.
 
-Options contain constrained paste chunk, incomplete-sequence, retained-event, and retained-byte limits. Retained accounting covers queued events, variable payloads, parser bytes, paste fallback bytes, native metadata, pause delivery result storage, and pending native records. The configured values are cross-validated so total retained capacity can hold required state. At capacity the runtime stops consuming OS records and bytes until callers drain. It reads conservatively according to remaining capacity. It never silently drops input or resets merely from capacity pressure. Backend or OS overflow despite backpressure emits bounded UnknownBytes or UnknownNative where possible, followed by exactly one `InputReset.BackendOverflow` for that discontinuity.
+Composition order is Started, zero or more Updated, then exactly one Ended. Cursor is <= preedit scalar count. Focus loss, pause, EOF, observed cancellation, backend reset, or a new start interrupts the active composition with `CompositionEnded.Interrupted` then exactly one `InputReset.CompositionInterrupted`.
 
-Bracketed-paste delimiters carried in-band are not intrinsically unforgeable. `Paste` and paste-to-command isolation are emitted only when `trusted_paste_framing` is Enabled, meaning the backend or terminal provides trusted framing or guarantees delimiter sanitization. With `require_trusted_paste_framing`, open and resume fail `UnsupportedFeature(TrustedPasteFraming, diagnostic)` when unavailable. In non-strict mode without it, the runtime emits no `Paste`, claims no isolation, and emits `TextInput` or `Key` according to the backend. Security-sensitive full-screen editors request trusted framing. Windows Console/native paste must provide trustworthy provenance or reports the feature Unsupported.
+Event/composition IDs increase monotonically and are never reused within one session. Before publishing an event/group that needs a new ID, the runtime detects exhaustion and enters a sticky identifier-exhausted read state. Every later read returns `TerminalSessionReadError.IdentifierExhausted`. Detection occurs before event publication and ID assignment, not necessarily before backend consumption. Already-consumed bytes/native records remain retained under session bounds; pause surfaces them as UnknownBytes/UnknownNative where representable, and a successful close reports any remainder through `TerminalCloseOutcome.DiscardedInput`. No consumed input silently becomes a forged or reused ID.
 
-NUL or malformed UTF-8 in an already trusted paste frame enters bounded PasteFallback. Until closing delimiter, EOF, pause, or backend reset, it emits only bounded UnknownBytes with PasteContainsNul or PasteInvalidUtf8; it never reinterprets fallback bytes as Key, TextInput, composition, or commands. Capacity stops further OS consumption and waits for a drain, it is not a fallback termination or reset. Closing delimiter is framing, not payload. Split or embedded closing-delimiter-looking bytes and control/function bytes are fixture-tested: a trusted backend sanitizes the payload or preserves the frame so payload cannot become commands. After termination, exactly one `InputReset.PasteFallback` is emitted and parsing returns to ground. On EOF, pause, and backend reset, every already consumed byte is surfaced before the single reset. Sequence-limit recovery similarly surfaces bounded bytes then `InputReset.SequenceLimitExceeded`.
+Mouse coordinates are zero-based against the visible viewport snapshot used at decode time. A Resize carrying that snapshot is ordered before Mouse decoded against it. Later resize does not reinterpret retained coordinates.
 
-## Capability negotiation
+## Trusted paste and malformed fallback
 
-Feature state is a sum: Unsupported, Available, or Enabled, each with only compatible evidence. Color is Unsupported, Monochrome, Indexed(count, evidence), or TrueColor(evidence). `require_requested_features` makes a requested unavailable feature fail open or resume with `UnsupportedFeature(feature, diagnostic)`; `require_trusted_paste_framing` independently makes trusted framing unavailable fail in the same way. Otherwise the runtime enables the portable subset. Cached capabilities are readable while paused or recovery-pending, but Active-only session operations fail in Paused, RestorePending, FailedOpenRecovery, FailedCloseRecovery, or Closed. `terminal_session_resume_sync` called while Active fails with `TerminalSessionStateError.SessionActive`; every other invalid transition reports its actual structured state through `TerminalDiagnostic` and the closest state-error variant. Session output uses `TerminalOperation.AcquireOutputTerminal` only for diagnostics, while existing fallible output operations validate coordinator state at operation time.
+`TerminalTrustedPasteEvidence` is runtime-only and cannot be EnvironmentInferred or ProtocolAssumed. `NativeRecordBoundary` proves payload and key records are distinct. `SanitizedProtocolBoundary` proves the host removed/escaped every delimiter or control capable of ending framing or producing commands before parsing. The guarantee is only parser command isolation; it does not make text safe for a shell, editor language, renderer, or remote protocol.
 
-## Linux contract
+After the first malformed UTF-8 byte or NUL byte in a trusted frame, the entire frame enters PasteFallback. Every payload byte already consumed, including any valid prefix, and every subsequently consumed payload byte through frame termination, EOF, pause, or backend reset is emitted only as bounded immutable `UnknownBytes`. Every fallback chunk uses the first defect's reason. No prefix/suffix becomes Paste, TextInput, Key, composition, or commands. The framing delimiter is not payload. Termination emits exactly one `InputReset.PasteFallback`, after all consumed payload bytes. Capacity pauses backend consumption; it never terminates fallback or drops bytes.
 
-The runtime snapshots complete `termios` and descriptor status flags, sets `O_NONBLOCK`, and restores exact prior flags. It clears `ICANON`, `ECHO`, `ECHONL`, `IEXTEN`, `ICRNL`, `INLCR`, `IGNCR`, `IXON`, `IXOFF`, `BRKINT`, `PARMRK`, and `ISTRIP`, and sets `IGNBRK` so break input is ignored rather than unexpectedly signaling or flushing; it preserves the original complete snapshot exactly on restore, including all parity and strip flags; uses eight-bit input; disables output post-processing when rendering requires it; and clears `ISIG` only when capture_control_keys is enabled. It sets `VMIN=0`, `VTIME=0`, and uses `poll` or `ppoll` with monotonic deadlines. `TCSANOW` does not flush pending input. `EAGAIN` means no data and retries only within remaining wait. Readable input is drained before `POLLHUP`; zero bytes become EndOfInput only after confirmed hangup or closure.
+## EOF, cancellation, pause, close, and accounting
 
-SIGWINCH uses a nonblocking self-pipe or equivalent in the same wait set; its handler performs only async-signal-safe notification and original disposition/mask are restored. If input and resize are both ready, currently readable bytes are drained before one newest `TIOCGWINSZ` snapshot. This is deterministic observation, not causal chronology. Cancellation joins this same wait set through eventfd or a nonblocking self-pipe, not polling.
+Queued decoded events precede EOF/cancellation. EOF is sticky for the Active parser generation after queued consumed input and composition interruption; later reads immediately return EndOfInput until resume/close. If cancellation and unread input become ready together after the queue empties, cancellation wins and consumes no new OS input. A cancelled token is sticky; a new source/token generation is required. Parser bytes remain for the new token unless composition interruption rules apply.
 
-## Windows contract
+Every successful Active→Paused transition returns immutable `TerminalPauseEvents` ending in exactly one `InputReset.PauseBoundary`, even with no parser bytes. Paused→Paused is an empty non-transition. Pause constructs delivery before restoration; fit/allocation failure leaves Active, and restoration failure leaves RestorePending with no success result. Session accounting ends only after independent result retention and release of session references. Aggregate caller retention is outside the session bound.
 
-For Console handles, the runtime snapshots input and output modes, `CONSOLE_CURSOR_INFO`, original active screen-buffer handle and identity, and every queryable state changed by fallback output. Exact restoration reactivates original buffer before closing any temporary alternate buffer and restores cursor information. It clears line and echo input, clears `ENABLE_PROCESSED_INPUT` only when capturing control keys, enables window input, and enables mouse input plus extended flags while disabling Quick Edit when mouse is requested.
+Successful close returns `Clean` or successful `DiscardedInput`; it is never an error. Only restoration/ledger-transfer failure outranks a body error. Restoration failure retains decoder data and RestorePending ownership.
 
-It waits on console input and cancellation manual-reset event with `WaitForMultipleObjects`, then reads bounded `INPUT_RECORD` batches using `ReadConsoleInputW`. Resize records wake size query rather than define authoritative size. The runtime derives visible dimensions from `GetConsoleScreenBufferInfo.srWindow`, subtracts `Left` and `Top` before validating zero-based mouse coordinates, and converts UTF-16 through surrogate-pair handling. An unpaired UTF-16 surrogate deterministically emits `UnknownNative` with `WindowsUnknownRecord` metadata, then exactly one `InputReset.BackendReset`; it is never replaced. Modifier-only and menu records are filtered where documented; remaining unknown records use bounded `UnknownNative` metadata. ConPTY and VT streams use the incremental VT parser, with overlapped I/O or a readiness event plus a cancellation wake event or wake pipe in one wait set.
+Retained bytes use checked uint64 accounting of allocation headers, variant boxes, alignment, queue records/links, payload capacity, parser/fallback/native buffers, ledger records, pause storage before transfer, and session readiness/cancellation registrations. Overflow is capacity exhaustion before allocation/consumption. Events count queue, pending native, unpublished correlated, and pre-transfer pause records. Capacity causes no-drop backpressure. Backend overflow emits bounded unknown data where possible then exactly one reset. Fixed events have a reserved-queue no-allocation fast path; single-event API shape never requires one allocation per event.
 
-## Lifecycle, pause, recovery, close, and signals
+## Linux normative contract
 
-States are Opening, Active, Paused, RestorePending, Closed, and process-owned FailedOpenRecovery or FailedCloseRecovery. The host coordinator exposes one process-wide terminal-session ownership slot. Each open attempt atomically reserves it before inspecting or mutating terminal state; nested, concurrent, or later opens while an Opening, Active, Paused, or RestorePending session owns the slot fail `TerminalAlreadyOwned` without inspecting or mutating terminal state. FailedOpenRecovery or FailedCloseRecovery owns the slot without a usable session, so opens instead fail `RecoveryPending`. Pausing never releases the slot. A failure detected before the first terminal mutation releases the provisional Opening reservation before returning its original open error. Before mutation, open creates a ledger recording each successfully applied change, inverse operation, order, and completion. Open snapshots then mutates transactionally. A partial open failure reverses successful steps in reverse order. Successful rollback releases the slot before returning the original open error. Only rollback failure returns `RollbackFailed` and transfers the ledger plus slot to process-owned FailedOpenRecovery; later opens receive `RecoveryPending`.
+The runtime snapshots the complete `termios` value and descriptor status flags before mutation and restores those exact snapshots. It sets descriptor `O_NONBLOCK`; clears `ICANON`, `ECHO`, `ECHONL`, `IEXTEN`, `ICRNL`, `INLCR`, `IGNCR`, `IXON`, `IXOFF`, `BRKINT`, `PARMRK`, and `ISTRIP`; sets `IGNBRK`; clears `CSIZE` then sets `CS8`; preserves parity and every unrelated control/local/input flag; clears output `OPOST` only when rendering requires raw output; and clears `ISIG` only when control-key capture is requested. It sets `VMIN=0`, `VTIME=0`, and applies changes with `TCSANOW`, which does not flush pending input.
 
-The two explicit recovery APIs are ledger-kind-specific. With no recovery ledger and a Free slot, either is idempotent success. A matching API retains the slot until every restoration step succeeds, then releases it; failure leaves the matching recovery state and returns `PendingOpenRollbackFailed` or `PendingCloseRestoreFailed`. While the slot is occupied, a recovery call without its matching process-owned ledger returns `RecoveryOwnerMismatch` with the actual Opening, Active, Paused, RestorePending, FailedOpenRecovery, or FailedCloseRecovery state and performs no mutation or release. This includes calling the opposite recovery API and calling either recovery API while a live session owns the slot. Recovery failure is primary and the original open or close failure is its structured cause.
+Wait uses `poll`/`ppoll` with monotonic deadlines and terminal input, SIGWINCH notification, cancellation wakeup, and parser deadline in one host wait. `EAGAIN` means no current data and retries only within the remaining wait. Readable bytes are drained before processing `POLLHUP`; zero bytes become sticky EOF only after confirmed hangup/closure. When input and resize are both ready, currently readable input is drained first, then one newest `TIOCGWINSZ` snapshot is queued; this is deterministic observation ordering, not causal chronology. Cancellation tied with unread input wins only after already-decoded queue entries, and consumes no new bytes.
 
-Pause from Active first drains and constructs the independently retained bounded result. If partial parser state existed, the result ends with exactly one `InputReset.PauseBoundary`; otherwise it contains no pause-boundary reset. If every already-consumed parser byte and the required PauseBoundary reset fit, it restores OS modes and protocol reversals, transitions Paused, then returns the result. If result allocation or fit fails before restoration starts, pause returns PauseDeliveryFailed and remains Active. If restoration begins and then fails, state is RestorePending with its ledger; no success result is claimed. The caller applies returned events before child handoff. Pause from Paused returns an empty bounded result. Resume only succeeds from Paused. Resume from Active, Closed, or RestorePending returns `TerminalSessionStateError` with the structured current state. From Paused it reapplies options transactionally, refreshes capabilities and size, starts a fresh parser, and never replays pause events. Failed resume remains Paused unless rollback fails, then RestorePending.
+SIGWINCH uses a nonblocking self-pipe or equivalent; the handler performs only async-signal-safe notification. Original signal disposition/mask and every descriptor flag are restored exactly.
 
-Close from Active performs pause-like restoration and releases ownership only after every required restoration step succeeds. A failed direct `terminal_session_close_sync` leaves the usable binding in RestorePending with its ledger and slot still session-owned; retrying close resumes remaining restoration, and competing opens fail `TerminalAlreadyOwned`. If compiler-registered `using` cleanup cannot restore before the binding leaves scope, it transfers the ledger and slot to process-owned FailedCloseRecovery and returns `CloseRestorePending`; later opens fail `RecoveryPending` until close recovery succeeds. Close from Paused releases the slot, close from RestorePending retries remaining restoration, and close from Closed is idempotent.
+## Windows Console and ConPTY normative contract
 
-Close may discard still-unsurfaced consumed decoder bytes only on an otherwise successful ownership-ending close. After restoration, it transitions Closed and releases the slot before returning `CloseDiscardedInput` with structured discarded byte/event counts and no raw bytes. `CloseDiscardedInput` is therefore an error-valued notice but never creates recovery state and never blocks a later open. If restoration fails, close retains the decoder data with the restoration ledger, reports only the restoration failure, and does not construct or suppress `CloseDiscardedInput`; discard accounting is produced only if a later retry completes restoration and closes ownership. Explicit close through `using` is normal cleanup; finalizers and process-exit cleanup are defense in depth only. No restoration is promised after SIGKILL, TerminateProcess, power loss, or corruption.
+For Console handles, the runtime snapshots input/output modes, `CONSOLE_CURSOR_INFO`, the original active screen-buffer handle/identity, and every queryable state changed by fallback output. Restoration reactivates the original buffer before closing a temporary alternate buffer, then restores cursor information and modes. It clears `ENABLE_LINE_INPUT` and `ENABLE_ECHO_INPUT`, clears `ENABLE_PROCESSED_INPUT` only for control-key capture, sets `ENABLE_WINDOW_INPUT`, and, only when mouse is requested, sets `ENABLE_MOUSE_INPUT` plus `ENABLE_EXTENDED_FLAGS` while clearing `ENABLE_QUICK_EDIT_MODE`.
 
-Catchable SIGINT, SIGTERM, SIGHUP, SIGQUIT, and Windows console control events only notify the coordinator or cancellation path and reach ordinary `using` cleanup. SIGTSTP reaches ordinary pause and restoration before suspension. SIGCONT requires explicit resume. No unsafe restoration occurs inside a signal handler. Uncatchable termination has no restoration guarantee. Thread-affinity enforcement is deferred until concurrent user execution exists; cancellation request remains safe for the signal coordinator.
+Console wait combines console input and cancellation manual-reset event with `WaitForMultipleObjects`, then consumes bounded `INPUT_RECORD` batches using `ReadConsoleInputW`. Resize records trigger authoritative visible-size query. Coordinates use `srWindow`; the runtime subtracts `Left`/`Top` before validation. UTF-16 conversion retains a pending high surrogate only within bounds. An unpaired surrogate emits bounded `UnknownNative.WindowsUnknownRecord` followed by exactly one BackendReset; it is never replacement text. Modifier-only/menu records are filtered only where documented; all other unsupported records become bounded UnknownNative.
 
-## Impact on Existing Output APIs
+ConPTY/VT uses the same incremental parser and bounds as Linux streams. Overlapped input or a host readiness event, cancellation wake event/pipe, resize notification, and parser deadline participate in one wait. No polling loop is permitted. Handoff/restoration retains the same ledger and active-buffer guarantees as Console where applicable.
 
-The hot-reload host owns one long-lived runtime terminal/stdout coordinator because it owns process state across reloads. Ordinary stdout remains a shared process-global sink. `stdout_writer()` and `stdout_terminal()` keep their existing infallible acquisition signatures: their singleton handles are views, not independently owned terminal endpoints. Each existing fallible writer or terminal operation resolves and checks current coordinator state at operation time, so its error set migrates to include `TerminalSessionStateError`. A view acquired before session open is neither permanently valid nor permanently invalid, it follows current state and can be reused after resume.
+## Signals and process control
 
-`TerminalSession` alone owns raw-mode and full-screen endpoint state. The process-wide ownership slot permits at most one owning session across Opening, Active, Paused, and RestorePending, because mode changes, parser state, handoff, and restoration cannot be partitioned safely between sessions. Paused retains ownership so another session cannot mutate the terminal before the original session resumes or closes. Ordinary global output may continue while Active through the operation-time coordinator checks, although it can disrupt layout. Full-screen applications should use session output. Provenance enforcement between `print` and session output is not a v1 prerequisite.
+Catchable SIGINT, SIGTERM, SIGHUP, SIGQUIT, and Windows console-control events only notify the coordinator/cancellation path and return to ordinary code; they never restore terminal state in a handler. SIGTSTP notification causes ordinary code to pause, restore, and deliver its mandatory PauseBoundary before the host performs suspension. SIGCONT only marks readiness; the application must explicitly resume. Original dispositions/masks are restored. No restoration is promised after SIGKILL, TerminateProcess, power loss, or corruption.
 
-During Opening, Paused, RestorePending, FailedOpenRecovery, FailedCloseRecovery, and child handoff, application-visible fallible writer and terminal operations return state errors; only coordinator-internal open/restoration operations may touch stdout. Infallible `print` must not touch stdout in those states and instead retains the escaped bounded fallback to stderr. Child handoff is explicit: flush, pause and restore, transition to suppress parent output, let the child inherit descriptors, wait, then explicitly resume. A parent mutex cannot serialize an inherited child descriptor, so no lock is held across child execution.
+## Output trust and existing stdout APIs
 
-A global mutex is deferred until concurrent user execution exists. At that point all output calls route through one host-owned mutex that locks one logical runtime call, never individual bytes. General async output and batching remain deferred until evidence or profiling warrants them. The v1 requirements are raw-session exclusivity, restoration and recovery, operation-time coordinator checks, explicit handoff, and host-owned coordination.
+`trusted_terminal_output_from_application_text` is the explicit trust boundary for complete application-generated rendering, not input/environment/path/remote/diagnostic text. `safe_terminal_diagnostic_format` escapes C0/C1, ESC, DEL, bidi controls, noncharacters, and invalid display scalars, bounds output, and emits a visible truncation marker. Nominal write parameters make direct input rendering a type error.
 
-## External precedent and research rationale
+Existing stdout signatures and family lists remain unchanged. Coordinator failures use `WriteFailureError.TerminalCoordinatorUnavailable`, `FlushFailureError.TerminalCoordinatorUnavailable`, and `TerminalWriteFailureError.TerminalCoordinatorUnavailable`, each with exact `state: TerminalSessionState` and `operation: TerminalOperation` payload. Their stable IDs belong to the authoritative existing standard-family declarations and the one generated ABI manifest; this prose allocates no parallel IDs. Unrelated APIs never add `TerminalSessionStateError`. Infallible `print` is best-effort escaped diagnostics only, with no delivery/ordering guarantee and possible truncation/loss.
 
-### 4.6 Cancellation
+## Verification and exclusions
 
-Go Context is cooperative; supported `net.Conn` operations can wake through deadlines or Close. .NET passes CancellationToken to supporting asynchronous and wait APIs and remains cooperative. Rust standard blocking I/O has no universal token; async runtimes select or drop futures and Tokio offers CancellationToken. Opalescent chooses an explicit token plus an OS wakeup in the same wait set.
+Language fixtures cover canonical borrow parsing (`ref name: Type`, `mutable ref name: Type`) and reject reversed forms; one-`is` classification and `into` restrictions; core/terminal ABI ownership; one-where constrained errors; closed evolution on every constrained terminal/chord type; constructor sealing; affine close/cleanup transfer; generated-manifest ID uniqueness/history; and generic host forwarding/module pins.
 
-### 4.7 Bounds
+Behavior fixtures cover fallible cancellation creation/destruction/token lifetime/thread moves without cross-thread refs; readiness identity/wakes/terminal states/stale Poll/removal; two-record order-independent options and validation; complete ordinary/trusted/color capability inspection including Closed bindings; trusted-paste transport independence; atomic correlation and every origin/phase legality; identifier exhaustion retention/close counts; exact malformed-frame quarantine; sticky EOF/token generations; unconditional pause reset; and all accounting/no-allocation paths.
 
-Go channel capacity blocks a sender. .NET bounded Channels default to Wait and offer explicit drop modes. Rust `sync_channel` blocks senders and capacity zero is rendezvous. Opalescent chooses no-drop backpressure and conservative OS reads.
+Chord fixtures are specified in `../CHORDS.md`. Platform tests inject every Linux snapshot/restore/poll ordering, Windows Console/ConPTY mode/buffer/surrogate/viewport/wake path, catchable signal, SIGTSTP, SIGCONT, and restoration failure. Security tests reject forged evidence and direct input writes.
 
-### 6.1 Stdout
-
-Go os.File methods are concurrent-safe but do not provide raw-session coordination. .NET exposes shared Console.Out and SetOut without full-screen ownership. Rust Stdout has shared synchronization and explicit locking. Opalescent keeps general stdout shared, makes raw mode active-only, and separately retains one process-wide session reservation until a clean open abort, ownership-ending close, or matching recovery succeeds.
-
-### 6.3 Evolution
-
-Go prioritizes additive source-compatible APIs without sum exhaustiveness. C# enum values can be added but switches and default assumptions may be unsafe. Rust non_exhaustive requires wildcard handling outside the defining crate. Opalescent uses public non-exhaustive sums, permanent explicit stable variant IDs, ABI history, runtime drop metadata, ABI hashes, minor-only additive variants when boxed runtime-described payloads are available, and major-version payload changes or removal.
-
-## Strengths
-
-- One portable event at a time with typed text, command identity, composition, paste, diagnostics, and discontinuities.
-- Bounded no-drop retention and lossless malformed-paste quarantine.
-- Explicit ownership, cancellation wakeup, recovery ledger, and structured cleanup causes.
-- Centralized Linux, Console, ConPTY, Unicode, and viewport normalization.
-
-## Weaknesses
-
-- The standard library must maintain VT and Windows normalizers, restoration ledgers, and cross-version payload drop metadata.
-- One-event v1 can add runtime crossings during bursts; profiling alone may justify future bounded batching.
-- The language prerequisites are substantial and must be fixture-backed before public release.
-
-## Interactions and implementation difficulty
-
-Subprocesses, pseudoterminals, jobs, filesystem watches, RPC, generalized event loops, and editor buffers remain separate concerns. A future event-loop API may wrap the same wakeable wait primitive. Implementation difficulty is high: deterministic mock backends inject failure at each snapshot, allocation, rollback, restoration, and cleanup-precedence step; parser fuzz/golden tests cover split sequences, ESC deadline races, scalar chunking, malformed paste, unknown native records, overflow, and hostile metadata; integrations require Linux PTYs plus Windows Console and ConPTY.
-
-## Verification and Must NOT Have
-
-Fixtures must verify exact refinement restrictions, constrained construction, `contains_no_nul`, `utf8_byte_length`, established sum construction/drop, inline stable variant-ID parsing, uint64 uniqueness, ABI-history no-reuse rejection, safe diagnostic escaping/bounds, cause depth/count and suppressed-cause bounds, pause-result transactionality and exactly-one partial-parser boundary reset, process-wide single-session admission including nested/concurrent open rejection, clean failed-open release, Paused ownership retention, direct-close RestorePending ownership, `using` close-recovery transfer, Free-state recovery idempotence, recovery-owner mismatch from every live and opposite-recovery state, ownership-ending CloseDiscardedInput only after successful restoration, no-drop backpressure, cancellation linearization/wakeups, lifecycle recovery, operation-time stdout coordination including Opening suppression, explicit child handoff, and infallible `print` stderr migration. Trusted-paste fixtures cover embedded and split closing delimiters plus control/function bytes. Integration verifies exact termios flags including IGNBRK/IXOFF, SIGWINCH and catchable signal coordination, Windows modes/screen buffers/unpaired surrogates/viewport offsets, ConPTY cancellation waits, and explicit close on every post-open path.
-
-Must NOT have public platform handles, flat event kinds, generic unknown events, numeric absence sentinels, unbounded paste/parser retention, replacement or direct rendering of untrusted input, polling cancellation, a claim of exact restoration for unqueryable VT protocol state, abandoned failed-open ledger, finalization as normal cleanup, or restoration guarantees after uncatchable termination.
-
-## Research references
-
-- [termios(3)](https://man7.org/linux/man-pages/man3/termios.3.html)
-- [poll(2)](https://man7.org/linux/man-pages/man2/poll.2.html)
-- [TIOCGWINSZ](https://man7.org/linux/man-pages/man2/TIOCGWINSZ.2const.html)
-- [Windows ReadConsoleInput](https://learn.microsoft.com/windows/console/readconsoleinput)
-- [Windows virtual terminal sequences](https://learn.microsoft.com/windows/console/console-virtual-terminal-sequences)
-- [Go Context](https://pkg.go.dev/context) and [Go compatibility](https://go.dev/doc/go1compat)
-- [.NET CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) and [bounded channels](https://learn.microsoft.com/dotnet/core/extensions/channels)
-- [Rust sync_channel](https://doc.rust-lang.org/std/sync/mpsc/fn.sync_channel.html), [Rust non_exhaustive](https://doc.rust-lang.org/reference/attributes/type_system.html), and [Tokio CancellationToken](https://docs.rs/tokio-util/latest/tokio_util/sync/struct.CancellationToken.html)
+RPC, subprocess, watches, timers, generalized scheduling, editor buffers, and rendering policy remain outside scope. Public OS handles, flat events, polling cancellation, mutable bounded arrays, stringly diagnostics, implicit trust conversion, and unbounded retention are forbidden.

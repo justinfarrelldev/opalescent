@@ -1,251 +1,488 @@
-# Proposal-only declarations. This file is intentionally noncompiling until the listed language fixtures pass.
-
-##
-  Description: Returns whether a valid string contains no U+0000 code point for use by string constraints.
-##
-public predicate contains_no_nul(value: string): boolean
-
-##
-  Description: Returns the UTF-8 byte length of a valid string for use by string constraints.
-##
-public predicate utf8_byte_length(value: string): int64
+# Proposal-only type declarations. This .types.op file intentionally contains only type declarations and remains noncompiling until proposal syntax fixtures pass.
+# Constraint expressions may call compiler intrinsics such as contains_no_nul(value), utf8_byte_length(value), and unicode_scalar_count(value).
+# Those intrinsics are not public declarations, values, imports, or callable application APIs.
+# @abi_type_id, @abi_evolution, @constructor_visibility, opaque immutable, and affine resource are proposed syntax.
 
 ##
   Description: Represents a valid legacy terminal control code.
   Range: 0..31 or 127.
 ##
+@abi_type_id(0x5400000000000010)
+@abi_evolution(closed_major_only)
 public constrained type TerminalControlCode: uint8 where value <= 31 or value is 127
 
 ##
   Description: Identifies a function key.
   Range: 1..32767.
 ##
+@abi_type_id(0x5400000000000011)
+@abi_evolution(closed_major_only)
 public constrained type TerminalFunctionKeyNumber: int32 where value >= 1 and value <= 32767
 
 ##
   Description: Represents a viewport column count.
   Range: 1..2147483647.
 ##
+@abi_type_id(0x5400000000000012)
+@abi_evolution(closed_major_only)
 public constrained type TerminalColumnCount: int32 where value >= 1 and value <= 2147483647
 
 ##
   Description: Represents a viewport row count.
   Range: 1..2147483647.
 ##
+@abi_type_id(0x5400000000000013)
+@abi_evolution(closed_major_only)
 public constrained type TerminalRowCount: int32 where value >= 1 and value <= 2147483647
 
 ##
-  Description: Represents a zero-based viewport column index.
+  Description: Represents a zero-based viewport column decoded against the resize snapshot ordered immediately before the event.
   Range: 0..2147483647.
-  Invariant: Runtime use also requires the value to be within the current viewport.
 ##
+@abi_type_id(0x5400000000000014)
+@abi_evolution(closed_major_only)
 public constrained type TerminalColumnIndex: int32 where value >= 0 and value <= 2147483647
 
 ##
-  Description: Represents a zero-based viewport row index.
+  Description: Represents a zero-based viewport row decoded against the resize snapshot ordered immediately before the event.
   Range: 0..2147483647.
-  Invariant: Runtime use also requires the value to be within the current viewport.
 ##
+@abi_type_id(0x5400000000000015)
+@abi_evolution(closed_major_only)
 public constrained type TerminalRowIndex: int32 where value >= 0 and value <= 2147483647
 
 ##
-  Description: Counts key presses or repeats.
+  Description: Counts physical or protocol-reported key occurrences represented by one Key event.
   Range: 1..2147483647.
 ##
+@abi_type_id(0x5400000000000016)
+@abi_evolution(closed_major_only)
 public constrained type TerminalKeyRepeatCount: int32 where value >= 1 and value <= 2147483647
 
 ##
   Description: Represents a bounded caller wait duration in milliseconds.
   Range: 1..2147483647.
 ##
+@abi_type_id(0x5400000000000017)
+@abi_evolution(closed_major_only)
 public constrained type TerminalWaitMilliseconds: int32 where value >= 1 and value <= 2147483647
 
 ##
   Description: Represents a parser inter-byte sequence deadline in milliseconds.
   Range: 1..60000.
 ##
+@abi_type_id(0x5400000000000018)
+@abi_evolution(closed_major_only)
 public constrained type TerminalInputSequenceTimeoutMilliseconds: int32 where value >= 1 and value <= 60000
+
+##
+  Description: Limits UTF-8 bytes in one committed TextInput value.
+  Range: 4..1048576.
+##
+@abi_type_id(0x5400000000000019)
+@abi_evolution(closed_major_only)
+public constrained type TerminalCommittedTextByteLimit: int32 where value >= 4 and value <= 1048576
+
+##
+  Description: Limits UTF-8 bytes in one composition preedit value.
+  Range: 4..1048576.
+##
+@abi_type_id(0x540000000000001a)
+@abi_evolution(closed_major_only)
+public constrained type TerminalCompositionPreeditByteLimit: int32 where value >= 4 and value <= 1048576
 
 ##
   Description: Limits UTF-8 bytes in one paste chunk.
   Range: 4..16777216.
 ##
+@abi_type_id(0x540000000000001b)
+@abi_evolution(closed_major_only)
 public constrained type TerminalPasteChunkByteLimit: int32 where value >= 4 and value <= 16777216
+
+##
+  Description: Limits bytes in one UnknownBytes event.
+  Range: 1..1048576.
+##
+@abi_type_id(0x540000000000001c)
+@abi_evolution(closed_major_only)
+public constrained type TerminalUnknownByteChunkLimit: int32 where value >= 1 and value <= 1048576
 
 ##
   Description: Limits retained incomplete sequence bytes.
   Range: 4..1048576.
 ##
+@abi_type_id(0x540000000000001d)
+@abi_evolution(closed_major_only)
 public constrained type TerminalPendingSequenceByteLimit: int32 where value >= 4 and value <= 1048576
 
 ##
-  Description: Limits retained normalized events.
-  Range: 1..1048576.
+  Description: Limits normalized event records retained by a session.
+  Range: 8..1048576.
 ##
-public constrained type TerminalRetainedEventLimit: int32 where value >= 1 and value <= 1048576
+@abi_type_id(0x540000000000001e)
+@abi_evolution(closed_major_only)
+public constrained type TerminalRetainedEventLimit: int32 where value >= 8 and value <= 1048576
 
 ##
-  Description: Limits total retained session bytes.
-  Range: 64..1073741824.
+  Description: Limits checked retained session bytes.
+  Range: 4096..1073741824.
 ##
-public constrained type TerminalRetainedByteLimit: int32 where value >= 64 and value <= 1073741824
+@abi_type_id(0x540000000000001f)
+@abi_evolution(closed_major_only)
+public constrained type TerminalRetainedByteLimit: int32 where value >= 4096 and value <= 1073741824
+
+##
+  Description: Limits events in one atomically admitted Key and linked TextInput group.
+  Range: 2..65536.
+##
+@abi_type_id(0x5400000000000020)
+@abi_evolution(closed_major_only)
+public constrained type TerminalCorrelatedEventLimit: int32 where value >= 2 and value <= 65536
+
+##
+  Description: Limits checked bytes in one atomically admitted Key and linked TextInput group.
+  Range: 64..16777216.
+##
+@abi_type_id(0x5400000000000021)
+@abi_evolution(closed_major_only)
+public constrained type TerminalCorrelatedByteLimit: int32 where value >= 64 and value <= 16777216
+
+##
+  Description: Limits diagnostics in one immutable diagnostic collection.
+  Range: 1..256.
+##
+@abi_type_id(0x5400000000000022)
+@abi_evolution(closed_major_only)
+public constrained type TerminalDiagnosticCountLimit: int32 where value >= 1 and value <= 256
+
+##
+  Description: Limits checked bytes in one immutable diagnostic collection.
+  Range: 256..1048576.
+##
+@abi_type_id(0x5400000000000023)
+@abi_evolution(closed_major_only)
+public constrained type TerminalDiagnosticCollectionByteLimit: int32 where value >= 256 and value <= 1048576
 
 ##
   Description: Counts indexed colors.
   Range: 1..16777216.
 ##
+@abi_type_id(0x5400000000000024)
+@abi_evolution(closed_major_only)
 public constrained type TerminalColorCount: int32 where value >= 1 and value <= 16777216
 
 ##
-  Description: Identifies a stable event.
+  Description: Identifies an emitted Key event; construction is runtime-only.
   Range: 1..18446744073709551615.
 ##
+@abi_type_id(0x5400000000000025)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public constrained type TerminalEventId: uint64 where value >= 1
 
 ##
-  Description: Identifies a stable composition.
+  Description: Identifies one composition lifecycle; construction is runtime-only.
   Range: 1..18446744073709551615.
 ##
+@abi_type_id(0x5400000000000026)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public constrained type TerminalCompositionId: uint64 where value >= 1
 
 ##
   Description: Represents a zero-based Unicode scalar index in composition preedit text.
-  Range: 0..9223372036854775807.
-  Invariant: Runtime use also requires the value to be at most the preedit scalar length.
+  Range: 0..9223372036854775807; runtime construction also proves index <= scalar count.
 ##
+@abi_type_id(0x5400000000000027)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public constrained type TerminalCompositionScalarIndex: int64 where value >= 0
 
 ##
   Description: Names an unsupported native input record.
-  Invariant: The value is nonempty, NUL-free valid UTF-8, and contains at most 256 UTF-8 bytes as measured by utf8_byte_length.
+  Invariant: Nonempty, NUL-free valid UTF-8 of at most 256 UTF-8 bytes.
 ##
+@abi_type_id(0x5400000000000028)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public constrained type TerminalNativeEventName: string where value.length > 0 and contains_no_nul(value) and utf8_byte_length(value) <= 256
 
 ##
-  Description: Carries bounded detail for a terminal diagnostic.
-  Invariant: The value is NUL-free valid UTF-8 and contains at most 4096 UTF-8 bytes as measured by utf8_byte_length.
+  Description: Carries bounded terminal diagnostic detail.
+  Invariant: NUL-free valid UTF-8 of at most 4096 UTF-8 bytes.
 ##
+@abi_type_id(0x5400000000000029)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public constrained type TerminalDiagnosticDetail: string where contains_no_nul(value) and utf8_byte_length(value) <= 4096
 
 ##
-  Description: Carries committed input text.
-  Invariant: The value is nonempty, NUL-free valid UTF-8 with at least one Unicode scalar. This constrained type imposes no separate byte limit.
+  Description: Carries one nonempty committed-text chunk, bounded by the options snapshot used to decode it.
 ##
+@abi_type_id(0x540000000000002a)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public constrained type TerminalCommittedText: string where value.length > 0 and contains_no_nul(value)
 
 ##
-  Description: Carries one paste text chunk.
-  Invariant: The value is nonempty, NUL-free valid UTF-8 with at least one Unicode scalar. Runtime use also requires its UTF-8 byte length to be at most configured maximum_paste_chunk_bytes.
+  Description: Carries one nonempty paste chunk, bounded by the options snapshot used to decode it.
 ##
+@abi_type_id(0x540000000000002b)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public constrained type TerminalPasteText: string where value.length > 0 and contains_no_nul(value)
 
 ##
-  Description: Carries composition preedit text.
-  Invariant: The value is NUL-free valid UTF-8. Runtime use also requires its UTF-8 byte length to be within the configured total retained byte limit, and composition scalar indexes are measured against its scalar length.
+  Description: Carries one composition preedit snapshot, bounded by the options snapshot used to decode it.
 ##
+@abi_type_id(0x540000000000002c)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public constrained type TerminalCompositionPreeditText: string where contains_no_nul(value)
 
 ##
-  Description: Counts input bytes discarded when close ends ownership.
-  Range: 0..1073741824.
+  Description: Owns the process terminal pair and restoration ledger with compiler-enforced affine state.
+  Invariant: using owns the binding; ordinary calls borrow it; direct close mutates it to Closed only on success.
 ##
-public constrained type TerminalDiscardedByteCount: int32 where value >= 0 and value <= 1073741824
+@abi_type_id(0x540000000000002e)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public compiler_registered affine resource type TerminalSession
 
 ##
-  Description: Counts normalized or native events discarded when close ends ownership.
-  Range: 0..1048576.
+  Description: Is nominal application-reviewed terminal output; construction is the explicit trust boundary.
 ##
-public constrained type TerminalDiscardedEventCount: int32 where value >= 0 and value <= 1048576
+@abi_type_id(0x5400000000000032)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public opaque immutable type TrustedTerminalOutput
+
+##
+  Description: Is escaped bounded diagnostic output safe for terminal display and never contains active control sequences.
+##
+@abi_type_id(0x5400000000000033)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public opaque immutable type SafeTerminalDiagnosticOutput
+
+##
+  Description: Is an immutable runtime-origin sequence of pause-delivered events.
+  Invariant: Every successful Active-to-Paused transition ends in exactly one PauseBoundary reset.
+##
+@abi_type_id(0x5400000000000034)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public opaque immutable type TerminalPauseEvents
+
+##
+  Description: Is an immutable runtime-origin bounded diagnostic collection with deterministic order and truncation metadata.
+##
+@abi_type_id(0x5400000000000035)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public opaque immutable type TerminalDiagnosticCollection
+
+##
+  Description: Is an immutable opaque options snapshot built from stable ABI-major defaults and functional with_* calls.
+##
+@abi_type_id(0x5400000000000036)
+@abi_evolution(additive_opaque)
+@constructor_visibility(standard_library)
+public opaque immutable type TerminalSessionOptions
+
+##
+  Description: Configures v1 terminal feature requests as one application-constructible policy snapshot.
+  Invariant: Trusted-paste policy is backend-independent and does not require bracketed-paste transport.
+  Evolution: Closed; new feature categories use new additive option APIs rather than changing this record.
+##
+@abi_type_id(0x5400000000000037)
+@abi_evolution(closed_major_only)
+public type TerminalSessionFeaturePolicy:
+    use_alternate_screen: boolean
+    hide_cursor: boolean
+    enable_bracketed_paste: boolean
+    require_trusted_paste_framing: boolean
+    enable_enhanced_key_identity: boolean
+    enable_focus_events: boolean
+    mouse_tracking: TerminalMouseTracking
+    capture_control_keys: boolean
+    require_requested_features: boolean
+
+##
+  Description: Configures all v1 parser, payload, correlation, diagnostic, and retention limits.
+  Evolution: Closed; new resource categories use new additive option APIs rather than changing this record.
+##
+@abi_type_id(0x5400000000000038)
+@abi_evolution(closed_major_only)
+public type TerminalSessionResourceLimits:
+    input_sequence_timeout: TerminalInputSequenceTimeoutMilliseconds
+    maximum_committed_text_bytes: TerminalCommittedTextByteLimit
+    maximum_composition_preedit_bytes: TerminalCompositionPreeditByteLimit
+    maximum_paste_chunk_bytes: TerminalPasteChunkByteLimit
+    maximum_unknown_chunk_bytes: TerminalUnknownByteChunkLimit
+    maximum_pending_sequence_bytes: TerminalPendingSequenceByteLimit
+    maximum_retained_events: TerminalRetainedEventLimit
+    maximum_retained_bytes: TerminalRetainedByteLimit
+    maximum_correlated_events: TerminalCorrelatedEventLimit
+    maximum_correlated_bytes: TerminalCorrelatedByteLimit
+    maximum_diagnostics: TerminalDiagnosticCountLimit
+    maximum_diagnostic_bytes: TerminalDiagnosticCollectionByteLimit
+
+##
+  Description: Selects an ordinary capability for centralized inspection.
+  Evolution: Closed; the v1 inspector covers every ordinary capability field.
+##
+@abi_type_id(0x5400000000000039)
+@abi_evolution(closed_major_only)
+public type TerminalOrdinaryFeature:
+    AlternateScreen = 1
+    CursorShape = 2
+    BracketedPaste = 3
+    FocusEvents = 4
+    MouseButtons = 5
+    MouseMotion = 6
+    KeyReleaseEvents = 7
+    CompositionEvents = 8
+    EnhancedKeyIdentity = 9
 
 ##
   Description: Configures requested mouse reporting.
+  Evolution: Closed; additions require an ABI-major release.
 ##
+@abi_type_id(0x5400000000000040)
+@abi_evolution(closed_major_only)
 public type TerminalMouseTracking:
-    Disabled
-    Buttons
-    ButtonsAndDrag
-    AllMotion
+    Disabled = 1
+    Buttons = 2
+    ButtonsAndDrag = 3
+    AllMotion = 4
 
 ##
   Description: Requests a terminal cursor shape.
+  Evolution: Additive; unknown future shapes are ignored by old inspection code and rejected when requested.
 ##
-public type TerminalCursorShape:
-    Default
-    BlinkingBlock
-    SteadyBlock
-    BlinkingUnderline
-    SteadyUnderline
-    BlinkingBar
-    SteadyBar
+@abi_type_id(0x5400000000000041)
+@abi_evolution(non_exhaustive_additive)
+public non_exhaustive type TerminalCursorShape:
+    Default = 1
+    BlinkingBlock = 2
+    SteadyBlock = 3
+    BlinkingUnderline = 4
+    SteadyUnderline = 5
+    BlinkingBar = 6
+    SteadyBar = 7
 
 ##
-  Description: Records why a feature can be used.
+  Description: Records ordinary feature evidence; it cannot establish trusted-paste provenance.
+  Evolution: Additive; unknown evidence is semantically ignorable during capability display.
 ##
-public type TerminalCapabilitySupportedEvidence:
-    NativeConfirmed
-    ProtocolQueried
-    EnvironmentInferred
-    ProtocolAssumed
+@abi_type_id(0x5400000000000042)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalCapabilitySupportedEvidence:
+    NativeConfirmed = 1
+    ProtocolQueried = 2
+    EnvironmentInferred = 3
+    ProtocolAssumed = 4
+
+##
+  Description: Records unforgeable evidence that paste framing prevents payload bytes from becoming terminal commands.
+  Evolution: Closed; weakening or adding evidence requires an ABI-major security review.
+##
+@abi_type_id(0x5400000000000043)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public type TerminalTrustedPasteEvidence:
+    NativeRecordBoundary = 1
+    SanitizedProtocolBoundary = 2
 
 ##
   Description: Records why a feature cannot be used.
+  Evolution: Additive; unknown evidence remains semantically ignorable.
 ##
-public type TerminalCapabilityUnsupportedEvidence:
-    NativeUnavailable
-    ProtocolRejected
-    EnvironmentMissing
+@abi_type_id(0x5400000000000044)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalCapabilityUnsupportedEvidence:
+    NativeUnavailable = 1
+    ProtocolRejected = 2
+    EnvironmentMissing = 3
 
 ##
-  Description: Represents one feature state with its supporting evidence.
+  Description: Represents an ordinary feature state with compatible evidence.
+  Evolution: Closed; additions require an ABI-major release.
 ##
+@abi_type_id(0x5400000000000045)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public type TerminalFeatureCapability:
-    Unsupported:
+    Unsupported = 1:
         evidence: TerminalCapabilityUnsupportedEvidence
-    Available:
+    Available = 2:
         evidence: TerminalCapabilitySupportedEvidence
-    Enabled:
+    Enabled = 3:
         evidence: TerminalCapabilitySupportedEvidence
 
 ##
-  Description: Represents one color capability with its supporting evidence.
+  Description: Represents trusted-paste framing state with dedicated unforgeable evidence.
+  Evolution: Closed; additions require an ABI-major security review.
 ##
-public type TerminalColorCapability:
-    Unsupported:
+@abi_type_id(0x5400000000000046)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public type TerminalTrustedPasteCapability:
+    Unsupported = 1:
         evidence: TerminalCapabilityUnsupportedEvidence
-    Monochrome:
+    Available = 2:
+        evidence: TerminalTrustedPasteEvidence
+    Enabled = 3:
+        evidence: TerminalTrustedPasteEvidence
+
+##
+  Description: Represents color capability with supporting evidence.
+  Evolution: Closed; additions require an ABI-major release.
+##
+@abi_type_id(0x5400000000000047)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public type TerminalColorCapability:
+    Unsupported = 1:
+        evidence: TerminalCapabilityUnsupportedEvidence
+    Monochrome = 2:
         evidence: TerminalCapabilitySupportedEvidence
-    Indexed:
+    Indexed = 3:
         count: TerminalColorCount
         evidence: TerminalCapabilitySupportedEvidence
-    TrueColor:
+    TrueColor = 4:
         evidence: TerminalCapabilitySupportedEvidence
 
 ##
-  Description: Collects negotiated terminal capabilities.
+  Description: Collects one immutable negotiated capability snapshot cached until the affine session is consumed.
+  Evolution: Additive boxed fields may be added in a minor release; known fields retain meaning for the ABI major.
 ##
-public type TerminalCapabilities:
-    alternate_screen: TerminalFeatureCapability
-    cursor_shape: TerminalFeatureCapability
-    bracketed_paste: TerminalFeatureCapability
-    focus_events: TerminalFeatureCapability
-    mouse_buttons: TerminalFeatureCapability
-    mouse_motion: TerminalFeatureCapability
-    key_release_events: TerminalFeatureCapability
-    composition_events: TerminalFeatureCapability
-    enhanced_key_identity: TerminalFeatureCapability
-    trusted_paste_framing: TerminalFeatureCapability
-    color: TerminalColorCapability
+@abi_type_id(0x5400000000000048)
+@abi_evolution(additive_opaque)
+@constructor_visibility(runtime)
+public opaque immutable type TerminalCapabilities
 
 ##
   Description: Holds current visible terminal dimensions.
+  Evolution: Closed; fields change only in an ABI-major release.
 ##
+@abi_type_id(0x5400000000000049)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public type TerminalSize:
     columns: TerminalColumnCount
     rows: TerminalRowCount
 
 ##
-  Description: Holds modifier state for a command key or mouse event.
+  Description: Holds key and mouse modifier state.
+  Evolution: Closed; lock fields are matched through an explicit policy.
 ##
+@abi_type_id(0x540000000000004a)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public type TerminalModifiers:
     shift: boolean
     control: boolean
@@ -256,148 +493,217 @@ public type TerminalModifiers:
 
 ##
   Description: Names command keys with no text identity.
+  Evolution: Additive; unknown named keys are semantically ignorable unless explicitly bound.
 ##
-public type TerminalNamedKey:
-    Enter
-    Escape
-    Backspace
-    Tab
-    BackTab
-    ArrowUp
-    ArrowDown
-    ArrowLeft
-    ArrowRight
-    Insert
-    Delete
-    Home
-    End
-    PageUp
-    PageDown
+@abi_type_id(0x540000000000004c)
+@abi_evolution(non_exhaustive_additive)
+public non_exhaustive type TerminalNamedKey:
+    Enter = 1
+    Escape = 2
+    Backspace = 3
+    Tab = 4
+    BackTab = 5
+    ArrowUp = 6
+    ArrowDown = 7
+    ArrowLeft = 8
+    ArrowRight = 9
+    Insert = 10
+    Delete = 11
+    Home = 12
+    End = 13
+    PageUp = 14
+    PageDown = 15
 
 ##
-  Description: Describes a command identity. Text exists only when an enhanced backend independently reports layout-resolved identity.
+  Description: Describes command identity; runtime-origin Text requires enhanced identity.
+  Evolution: Additive; unknown identities are semantically ignorable by old chord code.
 ##
-public type TerminalLogicalKey:
-    Text:
+@abi_type_id(0x540000000000004d)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalLogicalKey:
+    Text = 1:
         logical_text: TerminalCommittedText
-    Control:
+    Control = 2:
         code: TerminalControlCode
-    Named:
+    Named = 3:
         key: TerminalNamedKey
-    Function:
+    Function = 4:
         number: TerminalFunctionKeyNumber
 
 ##
-  Description: Describes a press, repeat, or release without sentinel counts.
+  Description: Describes press, repeat, or release cardinality without sentinels.
+  Evolution: Closed; each count is the exact number of occurrences represented by that one Key event.
 ##
+@abi_type_id(0x540000000000004e)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public type TerminalKeyOccurrence:
-    Press:
+    Press = 1:
         count: TerminalKeyRepeatCount
-    Repeat:
+    Repeat = 2:
         count: TerminalKeyRepeatCount
-    Release
+    Release = 3
 
 ##
-  Description: Links committed insertion to its source event when one exists.
+  Description: Links committed insertion to its source.
+  Evolution: Closed; additions require an ABI-major release.
 ##
+@abi_type_id(0x540000000000004f)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public type TerminalTextInputOrigin:
-    Direct
-    Key:
+    Direct = 1
+    Key = 2:
         event_id: TerminalEventId
-    Composition:
+    Composition = 3:
         composition_id: TerminalCompositionId
 
 ##
+  Description: Marks whether a linked text sequence is complete.
+  Evolution: Closed; additions require an ABI-major release.
+##
+@abi_type_id(0x5400000000000050)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public type TerminalLinkedTextPhase:
+    Complete = 1
+    Start = 2
+    Continue = 3
+    End = 4
+
+##
   Description: Records composition completion.
+  Evolution: Closed; additions require an ABI-major release.
 ##
+@abi_type_id(0x5400000000000051)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public type TerminalCompositionEnd:
-    Committed
-    Cancelled
+    Committed = 1
+    Cancelled = 2
+    Interrupted = 3
 
 ##
-  Description: Marks the framing phase of a paste stream.
+  Description: Marks paste chunk framing.
+  Evolution: Closed; additions require an ABI-major release.
 ##
+@abi_type_id(0x5400000000000052)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public type TerminalPastePhase:
-    Complete
-    Start
-    Continue
-    End
+    Complete = 1
+    Start = 2
+    Continue = 3
+    End = 4
 
 ##
-  Description: Explains bounded opaque bytes.
+  Description: Explains bounded opaque unknown bytes.
+  Evolution: Additive; unknown reasons remain non-command data.
 ##
-public type TerminalUnknownBytesReason:
-    UnrecognizedSequence
-    SequenceLimitExceeded
-    PasteContainsNul
-    PasteInvalidUtf8
-    BackendOverflow
+@abi_type_id(0x5400000000000053)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalUnknownBytesReason:
+    UnrecognizedSequence = 1
+    SequenceLimitExceeded = 2
+    PasteContainsNul = 3
+    PasteInvalidUtf8 = 4
+    BackendOverflow = 5
 
 ##
-  Description: Classifies a native record without flattening its open native domain.
+  Description: Classifies an unsupported native record.
+  Evolution: Additive; unknown kinds remain non-command data.
 ##
-public type TerminalNativeEventKind:
-    WindowsMenu
-    WindowsUnknownRecord
-    VtPrivateSequence
-    BackendSpecific
-    Other:
+@abi_type_id(0x5400000000000054)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalNativeEventKind:
+    WindowsMenu = 1
+    WindowsUnknownRecord = 2
+    VtPrivateSequence = 3
+    BackendSpecific = 4
+    Other = 5:
         name: TerminalNativeEventName
 
 ##
   Description: Holds bounded metadata for an unsupported native input record.
-  Invariant: Native event codes remain primitive and open-domain in the backend's documented native domain.
+  Evolution: Closed; fields change only in an ABI-major release.
 ##
+@abi_type_id(0x5400000000000055)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public type TerminalNativeMetadata:
     kind: TerminalNativeEventKind
     code: TerminalOsCode
 
 ##
   Description: Explains an input discontinuity.
+  Evolution: Additive; every reason requires callers to clear incremental input state.
 ##
-public type TerminalInputResetReason:
-    PauseBoundary
-    PasteFallback
-    SequenceLimitExceeded
-    BackendReset
-    BackendOverflow
+@abi_type_id(0x5400000000000056)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalInputResetReason:
+    PauseBoundary = 1
+    PasteFallback = 2
+    SequenceLimitExceeded = 3
+    BackendReset = 4
+    BackendOverflow = 5
+    CompositionInterrupted = 6
 
 ##
   Description: Describes mouse movement or button activity.
+  Evolution: Additive; unknown actions are semantically ignorable.
 ##
-public type TerminalMouseAction:
-    Press:
+@abi_type_id(0x5400000000000057)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalMouseAction:
+    Press = 1:
         button: TerminalMouseButton
-    Release:
+    Release = 2:
         button: TerminalMouseButton
-    Move
-    Drag:
+    Move = 3
+    Drag = 4:
         button: TerminalMouseButton
-    Scroll:
+    Scroll = 5:
         direction: TerminalScrollDirection
 
 ##
-  Description: Names scroll direction without fabricating a mouse button.
+  Description: Names scroll direction.
+  Evolution: Closed; additions require an ABI-major release.
 ##
+@abi_type_id(0x5400000000000058)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public type TerminalScrollDirection:
-    Up
-    Down
-    Left
-    Right
+    Up = 1
+    Down = 2
+    Left = 3
+    Right = 4
 
 ##
   Description: Names a mouse button.
+  Evolution: Additive; unknown buttons are semantically ignorable.
 ##
-public type TerminalMouseButton:
-    Left
-    Middle
-    Right
-    AuxiliaryOne
-    AuxiliaryTwo
+@abi_type_id(0x5400000000000059)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalMouseButton:
+    Left = 1
+    Middle = 2
+    Right = 3
+    AuxiliaryOne = 4
+    AuxiliaryTwo = 5
 
 ##
-  Description: Represents public non-exhaustive normalized input. Every explicit stable variant ID is permanent and never reused.
+  Description: Represents public runtime-origin normalized input.
+  Evolution: Additive; unknown variants are semantically ignorable and use host retain, drop, and forward metadata.
 ##
+@abi_type_id(0x5400000000000060)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
 public non_exhaustive type TerminalInputEvent:
     Key = 1:
         event_id: TerminalEventId
@@ -407,6 +713,7 @@ public non_exhaustive type TerminalInputEvent:
     TextInput = 2:
         text: TerminalCommittedText
         origin: TerminalTextInputOrigin
+        linked_phase: TerminalLinkedTextPhase
     CompositionStarted = 3:
         composition_id: TerminalCompositionId
     CompositionUpdated = 4:
@@ -419,6 +726,7 @@ public non_exhaustive type TerminalInputEvent:
     Paste = 6:
         text: TerminalPasteText
         phase: TerminalPastePhase
+        evidence: TerminalTrustedPasteEvidence
     Mouse = 7:
         action: TerminalMouseAction
         modifiers: TerminalModifiers
@@ -432,7 +740,7 @@ public non_exhaustive type TerminalInputEvent:
     Cancelled = 12
     EndOfInput = 13
     UnknownBytes = 14:
-        raw_bytes: uint8[]
+        raw_bytes: Bytes
         reason: TerminalUnknownBytesReason
     UnknownNative = 15:
         metadata: TerminalNativeMetadata
@@ -441,237 +749,309 @@ public non_exhaustive type TerminalInputEvent:
 
 ##
   Description: Expresses a read deadline without a numeric absence sentinel.
+  Evolution: Closed; additions require an ABI-major release.
 ##
+@abi_type_id(0x5400000000000061)
+@abi_evolution(closed_major_only)
 public type TerminalWait:
-    Poll
-    Forever
-    For:
+    Poll = 1
+    Forever = 2
+    For = 3:
         milliseconds: TerminalWaitMilliseconds
 
 ##
-  Description: Configures one session and all retention limits.
+  Description: Returns independently retained pause events.
+  Evolution: Closed; fields change only in an ABI-major release.
 ##
-public type TerminalSessionOptions:
-    use_alternate_screen: boolean
-    hide_cursor: boolean
-    enable_bracketed_paste: boolean
-    require_trusted_paste_framing: boolean
-    enable_enhanced_key_identity: boolean
-    enable_focus_events: boolean
-    mouse_tracking: TerminalMouseTracking
-    capture_control_keys: boolean
-    require_requested_features: boolean
-    input_sequence_timeout: TerminalInputSequenceTimeoutMilliseconds
-    maximum_paste_chunk_bytes: TerminalPasteChunkByteLimit
-    maximum_pending_sequence_bytes: TerminalPendingSequenceByteLimit
-    maximum_retained_events: TerminalRetainedEventLimit
-    maximum_retained_bytes: TerminalRetainedByteLimit
+@abi_type_id(0x5400000000000062)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public type TerminalPauseResult:
+    events: TerminalPauseEvents
 
 ##
-  Description: Returns parser-consumed events before ownership is handed off.
-  Invariant: The events array is bounded by configured retained event and byte limits.
+  Description: Reports successful close and any input discarded while ending ownership.
+  Evolution: Closed; additions require an ABI-major release.
 ##
-public type TerminalPauseResult:
-    events: TerminalInputEvent[]
+@abi_type_id(0x5400000000000063)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public type TerminalCloseOutcome:
+    Clean = 1
+    DiscardedInput = 2:
+        discarded_bytes: uint64
+        discarded_events: uint64
 
 ##
   Description: Names the backend that produced a diagnostic.
+  Evolution: Additive; unknown backends remain safe to format and inspect.
 ##
-public type TerminalBackend:
-    LinuxVt
-    WindowsConsole
-    WindowsConPty
-    VtStream
-    UnsupportedPlatform
+@abi_type_id(0x5400000000000064)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalBackend:
+    LinuxVt = 1
+    WindowsConsole = 2
+    WindowsConPty = 3
+    VtStream = 4
+    UnsupportedPlatform = 5
 
 ##
-  Description: Names the operation that failed.
+  Description: Names a terminal operation.
+  Evolution: Additive; unknown operations remain safe to format and inspect.
 ##
-public type TerminalOperation:
-    Open
-    Read
-    Write
-    Flush
-    QuerySize
-    AcquireOutputTerminal
-    Pause
-    Resume
-    Close
-    RestorePendingOpen
-    RestorePendingClose
-    SetCursorVisibility
-    SetCursorShape
-    NegotiateCapability
-    Allocate
+@abi_type_id(0x5400000000000065)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalOperation:
+    Open = 1
+    Read = 2
+    Write = 3
+    Flush = 4
+    QuerySize = 5
+    AcquireOutputTerminal = 6
+    Pause = 7
+    Resume = 8
+    Close = 9
+    RestorePendingOpen = 10
+    RestorePendingClose = 11
+    SetCursorVisibility = 12
+    SetCursorShape = 13
+    NegotiateCapability = 14
+    Allocate = 15
+    ValidateOptions = 16
 
 ##
-  Description: Names the stage of the operation that failed.
+  Description: Names a terminal operation stage.
+  Evolution: Additive; unknown stages remain safe to format and inspect.
 ##
-public type TerminalDiagnosticStage:
-    Snapshot
-    AcquireOwnership
-    ConfigureInput
-    ConfigureOutput
-    EnableProtocol
-    Wait
-    Decode
-    Allocate
-    ReverseProtocol
-    RestoreOperatingSystemState
-    ReleaseOwnership
-    ValidateState
+@abi_type_id(0x5400000000000066)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalDiagnosticStage:
+    Snapshot = 1
+    AcquireOwnership = 2
+    ConfigureInput = 3
+    ConfigureOutput = 4
+    EnableProtocol = 5
+    Wait = 6
+    Decode = 7
+    Allocate = 8
+    ReverseProtocol = 9
+    RestoreOperatingSystemState = 10
+    ReleaseOwnership = 11
+    ValidateState = 12
+    ValidateOptions = 13
 
 ##
-  Description: Names a lifecycle state recorded in a diagnostic.
+  Description: Names a terminal lifecycle state.
+  Evolution: Closed; additions require an ABI-major release.
 ##
+@abi_type_id(0x5400000000000067)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public type TerminalSessionState:
-    Opening
-    Active
-    Paused
-    RestorePending
-    Closed
-    FailedOpenRecovery
-    FailedCloseRecovery
+    Opening = 1
+    Active = 2
+    Paused = 3
+    RestorePending = 4
+    Closed = 5
+    FailedOpenRecovery = 6
+    FailedCloseRecovery = 7
 
 ##
-  Description: Carries an operating-system status without a fabricated numeric sentinel.
-  Invariant: Posix errno remains int32. WindowsError is the uint32 GetLastError native domain. Native OS codes remain primitive and open-domain.
+  Description: Carries an operating-system status without absence sentinels.
+  Evolution: Additive; unknown code domains remain diagnostic-only.
 ##
-public type TerminalOsCode:
-    Unavailable
-    PosixErrno:
+@abi_type_id(0x5400000000000068)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalOsCode:
+    Unavailable = 1
+    PosixErrno = 2:
         value: int32
-    WindowsError:
+    WindowsError = 3:
         value: uint32
 
 ##
-  Description: Describes a bounded structured terminal failure.
+  Description: Describes one immutable runtime-origin structured terminal failure.
+  Evolution: Additive opaque; formatting remains safe for unknown metadata.
 ##
-public type TerminalDiagnostic:
-    backend: TerminalBackend
-    operation: TerminalOperation
-    stage: TerminalDiagnosticStage
-    os_code: TerminalOsCode
-    state: TerminalSessionState
-    retryable: boolean
-    detail: TerminalDiagnosticDetail
+@abi_type_id(0x5400000000000069)
+@abi_evolution(additive_opaque)
+@constructor_visibility(runtime)
+public opaque immutable type TerminalDiagnostic
 
 ##
-  Description: Names a requested terminal feature in structured form.
+  Description: Names a requested terminal feature.
+  Evolution: Additive; unknown features remain safe structured data.
 ##
-public type TerminalFeature:
-    AlternateScreen
-    CursorShape
-    BracketedPaste
-    FocusEvents
-    MouseButtons
-    MouseMotion
-    KeyReleaseEvents
-    CompositionEvents
-    EnhancedKeyIdentity
-    TrustedPasteFraming
+@abi_type_id(0x540000000000006a)
+@abi_evolution(non_exhaustive_additive)
+public non_exhaustive type TerminalFeature:
+    AlternateScreen = 1
+    CursorShape = 2
+    BracketedPaste = 3
+    FocusEvents = 4
+    MouseButtons = 5
+    MouseMotion = 6
+    KeyReleaseEvents = 7
+    CompositionEvents = 8
+    EnhancedKeyIdentity = 9
+    TrustedPasteFraming = 10
 
 ##
-  Description: Counts ownership-ending discarded decoder input.
+  Description: Identifies a stable options field for structured validation data.
+  Evolution: Additive; unknown fields remain displayable.
 ##
-public type TerminalDiscardedInput:
-    bytes: TerminalDiscardedByteCount
-    events: TerminalDiscardedEventCount
+@abi_type_id(0x540000000000006b)
+@abi_evolution(non_exhaustive_additive)
+public non_exhaustive type TerminalSessionOptionField:
+    RetainedEvents = 3
+    RetainedBytes = 4
+    CorrelatedEvents = 5
+    CorrelatedBytes = 6
+    CommittedTextBytes = 7
+    CompositionPreeditBytes = 8
+    PasteChunkBytes = 9
+    UnknownChunkBytes = 10
+    PendingSequenceBytes = 11
+    DiagnosticCount = 12
+    DiagnosticBytes = 13
 
 ##
-  Description: Reports failures while opening a terminal session.
-  Invariant: V1 exposes only the process's interactive standard-input/raw-output pair and admits at most one non-Closed TerminalSession for it. The slot is reserved atomically before terminal inspection or mutation and remains owned across Opening, Active, Paused, and RestorePending. TerminalAlreadyOwned means that session still owns the slot. RecoveryPending means a process-owned recovery ledger owns it, and its diagnostic state is exactly FailedOpenRecovery or FailedCloseRecovery so callers can select the matching recovery API. Admission failure does not inspect or mutate terminal state.
-  Invariant: Diagnostic arrays are bounded by configured retained event and byte limits. Error suppressed causes are independently bounded by the language error ABI.
+  Description: Gives structured, non-stringly invalid-options data.
+  Evolution: Additive; unknown variants remain safe to format.
 ##
-public type TerminalSessionOpenError:
-    InputNotInteractive:
+@abi_type_id(0x540000000000006c)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(standard_library)
+public non_exhaustive type TerminalInvalidOptions:
+    RetainedCapacityTooSmall = 2:
+        required_bytes: uint64
+        configured_bytes: uint64
+    CorrelatedGroupTooLarge = 3:
+        required_events: uint64
+        configured_events: uint64
+
+##
+  Description: Reports explicit final validation failures for an immutable options snapshot.
+  Evolution: Closed; family changes only in an ABI-major release.
+##
+@abi_type_id(0x5400000000000070)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public type TerminalSessionOptionsError:
+    InvalidOptions = 1:
+        invalid_options: TerminalInvalidOptions
+
+##
+  Description: Reports terminal session open and resume failures.
+  Evolution: Additive error family; unknown variants propagate by stable family and variant identity.
+##
+@abi_type_id(0x5400000000000071)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalSessionOpenError:
+    InputNotInteractive = 1:
         diagnostic: TerminalDiagnostic
-    OutputNotInteractive:
+    OutputNotInteractive = 2:
         diagnostic: TerminalDiagnostic
-    TerminalAlreadyOwned:
+    TerminalAlreadyOwned = 3:
         diagnostic: TerminalDiagnostic
-    InvalidOptions:
+    InvalidOptions = 4:
+        invalid_options: TerminalInvalidOptions
         diagnostic: TerminalDiagnostic
-    UnsupportedFeature:
+    UnsupportedFeature = 5:
         feature: TerminalFeature
         diagnostic: TerminalDiagnostic
-    ModeReadFailed:
+    ModeReadFailed = 6:
         diagnostic: TerminalDiagnostic
-    ModeWriteFailed:
+    ModeWriteFailed = 7:
         diagnostic: TerminalDiagnostic
-    AllocationFailed:
+    AllocationFailed = 8:
         diagnostic: TerminalDiagnostic
-    RollbackFailed:
-        diagnostics: TerminalDiagnostic[]
-    RecoveryPending:
+    RollbackFailed = 9:
+        diagnostics: TerminalDiagnosticCollection
+    RecoveryPending = 10:
         diagnostic: TerminalDiagnostic
-    ResumeFailed:
-        diagnostic: TerminalDiagnostic
-
-##
-  Description: Reports a read or retained-buffer failure, including pause delivery allocation before restoration begins.
-  Invariant: Error suppressed causes are independently bounded by the language error ABI.
-##
-public type TerminalSessionReadError:
-    ReadFailed:
-        diagnostic: TerminalDiagnostic
-    AllocationFailed:
-        diagnostic: TerminalDiagnostic
-    PauseDeliveryFailed:
+    ResumeFailed = 11:
         diagnostic: TerminalDiagnostic
 
 ##
-  Description: Reports output, cursor, or flush failure.
-  Invariant: Error suppressed causes are independently bounded by the language error ABI.
+  Description: Reports read or pause-delivery failure.
+  Evolution: Additive error family; unknown variants propagate by stable identity.
 ##
-public type TerminalSessionWriteError:
-    WriteFailed:
+@abi_type_id(0x5400000000000072)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalSessionReadError:
+    ReadFailed = 1:
         diagnostic: TerminalDiagnostic
-    FlushFailed:
+    AllocationFailed = 2:
         diagnostic: TerminalDiagnostic
-    UnsupportedCursorShape:
+    PauseDeliveryFailed = 3:
+        diagnostic: TerminalDiagnostic
+    IdentifierExhausted = 4:
         diagnostic: TerminalDiagnostic
 
 ##
-  Description: Reports an invalid operation for the current lifecycle state.
-  Invariant: Error suppressed causes are independently bounded by the language error ABI.
+  Description: Reports session output, cursor, or flush failure.
+  Evolution: Additive error family; unknown variants propagate by stable identity.
 ##
+@abi_type_id(0x5400000000000073)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalSessionWriteError:
+    WriteFailed = 1:
+        diagnostic: TerminalDiagnostic
+    FlushFailed = 2:
+        diagnostic: TerminalDiagnostic
+    UnsupportedCursorShape = 3:
+        diagnostic: TerminalDiagnostic
+
+##
+  Description: Reports an invalid operation for the current session lifecycle state.
+  Evolution: Closed because state transitions are an affine typestate contract.
+##
+@abi_type_id(0x5400000000000074)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
 public type TerminalSessionStateError:
-    SessionOpening:
+    SessionOpening = 1:
         diagnostic: TerminalDiagnostic
-    SessionActive:
+    SessionActive = 2:
         diagnostic: TerminalDiagnostic
-    SessionPaused:
+    SessionPaused = 3:
         diagnostic: TerminalDiagnostic
-    SessionRestorePending:
+    SessionRestorePending = 4:
         diagnostic: TerminalDiagnostic
-    SessionClosed:
+    SessionClosed = 5:
         diagnostic: TerminalDiagnostic
-    SessionFailedRecovery:
+    SessionFailedRecovery = 6:
         diagnostic: TerminalDiagnostic
 
 ##
-  Description: Reports restoration failure, a recovery API invoked while an occupied slot lacks its matching process-owned ledger, or ownership-ending input discard.
-  Invariant: RecoveryOwnerMismatch reports the actual Opening, Active, Paused, RestorePending, FailedOpenRecovery, or FailedCloseRecovery state and performs no mutation or release. CloseDiscardedInput is constructed only after successful restoration, state becomes Closed, and the process-wide slot is released; restoration failure retains decoder data and never constructs or suppresses CloseDiscardedInput.
-  Invariant: Diagnostic arrays are bounded by configured retained event and byte limits. Error suppressed causes are independently bounded by the language error ABI.
+  Description: Reports restoration or process-owned recovery failure; successful close notices are not errors.
+  Evolution: Additive error family; unknown variants propagate by stable identity.
 ##
-public type TerminalSessionRestoreError:
-    RestoreInputModeFailed:
+@abi_type_id(0x5400000000000075)
+@abi_evolution(non_exhaustive_additive)
+@constructor_visibility(runtime)
+public non_exhaustive type TerminalSessionRestoreError:
+    RestoreInputModeFailed = 1:
         diagnostic: TerminalDiagnostic
-    RestoreOutputModeFailed:
+    RestoreOutputModeFailed = 2:
         diagnostic: TerminalDiagnostic
-    RestoreScreenStateFailed:
+    RestoreScreenStateFailed = 3:
         diagnostic: TerminalDiagnostic
-    MultipleRestoreStepsFailed:
-        diagnostics: TerminalDiagnostic[]
-    PendingOpenRollbackFailed:
-        diagnostics: TerminalDiagnostic[]
-    CloseRestorePending:
-        diagnostics: TerminalDiagnostic[]
-    PendingCloseRestoreFailed:
-        diagnostics: TerminalDiagnostic[]
-    RecoveryOwnerMismatch:
-        diagnostic: TerminalDiagnostic
-    CloseDiscardedInput:
-        discarded: TerminalDiscardedInput
+    MultipleRestoreStepsFailed = 4:
+        diagnostics: TerminalDiagnosticCollection
+    PendingOpenRollbackFailed = 5:
+        diagnostics: TerminalDiagnosticCollection
+    CloseRestorePending = 6:
+        diagnostics: TerminalDiagnosticCollection
+    PendingCloseRestoreFailed = 7:
+        diagnostics: TerminalDiagnosticCollection
+    RecoveryOwnerMismatch = 8:
         diagnostic: TerminalDiagnostic
