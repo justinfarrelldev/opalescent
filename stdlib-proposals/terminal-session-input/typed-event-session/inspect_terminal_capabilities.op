@@ -1,10 +1,12 @@
-import terminal_session_open_sync, terminal_session_restore_pending_open_sync, terminal_session_restore_pending_close_sync, terminal_session_capabilities, terminal_session_size_sync, terminal_session_write_sync, terminal_session_flush_sync from standard
-import type TerminalSession from standard
-import type TerminalSessionOptions, TerminalMouseTracking, TerminalCapabilities, TerminalFeatureCapability, TerminalColorCapability, TerminalSessionState, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalInputSequenceTimeoutMilliseconds, TerminalPasteChunkByteLimit, TerminalPendingSequenceByteLimit, TerminalRetainedEventLimit, TerminalRetainedByteLimit from ./typed_event_session.types
+# Proposal-only fixture sketch. Canonical ref name: Type borrows, affine cleanup, and opaque inspectors are proposed syntax.
+import terminal_session_open_sync, terminal_session_restore_pending_open_sync, terminal_session_restore_pending_close_sync, terminal_session_capabilities, terminal_capabilities_feature, terminal_capabilities_trusted_paste_framing, terminal_capabilities_color, terminal_diagnostic_state, terminal_session_size_sync, terminal_session_write_sync, terminal_session_write_diagnostic_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import terminal_session_options_default, terminal_session_options_with_feature_policy, terminal_session_options_validate from standard
+import trusted_terminal_output_from_application_text, safe_terminal_diagnostic_format, safe_terminal_diagnostic_collection_format, terminal_diagnostics_length, terminal_diagnostics_at from standard
+import type TerminalSession, ConstraintViolationError, AllocationFailureError, IndexOutOfBoundsError from standard
+import type TerminalSessionOptions, TerminalSessionFeaturePolicy, TerminalMouseTracking, TerminalCapabilities, TerminalOrdinaryFeature, TerminalFeatureCapability, TerminalTrustedPasteCapability, TerminalColorCapability, TerminalSessionState, TerminalDiagnostic, TerminalDiagnosticCollection, TerminalCloseOutcome, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalInputSequenceTimeoutMilliseconds from ./typed_event_session.types
 
 ##
-  Description: Opens a session and retries it once after successfully restoring only process-owned failed-open recovery. It does not retry TerminalAlreadyOwned or attempt failed-close recovery. Stdout views remain shared coordinator views; this helper does not acquire general output ownership.
-  Visibility: Public because sibling proposal fixtures import this helper.
+  Description: Opens a session and retries once after restoring process-owned failed-open recovery. It never attempts failed-close recovery or steals a live session slot.
 ##
 public let open_terminal_session_with_recovery_sync = f(options: TerminalSessionOptions): TerminalSession errors TerminalSessionOpenError, TerminalSessionRestoreError =>
     guard terminal_session_open_sync(options) into session else open_error =>
@@ -12,59 +14,113 @@ public let open_terminal_session_with_recovery_sync = f(options: TerminalSession
             propagate terminal_session_restore_pending_open_sync() cause open_error
             return propagate terminal_session_open_sync(options)
         if open_error is TerminalSessionOpenError.RecoveryPending into pending:
-            let recovery_state = pending.diagnostic.state
+            let recovery_state = terminal_diagnostic_state(pending.diagnostic)
             if recovery_state is TerminalSessionState.FailedOpenRecovery:
                 propagate terminal_session_restore_pending_open_sync() cause open_error
                 return propagate terminal_session_open_sync(options)
-        return propagate open_error
+        propagate open_error
     return session
 
 ##
-  Description: Retries process-owned pending close restoration and preserves the original cleanup error.
-  Visibility: Public because sibling proposal fixtures import this helper.
+  Description: Retries process-owned pending-close restoration. Failure carries cleanup_error as cause; success returns normally so the caller decides whether to propagate the original notice.
 ##
 public let recover_pending_close_after_editor_sync = f(cleanup_error: TerminalSessionRestoreError): void errors TerminalSessionRestoreError =>
     if cleanup_error is TerminalSessionRestoreError.CloseRestorePending:
         propagate terminal_session_restore_pending_close_sync() cause cleanup_error
+        return void
     propagate cleanup_error
 
-let inspect_open_terminal_capabilities_sync = f(session: TerminalSession): void errors TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError =>
+let inspect_ordinary_capability = f(capabilities: TerminalCapabilities, feature: TerminalOrdinaryFeature): void =>
+    let capability = terminal_capabilities_feature(capabilities, feature)
+    if capability is TerminalFeatureCapability.Unsupported into unsupported:
+        report_unsupported_capability(feature, unsupported.evidence)
+    if capability is TerminalFeatureCapability.Available into available:
+        report_available_capability(feature, available.evidence)
+    if capability is TerminalFeatureCapability.Enabled into enabled:
+        report_enabled_capability(feature, enabled.evidence)
+    return void
+
+let inspect_open_terminal_capabilities_sync = f(ref session: TerminalSession): void errors TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, AllocationFailureError =>
     let capabilities = terminal_session_capabilities(session)
     let size = propagate terminal_session_size_sync(session)
     report_terminal_size(size)
-    let paste_capability = capabilities.bracketed_paste
-    if paste_capability is TerminalFeatureCapability.Unsupported into unsupported:
-        report_unsupported_capability(unsupported.evidence)
-    if paste_capability is TerminalFeatureCapability.Available into available:
-        report_available_capability(available.evidence)
-    if paste_capability is TerminalFeatureCapability.Enabled into enabled:
-        report_enabled_capability(enabled.evidence)
 
-    let color_capability = capabilities.color
+    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.AlternateScreen)
+    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.CursorShape)
+    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.BracketedPaste)
+    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.FocusEvents)
+    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.MouseButtons)
+    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.MouseMotion)
+    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.KeyReleaseEvents)
+    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.CompositionEvents)
+    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.EnhancedKeyIdentity)
+
+    let trusted_paste_capability = terminal_capabilities_trusted_paste_framing(capabilities)
+    if trusted_paste_capability is TerminalTrustedPasteCapability.Unsupported into unsupported_trust:
+        report_unsupported_trusted_paste_capability(unsupported_trust.evidence)
+    if trusted_paste_capability is TerminalTrustedPasteCapability.Available into available_trust:
+        report_trusted_paste_evidence(available_trust.evidence)
+    if trusted_paste_capability is TerminalTrustedPasteCapability.Enabled into enabled_trust:
+        report_trusted_paste_evidence(enabled_trust.evidence)
+
+    let color_capability = terminal_capabilities_color(capabilities)
     if color_capability is TerminalColorCapability.Indexed into indexed:
         report_indexed_color(indexed.count, indexed.evidence)
     if color_capability is TerminalColorCapability.TrueColor into true_color:
         report_true_color(true_color.evidence)
-    propagate terminal_session_write_sync(session, 'capability inspection complete\n')
+
+    let message = propagate trusted_terminal_output_from_application_text('capability inspection complete\n')
+    propagate terminal_session_write_sync(session, message)
     propagate terminal_session_flush_sync(session)
     return void
 
-let inspect_terminal_capabilities_sync = f(): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError =>
-    let options = new TerminalSessionOptions:
+let write_safe_terminal_diagnostic_sync = f(ref session: TerminalSession, diagnostic: TerminalDiagnostic): void errors AllocationFailureError, TerminalSessionWriteError, TerminalSessionStateError =>
+    let safe_output = propagate safe_terminal_diagnostic_format(diagnostic)
+    propagate terminal_session_write_diagnostic_sync(session, safe_output)
+    return void
+
+let write_safe_terminal_diagnostic_collection_sync = f(ref session: TerminalSession, diagnostics: TerminalDiagnosticCollection): void errors AllocationFailureError, IndexOutOfBoundsError, TerminalSessionWriteError, TerminalSessionStateError =>
+    let diagnostic_count = terminal_diagnostics_length(diagnostics)
+    if diagnostic_count > 0:
+        let first_diagnostic = propagate terminal_diagnostics_at(diagnostics, 0)
+        inspect_first_structured_diagnostic(first_diagnostic)
+    let safe_output = propagate safe_terminal_diagnostic_collection_format(diagnostics)
+    propagate terminal_session_write_diagnostic_sync(session, safe_output)
+    return void
+
+let open_and_explicitly_close_terminal_session_sync = f(options: TerminalSessionOptions): void errors TerminalSessionOpenError, TerminalSessionRestoreError =>
+    using session = propagate terminal_session_open_sync(options):
+        let close_outcome = propagate terminal_session_close_sync(session)
+        # Closed is still explicitly owned here, so the last capability snapshot remains available.
+        let closed_capabilities = terminal_session_capabilities(session)
+        inspect_ordinary_capability(closed_capabilities, new TerminalOrdinaryFeature.EnhancedKeyIdentity)
+        if close_outcome is TerminalCloseOutcome.DiscardedInput into discarded:
+            report_discarded_input_counts(discarded.discarded_bytes, discarded.discarded_events)
+    return void
+
+let native_trusted_paste_options = f(): TerminalSessionOptions errors TerminalSessionOptionsError, AllocationFailureError =>
+    # Trusted framing is required while bracketed-paste transport remains disabled; native record boundaries may satisfy it.
+    let feature_policy = new TerminalSessionFeaturePolicy:
         use_alternate_screen: false
         hide_cursor: false
         enable_bracketed_paste: false
-        require_trusted_paste_framing: false
+        require_trusted_paste_framing: true
         enable_enhanced_key_identity: false
         enable_focus_events: false
         mouse_tracking: new TerminalMouseTracking.Disabled
         capture_control_keys: false
         require_requested_features: false
-        input_sequence_timeout: 25 as TerminalInputSequenceTimeoutMilliseconds
-        maximum_paste_chunk_bytes: 4096 as TerminalPasteChunkByteLimit
-        maximum_pending_sequence_bytes: 1024 as TerminalPendingSequenceByteLimit
-        maximum_retained_events: 64 as TerminalRetainedEventLimit
-        maximum_retained_bytes: 65536 as TerminalRetainedByteLimit
+    let defaults = terminal_session_options_default()
+    let configured = propagate terminal_session_options_with_feature_policy(defaults, feature_policy)
+    return propagate terminal_session_options_validate(configured)
+
+let checked_runtime_sequence_timeout = f(runtime_timeout: int32): TerminalInputSequenceTimeoutMilliseconds errors ConstraintViolationError =>
+    return propagate constrain TerminalInputSequenceTimeoutMilliseconds from runtime_timeout
+
+let inspect_terminal_capabilities_sync = f(runtime_timeout: int32): void errors ConstraintViolationError, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+    let checked_timeout = propagate checked_runtime_sequence_timeout(runtime_timeout)
+    report_checked_sequence_timeout(checked_timeout)
+    let options = propagate native_trusted_paste_options()
     using session = propagate open_terminal_session_with_recovery_sync(options):
         propagate inspect_open_terminal_capabilities_sync(session)
     return void

@@ -1,15 +1,17 @@
-import terminal_session_capabilities, terminal_session_output_terminal, terminal_session_size_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_set_cursor_visible_sync, terminal_session_set_cursor_shape_sync, terminal_session_pause_sync, terminal_session_resume_sync from standard
-import cancellation_source_new, cancellation_token, cancellation_request from standard
-import type TerminalSession, CancellationToken, CancellationSource, IndexOutOfBoundsError from standard
+# Proposal-only fixture sketch. Canonical ref name: Type borrows, affine resources, constrain, and opaque inspectors are proposed syntax.
+import terminal_session_capabilities, terminal_session_readiness_source, terminal_session_output_terminal, terminal_session_size_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_set_cursor_visible_sync, terminal_session_set_cursor_shape_sync, terminal_session_pause_sync, terminal_session_resume_sync from standard
+import terminal_session_options_default, terminal_session_options_with_feature_policy, terminal_session_options_with_resource_limits, terminal_session_options_validate from standard
+import trusted_terminal_output_from_application_text, terminal_pause_events_length, terminal_pause_events_at from standard
+import cancellation_source_new, cancellation_token, cancellation_request, system_readiness_wait_sync from standard
 import open_terminal_session_with_recovery_sync, recover_pending_close_after_editor_sync from ./inspect_terminal_capabilities
-import type TerminalSessionOptions, TerminalMouseTracking, TerminalCursorShape, TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalControlCode, TerminalCapabilities, TerminalFeatureCapability, TerminalColorCapability, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalInputSequenceTimeoutMilliseconds, TerminalPasteChunkByteLimit, TerminalPendingSequenceByteLimit, TerminalRetainedEventLimit, TerminalRetainedByteLimit from ./typed_event_session.types
+import type TerminalSession, CancellationToken, CancellationSource, SystemWaitError, IndexOutOfBoundsError, AllocationFailureError from standard
+import type TerminalSessionOptions, TerminalSessionFeaturePolicy, TerminalSessionResourceLimits, TerminalMouseTracking, TerminalCursorShape, TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalControlCode, TerminalPauseEvents, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalInputSequenceTimeoutMilliseconds, TerminalCommittedTextByteLimit, TerminalCompositionPreeditByteLimit, TerminalPasteChunkByteLimit, TerminalUnknownByteChunkLimit, TerminalPendingSequenceByteLimit, TerminalRetainedEventLimit, TerminalRetainedByteLimit, TerminalCorrelatedEventLimit, TerminalCorrelatedByteLimit, TerminalDiagnosticCountLimit, TerminalDiagnosticCollectionByteLimit from ./typed_event_session.types
 
-## Proposal-only fixture sketch. Text, paste, raw bytes, and native metadata remain untrusted and are never rendered.
 let apply_terminal_input_event_to_editor = f(event: TerminalInputEvent): void =>
     if event is TerminalInputEvent.Key into key_event:
         handle_editor_key(key_event)
     if event is TerminalInputEvent.TextInput into text_input:
-        apply_committed_text_to_buffer(text_input.text)
+        apply_committed_text_to_buffer(text_input.text, text_input.origin, text_input.linked_phase)
     if event is TerminalInputEvent.CompositionStarted into composition_started:
         begin_preedit_buffer(composition_started.composition_id)
     if event is TerminalInputEvent.CompositionUpdated into composition:
@@ -17,7 +19,7 @@ let apply_terminal_input_event_to_editor = f(event: TerminalInputEvent): void =>
     if event is TerminalInputEvent.CompositionEnded into composition_ended:
         finish_preedit_buffer(composition_ended.composition_id, composition_ended.outcome)
     if event is TerminalInputEvent.Paste into paste:
-        apply_paste_to_buffer(paste.text, paste.phase)
+        apply_trusted_paste_to_buffer(paste.text, paste.phase, paste.evidence)
     if event is TerminalInputEvent.Mouse into mouse:
         apply_mouse_to_editor(mouse.action, mouse.modifiers, mouse.row, mouse.column)
     if event is TerminalInputEvent.Resize into resize:
@@ -34,28 +36,37 @@ let apply_terminal_input_event_to_editor = f(event: TerminalInputEvent): void =>
         clear_incremental_input_state()
     return void
 
-let apply_pause_events_sync = f(events: TerminalInputEvent[]): void errors IndexOutOfBoundsError =>
+let apply_pause_events_sync = f(events: TerminalPauseEvents): void errors IndexOutOfBoundsError =>
     let mutable index: int64 = 0
-    while index < events.length:
-        let event = propagate events.at(index)
+    let event_count = terminal_pause_events_length(events)
+    while index < event_count:
+        let event = propagate terminal_pause_events_at(events, index)
         apply_terminal_input_event_to_editor(event)
         index = index + 1
     return void
 
-let run_open_editor_session_sync = f(session: TerminalSession, token: CancellationToken): void errors TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionOpenError, TerminalSessionRestoreError, IndexOutOfBoundsError =>
+let run_open_editor_session_sync = f(mutable ref session: TerminalSession, token: CancellationToken): void errors SystemWaitError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionOpenError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
     let capabilities = terminal_session_capabilities(session)
-    let mutable output = propagate terminal_session_output_terminal(session)
+    let readiness_source = terminal_session_readiness_source(session)
+    let output = propagate terminal_session_output_terminal(session)
     let size = propagate terminal_session_size_sync(session)
     prepare_editor_view(output, size, capabilities)
-    propagate terminal_session_write_sync(session, trusted_editor_frame())
+
+    # This conversion is the explicit trust boundary; trusted_editor_frame is application-generated rendering only.
+    let initial_frame = propagate trusted_terminal_output_from_application_text(trusted_editor_frame())
+    propagate terminal_session_write_sync(session, initial_frame)
     propagate terminal_session_set_cursor_visible_sync(session, true)
     propagate terminal_session_set_cursor_shape_sync(session, new TerminalCursorShape.SteadyBar)
     propagate terminal_session_flush_sync(session)
 
     let mutable running = true
     while running:
-        # Parser/buffer boundary: dequeue one bounded shared event without requiring per-event allocation, preserving future read_events_sync.
-        let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Forever, token)
+        # The generic wait may also contain RPC/watch/process/timer sources. Readiness is only a hint.
+        propagate system_readiness_wait_sync(readiness_source, token)
+        let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Poll, token)
+        if event is TerminalInputEvent.TimedOut:
+            # Another consumer or a state/deadline transition made the readiness observation stale.
+            continue
 
         if event is TerminalInputEvent.Key into key_event:
             let logical_key = key_event.key
@@ -65,7 +76,7 @@ let run_open_editor_session_sync = f(session: TerminalSession, token: Cancellati
                     propagate apply_pause_events_sync(pause_result.events)
                     hand_terminal_to_child_process_placeholder()
                     propagate terminal_session_resume_sync(session)
-                    # The existing output view follows coordinator state at each fallible operation, so reacquisition is optional after resume.
+                    # The readiness source identity remains the same across pause/resume.
                     let resumed_size = propagate terminal_session_size_sync(session)
                     redraw_editor_view(output, resumed_size)
 
@@ -80,10 +91,8 @@ let run_open_editor_session_sync = f(session: TerminalSession, token: Cancellati
         propagate terminal_session_flush_sync(session)
     return void
 
-let run_editor_event_loop_sync = f(): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, IndexOutOfBoundsError =>
-    let source = cancellation_source_new()
-    let token = cancellation_token(source)
-    let options = new TerminalSessionOptions:
+let configured_editor_options = f(): TerminalSessionOptions errors TerminalSessionOptionsError, AllocationFailureError =>
+    let feature_policy = new TerminalSessionFeaturePolicy:
         use_alternate_screen: true
         hide_cursor: true
         enable_bracketed_paste: true
@@ -93,24 +102,47 @@ let run_editor_event_loop_sync = f(): void errors TerminalSessionOpenError, Term
         mouse_tracking: new TerminalMouseTracking.ButtonsAndDrag
         capture_control_keys: true
         require_requested_features: false
+
+    let resource_limits = new TerminalSessionResourceLimits:
         input_sequence_timeout: 25 as TerminalInputSequenceTimeoutMilliseconds
+        maximum_committed_text_bytes: 4096 as TerminalCommittedTextByteLimit
+        maximum_composition_preedit_bytes: 4096 as TerminalCompositionPreeditByteLimit
         maximum_paste_chunk_bytes: 4096 as TerminalPasteChunkByteLimit
+        maximum_unknown_chunk_bytes: 1024 as TerminalUnknownByteChunkLimit
         maximum_pending_sequence_bytes: 1024 as TerminalPendingSequenceByteLimit
         maximum_retained_events: 1024 as TerminalRetainedEventLimit
         maximum_retained_bytes: 1048576 as TerminalRetainedByteLimit
+        maximum_correlated_events: 64 as TerminalCorrelatedEventLimit
+        maximum_correlated_bytes: 65536 as TerminalCorrelatedByteLimit
+        maximum_diagnostics: 16 as TerminalDiagnosticCountLimit
+        maximum_diagnostic_bytes: 65536 as TerminalDiagnosticCollectionByteLimit
+
+    let defaults = terminal_session_options_default()
+    let with_limits = propagate terminal_session_options_with_resource_limits(defaults, resource_limits)
+    let with_features = propagate terminal_session_options_with_feature_policy(with_limits, feature_policy)
+    return propagate terminal_session_options_validate(with_features)
+
+let run_editor_event_loop_sync = f(): void errors SystemWaitError, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
+    let source = propagate cancellation_source_new()
+    let token = cancellation_token(source)
+    let options = propagate configured_editor_options()
 
     guard run_editor_session_with_using_sync(options, token) else cleanup_error =>
         if cleanup_error is TerminalSessionRestoreError.CloseRestorePending:
             propagate recover_pending_close_after_editor_sync(cleanup_error)
+            # Recovery succeeded; deliberately propagate the original cleanup error exactly once.
+            propagate cleanup_error
         propagate cleanup_error
     return void
 
-let run_editor_session_with_using_sync = f(options: TerminalSessionOptions, token: CancellationToken): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, IndexOutOfBoundsError =>
+let run_editor_session_with_using_sync = f(options: TerminalSessionOptions, token: CancellationToken): void errors SystemWaitError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
     using session = propagate open_terminal_session_with_recovery_sync(options):
         propagate run_open_editor_session_sync(session, token)
     return void
 
-## A signal coordinator or another thread may safely call this. It wakes the read wait set without polling.
-let request_editor_cancellation_sync = f(source: CancellationSource): void =>
+##
+  Description: Requests cancellation on the thread that owns the moved source authority. No second-class reference crosses a thread boundary.
+##
+public let request_editor_cancellation_sync = f(mutable ref source: CancellationSource): void =>
     cancellation_request(source)
     return void
