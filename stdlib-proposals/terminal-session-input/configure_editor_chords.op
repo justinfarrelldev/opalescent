@@ -1,0 +1,92 @@
+# Proposal-only companion fixture. Chord/router declarations are authoritative in terminal_chords.types.op.
+import terminal_capabilities_feature from standard
+import terminal_chord_modifiers, terminal_chord_new, terminal_chord_with_lock_modifier_mask, terminal_chord_sequence_single, terminal_chord_sequence_append, terminal_chord_router_new, terminal_chord_router_register, terminal_chord_router_process, terminal_chord_router_expire_sync, terminal_chord_router_reset, terminal_chord_released_input_length, terminal_chord_released_input_at from standard
+import type AllocationFailureError, IndexOutOfBoundsError from standard
+import type TerminalCapabilities, TerminalOrdinaryFeature, TerminalFeatureCapability, TerminalControlCode, TerminalFunctionKeyNumber, TerminalNamedKey, TerminalInputEvent, TerminalInputSequenceTimeoutMilliseconds from ./typed-event-session/typed_event_session.types
+import type TerminalChordKey, TerminalChordTrigger, TerminalChordLogicalText, TerminalChordModifiers, TerminalChord, TerminalLockModifierMask, TerminalChordSequence, TerminalChordTextPolicy, TerminalChordPrefixPolicy, TerminalChordRouterPolicy, TerminalChordRegistrationLimit, TerminalChordSequenceLengthLimit, TerminalChordBufferedEventLimit, TerminalChordPriority, TerminalChordBindingId, TerminalChordValidationError, TerminalChordRouter, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordResetReason from ./terminal_chords.types
+
+let register_single_chord = f(mutable ref router: TerminalChordRouter, chord: TerminalChord, priority: TerminalChordPriority, text_policy: TerminalChordTextPolicy): TerminalChordBindingId errors TerminalChordValidationError, AllocationFailureError =>
+    let sequence = propagate terminal_chord_sequence_single(chord)
+    return propagate terminal_chord_router_register(router, sequence, priority, text_policy)
+
+let register_editor_chords = f(mutable ref router: TerminalChordRouter, capabilities: TerminalCapabilities): void errors TerminalChordValidationError, AllocationFailureError =>
+    let no_modifiers = terminal_chord_modifiers(false, false, false, false)
+    let control_modifiers = terminal_chord_modifiers(false, true, false, false)
+
+    let control_key = new TerminalChordKey.Control:
+        code: 17 as TerminalControlCode
+    let control_chord = terminal_chord_new(control_key, control_modifiers, new TerminalChordTrigger.PressOrRepeat)
+    let quit_binding = propagate register_single_chord(router, control_chord, 100 as TerminalChordPriority, new TerminalChordTextPolicy.SuppressLinkedText)
+    remember_editor_binding(quit_binding, 'quit')
+
+    let named_key = new TerminalChordKey.Named:
+        key: new TerminalNamedKey.Escape
+    let named_chord = terminal_chord_new(named_key, no_modifiers, new TerminalChordTrigger.Press)
+    let escape_binding = propagate register_single_chord(router, named_chord, 90 as TerminalChordPriority, new TerminalChordTextPolicy.PreserveLinkedText)
+    remember_editor_binding(escape_binding, 'escape')
+
+    let function_key = new TerminalChordKey.Function:
+        number: 4 as TerminalFunctionKeyNumber
+    let function_chord = terminal_chord_new(function_key, no_modifiers, new TerminalChordTrigger.Press)
+    let lock_sensitive_function = terminal_chord_with_lock_modifier_mask(function_chord, new TerminalLockModifierMask.MatchAllLocks)
+    let function_binding = propagate register_single_chord(router, lock_sensitive_function, 80 as TerminalChordPriority, new TerminalChordTextPolicy.SuppressLinkedText)
+    remember_editor_binding(function_binding, 'function-four')
+
+    let enhanced_capability = terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.EnhancedKeyIdentity)
+    if enhanced_capability is TerminalFeatureCapability.Enabled:
+        let enhanced_key = new TerminalChordKey.EnhancedText:
+            logical_text: 'x' as TerminalChordLogicalText
+        let enhanced_chord = terminal_chord_new(enhanced_key, no_modifiers, new TerminalChordTrigger.Press)
+        let enhanced_binding = propagate register_single_chord(router, enhanced_chord, 70 as TerminalChordPriority, new TerminalChordTextPolicy.PreserveLinkedText)
+        remember_editor_binding(enhanced_binding, 'enhanced-x')
+
+    # A two-key sequence exercises the immutable append API without adding session surface.
+    let prefix = propagate terminal_chord_sequence_single(named_chord)
+    let sequence = propagate terminal_chord_sequence_append(prefix, function_chord)
+    let sequence_binding = propagate terminal_chord_router_register(router, sequence, 60 as TerminalChordPriority, new TerminalChordTextPolicy.SuppressLinkedText)
+    remember_editor_binding(sequence_binding, 'escape-then-function-four')
+    return void
+
+let apply_released_chord_input = f(input: TerminalChordReleasedInput): void errors IndexOutOfBoundsError =>
+    let mutable index: int64 = 0
+    let input_count = terminal_chord_released_input_length(input)
+    while index < input_count:
+        let event = propagate terminal_chord_released_input_at(input, index)
+        apply_terminal_input_event_to_editor(event)
+        index = index + 1
+    return void
+
+let process_editor_chord_event = f(mutable ref router: TerminalChordRouter, event: TerminalInputEvent): void errors AllocationFailureError, IndexOutOfBoundsError =>
+    let output = propagate terminal_chord_router_process(router, event)
+    if output is TerminalChordRouterOutput.ReleasedInput into released:
+        propagate apply_released_chord_input(released.input)
+    if output is TerminalChordRouterOutput.Activated into activated:
+        activate_editor_binding_once(activated.binding_id, activated.occurrence)
+        propagate apply_released_chord_input(activated.released_input)
+    return void
+
+let expire_editor_chord_prefix_sync = f(mutable ref router: TerminalChordRouter): void errors AllocationFailureError, IndexOutOfBoundsError =>
+    let output = propagate terminal_chord_router_expire_sync(router)
+    if output is TerminalChordRouterOutput.ReleasedInput into released:
+        propagate apply_released_chord_input(released.input)
+    if output is TerminalChordRouterOutput.Activated into activated:
+        activate_editor_binding_once(activated.binding_id, activated.occurrence)
+        propagate apply_released_chord_input(activated.released_input)
+    return void
+
+let run_chord_router_example = f(capabilities: TerminalCapabilities, event: TerminalInputEvent): void errors TerminalChordValidationError, AllocationFailureError, IndexOutOfBoundsError =>
+    let policy = new TerminalChordRouterPolicy:
+        prefix_policy: new TerminalChordPrefixPolicy.LongestThenPriority
+        sequence_timeout: 750 as TerminalInputSequenceTimeoutMilliseconds
+        maximum_registrations: 128 as TerminalChordRegistrationLimit
+        maximum_sequence_length: 8 as TerminalChordSequenceLengthLimit
+        maximum_buffered_events: 64 as TerminalChordBufferedEventLimit
+
+    using router = propagate terminal_chord_router_new(capabilities, policy):
+        propagate register_editor_chords(router, capabilities)
+        propagate process_editor_chord_event(router, event)
+        # A real editor calls this after its generic monotonic timer source wakes.
+        propagate expire_editor_chord_prefix_sync(router)
+        let released = propagate terminal_chord_router_reset(router, new TerminalChordResetReason.ApplicationRequested)
+        propagate apply_released_chord_input(released)
+    return void

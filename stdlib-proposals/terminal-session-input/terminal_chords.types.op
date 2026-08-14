@@ -1,0 +1,238 @@
+# Proposal-only chord declarations. This .types.op file is the authoritative compiler-administered ABI source for the companion chord router.
+# It contains declarations only; imports and proposed ABI/resource annotations preserve the .types.op file role.
+
+import type TerminalControlCode, TerminalFunctionKeyNumber, TerminalNamedKey, TerminalInputSequenceTimeoutMilliseconds, TerminalKeyOccurrence from ./typed-event-session/typed_event_session.types
+
+##
+  Description: Chooses which normalized Key occurrence activates a chord.
+  Evolution: Closed; matching semantics change only in an ABI-major release.
+##
+@abi_type_id(0x5400000000000100)
+@abi_evolution(closed_major_only)
+public type TerminalChordTrigger:
+    Press = 1
+    PressOrRepeat = 2
+    Release = 3
+
+##
+  Description: Describes an application-constructible command key without granting event construction.
+  Evolution: Closed; additions change matching semantics and require an ABI-major release.
+##
+@abi_type_id(0x5400000000000101)
+@abi_evolution(closed_major_only)
+public type TerminalChordKey:
+    Control = 1:
+        code: TerminalControlCode
+    Named = 2:
+        key: TerminalNamedKey
+    Function = 3:
+        number: TerminalFunctionKeyNumber
+    EnhancedText = 4:
+        logical_text: TerminalChordLogicalText
+
+##
+  Description: Describes application-requested modifier state independently of sealed runtime TerminalModifiers.
+  Evolution: Closed; fields change only in an ABI-major release.
+##
+@abi_type_id(0x5400000000000102)
+@abi_evolution(closed_major_only)
+public type TerminalChordModifiers:
+    shift: boolean
+    control: boolean
+    alt: boolean
+    super_key: boolean
+    caps_lock: boolean
+    num_lock: boolean
+
+##
+  Description: Combines one application-constructible key, modifier policy, and trigger.
+  Evolution: Closed; fields change only in an ABI-major release.
+##
+@abi_type_id(0x5400000000000103)
+@abi_evolution(closed_major_only)
+public type TerminalChord:
+    key: TerminalChordKey
+    modifiers: TerminalChordModifiers
+    lock_modifier_mask: TerminalLockModifierMask
+    trigger: TerminalChordTrigger
+
+##
+  Description: Carries application-registered enhanced logical key text.
+  Invariant: Nonempty, NUL-free valid UTF-8 of at most 256 UTF-8 bytes.
+  Evolution: Closed; constraint changes require an ABI-major release.
+##
+@abi_type_id(0x5400000000000104)
+@abi_evolution(closed_major_only)
+public constrained type TerminalChordLogicalText: string where value.length > 0 and contains_no_nul(value) and utf8_byte_length(value) <= 256
+
+##
+  Description: Selects which lock modifiers participate in chord comparison.
+  Evolution: Closed; additions require an ABI-major release.
+##
+@abi_type_id(0x5400000000000105)
+@abi_evolution(closed_major_only)
+public type TerminalLockModifierMask:
+    IgnoreLocks = 1
+    MatchCapsLock = 2
+    MatchNumLock = 3
+    MatchAllLocks = 4
+
+##
+  Description: Chooses whether linked committed text is preserved or suppressed after binding activation.
+  Evolution: Closed; additions require an ABI-major release.
+##
+@abi_type_id(0x5400000000000106)
+@abi_evolution(closed_major_only)
+public type TerminalChordTextPolicy:
+    PreserveLinkedText = 1
+    SuppressLinkedText = 2
+
+##
+  Description: Chooses how registration resolves overlapping sequence prefixes.
+  Evolution: Closed; additions require an ABI-major release.
+##
+@abi_type_id(0x5400000000000107)
+@abi_evolution(closed_major_only)
+public type TerminalChordPrefixPolicy:
+    RejectAmbiguousPrefixes = 1
+    HigherPriorityWins = 2
+    LongestThenPriority = 3
+
+##
+  Description: Explains an explicit chord-router reset and released buffered input.
+  Evolution: Closed; additions require an ABI-major release.
+##
+@abi_type_id(0x5400000000000108)
+@abi_evolution(closed_major_only)
+public type TerminalChordResetReason:
+    ApplicationRequested = 1
+    FocusLost = 2
+    InputReset = 3
+    Cancelled = 4
+    EndOfInput = 5
+    Pause = 6
+
+##
+  Description: Configures bounded router storage, sequence timeout, and prefix resolution.
+  Evolution: Closed; future router options use new additive APIs rather than changing this record.
+##
+@abi_type_id(0x5400000000000109)
+@abi_evolution(closed_major_only)
+public type TerminalChordRouterPolicy:
+    prefix_policy: TerminalChordPrefixPolicy
+    sequence_timeout: TerminalInputSequenceTimeoutMilliseconds
+    maximum_registrations: TerminalChordRegistrationLimit
+    maximum_sequence_length: TerminalChordSequenceLengthLimit
+    maximum_buffered_events: TerminalChordBufferedEventLimit
+
+##
+  Description: Limits registrations owned by one router.
+  Range: 1..65536.
+  Evolution: Closed; constraint changes require an ABI-major release.
+##
+@abi_type_id(0x540000000000010a)
+@abi_evolution(closed_major_only)
+public constrained type TerminalChordRegistrationLimit: int32 where value >= 1 and value <= 65536
+
+##
+  Description: Limits chords in one immutable sequence.
+  Range: 1..256.
+  Evolution: Closed; constraint changes require an ABI-major release.
+##
+@abi_type_id(0x540000000000010b)
+@abi_evolution(closed_major_only)
+public constrained type TerminalChordSequenceLengthLimit: int32 where value >= 1 and value <= 256
+
+##
+  Description: Limits normalized events buffered by one router.
+  Range: 1..65536.
+  Evolution: Closed; constraint changes require an ABI-major release.
+##
+@abi_type_id(0x540000000000010c)
+@abi_evolution(closed_major_only)
+public constrained type TerminalChordBufferedEventLimit: int32 where value >= 1 and value <= 65536
+
+##
+  Description: Assigns deterministic registration priority; larger values win.
+  Range: -2147483648..2147483647.
+  Evolution: Closed; constraint changes require an ABI-major release.
+##
+@abi_type_id(0x540000000000010d)
+@abi_evolution(closed_major_only)
+public constrained type TerminalChordPriority: int32 where value >= -2147483648 and value <= 2147483647
+
+##
+  Description: Identifies one registered binding within a router; construction is standard-library-only.
+  Range: 1..18446744073709551615.
+  Evolution: Closed; constraint changes require an ABI-major release.
+##
+@abi_type_id(0x540000000000010e)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public constrained type TerminalChordBindingId: uint64 where value >= 1
+
+##
+  Description: Is an immutable bounded application-built sequence of TerminalChord values.
+  Evolution: Closed; representation changes require an ABI-major release.
+##
+@abi_type_id(0x540000000000010f)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public opaque immutable type TerminalChordSequence
+
+##
+  Description: Is immutable input released by the router in original normalized event order.
+  Evolution: Closed; representation changes require an ABI-major release.
+##
+@abi_type_id(0x5400000000000110)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public opaque immutable type TerminalChordReleasedInput
+
+##
+  Description: Reports one router processing step, including activation and any released input.
+  Invariant: At most one Activated value is produced per normalized Key event; occurrence preserves its exact count.
+  Evolution: Closed; processing semantics change only in an ABI-major release.
+##
+@abi_type_id(0x5400000000000111)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public type TerminalChordRouterOutput:
+    Pending = 1
+    ReleasedInput = 2:
+        input: TerminalChordReleasedInput
+    Activated = 3:
+        binding_id: TerminalChordBindingId
+        occurrence: TerminalKeyOccurrence
+        released_input: TerminalChordReleasedInput
+
+##
+  Description: Reports stable structured chord registration failures.
+  Evolution: Closed; validation semantics change only in an ABI-major release.
+##
+@abi_type_id(0x5400000000000112)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public type TerminalChordValidationError:
+    EmptySequence = 1
+    SequenceTooLong = 2:
+        configured_limit: TerminalChordSequenceLengthLimit
+    RegistrationLimitReached = 3:
+        configured_limit: TerminalChordRegistrationLimit
+    DuplicateBinding = 4:
+        existing_binding_id: TerminalChordBindingId
+    PrefixAmbiguity = 5:
+        existing_binding_id: TerminalChordBindingId
+    EnhancedKeyIdentityRequired = 6
+    ReleaseEventsRequired = 7
+    BindingIdentifierExhausted = 8
+
+##
+  Description: Owns bounded registration, prefix, and correlated-input buffering state.
+  Invariant: Affine destruction is deterministic and infallibly releases buffered immutable input and registrations.
+  Evolution: Closed; ownership semantics change only in an ABI-major release.
+##
+@abi_type_id(0x5400000000000113)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public compiler_registered affine resource type TerminalChordRouter
