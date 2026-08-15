@@ -58,6 +58,17 @@ impl Parser {
             }
             TokenType::BooleanLiteral(value) => Ok(self.parse_boolean_literal(value, span)),
             TokenType::Void => Ok(self.parse_void_literal(span)),
+            TokenType::Identifier(name)
+                if name == "constrain"
+                    && self.token_can_start_constrain_target(self.current.saturating_add(1)) =>
+            {
+                self.parse_constrain_expression(span)
+            }
+            TokenType::Identifier(name)
+                if name == "ref" && self.next_token_is_identifier(1) =>
+            {
+                self.parse_borrow_argument_expression(false, span)
+            }
             TokenType::Identifier(name) => Ok(self.parse_identifier(name, span)),
             TokenType::Int8 => Ok(self.parse_identifier("int8".to_owned(), span)),
             TokenType::Int16 => Ok(self.parse_identifier("int16".to_owned(), span)),
@@ -71,6 +82,9 @@ impl Parser {
             TokenType::Float64 => Ok(self.parse_identifier("float64".to_owned(), span)),
             TokenType::String => Ok(self.parse_identifier("string".to_owned(), span)),
             TokenType::Boolean => Ok(self.parse_identifier("boolean".to_owned(), span)),
+            TokenType::Mutable if self.next_token_identifier_is(1, "ref") => {
+                self.parse_borrow_argument_expression(true, span)
+            }
             TokenType::LeftParen => self.parse_parenthesized_expression(span),
             TokenType::LeftBracket => self.parse_array_literal(span),
             token_type @ (TokenType::Minus
@@ -244,27 +258,44 @@ impl Parser {
         }
     }
 
-    /// Parse a propagate expression: `propagate <call_or_constructor_expr>`
+    /// Parse a propagate expression: `propagate <call_or_error_expr> [cause <error_expr>]`
     fn parse_propagate_expression(&mut self, start_span: Span) -> ParseResult<Expr> {
-        // consume 'propagate'
         self.advance();
 
-        // Parse the inner expression and validate it's a call or constructor
         let inner = self.parse_expression()?;
-        match inner {
-            Expr::Call { .. } | Expr::Constructor { .. } => {
-                let end_span = inner.span();
-                let span = Span::new(start_span.start, end_span.end);
-                Ok(Expr::Propagate {
-                    call: Box::new(inner),
-                    span,
-                    id: self.next_node_id(),
-                })
-            }
-            _ => Err(ParseError::InvalidSyntax {
-                message: "'propagate' must be followed by a function call expression".to_owned(),
+        let cause = self
+            .check_contextual_keyword("cause")
+            .then(|| {
+                self.advance();
+                self.parse_expression()
+            })
+            .transpose()?;
+
+        let end = cause
+            .as_ref()
+            .map_or_else(|| inner.span().end, |cause_expr| cause_expr.span().end);
+        let span = Span::new(start_span.start, end);
+
+        let can_propagate = if let &Expr::Identifier { ref name, .. } = &inner {
+            name != "err"
+        } else {
+            matches!(
+                &inner,
+                &Expr::Call { .. } | &Expr::Constructor { .. } | &Expr::Cast { .. }
+            )
+        };
+
+        if can_propagate {
+            Ok(Expr::Propagate {
+                call: Box::new(inner),
+                span,
+                id: self.next_node_id(),
+            })
+        } else {
+            Err(ParseError::InvalidSyntax {
+                message: "'propagate' must be followed by a call, constructor, constrained value, or error value".to_owned(),
                 span: ParseError::span_from_token(self.previous_token()),
-            }),
+            })
         }
     }
 
@@ -613,6 +644,19 @@ impl Parser {
                     id: self.next_node_id(),
                 })
             }
+            TokenType::Is => {
+                let operator =
+                    BinaryOp::try_from(token.token_type.clone()).map_err(|_original_error| {
+                        ParseError::InvalidSyntax {
+                            message: format!("Invalid binary operator: {}", token.token_type),
+                            span: ParseError::span_from_token(&token),
+                        }
+                    })?;
+                let precedence = Precedence::from_token(&token.token_type);
+                self.advance();
+                let right = self.parse_precedence(precedence.next())?;
+                self.finish_is_expression(left, operator, right)
+            }
             TokenType::Plus
             | TokenType::Minus
             | TokenType::Multiply
@@ -622,7 +666,6 @@ impl Parser {
             | TokenType::LessEqual
             | TokenType::Greater
             | TokenType::GreaterEqual
-            | TokenType::Is
             | TokenType::IsNot
             | TokenType::And
             | TokenType::Or

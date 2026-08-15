@@ -5070,6 +5070,92 @@ fn test_terminal_proposal_declaration_metadata_rejections() {
 }
 
 #[test]
+fn test_terminal_proposal_affine_refinement_and_propagation_syntax_parse() {
+    let input = "entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionRestoreError, AllocationFailureError =>
+    let runtime_timeout = 10
+    let options = terminal_session_options_default()
+    let error_value = terminal_session_pending_error()
+    let prior_error = previous_terminal_error()
+    using session = propagate open_terminal_session_with_recovery_sync(options):
+        inspect_session(ref session)
+        mutate_session(mutable ref session)
+        let checked_timeout = propagate constrain TerminalInputSequenceTimeoutMilliseconds from runtime_timeout
+        if error_value is TerminalSessionOpenError.InvalidOptions into invalid:
+            propagate inspect_structured_diagnostic(invalid.diagnostic) cause error_value
+        propagate error_value
+        propagate error_value cause prior_error
+    return void
+
+let inspect_session = f(ref session: TerminalSession): void => return void
+let mutate_session = f(mutable ref session: TerminalSession): void errors TerminalSessionRestoreError => return propagate terminal_session_close_sync(mutable ref session) cause cleanup_error";
+
+    let program = parse_program_from_string(input).expect("Task 7 proposal syntax should parse");
+    assert_eq!(program.declarations.len(), 3);
+
+    let Decl::Let {
+        initializer: Expr::Lambda { params, .. },
+        ..
+    } = &program.declarations[1]
+    else {
+        panic!("expected inspect_session lambda declaration");
+    };
+    assert_eq!(params[0].name, "session");
+    assert!(
+        matches!(params[0].param_type, Type::Basic { ref name, .. } if name == "TerminalSession")
+    );
+
+    let Decl::Let {
+        initializer: Expr::Lambda { params, .. },
+        ..
+    } = &program.declarations[2]
+    else {
+        panic!("expected mutate_session lambda declaration");
+    };
+    assert_eq!(params[0].name, "session");
+    assert!(
+        matches!(params[0].param_type, Type::Basic { ref name, .. } if name == "TerminalSession")
+    );
+}
+
+#[test]
+fn test_terminal_proposal_refinement_and_using_rejections() {
+    let invalid_sources = [
+        (
+            "into after equality",
+            "if value is other_value into payload:\n    return void",
+        ),
+        (
+            "is not into",
+            "if value is not Family.Variant into payload:\n    return void",
+        ),
+        (
+            "compound left refinement",
+            "if value.kind is Family.Variant into payload:\n    return void",
+        ),
+        (
+            "payloadless into",
+            "if value is Family.Variant into:\n    return void",
+        ),
+        (
+            "match alternative",
+            "match value:\n    Family.Variant into payload => handle(payload)",
+        ),
+        ("defer alternative", "defer close(session)"),
+        (
+            "malformed using",
+            "using resource = acquire()\n    return void",
+        ),
+    ];
+
+    for (label, source) in invalid_sources {
+        assert!(
+            parse_statement_from_string(source).is_err(),
+            "{label} should be rejected"
+        );
+    }
+}
+
+#[test]
 fn test_import_single_item() {
     let input = "import is_prime from ./nums";
     let result = parse_program_from_string(input);

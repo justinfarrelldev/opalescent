@@ -341,6 +341,20 @@ impl Parser {
     fn parse_parameter(&mut self) -> ParseResult<Parameter> {
         let start_span = self.current_token().span;
 
+        if self.check(&TokenType::Mutable) {
+            self.advance();
+            if !self.check_contextual_keyword("ref") {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "'ref' after 'mutable' in parameter".to_owned(),
+                    found: format!("{}", self.current_token().token_type),
+                    span: ParseError::span_from_token(self.current_token()),
+                });
+            }
+            self.advance();
+        } else if self.check_contextual_keyword("ref") {
+            self.advance();
+        }
+
         let name = if self.check_identifier() {
             let token = self.advance();
             if let &TokenType::Identifier(ref name) = &token.token_type {

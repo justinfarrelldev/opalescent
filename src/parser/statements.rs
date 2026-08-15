@@ -43,6 +43,17 @@ impl Parser {
                     id: self.next_node_id(),
                 })
             }
+            TokenType::Identifier(ref name)
+                if name == "using"
+                    && self
+                        .tokens
+                        .get(self.current.saturating_add(1))
+                        .is_some_and(|token| {
+                            matches!(token.token_type, TokenType::Identifier(_))
+                        }) =>
+            {
+                self.parse_using_statement()
+            }
             TokenType::Let => self.parse_let_statement(),
             TokenType::Return => self.parse_return_statement(),
             TokenType::LeftBrace => self.parse_block_statement(),
@@ -111,6 +122,66 @@ impl Parser {
         }
 
         false
+    }
+
+    /// Parse `using name = acquisition():` as a scoped block with a leading binding.
+    fn parse_using_statement(&mut self) -> ParseResult<Stmt> {
+        let start_span = self.current_token().span;
+        self.advance();
+
+        if !self.check_identifier() {
+            return Err(ParseError::UnexpectedToken {
+                expected: "binding name after 'using'".to_owned(),
+                found: format!("{}", self.current_token().token_type),
+                span: ParseError::span_from_token(self.current_token()),
+            });
+        }
+
+        let binding_token = self.advance().clone();
+        let (name, name_span) = if let &TokenType::Identifier(ref name) = &binding_token.token_type
+        {
+            (name.clone(), binding_token.span)
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                expected: "binding name after 'using'".to_owned(),
+                found: format!("{}", binding_token.token_type),
+                span: ParseError::span_from_token(&binding_token),
+            });
+        };
+
+        self.consume(&TokenType::Assign, "Expected '=' after using binding")?;
+        self.skip_newlines_and_comments();
+        let acquisition = self.parse_expression()?;
+        let acquisition_span = acquisition.span();
+        self.consume(&TokenType::Colon, "Expected ':' after using acquisition")?;
+        self.skip_newlines();
+        let body = self.parse_indented_body_with_leading_comments(
+            "indentation block after using acquisition ':'",
+        )?;
+        let body_end = body.span().end;
+
+        let binding = self.create_let_binding(name, None, name_span, None, false);
+        let let_stmt = Stmt::Let {
+            binding,
+            initializer: Some(acquisition),
+            span: Span::new(start_span.start, acquisition_span.end),
+            id: self.next_node_id(),
+        };
+
+        let mut statements = vec![let_stmt];
+        match *body {
+            Stmt::Block {
+                statements: mut body_statements,
+                ..
+            } => statements.append(&mut body_statements),
+            other => statements.push(other),
+        }
+
+        Ok(Stmt::Block {
+            statements,
+            span: Span::new(start_span.start, body_end),
+            id: self.next_node_id(),
+        })
     }
 
     /// Parse a let statement (variable binding within a function)
