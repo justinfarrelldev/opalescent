@@ -113,13 +113,14 @@ open-family `RollbackFailed` and `RecoveryPending`, restore-family
 `PendingCloseRestoreFailed` carry `TerminalRecoveryToken` aliases. The
 live-binding `ResumeRestorePending=15` carries diagnostics and no token.
 Open-family `GenerationExhausted=12` is the only reachable generation-capacity
-failure; restore-family value `14` is permanently unavailable.
+failure. Restore-family value `14` is absent from the active declaration and
+has no committed ABI status.
 
 ## Active chord inventory
 
 Commit `384f502718e0a85f40862bfda0d02455b2344575` introduced the contiguous
 baseline `0x5400000000000100` through `0x5400000000000113`. This chord
-declaration revision, `docs(terminal): add atomic chord mutation`, adds only the
+declaration revision `fd278786c68be255dcf10519662c80ab5215a976` adds only the
 next unused IDs `0x5400000000000114` and `0x5400000000000115`. The active range
 is contiguous and contains exactly 22 chord production type IDs.
 
@@ -167,29 +168,29 @@ active declarations.
 
 | Retired ID | Former declaration | Retirement reason | Introduction evidence | Retirement evidence | Replacement | Prior representation evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| `TerminalOperation.AcquireOutputTerminal=6` | Output-terminal acquisition operation | The selected API removes session-derived `StdoutTerminal` authority. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | None | Unavailable |
-| `TerminalSessionState.Opening=1` | Binding state | Opening is coordinator-only before a session binding exists. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | `TerminalCoordinatorState.Opening=2` | Unavailable |
-| `TerminalSessionState.FailedOpenRecovery=6` | Binding state | Failed-open recovery is process-owned and has no session binding. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | `TerminalCoordinatorState.FailedOpenRecovery=6` | Unavailable |
-| `TerminalSessionState.FailedCloseRecovery=7` | Binding state | Failed-close recovery is process-owned after cleanup consumes the binding. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | `TerminalCoordinatorState.FailedCloseRecovery=7` | Unavailable |
-| `TerminalSessionStateError.SessionOpening=1` | Session state error variant | Opening cannot be returned as a rejection for a binding that does not yet exist. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | `TerminalCoordinatorState.Opening=2` | Unavailable |
-| `TerminalSessionStateError.SessionFailedRecovery=6` | Session state error variant | Process-owned recovery has no live binding and therefore no binding-state rejection variant. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | None | Unavailable |
-| `TerminalSessionRestoreError.RecoveryOwnerMismatch=8` | Recovery error variant | Authenticated token validation now distinguishes provenance, kind, stale, consumed, and concurrent-claim failures. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | `WrongSession=9`, `WrongKind=10`, `Stale=11`, `Consumed=12`, `RecoveryInProgress=13` | Unavailable |
+| `TerminalOperation.AcquireOutputTerminal=6` | Output-terminal acquisition operation | The selected API removes session-derived `StdoutTerminal` authority. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | Selected declaration revision `ca10cbfc2831074860b41ef7c01cd4ba0d4c8921` | None | Unavailable |
+| `TerminalSessionState.Opening=1` | Binding state | Opening is coordinator-only before a session binding exists. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | Selected declaration revision `ca10cbfc2831074860b41ef7c01cd4ba0d4c8921` | `TerminalCoordinatorState.Opening=2` | Unavailable |
+| `TerminalSessionState.FailedOpenRecovery=6` | Binding state | Failed-open recovery is process-owned and has no session binding. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | Selected declaration revision `ca10cbfc2831074860b41ef7c01cd4ba0d4c8921` | `TerminalCoordinatorState.FailedOpenRecovery=6` | Unavailable |
+| `TerminalSessionState.FailedCloseRecovery=7` | Binding state | Failed-close recovery is process-owned after cleanup consumes the binding. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | Selected declaration revision `ca10cbfc2831074860b41ef7c01cd4ba0d4c8921` | `TerminalCoordinatorState.FailedCloseRecovery=7` | Unavailable |
+| `TerminalSessionStateError.SessionOpening=1` | Session state error variant | Opening cannot be returned as a rejection for a binding that does not yet exist. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | Selected declaration revision `ca10cbfc2831074860b41ef7c01cd4ba0d4c8921` | `TerminalCoordinatorState.Opening=2` | Unavailable |
+| `TerminalSessionStateError.SessionFailedRecovery=6` | Session state error variant | Process-owned recovery has no live binding and therefore no binding-state rejection variant. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | Selected declaration revision `ca10cbfc2831074860b41ef7c01cd4ba0d4c8921` | None | Unavailable |
+| `TerminalSessionRestoreError.RecoveryOwnerMismatch=8` | Recovery error variant | Authenticated token validation now distinguishes provenance, kind, stale, consumed, and concurrent-claim failures. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | Selected declaration revision `ca10cbfc2831074860b41ef7c01cd4ba0d4c8921` | `WrongSession=9`, `WrongKind=10`, `Stale=11`, `Consumed=12`, `RecoveryInProgress=13` | Unavailable |
 
-## Permanently unavailable reviewed candidate ID
+## Uncommitted reviewed candidate
 
 `TerminalSessionRestoreError.GenerationExhausted=14` appeared only in an
-uncommitted reviewed candidate and has no introduction commit. This selected
-revision permanently records value `14` as retired and never reusable because
-every ownership epoch reserves recovery-generation capacity before `Opening`;
-process-owned transfer cannot exhaust, and retries reuse the same issued
-generation. The sole reachable capacity failure is
+uncommitted reviewed candidate. Git contains no active declaration introducing
+that value and no later removal capable of retiring it. Value `14` is therefore
+unallocated and non-authoritative: it is absent from both the active and retired
+sets and receives no permanent never-reuse claim. The sole reachable
+capacity failure in the committed selected contract is
 `TerminalSessionOpenError.GenerationExhausted=12` during open-family preflight.
 
 ## Chord retirement status
 
 The chord retired set is evidenced empty from the baseline
 `384f502718e0a85f40862bfda0d02455b2344575` through this chord declaration
-revision, `docs(terminal): add atomic chord mutation`. No chord type ID or
+revision `fd278786c68be255dcf10519662c80ab5215a976`. No chord type ID or
 explicit variant ID is removed, reassigned, or retired. In particular,
 `TerminalChordBindingId` retains `0x540000000000010e`, and
 `TerminalChordRouterOutput.Pending` retains discriminator 1. Every future chord
