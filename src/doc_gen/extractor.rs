@@ -2,7 +2,9 @@
 
 extern crate alloc;
 
-use crate::ast::{Decl, Documentation, Program, TypeDef, Visibility};
+use crate::ast::{
+    Decl, DeclarationAnnotation, Documentation, Program, TypeDeclarationForm, TypeDef, Visibility,
+};
 use crate::doc_gen::attributes::{
     DocExample, DocParam, DocReturn, ParsedDocAttributes, parse_doc_attributes,
 };
@@ -35,6 +37,35 @@ pub struct ApiDocSymbol {
     pub description: Option<String>,
     /// Parsed structured attributes.
     pub attributes: ParsedDocAttributes,
+}
+
+/// Render a proposal declaration annotation for API signatures.
+fn annotation_signature(annotation: &DeclarationAnnotation) -> String {
+    match *annotation {
+        DeclarationAnnotation::Availability { ref value, .. } => {
+            format!("@availability({value})")
+        }
+        DeclarationAnnotation::ConstructorVisibility { ref value, .. } => {
+            format!("@constructor_visibility({value})")
+        }
+        DeclarationAnnotation::AbiTypeId { value, .. } => format!("@abi_type_id({value})"),
+        DeclarationAnnotation::AbiEvolution { ref value, .. } => {
+            format!("@abi_evolution({value})")
+        }
+    }
+}
+
+/// Prefix written before `type` for proposal-specific declaration forms.
+const fn type_declaration_form_signature(form: TypeDeclarationForm) -> &'static str {
+    match form {
+        TypeDeclarationForm::Nominal => "",
+        TypeDeclarationForm::Constrained => "constrained ",
+        TypeDeclarationForm::OpaqueImmutable => "opaque immutable ",
+        TypeDeclarationForm::CompilerRegisteredAffineResource => {
+            "compiler_registered affine resource "
+        }
+        TypeDeclarationForm::NonExhaustive => "non_exhaustive ",
+    }
 }
 
 /// Extract public API documentation symbols from the AST.
@@ -72,11 +103,13 @@ pub fn extract_public_api_docs(program: &Program) -> Vec<ApiDocSymbol> {
             Decl::Type {
                 ref name,
                 ref type_def,
+                ref annotations,
+                ref form,
                 ref visibility,
                 ref doc_comment,
                 ..
             } if *visibility == Visibility::Public => {
-                let signature = type_signature(name, type_def);
+                let signature = type_signature(name, type_def, annotations, *form);
                 symbols.push(symbol_from_docs(
                     name,
                     ApiSymbolKind::Type,
@@ -232,10 +265,27 @@ fn function_signature(
 }
 
 /// Render type declaration signature text used by generated docs.
-fn type_signature(name: &str, type_def: &TypeDef) -> String {
+fn type_signature(
+    name: &str,
+    type_def: &TypeDef,
+    annotations: &[DeclarationAnnotation],
+    form: TypeDeclarationForm,
+) -> String {
+    let annotation_prefix = if annotations.is_empty() {
+        String::new()
+    } else {
+        let rendered = annotations
+            .iter()
+            .map(annotation_signature)
+            .collect::<Vec<_>>()
+            .join(" ");
+        format!("{rendered} ")
+    };
+    let form_prefix = type_declaration_form_signature(form);
+
     match *type_def {
         TypeDef::Sum { ref variants, .. } => {
-            let mut signature = format!("type {name}: ");
+            let mut signature = format!("{annotation_prefix}{form_prefix}type {name}: ");
             for (index, variant) in variants.iter().enumerate() {
                 if index > 0 {
                     signature.push_str(" | ");
@@ -245,7 +295,7 @@ fn type_signature(name: &str, type_def: &TypeDef) -> String {
             signature
         }
         TypeDef::Product { ref fields, .. } => {
-            let mut signature = format!("type {name}: ");
+            let mut signature = format!("{annotation_prefix}{form_prefix}type {name}: ");
             for (index, field) in fields.iter().enumerate() {
                 if index > 0 {
                     signature.push_str(", ");
@@ -257,10 +307,18 @@ fn type_signature(name: &str, type_def: &TypeDef) -> String {
             signature
         }
         TypeDef::Alias {
-            ref target_type, ..
+            ref target_type,
+            ref constraint,
+            ..
         } => {
-            format!("type {name}: {}", target_type.to_signature_string())
+            let where_clause = constraint.as_ref().map_or_else(String::new, |predicate| {
+                format!(" where {}", predicate.expression)
+            });
+            format!(
+                "{annotation_prefix}{form_prefix}type {name}: {}{where_clause}",
+                target_type.to_signature_string()
+            )
         }
-        TypeDef::Opaque { .. } => format!("type {name}"),
+        TypeDef::Opaque { .. } => format!("{annotation_prefix}{form_prefix}type {name}"),
     }
 }

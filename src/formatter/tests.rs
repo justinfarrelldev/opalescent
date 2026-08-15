@@ -1654,6 +1654,99 @@ entry main = f(): void =>
         );
     }
 
+    #[test]
+    fn test_formatter_preserves_terminal_proposal_syntax_metadata() {
+        let source = "\
+# terminal proposal declarations
+namespace standard.terminal
+
+##
+  Description: Runtime-owned terminal session state.
+##
+@availability(test_only)
+@constructor_visibility(runtime)
+@abi_type_id(42)
+@abi_evolution(additive_opaque)
+public opaque immutable type TerminalSession
+
+@abi_type_id(43)
+public constrained type TerminalSessionId: uint64 where value > 0
+
+@abi_type_id(44)
+public compiler_registered affine resource type TerminalLease
+
+@abi_type_id(45)
+public non_exhaustive type TerminalEvent:
+    Key = 1:
+        key: string
+    Resize = 2:
+        width: int32
+        height: int32
+
+entry main = f(args: string[]): void =>
+    using session = open_terminal_session():
+        let event = constrain TerminalEvent from read_event(ref session)
+        if event is TerminalEvent.Key into payload:
+            propagate handle_key(mutable ref session, payload) cause payload
+        return void
+";
+        let fmt = Formatter::with_defaults();
+        let first_pass = fmt
+            .format_source(source)
+            .expect("proposal syntax should format");
+        let second_pass = fmt
+            .format_source(&first_pass)
+            .expect("formatted proposal syntax should reformat");
+
+        assert_eq!(
+            first_pass, second_pass,
+            "proposal syntax formatting should be idempotent"
+        );
+        for expected in [
+            "# terminal proposal declarations",
+            "namespace standard.terminal",
+            "@availability(test_only)",
+            "@constructor_visibility(runtime)",
+            "@abi_type_id(42)",
+            "@abi_evolution(additive_opaque)",
+            "public opaque immutable type TerminalSession",
+            "public constrained type TerminalSessionId: uint64 where value > 0",
+            "public compiler_registered affine resource type TerminalLease",
+            "public non_exhaustive type TerminalEvent:",
+            "Key = 1:\n        key: string",
+            "Resize = 2:\n        width: int32\n        height: int32",
+            "using session = open_terminal_session():",
+            "constrain TerminalEvent from read_event(ref session)",
+            "event is TerminalEvent.Key into payload",
+            "propagate handle_key(mutable ref session, payload) cause payload",
+        ] {
+            assert!(
+                first_pass.contains(expected),
+                "formatted proposal source should retain `{expected}`, got: {first_pass}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_formatter_reports_unknown_proposal_annotation() {
+        let source = "\
+@terminal_only(test_only)
+public opaque immutable type TerminalSession
+";
+        let fmt = Formatter::with_defaults();
+        let result = fmt.format_source(source);
+
+        assert!(
+            result.is_err(),
+            "formatter should reject unknown proposal annotations"
+        );
+        let error_text = format!("{result:?}");
+        assert!(
+            error_text.contains("unknown declaration annotation '@terminal_only'"),
+            "formatter should surface the precise annotation diagnostic, got: {error_text}"
+        );
+    }
+
     /// Misaligned field lines inside a `new Type:` block must fail to parse
     /// entirely (unexpected dedent/indent), guaranteeing that `fmt --check`
     /// — which runs the formatter and diffs — bubbles the error up fast.

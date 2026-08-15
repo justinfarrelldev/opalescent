@@ -2,7 +2,9 @@
 
 extern crate alloc;
 
-use crate::ast::{BinaryOp, LiteralValue, Type, UnaryOp};
+use crate::ast::{
+    BinaryOp, DeclarationAnnotation, LiteralValue, Pattern, Type, TypeDeclarationForm, UnaryOp,
+};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -31,6 +33,72 @@ pub(super) fn print_type(ty: &Type) -> String {
             let arg_strs: Vec<String> = type_args.iter().map(print_type).collect();
             format!("{name}<{}>", arg_strs.join(", "))
         }
+    }
+}
+
+/// Pretty-print a pattern.
+pub(super) fn print_pattern(pattern: &Pattern) -> String {
+    match *pattern {
+        Pattern::Literal { ref value, .. } => print_literal(value),
+        Pattern::Binding { ref name, .. } => name.clone(),
+        Pattern::Wildcard { .. } => String::from("_"),
+        Pattern::Variant {
+            ref type_name,
+            ref variant_name,
+            ref fields,
+            ..
+        } => {
+            let prefix = type_name
+                .as_ref()
+                .map_or_else(String::new, |tn| format!("{tn}."));
+            if fields.is_empty() {
+                format!("{prefix}{variant_name}")
+            } else {
+                let field_strings: Vec<String> = fields
+                    .iter()
+                    .map(|pair| {
+                        pair.0.as_ref().map_or_else(
+                            || print_pattern(&pair.1),
+                            |field_name| format!("{field_name}: {}", print_pattern(&pair.1)),
+                        )
+                    })
+                    .collect();
+                format!("{prefix}{variant_name}({})", field_strings.join(", "))
+            }
+        }
+        Pattern::Tuple { ref elements, .. } => {
+            let pattern_strings: Vec<String> = elements.iter().map(print_pattern).collect();
+            format!("({})", pattern_strings.join(", "))
+        }
+    }
+}
+
+/// Pretty-print a proposal declaration annotation.
+pub(super) fn print_declaration_annotation(annotation: &DeclarationAnnotation) -> String {
+    match *annotation {
+        DeclarationAnnotation::Availability { ref value, .. } => {
+            format!("@availability({value})")
+        }
+        DeclarationAnnotation::ConstructorVisibility { ref value, .. } => {
+            format!("@constructor_visibility({value})")
+        }
+        DeclarationAnnotation::AbiTypeId { value, .. } => format!("@abi_type_id({value})"),
+        DeclarationAnnotation::AbiEvolution { ref value, .. } => {
+            format!("@abi_evolution({value})")
+        }
+    }
+}
+
+/// Prefix written before `type` for proposal-specific declaration forms.
+pub(super) const fn print_type_declaration_form(form: TypeDeclarationForm) -> &'static str {
+    match form {
+        TypeDeclarationForm::Nominal => "",
+        TypeDeclarationForm::Constrained => "constrained ",
+        TypeDeclarationForm::OpaqueImmutable => "opaque immutable ",
+        TypeDeclarationForm::CompilerRegisteredAffineResource => {
+            "compiler_registered affine resource "
+        }
+        TypeDeclarationForm::NonExhaustive => "non_exhaustive ",
     }
 }
 

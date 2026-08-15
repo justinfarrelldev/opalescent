@@ -161,6 +161,40 @@ fn test_extractor_renders_labeled_multi_return_signatures() {
 }
 
 #[test]
+fn test_extractor_preserves_proposal_type_metadata_in_signatures() {
+    let source = "##\n  Description: Runtime-owned terminal session state.\n##\n@availability(test_only)\n@constructor_visibility(runtime)\n@abi_type_id(42)\n@abi_evolution(additive_opaque)\npublic opaque immutable type TerminalSession\n\n##\n  Description: Positive terminal session identifier.\n##\n@abi_type_id(43)\npublic constrained type TerminalSessionId: uint64 where value > 0";
+    let program_option = parse_program(source);
+    assert!(
+        program_option.is_some(),
+        "program should parse successfully"
+    );
+    let Some(program) = program_option else {
+        return;
+    };
+    let symbols = extract_public_api_docs(&program);
+
+    let session = symbols
+        .iter()
+        .find(|symbol| symbol.name == "TerminalSession")
+        .expect("public opaque proposal type should be documented");
+    assert_eq!(
+        session.signature,
+        "@availability(test_only) @constructor_visibility(runtime) @abi_type_id(42) @abi_evolution(additive_opaque) opaque immutable type TerminalSession",
+        "doc signatures should not strip proposal annotations or opaque form"
+    );
+
+    let session_id = symbols
+        .iter()
+        .find(|symbol| symbol.name == "TerminalSessionId")
+        .expect("public constrained proposal type should be documented");
+    assert_eq!(
+        session_id.signature,
+        "@abi_type_id(43) constrained type TerminalSessionId: uint64 where value > 0",
+        "doc signatures should preserve constrained aliases and predicates"
+    );
+}
+
+#[test]
 fn test_renderer_html_mode_renders_html_headings() {
     let source = "##\n  Description: Public user type.\n##\npublic type User:\n    Person";
     let program_option = parse_program(source);

@@ -14,56 +14,20 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::{
-    BorrowKind, Decl, Expr, LambdaBody, MatchArm, Pattern, Program, Stmt, StringPart, TypeDef,
-    UnaryOp, Variant, Visibility,
+    BorrowKind, Decl, Expr, LambdaBody, MatchArm, Program, Stmt, StringPart, TypeDef, UnaryOp,
+    Variant, Visibility,
 };
 use crate::formatter::config::FormatterConfig;
 use crate::formatter::errors::{FormatterError, FormatterResult};
 use crate::formatter::printer_helpers::{
-    escape_single_quoted_string, print_binary_op, print_literal, print_type, print_unary_op,
+    escape_single_quoted_string, print_binary_op, print_declaration_annotation, print_literal,
+    print_pattern, print_type, print_type_declaration_form, print_unary_op,
 };
 use crate::formatter::rules;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 
 // ─── Free functions (no `self`) ──────────────────────────────────────────────
-
-/// Pretty-print a pattern.
-fn print_pattern(pattern: &Pattern) -> String {
-    match *pattern {
-        Pattern::Literal { ref value, .. } => print_literal(value),
-        Pattern::Binding { ref name, .. } => name.clone(),
-        Pattern::Wildcard { .. } => String::from("_"),
-        Pattern::Variant {
-            ref type_name,
-            ref variant_name,
-            ref fields,
-            ..
-        } => {
-            let prefix = type_name
-                .as_ref()
-                .map_or_else(String::new, |tn| format!("{tn}."));
-            if fields.is_empty() {
-                format!("{prefix}{variant_name}")
-            } else {
-                let fs: Vec<String> = fields
-                    .iter()
-                    .map(|pair| {
-                        pair.0.as_ref().map_or_else(
-                            || print_pattern(&pair.1),
-                            |field_name| format!("{field_name}: {}", print_pattern(&pair.1)),
-                        )
-                    })
-                    .collect();
-                format!("{prefix}{variant_name}({})", fs.join(", "))
-            }
-        }
-        Pattern::Tuple { ref elements, .. } => {
-            let ps: Vec<String> = elements.iter().map(print_pattern).collect();
-            format!("({})", ps.join(", "))
-        }
-    }
-}
 
 /// Normalise line endings and indentation so the source can be safely lexed.
 ///
@@ -286,6 +250,8 @@ impl Formatter {
             Decl::Type {
                 ref name,
                 ref type_def,
+                ref annotations,
+                ref form,
                 ref visibility,
                 ref doc_comment,
                 ..
@@ -295,8 +261,32 @@ impl Formatter {
                 } else {
                     ""
                 };
+                let form_prefix = print_type_declaration_form(*form);
                 let body = self.print_type_def(type_def, depth);
-                let decl_str = format!("{}{}type {name}:{body}", self.indent(depth), vis);
+                let decl_str = if matches!(*type_def, TypeDef::Opaque { .. }) {
+                    format!("{}{}{form_prefix}type {name}", self.indent(depth), vis)
+                } else {
+                    format!(
+                        "{}{}{form_prefix}type {name}:{body}",
+                        self.indent(depth),
+                        vis
+                    )
+                };
+                let annotation_lines = annotations
+                    .iter()
+                    .map(|annotation| {
+                        format!(
+                            "{}{}",
+                            self.indent(depth),
+                            print_declaration_annotation(annotation)
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                let decl_with_annotations = if annotation_lines.is_empty() {
+                    decl_str
+                } else {
+                    format!("{}\n{decl_str}", annotation_lines.join("\n"))
+                };
                 if let Some(ref doc) = *doc_comment {
                     let doc_lines: Vec<String> = doc
                         .raw
@@ -308,10 +298,10 @@ impl Formatter {
                         self.indent(depth),
                         doc_lines.join("\n"),
                         self.indent(depth),
-                        decl_str
+                        decl_with_annotations
                     )
                 } else {
-                    decl_str
+                    decl_with_annotations
                 }
             }
             Decl::Import {
@@ -400,8 +390,15 @@ impl Formatter {
     fn print_type_def(&self, type_def: &TypeDef, depth: usize) -> String {
         match *type_def {
             TypeDef::Alias {
-                ref target_type, ..
-            } => format!(" {}", print_type(target_type)),
+                ref target_type,
+                ref constraint,
+                ..
+            } => {
+                let where_clause = constraint.as_ref().map_or_else(String::new, |predicate| {
+                    format!(" where {}", predicate.expression)
+                });
+                format!(" {}{where_clause}", print_type(target_type))
+            }
             TypeDef::Opaque { .. } => String::new(),
             TypeDef::Sum { ref variants, .. } => {
                 let variant_strs: Vec<String> = variants
@@ -440,22 +437,25 @@ impl Formatter {
         let explicit_id = variant
             .explicit_id
             .map_or_else(String::new, |id| format!(" = {id}"));
-        let fields: Vec<String> = variant
-            .fields
-            .iter()
-            .map(|f| format!("{}: {}", f.name, print_type(&f.type_annotation)))
-            .collect();
-        if fields.is_empty() {
-            format!("{}{}{}", self.indent(depth), variant.name, explicit_id)
-        } else {
-            format!(
-                "{}{}{}({})",
-                self.indent(depth),
-                variant.name,
-                explicit_id,
-                fields.join(", ")
-            )
+        if variant.fields.is_empty() {
+            return format!("{}{}{}", self.indent(depth), variant.name, explicit_id);
         }
+
+        let mut lines = vec![format!(
+            "{}{}{}:",
+            self.indent(depth),
+            variant.name,
+            explicit_id
+        )];
+        lines.extend(variant.fields.iter().map(|field| {
+            format!(
+                "{}{}: {}",
+                self.indent(depth.saturating_add(1)),
+                field.name,
+                print_type(&field.type_annotation)
+            )
+        }));
+        lines.join("\n")
     }
 
     /// Print the body statements of a block at the given indent depth.
