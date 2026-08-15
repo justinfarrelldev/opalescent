@@ -1,5 +1,11 @@
 # Batched Event Pump
 
+## Historical status and selected-contract deference
+
+This remains a historical batching alternative, not selected public v1 and not implemented support. Its recorded API body and batching-specific migration constraints are preserved as historical design context rather than redesigned here. For any future design work, the selected [typed-event-session contract](../typed-event-session/proposal.md), [core prerequisites](../core-prerequisites.md), [active declarations](../typed-event-session/typed_event_session.types.op), [ABI history](../typed-event-session/abi-history.md), [chord contract](../CHORDS.md), and [test-only contract](../TESTING.md) control all cross-cutting rules.
+
+In particular, this alternative creates no independent terminal or legacy-I/O owner; no recovery, process-control, diagnostic, readiness, timer, test, trust, or ABI authority; and no session-derived raw-output escape. Any future batch operation must preserve the selected affine ownership/runtime state machine, coordinator rejection-before-consumption/mutation, typed recovery-token validation and retry, separate process-control protocol, structured diagnostics and attachments, generic wait/timer ordering, chord correlation/lifecycle, explicit output declassification, test-only sealed construction, and active/retired ABI authority. Batch contents and diagnostics are never recovery or rendering authority, and signals are never terminal events or batch members.
+
 ## Status
 
 This is a historical batching alternative, not a type-compatible public API. The normative v1 contract is [`../typed-event-session/proposal.md`](../typed-event-session/proposal.md), with authoritative declarations in its `.types.op` file and companion chord declarations in [`../terminal_chords.types.op`](../terminal_chords.types.op).

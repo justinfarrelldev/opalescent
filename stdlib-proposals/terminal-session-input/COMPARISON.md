@@ -1,33 +1,41 @@
 # Terminal Session and Input Comparison
 
-## Scope and decision
+## Selected authority and status
 
-This concern owns process-interactive terminal session/input on Linux and Windows. `typed-event-session` is selected for public v1 because one normalized event per read is the smallest safe surface while the runtime retains parser, restoration, provenance, bounds, and platform responsibility.
+This proposal package selects `typed-event-session` for public v1 because one normalized event per read is the smallest surface that keeps parsing, restoration, provenance, correlation, bounds, and platform translation under runtime ownership. The selected design and every prerequisite in this package are future-only proposals: they are not implemented by the current compiler, runtime, standard library, or test runner. Core/test availability, reference/affine enforcement, and deterministic cleanup prerequisites must land in the same compatible release as the selected proposal.
 
-Normative selected contract: [`typed-event-session/proposal.md`](./typed-event-session/proposal.md)
+Selected package reading order:
 
-Authoritative terminal declarations: [`typed-event-session/typed_event_session.types.op`](./typed-event-session/typed_event_session.types.op)
+1. [future core prerequisites](./core-prerequisites.md) — normative future contracts for legacy-I/O coordination, wait/timer/process-control, `using`, immutable-error attachments, and test-only availability;
+2. [selected normative contract](./typed-event-session/proposal.md);
+3. [selected declarations](./typed-event-session/typed_event_session.types.op) — sole authority for active selected terminal IDs, fields, constructor visibility, ownership, and current representation annotations;
+4. [terminal ABI history](./typed-event-session/abi-history.md) — append-only authority for retired IDs, evidenced historical representations, retirement reasons, and never-reuse records, not an alternate active declaration source;
+5. [chord contract](./CHORDS.md) and [chord declarations](./terminal_chords.types.op);
+6. [test-only contract](./TESTING.md) and [test-only declarations](./terminal_testing.types.op), which own no production terminal ABI IDs;
+7. production examples: [capability and recovery inspection](./typed-event-session/inspect_terminal_capabilities.op), [shared editor event loop](./typed-event-session/run_editor_event_loop.op), and [chord lifecycle](./configure_editor_chords.op); and
+8. historical alternatives: [batched event pump](./batched-event-pump/proposal.md) and [portable input packet stream](./portable-input-packet-stream/proposal.md).
 
-Companion chord behavior/declarations: [`CHORDS.md`](./CHORDS.md) and [`terminal_chords.types.op`](./terminal_chords.types.op)
+The historical alternatives remain records of different read shapes. Their APIs are not selected, implemented, or redesigned by this reconciliation.
 
-RPC, subprocesses, watches, timers, generalized scheduling, editor buffers, and rendering policy remain outside scope. The only shared integration is core-owned `SystemReadinessSource`; no proposal exposes platform handles.
+## Comparison matrix
 
-## Summary matrix
-
-| Axis | Typed Event Session | Batched Event Pump | Portable Input Packet Stream |
+| Axis | Typed Event Session — selected | Batched Event Pump — historical | Portable Input Packet Stream — historical |
 |---|---|---|---|
-| Decision | Selected public v1 | Historical batching alternative | Historical expert transport alternative |
-| Read shape | One normalized event | Bounded event batch | Bounded canonical bytes/packets |
-| Parser owner | Runtime | Runtime | Application |
-| Ownership | Affine session with explicit borrows | Must adopt selected affine session | Separate stream ownership is insufficient for selected guarantees |
-| Correlation | Atomic Key/Text group | Batch boundaries must preserve whole groups | Caller must reconstruct groups |
-| Bounds | Per-value/group plus total accounting | Adds batch carrier/accounting constraints | Transport bound does not bound caller parser |
-| Readiness | Core host-stable source | Same source; batching adds no handles | Requires composition with selected source model |
-| Trust | Sealed evidence and nominal output | Must reuse selected trust types | Raw packets establish no command isolation |
-| Migration cost | Baseline | High: replace public batch shapes | High: move parser/provenance back into runtime |
+| Public read shape | One sealed normalized event; callers drain `Poll` until `TimedOut` after readiness. | Opaque bounded event batch only if later measurement justifies an additive read on the selected session. | Bounded canonical bytes/packets with application-owned parsing. |
+| Legacy I/O coordination | Future prerequisite makes `take_input` fallible and generation-binds every listed legacy writer/terminal operation; rejection consumes or mutates nothing. | Defers completely to the selected coordinator and cannot establish an independent input/output owner. | Historical stream/output-view assumptions are superseded by the selected coordinator; no independent ownership or raw-output bypass is authorized. |
+| Affine ownership and runtime state | One affine `TerminalSession`; compiler-enforced ownership plus a runtime-validated state machine, with no state-indexed v1 types. Coordinator `Free` is the sole no-ledger state; an inspectable `Closed` session is non-owning. | Reuses the same session and lifecycle; a batch carrier owns no terminal lease. | Historical stream states describe only the old transport snapshot and do not override selected session/coordinator ownership. |
+| Recovery authority | Sealed immutable typed-token aliases share one authenticated capability cell; exact provenance/kind/consumed/generation/claim validation; success is one-shot and partial failure is retryable. | Must transport selected typed recovery errors unchanged; a batch or diagnostic is never authority. | Historical authority-free retry/close prose is non-normative; only selected token paths authorize process recovery. |
+| Process control | Separate POSIX process-control source with generated `SuspendRequested`/`Continued`, pause-boundary delivery, acknowledgement, matching continuation, explicit session resume, then application resume. | Uses the same source and ordering; signals are never batched terminal events. | Any historical pause/signal behavior defers to the same source; packets never represent process-control authority. |
+| Structured diagnostics | Stable fields have infallible inspectors; collections expose retained/omitted count and bytes; generic cause/suppressed/truncation rules are future core prerequisites. | Batch errors reuse these nominal families and accounting; no stringly or batch-local authority. | Historical transport diagnostics cannot weaken structured inspection or attachment rules. |
+| Generic wait/timer dependencies | One core-owned affine wait set combines stable terminal, process, timer, and cancellation readiness; wakes are hints and timer generations reject stale wakes. | Same source identity and wait contract; batching adds no handles, wait set, scheduler, or timer. | Must compose with the selected stable source and generic wait/timer contract; packet transport adds no public OS handle. |
+| Chord lifecycle | Companion router supports register, atomic call-level replace/unregister, router-bound never-reused IDs, exact release ordering, caller-owned timer invalidation, and stale-wake `Idle`. | Whole correlated groups must remain intact if a future batch feeds the same router; no separate chord API. | Application parsing does not gain command authority; selected chord semantics remain the only companion lifecycle. |
+| Output trust | Session writes accept only nominal `TrustedTerminalOutput` after explicit application declassification or bounded `SafeTerminalDiagnosticOutput`; no session-derived `StdoutTerminal`. | Reuses exactly those output types and conversion boundary. | Raw packet provenance establishes no rendering trust; the historical output view/write API is not selected authority. |
+| Testability | `standard.testing.terminal` is test-only, runner-authorized, invariant-preserving, and cannot forge sessions/tokens; authentic tokens arise through deterministic fake-backend lifecycle faults. | Future batch tests must use the same availability and sealed-value boundary. | Historical parser tests remain application tests; terminal sealed values and recovery still use selected test-only authority. |
+| ABI authority | Active terminal/chord declarations own current IDs; append-only history owns retirements; core/test-only symbols own no terminal IDs. | May add only batch-owned declarations after adoption and must reconcile selected history. | Historical packet declarations are not selected active ABI and cannot allocate or retire selected IDs. |
+| Migration | Baseline selected v1; adoption is blocked until all named future prerequisites and compatible declaration/history changes land together. | Not type-compatible; any measured future batch is additive on the selected session, not revival of mutable/public batch records. | High-cost migration moves parsing, provenance, trust, recovery, and lifecycle back to selected runtime ownership. |
+| Verbosity | Nominal imports, exhaustive error families, explicit trust conversion, and mandatory cancellation are deliberate safety costs. | Adds carrier/accounting declarations and migration complexity on top of selected errors. | Adds application parser state, packet handling, and platform normalization policy at every call site. |
+| One-event ergonomics | One event per read keeps v1 small; one readiness wake drains repeated `Poll` reads until `TimedOut`, avoiding a wait-set round trip per queued event. | Potentially fewer runtime crossings, but only after evidence justifies another public carrier. | Maximum parser control, but every application owns difficult incremental parsing and cross-platform drift. |
 
-## Why alternatives remain
+## Selection and historical deference
 
-The batched snapshot records potential throughput benefits and batch-specific migration constraints; it is not type-compatible with v1. The packet stream records a lower-level transport tradeoff but intentionally fails the selected goal of centralized portable normalization.
-
-All ownership, ABI, options, error, platform, signal, trust, cancellation, readiness, event, and verification requirements live in the selected proposal and are not repeated here.
+The selected proposal becomes normative only when its required future language/core/standard-library/test-runner facilities are implemented and adopted in the same compatible release. The batching snapshot remains useful for throughput and batch-boundary constraints. The packet-stream snapshot remains useful for documenting the lower-level parser-control tradeoff. Neither historical document owns terminal coordination, affine ownership/runtime state, process control, diagnostics, readiness, recovery, testability, trust, chord lifecycle, or ABI rules; each explicitly defers those subjects to the selected contract without changing its recorded API shape.

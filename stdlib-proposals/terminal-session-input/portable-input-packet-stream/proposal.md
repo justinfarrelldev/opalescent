@@ -1,5 +1,11 @@
 # Portable Input Packet Stream
 
+## Historical status and selected-contract deference
+
+This remains a historical expert transport alternative, not selected public v1 and not implemented support. Its complete recorded API, transport, parser, platform, lifecycle, example, and tradeoff body is preserved as historical design context rather than redesigned here. For any future design work, the selected [typed-event-session contract](../typed-event-session/proposal.md), [core prerequisites](../core-prerequisites.md), [active declarations](../typed-event-session/typed_event_session.types.op), [ABI history](../typed-event-session/abi-history.md), [chord contract](../CHORDS.md), and [test-only contract](../TESTING.md) control all cross-cutting rules.
+
+Historical stream copies, output views, `StdoutTerminal`, direct byte writes, pause/close/retry prose, packet readiness, and parser fixtures grant no selected ownership, recovery, process-control, diagnostic, readiness, timer, test, trust, chord, or ABI authority. Any future transport must preserve the selected affine ownership/runtime state machine and legacy-I/O coordination; lifecycle-issued typed recovery tokens and rejection-before-mutation; separate process-control notifications and explicit resume; structured diagnostics/attachments; generic wait/timer ordering; chord correlation/lifecycle; explicit output declassification with no session-derived generic terminal; test-only sealed construction; and active-declaration/append-only-history authority. Canonical input bytes establish no rendering trust, packets never carry process-control authority, and application parser fixtures cannot forge terminal values or recovery tokens.
+
 ## Overview
 
 This alternative exposes a compiler-registered, nonconstructible `TerminalInputStream` and delivers canonical terminal bytes in bounded `uint8[]` chunks. The stdlib owns mode setup, readiness, resize framing, Windows translation, output-mode setup, pause/resume, and restoration; the editor owns key parsing, ESC disambiguation, paste parsing, and protocol evolution.
