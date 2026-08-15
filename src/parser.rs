@@ -18,6 +18,8 @@
     reason = "Node ID counter must be mutable; arithmetic is intentional for ID generation"
 )]
 
+/// Parser submodule for Task 7 contextual affine/refinement syntax helpers
+mod affine_syntax;
 /// Parser submodule for closure capture analysis
 mod captures;
 /// Parser submodule for proposal declaration metadata and extended type forms
