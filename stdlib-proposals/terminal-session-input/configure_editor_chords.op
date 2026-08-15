@@ -1,18 +1,18 @@
 # Proposal-only production chord example. It intentionally does not import standard.testing.terminal.
 # See TESTING.md for synthetic-event coverage.
-# Application-owned, infallible placeholders used below: editor_binding_map_insert, editor_binding_map_remove,
-# activate_editor_binding_once, apply_terminal_input_event_to_editor, and the editor_chord_capacity_recovery_*
-# phase/access helpers. EditorChordCapacityRecovery is one private fixed-size affine slot with Empty,
-# NeedRelease, NeedTimerSafety, NeedEventRetry, NeedOutputCompletion, and NeedSlotReplenishment phases.
-# Capture moves one released carrier and the still-caller-owned event into an Empty slot without allocation.
-# The object stores one next-release index per carrier, one output-timer-safe bit, and one activation-applied bit;
-# its application helpers advance those fields after each successful side effect, so resumption never reapplies input,
-# timer work, or activation. Each phase helper is valid only for its named phase and advances at most once.
-# EditorChordTimerRecoverySlot
-# owns exactly one disarmed spare MonotonicTimer whose readiness source is already registered with the same
-# application wait set. editor_chord_timer_recovery_slot_swap_exhausted is infallible: it drops the exhausted
-# timer and registration, moves the spare into the active position, and consumes the spare slot. The fallible
-# replenish helper fills only an empty spare slot and must succeed before normal router or wait handling resumes.
+# Application-owned infallible placeholders below are the binding-map operations, activation/application effects,
+# editor_chord_capacity_recovery_* phase/access/mutation helpers other than the two apply_* helpers, the fixed-size
+# capacity capture, the spare-timer swap, and editor_chord_enter_timer_fail_closed. The two capacity apply_* helpers
+# are fallible with IndexOutOfBoundsError because they use indexed released-input access; the spare replenish helper
+# is fallible with AllocationFailureError. EditorChordCapacityRecovery is one private fixed-size affine slot with
+# Empty, NeedRelease, NeedTimerSafety, NeedEventRetry, NeedOutputCompletion, and NeedSlotReplenishment phases.
+# It stores one next-release index per carrier, one output-timer-safe bit, and one activation-applied bit; successful
+# side effects advance those fields so resumption never reapplies input, timer work, or activation.
+# EditorChordTimerRecoverySlot owns exactly one disarmed spare MonotonicTimer whose source is already registered with
+# the same wait set. Its infallible exhaustion swap drops the old timer/registration and moves the spare into place.
+# For non-capacity timer exhaustion, editor_chord_enter_timer_fail_closed synchronously marks a persistent application
+# state, drops the active timer registration/timer, clears the full binding map, and consumes the router owner; router
+# cleanup discards every retained registration and buffered event. No operation accepts those owners afterward.
 # These application-only types and helpers are neither terminal APIs nor production ABI declarations.
 
 import monotonic_timer_arm, monotonic_timer_disarm, monotonic_timer_generation, monotonic_timer_readiness_source, terminal_capabilities_feature, terminal_chord_modifiers, terminal_chord_new, terminal_chord_with_lock_modifier_mask, terminal_chord_sequence_single, terminal_chord_sequence_append, terminal_chord_router_new, terminal_chord_router_register, terminal_chord_router_replace, terminal_chord_router_unregister, terminal_chord_router_process, terminal_chord_router_expire_sync, terminal_chord_router_reset, terminal_chord_released_input_length, terminal_chord_released_input_at from standard
@@ -35,16 +35,29 @@ let apply_released_chord_input_once = f(input: TerminalChordReleasedInput): void
         index = index + 1
     return void
 
-let apply_released_input_then_disarm = f(input: TerminalChordReleasedInput, mutable ref prefix_timer: MonotonicTimer): void errors IndexOutOfBoundsError, MonotonicTimerError =>
-    guard apply_released_chord_input_once(input) else released_input_error =>
-        let ignored_timer_generation = propagate monotonic_timer_disarm(prefix_timer)
-        propagate released_input_error
-    let ignored_timer_generation = propagate monotonic_timer_disarm(prefix_timer)
+let arm_non_capacity_timer_or_fail_closed = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer, deadline: MonotonicDeadline): void errors MonotonicTimerError =>
+    guard monotonic_timer_arm(prefix_timer, deadline) into ignored_timer_generation else timer_error =>
+        # The event/output is already committed. Teardown occurs before this unchanged error escapes.
+        editor_chord_enter_timer_fail_closed(router, prefix_timer)
+        propagate timer_error
     return void
 
-let finish_successful_chord_mutation = f(input: TerminalChordReleasedInput, mutable ref prefix_timer: MonotonicTimer): void errors IndexOutOfBoundsError, MonotonicTimerError =>
-    # Router success has already atomically changed router state. Deliver once, then disarm before later router or wait work.
-    propagate apply_released_input_then_disarm(input, prefix_timer)
+let disarm_non_capacity_timer_or_fail_closed = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer): void errors MonotonicTimerError =>
+    guard monotonic_timer_disarm(prefix_timer) into ignored_timer_generation else timer_error =>
+        editor_chord_enter_timer_fail_closed(router, prefix_timer)
+        propagate timer_error
+    return void
+
+let apply_released_input_then_disarm = f(input: TerminalChordReleasedInput, mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer): void errors IndexOutOfBoundsError, MonotonicTimerError =>
+    guard apply_released_chord_input_once(input) else released_input_error =>
+        propagate disarm_non_capacity_timer_or_fail_closed(router, prefix_timer)
+        propagate released_input_error
+    propagate disarm_non_capacity_timer_or_fail_closed(router, prefix_timer)
+    return void
+
+let finish_successful_chord_mutation = f(input: TerminalChordReleasedInput, mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer): void errors IndexOutOfBoundsError, MonotonicTimerError =>
+    # Router success has already atomically changed router state. Deliver once, then disarm or tear down fail-closed.
+    propagate apply_released_input_then_disarm(input, router, prefix_timer)
     return void
 
 let replace_editor_binding = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer, binding_id: TerminalChordBindingId, replacement: TerminalChordSequence, priority: TerminalChordPriority, text_policy: TerminalChordTextPolicy): void errors TerminalChordValidationError, TerminalChordMutationError, AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
@@ -52,7 +65,7 @@ let replace_editor_binding = f(mutable ref router: TerminalChordRouter, mutable 
     let result = propagate terminal_chord_router_replace(router, binding_id, replacement, priority, text_policy)
     if result is TerminalChordMutationResult.Replaced into replaced:
         # Replace preserves the ID, so its existing application map entry remains valid.
-        propagate finish_successful_chord_mutation(replaced.released_input, prefix_timer)
+        propagate finish_successful_chord_mutation(replaced.released_input, router, prefix_timer)
     return void
 
 let unregister_editor_binding = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer, binding_id: TerminalChordBindingId): void errors TerminalChordMutationError, AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
@@ -61,28 +74,28 @@ let unregister_editor_binding = f(mutable ref router: TerminalChordRouter, mutab
     if result is TerminalChordMutationResult.Unregistered into unregistered:
         # The router has retired this ID, so only now may the application remove its external entry.
         editor_binding_map_remove(unregistered.binding_id)
-        propagate finish_successful_chord_mutation(unregistered.released_input, prefix_timer)
+        propagate finish_successful_chord_mutation(unregistered.released_input, router, prefix_timer)
     return void
 
-let process_chord_router_output = f(output: TerminalChordRouterOutput, mutable ref prefix_timer: MonotonicTimer): void errors IndexOutOfBoundsError, MonotonicTimerError =>
+let process_chord_router_output = f(output: TerminalChordRouterOutput, mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer): void errors IndexOutOfBoundsError, MonotonicTimerError =>
     if output is TerminalChordRouterOutput.Pending into pending:
         # A resolvable prefix provides the exact core-owned deadline to arm on the separate caller timer.
-        let ignored_timer_generation = propagate monotonic_timer_arm(prefix_timer, pending.deadline)
+        propagate arm_non_capacity_timer_or_fail_closed(router, prefix_timer, pending.deadline)
         return void
     if output is TerminalChordRouterOutput.AwaitingCorrelatedInput:
         # Incomplete linked text has no timeout and may not be split.
-        let ignored_timer_generation = propagate monotonic_timer_disarm(prefix_timer)
+        propagate disarm_non_capacity_timer_or_fail_closed(router, prefix_timer)
         return void
     if output is TerminalChordRouterOutput.ReleasedInput into released:
-        propagate apply_released_input_then_disarm(released.input, prefix_timer)
+        propagate apply_released_input_then_disarm(released.input, router, prefix_timer)
         return void
     if output is TerminalChordRouterOutput.Activated into activated:
         activate_editor_binding_once(activated.binding_id, activated.occurrence)
-        propagate apply_released_input_then_disarm(activated.released_input, prefix_timer)
+        propagate apply_released_input_then_disarm(activated.released_input, router, prefix_timer)
         return void
     if output is TerminalChordRouterOutput.Idle:
         # No current router deadline: ensure no caller timer remains armed.
-        let ignored_timer_generation = propagate monotonic_timer_disarm(prefix_timer)
+        propagate disarm_non_capacity_timer_or_fail_closed(router, prefix_timer)
         return void
     return void
 
@@ -157,7 +170,7 @@ let process_editor_chord_event = f(mutable ref router: TerminalChordRouter, muta
             propagate resume_editor_chord_capacity_recovery(capacity_recovery, router, prefix_timer, timer_recovery_slot)
             return void
         propagate process_error
-    propagate process_chord_router_output(output, prefix_timer)
+    propagate process_chord_router_output(output, router, prefix_timer)
     return void
 
 let expire_editor_chord_prefix_after_timer_wake = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer, wake: SystemWaitWake): void errors AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
@@ -172,13 +185,13 @@ let expire_editor_chord_prefix_after_timer_wake = f(mutable ref router: Terminal
         if ready.generation is not monotonic_timer_generation(prefix_timer):
             return void
         let output = propagate terminal_chord_router_expire_sync(router)
-        propagate process_chord_router_output(output, prefix_timer)
+        propagate process_chord_router_output(output, router, prefix_timer)
     return void
 
 let reset_editor_chord_router = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer): void errors AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
     let released = propagate terminal_chord_router_reset(router, new TerminalChordResetReason.ApplicationRequested)
     # Reset release is handled once, then caller timer is disarmed before later routing or waiting.
-    propagate apply_released_input_then_disarm(released, prefix_timer)
+    propagate apply_released_input_then_disarm(released, router, prefix_timer)
     return void
 
 let register_editor_chords = f(mutable ref router: TerminalChordRouter, capabilities: TerminalCapabilities): void errors TerminalChordValidationError, AllocationFailureError =>
