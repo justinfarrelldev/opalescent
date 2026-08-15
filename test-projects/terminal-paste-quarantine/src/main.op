@@ -1,0 +1,67 @@
+import terminal_session_options_default, terminal_session_options_with_feature_policy, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
+
+# Deterministic input plan: TextInput('typed'), Paste('trusted paste', Complete, trusted evidence), UnknownBytes(PasteInvalidUtf8), UnknownBytes(UnrecognizedSequence), InputReset(PasteFallback), EndOfInput.
+# Deterministic fault plan: malformed trusted paste fallback emits only UnknownBytes before exactly one PasteFallback reset; unknown bytes and malformed bytes are quarantined and never routed as commands.
+# Expected final summary: PASTE_QUARANTINE_SUMMARY direct_text=1 trusted_paste=1 quarantined_chunks=2 malformed_chunks=1 unknown_chunks=1 paste_fallback_resets=1 command_activations=0 status=ok
+
+##
+  Description: Proposal RED fixture distinguishing trusted paste chunks from quarantined malformed and unknown bytes.
+##
+entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+    let source = propagate cancellation_source_new()
+    let token = cancellation_token(source)
+    let policy = new TerminalSessionFeaturePolicy:
+        use_alternate_screen: false
+        hide_cursor: false
+        enable_bracketed_paste: true
+        require_trusted_paste_framing: true
+        enable_enhanced_key_identity: true
+        enable_focus_events: false
+        mouse_tracking: new TerminalMouseTracking.Disabled
+        capture_control_keys: false
+        require_requested_features: false
+    let options = propagate terminal_session_options_with_feature_policy(terminal_session_options_default(), policy)
+    let mutable session = propagate terminal_session_open_sync(options)
+
+    let mutable direct_text: int64 = 0
+    let mutable trusted_paste: int64 = 0
+    let mutable quarantined_chunks: int64 = 0
+    let mutable malformed_chunks: int64 = 0
+    let mutable unknown_chunks: int64 = 0
+    let mutable paste_fallback_resets: int64 = 0
+    let mutable command_activations: int64 = 0
+    let mutable running = true
+    let mutable reads: int64 = 0
+
+    while running and reads < 8:
+        let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Poll, token)
+        reads = reads + 1
+
+        if event is TerminalInputEvent.TextInput:
+            if event.origin is TerminalTextInputOrigin.Direct:
+                direct_text = direct_text + 1
+        if event is TerminalInputEvent.Paste:
+            if event.phase is TerminalPastePhase.Complete:
+                trusted_paste = trusted_paste + 1
+        if event is TerminalInputEvent.UnknownBytes:
+            quarantined_chunks = quarantined_chunks + 1
+            if event.reason is TerminalUnknownBytesReason.PasteInvalidUtf8:
+                malformed_chunks = malformed_chunks + 1
+            if event.reason is TerminalUnknownBytesReason.PasteContainsNul:
+                malformed_chunks = malformed_chunks + 1
+            if event.reason is TerminalUnknownBytesReason.UnrecognizedSequence:
+                unknown_chunks = unknown_chunks + 1
+        if event is TerminalInputEvent.InputReset:
+            if event.reason is TerminalInputResetReason.PasteFallback:
+                paste_fallback_resets = paste_fallback_resets + 1
+        if event is TerminalInputEvent.Key:
+            command_activations = command_activations + 1
+        if event is TerminalInputEvent.EndOfInput:
+            running = false
+
+    let summary = propagate trusted_terminal_output_from_application_text('PASTE_QUARANTINE_SUMMARY direct_text={direct_text} trusted_paste={trusted_paste} quarantined_chunks={quarantined_chunks} malformed_chunks={malformed_chunks} unknown_chunks={unknown_chunks} paste_fallback_resets={paste_fallback_resets} command_activations={command_activations} status=ok\n')
+    propagate terminal_session_write_sync(session, summary)
+    propagate terminal_session_flush_sync(session)
+    let close_outcome = propagate terminal_session_close_sync(session)
+    return void

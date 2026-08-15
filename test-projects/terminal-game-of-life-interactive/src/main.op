@@ -1,0 +1,177 @@
+import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
+
+# Deterministic input plan: Key(Text space), Key(Text +), Key(Text -), Key(Text space), Key(Text r), Key(Text q), with one bounded drain between rendered frames.
+# Deterministic fault plan: no randomness and no wall-clock assertion; every frame wait uses scripted TerminalWait.For(40 or 20 ms) readiness and final state comes from deterministic seed boards.
+# Expected final summary: LIFE_INTERACTIVE_SUMMARY generation=1 frames=6 paused=false speed_ms=40 pauses=1 resumes=1 speed_ups=1 speed_downs=1 reseeds=1 quit=true live_cells=3 status=ok
+
+let alive_cell = f(): int8 =>
+    return 1
+
+let dead_cell = f(): int8 =>
+    return 0
+
+let board_index = f(width: int64, x: int64, y: int64): int64 =>
+    return (y * width) + x
+
+let in_bounds = f(width: int64, height: int64, x: int64, y: int64): boolean =>
+    if x < 0:
+        return false
+    if y < 0:
+        return false
+    if x >= width:
+        return false
+    if y >= height:
+        return false
+    return true
+
+let cell_at = f(board: int8[], width: int64, height: int64, x: int64, y: int64): int8 =>
+    if in_bounds(width, height, x, y):
+        let cell: int8 = guard board.at(board_index(width, x, y)) into value: int8 else dead_cell()
+        return cell
+    return dead_cell()
+
+let is_alive_at = f(board: int8[], width: int64, height: int64, x: int64, y: int64): boolean =>
+    return cell_at(board, width, height, x, y) is alive_cell()
+
+let count_live_neighbors = f(board: int8[], width: int64, height: int64, x: int64, y: int64): int64 =>
+    let mutable count: int64 = 0
+    let mutable dy: int64 = -1
+    while dy <= 1:
+        let mutable dx: int64 = -1
+        while dx <= 1:
+            if dx is not 0 or dy is not 0:
+                if is_alive_at(board, width, height, x + dx, y + dy):
+                    count = count + 1
+            dx = dx + 1
+        dy = dy + 1
+    return count
+
+let next_cell_state = f(board: int8[], width: int64, height: int64, x: int64, y: int64): int8 =>
+    let neighbors = count_live_neighbors(board, width, height, x, y)
+    if is_alive_at(board, width, height, x, y):
+        if neighbors is 2 or neighbors is 3:
+            return alive_cell()
+        return dead_cell()
+    if neighbors is 3:
+        return alive_cell()
+    return dead_cell()
+
+let next_generation = f(board: int8[], width: int64, height: int64): int8[] =>
+    let mutable next_board: int8[] = []
+    let mutable y: int64 = 0
+    while y < height:
+        let mutable x: int64 = 0
+        while x < width:
+            next_board.push(next_cell_state(board, width, height, x, y))
+            x = x + 1
+        y = y + 1
+    return next_board
+
+let count_live_cells = f(board: int8[]): int64 =>
+    let mutable index: int64 = 0
+    let mutable live_cells: int64 = 0
+    while index < board.length:
+        let cell: int8 = guard board.at(index) into value: int8 else dead_cell()
+        if cell is alive_cell():
+            live_cells = live_cells + 1
+        index = index + 1
+    return live_cells
+
+let create_vertical_seed_board = f(): int8[] =>
+    let mutable board: int8[] = []
+    board.push(dead_cell())
+    board.push(alive_cell())
+    board.push(dead_cell())
+    board.push(dead_cell())
+    board.push(alive_cell())
+    board.push(dead_cell())
+    board.push(dead_cell())
+    board.push(alive_cell())
+    board.push(dead_cell())
+    return board
+
+let create_horizontal_seed_board = f(): int8[] =>
+    let mutable board: int8[] = []
+    board.push(dead_cell())
+    board.push(dead_cell())
+    board.push(dead_cell())
+    board.push(alive_cell())
+    board.push(alive_cell())
+    board.push(alive_cell())
+    board.push(dead_cell())
+    board.push(dead_cell())
+    board.push(dead_cell())
+    return board
+
+##
+  Description: Proposal RED fixture for deterministic interactive Game of Life controls and final state accounting.
+##
+entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+    let source = propagate cancellation_source_new()
+    let token = cancellation_token(source)
+    let options = terminal_session_options_default()
+    let mutable session = propagate terminal_session_open_sync(options)
+
+    let width: int64 = 3
+    let height: int64 = 3
+    let mutable board: int8[] = create_vertical_seed_board()
+    let mutable generation: int64 = 0
+    let mutable frames: int64 = 0
+    let mutable speed_ms: int32 = 40
+    let mutable paused = false
+    let mutable pauses: int64 = 0
+    let mutable resumes: int64 = 0
+    let mutable speed_ups: int64 = 0
+    let mutable speed_downs: int64 = 0
+    let mutable reseeds: int64 = 0
+    let mutable quit = false
+    let mutable running = true
+
+    while running and frames < 6:
+        if not paused:
+            board = next_generation(board, width, height)
+            generation = generation + 1
+
+        frames = frames + 1
+        let live_cells = count_live_cells(board)
+        let frame = propagate trusted_terminal_output_from_application_text('LIFE_FRAME generation={generation} frame={frames} paused={paused} speed_ms={speed_ms} live_cells={live_cells}\n')
+        propagate terminal_session_write_sync(session, frame)
+        propagate terminal_session_flush_sync(session)
+
+        let wait = new TerminalWait.For:
+            milliseconds: speed_ms as TerminalWaitMilliseconds
+        let event = propagate terminal_session_read_event_sync(session, wait, token)
+        if event is TerminalInputEvent.Key:
+            if event.key is TerminalLogicalKey.Text:
+                if event.key.logical_text is ' ':
+                    if paused:
+                        paused = false
+                        resumes = resumes + 1
+                    else:
+                        paused = true
+                        pauses = pauses + 1
+                if event.key.logical_text is '+':
+                    speed_ms = 20
+                    speed_ups = speed_ups + 1
+                if event.key.logical_text is '-':
+                    speed_ms = 40
+                    speed_downs = speed_downs + 1
+                if event.key.logical_text is 'r':
+                    board = create_horizontal_seed_board()
+                    generation = 0
+                    reseeds = reseeds + 1
+                if event.key.logical_text is 'q':
+                    quit = true
+                    running = false
+        if event is TerminalInputEvent.Cancelled:
+            running = false
+        if event is TerminalInputEvent.EndOfInput:
+            running = false
+
+    let final_live_cells = count_live_cells(board)
+    let summary = propagate trusted_terminal_output_from_application_text('LIFE_INTERACTIVE_SUMMARY generation={generation} frames={frames} paused={paused} speed_ms={speed_ms} pauses={pauses} resumes={resumes} speed_ups={speed_ups} speed_downs={speed_downs} reseeds={reseeds} quit={quit} live_cells={final_live_cells} status=ok\n')
+    propagate terminal_session_write_sync(session, summary)
+    propagate terminal_session_flush_sync(session)
+    let close_outcome = propagate terminal_session_close_sync(session)
+    return void

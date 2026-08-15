@@ -1,0 +1,86 @@
+# Task 5 opt-in interactive RED evidence
+
+Timestamp: 2026-08-15T17:00:10-04:00
+
+Command executed exactly:
+
+```bash
+OPAL_TERMINAL_SESSION_RED=1 cargo test --features integration --test integration_e2e -- terminal_session_input_gated --ignored --nocapture
+```
+
+Observed result: `RED_COMMAND_EXIT_STATUS=101`.
+
+This is the expected RED outcome while selected terminal session, chord, and test support remains unimplemented. The command ran 4 gated tests and all 4 failed intentionally with RED evidence:
+
+- `terminal_session_input_gated_selected_api_red`
+- `terminal_session_input_gated_core_fixtures_red`
+- `terminal_session_input_gated_coordination_and_diagnostics_fixtures_red`
+- `terminal_session_input_gated_remaining_interactive_fixtures_red`
+
+## New Task 5 RED evidence excerpt
+
+`terminal_session_input_gated_remaining_interactive_fixtures_red` reported:
+
+- `terminal-chord-quit` should compile only after selected typed-event-session and chord/test support is implemented; current compiler rejection is expected RED evidence.
+  - input plan: TextInput(draft), TimedOut(expire), Key(Control Ctrl-Q), then unconsumed Key(Named Escape) and EndOfInput
+  - fault plan: Ctrl-Q and Escape bindings registered; exactly one Ctrl-Q activation, one released non-command input, and non-activating expiration evidence
+  - expected stdout summary: `CHORD_QUIT_SUMMARY ctrl_q_binding=1 escape_binding=2 activations=1 released_non_command=1 expirations=1 termination=ctrl-q status=ok`
+  - expected stderr: `""`
+  - expected status: `0`
+  - compiler rejection: `front-end compilation failed`
+
+- `terminal-paste-quarantine` should compile only after selected typed-event-session and chord/test support is implemented; current compiler rejection is expected RED evidence.
+  - input plan: TextInput(direct), Paste(trusted complete), UnknownBytes(PasteInvalidUtf8), UnknownBytes(UnrecognizedSequence), InputReset(PasteFallback), EndOfInput
+  - fault plan: malformed trusted paste fallback emits bounded UnknownBytes before exactly one PasteFallback reset; unknown bytes remain quarantined and non-command
+  - expected stdout summary: `PASTE_QUARANTINE_SUMMARY direct_text=1 trusted_paste=1 quarantined_chunks=2 malformed_chunks=1 unknown_chunks=1 paste_fallback_resets=1 command_activations=0 status=ok`
+  - expected stderr: `""`
+  - expected status: `0`
+  - compiler rejection: `front-end compilation failed`
+
+- `terminal-game-of-life-interactive` should compile only after selected typed-event-session and chord/test support is implemented; current compiler rejection is expected RED evidence.
+  - input plan: Key(Text space pause), Key(Text +), Key(Text -), Key(Text space resume), Key(Text r reseed), Key(Text q quit)
+  - fault plan: deterministic 3x3 blinker boards, bounded TerminalWait.For drains, no randomness, and no wall-clock duration assertion
+  - expected stdout summary: `LIFE_INTERACTIVE_SUMMARY generation=1 frames=6 paused=false speed_ms=40 pauses=1 resumes=1 speed_ups=1 speed_downs=1 reseeds=1 quit=true live_cells=3 status=ok`
+  - expected stderr: `""`
+  - expected status: `0`
+  - compiler rejection: `front-end compilation failed`
+
+- `terminal-sokoban-mini` should compile only after selected typed-event-session and chord/test support is implemented; current compiler rejection is expected RED evidence.
+  - input plan: Key(Named ArrowRight), Key(Named ArrowRight illegal push), Key(Text r reset), Key(Text q quit), EndOfInput
+  - fault plan: fixed 5x4 board rejects wall pushes, reset restores starting coordinates, and every accepted input redraws and flushes once
+  - expected stdout summary: `SOKOBAN_MINI_SUMMARY moves=1 pushes=1 illegal_moves=1 resets=1 redraws=4 player=1,1 box=2,1 solved=false quit=true status=ok`
+  - expected stderr: `""`
+  - expected status: `0`
+  - compiler rejection: `front-end compilation failed`
+
+- `terminal-file-picker` should compile only after selected typed-event-session and chord/test support is implemented; current compiler rejection is expected RED evidence.
+  - input plan: Fixed manifest [fixtures/alpha.txt, fixtures/beta.txt, fixtures/gamma.txt], ArrowDown, ArrowDown, ArrowUp, Enter
+  - fault plan: in-source manifest defines ordering; no host directory listing order or sorting API participates in selection
+  - expected stdout summary: `FILE_PICKER_SUMMARY manifest_count=3 navigations=3 selected_index=1 selected=fixtures/beta.txt cancelled=false status=ok`
+  - expected stderr: `""`
+  - expected status: `0`
+  - compiler rejection: `front-end compilation failed`
+
+- `terminal-stopwatch-pomodoro` should compile only after selected typed-event-session and chord/test support is implemented; current compiler rejection is expected RED evidence.
+  - input plan: Key(Text s), TimedOut, TimedOut, Key(Text p), TimedOut(stale), Key(Text r), Key(Text s), TimedOut, Key(Text q)
+  - fault plan: scripted TimedOut events are the only ticks; stopped timer wake is stale and no wall-clock duration or long Pomodoro interval is asserted
+  - expected stdout summary: `STOPWATCH_POMODORO_SUMMARY elapsed_ticks=1 starts=2 stops=1 resets=1 stale_wakes=1 running=true quit=true status=ok`
+  - expected stderr: `""`
+  - expected status: `0`
+  - compiler rejection: `front-end compilation failed`
+
+## Final command status excerpt
+
+```text
+failures:
+    tests::terminal_session_input_gated::terminal_session_input_gated_coordination_and_diagnostics_fixtures_red
+    tests::terminal_session_input_gated::terminal_session_input_gated_core_fixtures_red
+    tests::terminal_session_input_gated::terminal_session_input_gated_remaining_interactive_fixtures_red
+    tests::terminal_session_input_gated::terminal_session_input_gated_selected_api_red
+
+test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 225 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `--test integration_e2e`
+
+RED_COMMAND_EXIT_STATUS=101
+```

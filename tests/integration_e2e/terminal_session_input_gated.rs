@@ -105,6 +105,69 @@ const COORDINATION_AND_DIAGNOSTIC_TERMINAL_SESSION_FIXTURES: &[TerminalSessionFi
     },
 ];
 
+const REMAINING_INTERACTIVE_TERMINAL_SESSION_FIXTURES: &[TerminalSessionFixtureMetadata] = &[
+    TerminalSessionFixtureMetadata {
+        name: "terminal-chord-quit",
+        opal_toml_path: "test-projects/terminal-chord-quit/opal.toml",
+        source_path: "test-projects/terminal-chord-quit/src/main.op",
+        input_plan: "TextInput(draft), TimedOut(expire), Key(Control Ctrl-Q), then unconsumed Key(Named Escape) and EndOfInput",
+        fault_plan: "Ctrl-Q and Escape bindings registered; exactly one Ctrl-Q activation, one released non-command input, and non-activating expiration evidence",
+        expected_stdout_summary: "CHORD_QUIT_SUMMARY ctrl_q_binding=1 escape_binding=2 activations=1 released_non_command=1 expirations=1 termination=ctrl-q status=ok",
+        expected_stderr: "",
+        expected_status: 0,
+    },
+    TerminalSessionFixtureMetadata {
+        name: "terminal-paste-quarantine",
+        opal_toml_path: "test-projects/terminal-paste-quarantine/opal.toml",
+        source_path: "test-projects/terminal-paste-quarantine/src/main.op",
+        input_plan: "TextInput(direct), Paste(trusted complete), UnknownBytes(PasteInvalidUtf8), UnknownBytes(UnrecognizedSequence), InputReset(PasteFallback), EndOfInput",
+        fault_plan: "malformed trusted paste fallback emits bounded UnknownBytes before exactly one PasteFallback reset; unknown bytes remain quarantined and non-command",
+        expected_stdout_summary: "PASTE_QUARANTINE_SUMMARY direct_text=1 trusted_paste=1 quarantined_chunks=2 malformed_chunks=1 unknown_chunks=1 paste_fallback_resets=1 command_activations=0 status=ok",
+        expected_stderr: "",
+        expected_status: 0,
+    },
+    TerminalSessionFixtureMetadata {
+        name: "terminal-game-of-life-interactive",
+        opal_toml_path: "test-projects/terminal-game-of-life-interactive/opal.toml",
+        source_path: "test-projects/terminal-game-of-life-interactive/src/main.op",
+        input_plan: "Key(Text space pause), Key(Text +), Key(Text -), Key(Text space resume), Key(Text r reseed), Key(Text q quit)",
+        fault_plan: "deterministic 3x3 blinker boards, bounded TerminalWait.For drains, no randomness, and no wall-clock duration assertion",
+        expected_stdout_summary: "LIFE_INTERACTIVE_SUMMARY generation=1 frames=6 paused=false speed_ms=40 pauses=1 resumes=1 speed_ups=1 speed_downs=1 reseeds=1 quit=true live_cells=3 status=ok",
+        expected_stderr: "",
+        expected_status: 0,
+    },
+    TerminalSessionFixtureMetadata {
+        name: "terminal-sokoban-mini",
+        opal_toml_path: "test-projects/terminal-sokoban-mini/opal.toml",
+        source_path: "test-projects/terminal-sokoban-mini/src/main.op",
+        input_plan: "Key(Named ArrowRight), Key(Named ArrowRight illegal push), Key(Text r reset), Key(Text q quit), EndOfInput",
+        fault_plan: "fixed 5x4 board rejects wall pushes, reset restores starting coordinates, and every accepted input redraws and flushes once",
+        expected_stdout_summary: "SOKOBAN_MINI_SUMMARY moves=1 pushes=1 illegal_moves=1 resets=1 redraws=4 player=1,1 box=2,1 solved=false quit=true status=ok",
+        expected_stderr: "",
+        expected_status: 0,
+    },
+    TerminalSessionFixtureMetadata {
+        name: "terminal-file-picker",
+        opal_toml_path: "test-projects/terminal-file-picker/opal.toml",
+        source_path: "test-projects/terminal-file-picker/src/main.op",
+        input_plan: "Fixed manifest [fixtures/alpha.txt, fixtures/beta.txt, fixtures/gamma.txt], ArrowDown, ArrowDown, ArrowUp, Enter",
+        fault_plan: "in-source manifest defines ordering; no host directory listing order or sorting API participates in selection",
+        expected_stdout_summary: "FILE_PICKER_SUMMARY manifest_count=3 navigations=3 selected_index=1 selected=fixtures/beta.txt cancelled=false status=ok",
+        expected_stderr: "",
+        expected_status: 0,
+    },
+    TerminalSessionFixtureMetadata {
+        name: "terminal-stopwatch-pomodoro",
+        opal_toml_path: "test-projects/terminal-stopwatch-pomodoro/opal.toml",
+        source_path: "test-projects/terminal-stopwatch-pomodoro/src/main.op",
+        input_plan: "Key(Text s), TimedOut, TimedOut, Key(Text p), TimedOut(stale), Key(Text r), Key(Text s), TimedOut, Key(Text q)",
+        fault_plan: "scripted TimedOut events are the only ticks; stopped timer wake is stale and no wall-clock duration or long Pomodoro interval is asserted",
+        expected_stdout_summary: "STOPWATCH_POMODORO_SUMMARY elapsed_ticks=1 starts=2 stops=1 resets=1 stale_wakes=1 running=true quit=true status=ok",
+        expected_stderr: "",
+        expected_status: 0,
+    },
+];
+
 fn should_run_terminal_session_red() -> bool {
     std::env::var(TERMINAL_SESSION_RED_ENV)
         .map(|value| value.trim() == "1")
@@ -359,6 +422,103 @@ fn terminal_session_input_gated_coordination_and_diagnostics_fixtures_red() {
     assert!(
         red_evidence.is_empty(),
         "coordination and diagnostic terminal fixtures are intentionally RED until selected terminal session support lands:\n{}",
+        red_evidence.join("\n\n")
+    );
+}
+
+#[test]
+#[ignore = "RED test: opt-in remaining interactive terminal fixtures via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
+fn terminal_session_input_gated_remaining_interactive_fixtures_red() {
+    if !should_run_terminal_session_red() {
+        eprintln!(
+            "skipping terminal_session_input_gated_remaining_interactive_fixtures_red: {TERMINAL_SESSION_RED_ENV} != 1"
+        );
+        return;
+    }
+
+    let mut setup_failures: Vec<String> = Vec::new();
+    let mut red_evidence: Vec<String> = Vec::new();
+
+    for fixture in REMAINING_INTERACTIVE_TERMINAL_SESSION_FIXTURES {
+        if !Path::new(fixture.opal_toml_path).is_file() {
+            setup_failures.push(format!(
+                "{} fixture opal.toml should exist at {}",
+                fixture.name, fixture.opal_toml_path
+            ));
+            continue;
+        }
+
+        let source_path = Path::new(fixture.source_path);
+        let source = match fs::read_to_string(source_path) {
+            Ok(contents) => contents,
+            Err(error) => {
+                setup_failures.push(format!(
+                    "{} fixture source should be readable at {}: {error}",
+                    fixture.name, fixture.source_path
+                ));
+                continue;
+            }
+        };
+
+        let temp_label = format!("{}-red", fixture.name);
+        let temp_dir = unique_probe_target_dir(&temp_label);
+        let prepare = prepare_dir(&temp_dir);
+        if let Err(error) = prepare {
+            setup_failures.push(format!(
+                "{} target directory should be created before RED compile: {error}",
+                fixture.name
+            ));
+            continue;
+        }
+
+        let compile_result = compile_program_for_tests(
+            source_path,
+            source.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        );
+
+        let cleanup = cleanup_dir(&temp_dir);
+        if let Err(error) = cleanup {
+            setup_failures.push(format!(
+                "{} target directory should be removed after RED compile: {error}",
+                fixture.name
+            ));
+        }
+
+        let fixture_evidence = match compile_result {
+            Ok(binary_path) => format!(
+                "{} unexpectedly compiled before selected terminal session support landed: {}\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}",
+                fixture.name,
+                binary_path.display(),
+                fixture.input_plan,
+                fixture.fault_plan,
+                fixture.expected_stdout_summary,
+                fixture.expected_stderr,
+                fixture.expected_status,
+            ),
+            Err(error) => format!(
+                "{} should compile only after selected typed-event-session and chord/test support is implemented; current compiler rejection is expected RED evidence.\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}\ncompiler rejection:\n{error}",
+                fixture.name,
+                fixture.input_plan,
+                fixture.fault_plan,
+                fixture.expected_stdout_summary,
+                fixture.expected_stderr,
+                fixture.expected_status,
+            ),
+        };
+        red_evidence.push(fixture_evidence);
+    }
+
+    assert!(
+        setup_failures.is_empty(),
+        "remaining interactive terminal fixture RED setup should use valid on-disk project layouts:\n{}",
+        setup_failures.join("\n\n")
+    );
+
+    assert!(
+        red_evidence.is_empty(),
+        "remaining interactive terminal fixtures are intentionally RED until selected terminal session support lands:\n{}",
         red_evidence.join("\n\n")
     );
 }

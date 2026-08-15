@@ -1,0 +1,131 @@
+import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
+
+# Deterministic input plan: Key(Named ArrowRight), Key(Named ArrowRight), Key(Text r), Key(Text q), EndOfInput.
+# Deterministic fault plan: fixed 5x4 board rejects the second push into a wall, reset restores the starting coordinates, and every accepted input triggers one redraw and flush.
+# Expected final summary: SOKOBAN_MINI_SUMMARY moves=1 pushes=1 illegal_moves=1 resets=1 redraws=4 player=1,1 box=2,1 solved=false quit=true status=ok
+
+let is_wall = f(x: int64, y: int64): boolean =>
+    if x < 0:
+        return true
+    if y < 0:
+        return true
+    if x >= 5:
+        return true
+    if y >= 4:
+        return true
+    if y is 0:
+        return true
+    if y is 3:
+        return true
+    if x is 0:
+        return true
+    if x is 4:
+        return true
+    return false
+
+##
+  Description: Proposal RED fixture for deterministic tiny Sokoban movement, reset, redraw, and quit handling.
+##
+entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+    let source = propagate cancellation_source_new()
+    let token = cancellation_token(source)
+    let options = terminal_session_options_default()
+    let mutable session = propagate terminal_session_open_sync(options)
+
+    let start_player_x: int64 = 1
+    let start_player_y: int64 = 1
+    let start_box_x: int64 = 2
+    let start_box_y: int64 = 1
+    let target_x: int64 = 3
+    let target_y: int64 = 1
+    let mutable player_x: int64 = start_player_x
+    let mutable player_y: int64 = start_player_y
+    let mutable box_x: int64 = start_box_x
+    let mutable box_y: int64 = start_box_y
+    let mutable moves: int64 = 0
+    let mutable pushes: int64 = 0
+    let mutable illegal_moves: int64 = 0
+    let mutable resets: int64 = 0
+    let mutable redraws: int64 = 0
+    let mutable quit = false
+    let mutable running = true
+    let mutable reads: int64 = 0
+
+    while running and reads < 6:
+        let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Poll, token)
+        reads = reads + 1
+        let mutable dx: int64 = 0
+        let mutable dy: int64 = 0
+        let mutable requested_move = false
+        let mutable requested_reset = false
+
+        if event is TerminalInputEvent.Key:
+            if event.key is TerminalLogicalKey.Named:
+                if event.key.key is TerminalNamedKey.ArrowRight:
+                    dx = 1
+                    requested_move = true
+                if event.key.key is TerminalNamedKey.ArrowLeft:
+                    dx = -1
+                    requested_move = true
+                if event.key.key is TerminalNamedKey.ArrowUp:
+                    dy = -1
+                    requested_move = true
+                if event.key.key is TerminalNamedKey.ArrowDown:
+                    dy = 1
+                    requested_move = true
+            if event.key is TerminalLogicalKey.Text:
+                if event.key.logical_text is 'r':
+                    requested_reset = true
+                if event.key.logical_text is 'q':
+                    quit = true
+                    running = false
+
+        if requested_reset:
+            player_x = start_player_x
+            player_y = start_player_y
+            box_x = start_box_x
+            box_y = start_box_y
+            resets = resets + 1
+
+        if requested_move:
+            let next_player_x = player_x + dx
+            let next_player_y = player_y + dy
+            if is_wall(next_player_x, next_player_y):
+                illegal_moves = illegal_moves + 1
+            else:
+                if next_player_x is box_x and next_player_y is box_y:
+                    let next_box_x = box_x + dx
+                    let next_box_y = box_y + dy
+                    if is_wall(next_box_x, next_box_y):
+                        illegal_moves = illegal_moves + 1
+                    else:
+                        box_x = next_box_x
+                        box_y = next_box_y
+                        player_x = next_player_x
+                        player_y = next_player_y
+                        pushes = pushes + 1
+                        moves = moves + 1
+                else:
+                    player_x = next_player_x
+                    player_y = next_player_y
+                    moves = moves + 1
+
+        if event is TerminalInputEvent.EndOfInput:
+            running = false
+        if event is TerminalInputEvent.Cancelled:
+            running = false
+
+        if requested_move or requested_reset or quit:
+            redraws = redraws + 1
+            let solved = box_x is target_x and box_y is target_y
+            let frame = propagate trusted_terminal_output_from_application_text('SOKOBAN_FRAME redraw={redraws} player={player_x},{player_y} box={box_x},{box_y} solved={solved}\n')
+            propagate terminal_session_write_sync(session, frame)
+            propagate terminal_session_flush_sync(session)
+
+    let solved = box_x is target_x and box_y is target_y
+    let summary = propagate trusted_terminal_output_from_application_text('SOKOBAN_MINI_SUMMARY moves={moves} pushes={pushes} illegal_moves={illegal_moves} resets={resets} redraws={redraws} player={player_x},{player_y} box={box_x},{box_y} solved={solved} quit={quit} status=ok\n')
+    propagate terminal_session_write_sync(session, summary)
+    propagate terminal_session_flush_sync(session)
+    let close_outcome = propagate terminal_session_close_sync(session)
+    return void

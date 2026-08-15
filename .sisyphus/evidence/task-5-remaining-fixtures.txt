@@ -1,0 +1,71 @@
+# Task 5 remaining terminal fixture evidence
+
+Timestamp: 2026-08-15T17:00:10-04:00
+
+## Files added
+
+- test-projects/terminal-chord-quit/opal.toml
+- test-projects/terminal-chord-quit/src/main.op
+- test-projects/terminal-paste-quarantine/opal.toml
+- test-projects/terminal-paste-quarantine/src/main.op
+- test-projects/terminal-game-of-life-interactive/opal.toml
+- test-projects/terminal-game-of-life-interactive/src/main.op
+- test-projects/terminal-sokoban-mini/opal.toml
+- test-projects/terminal-sokoban-mini/src/main.op
+- test-projects/terminal-file-picker/opal.toml
+- test-projects/terminal-file-picker/src/main.op
+- test-projects/terminal-stopwatch-pomodoro/opal.toml
+- test-projects/terminal-stopwatch-pomodoro/src/main.op
+- tests/integration_e2e/terminal_session_input_gated.rs metadata/test extension
+
+## Fixture summaries
+
+- terminal-chord-quit: Ctrl-Q and Escape bindings registered; bounded stream activates Ctrl-Q once, releases one non-command input, and records one non-activating expiration. Expected summary: `CHORD_QUIT_SUMMARY ctrl_q_binding=1 escape_binding=2 activations=1 released_non_command=1 expirations=1 termination=ctrl-q status=ok`.
+- terminal-paste-quarantine: direct text, trusted complete paste, malformed paste fallback bytes, unknown bytes, and PasteFallback reset are counted separately. Expected summary: `PASTE_QUARANTINE_SUMMARY direct_text=1 trusted_paste=1 quarantined_chunks=2 malformed_chunks=1 unknown_chunks=1 paste_fallback_resets=1 command_activations=0 status=ok`.
+- terminal-game-of-life-interactive: 3x3 deterministic blinker controls cover pause/resume, speed up, speed down, scripted reseed, bounded drains, and quit. Expected summary: `LIFE_INTERACTIVE_SUMMARY generation=1 frames=6 paused=false speed_ms=40 pauses=1 resumes=1 speed_ups=1 speed_downs=1 reseeds=1 quit=true live_cells=3 status=ok`.
+- terminal-sokoban-mini: fixed 5x4 board covers movement, wall-push rejection, reset, redraw/flush accounting, and quit. Expected summary: `SOKOBAN_MINI_SUMMARY moves=1 pushes=1 illegal_moves=1 resets=1 redraws=4 player=1,1 box=2,1 solved=false quit=true status=ok`.
+- terminal-file-picker: fixed in-source manifest has explicit order and highlighted rows; ArrowDown/ArrowDown/ArrowUp/Enter selects `fixtures/beta.txt`. Expected summary: `FILE_PICKER_SUMMARY manifest_count=3 navigations=3 selected_index=1 selected=fixtures/beta.txt cancelled=false status=ok`.
+- terminal-stopwatch-pomodoro: scripted waits are the only ticks; stopped wake is stale; reset/start/quit are deterministic. Expected summary: `STOPWATCH_POMODORO_SUMMARY elapsed_ticks=1 starts=2 stops=1 resets=1 stale_wakes=1 running=true quit=true status=ok`.
+
+## Direct fixture checks
+
+Command executed:
+
+```bash
+for fixture in terminal-chord-quit terminal-paste-quarantine terminal-game-of-life-interactive terminal-sokoban-mini terminal-file-picker terminal-stopwatch-pomodoro; do
+  cargo run -- check "test-projects/${fixture}/src/main.op"
+done
+```
+
+Outcome: all six probes exited status 1 as expected RED fixtures. The failures were selected terminal/chord symbol and future error-type availability rejections while the support is intentionally unimplemented. Full captured output was checked for `missing_doc_comment`; result: no matches.
+
+Representative direct-check attribution:
+
+- `terminal-chord-quit`: missing `standard.terminal_session_options_default`, `standard.trusted_terminal_output_from_application_text`, `standard.terminal_chord_modifiers`, `standard.terminal_chord_router_process`, and undeclared `TerminalSessionOpenError`.
+- `terminal-paste-quarantine`: missing selected terminal session symbols and undeclared `TerminalSessionOpenError`.
+- `terminal-game-of-life-interactive`: missing selected terminal session symbols and undeclared `TerminalSessionOpenError`.
+- `terminal-sokoban-mini`: missing selected terminal session symbols and undeclared `TerminalSessionOpenError`.
+- `terminal-file-picker`: missing selected terminal session symbols and undeclared `TerminalSessionOpenError`.
+- `terminal-stopwatch-pomodoro`: missing selected terminal session symbols and undeclared `TerminalSessionOpenError`.
+
+## Determinism scans
+
+- Fixed manifest grep over `test-projects/terminal-file-picker/src/main.op` found `Fixed-order manifest` and `no directory listing order or sorting API participates in expected output`.
+- Legacy/private API name scan over new fixture sources found no matches.
+- `missing_doc_comment` scan over new fixture sources and direct-check output found no matches.
+
+## Rust harness validation
+
+- `lsp_diagnostics tests/integration_e2e/terminal_session_input_gated.rs`: rust-analyzer reported only the existing unlinked-file hint for this integration module, no code errors.
+- Harness symbols now include `REMAINING_INTERACTIVE_TERMINAL_SESSION_FIXTURES` and `terminal_session_input_gated_remaining_interactive_fixtures_red`, while Task 3 and Task 4 fixture constants/tests remain present.
+- `cargo fmt --check`: passed.
+
+## Test commands
+
+Command: `cargo test`
+
+Outcome: passed. Key summary from output: `test result: ok. 1388 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 2.44s`, followed by integration/doc-test targets with ok results.
+
+Command: `cargo test --features integration --test integration_e2e -- terminal_session_input_gated --ignored --nocapture`
+
+Outcome without `OPAL_TERMINAL_SESSION_RED=1`: passed. Output reported 4 ignored/env-gated terminal-session tests passed by skipping their RED bodies, including the new `terminal_session_input_gated_remaining_interactive_fixtures_red`.
