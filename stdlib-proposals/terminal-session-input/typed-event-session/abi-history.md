@@ -15,7 +15,7 @@ previously unused type IDs and retired the obsolete explicit variant IDs listed
 below, producing exactly 87 active selected production type IDs. Chord revision
 `fd278786c68be255dcf10519662c80ab5215a976` added
 `0x5400000000000114` and `0x5400000000000115`. This chord correction revision,
-`docs(terminal): define lossless chord capacity recovery`, adds only the next
+`7ec9d35f11bc6ee2ee14e479934f9c2879bf9245`, adds only the next
 unused chord type ID `0x5400000000000116`, producing exactly 23 active chord
 production type IDs without changing the selected inventory.
 
@@ -124,7 +124,7 @@ Commit `384f502718e0a85f40862bfda0d02455b2344575` introduced the contiguous
 baseline `0x5400000000000100` through `0x5400000000000113`. Chord revision
 `fd278786c68be255dcf10519662c80ab5215a976` added the next unused IDs
 `0x5400000000000114` and `0x5400000000000115`. This chord correction revision,
-`docs(terminal): define lossless chord capacity recovery`, adds only
+`7ec9d35f11bc6ee2ee14e479934f9c2879bf9245`, adds only
 `0x5400000000000116`. The active range is contiguous and contains exactly 23
 chord production type IDs.
 
@@ -163,7 +163,7 @@ history evidences no representation hash or representation version to record.
 `TerminalChordRouterOutput.Pending=1` retains discriminator 1 and gains the
 exact `MonotonicDeadline` payload required to arm the caller-owned affine timer.
 `Idle=4` and `AwaitingCorrelatedInput=5` use previously unused discriminators.
-Chord correction `docs(terminal): define lossless chord capacity recovery` adds
+Chord correction `7ec9d35f11bc6ee2ee14e479934f9c2879bf9245` adds
 only `TerminalChordProcessError=0x5400000000000116`, with
 `BufferedCapacityExceeded=1`, and adds previously unused
 `TerminalChordValidationError.BufferCapacityBelowCorrelatedLimit=9`. No existing
@@ -201,7 +201,7 @@ capacity failure in the committed selected contract is
 The chord retired set is evidenced empty from the baseline
 `384f502718e0a85f40862bfda0d02455b2344575` through this chord declaration
 revision `fd278786c68be255dcf10519662c80ab5215a976` and chord correction
-`docs(terminal): define lossless chord capacity recovery`. No chord type ID or
+`7ec9d35f11bc6ee2ee14e479934f9c2879bf9245`. No chord type ID or
 explicit variant ID is removed, reassigned, or retired. In particular,
 `TerminalChordBindingId` retains `0x540000000000010e`, and
 `TerminalChordRouterOutput.Pending` retains discriminator 1. Every future chord
