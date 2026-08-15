@@ -149,7 +149,16 @@ After already-published queued source work, a simultaneously ready cancelled tok
 
 ## 3. Affine monotonic timers
 
+`MonotonicTimerError` and `MonotonicTimerNotArmedError` are core/system-owned nominal error families with no terminal ABI IDs or terminal ABI-history entries.
+
 ```opal
+# public type MonotonicTimerError:
+#     GenerationExhausted:
+#         last_issued_generation: uint64
+#
+# public type MonotonicTimerNotArmedError:
+#     NotArmed
+#
 # monotonic_timer_new(): MonotonicTimer errors AllocationFailureError
 # monotonic_timer_readiness_source(ref timer: MonotonicTimer): SystemReadinessSource
 # monotonic_timer_arm(mutable ref timer: MonotonicTimer, deadline: MonotonicDeadline): uint64 errors MonotonicTimerError
@@ -159,15 +168,27 @@ After already-published queued source work, a simultaneously ready cancelled tok
 # monotonic_clock_now(): MonotonicDeadline
 ```
 
-`MonotonicTimer` is affine. Its readiness source has one stable identity for the timer lifetime, including disarm and rearm. Each successful arm or disarm advances a never-reused generation before publishing the new state. Disarming an armed timer clears its deadline and advances the generation. Disarming an already-disarmed timer remains successfully disarmed and still advances a new generation, so defensive repeated disarm invalidates every previously published wake without reusing a generation. Generation exhaustion fails before changing the arm state, deadline, or generation. `monotonic_timer_deadline` continues to return `MonotonicTimerNotArmedError` while disarmed; no absent-deadline value or sentinel exists. `monotonic_timer_arm` is ready when `monotonic_clock_now()` is equal to or later than its deadline. Equality is expiration, not a one-tick delay.
+`MonotonicTimer` is affine. Its readiness source has one stable identity for the timer lifetime, including disarm and rearm. Each successful arm or disarm advances a never-reused generation before publishing the new state. Disarming an armed timer clears its deadline and advances the generation. Disarming an already-disarmed timer remains successfully disarmed and still advances a new generation, so defensive repeated disarm invalidates every previously published wake without reusing a generation.
+
+Both `monotonic_timer_arm` and `monotonic_timer_disarm` preflight the next generation before changing the deadline, armed/disarmed state, readiness, or generation. If no next generation exists without wrap or reuse, either operation returns `MonotonicTimerError.GenerationExhausted { last_issued_generation }`. The payload is the current valid generation, which remains unchanged and is never a sentinel. An armed timer remains armed with the exact prior deadline and readiness state; an already-disarmed timer remains disarmed with no deadline; and a failed disarm of an armed timer likewise leaves it armed. The stable readiness-source identity and all previously published wake observations remain unchanged. The caller may continue inspecting and using that exact prior timer state, but every same-state retry that still requires a new generation returns the same variant and payload until the timer is dropped; exhaustion never wraps, resets, or reuses a generation.
+
+`monotonic_timer_deadline` returns `MonotonicTimerNotArmedError.NotArmed` while disarmed and returns the unchanged prior deadline after any failed operation that leaves the timer armed; no absent-deadline value or sentinel exists. `monotonic_timer_arm` is ready when `monotonic_clock_now()` is equal to or later than its deadline. Equality is expiration, not a one-tick delay.
 
 A `SystemWaitWake.Ready` carries a source identity and observed generation. A caller must compare its generation with `monotonic_timer_generation`; an old armed deadline, a disarmed timer, or a newer arm makes that Ready wake stale. A stale timer wake performs no timer mutation and the caller returns to the wait set. A timer arm has no hidden scheduler, polling loop, or terminal-specific identity.
 
 ## 4. Separate process-control source
 
-`ProcessControlAcknowledgementError` and `ProcessControlResumeError` are core/system-owned error families with no terminal ABI IDs or terminal ABI-history entries.
+`ProcessControlUnavailableError`, `ProcessControlError`, `ProcessControlAcknowledgementError`, and `ProcessControlResumeError` are distinct core/system-owned nominal error families with no terminal ABI IDs or terminal ABI-history entries.
 
 ```opal
+# public type ProcessControlUnavailableError:
+#     UnsupportedHost
+#
+# public type ProcessControlError:
+#     HostNotificationObservationFailed
+#     GenerationExhausted:
+#         last_issued_generation: uint64
+#
 # public type ProcessControlAcknowledgementError:
 #     WrongGeneration
 #     StaleGeneration
@@ -185,7 +206,13 @@ A `SystemWaitWake.Ready` carries a source identity and observed generation. A ca
 # process_control_resume_application(mutable ref source: ProcessControlSource, generation: uint64): void errors ProcessControlResumeError
 ```
 
-`ProcessControlNotification` has exactly `SuspendRequested(generation)` and `Continued(generation)` for this contract. It is a distinct generic source, never a terminal input event. On supported POSIX hosts it observes catchable job-control suspension and continuation. The contract has no Windows console-control equivalent and must report `ProcessControlUnavailableError` where unsupported.
+`ProcessControlNotification` has exactly `SuspendRequested(generation)` and `Continued(generation)` for this contract. It is a distinct generic source, never a terminal input event. On supported POSIX hosts it observes catchable job-control suspension and continuation. The contract has no Windows console-control equivalent: `process_control_source_new` returns `ProcessControlUnavailableError.UnsupportedHost` before allocating a source, readiness identity, queue, or generation state. Unsupported-host construction never returns `ProcessControlError`.
+
+`process_control_poll` first returns the oldest already-queued notification without consulting the host. Returning it is the sole operation that removes that queue entry; polling never acknowledges, suspends, resumes, or advances its generation. Only an empty queue permits a host observation. If that observation fails, poll returns `ProcessControlError.HostNotificationObservationFailed` before consuming a host indication, creating/replacing a process-control state, enqueueing or removing a notification, changing readiness, or advancing a generation. The source state, queue contents, and generation are exactly those visible at call entry. Consequently a queued notification cannot be dropped by this failure: if one was queued at entry, poll returns it instead of failing; if one becomes queued concurrently, it remains queued, and a same-generation retry observes that same oldest notification. With no concurrent publication, retry observes the same empty queue and same source generation before attempting host observation again.
+
+When an observed suspend request requires a new generation, poll preflights generation capacity before consuming the host indication, creating `SuspendPending`, enqueueing `SuspendRequested`, changing readiness, or advancing the generation. If no nonzero next generation exists without wrap or reuse, poll returns `ProcessControlError.GenerationExhausted { last_issued_generation }`. The current state, every older queued notification, and the last issued generation remain unchanged; the triggering host indication remains pending and unacknowledged. Older queued notifications still return first. After they drain, every retry against that still-pending indication returns the same exhaustion variant and payload. No retry can drop, duplicate, replace, acknowledge, or assign a wrapped generation to it. Continuation of an existing generation never allocates a new generation and therefore cannot emit this variant.
+
+These are the only `ProcessControlError` variants reachable from `process_control_poll`. Neither variant consumes or acknowledges a queued notification, changes one of the process-control states below, advances a generation, or affects terminal/application state. A retry therefore starts from the exact retained source state and observes the same queued notification, pending host indication, and generation ordering described above.
 
 Each process-control generation has exactly one of these core/system states: `SuspendPending`, `AcknowledgedHostSuspended`, `ContinuedAwaitingApplicationResume`, or `Completed`. Publishing `SuspendRequested(generation)` immediately creates or exposes `SuspendPending`. Repeated requests before acknowledgement coalesce to that same pending generation. Before calling `process_control_acknowledge_suspend` for the correct pending generation, the caller must stop application work, complete terminal pause, and process the final `PauseBoundary`; `ProcessControlSource` neither observes nor validates those terminal/application conditions. Acknowledgement then requests host suspension. On success it enters `AcknowledgedHostSuspended`; a same-generation duplicate acknowledgement in that state is an idempotent no-op. On `HostSuspendFailed`, the already-existing generation remains `SuspendPending` and is retryable: no host-suspension, terminal-session, or application-resume state advances. Wrong or stale generations return the declared structured acknowledgement error before mutation.
 
