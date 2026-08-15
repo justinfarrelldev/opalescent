@@ -278,7 +278,7 @@ public type TerminalChordMutationError:
 
 ##
   Description: Reports the sole deterministic process-capacity outcome.
-  Invariant: BufferedCapacityExceeded atomically releases every complete unsuppressed buffered event once in order, clears the prefix/deadline/reservations, and does not accept the current caller-owned immutable event. The caller applies released_input once, invalidates its timer, and retries that same event once. A process AllocationFailureError instead changes nothing and releases nothing.
+  Invariant: Every reservation overflow, including a candidate Key's full correlated-group reservation and a non-Key's one-slot reservation, returns BufferedCapacityExceeded through one preallocated atomic commit. It releases every complete unsuppressed buffered event once in order, clears the prefix/deadline/reservations, and does not accept the current caller-owned immutable event. The caller applies released_input once, establishes timer safety, and retries that same event under one bounded application-owned obligation; the empty-buffer retry cannot overflow because router construction guarantees the full correlated reservation fits. Timer generation exhaustion must replace the exhausted timer from a preallocated application spare before retry or later wait handling, and a retry AllocationFailureError leaves the event obligation caller-owned without reapplying released input. A process AllocationFailureError before the capacity commit instead changes nothing and releases nothing.
   Evolution: Closed; additions require an ABI-major release.
 ##
 @abi_type_id(0x5400000000000116)
