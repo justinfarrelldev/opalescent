@@ -180,6 +180,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [ ] HTTP/network standard-library layer (`stdlib-proposals/network-http-layer/`)
 - [ ] Subprocess execution API (`stdlib-proposals/subprocess-exec/`)
 - [ ] Terminal session/input API (`stdlib-proposals/terminal-session-input/`)
+  - Proposal entry points: [comparison and selection](./stdlib-proposals/terminal-session-input/COMPARISON.md), [future core prerequisites](./stdlib-proposals/terminal-session-input/core-prerequisites.md), [selected contract](./stdlib-proposals/terminal-session-input/typed-event-session/proposal.md), [ABI history](./stdlib-proposals/terminal-session-input/typed-event-session/abi-history.md), [chord companion](./stdlib-proposals/terminal-session-input/CHORDS.md), and [test-only contract](./stdlib-proposals/terminal-session-input/TESTING.md). These are proposals and future adoption prerequisites, not current compiler/runtime/stdlib support.
 - [ ] JSON/TOML serialization APIs (`stdlib-proposals/serialization/`)
 - [ ] Compression APIs (`stdlib-proposals/compression/`)
 - [ ] UUID APIs (`stdlib-proposals/uuid/`)

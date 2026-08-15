@@ -157,12 +157,27 @@ Alternatives:
 - [`vitest-style-describe-it`](./testing-framework/vitest-style-describe-it/)
 
 ### 20. [terminal-session-input](./terminal-session-input/)
-Interactive terminal ownership, raw input, resize delivery, mouse/focus/paste events, and exact mode restoration for full-screen applications.
+Interactive terminal ownership, normalized input, restoration, process coordination, trust, chords, and test-only sealed values for full-screen applications. This concern remains **proposed and not implemented**.
 
-Alternatives:
-- [`typed-event-session`](./terminal-session-input/typed-event-session/)
-- [`batched-event-pump`](./terminal-session-input/batched-event-pump/)
-- [`portable-input-packet-stream`](./terminal-session-input/portable-input-packet-stream/)
+Selected and authority documents:
+- [comparison and selection](./terminal-session-input/COMPARISON.md)
+- [future core prerequisites](./terminal-session-input/core-prerequisites.md) — required future contracts, not current support
+- [selected typed-event-session proposal](./terminal-session-input/typed-event-session/proposal.md)
+- [selected active declarations](./terminal-session-input/typed-event-session/typed_event_session.types.op) — sole authority for active selected terminal IDs, fields, constructor visibility, ownership, and current representation annotations
+- [append-only ABI history](./terminal-session-input/typed-event-session/abi-history.md) — authority for retired IDs, evidenced historical representations, retirement reasons, and never reuse, not an alternate active declaration source
+- [chord contract](./terminal-session-input/CHORDS.md) and [chord declarations](./terminal-session-input/terminal_chords.types.op)
+- [test-only terminal contract](./terminal-session-input/TESTING.md) and [test-only declarations](./terminal-session-input/terminal_testing.types.op) — no production terminal ABI IDs
+
+Production examples:
+- [capability and recovery inspection](./terminal-session-input/typed-event-session/inspect_terminal_capabilities.op)
+- [shared editor event loop](./terminal-session-input/typed-event-session/run_editor_event_loop.op)
+- [chord lifecycle](./terminal-session-input/configure_editor_chords.op)
+
+Historical alternatives:
+- [batched-event-pump](./terminal-session-input/batched-event-pump/proposal.md)
+- [portable-input-packet-stream](./terminal-session-input/portable-input-packet-stream/proposal.md)
+
+The selected proposal is a future adoption target, not implemented support. Its core/test availability, reference/affine enforcement, and deterministic cleanup prerequisites must land in the same compatible release. Historical alternatives retain their recorded API tradeoffs but defer ownership, process control, diagnostics, readiness, recovery, chord lifecycle, testability, output trust, and ABI authority to the selected package.
 
 ## Tier Recommendations
 
@@ -189,7 +204,7 @@ Recommended “most idiomatic for Opalescent” choice per concern (explicit err
 | uuid | `typed-uuid-wrappers` | Strong UUID wrapper types prevent accidental stringly misuse across module boundaries. |
 | subprocess-exec | `command-builder` | Builders make process setup explicit, readable, and easier to validate before execution. |
 | testing-framework | `vitest-style-describe-it` | It provides a full, familiar test surface while still mapping failures through explicit error paths. |
-| terminal-session-input | `typed-event-session` | One normalized event at a time is the smallest safe v1 contract; batching can be added later on the same session if profiling justifies it. |
+| terminal-session-input | `typed-event-session` | One normalized event at a time is the smallest safe proposed v1 contract; batching can be additive only after measurement, and adoption remains blocked on the linked future prerequisites. |
 
 ## How to Read a Proposal
 
