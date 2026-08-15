@@ -1,0 +1,422 @@
+# Proposal-only test-only type declarations. This file contains types and type imports only.
+# It has no production ABI IDs, exports, values, functions, fixtures, runtime hooks, or implementation.
+
+namespace standard.testing.terminal
+
+import type TerminalCapabilitySupportedEvidence, TerminalCapabilityUnsupportedEvidence, TerminalColorCount, TerminalCompositionId, TerminalDiagnostic, TerminalDiagnosticCollectionByteLimit, TerminalDiagnosticCountLimit, TerminalDiagnosticDetail, TerminalDiagnosticRetryability, TerminalDiagnosticSessionState, TerminalDiagnosticStage, TerminalEventId, TerminalInputResetReason, TerminalKeyOccurrence, TerminalNamedKey, TerminalOrdinaryFeature, TerminalOsCode, TerminalPastePhase, TerminalSessionResourceLimits, TerminalTextInputOrigin, TerminalTrustedPasteEvidence from ./typed-event-session/typed_event_session.types
+
+##
+  Description: Authorizes test-only terminal factories for one test-runner compilation.
+  Invariant: The test runner is the only constructor issuer. The immutable authority cannot cross a production availability boundary or construct sessions, recovery tokens, leases, or host handles.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+@constructor_visibility(test_runner)
+public opaque immutable type TerminalTestAuthority
+
+##
+  Description: Owns test-local synthetic correlation, evidence, fake-backend binding, and event-ID state.
+  Invariant: The affine scenario rejects invalid linked-text, composition, paste, and capability relationships before producing a synthetic value.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+@constructor_visibility(test_runner)
+public compiler_registered affine resource type TerminalTestScenario
+
+##
+  Description: Selects supported evidence for an ordinary synthetic capability.
+  Invariant: This test-only selector maps only to the corresponding production supported-evidence variant.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestSupportedEvidence:
+    NativeConfirmed = 1
+    ProtocolQueried = 2
+    EnvironmentInferred = 3
+    ProtocolAssumed = 4
+
+##
+  Description: Selects unsupported evidence for a synthetic capability.
+  Invariant: This test-only selector maps only to the corresponding production unsupported-evidence variant.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestUnsupportedEvidence:
+    NativeUnavailable = 1
+    ProtocolRejected = 2
+    EnvironmentMissing = 3
+
+##
+  Description: Carries one ordinary synthetic capability and the evidence compatible with its variant.
+  Invariant: Unsupported carries unsupported evidence; Available and Enabled carry supported evidence. No absent-evidence sentinel exists.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestOrdinaryCapabilitySpec:
+    Unsupported = 1:
+        evidence: TerminalTestUnsupportedEvidence
+    Available = 2:
+        evidence: TerminalTestSupportedEvidence
+    Enabled = 3:
+        evidence: TerminalTestSupportedEvidence
+
+##
+  Description: Keys one ordinary synthetic capability specification to its production feature identity.
+  Invariant: Feature identity is explicit rather than array positional. A capability snapshot requires exactly one entry for every known ordinary feature and rejects duplicate, missing, or unknown entries.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestOrdinaryCapabilityEntry:
+    feature: TerminalOrdinaryFeature
+    capability: TerminalTestOrdinaryCapabilitySpec
+
+##
+  Description: Selects the verified synthetic boundary used to issue trusted-paste evidence.
+  Invariant: Neither case permits environment inference or protocol assumption.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestTrustedPasteBoundary:
+    NativeRecordBoundary = 1
+    SanitizedProtocolBoundary = 2
+
+##
+  Description: Carries one trusted-paste capability and only the evidence compatible with its variant.
+  Invariant: Unsupported carries unsupported evidence. Available and Enabled carry evidence issued by the same scenario. No mandatory dummy evidence exists.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestTrustedPasteCapabilitySpec:
+    Unsupported = 1:
+        evidence: TerminalTestUnsupportedEvidence
+    Available = 2:
+        evidence: TerminalTrustedPasteEvidence
+    Enabled = 3:
+        evidence: TerminalTrustedPasteEvidence
+
+##
+  Description: Carries one color capability and its variant-specific evidence and count.
+  Invariant: Unsupported carries unsupported evidence; Monochrome and TrueColor carry supported evidence; Indexed carries a nonzero production-bounded count and supported evidence. No count or evidence sentinel exists.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestColorCapabilitySpec:
+    Unsupported = 1:
+        evidence: TerminalTestUnsupportedEvidence
+    Monochrome = 2:
+        evidence: TerminalTestSupportedEvidence
+    Indexed = 3:
+        count: TerminalColorCount
+        evidence: TerminalTestSupportedEvidence
+    TrueColor = 4:
+        evidence: TerminalTestSupportedEvidence
+
+##
+  Description: Describes an application-visible synthetic key without granting direct runtime event construction.
+  Invariant: Text is nonempty, NUL-free, valid UTF-8, and bounded by the active scenario limits; all numeric key values retain production bounds.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestLogicalKey:
+    Text = 1:
+        logical_text: string
+    Control = 2:
+        code: uint8
+    Named = 3:
+        key: TerminalNamedKey
+    Function = 4:
+        number: int32
+
+##
+  Description: Describes synthetic modifier state.
+  Invariant: Each field maps directly to the corresponding production modifier field; no omitted modifier has implicit meaning.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestModifiers:
+    shift: boolean
+    control: boolean
+    alt: boolean
+    super_key: boolean
+    caps_lock: boolean
+    num_lock: boolean
+
+##
+  Description: Describes the occurrence represented by one synthetic Key event.
+  Invariant: Press and Repeat counts are nonzero and production-bounded; Release has no count.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestKeyOccurrence:
+    Press = 1:
+        count: int32
+    Repeat = 2:
+        count: int32
+    Release = 3
+
+##
+  Description: Describes synthetic text origin without allowing a caller to forge runtime event or composition IDs.
+  Invariant: Key and Composition references must have been issued by and be live in the same scenario; Direct accepts only complete linked text.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestTextInputOrigin:
+    Direct = 1
+    Key = 2:
+        event_id: TerminalEventId
+    Composition = 3:
+        composition_id: TerminalCompositionId
+
+##
+  Description: Selects the phase of one synthetic linked TextInput group.
+  Invariant: The scenario enforces complete or start, continue, end order with no interleaving.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestLinkedTextPhase:
+    Complete = 1
+    Start = 2
+    Continue = 3
+    End = 4
+
+##
+  Description: Selects the phase of one synthetic paste group.
+  Invariant: The scenario enforces complete or start, continue, end order with scenario-issued trusted-paste evidence.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestPastePhase:
+    Complete = 1
+    Start = 2
+    Continue = 3
+    End = 4
+
+##
+  Description: Selects the result of one synthetic composition lifecycle.
+  Invariant: The scenario accepts an end only after the same issued composition ID was started.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestCompositionEnd:
+    Committed = 1
+    Cancelled = 2
+    Interrupted = 3
+
+##
+  Description: Selects the complete validated production resource limits for one synthetic scenario.
+  Invariant: Every synthetic size, text, preedit, paste, unknown-byte, correlation, retention, and diagnostic bound uses this exact immutable snapshot; there is no implicit active-scenario limit or fallback sentinel.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestScenarioLimits:
+    resource_limits: TerminalSessionResourceLimits
+
+##
+  Description: Mirrors sealed runtime mouse, unknown-input, native-metadata, reset-reason, and diagnostic inputs for test-only factory mapping.
+  Invariant: Each mirror is bounded and maps only to a compatible sealed production value. It cannot represent a session, token, lease, host handle, or unbounded host message.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestMouseAction:
+    Press = 1:
+        button: uint8
+    Release = 2:
+        button: uint8
+    Move = 3
+    Drag = 4:
+        button: uint8
+    Scroll = 5:
+        direction: uint8
+
+##
+  Description: Mirrors a sealed runtime unknown-byte reason for test-only factory mapping.
+  Invariant: Each case maps to its identically named production reason and remains non-command input.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestUnknownBytesReason:
+    UnrecognizedSequence = 1
+    SequenceLimitExceeded = 2
+    PasteContainsNul = 3
+    PasteInvalidUtf8 = 4
+    BackendOverflow = 5
+
+##
+  Description: Mirrors the complete sealed runtime native-event-kind domain for test-only factory mapping.
+  Invariant: Known cases map by their published production discriminant. Other validates its nonempty, NUL-free, 256-byte-bounded name before mapping; unknown future production additions remain non-command data and are not fabricated by v1 tests.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestNativeEventKind:
+    WindowsMenu = 1
+    WindowsUnknownRecord = 2
+    VtPrivateSequence = 3
+    BackendSpecific = 4
+    Other = 5:
+        name: string
+
+##
+  Description: Mirrors the complete sealed runtime operating-system-code domain for test-only factory mapping.
+  Invariant: Unavailable has no payload; PosixErrno preserves signed int32; WindowsError preserves the full uint32 range without narrowing.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestOsCode:
+    Unavailable = 1
+    PosixErrno = 2:
+        value: int32
+    WindowsError = 3:
+        value: uint32
+
+##
+  Description: Mirrors sealed native metadata for test-only factory mapping.
+  Invariant: Kind and operating-system code use their complete test-only mirrors and are validated before a runtime metadata value is produced.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestNativeMetadata:
+    kind: TerminalTestNativeEventKind
+    code: TerminalTestOsCode
+
+##
+  Description: Mirrors a sealed runtime input-reset reason for test-only factory mapping.
+  Invariant: Each case maps to its identically named production reset reason.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestInputResetReason:
+    PauseBoundary = 1
+    PasteFallback = 2
+    SequenceLimitExceeded = 3
+    BackendReset = 4
+    BackendOverflow = 5
+    CompositionInterrupted = 6
+
+##
+  Description: Carries every diagnostic field as test-only factory input.
+  Invariant: Field codes and bounded detail map only to compatible sealed production fields; no direct runtime diagnostic value is caller-constructed.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestDiagnosticSpec:
+    backend: uint8
+    operation: uint8
+    stage: uint8
+    coordinator_state: uint8
+    session_state: uint8
+    os_code: TerminalTestOsCode
+    detail: string
+    retryability: uint8
+    was_truncated: boolean
+
+##
+  Description: Selects a one-based ordinary lifecycle invocation occurrence for deterministic fault matching.
+  Invariant: CleanupClose is the lexical using cleanup invocation; it grants no direct session or recovery construction.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestLifecycleInvocation:
+    Open = 1:
+        occurrence: uint64
+    Close = 2:
+        occurrence: uint64
+    CleanupClose = 3:
+        occurrence: uint64
+
+##
+  Description: Selects the exact before or after mutation boundary for a fake-backend fault.
+  Invariant: AfterMutation is matchable only after the named mutation has entered the ordinary inverse ledger.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestMutationBoundary:
+    BeforeMutation = 1
+    AfterMutation = 2
+
+##
+  Description: Identifies a deterministic forward-stage or reverse-ledger fault point.
+  Invariant: Forward stage codes map to production diagnostic stages. A positive inverse ordinal is a candidate strict reverse-ledger match point: it matches only if that ordinal is reached by the future invocation; otherwise it remains unconsumed and performs no mutation as an unmatched no-op. Zero remains malformed and is rejected as FakeBackendPlanInvalid.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestFaultPoint:
+    Forward = 1:
+        invocation: TerminalTestLifecycleInvocation
+        stage: uint8
+        boundary: TerminalTestMutationBoundary
+    Inverse = 2:
+        invocation: TerminalTestLifecycleInvocation
+        inverse_step: uint64
+        boundary: TerminalTestMutationBoundary
+
+##
+  Description: Selects production-valid bounds for a synthetic diagnostic collection.
+  Invariant: Both fields use the exact production constrained limit types. Collection truncation is derived from complete supplied diagnostics and these limits, never from caller-authored retained, omitted, or truncation metadata.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestDiagnosticCollectionLimits:
+    maximum_diagnostics: TerminalDiagnosticCountLimit
+    maximum_diagnostic_bytes: TerminalDiagnosticCollectionByteLimit
+
+##
+  Description: Classifies a deterministic fake-backend fault at one ordinary lifecycle stage.
+  Invariant: A positive inverse ordinal uses strict reverse-ledger numbering and is accepted as a candidate match point. If the future invocation does not reach it, the rule remains unconsumed and performs no mutation as an unmatched no-op; zero remains rejected as FakeBackendPlanInvalid.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+public type TerminalTestFakeBackendFault:
+    point: TerminalTestFaultPoint
+    diagnostic: TerminalTestDiagnosticSpec
+
+##
+  Description: Is an affine test-runner-only activation scope for one bound deterministic backend.
+  Invariant: The scope is task-local, stack-scoped, and non-transferable. Its cleanup restores the prior test activation without mutating session or coordinator ownership.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+@constructor_visibility(test_runner)
+public compiler_registered affine resource type TerminalTestBackendActivation
+
+##
+  Description: Is a test-only deterministic backend configuration bound to exactly one scenario.
+  Invariant: It cannot reveal a session, recovery token, coordinator lease, inverse ledger, or host handle.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+@constructor_visibility(test_runner)
+public opaque immutable type TerminalTestFakeBackend
+
+##
+  Description: Reports rejection by a test-only factory.
+  Invariant: Each failure leaves scenario state, fake-backend binding, production values, and recovery authority unchanged.
+  Availability: Test-only. This declaration has no production ABI ID or export.
+##
+@availability(test_only)
+@constructor_visibility(test_runner)
+public type TerminalTestFactoryError:
+    DuplicateEventId = 1:
+        event_id: TerminalEventId
+    UnknownKeyEvent = 2:
+        event_id: TerminalEventId
+    UnknownComposition = 3:
+        composition_id: TerminalCompositionId
+    LinkedTextPhaseInvalid = 4
+    CompositionLifecycleInvalid = 5
+    PastePhaseInvalid = 6
+    EvidenceNotIssuedByScenario = 7
+    CapabilityEvidenceIncompatible = 8
+    DuplicateOrdinaryFeature = 9:
+        feature: TerminalOrdinaryFeature
+    MissingOrdinaryFeature = 10:
+        feature: TerminalOrdinaryFeature
+    UnknownOrdinaryFeature = 11:
+        feature: TerminalOrdinaryFeature
+    DiagnosticFieldsIncompatible = 12
+    FakeBackendAlreadyBound = 13
+    FakeBackendPlanInvalid = 14
+    FakeBackendNotBound = 15
+    ScenarioAlreadyActive = 16
+    ScenarioBoundToAnotherTask = 17
+    # Value 18 is retired and permanently not reused within this ephemeral test-only declaration.
+    DuplicateFaultPoint = 19

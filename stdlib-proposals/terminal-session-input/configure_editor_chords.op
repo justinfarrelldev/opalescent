@@ -1,53 +1,20 @@
-# Proposal-only companion fixture. Chord/router declarations are authoritative in terminal_chords.types.op.
-import terminal_capabilities_feature from standard
-import terminal_chord_modifiers, terminal_chord_new, terminal_chord_with_lock_modifier_mask, terminal_chord_sequence_single, terminal_chord_sequence_append, terminal_chord_router_new, terminal_chord_router_register, terminal_chord_router_process, terminal_chord_router_expire_sync, terminal_chord_router_reset, terminal_chord_released_input_length, terminal_chord_released_input_at from standard
-import type AllocationFailureError, IndexOutOfBoundsError from standard
+# Proposal-only production chord example. It intentionally does not import standard.testing.terminal.
+# See TESTING.md for synthetic-event coverage.
+# Application-owned, infallible placeholders used below: editor_binding_map_insert, editor_binding_map_remove,
+# activate_editor_binding_once, and apply_terminal_input_event_to_editor. They are not terminal APIs.
+
+import monotonic_timer_arm, monotonic_timer_disarm, monotonic_timer_generation, monotonic_timer_readiness_source, terminal_capabilities_feature, terminal_chord_modifiers, terminal_chord_new, terminal_chord_with_lock_modifier_mask, terminal_chord_sequence_single, terminal_chord_sequence_append, terminal_chord_router_new, terminal_chord_router_register, terminal_chord_router_replace, terminal_chord_router_unregister, terminal_chord_router_process, terminal_chord_router_expire_sync, terminal_chord_router_reset, terminal_chord_released_input_length, terminal_chord_released_input_at from standard
+import type AllocationFailureError, IndexOutOfBoundsError, MonotonicTimer, MonotonicTimerError, SystemWaitWake from standard
 import type TerminalCapabilities, TerminalOrdinaryFeature, TerminalFeatureCapability, TerminalControlCode, TerminalFunctionKeyNumber, TerminalNamedKey, TerminalInputEvent, TerminalInputSequenceTimeoutMilliseconds from ./typed-event-session/typed_event_session.types
-import type TerminalChordKey, TerminalChordTrigger, TerminalChordLogicalText, TerminalChordModifiers, TerminalChord, TerminalLockModifierMask, TerminalChordSequence, TerminalChordTextPolicy, TerminalChordPrefixPolicy, TerminalChordRouterPolicy, TerminalChordRegistrationLimit, TerminalChordSequenceLengthLimit, TerminalChordBufferedEventLimit, TerminalChordPriority, TerminalChordBindingId, TerminalChordValidationError, TerminalChordRouter, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordResetReason from ./terminal_chords.types
+import type TerminalChordKey, TerminalChordTrigger, TerminalChordLogicalText, TerminalChord, TerminalLockModifierMask, TerminalChordSequence, TerminalChordTextPolicy, TerminalChordPrefixPolicy, TerminalChordRouterPolicy, TerminalChordRegistrationLimit, TerminalChordSequenceLengthLimit, TerminalChordBufferedEventLimit, TerminalChordPriority, TerminalChordBindingId, TerminalChordValidationError, TerminalChordMutationError, TerminalChordMutationResult, TerminalChordRouter, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordResetReason from ./terminal_chords.types
 
-let register_single_chord = f(mutable ref router: TerminalChordRouter, chord: TerminalChord, priority: TerminalChordPriority, text_policy: TerminalChordTextPolicy): TerminalChordBindingId errors TerminalChordValidationError, AllocationFailureError =>
-    let sequence = propagate terminal_chord_sequence_single(chord)
-    return propagate terminal_chord_router_register(router, sequence, priority, text_policy)
+let register_editor_binding = f(mutable ref router: TerminalChordRouter, sequence: TerminalChordSequence, priority: TerminalChordPriority, text_policy: TerminalChordTextPolicy, application_name: string): TerminalChordBindingId errors TerminalChordValidationError, AllocationFailureError =>
+    let binding_id = propagate terminal_chord_router_register(router, sequence, priority, text_policy)
+    # The application map changes only after registration returned this live router-bound ID.
+    editor_binding_map_insert(binding_id, application_name)
+    return binding_id
 
-let register_editor_chords = f(mutable ref router: TerminalChordRouter, capabilities: TerminalCapabilities): void errors TerminalChordValidationError, AllocationFailureError =>
-    let no_modifiers = terminal_chord_modifiers(false, false, false, false)
-    let control_modifiers = terminal_chord_modifiers(false, true, false, false)
-
-    let control_key = new TerminalChordKey.Control:
-        code: 17 as TerminalControlCode
-    let control_chord = terminal_chord_new(control_key, control_modifiers, new TerminalChordTrigger.PressOrRepeat)
-    let quit_binding = propagate register_single_chord(router, control_chord, 100 as TerminalChordPriority, new TerminalChordTextPolicy.SuppressLinkedText)
-    remember_editor_binding(quit_binding, 'quit')
-
-    let named_key = new TerminalChordKey.Named:
-        key: new TerminalNamedKey.Escape
-    let named_chord = terminal_chord_new(named_key, no_modifiers, new TerminalChordTrigger.Press)
-    let escape_binding = propagate register_single_chord(router, named_chord, 90 as TerminalChordPriority, new TerminalChordTextPolicy.PreserveLinkedText)
-    remember_editor_binding(escape_binding, 'escape')
-
-    let function_key = new TerminalChordKey.Function:
-        number: 4 as TerminalFunctionKeyNumber
-    let function_chord = terminal_chord_new(function_key, no_modifiers, new TerminalChordTrigger.Press)
-    let lock_sensitive_function = terminal_chord_with_lock_modifier_mask(function_chord, new TerminalLockModifierMask.MatchAllLocks)
-    let function_binding = propagate register_single_chord(router, lock_sensitive_function, 80 as TerminalChordPriority, new TerminalChordTextPolicy.SuppressLinkedText)
-    remember_editor_binding(function_binding, 'function-four')
-
-    let enhanced_capability = terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.EnhancedKeyIdentity)
-    if enhanced_capability is TerminalFeatureCapability.Enabled:
-        let enhanced_key = new TerminalChordKey.EnhancedText:
-            logical_text: 'x' as TerminalChordLogicalText
-        let enhanced_chord = terminal_chord_new(enhanced_key, no_modifiers, new TerminalChordTrigger.Press)
-        let enhanced_binding = propagate register_single_chord(router, enhanced_chord, 70 as TerminalChordPriority, new TerminalChordTextPolicy.PreserveLinkedText)
-        remember_editor_binding(enhanced_binding, 'enhanced-x')
-
-    # A two-key sequence exercises the immutable append API without adding session surface.
-    let prefix = propagate terminal_chord_sequence_single(named_chord)
-    let sequence = propagate terminal_chord_sequence_append(prefix, function_chord)
-    let sequence_binding = propagate terminal_chord_router_register(router, sequence, 60 as TerminalChordPriority, new TerminalChordTextPolicy.SuppressLinkedText)
-    remember_editor_binding(sequence_binding, 'escape-then-function-four')
-    return void
-
-let apply_released_chord_input = f(input: TerminalChordReleasedInput): void errors IndexOutOfBoundsError =>
+let apply_released_chord_input_once = f(input: TerminalChordReleasedInput): void errors IndexOutOfBoundsError =>
     let mutable index: int64 = 0
     let input_count = terminal_chord_released_input_length(input)
     while index < input_count:
@@ -56,25 +23,119 @@ let apply_released_chord_input = f(input: TerminalChordReleasedInput): void erro
         index = index + 1
     return void
 
-let process_editor_chord_event = f(mutable ref router: TerminalChordRouter, event: TerminalInputEvent): void errors AllocationFailureError, IndexOutOfBoundsError =>
+let apply_released_input_then_disarm = f(input: TerminalChordReleasedInput, mutable ref prefix_timer: MonotonicTimer): void errors IndexOutOfBoundsError, MonotonicTimerError =>
+    guard apply_released_chord_input_once(input) else released_input_error =>
+        let ignored_timer_generation = propagate monotonic_timer_disarm(prefix_timer)
+        propagate released_input_error
+    let ignored_timer_generation = propagate monotonic_timer_disarm(prefix_timer)
+    return void
+
+let finish_successful_chord_mutation = f(input: TerminalChordReleasedInput, mutable ref prefix_timer: MonotonicTimer): void errors IndexOutOfBoundsError, MonotonicTimerError =>
+    # Router success has already atomically changed router state. Deliver once, then disarm before later router or wait work.
+    propagate apply_released_input_then_disarm(input, prefix_timer)
+    return void
+
+let replace_editor_binding = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer, binding_id: TerminalChordBindingId, replacement: TerminalChordSequence, priority: TerminalChordPriority, text_policy: TerminalChordTextPolicy): void errors TerminalChordValidationError, TerminalChordMutationError, AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
+    # BindingNotFound, WrongRouter, CorrelatedGroupPending, validation, and allocation failures leave router, map, and timer unchanged.
+    let result = propagate terminal_chord_router_replace(router, binding_id, replacement, priority, text_policy)
+    if result is TerminalChordMutationResult.Replaced into replaced:
+        # Replace preserves the ID, so its existing application map entry remains valid.
+        propagate finish_successful_chord_mutation(replaced.released_input, prefix_timer)
+    return void
+
+let unregister_editor_binding = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer, binding_id: TerminalChordBindingId): void errors TerminalChordMutationError, AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
+    # BindingNotFound, WrongRouter, CorrelatedGroupPending, and allocation failures leave router, map, and timer unchanged.
+    let result = propagate terminal_chord_router_unregister(router, binding_id)
+    if result is TerminalChordMutationResult.Unregistered into unregistered:
+        # The router has retired this ID, so only now may the application remove its external entry.
+        editor_binding_map_remove(unregistered.binding_id)
+        propagate finish_successful_chord_mutation(unregistered.released_input, prefix_timer)
+    return void
+
+let process_chord_router_output = f(output: TerminalChordRouterOutput, mutable ref prefix_timer: MonotonicTimer): void errors IndexOutOfBoundsError, MonotonicTimerError =>
+    if output is TerminalChordRouterOutput.Pending into pending:
+        # A resolvable prefix provides the exact core-owned deadline to arm on the separate caller timer.
+        let ignored_timer_generation = propagate monotonic_timer_arm(prefix_timer, pending.deadline)
+        return void
+    if output is TerminalChordRouterOutput.AwaitingCorrelatedInput:
+        # Incomplete linked text has no timeout and may not be split.
+        let ignored_timer_generation = propagate monotonic_timer_disarm(prefix_timer)
+        return void
+    if output is TerminalChordRouterOutput.ReleasedInput into released:
+        propagate apply_released_input_then_disarm(released.input, prefix_timer)
+        return void
+    if output is TerminalChordRouterOutput.Activated into activated:
+        activate_editor_binding_once(activated.binding_id, activated.occurrence)
+        propagate apply_released_input_then_disarm(activated.released_input, prefix_timer)
+        return void
+    if output is TerminalChordRouterOutput.Idle:
+        # No current router deadline: ensure no caller timer remains armed.
+        let ignored_timer_generation = propagate monotonic_timer_disarm(prefix_timer)
+        return void
+    return void
+
+let process_editor_chord_event = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer, event: TerminalInputEvent): void errors AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
     let output = propagate terminal_chord_router_process(router, event)
-    if output is TerminalChordRouterOutput.ReleasedInput into released:
-        propagate apply_released_chord_input(released.input)
-    if output is TerminalChordRouterOutput.Activated into activated:
-        activate_editor_binding_once(activated.binding_id, activated.occurrence)
-        propagate apply_released_chord_input(activated.released_input)
+    propagate process_chord_router_output(output, prefix_timer)
     return void
 
-let expire_editor_chord_prefix_sync = f(mutable ref router: TerminalChordRouter): void errors AllocationFailureError, IndexOutOfBoundsError =>
-    let output = propagate terminal_chord_router_expire_sync(router)
-    if output is TerminalChordRouterOutput.ReleasedInput into released:
-        propagate apply_released_chord_input(released.input)
-    if output is TerminalChordRouterOutput.Activated into activated:
-        activate_editor_binding_once(activated.binding_id, activated.occurrence)
-        propagate apply_released_chord_input(activated.released_input)
+let expire_editor_chord_prefix_after_timer_wake = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer, wake: SystemWaitWake): void errors AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
+    # Cancelled carries no timer metadata and must not expire or otherwise change chord state.
+    if wake is SystemWaitWake.Cancelled:
+        return void
+    if wake is SystemWaitWake.Ready into ready:
+        # A Ready wake must identify this caller timer before its generation is considered.
+        let timer_source = monotonic_timer_readiness_source(prefix_timer)
+        if ready.source is not timer_source:
+            return void
+        if ready.generation is not monotonic_timer_generation(prefix_timer):
+            return void
+        let output = propagate terminal_chord_router_expire_sync(router)
+        propagate process_chord_router_output(output, prefix_timer)
     return void
 
-let run_chord_router_example = f(capabilities: TerminalCapabilities, event: TerminalInputEvent): void errors TerminalChordValidationError, AllocationFailureError, IndexOutOfBoundsError =>
+let reset_editor_chord_router = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer): void errors AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
+    let released = propagate terminal_chord_router_reset(router, new TerminalChordResetReason.ApplicationRequested)
+    # Reset release is handled once, then caller timer is disarmed before later routing or waiting.
+    propagate apply_released_input_then_disarm(released, prefix_timer)
+    return void
+
+let register_editor_chords = f(mutable ref router: TerminalChordRouter, capabilities: TerminalCapabilities): void errors TerminalChordValidationError, AllocationFailureError =>
+    let no_modifiers = terminal_chord_modifiers(false, false, false, false)
+    let control_modifiers = terminal_chord_modifiers(false, true, false, false)
+
+    let control_key = new TerminalChordKey.Control:
+        code: 17 as TerminalControlCode
+    let control_chord = terminal_chord_new(control_key, control_modifiers, new TerminalChordTrigger.PressOrRepeat)
+    let control_sequence = propagate terminal_chord_sequence_single(control_chord)
+    let quit_binding = propagate register_editor_binding(router, control_sequence, 100 as TerminalChordPriority, new TerminalChordTextPolicy.SuppressLinkedText, 'quit')
+
+    let named_key = new TerminalChordKey.Named:
+        key: new TerminalNamedKey.Escape
+    let named_chord = terminal_chord_new(named_key, no_modifiers, new TerminalChordTrigger.Press)
+    let escape_sequence = propagate terminal_chord_sequence_single(named_chord)
+    let escape_binding = propagate register_editor_binding(router, escape_sequence, 90 as TerminalChordPriority, new TerminalChordTextPolicy.PreserveLinkedText, 'escape')
+
+    let function_key = new TerminalChordKey.Function:
+        number: 4 as TerminalFunctionKeyNumber
+    let function_chord = terminal_chord_new(function_key, no_modifiers, new TerminalChordTrigger.Press)
+    let lock_sensitive_function = terminal_chord_with_lock_modifier_mask(function_chord, new TerminalLockModifierMask.MatchAllLocks)
+    let function_sequence = propagate terminal_chord_sequence_single(lock_sensitive_function)
+    let function_binding = propagate register_editor_binding(router, function_sequence, 80 as TerminalChordPriority, new TerminalChordTextPolicy.SuppressLinkedText, 'function-four')
+
+    let enhanced_capability = terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.EnhancedKeyIdentity)
+    if enhanced_capability is TerminalFeatureCapability.Enabled:
+        let enhanced_key = new TerminalChordKey.EnhancedText:
+            logical_text: 'x' as TerminalChordLogicalText
+        let enhanced_chord = terminal_chord_new(enhanced_key, no_modifiers, new TerminalChordTrigger.Press)
+        let enhanced_sequence = propagate terminal_chord_sequence_single(enhanced_chord)
+        let enhanced_binding = propagate register_editor_binding(router, enhanced_sequence, 70 as TerminalChordPriority, new TerminalChordTextPolicy.PreserveLinkedText, 'enhanced-x')
+
+    let sequence = propagate terminal_chord_sequence_append(escape_sequence, function_chord)
+    let sequence_binding = propagate register_editor_binding(router, sequence, 60 as TerminalChordPriority, new TerminalChordTextPolicy.SuppressLinkedText, 'escape-then-function-four')
+    return void
+
+let run_chord_router_example = f(capabilities: TerminalCapabilities, event: TerminalInputEvent, mutable ref prefix_timer: MonotonicTimer, timer_wake: SystemWaitWake): void errors TerminalChordValidationError, TerminalChordMutationError, AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
     let policy = new TerminalChordRouterPolicy:
         prefix_policy: new TerminalChordPrefixPolicy.LongestThenPriority
         sequence_timeout: 750 as TerminalInputSequenceTimeoutMilliseconds
@@ -84,9 +145,7 @@ let run_chord_router_example = f(capabilities: TerminalCapabilities, event: Term
 
     using router = propagate terminal_chord_router_new(capabilities, policy):
         propagate register_editor_chords(router, capabilities)
-        propagate process_editor_chord_event(router, event)
-        # A real editor calls this after its generic monotonic timer source wakes.
-        propagate expire_editor_chord_prefix_sync(router)
-        let released = propagate terminal_chord_router_reset(router, new TerminalChordResetReason.ApplicationRequested)
-        propagate apply_released_chord_input(released)
+        propagate process_editor_chord_event(router, prefix_timer, event)
+        propagate expire_editor_chord_prefix_after_timer_wake(router, prefix_timer, timer_wake)
+        propagate reset_editor_chord_router(router, prefix_timer)
     return void
