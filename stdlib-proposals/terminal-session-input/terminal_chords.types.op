@@ -236,8 +236,8 @@ public type TerminalChordValidationError:
         required_correlated_limit: TerminalCorrelatedEventLimit
 
 ##
-  Description: Owns bounded registration, prefix, and correlated-input buffering state.
-  Invariant: Affine destruction is deterministic and infallibly releases buffered immutable input and registrations.
+  Description: Owns bounded registration, prefix, correlated-input buffering, and accepted-delivery-order state.
+  Invariant: Construction binds the hidden authentic input-stream identity carried by the supplied TerminalCapabilities snapshot and initializes a hidden exact-next state to Expected(1). Every successful process acceptance atomically advances that state exactly once to the checked successor or, after the greatest issuable ordinal, a terminal Exhausted state; wrong-stream, already-consumed, out-of-order, capacity, validation, and allocation failures do not advance it. No public inspector exposes stream or order state. Affine destruction is deterministic and infallibly releases buffered immutable input and registrations.
   Evolution: Closed; ownership semantics change only in an ABI-major release.
 ##
 @abi_type_id(0x5400000000000113)
@@ -263,7 +263,7 @@ public type TerminalChordMutationResult:
 
 ##
   Description: Reports stable structured failures before an unregister or replace commit.
-  Invariant: Each variant leaves registrations, buffered input, router-owned prefix deadline, binding ordinals, and application-visible result state unchanged. It does not change the caller-owned generic timer.
+  Invariant: Each variant leaves registrations, buffered input, router-owned prefix deadline, binding ordinals, hidden exact-next delivery state, and application-visible result state unchanged. It does not change the caller-owned generic timer.
   Evolution: Closed; additions require an ABI-major release.
 ##
 @abi_type_id(0x5400000000000115)
@@ -277,8 +277,8 @@ public type TerminalChordMutationError:
     CorrelatedGroupPending = 3
 
 ##
-  Description: Reports the sole deterministic process-capacity outcome.
-  Invariant: Every reservation overflow, including a candidate Key's full correlated-group reservation and a non-Key's one-slot reservation, returns BufferedCapacityExceeded through one preallocated atomic commit. It releases every complete unsuppressed buffered event once in order, clears the prefix/deadline/reservations, and does not accept the current caller-owned immutable event. The caller applies released_input once, establishes timer safety, and retries that same event under one bounded application-owned obligation; the empty-buffer retry cannot overflow because router construction guarantees the full correlated reservation fits. Timer generation exhaustion must replace the exhausted timer from a preallocated application spare before retry or later wait handling, and a retry AllocationFailureError leaves the event obligation caller-owned without reapplying released input. A process AllocationFailureError before the capacity commit instead changes nothing and releases nothing.
+  Description: Reports stable typed rejection before a router accepts the current immutable event.
+  Invariant: Validation is allocation-free and runs in this exact order before capacity, allocation, buffering, suppression, deadline, reservation, or accepted-order mutation: authenticate the event stream; reject an ordinal below Expected as DeliveryAlreadyConsumed; reject an ordinal above Expected as DeliveryOutOfOrder; in Exhausted, reject every authentic retained occurrence as DeliveryAlreadyConsumed. None of these variants exposes stream identity, delivery ordinal, expected-order state, or handles. Every reservation overflow, including a candidate Key's full correlated-group reservation and a non-Key's one-slot reservation, then returns BufferedCapacityExceeded through one preallocated atomic commit. It releases every complete unsuppressed buffered event once in order, clears the prefix/deadline/reservations, and does not accept or advance past the current caller-owned immutable event. The caller applies released_input once, establishes timer safety, and retries that same event under one bounded application-owned obligation; the empty-buffer retry cannot overflow because router construction guarantees the full correlated reservation fits. Timer generation exhaustion must replace the exhausted timer from a preallocated application spare before retry or later wait handling, and a retry AllocationFailureError leaves the event obligation caller-owned without reapplying released input. A process AllocationFailureError before the capacity commit instead changes nothing, releases nothing, and preserves the same expected ordinal.
   Evolution: Closed; additions require an ABI-major release.
 ##
 @abi_type_id(0x5400000000000116)
@@ -288,3 +288,6 @@ public type TerminalChordProcessError:
     BufferedCapacityExceeded = 1:
         configured_limit: TerminalChordBufferedEventLimit
         released_input: TerminalChordReleasedInput
+    WrongInputStream = 2
+    DeliveryAlreadyConsumed = 3
+    DeliveryOutOfOrder = 4

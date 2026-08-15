@@ -512,7 +512,8 @@ public type TerminalColorCapability:
 
 ##
   Description: Collects one immutable negotiated capability snapshot cached until the affine session is consumed.
-  Evolution: Additive boxed fields may be added in a minor release; known fields retain meaning for the ABI major.
+  Invariant: Every snapshot from one session carries the same hidden authentic input-stream identity used only by standard-library stream consumers. It exposes no stream inspector, host handle, session handle, mutable identity, or application construction path.
+  Evolution: Additive boxed fields may be added in a minor release; known fields and hidden stream-binding semantics retain meaning for the ABI major.
 ##
 @abi_type_id(0x5400000000000048)
 @abi_evolution(additive_opaque)
@@ -753,7 +754,8 @@ public non_exhaustive type TerminalMouseButton:
 
 ##
   Description: Represents public runtime-origin normalized input.
-  Evolution: Additive; unknown variants are semantically ignorable and use host retain, drop, and forward metadata.
+  Invariant: Every value, regardless of variant, carries hidden authentic input-stream provenance and one nonzero monotonically increasing delivery ordinal. One session uses one never-reused stream identity; ordinals start at one and preserve exact normalized public-delivery order across Key, text, composition, paste, mouse, resize, focus, timeout, cancellation, end-of-input, unknown, and reset events. Ordinal exhaustion is detected before publication and never emits zero, wraps, reuses, or creates a caller-visible gap. The hidden metadata is immutable, survives retain/forward/release unchanged, has no public inspector or constructor, and contains no host or session handle.
+  Evolution: Additive; unknown variants are semantically ignorable and use host retain, drop, and forward metadata. Hidden stream/order semantics change only in an ABI-major release.
 ##
 @abi_type_id(0x5400000000000060)
 @abi_evolution(non_exhaustive_additive)
@@ -1064,6 +1066,7 @@ public non_exhaustive type TerminalSessionOpenError:
 
 ##
   Description: Reports read or pause-delivery failure.
+  Invariant: IdentifierExhausted is the sticky outcome when event-ID, composition-ID, or hidden delivery-ordinal state has no nonzero never-reused successor. Delivery-ordinal exhaustion occurs before publication and exposes no ordinal or stream identity.
   Evolution: Additive error family; unknown variants propagate by stable identity.
 ##
 @abi_type_id(0x5400000000000072)

@@ -149,9 +149,11 @@ chord production type IDs.
 | `TerminalChordValidationError` | `EmptySequence=1`, `SequenceTooLong=2`, `RegistrationLimitReached=3`, `DuplicateBinding=4`, `PrefixAmbiguity=5`, `EnhancedKeyIdentityRequired=6`, `ReleaseEventsRequired=7`, `BindingIdentifierExhausted=8`, `BufferCapacityBelowCorrelatedLimit=9` |
 | `TerminalChordMutationResult` | `Unregistered=1`, `Replaced=2` |
 | `TerminalChordMutationError` | `BindingNotFound=1`, `WrongRouter=2`, `CorrelatedGroupPending=3` |
-| `TerminalChordProcessError` | `BufferedCapacityExceeded=1` |
+| `TerminalChordProcessError` | `BufferedCapacityExceeded=1`, `WrongInputStream=2`, `DeliveryAlreadyConsumed=3`, `DeliveryOutOfOrder=4` |
 
-### Chord representation and additive-variant record
+### Selected and chord representation and additive-variant record
+
+The selected `TerminalCapabilities` declaration retains type ID `0x5400000000000048` and records one hidden authentic input-stream identity in every snapshot from a session. `TerminalInputEvent` retains type ID `0x5400000000000060` and all existing variant discriminators while recording the same hidden identity plus one hidden nonzero monotonic delivery ordinal in every variant envelope. Neither metadata value has a public inspector or carries a host/session handle. `TerminalSessionReadError` retains type ID `0x5400000000000072`, and `IdentifierExhausted=4` retains its discriminator and diagnostic payload while also covering exhaustion of the hidden delivery-ordinal sequence before publication. These are current sealed representation and invariant changes, not type-ID, variant-ID, or retirement changes; repository history evidences no representation hash or representation version to record.
 
 `TerminalChordBindingId` retains type ID `0x540000000000010e` and changes from
 the baseline constrained numeric surface to an opaque immutable,
@@ -163,6 +165,11 @@ history evidences no representation hash or representation version to record.
 `TerminalChordRouterOutput.Pending=1` retains discriminator 1 and gains the
 exact `MonotonicDeadline` payload required to arm the caller-owned affine timer.
 `Idle=4` and `AwaitingCorrelatedInput=5` use previously unused discriminators.
+The single-stream ordering correction retains `TerminalChordProcessError` type ID
+`0x5400000000000116` and `BufferedCapacityExceeded=1`, then assigns previously
+unused discriminators `WrongInputStream=2`, `DeliveryAlreadyConsumed=3`, and
+`DeliveryOutOfOrder=4`. It adds no production type ID and retires or reassigns no
+existing discriminator.
 Chord correction `7ec9d35f11bc6ee2ee14e479934f9c2879bf9245` adds
 only `TerminalChordProcessError=0x5400000000000116`, with
 `BufferedCapacityExceeded=1`, and adds previously unused
