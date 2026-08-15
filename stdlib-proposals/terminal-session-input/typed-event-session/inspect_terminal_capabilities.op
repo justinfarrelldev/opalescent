@@ -23,7 +23,7 @@ let inspect_error_attachments = f(error_value: Error): void errors IndexOutOfBou
         application_record_attachment_absence(cause_absent)
         let mutable index: int64 = 0
         while index < error_suppressed_length(error_value):
-            application_record_error_attachment(propagate error_suppressed_at(error_value, index))
+            application_record_error_attachment(propagate error_suppressed_at(error_value, index) cause error_value)
             index = index + 1
         let truncation = error_attachment_truncation(error_value)
         application_record_attachment_truncation(error_attachment_truncation_cause_depth(truncation), error_attachment_truncation_suppressed_count(truncation), error_attachment_truncation_bytes(truncation))
@@ -31,7 +31,7 @@ let inspect_error_attachments = f(error_value: Error): void errors IndexOutOfBou
     application_record_error_attachment(cause)
     let mutable index: int64 = 0
     while index < error_suppressed_length(error_value):
-        application_record_error_attachment(propagate error_suppressed_at(error_value, index))
+        application_record_error_attachment(propagate error_suppressed_at(error_value, index) cause error_value)
         index = index + 1
     let truncation = error_attachment_truncation(error_value)
     application_record_attachment_truncation(error_attachment_truncation_cause_depth(truncation), error_attachment_truncation_suppressed_count(truncation), error_attachment_truncation_bytes(truncation))
@@ -55,79 +55,79 @@ let inspect_diagnostic_collection = f(diagnostics: TerminalDiagnosticCollection)
 
 let inspect_restore_error_sync = f(error_value: TerminalSessionRestoreError): void errors IndexOutOfBoundsError, AllocationFailureError =>
     if error_value is TerminalSessionRestoreError.RestoreInputModeFailed into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionRestoreError.RestoreOutputModeFailed into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionRestoreError.RestoreScreenStateFailed into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionRestoreError.MultipleRestoreStepsFailed into failed:
-        propagate inspect_diagnostic_collection(failed.diagnostics)
+        propagate inspect_diagnostic_collection(failed.diagnostics) cause error_value
     if error_value is TerminalSessionRestoreError.PendingOpenRollbackFailed into pending:
-        propagate inspect_diagnostic_collection(pending.diagnostics)
+        propagate inspect_diagnostic_collection(pending.diagnostics) cause error_value
     if error_value is TerminalSessionRestoreError.CloseRestorePending into pending:
-        propagate inspect_diagnostic_collection(pending.diagnostics)
+        propagate inspect_diagnostic_collection(pending.diagnostics) cause error_value
     if error_value is TerminalSessionRestoreError.PendingCloseRestoreFailed into pending:
-        propagate inspect_diagnostic_collection(pending.diagnostics)
+        propagate inspect_diagnostic_collection(pending.diagnostics) cause error_value
     # Rejection payload tokens are inspected only; none is treated as authority by this helper.
     if error_value is TerminalSessionRestoreError.WrongSession into rejected:
         application_record_recovery_token(terminal_recovery_token_kind(rejected.recovery_token), terminal_recovery_token_generation(rejected.recovery_token))
-        propagate inspect_structured_diagnostic(rejected.diagnostic)
+        propagate inspect_structured_diagnostic(rejected.diagnostic) cause error_value
     if error_value is TerminalSessionRestoreError.WrongKind into rejected:
         application_record_recovery_token(terminal_recovery_token_kind(rejected.recovery_token), terminal_recovery_token_generation(rejected.recovery_token))
         application_record_recovery_kind_mismatch(rejected.expected_kind, rejected.actual_kind)
-        propagate inspect_structured_diagnostic(rejected.diagnostic)
+        propagate inspect_structured_diagnostic(rejected.diagnostic) cause error_value
     if error_value is TerminalSessionRestoreError.Stale into rejected:
         application_record_recovery_token(terminal_recovery_token_kind(rejected.recovery_token), rejected.token_generation)
-        propagate inspect_structured_diagnostic(rejected.diagnostic)
+        propagate inspect_structured_diagnostic(rejected.diagnostic) cause error_value
     if error_value is TerminalSessionRestoreError.Consumed into rejected:
         application_record_recovery_token(terminal_recovery_token_kind(rejected.recovery_token), rejected.token_generation)
-        propagate inspect_structured_diagnostic(rejected.diagnostic)
+        propagate inspect_structured_diagnostic(rejected.diagnostic) cause error_value
     if error_value is TerminalSessionRestoreError.RecoveryInProgress into rejected:
         application_record_recovery_token(terminal_recovery_token_kind(rejected.recovery_token), rejected.generation)
-        propagate inspect_structured_diagnostic(rejected.diagnostic)
+        propagate inspect_structured_diagnostic(rejected.diagnostic) cause error_value
     if error_value is TerminalSessionRestoreError.ResumeRestorePending into pending:
-        propagate inspect_diagnostic_collection(pending.diagnostics)
-    propagate inspect_error_attachments(error_value)
+        propagate inspect_diagnostic_collection(pending.diagnostics) cause error_value
+    propagate inspect_error_attachments(error_value) cause error_value
     return void
 
 let inspect_open_error_sync = f(error_value: TerminalSessionOpenError): void errors IndexOutOfBoundsError, AllocationFailureError =>
     if error_value is TerminalSessionOpenError.InputNotInteractive into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionOpenError.OutputNotInteractive into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionOpenError.TerminalAlreadyOwned into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionOpenError.InvalidOptions into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionOpenError.UnsupportedFeature into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionOpenError.ModeReadFailed into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionOpenError.ModeWriteFailed into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionOpenError.AllocationFailed into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionOpenError.RollbackFailed into failed:
-        propagate inspect_diagnostic_collection(failed.diagnostics)
+        propagate inspect_diagnostic_collection(failed.diagnostics) cause error_value
     if error_value is TerminalSessionOpenError.RecoveryPending into pending:
-        propagate inspect_structured_diagnostic(pending.diagnostic)
+        propagate inspect_structured_diagnostic(pending.diagnostic) cause error_value
     if error_value is TerminalSessionOpenError.ResumeFailed into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionOpenError.GenerationExhausted into failed:
-        propagate inspect_structured_diagnostic(failed.diagnostic)
-    propagate inspect_error_attachments(error_value)
+        propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
+    propagate inspect_error_attachments(error_value) cause error_value
     return void
 
 let recover_open_token_sync = f(recovery_token: TerminalRecoveryToken): void errors TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
     application_record_recovery_token(terminal_recovery_token_kind(recovery_token), terminal_recovery_token_generation(recovery_token))
     guard terminal_session_recover_open_sync(recovery_token) else recovery_error =>
-        propagate inspect_restore_error_sync(recovery_error)
+        propagate inspect_restore_error_sync(recovery_error) cause recovery_error
         if recovery_error is TerminalSessionRestoreError.PendingOpenRollbackFailed into pending:
             application_record_recovery_token(terminal_recovery_token_kind(pending.recovery_token), terminal_recovery_token_generation(pending.recovery_token))
             guard terminal_session_recover_open_sync(pending.recovery_token) else retry_error =>
-                propagate inspect_restore_error_sync(retry_error)
-                # `propagate retry_error` forwards this already-evaluated immutable family value unchanged.
-                propagate retry_error
+                propagate inspect_restore_error_sync(retry_error) cause retry_error
+                # Retry failure is primary; explicit cause preserves the first recovery failure.
+                propagate retry_error cause recovery_error
             return void
         # `propagate recovery_error` is the prerequisite's already-evaluated immutable-error forwarding.
         propagate recovery_error
@@ -139,12 +139,12 @@ let recover_open_token_sync = f(recovery_token: TerminalRecoveryToken): void err
 public let recover_close_token_sync = f(recovery_token: TerminalRecoveryToken): void errors TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
     application_record_recovery_token(terminal_recovery_token_kind(recovery_token), terminal_recovery_token_generation(recovery_token))
     guard terminal_session_recover_close_sync(recovery_token) else recovery_error =>
-        propagate inspect_restore_error_sync(recovery_error)
+        propagate inspect_restore_error_sync(recovery_error) cause recovery_error
         if recovery_error is TerminalSessionRestoreError.PendingCloseRestoreFailed into pending:
             application_record_recovery_token(terminal_recovery_token_kind(pending.recovery_token), terminal_recovery_token_generation(pending.recovery_token))
             guard terminal_session_recover_close_sync(pending.recovery_token) else retry_error =>
-                propagate inspect_restore_error_sync(retry_error)
-                propagate retry_error
+                propagate inspect_restore_error_sync(retry_error) cause retry_error
+                propagate retry_error cause recovery_error
             return void
         propagate recovery_error
     return void
@@ -154,19 +154,19 @@ public let recover_close_token_sync = f(recovery_token: TerminalRecoveryToken): 
 ##
 public let open_terminal_session_with_recovery_sync = f(options: TerminalSessionOptions): TerminalSession errors TerminalSessionOpenError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
     guard terminal_session_open_sync(options) into session else open_error =>
-        propagate inspect_open_error_sync(open_error)
+        propagate inspect_open_error_sync(open_error) cause open_error
         if open_error is TerminalSessionOpenError.RollbackFailed into failed:
             propagate recover_open_token_sync(failed.recovery_token) cause open_error
-            return propagate terminal_session_open_sync(options)
+            return propagate terminal_session_open_sync(options) cause open_error
         if open_error is TerminalSessionOpenError.RecoveryPending into pending:
             let recovery_kind = terminal_recovery_token_kind(pending.recovery_token)
             application_record_recovery_token(recovery_kind, terminal_recovery_token_generation(pending.recovery_token))
             if recovery_kind is TerminalRecoveryLedgerKind.OpenRollback:
                 propagate recover_open_token_sync(pending.recovery_token) cause open_error
-                return propagate terminal_session_open_sync(options)
+                return propagate terminal_session_open_sync(options) cause open_error
             if recovery_kind is TerminalRecoveryLedgerKind.CloseRestore:
                 propagate recover_close_token_sync(pending.recovery_token) cause open_error
-                return propagate terminal_session_open_sync(options)
+                return propagate terminal_session_open_sync(options) cause open_error
             # An unknown/future kind is inspected but never used as authority; preserve the typed open error.
             propagate open_error
         propagate open_error
@@ -217,9 +217,9 @@ public let inspect_terminal_capabilities_sync = f(runtime_timeout: int32): void 
     application_record_checked_timeout(checked_timeout)
     let options = propagate native_trusted_paste_options()
     guard run_capability_session_with_using_sync(options) else cleanup_error =>
-        propagate inspect_error_attachments(cleanup_error)
+        propagate inspect_error_attachments(cleanup_error) cause cleanup_error
         if cleanup_error is TerminalSessionRestoreError.CloseRestorePending into pending:
-            propagate inspect_restore_error_sync(cleanup_error)
+            propagate inspect_restore_error_sync(cleanup_error) cause cleanup_error
             application_record_recovery_token(terminal_recovery_token_kind(pending.recovery_token), terminal_recovery_token_generation(pending.recovery_token))
             propagate recover_close_token_sync(pending.recovery_token) cause cleanup_error
         # Preserve the already-evaluated cleanup result as this caller's explicit policy after successful recovery.

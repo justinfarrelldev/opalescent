@@ -8,7 +8,7 @@ import monotonic_timer_new, monotonic_timer_readiness_source, monotonic_timer_ar
 import process_control_source_new, process_control_readiness_source, process_control_poll, process_control_acknowledge_suspend, process_control_resume_application from standard
 import take_input, stdout_writer from standard
 import open_terminal_session_with_recovery_sync, recover_close_token_sync from ./inspect_terminal_capabilities
-import type TerminalSession, CancellationToken, CancellationSource, ProcessControlSource, ProcessControlNotification, MonotonicDeadline, SystemWaitWake, SystemWaitSetError, ProcessControlUnavailableError, ProcessControlError, ProcessControlAcknowledgementError, ProcessControlResumeError, MonotonicTimerError, StandardInputReadError, StandardOutputHandleError, IndexOutOfBoundsError, AllocationFailureError from standard
+import type TerminalSession, CancellationToken, CancellationSource, ProcessControlSource, ProcessControlPollResult, ProcessControlNotification, MonotonicDeadline, SystemWaitWake, SystemWaitSetError, ProcessControlUnavailableError, ProcessControlError, ProcessControlAcknowledgementError, ProcessControlResumeError, MonotonicTimerError, StandardInputReadError, StandardOutputHandleError, IndexOutOfBoundsError, AllocationFailureError from standard
 import type TerminalSessionOptions, TerminalSessionFeaturePolicy, TerminalSessionResourceLimits, TerminalMouseTracking, TerminalCursorShape, TerminalWait, TerminalInputEvent, TerminalPauseEvents, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalInputSequenceTimeoutMilliseconds, TerminalCommittedTextByteLimit, TerminalCompositionPreeditByteLimit, TerminalPasteChunkByteLimit, TerminalUnknownByteChunkLimit, TerminalPendingSequenceByteLimit, TerminalRetainedEventLimit, TerminalRetainedByteLimit, TerminalCorrelatedEventLimit, TerminalCorrelatedByteLimit, TerminalDiagnosticCountLimit, TerminalDiagnosticCollectionByteLimit from ./typed_event_session.types
 
 # Undeclared application-owned placeholder calls in this sketch are intentionally not local function definitions:
@@ -72,8 +72,8 @@ let apply_pause_events_through_final_boundary_sync = f(events: TerminalPauseEven
 let acknowledge_suspend_with_retry_sync = f(mutable ref source: ProcessControlSource, generation: uint64): void errors ProcessControlAcknowledgementError =>
     guard process_control_acknowledge_suspend(source, generation) else acknowledgement_error =>
         if acknowledgement_error is ProcessControlAcknowledgementError.HostSuspendFailed:
-            # Retry this retryable host failure exactly once with the same generation.
-            return propagate process_control_acknowledge_suspend(source, generation)
+            # Retry this retryable host failure exactly once with the same generation; preserve the first failure if retry fails.
+            return propagate process_control_acknowledge_suspend(source, generation) cause acknowledgement_error
         # WrongGeneration and StaleGeneration propagate as the same already-evaluated immutable error value.
         propagate acknowledgement_error
     return void
@@ -81,19 +81,25 @@ let acknowledge_suspend_with_retry_sync = f(mutable ref source: ProcessControlSo
 let resume_process_application_with_retry_sync = f(mutable ref source: ProcessControlSource, generation: uint64): void errors ProcessControlResumeError =>
     guard process_control_resume_application(source, generation) else resume_error =>
         if resume_error is ProcessControlResumeError.HostApplicationResumeFailed:
-            # Retry this retryable host failure exactly once with the same generation; application work remains stopped.
-            return propagate process_control_resume_application(source, generation)
+            # Retry this retryable host failure exactly once with the same generation; preserve the first failure if retry fails.
+            return propagate process_control_resume_application(source, generation) cause resume_error
         # WrongGeneration and StaleGeneration propagate as the same already-evaluated immutable error value.
         propagate resume_error
     return void
 
+let terminal_event_budget_per_wake = f(): int64 =>
+    # Strict positive finite fairness budget; this is event-loop policy, not a hidden terminal batch.
+    return 32
+
 let drain_terminal_after_wake_sync = f(mutable ref session: TerminalSession, token: CancellationToken): boolean errors TerminalSessionReadError, TerminalSessionStateError, TerminalSessionWriteError, AllocationFailureError =>
     let mutable running = true
     let mutable drained = false
-    while running and not drained:
+    let mutable processed_events: int64 = 0
+    let event_budget = terminal_event_budget_per_wake()
+    while running and not drained and processed_events < event_budget:
         let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Poll, token)
         if event is TerminalInputEvent.TimedOut:
-            # TimedOut is the required stale/drained result after this one terminal readiness wake.
+            # TimedOut is the required stale/drained result before this wake's budget is exhausted.
             drained = true
         if event is TerminalInputEvent.Cancelled:
             running = false
@@ -101,10 +107,13 @@ let drain_terminal_after_wake_sync = f(mutable ref session: TerminalSession, tok
             running = false
         if not drained and running:
             apply_terminal_input_event_to_editor(event)
+            processed_events = processed_events + 1
             # The only terminal declassification: reviewed application-authored rendering.
             let frame = propagate trusted_terminal_output_from_application_text(application_render_reviewed_frame())
             propagate terminal_session_write_sync(session, frame)
             propagate terminal_session_flush_sync(session)
+    # Budget exhaustion returns to the bounded-fair shared wait set even while terminal readiness remains asserted.
+    # A still-ready terminal source reports Ready again, so one-event Poll progress continues without starving other sources.
     return running
 
 let run_open_editor_session_sync = f(mutable ref session: TerminalSession, token: CancellationToken): void errors SystemWaitSetError, ProcessControlUnavailableError, ProcessControlError, ProcessControlAcknowledgementError, ProcessControlResumeError, MonotonicTimerError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionOpenError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
@@ -148,34 +157,39 @@ let run_open_editor_session_sync = f(mutable ref session: TerminalSession, token
                             # Quiescent continuation wait: no terminal Poll, timer/chord expiry, rendering, or ordinary application work.
                             continue
                         if wake_source is process_source:
-                            let notification = propagate process_control_poll(process_control)
-                            if notification is ProcessControlNotification.SuspendRequested into suspend:
-                                # Notification generations are compared only to stored notification generations, never to wake metadata.
-                                if not awaiting_continued and suspend.generation > last_completed_process_generation:
-                                    # Stop child and ordinary application work before terminal restoration begins.
-                                    application_stop_child_and_application_work()
-                                    let pause_result = propagate terminal_session_pause_sync(session)
-                                    propagate apply_pause_events_through_final_boundary_sync(pause_result.events)
-                                    # Supersede every pre-pause timer wake before acknowledgement can suspend the host.
-                                    armed_timer_generation = propagate monotonic_timer_disarm(timer)
-                                    # The helper retries only HostSuspendFailed with this same generation.
-                                    propagate acknowledge_suspend_with_retry_sync(process_control, suspend.generation)
-                                    suspended_generation = suspend.generation
-                                    awaiting_continued = true
-                            if notification is ProcessControlNotification.Continued into continued:
-                                if awaiting_continued and continued.generation is suspended_generation:
-                                    # Fail closed in this exact order. A resume/render/write failure leaves child/application work stopped.
-                                    propagate terminal_session_resume_sync(session)
-                                    propagate resume_process_application_with_retry_sync(process_control, continued.generation)
-                                    application_prepare_editor_view(propagate terminal_session_size_sync(session), terminal_session_capabilities(session))
-                                    let resumed_frame = propagate trusted_terminal_output_from_application_text(application_render_reviewed_frame())
-                                    propagate terminal_session_write_sync(session, resumed_frame)
-                                    propagate terminal_session_flush_sync(session)
-                                    # Recreate caller-owned chord timing only after terminal/process resume and reviewed view restoration succeed.
-                                    armed_timer_generation = propagate monotonic_timer_arm(timer, application_next_chord_deadline(monotonic_clock_now()))
-                                    application_resume_child_and_application_work()
-                                    last_completed_process_generation = continued.generation
-                                    awaiting_continued = false
+                            let poll_result = propagate process_control_poll(process_control)
+                            if poll_result is ProcessControlPollResult.Idle:
+                                # Stale readiness/empty queue is nonblocking and non-mutating; fabricate no notification.
+                                continue
+                            if poll_result is ProcessControlPollResult.Notification into polled:
+                                let notification = polled.notification
+                                if notification is ProcessControlNotification.SuspendRequested into suspend:
+                                    # Notification generations are compared only to stored notification generations, never to wake metadata.
+                                    if not awaiting_continued and suspend.generation > last_completed_process_generation:
+                                        # Stop child and ordinary application work before terminal restoration begins.
+                                        application_stop_child_and_application_work()
+                                        let pause_result = propagate terminal_session_pause_sync(session)
+                                        propagate apply_pause_events_through_final_boundary_sync(pause_result.events)
+                                        # Supersede every pre-pause timer wake before acknowledgement can suspend the host.
+                                        armed_timer_generation = propagate monotonic_timer_disarm(timer)
+                                        # The helper retries only HostSuspendFailed with this same generation.
+                                        propagate acknowledge_suspend_with_retry_sync(process_control, suspend.generation)
+                                        suspended_generation = suspend.generation
+                                        awaiting_continued = true
+                                if notification is ProcessControlNotification.Continued into continued:
+                                    if awaiting_continued and continued.generation is suspended_generation:
+                                        # Fail closed in this exact order. A resume/render/write failure leaves child/application work stopped.
+                                        propagate terminal_session_resume_sync(session)
+                                        propagate resume_process_application_with_retry_sync(process_control, continued.generation)
+                                        application_prepare_editor_view(propagate terminal_session_size_sync(session), terminal_session_capabilities(session))
+                                        let resumed_frame = propagate trusted_terminal_output_from_application_text(application_render_reviewed_frame())
+                                        propagate terminal_session_write_sync(session, resumed_frame)
+                                        propagate terminal_session_flush_sync(session)
+                                        # Recreate caller-owned chord timing only after terminal/process resume and reviewed view restoration succeed.
+                                        armed_timer_generation = propagate monotonic_timer_arm(timer, application_next_chord_deadline(monotonic_clock_now()))
+                                        application_resume_child_and_application_work()
+                                        last_completed_process_generation = continued.generation
+                                        awaiting_continued = false
                         if wake_source is terminal_source:
                             if not awaiting_continued:
                                 # Never read a Paused session: transition wakes are observed but terminal Poll is skipped.
