@@ -1,6 +1,7 @@
 # Proposal-only chord declarations. This .types.op file is the authoritative compiler-administered ABI source for the companion chord router.
 # It contains declarations only; imports and proposed ABI/resource annotations preserve the .types.op file role.
 
+import type MonotonicDeadline from standard
 import type TerminalControlCode, TerminalFunctionKeyNumber, TerminalNamedKey, TerminalInputSequenceTimeoutMilliseconds, TerminalKeyOccurrence from ./typed-event-session/typed_event_session.types
 
 ##
@@ -162,14 +163,14 @@ public constrained type TerminalChordBufferedEventLimit: int32 where value >= 1 
 public constrained type TerminalChordPriority: int32 where value >= -2147483648 and value <= 2147483647
 
 ##
-  Description: Identifies one registered binding within a router; construction is standard-library-only.
-  Range: 1..18446744073709551615.
-  Evolution: Closed; constraint changes require an ABI-major release.
+  Description: Identifies one registration from exactly one router.
+  Invariant: Opaque immutable values carry hidden router provenance and a monotonically increasing, never-reused ordinal. Construction is sealed to the standard library through @constructor_visibility(standard_library). The public ordinal inspector exposes no provenance.
+  Evolution: Closed; identity semantics and representation changes require an ABI-major release.
 ##
 @abi_type_id(0x540000000000010e)
 @abi_evolution(closed_major_only)
 @constructor_visibility(standard_library)
-public constrained type TerminalChordBindingId: uint64 where value >= 1
+public opaque immutable type TerminalChordBindingId
 
 ##
   Description: Is an immutable bounded application-built sequence of TerminalChord values.
@@ -191,20 +192,23 @@ public opaque immutable type TerminalChordReleasedInput
 
 ##
   Description: Reports one router processing step, including activation and any released input.
-  Invariant: At most one Activated value is produced per normalized Key event; occurrence preserves its exact count.
+  Invariant: At most one Activated value is produced per normalized Key event; occurrence preserves its exact count. Pending carries the exact core-owned deadline for a resolvable prefix waiting for longer input. AwaitingCorrelatedInput has no deadline and prevents timeout splitting an incomplete Key-linked TextInput group. Idle is returned only when expiration is called with no current router deadline and performs no mutation.
   Evolution: Closed; processing semantics change only in an ABI-major release.
 ##
 @abi_type_id(0x5400000000000111)
 @abi_evolution(closed_major_only)
 @constructor_visibility(standard_library)
 public type TerminalChordRouterOutput:
-    Pending = 1
+    Pending = 1:
+        deadline: MonotonicDeadline
     ReleasedInput = 2:
         input: TerminalChordReleasedInput
     Activated = 3:
         binding_id: TerminalChordBindingId
         occurrence: TerminalKeyOccurrence
         released_input: TerminalChordReleasedInput
+    Idle = 4
+    AwaitingCorrelatedInput = 5
 
 ##
   Description: Reports stable structured chord registration failures.
@@ -236,3 +240,34 @@ public type TerminalChordValidationError:
 @abi_evolution(closed_major_only)
 @constructor_visibility(standard_library)
 public compiler_registered affine resource type TerminalChordRouter
+
+##
+  Description: Reports a successful atomic binding removal or replacement.
+  Invariant: released_input is immutable unsuppressed buffered input in original normalized-event order. Unregistered permanently retires its ID. Replaced preserves its exact ID and does not advance the router ordinal.
+  Evolution: Closed; mutation result semantics change only in an ABI-major release.
+##
+@abi_type_id(0x5400000000000114)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public type TerminalChordMutationResult:
+    Unregistered = 1:
+        binding_id: TerminalChordBindingId
+        released_input: TerminalChordReleasedInput
+    Replaced = 2:
+        binding_id: TerminalChordBindingId
+        released_input: TerminalChordReleasedInput
+
+##
+  Description: Reports stable structured failures before an unregister or replace commit.
+  Invariant: Each variant leaves registrations, buffered input, router-owned prefix deadline, binding ordinals, and application-visible result state unchanged. It does not change the caller-owned generic timer.
+  Evolution: Closed; additions require an ABI-major release.
+##
+@abi_type_id(0x5400000000000115)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public type TerminalChordMutationError:
+    BindingNotFound = 1:
+        binding_id: TerminalChordBindingId
+    WrongRouter = 2:
+        binding_id: TerminalChordBindingId
+    CorrelatedGroupPending = 3

@@ -10,11 +10,12 @@ committed Task 1 introduction baselines remain:
 
 `6067a1d` introduced `typed_event_session.types.op` before it carried
 `@abi_type_id` annotations or authoritative ABI IDs. Commit `4278ed3`
-checkpointed 82 selected type IDs. This selected declaration revision adds five
-previously unused type IDs and retires the obsolete explicit variant IDs listed
-below, producing exactly 87 active selected production type IDs. The chord
-inventory remains the unchanged 20-ID baseline from `384f502`; chord additions
-belong to a later chord-scoped revision and are not active here.
+checkpointed 82 selected type IDs. The selected declaration revision added five
+previously unused type IDs and retired the obsolete explicit variant IDs listed
+below, producing exactly 87 active selected production type IDs. This chord
+declaration revision adds only the next unused chord type IDs
+`0x5400000000000114` and `0x5400000000000115`, producing exactly 22 active
+chord production type IDs without changing the selected inventory.
 
 No representation hash, representation version, or generated manifest is
 recorded because none is evidenced by repository history.
@@ -116,12 +117,17 @@ failure; restore-family value `14` is permanently unavailable.
 
 ## Active chord inventory
 
-Every row below is active at `384f502718e0a85f40862bfda0d02455b2344575`.
-The range is contiguous and contains all 20 chord type IDs.
+Commit `384f502718e0a85f40862bfda0d02455b2344575` introduced the contiguous
+baseline `0x5400000000000100` through `0x5400000000000113`. This chord
+declaration revision, `docs(terminal): add atomic chord mutation`, adds only the
+next unused IDs `0x5400000000000114` and `0x5400000000000115`. The active range
+is contiguous and contains exactly 22 chord production type IDs.
 
 | Type IDs | Active declarations |
 | --- | --- |
-| `0x5400000000000100` to `0x5400000000000113` | `TerminalChordTrigger` through `TerminalChordRouter` |
+| `0x5400000000000100` to `0x5400000000000113` | Baseline `TerminalChordTrigger` through `TerminalChordRouter` |
+| `0x5400000000000114` | `TerminalChordMutationResult` |
+| `0x5400000000000115` | `TerminalChordMutationError` |
 
 ### Chord explicit active variant IDs
 
@@ -133,8 +139,24 @@ The range is contiguous and contains all 20 chord type IDs.
 | `TerminalChordTextPolicy` | `PreserveLinkedText=1`, `SuppressLinkedText=2` |
 | `TerminalChordPrefixPolicy` | `RejectAmbiguousPrefixes=1`, `HigherPriorityWins=2`, `LongestThenPriority=3` |
 | `TerminalChordResetReason` | `ApplicationRequested=1`, `FocusLost=2`, `InputReset=3`, `Cancelled=4`, `EndOfInput=5`, `Pause=6` |
-| `TerminalChordRouterOutput` | `Pending=1`, `ReleasedInput=2`, `Activated=3` |
+| `TerminalChordRouterOutput` | `Pending=1 { deadline: MonotonicDeadline }`, `ReleasedInput=2`, `Activated=3`, `Idle=4`, `AwaitingCorrelatedInput=5` |
 | `TerminalChordValidationError` | `EmptySequence=1`, `SequenceTooLong=2`, `RegistrationLimitReached=3`, `DuplicateBinding=4`, `PrefixAmbiguity=5`, `EnhancedKeyIdentityRequired=6`, `ReleaseEventsRequired=7`, `BindingIdentifierExhausted=8` |
+| `TerminalChordMutationResult` | `Unregistered=1`, `Replaced=2` |
+| `TerminalChordMutationError` | `BindingNotFound=1`, `WrongRouter=2`, `CorrelatedGroupPending=3` |
+
+### Chord representation and additive-variant record
+
+`TerminalChordBindingId` retains type ID `0x540000000000010e` and changes from
+the baseline constrained numeric surface to an opaque immutable,
+standard-library-constructed identity with hidden router provenance and a hidden
+monotonic never-reused ordinal. Only the ordinal inspector is public. This is a
+current representation change, not an ID retirement or reassignment; repository
+history evidences no representation hash or representation version to record.
+
+`TerminalChordRouterOutput.Pending=1` retains discriminator 1 and gains the
+exact `MonotonicDeadline` payload required to arm the caller-owned affine timer.
+`Idle=4` and `AwaitingCorrelatedInput=5` use previously unused discriminators.
+No existing chord discriminator is reassigned or retired.
 
 ## Retired selected IDs
 
@@ -165,6 +187,11 @@ generation. The sole reachable capacity failure is
 
 ## Chord retirement status
 
-The chord retired set remains evidenced empty for the unchanged baseline at
-`384f502718e0a85f40862bfda0d02455b2344575`. Task 5 neither adds, removes, nor
-reassigns any chord type or explicit variant ID.
+The chord retired set is evidenced empty from the baseline
+`384f502718e0a85f40862bfda0d02455b2344575` through this chord declaration
+revision, `docs(terminal): add atomic chord mutation`. No chord type ID or
+explicit variant ID is removed, reassigned, or retired. In particular,
+`TerminalChordBindingId` retains `0x540000000000010e`, and
+`TerminalChordRouterOutput.Pending` retains discriminator 1. Every future chord
+retirement remains append-only and permanently never reusable under the
+same-revision rule above.
