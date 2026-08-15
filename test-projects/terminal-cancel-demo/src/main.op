@@ -1,0 +1,39 @@
+import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token, cancellation_request from standard
+
+# Deterministic input plan: request cancellation before the first read while a test input event is ready; terminal_session_read_event_sync observes TerminalInputEvent.Cancelled.
+# Deterministic fault plan: sticky cancellation wins over newly ready input, and the loop exits without any read after cancellation wins.
+# Expected final summary: CANCEL_DEMO_SUMMARY read_attempts=1 cancellations=1 consumed_after_cancel=0 sticky=true cleanup=closed
+
+##
+  Description: Proposal RED fixture for sticky cancellation winning before queued terminal input consumption.
+##
+entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+    let mutable source = propagate cancellation_source_new()
+    let token = cancellation_token(source)
+    let options = terminal_session_options_default()
+    let mutable session = propagate terminal_session_open_sync(options)
+
+    cancellation_request(source)
+
+    let mutable read_attempts: int64 = 0
+    let mutable cancellations: int64 = 0
+    let mutable consumed_after_cancel: int64 = 0
+    let mutable running = true
+
+    while running and read_attempts < 3:
+        let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Forever, token)
+        read_attempts = read_attempts + 1
+        if cancellations > 0:
+            consumed_after_cancel = consumed_after_cancel + 1
+        if event is TerminalInputEvent.Cancelled:
+            cancellations = cancellations + 1
+            running = false
+        if event is TerminalInputEvent.EndOfInput:
+            running = false
+
+    let summary = propagate trusted_terminal_output_from_application_text('CANCEL_DEMO_SUMMARY read_attempts={read_attempts} cancellations={cancellations} consumed_after_cancel={consumed_after_cancel} sticky=true cleanup=closed\n')
+    propagate terminal_session_write_sync(session, summary)
+    propagate terminal_session_flush_sync(session)
+    let close_outcome = propagate terminal_session_close_sync(session)
+    return void
