@@ -1,22 +1,23 @@
 # Terminal ABI History
 
-## Scope and baseline
+## Scope and revision
 
-This is the authoritative append-only history for terminal ABI ownership. Its
-active inventory is the committed Task 1 baseline:
+This is the authoritative append-only history for terminal ABI ownership. The
+committed Task 1 introduction baselines remain:
 
 - selected declarations: commit `4278ed359e2186251f81dfbf280caecf69aa3678`;
 - chord declarations: commit `384f502718e0a85f40862bfda0d02455b2344575`.
 
 `6067a1d` introduced `typed_event_session.types.op` before it carried
-`@abi_type_id` annotations or authoritative ABI IDs. Commit `4278ed3` checkpointed
-the current selected declaration bytes and is the supported introduction baseline
-for the selected active inventory below. Commit `384f502` introduced
-`terminal_chords.types.op` and is the supported introduction baseline for the
-chord active inventory below.
+`@abi_type_id` annotations or authoritative ABI IDs. Commit `4278ed3`
+checkpointed 82 selected type IDs. This selected declaration revision adds five
+previously unused type IDs and retires the obsolete explicit variant IDs listed
+below, producing exactly 87 active selected production type IDs. The chord
+inventory remains the unchanged 20-ID baseline from `384f502`; chord additions
+belong to a later chord-scoped revision and are not active here.
 
-The selected baseline has 82 active type IDs and the chord baseline has 20 active
-type IDs. Later uncommitted proposal revisions are not active history.
+No representation hash, representation version, or generated manifest is
+recorded because none is evidenced by repository history.
 
 ## Authority and append-only rules
 
@@ -40,23 +41,30 @@ evidenced by the baseline history.
 
 ## Active selected inventory
 
-Every row below is active at `4278ed359e2186251f81dfbf280caecf69aa3678`. A range
-is used only where every hexadecimal value in it is declared.
+The authoritative declaration file contains exactly 87 active selected
+production type IDs. A range is used only where every hexadecimal value in it is
+declared.
 
 | Type IDs | Active declarations |
 | --- | --- |
-| `0x5400000000000010` to `0x540000000000002c` | `TerminalControlCode` through `TerminalCompositionPreeditText` |
-| `0x540000000000002e` | `TerminalSession` |
-| `0x5400000000000032` to `0x5400000000000039` | `TrustedTerminalOutput`, `SafeTerminalDiagnosticOutput`, `TerminalPauseEvents`, `TerminalDiagnosticCollection`, `TerminalSessionOptions`, `TerminalSessionFeaturePolicy`, `TerminalSessionResourceLimits`, `TerminalOrdinaryFeature` |
+| `0x5400000000000010` to `0x5400000000000039` | `TerminalControlCode` through `TerminalOrdinaryFeature`, including new `TerminalRecoveryLedgerKind`, `TerminalRecoveryToken`, `TerminalCoordinatorState`, and `TerminalDiagnosticSessionState` |
 | `0x5400000000000040` to `0x540000000000004a` | `TerminalMouseTracking` through `TerminalModifiers` |
 | `0x540000000000004c` to `0x5400000000000059` | `TerminalNamedKey` through `TerminalMouseButton` |
-| `0x5400000000000060` to `0x540000000000006c` | `TerminalInputEvent` through `TerminalInvalidOptions` |
+| `0x5400000000000060` to `0x540000000000006d` | `TerminalInputEvent` through new `TerminalDiagnosticRetryability` |
 | `0x5400000000000070` to `0x5400000000000075` | `TerminalSessionOptionsError`, `TerminalSessionOpenError`, `TerminalSessionReadError`, `TerminalSessionWriteError`, `TerminalSessionStateError`, `TerminalSessionRestoreError` |
+
+Intentional selected type-ID gaps remain `0x540000000000004b`,
+`0x540000000000005a` through `0x540000000000005f`, and
+`0x540000000000006e` through `0x540000000000006f`. They are unallocated, not
+retired, and are not included in a range above.
 
 ### Selected explicit active variant IDs
 
 | Declaration | Variant IDs |
 | --- | --- |
+| `TerminalRecoveryLedgerKind` | `OpenRollback=1`, `CloseRestore=2` |
+| `TerminalCoordinatorState` | `Free=1`, `Opening=2`, `Active=3`, `Paused=4`, `RestorePending=5`, `FailedOpenRecovery=6`, `FailedCloseRecovery=7` |
+| `TerminalDiagnosticSessionState` | `Unavailable=1`, `Active=2`, `Paused=3`, `RestorePending=4`, `Closed=5` |
 | `TerminalOrdinaryFeature` | `AlternateScreen=1`, `CursorShape=2`, `BracketedPaste=3`, `FocusEvents=4`, `MouseButtons=5`, `MouseMotion=6`, `KeyReleaseEvents=7`, `CompositionEvents=8`, `EnhancedKeyIdentity=9` |
 | `TerminalMouseTracking` | `Disabled=1`, `Buttons=2`, `ButtonsAndDrag=3`, `AllMotion=4` |
 | `TerminalCursorShape` | `Default=1`, `BlinkingBlock=2`, `SteadyBlock=3`, `BlinkingUnderline=4`, `SteadyUnderline=5`, `BlinkingBar=6`, `SteadyBar=7` |
@@ -83,19 +91,28 @@ is used only where every hexadecimal value in it is declared.
 | `TerminalWait` | `Poll=1`, `Forever=2`, `For=3` |
 | `TerminalCloseOutcome` | `Clean=1`, `DiscardedInput=2` |
 | `TerminalBackend` | `LinuxVt=1`, `WindowsConsole=2`, `WindowsConPty=3`, `VtStream=4`, `UnsupportedPlatform=5` |
-| `TerminalOperation` | `Open=1`, `Read=2`, `Write=3`, `Flush=4`, `QuerySize=5`, `AcquireOutputTerminal=6`, `Pause=7`, `Resume=8`, `Close=9`, `RestorePendingOpen=10`, `RestorePendingClose=11`, `SetCursorVisibility=12`, `SetCursorShape=13`, `NegotiateCapability=14`, `Allocate=15`, `ValidateOptions=16` |
+| `TerminalOperation` | `Open=1`, `Read=2`, `Write=3`, `Flush=4`, `QuerySize=5`, `Pause=7`, `Resume=8`, `Close=9`, `RestorePendingOpen=10`, `RestorePendingClose=11`, `SetCursorVisibility=12`, `SetCursorShape=13`, `NegotiateCapability=14`, `Allocate=15`, `ValidateOptions=16`, `TakeInput=17`, `PrintText=18`, `FlushStandardOutput=19`, `StdoutWriter=20`, `WriterWrite=21`, `WriterFlush=22`, `StdoutTerminal=23`, `TerminalSupportsAnsi=24`, `TerminalClearScreenOn=25`, `TerminalMoveCursorOn=26`, `TerminalDrawRows=27`, `TerminalClearScreen=28`, `TerminalMoveCursor=29` |
 | `TerminalDiagnosticStage` | `Snapshot=1`, `AcquireOwnership=2`, `ConfigureInput=3`, `ConfigureOutput=4`, `EnableProtocol=5`, `Wait=6`, `Decode=7`, `Allocate=8`, `ReverseProtocol=9`, `RestoreOperatingSystemState=10`, `ReleaseOwnership=11`, `ValidateState=12`, `ValidateOptions=13` |
-| `TerminalSessionState` | `Opening=1`, `Active=2`, `Paused=3`, `RestorePending=4`, `Closed=5`, `FailedOpenRecovery=6`, `FailedCloseRecovery=7` |
+| `TerminalSessionState` | `Active=2`, `Paused=3`, `RestorePending=4`, `Closed=5` |
 | `TerminalOsCode` | `Unavailable=1`, `PosixErrno=2`, `WindowsError=3` |
 | `TerminalFeature` | `AlternateScreen=1`, `CursorShape=2`, `BracketedPaste=3`, `FocusEvents=4`, `MouseButtons=5`, `MouseMotion=6`, `KeyReleaseEvents=7`, `CompositionEvents=8`, `EnhancedKeyIdentity=9`, `TrustedPasteFraming=10` |
 | `TerminalSessionOptionField` | `RetainedEvents=3`, `RetainedBytes=4`, `CorrelatedEvents=5`, `CorrelatedBytes=6`, `CommittedTextBytes=7`, `CompositionPreeditBytes=8`, `PasteChunkBytes=9`, `UnknownChunkBytes=10`, `PendingSequenceBytes=11`, `DiagnosticCount=12`, `DiagnosticBytes=13` |
 | `TerminalInvalidOptions` | `RetainedCapacityTooSmall=2`, `CorrelatedGroupTooLarge=3` |
+| `TerminalDiagnosticRetryability` | `NonRetryable=1`, `SameLiveSession=2`, `RecoveryToken=3` |
 | `TerminalSessionOptionsError` | `InvalidOptions=1` |
-| `TerminalSessionOpenError` | `InputNotInteractive=1`, `OutputNotInteractive=2`, `TerminalAlreadyOwned=3`, `InvalidOptions=4`, `UnsupportedFeature=5`, `ModeReadFailed=6`, `ModeWriteFailed=7`, `AllocationFailed=8`, `RollbackFailed=9`, `RecoveryPending=10`, `ResumeFailed=11` |
+| `TerminalSessionOpenError` | `InputNotInteractive=1`, `OutputNotInteractive=2`, `TerminalAlreadyOwned=3`, `InvalidOptions=4`, `UnsupportedFeature=5`, `ModeReadFailed=6`, `ModeWriteFailed=7`, `AllocationFailed=8`, `RollbackFailed=9`, `RecoveryPending=10`, `ResumeFailed=11`, `GenerationExhausted=12` |
 | `TerminalSessionReadError` | `ReadFailed=1`, `AllocationFailed=2`, `PauseDeliveryFailed=3`, `IdentifierExhausted=4` |
 | `TerminalSessionWriteError` | `WriteFailed=1`, `FlushFailed=2`, `UnsupportedCursorShape=3` |
-| `TerminalSessionStateError` | `SessionOpening=1`, `SessionActive=2`, `SessionPaused=3`, `SessionRestorePending=4`, `SessionClosed=5`, `SessionFailedRecovery=6` |
-| `TerminalSessionRestoreError` | `RestoreInputModeFailed=1`, `RestoreOutputModeFailed=2`, `RestoreScreenStateFailed=3`, `MultipleRestoreStepsFailed=4`, `PendingOpenRollbackFailed=5`, `CloseRestorePending=6`, `PendingCloseRestoreFailed=7`, `RecoveryOwnerMismatch=8` |
+| `TerminalSessionStateError` | `SessionActive=2`, `SessionPaused=3`, `SessionRestorePending=4`, `SessionClosed=5` |
+| `TerminalSessionRestoreError` | `RestoreInputModeFailed=1`, `RestoreOutputModeFailed=2`, `RestoreScreenStateFailed=3`, `MultipleRestoreStepsFailed=4`, `PendingOpenRollbackFailed=5`, `CloseRestorePending=6`, `PendingCloseRestoreFailed=7`, `WrongSession=9`, `WrongKind=10`, `Stale=11`, `Consumed=12`, `RecoveryInProgress=13`, `ResumeRestorePending=15` |
+
+The declaration file is the field and payload authority. In particular,
+open-family `RollbackFailed` and `RecoveryPending`, restore-family
+`PendingOpenRollbackFailed`, `CloseRestorePending`, and
+`PendingCloseRestoreFailed` carry `TerminalRecoveryToken` aliases. The
+live-binding `ResumeRestorePending=15` carries diagnostics and no token.
+Open-family `GenerationExhausted=12` is the only reachable generation-capacity
+failure; restore-family value `14` is permanently unavailable.
 
 ## Active chord inventory
 
@@ -119,14 +136,35 @@ The range is contiguous and contains all 20 chord type IDs.
 | `TerminalChordRouterOutput` | `Pending=1`, `ReleasedInput=2`, `Activated=3` |
 | `TerminalChordValidationError` | `EmptySequence=1`, `SequenceTooLong=2`, `RegistrationLimitReached=3`, `DuplicateBinding=4`, `PrefixAmbiguity=5`, `EnhancedKeyIdentityRequired=6`, `ReleaseEventsRequired=7`, `BindingIdentifierExhausted=8` |
 
-## Retired IDs
+## Retired selected IDs
 
-The retired set is evidenced empty for the inspected range: `6067a1d` through
-`4278ed359e2186251f81dfbf280caecf69aa3678` for selected declarations and
-`384f502718e0a85f40862bfda0d02455b2344575` for chord declarations. Read-only
-history inspection found no prior `abi-history.md` and no deletion commit for
-these declaration paths.
+The Task 1 selected baseline introduced the active explicit variant IDs retired
+below. Their retirement occurs in the same selected declaration revision as this
+history update. Every value is permanently unavailable and is absent from the
+active declarations.
 
-| Retired ID | Former declaration | Retirement reason | Retirement commit | Replacement | Prior representation evidence |
-| --- | --- | --- | --- | --- | --- |
-| None | None | No committed retirement, removal, or replacement was evidenced in the inspected baseline range. | None | None | None |
+| Retired ID | Former declaration | Retirement reason | Introduction evidence | Retirement evidence | Replacement | Prior representation evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| `TerminalOperation.AcquireOutputTerminal=6` | Output-terminal acquisition operation | The selected API removes session-derived `StdoutTerminal` authority. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | None | Unavailable |
+| `TerminalSessionState.Opening=1` | Binding state | Opening is coordinator-only before a session binding exists. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | `TerminalCoordinatorState.Opening=2` | Unavailable |
+| `TerminalSessionState.FailedOpenRecovery=6` | Binding state | Failed-open recovery is process-owned and has no session binding. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | `TerminalCoordinatorState.FailedOpenRecovery=6` | Unavailable |
+| `TerminalSessionState.FailedCloseRecovery=7` | Binding state | Failed-close recovery is process-owned after cleanup consumes the binding. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | `TerminalCoordinatorState.FailedCloseRecovery=7` | Unavailable |
+| `TerminalSessionStateError.SessionOpening=1` | Session state error variant | Opening cannot be returned as a rejection for a binding that does not yet exist. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | `TerminalCoordinatorState.Opening=2` | Unavailable |
+| `TerminalSessionStateError.SessionFailedRecovery=6` | Session state error variant | Process-owned recovery has no live binding and therefore no binding-state rejection variant. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | None | Unavailable |
+| `TerminalSessionRestoreError.RecoveryOwnerMismatch=8` | Recovery error variant | Authenticated token validation now distinguishes provenance, kind, stale, consumed, and concurrent-claim failures. | Selected baseline `4278ed359e2186251f81dfbf280caecf69aa3678` | This selected declaration revision, `docs(terminal): define recovery and diagnostic ABI` | `WrongSession=9`, `WrongKind=10`, `Stale=11`, `Consumed=12`, `RecoveryInProgress=13` | Unavailable |
+
+## Permanently unavailable reviewed candidate ID
+
+`TerminalSessionRestoreError.GenerationExhausted=14` appeared only in an
+uncommitted reviewed candidate and has no introduction commit. This selected
+revision permanently records value `14` as retired and never reusable because
+every ownership epoch reserves recovery-generation capacity before `Opening`;
+process-owned transfer cannot exhaust, and retries reuse the same issued
+generation. The sole reachable capacity failure is
+`TerminalSessionOpenError.GenerationExhausted=12` during open-family preflight.
+
+## Chord retirement status
+
+The chord retired set remains evidenced empty for the unchanged baseline at
+`384f502718e0a85f40862bfda0d02455b2344575`. Task 5 neither adds, removes, nor
+reassigns any chord type or explicit variant ID.

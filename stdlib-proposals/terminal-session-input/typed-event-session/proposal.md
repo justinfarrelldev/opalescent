@@ -155,7 +155,7 @@ A wake is a hint. The caller compares the wake source identity/generation as req
 
 ## Public API
 
-All selected terminal public signatures are collected here in one coherent proposal block and use canonical Opalescent borrows. Core prerequisite signatures are not redeclared here.
+All selected terminal public function signatures are authoritatively collected here in one coherent proposal block and use canonical Opalescent borrows. `typed_event_session.types.op` authoritatively declares every selected terminal-owned type and error family named by these signatures; core-owned types and errors come from `../core-prerequisites.md` and are not redeclared or assigned terminal ABI IDs here.
 
 ```opal
 # terminal_session_options_default(): TerminalSessionOptions

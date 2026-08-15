@@ -1,4 +1,4 @@
-# Proposal-only type declarations. This .types.op file intentionally contains only type declarations and remains noncompiling until proposal syntax fixtures pass.
+# Selected terminal declarations. This .types.op file intentionally contains only authoritative terminal-owned type declarations.
 # Constraint expressions may call compiler intrinsics such as contains_no_nul(value), utf8_byte_length(value), and unicode_scalar_count(value).
 # Those intrinsics are not public declarations, values, imports, or callable application APIs.
 # @abi_type_id, @abi_evolution, @constructor_visibility, opaque immutable, and affine resource are proposed syntax.
@@ -241,13 +241,67 @@ public constrained type TerminalPasteText: string where value.length > 0 and con
 public constrained type TerminalCompositionPreeditText: string where contains_no_nul(value)
 
 ##
-  Description: Owns the process terminal pair and restoration ledger with compiler-enforced affine state.
-  Invariant: using owns the binding; ordinary calls borrow it; direct close mutates it to Closed only on success.
+  Description: Classifies the process-owned inverse ledger named by a recovery token.
+  Evolution: Closed; recovery authority kind changes require an ABI-major release.
+  Invariant: OpenRollback is valid only for failed-open rollback and CloseRestore only for failed-cleanup restoration.
+##
+@abi_type_id(0x540000000000002d)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public type TerminalRecoveryLedgerKind:
+    OpenRollback = 1
+    CloseRestore = 2
+
+##
+  Description: Owns the process terminal pair, restoration ledger, and one unissued process-recovery generation reservation with compiler-enforced affine ownership and a runtime-validated state machine.
+  Invariant: using owns the binding; ordinary calls borrow it; direct close mutates it to Closed only on success. A successful open moves one exclusive unissued recovery-generation reservation into the binding; it remains attached through Active, Paused, and RestorePending until clean close releases it or failed lexical cleanup consumes it to issue CloseRestore authority. Observable binding states are Active, Paused, RestorePending, and Closed; Opening and failed recovery are coordinator-only.
 ##
 @abi_type_id(0x540000000000002e)
 @abi_evolution(closed_major_only)
 @constructor_visibility(runtime)
 public compiler_registered affine resource type TerminalSession
+
+##
+  Description: Is a sealed opaque immutable alias to one process-owned recovery capability cell after an ownership epoch consumes its reserved generation capacity.
+  Invariant: Construction is runtime-only and occurs only when failed-open rollback or failed lexical cleanup consumes that epoch's exclusive reservation. Aliases share one authenticated coordinator, ledger identity, kind, issued generation, claim, and consumed state. It exposes no host handle, session identity, reservation, or ledger contents.
+  Evolution: Closed; authority semantics and representation change only in an ABI-major release.
+##
+@abi_type_id(0x540000000000002f)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public opaque immutable type TerminalRecoveryToken
+
+##
+  Description: Names the process coordinator ownership and recovery state for the standard terminal pair.
+  Invariant: Free-to-Opening preflights and exclusively installs one unissued process-recovery generation reservation before Opening publication, lease-epoch replacement, inspection, mutation, ledger insertion, or ownership exposure. Opening and failed recovery states never expose a TerminalSession binding; Free means no process-owned terminal ledger or live reservation, and Active, Paused, or RestorePending have exactly one live binding carrying the reservation. Successful close releases an unused reservation; successful recovery leaves its issued generation permanently spent and returns the coordinator to Free. A directly closed binding may remain inspectable as TerminalSessionState.Closed without coordinator ownership.
+  Evolution: Closed; additions require an ABI-major release.
+##
+@abi_type_id(0x5400000000000030)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public type TerminalCoordinatorState:
+    Free = 1
+    Opening = 2
+    Active = 3
+    Paused = 4
+    RestorePending = 5
+    FailedOpenRecovery = 6
+    FailedCloseRecovery = 7
+
+##
+  Description: Represents whether a structured diagnostic observed no binding state or one observable TerminalSession state.
+  Invariant: Unavailable records the absence of a session binding; all other variants correspond exactly to public binding states.
+  Evolution: Closed; additions require an ABI-major release.
+##
+@abi_type_id(0x5400000000000031)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public type TerminalDiagnosticSessionState:
+    Unavailable = 1
+    Active = 2
+    Paused = 3
+    RestorePending = 4
+    Closed = 5
 
 ##
   Description: Is nominal application-reviewed terminal output; construction is the explicit trust boundary.
@@ -797,8 +851,8 @@ public non_exhaustive type TerminalBackend:
     UnsupportedPlatform = 5
 
 ##
-  Description: Names a terminal operation.
-  Evolution: Additive; unknown operations remain safe to format and inspect.
+  Description: Names a terminal or coordinator-validated legacy standard-I/O operation.
+  Evolution: Additive; unknown operations remain safe to format and inspect. AcquireOutputTerminal is retired and is not reused.
 ##
 @abi_type_id(0x5400000000000065)
 @abi_evolution(non_exhaustive_additive)
@@ -809,7 +863,6 @@ public non_exhaustive type TerminalOperation:
     Write = 3
     Flush = 4
     QuerySize = 5
-    AcquireOutputTerminal = 6
     Pause = 7
     Resume = 8
     Close = 9
@@ -820,6 +873,19 @@ public non_exhaustive type TerminalOperation:
     NegotiateCapability = 14
     Allocate = 15
     ValidateOptions = 16
+    TakeInput = 17
+    PrintText = 18
+    FlushStandardOutput = 19
+    StdoutWriter = 20
+    WriterWrite = 21
+    WriterFlush = 22
+    StdoutTerminal = 23
+    TerminalSupportsAnsi = 24
+    TerminalClearScreenOn = 25
+    TerminalMoveCursorOn = 26
+    TerminalDrawRows = 27
+    TerminalClearScreen = 28
+    TerminalMoveCursor = 29
 
 ##
   Description: Names a terminal operation stage.
@@ -844,20 +910,18 @@ public non_exhaustive type TerminalDiagnosticStage:
     ValidateOptions = 13
 
 ##
-  Description: Names a terminal lifecycle state.
+  Description: Names one observable runtime state of an owned TerminalSession binding.
+  Invariant: Opening and failed recovery are coordinator-only states and never occur on a returned binding.
   Evolution: Closed; additions require an ABI-major release.
 ##
 @abi_type_id(0x5400000000000067)
 @abi_evolution(closed_major_only)
 @constructor_visibility(runtime)
 public type TerminalSessionState:
-    Opening = 1
     Active = 2
     Paused = 3
     RestorePending = 4
     Closed = 5
-    FailedOpenRecovery = 6
-    FailedCloseRecovery = 7
 
 ##
   Description: Carries an operating-system status without absence sentinels.
@@ -875,6 +939,7 @@ public non_exhaustive type TerminalOsCode:
 
 ##
   Description: Describes one immutable runtime-origin structured terminal failure.
+  Invariant: Each value records backend, operation, stage, coordinator state, diagnostic session state, OS code, bounded detail, retryability, and truncation; recovery authority is never represented as diagnostic text or an attachment.
   Evolution: Additive opaque; formatting remains safe for unknown metadata.
 ##
 @abi_type_id(0x5400000000000069)
@@ -935,6 +1000,19 @@ public non_exhaustive type TerminalInvalidOptions:
         configured_events: uint64
 
 ##
+  Description: Classifies whether a terminal diagnostic is non-retryable, retryable by a still-owned live session, or retryable only with a recovery token.
+  Invariant: This classification is advisory diagnostic metadata and never grants session or recovery authority.
+  Evolution: Closed; additions require an ABI-major release.
+##
+@abi_type_id(0x540000000000006d)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public type TerminalDiagnosticRetryability:
+    NonRetryable = 1
+    SameLiveSession = 2
+    RecoveryToken = 3
+
+##
   Description: Reports explicit final validation failures for an immutable options snapshot.
   Evolution: Closed; family changes only in an ABI-major release.
 ##
@@ -946,7 +1024,8 @@ public type TerminalSessionOptionsError:
         invalid_options: TerminalInvalidOptions
 
 ##
-  Description: Reports terminal session open and resume failures.
+  Description: Reports terminal-session open failures and resume failures that occur before mutation or after complete live-binding compensation.
+  Invariant: GenerationExhausted is emitted only by initial Free acquisition when capacity for one future process-recovery generation cannot be reserved; it occurs before Opening publication, lease-epoch replacement, terminal inspection/mutation, ledger insertion, or ownership exposure. RollbackFailed is open-only and, with RecoveryPending, carries a sealed alias to process-owned recovery authority. ResumeFailed carries no token and leaves the live binding Paused because resume made no mutation or completely rolled back every mutation.
   Evolution: Additive error family; unknown variants propagate by stable family and variant identity.
 ##
 @abi_type_id(0x5400000000000071)
@@ -973,9 +1052,14 @@ public non_exhaustive type TerminalSessionOpenError:
         diagnostic: TerminalDiagnostic
     RollbackFailed = 9:
         diagnostics: TerminalDiagnosticCollection
+        recovery_token: TerminalRecoveryToken
     RecoveryPending = 10:
         diagnostic: TerminalDiagnostic
+        recovery_token: TerminalRecoveryToken
     ResumeFailed = 11:
+        diagnostic: TerminalDiagnostic
+    GenerationExhausted = 12:
+        last_issued_generation: uint64
         diagnostic: TerminalDiagnostic
 
 ##
@@ -1011,15 +1095,14 @@ public non_exhaustive type TerminalSessionWriteError:
         diagnostic: TerminalDiagnostic
 
 ##
-  Description: Reports an invalid operation for the current session lifecycle state.
-  Evolution: Closed because state transitions are an affine typestate contract.
+  Description: Reports an invalid operation for the current observable session binding state.
+  Invariant: Rejection occurs before host inspection, input consumption, output mutation, decoder or ledger mutation, or state transition.
+  Evolution: Closed because the observable binding-state contract changes only in an ABI-major release.
 ##
 @abi_type_id(0x5400000000000074)
 @abi_evolution(closed_major_only)
 @constructor_visibility(runtime)
 public type TerminalSessionStateError:
-    SessionOpening = 1:
-        diagnostic: TerminalDiagnostic
     SessionActive = 2:
         diagnostic: TerminalDiagnostic
     SessionPaused = 3:
@@ -1028,11 +1111,10 @@ public type TerminalSessionStateError:
         diagnostic: TerminalDiagnostic
     SessionClosed = 5:
         diagnostic: TerminalDiagnostic
-    SessionFailedRecovery = 6:
-        diagnostic: TerminalDiagnostic
 
 ##
-  Description: Reports restoration or process-owned recovery failure; successful close notices are not errors.
+  Description: Reports live-binding restoration/compensation failure and authenticated process-owned recovery rejection; successful close notices are not errors.
+  Invariant: ResumeRestorePending carries ordered diagnostics but no recovery token because the live binding retains its shortened inverse ledger, unissued reservation, and retry authority in RestorePending. Failed-open and failed-cleanup transfer consume the ownership epoch's pre-reserved capacity, so this family has no generation-exhaustion emission. Process-owned retryable pending failures return an alias to the same issued-generation sealed recovery token. WrongSession, WrongKind, Stale, Consumed, and RecoveryInProgress reject before terminal mutation or authority consumption.
   Evolution: Additive error family; unknown variants propagate by stable identity.
 ##
 @abi_type_id(0x5400000000000075)
@@ -1049,9 +1131,32 @@ public non_exhaustive type TerminalSessionRestoreError:
         diagnostics: TerminalDiagnosticCollection
     PendingOpenRollbackFailed = 5:
         diagnostics: TerminalDiagnosticCollection
+        recovery_token: TerminalRecoveryToken
     CloseRestorePending = 6:
         diagnostics: TerminalDiagnosticCollection
+        recovery_token: TerminalRecoveryToken
     PendingCloseRestoreFailed = 7:
         diagnostics: TerminalDiagnosticCollection
-    RecoveryOwnerMismatch = 8:
+        recovery_token: TerminalRecoveryToken
+    WrongSession = 9:
+        recovery_token: TerminalRecoveryToken
         diagnostic: TerminalDiagnostic
+    WrongKind = 10:
+        recovery_token: TerminalRecoveryToken
+        expected_kind: TerminalRecoveryLedgerKind
+        actual_kind: TerminalRecoveryLedgerKind
+        diagnostic: TerminalDiagnostic
+    Stale = 11:
+        recovery_token: TerminalRecoveryToken
+        token_generation: uint64
+        diagnostic: TerminalDiagnostic
+    Consumed = 12:
+        recovery_token: TerminalRecoveryToken
+        token_generation: uint64
+        diagnostic: TerminalDiagnostic
+    RecoveryInProgress = 13:
+        recovery_token: TerminalRecoveryToken
+        generation: uint64
+        diagnostic: TerminalDiagnostic
+    ResumeRestorePending = 15:
+        diagnostics: TerminalDiagnosticCollection
