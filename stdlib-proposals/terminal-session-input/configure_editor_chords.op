@@ -26,37 +26,52 @@
 # EditorChordTimerRecoverySlot): void
 # editor_chord_runtime_close(runtime: EditorChordRuntime): void
 #
-# editor_chord_runtime_new allocates and initializes the authenticated router, empty capacity
-# recovery state, binding map, active timer, and one disarmed spare timer as one transaction. During
-# that constructor borrow it uses system_wait_set_register_owned once for each timer source; the
-# returned authorities retain exact entries without retaining the SystemWaitSet borrow. Any
-# SystemWaitSetError or AllocationFailureError rolls back installed entries through owned cleanup
-# and returns no owner. The returned runtime is Ready with a full spare pair.
-# editor_chord_runtime_close consumes the runtime owner in one deterministic order. It first
-# discards any pending recovery carrier/current event/output without applying, retrying, releasing,
-# or activating it; then clears/drops the map, invokes terminal_chord_router_drop, drops both owned
-# registration authorities to remove their live entries exactly once, and only then drops active,
-# spare, exhausted, or candidate timer/source owners. Explicit close consumes the using obligation;
-# lexical cleanup is then a no-op. If the wait set was already destroyed, authority cleanup is a
-# core-defined no-op. No operation consumes any field owner through ref or mutable ref.
+# EditorChordRuntime opts into the core transactional affine aggregate rule. Its named constructor
+# acquires the empty binding map, authenticated router, active timer, active owned registration,
+# disarmed spare timer, and spare owned registration in that order. Until the final seal, the
+# compiler holds each initialized member obligation provisionally in an inaccessible aggregate
+# shell. Any SystemWaitSetError, TerminalChordValidationError, or AllocationFailureError cleans
+# initialized provisional members exactly once in reverse acquisition order, treats later slots as
+# empty, discards partial value state, and returns no runtime. After every slot exists, one
+# allocation-free infallible seal publishes the Ready runtime with Empty capacity recovery and a
+# Full spare pair. Seal and return have no fallible or observable interposition. This initial
+# owner formation is not an external cleanup-authority transfer, so every empty transfer set above
+# and on the router, timers, and owned registrations remains truthful.
 #
-# EditorChordCapacityRecovery is a fixed-size state field, never an independent owner. It has
+# The aggregate declaration permits exactly three exclusive same-owner slot transitions:
+# active+Full -> swapped-active+Consumed, Consumed -> Candidate after candidate allocation, and
+# Candidate -> Full after successful owned-registration retarget. They are obligation-preserving
+# atomic permutations under mutable ref, not owner exports or transfers. Candidate allocation
+# failure leaves Consumed. Retarget SystemWaitSetError or AllocationFailureError leaves Candidate,
+# including the old exhausted-source relationship and candidate timer. Successful retarget is
+# followed immediately by the infallible Candidate -> Full commit; no fallible call, cleanup,
+# scope exit, or observation can interpose, and the exhausted timer drops only after its authority
+# targets the candidate source.
+#
+# editor_chord_runtime_close consumes the sealed aggregate owner. It discards capacity recovery;
+# clears/drops the map; invokes terminal_chord_router_drop; drops slot then active owned-registration
+# authorities; then drops timers by the current slot layout. Full drops spare then active; Consumed
+# drops exhausted then active; Candidate drops candidate, exhausted, then active. Empty/absent slots
+# own nothing. Explicit close consumes the using obligation and lexical cleanup becomes a no-op;
+# otherwise lexical cleanup uses this same order once. Partial construction instead uses reverse
+# acquisition order. If the wait set was already destroyed, authority cleanup is a core-defined
+# no-op. No borrowed helper exports, consumes, duplicates, or cleans a field owner independently.
+#
+# EditorChordCapacityRecovery is a fixed-size value-state field, never an independent owner. It has
 # Empty, NeedRelease, NeedTimerSafety, NeedEventRetry, NeedOutputCompletion, and
-# NeedSlotReplenishment phases. It stores values only, never references to runtime siblings.
-# Stored next indices, output-timer-safe, and activation-applied bits make every explicit resume
-# once-only. EditorChordTimerRecoverySlot is Full(spare timer plus owned registration),
-# Consumed(exhausted timer plus owned registration), or Candidate(the consumed pair plus one newly
-# allocated disarmed candidate timer). The active pair and slot pair occupy two fixed wait-set
-# fairness positions; swapping roles never reorders either authority.
+# NeedSlotReplenishment phases and stores no sibling references. Stored next indices,
+# output-timer-safe, and activation-applied bits make every explicit resume once-only.
+# EditorChordTimerRecoverySlot is Full(spare timer plus owned registration), Consumed(exhausted
+# timer plus owned registration), or Candidate(the consumed pair plus one newly allocated disarmed
+# candidate timer). The active pair and slot pair occupy two fixed fairness positions.
 #
-# Infallible private helpers perform field access/state transitions, map removal/lookup,
-# activation effects, capacity capture/phase mutation, pair swap, and the post-retarget commit. The
-# two capacity apply helpers are fallible only with IndexOutOfBoundsError and retain their next
+# Infallible private helpers perform declared value-state changes and same-owner aggregate commits.
+# The two capacity apply helpers are fallible only with IndexOutOfBoundsError and retain their next
 # index on failure. Candidate preparation is fallible only with AllocationFailureError and leaves
 # Consumed unchanged; owned retarget is fallible with SystemWaitSetError or AllocationFailureError
 # and leaves Candidate plus NeedSlotReplenishment unchanged. These application-only declarations
-# carry no terminal ABI and the
-# router never stores an application payload, callback, closure, map node, or module object.
+# carry no terminal ABI, and the router stores no application payload, callback, closure, map node,
+# or module object.
 
 import monotonic_timer_arm, monotonic_timer_disarm, monotonic_timer_generation, monotonic_timer_readiness_source, system_wait_set_register_owned, system_owned_wait_registration_retarget, terminal_capabilities_feature, terminal_chord_modifiers, terminal_chord_new, terminal_chord_with_lock_modifier_mask, terminal_chord_sequence_single, terminal_chord_sequence_append, terminal_chord_router_new, terminal_chord_router_register, terminal_chord_router_replace, terminal_chord_router_unregister, terminal_chord_router_process, terminal_chord_router_expire_sync, terminal_chord_router_reset, terminal_chord_released_input_length, terminal_chord_released_input_at from standard
 import type AllocationFailureError, IndexOutOfBoundsError, MonotonicDeadline, MonotonicTimerError, SystemOwnedWaitRegistration, SystemReadinessSource, SystemWaitSet, SystemWaitSetError, SystemWaitWake from standard
