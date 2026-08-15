@@ -389,7 +389,7 @@ public opaque immutable type TerminalTestFakeBackend
 
 ##
   Description: Reports rejection by a test-only factory.
-  Invariant: Each failure leaves scenario state, fake-backend binding, production values, and recovery authority unchanged.
+  Invariant: Each failure leaves scenario state, fake-backend binding, production values, and recovery authority unchanged. Identifier exhaustion preserves the corresponding last valid nonzero ID and counter, issues no value, changes no live set or correlation bookkeeping, and is retry-stable.
   Availability: Test-only. This declaration has no production ABI ID or export.
 ##
 @availability(test_only)
@@ -420,3 +420,7 @@ public type TerminalTestFactoryError:
     ScenarioBoundToAnotherTask = 17
     # Value 18 is retired and permanently not reused within this ephemeral test-only declaration.
     DuplicateFaultPoint = 19
+    EventIdentifierExhausted = 20:
+        last_issued_event_id: TerminalEventId
+    CompositionIdentifierExhausted = 21:
+        last_issued_composition_id: TerminalCompositionId
