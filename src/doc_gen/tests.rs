@@ -221,7 +221,7 @@ fn test_source_contains_documentation_struct_on_declarations() {
         | &Decl::Let {
             ref doc_comment, ..
         } => doc_comment.is_some(),
-        &Decl::Import { .. } | &Decl::Comment { .. } => false,
+        &Decl::Import { .. } | &Decl::Namespace { .. } | &Decl::Comment { .. } => false,
     };
     assert!(has_doc, "declaration should preserve parsed doc comments");
 }

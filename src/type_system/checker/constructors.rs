@@ -342,6 +342,7 @@ impl TypeChecker {
             } => {
                 ast_type_to_core_type(target_type).map_err(TypeError::from)?;
             }
+            TypeDef::Opaque { .. } => {}
         }
         Ok(())
     }

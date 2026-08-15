@@ -1,0 +1,23 @@
+# Task 6 parser declaration metadata error evidence
+
+Date: 2026-08-15
+
+## Negative coverage
+
+Added parser tests for rejected proposal declaration forms, including:
+
+- unknown declaration annotations;
+- duplicate `@abi_type_id` annotations on one declaration;
+- malformed constrained `where` predicates;
+- local `@availability(test_only)` syntax, which must not parse as a local statement.
+
+## Failures encountered and fixed
+
+- Initial `cargo test parser` failed with Rust type error `E0308` in `src/parser/declarations.rs` around the diagnostic span used by the new declaration parsing path. Fixed the diagnostic span construction and reran parser tests successfully.
+- After extracting proposal metadata helpers to satisfy the pre-commit line-count hook, `cargo fmt --all -- --check && cargo test parser` failed to compile with `E0624` because `is_type_keyword` was private to `src/parser/declarations.rs`. Fixed by making it `pub(super)` for parser submodules.
+- Removed the stale `TypeConstraint` import from `src/parser/declarations.rs` after the extraction moved constraint parsing into `src/parser/declaration_metadata.rs`.
+
+## Regression guard
+
+- Existing lexer/compiler invalid-character fixtures originally used `@`; those fixtures were changed to `$` because `@` is now part of the grammar.
+- Final `cargo fmt --all -- --check`, `cargo test parser`, and full `cargo test` all passed after the repair.

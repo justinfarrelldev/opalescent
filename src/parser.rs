@@ -20,6 +20,8 @@
 
 /// Parser submodule for closure capture analysis
 mod captures;
+/// Parser submodule for proposal declaration metadata and extended type forms
+mod declaration_metadata;
 /// Parser submodule for declaration parsing (functions, types, let)
 mod declarations;
 /// Parser error types and error collection
@@ -145,7 +147,7 @@ impl Parser {
                             self.synchronize();
                             continue;
                         }
-                    } else {
+                    } else if !matches!(&decl, &crate::ast::Decl::Namespace { .. }) {
                         parsed_non_import_declaration = true;
                     }
                     declarations.push(decl);

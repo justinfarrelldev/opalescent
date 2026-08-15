@@ -56,7 +56,7 @@ fn compile_to_module_valid_void_program() {
 #[test]
 fn compile_to_module_lex_error() {
     let context = Context::create();
-    let source = "##\n  Description: Entry lexical error sample with valid docs\n##\nentry main = f(): void => {\n\tlet x = @@@invalid\n}";
+    let source = "##\n  Description: Entry lexical error sample with valid docs\n##\nentry main = f(): void => {\n\tlet x = $$$invalid\n}";
     let result = compile_to_module(&context, Path::new("test.op"), source);
     assert!(
         result.is_err(),

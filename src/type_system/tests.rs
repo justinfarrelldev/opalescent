@@ -21,7 +21,7 @@ use super::types::{CoreType, TypeVar};
 use crate::ast::{
     Decl, Documentation, Expr, Field, FunctionModifier, HotReloadMetadata, LabeledValue,
     LambdaBody, LetBinding, LiteralValue, NodeId, Parameter, Program, Stmt, StringPart, Type,
-    TypeDef, TypeParameter, Variant, Visibility as AstVisibility,
+    TypeDeclarationForm, TypeDef, TypeParameter, Variant, Visibility as AstVisibility,
 };
 use crate::errors::renderer::render_diagnostic;
 use crate::lexer::Lexer;
@@ -379,8 +379,11 @@ fn make_unit_type_decl(name: &str, id: usize) -> Decl {
                 name: "unit".to_owned(),
                 span: test_span(),
             },
+            constraint: None,
             span: test_span(),
         },
+        annotations: Vec::new(),
+        form: TypeDeclarationForm::Nominal,
         visibility: AstVisibility::Private,
         doc_comment: None,
         span: test_span(),
@@ -405,6 +408,8 @@ fn make_product_type_decl(name: &str, fields: Vec<(&str, Type)>, id: usize) -> D
                 .collect(),
             span: test_span(),
         },
+        annotations: Vec::new(),
+        form: TypeDeclarationForm::Nominal,
         visibility: AstVisibility::Private,
         doc_comment: None,
         span: test_span(),
@@ -4247,6 +4252,7 @@ fn test_adt_type_validation_sum() {
     let span = Span::single(Position::start());
     let variant = Variant {
         name: "Some".to_owned(),
+        explicit_id: None,
         fields: vec![Field {
             name: "value".to_owned(),
             type_annotation: Type::Basic {
@@ -8763,8 +8769,11 @@ fn ordinary_aliased_constructor_not_treated_as_fallible() {
                     name: "Account".to_owned(),
                     span: test_span(),
                 },
+                constraint: None,
                 span: test_span(),
             },
+            annotations: Vec::new(),
+            form: TypeDeclarationForm::Nominal,
             visibility: AstVisibility::Private,
             doc_comment: None,
             span: test_span(),

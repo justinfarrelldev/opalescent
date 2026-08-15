@@ -187,41 +187,18 @@ impl Parser {
         }
     }
 
-    /// Parse path components separated by '/' (foo/bar/baz)
+    /// Parse path components separated by '/' (foo/bar-baz/qux)
     /// Also handles file extensions like .types, .op
     fn parse_path_components(&mut self) -> ParseResult<String> {
         let mut components = Vec::new();
-        // Parse first component
-        match self.current_token().token_type {
-            TokenType::Identifier(ref component) => {
-                components.push(component.clone());
-                self.advance();
-            }
-            _ => {
-                return Err(ParseError::UnexpectedToken {
-                    expected: "path component".to_owned(),
-                    found: format!("{}", self.current_token().token_type),
-                    span: ParseError::span_from_token(self.current_token()),
-                });
-            }
-        }
+        components.push(self.parse_path_component()?);
+
         // Parse additional components
         while self.check(&TokenType::Divide) {
             self.advance(); // consume '/'
-            match self.current_token().token_type {
-                TokenType::Identifier(ref component) => {
-                    components.push(component.clone());
-                    self.advance();
-                }
-                _ => {
-                    return Err(ParseError::UnexpectedToken {
-                        expected: "path component after '/'".to_owned(),
-                        found: format!("{}", self.current_token().token_type),
-                        span: ParseError::span_from_token(self.current_token()),
-                    });
-                }
-            }
+            components.push(self.parse_path_component()?);
         }
+
         // Handle file extensions (e.g., .types, .op)
         if self.check(&TokenType::Dot) {
             self.advance(); // consume '.'
@@ -241,5 +218,43 @@ impl Parser {
             }
         }
         Ok(components.join("/"))
+    }
+
+    /// Parse one slash-delimited import path component, including hyphenated names.
+    fn parse_path_component(&mut self) -> ParseResult<String> {
+        let mut component = match self.current_token().token_type {
+            TokenType::Identifier(ref component) => {
+                let component = component.clone();
+                self.advance();
+                component
+            }
+            _ => {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "path component".to_owned(),
+                    found: format!("{}", self.current_token().token_type),
+                    span: ParseError::span_from_token(self.current_token()),
+                });
+            }
+        };
+
+        while self.check(&TokenType::Minus) {
+            self.advance();
+            match self.current_token().token_type {
+                TokenType::Identifier(ref next_part) => {
+                    component.push('-');
+                    component.push_str(next_part);
+                    self.advance();
+                }
+                _ => {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "path component after '-'".to_owned(),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                }
+            }
+        }
+
+        Ok(component)
     }
 }

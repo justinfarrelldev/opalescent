@@ -177,7 +177,7 @@ pub fn collect_program_adt_field_layouts(
                     adt_field_layouts.insert(format!("{name}.{}", variant.name), field_layout);
                 }
             }
-            TypeDef::Alias { .. } => {}
+            TypeDef::Alias { .. } | TypeDef::Opaque { .. } => {}
         }
     }
     adt_field_layouts
@@ -339,7 +339,7 @@ pub fn compile_checked_program_to_module<'context>(
                     )?;
                 }
             }
-            Decl::Type { .. } | Decl::Comment { .. } => {}
+            Decl::Type { .. } | Decl::Namespace { .. } | Decl::Comment { .. } => {}
         }
     }
 

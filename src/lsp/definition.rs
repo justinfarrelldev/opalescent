@@ -122,7 +122,7 @@ fn declaration_location_for_symbol(
                 });
             }
         }
-        Decl::Import { .. } | Decl::Comment { .. } => {}
+        Decl::Import { .. } | Decl::Namespace { .. } | Decl::Comment { .. } => {}
     }
 
     None

@@ -432,6 +432,9 @@ impl Formatter {
                     items_str.join(", ")
                 )
             }
+            Decl::Namespace { ref path, .. } => {
+                format!("{}namespace {}", self.indent(depth), path.join("."))
+            }
             Decl::Let {
                 ref binding,
                 ref initializer,
@@ -485,6 +488,7 @@ impl Formatter {
             TypeDef::Alias {
                 ref target_type, ..
             } => format!(" {}", print_type(target_type)),
+            TypeDef::Opaque { .. } => String::new(),
             TypeDef::Sum { ref variants, .. } => {
                 let variant_strs: Vec<String> = variants
                     .iter()
@@ -519,18 +523,22 @@ impl Formatter {
 
     /// Pretty-print a variant.
     fn print_variant(&self, variant: &Variant, depth: usize) -> String {
+        let explicit_id = variant
+            .explicit_id
+            .map_or_else(String::new, |id| format!(" = {id}"));
         let fields: Vec<String> = variant
             .fields
             .iter()
             .map(|f| format!("{}: {}", f.name, print_type(&f.type_annotation)))
             .collect();
         if fields.is_empty() {
-            format!("{}{}", self.indent(depth), variant.name)
+            format!("{}{}{}", self.indent(depth), variant.name, explicit_id)
         } else {
             format!(
-                "{}{}({})",
+                "{}{}{}({})",
                 self.indent(depth),
                 variant.name,
+                explicit_id,
                 fields.join(", ")
             )
         }

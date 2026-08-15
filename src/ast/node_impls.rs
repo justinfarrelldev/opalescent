@@ -123,6 +123,7 @@ impl AstNode for Decl {
             Self::Function { span, .. }
             | Self::Type { span, .. }
             | Self::Import { span, .. }
+            | Self::Namespace { span, .. }
             | Self::Let { span, .. }
             | Self::Comment { span, .. } => span,
         }
@@ -133,6 +134,7 @@ impl AstNode for Decl {
             Self::Function { id, .. }
             | Self::Type { id, .. }
             | Self::Import { id, .. }
+            | Self::Namespace { id, .. }
             | Self::Let { id, .. }
             | Self::Comment { id, .. } => id,
         }
@@ -144,7 +146,7 @@ impl AstNode for Decl {
             | Self::Type { ref metadata, .. }
             | Self::Import { ref metadata, .. }
             | Self::Let { ref metadata, .. } => metadata.abi_symbol.iter().cloned().collect(),
-            Self::Comment { .. } => alloc::vec::Vec::new(),
+            Self::Namespace { .. } | Self::Comment { .. } => alloc::vec::Vec::new(),
         }
     }
 
@@ -154,7 +156,7 @@ impl AstNode for Decl {
             | Self::Type { ref metadata, .. }
             | Self::Import { ref metadata, .. }
             | Self::Let { ref metadata, .. } => metadata.dependencies.clone(),
-            Self::Comment { .. } => alloc::vec::Vec::new(),
+            Self::Namespace { .. } | Self::Comment { .. } => alloc::vec::Vec::new(),
         }
     }
 
@@ -164,7 +166,7 @@ impl AstNode for Decl {
             | Self::Type { ref metadata, .. }
             | Self::Import { ref metadata, .. }
             | Self::Let { ref metadata, .. } => metadata.is_hot_reloadable,
-            Self::Comment { .. } => false,
+            Self::Namespace { .. } | Self::Comment { .. } => false,
         }
     }
 }

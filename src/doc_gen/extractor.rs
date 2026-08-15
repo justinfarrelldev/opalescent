@@ -256,5 +256,6 @@ fn type_signature(name: &str, type_def: &TypeDef) -> String {
         } => {
             format!("type {name}: {}", target_type.to_signature_string())
         }
+        TypeDef::Opaque { .. } => format!("type {name}"),
     }
 }

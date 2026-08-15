@@ -271,6 +271,8 @@ pub enum TokenType {
     Arrow, // =>
     /// Dot punctuation '.' for member access
     Dot,
+    /// At-sign punctuation '@' for declaration metadata annotations
+    At,
 
     // Comments
     /// Single-line or multi-line comment
@@ -416,6 +418,7 @@ impl fmt::Display for TokenType {
             Self::Comma => write!(f, "','"),
             Self::Arrow => write!(f, "'=>'"),
             Self::Dot => write!(f, "'.'"),
+            Self::At => write!(f, "'@'"),
             Self::Comment(_) => write!(f, "comment"),
             Self::DocComment(_) => write!(f, "documentation comment"),
             Self::Newline => write!(f, "newline"),

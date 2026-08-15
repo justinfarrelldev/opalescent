@@ -595,7 +595,7 @@ impl TypeChecker {
                 }
                 Ok(())
             }
-            Decl::Import { .. } | &Decl::Comment { .. } => Ok(()),
+            Decl::Import { .. } | &Decl::Namespace { .. } | &Decl::Comment { .. } => Ok(()),
         }
     }
 
@@ -634,7 +634,10 @@ impl TypeChecker {
                 ref visibility,
                 ..
             } => self.type_check_let_declaration(binding, initializer, visibility),
-            Decl::Type { .. } | Decl::Import { .. } | Decl::Comment { .. } => Ok(()),
+            Decl::Type { .. }
+            | Decl::Import { .. }
+            | Decl::Namespace { .. }
+            | Decl::Comment { .. } => Ok(()),
         }
     }
 

@@ -256,6 +256,7 @@ impl<'input> Lexer<'input> {
             ':' => Some(self.make_token(TokenType::Colon, start_pos)),
             ',' => Some(self.make_token(TokenType::Comma, start_pos)),
             '.' => Some(self.make_token(TokenType::Dot, start_pos)),
+            '@' => Some(self.make_token(TokenType::At, start_pos)),
             '+' => Some(self.make_token(TokenType::Plus, start_pos)),
             '-' => Some(self.make_token(TokenType::Minus, start_pos)),
             '*' => Some(self.make_token(TokenType::Multiply, start_pos)),
@@ -652,6 +653,10 @@ impl<'input> Lexer<'input> {
     fn scan_number(&mut self, start_pos: Position) -> Option<Token> {
         let start_offset = start_pos.offset.saturating_sub(self.span_offset_base);
 
+        if self.current_char() == '0' && matches!(self.peek(), Some('x' | 'X')) {
+            return self.scan_hex_number(start_pos, start_offset);
+        }
+
         // Scan integer part
         while !self.is_at_end() && self.current_char().is_ascii_digit() {
             self.advance();
@@ -713,6 +718,59 @@ impl<'input> Lexer<'input> {
             });
             None
         }
+    }
+
+    /// Scan a hexadecimal integer literal that starts with `0x` or `0X`.
+    fn scan_hex_number(&mut self, start_pos: Position, start_offset: usize) -> Option<Token> {
+        self.advance(); // consume '0'
+        self.advance(); // consume 'x' or 'X'
+
+        if self.is_at_end() || !self.current_char().is_ascii_hexdigit() {
+            let end_offset = self.current.map_or(self.input.len(), |(offset, _)| offset);
+            let number_str = self.input.get(start_offset..end_offset).unwrap_or_default();
+            self.push_invalid_number(start_pos, number_str);
+            return None;
+        }
+
+        while !self.is_at_end() && self.current_char().is_ascii_hexdigit() {
+            self.advance();
+        }
+
+        let end_offset = if self.is_at_end() {
+            self.input.len()
+        } else {
+            self.current.map_or(self.input.len(), |(offset, _)| offset)
+        };
+        let number_str = self.input.get(start_offset..end_offset).unwrap_or_default();
+        let span = Span::new(start_pos, self.position);
+        let Some(hex_digits) = number_str.get(2..) else {
+            self.push_invalid_number(start_pos, number_str);
+            return None;
+        };
+
+        i64::from_str_radix(hex_digits, 16).map_or_else(
+            |_| {
+                self.push_invalid_number(start_pos, number_str);
+                None
+            },
+            |value| {
+                Some(Token::new(
+                    TokenType::IntegerLiteral(value),
+                    span,
+                    number_str.to_owned(),
+                ))
+            },
+        )
+    }
+
+    /// Record an invalid numeric literal diagnostic.
+    fn push_invalid_number(&mut self, start_pos: Position, number_str: &str) {
+        let err_span = LexError::span_from_position(start_pos, number_str.len());
+        self.errors.push(LexError::InvalidNumber {
+            number: number_str.to_owned(),
+            position: start_pos,
+            span: err_span,
+        });
     }
 
     /// Scan an identifier or keyword

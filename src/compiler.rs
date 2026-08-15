@@ -409,7 +409,7 @@ pub fn compile_to_module_for_target<'context>(
                     })?;
                 }
             }
-            Decl::Type { .. } | Decl::Comment { .. } => {}
+            Decl::Type { .. } | Decl::Namespace { .. } | Decl::Comment { .. } => {}
         }
     }
 

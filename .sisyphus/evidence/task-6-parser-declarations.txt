@@ -1,0 +1,29 @@
+# Task 6 parser declaration metadata evidence
+
+Date: 2026-08-15
+
+## Scope
+
+Implemented parser/AST support for terminal proposal declaration metadata and type declaration forms needed by the selected terminal-session proposal files.
+
+## Implemented coverage
+
+- Lexing: `@` annotations and hexadecimal integer literals such as `0x5400000000000010`.
+- AST: declaration annotations, type declaration forms, type constraints, namespace declarations, explicit variant IDs, constrained aliases, and opaque type definitions.
+- Parser: `namespace`; `@availability`, `@constructor_visibility`, `@abi_type_id`, `@abi_evolution`; `constrained type ... where`; `opaque immutable type`; `compiler_registered affine resource type`; `public non_exhaustive type`; explicit variant IDs and variant payloads; hyphenated import paths.
+- Organization: proposal metadata/type-form helpers live in `src/parser/declaration_metadata.rs` so `src/parser/declarations.rs` remains under the repository pre-commit line-count limit.
+- Downstream AST consumers: declaration span/node/documentation traversal and existing compiler/doc/type-checker/formatter consumers adjusted for the extended declaration/type shapes.
+
+## Final verification after repair
+
+- `lsp_diagnostics` on repaired parser/lexer files: no diagnostics found.
+- `cargo make lint`: passed.
+- `cargo fmt --all -- --check && cargo test parser`: passed; parser tests `245 passed; 0 failed; 1 ignored; 0 measured; 1152 filtered out`.
+- `cargo test`: passed; saved output `/home/justi/.local/share/opencode/tool-output/tool_0076cf1aa0017L6kg3VWBHzdtw`:
+  - lib tests: `1390 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out`.
+  - binary/integration harnesses with zero tests: passed.
+  - doc-tests: `2 passed; 0 failed; 12 ignored; 0 measured; 0 filtered out`.
+
+## Notes
+
+The parser accepts the proposal declaration surface without enabling terminal runtime behavior. Invalid-character fixtures were updated from `@` to `$` because `@` is now a valid annotation token.

@@ -11,8 +11,9 @@
 extern crate alloc;
 use super::{ParseError, ParseResult, Parser};
 use crate::ast::{
-    AstNode, Decl, Documentation, Field, FunctionModifier, HotReloadMetadata, LetBinding,
-    Parameter, Stmt, Type, TypeDef, TypeParameter, Variant, Visibility,
+    AstNode, Decl, DeclarationAnnotation, Documentation, Field, FunctionModifier,
+    HotReloadMetadata, LetBinding, Parameter, Stmt, Type, TypeDeclarationForm, TypeDef,
+    TypeParameter, Variant, Visibility,
 };
 use crate::token::{Span, TokenType};
 use alloc::string::String;
@@ -25,26 +26,54 @@ impl Parser {
         let doc_comment = self.collect_documentation();
         self.skip_trivia_preserving_doc_comments();
 
+        let annotations = self.parse_declaration_annotations()?;
+        self.skip_trivia_preserving_doc_comments();
+
         // Check declaration modifiers (public/entry/pure/untested) in any order.
         let (visibility, is_entry, modifiers) = self.parse_modifiers()?;
+
+        if self.is_namespace_declaration_start() {
+            if !annotations.is_empty()
+                || visibility != Visibility::Private
+                || is_entry
+                || !modifiers.is_empty()
+            {
+                let token = self.current_token();
+                return Err(ParseError::UnexpectedToken {
+                    expected: "namespace declaration without annotations or modifiers".to_owned(),
+                    found: format!("{}", token.token_type),
+                    span: ParseError::span_from_token(token),
+                });
+            }
+            return self.parse_namespace_declaration();
+        }
+
+        if self.starts_type_declaration_form() {
+            if is_entry || !modifiers.is_empty() {
+                let token = self.current_token();
+                return Err(ParseError::UnexpectedToken {
+                    expected: "type declaration after visibility or metadata modifiers".to_owned(),
+                    found: format!("{}", token.token_type),
+                    span: ParseError::span_from_token(token),
+                });
+            }
+            return self.parse_type_declaration(visibility, doc_comment, annotations);
+        }
+
+        if !annotations.is_empty() {
+            let token = self.current_token();
+            return Err(ParseError::UnexpectedToken {
+                expected: "type declaration after proposal annotations".to_owned(),
+                found: format!("{}", token.token_type),
+                span: ParseError::span_from_token(token),
+            });
+        }
 
         // For entry and public functions, expect identifier next
         // For regular functions, expect 'f' keyword
         match self.current_token().token_type {
             TokenType::Function => {
                 self.parse_function_declaration(visibility, is_entry, modifiers, doc_comment)
-            }
-            TokenType::Type => {
-                if modifiers.is_empty() {
-                    self.parse_type_declaration(visibility, doc_comment)
-                } else {
-                    let token = self.current_token();
-                    Err(ParseError::UnexpectedToken {
-                        expected: "function declaration after modifiers".to_owned(),
-                        found: format!("{}", token.token_type),
-                        span: ParseError::span_from_token(token),
-                    })
-                }
             }
             TokenType::Import => {
                 if modifiers.is_empty() {
@@ -79,7 +108,7 @@ impl Parser {
             _ => {
                 let token = self.current_token();
                 Err(ParseError::UnexpectedToken {
-                    expected: "declaration (function, type, import, or let)".to_owned(),
+                    expected: "declaration (function, type, import, namespace, or let)".to_owned(),
                     found: format!("{}", token.token_type),
                     span: ParseError::span_from_token(token),
                 })
@@ -365,12 +394,17 @@ impl Parser {
     }
 
     /// Parse a type declaration.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Type declarations coordinate modifiers, generics, proposal forms, and bodies"
+    )]
     fn parse_type_declaration(
         &mut self,
         visibility: Visibility,
         doc_comment: Option<Documentation>,
+        annotations: Vec<DeclarationAnnotation>,
     ) -> ParseResult<Decl> {
-        let start_span = self.current_token().span;
+        let (form, start_span) = self.parse_type_declaration_form()?;
 
         // Consume 'type' keyword
         self.consume(&TokenType::Type, "Expected 'type' keyword")?;
@@ -408,36 +442,89 @@ impl Parser {
             (None, None)
         };
 
-        // Consume colon
-        self.consume(&TokenType::Colon, "Expected ':' after type name")?;
-
-        // Support both colon-block syntax and compact single-line type declarations.
-        // Examples:
-        // - type User:\n    name: string
-        // - type User: name: string
-        let has_indent_block = if self.check(&TokenType::Indent) {
-            self.advance();
-            true
+        let type_def = if matches!(
+            form,
+            TypeDeclarationForm::OpaqueImmutable
+                | TypeDeclarationForm::CompilerRegisteredAffineResource
+        ) {
+            if self.check(&TokenType::Colon) {
+                return Err(ParseError::InvalidSyntax {
+                    message: "opaque and resource type declarations must not have a body"
+                        .to_owned(),
+                    span: ParseError::span_from_token(self.current_token()),
+                });
+            }
+            TypeDef::Opaque {
+                span: Span::new(start_span.start, self.previous_token().span.end),
+            }
         } else {
-            self.skip_newlines_and_comments();
-            if self.check(&TokenType::Indent) {
+            // Consume colon
+            self.consume(&TokenType::Colon, "Expected ':' after type name")?;
+
+            // Support both colon-block syntax and compact single-line type declarations.
+            // Examples:
+            // - type User:\n    name: string
+            // - type User: name: string
+            let has_indent_block = if self.check(&TokenType::Indent) {
                 self.advance();
                 true
             } else {
-                false
-            }
+                self.skip_newlines_and_comments();
+                if self.check(&TokenType::Indent) {
+                    self.advance();
+                    true
+                } else {
+                    false
+                }
+            };
+
+            let parsed_type_def = if form == TypeDeclarationForm::Constrained {
+                if has_indent_block {
+                    return Err(ParseError::InvalidSyntax {
+                        message: "constrained type declarations must use a compact alias body"
+                            .to_owned(),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                }
+                let target_type = self.parse_type()?;
+                let constraint = Some(self.parse_where_constraint()?);
+                let end_span = constraint
+                    .as_ref()
+                    .map_or_else(|| self.previous_token().span, |predicate| predicate.span);
+                TypeDef::Alias {
+                    target_type,
+                    constraint,
+                    span: Span::new(start_span.start, end_span.end),
+                }
+            } else if !has_indent_block && self.is_type_start() {
+                let target_type = self.parse_type()?;
+                if self.check_contextual_keyword("where") {
+                    return Err(ParseError::InvalidSyntax {
+                        message: "where predicates require 'constrained type'".to_owned(),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                }
+                TypeDef::Alias {
+                    target_type,
+                    constraint: None,
+                    span: Span::new(start_span.start, self.previous_token().span.end),
+                }
+            } else {
+                // Parse type definition body
+                let body = self.parse_type_definition_body(start_span)?;
+
+                if has_indent_block {
+                    self.skip_newlines_and_comments();
+                    self.consume(
+                        &TokenType::Dedent,
+                        "Expected dedent after type definition body",
+                    )?;
+                }
+
+                body
+            };
+            parsed_type_def
         };
-
-        // Parse type definition body
-        let type_def = self.parse_type_definition_body(start_span)?;
-
-        if has_indent_block {
-            self.skip_newlines_and_comments();
-            self.consume(
-                &TokenType::Dedent,
-                "Expected dedent after type definition body",
-            )?;
-        }
 
         let end_span = self.previous_token().span;
         let span = Span::new(start_span.start, end_span.end);
@@ -447,6 +534,8 @@ impl Parser {
             generic_params,
             generic_constraints,
             type_def,
+            annotations,
+            form,
             visibility,
             doc_comment,
             span,
@@ -472,27 +561,11 @@ impl Parser {
         let mut sum_variants: Vec<Variant> = Vec::new();
         let mut is_product_type = None;
 
-        while !self.is_at_end()
-            && !self.check(&TokenType::Dedent)
-            && !self.check(&TokenType::Type)
-            && !self.check(&TokenType::Function)
-            && !self.check(&TokenType::Import)
-            && !self.check(&TokenType::Public)
-            && !self.check(&TokenType::Entry)
-            && !self.check(&TokenType::Let)
-        {
+        while !self.is_at_end() && !self.is_type_body_terminator() {
             // Skip newlines
             self.skip_newlines_and_comments();
 
-            if self.is_at_end()
-                || self.check(&TokenType::Dedent)
-                || self.check(&TokenType::Type)
-                || self.check(&TokenType::Function)
-                || self.check(&TokenType::Import)
-                || self.check(&TokenType::Public)
-                || self.check(&TokenType::Entry)
-                || self.check(&TokenType::Let)
-            {
+            if self.is_at_end() || self.is_type_body_terminator() {
                 break;
             }
 
@@ -515,10 +588,32 @@ impl Parser {
                 });
             };
 
+            let explicit_id = if self.check(&TokenType::Assign) {
+                self.advance();
+                let TokenType::IntegerLiteral(value) = self.current_token().token_type else {
+                    return Err(ParseError::UnexpectedToken {
+                        expected: "integer literal after variant '='".to_owned(),
+                        found: format!("{}", self.current_token().token_type),
+                        span: ParseError::span_from_token(self.current_token()),
+                    });
+                };
+                self.advance();
+                if is_product_type == Some(true) {
+                    return Err(ParseError::InvalidSyntax {
+                        message: "Product type fields cannot have explicit variant IDs".to_owned(),
+                        span: ParseError::span_from_token(self.previous_token()),
+                    });
+                }
+                is_product_type = Some(false);
+                Some(value)
+            } else {
+                None
+            };
+
             if self.check(&TokenType::Colon) {
                 self.advance();
 
-                if is_product_type.is_none() {
+                if explicit_id.is_none() && is_product_type.is_none() {
                     self.skip_newlines_and_comments();
                     let product_type_detected =
                         if self.is_type_keyword() || self.check(&TokenType::Function) {
@@ -532,7 +627,8 @@ impl Parser {
                         };
                     is_product_type = Some(product_type_detected);
                 }
-                if is_product_type == Some(true) {
+
+                if explicit_id.is_none() && is_product_type == Some(true) {
                     let field_type = self.parse_type()?;
                     let field_end_span = self.previous_token().span;
                     product_fields.push(Field {
@@ -577,6 +673,7 @@ impl Parser {
                     let variant_end_span = self.previous_token().span;
                     sum_variants.push(Variant {
                         name,
+                        explicit_id,
                         fields,
                         span: Span::new(field_or_variant_start.start, variant_end_span.end),
                     });
@@ -593,6 +690,7 @@ impl Parser {
                 let variant_end_span = self.previous_token().span;
                 sum_variants.push(Variant {
                     name,
+                    explicit_id,
                     fields: Vec::new(),
                     span: Span::new(field_or_variant_start.start, variant_end_span.end),
                 });
@@ -619,7 +717,7 @@ impl Parser {
         }
     }
     /// Check if current token is a type keyword
-    fn is_type_keyword(&self) -> bool {
+    pub(super) fn is_type_keyword(&self) -> bool {
         matches!(
             self.current_token().token_type,
             TokenType::Int8
@@ -637,6 +735,7 @@ impl Parser {
                 | TokenType::Void
         )
     }
+
     /// Parse an import declaration
     /// Supports multiple syntax forms:
     /// - `import item from source`

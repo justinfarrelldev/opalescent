@@ -149,7 +149,7 @@ fn check_decl(decl: &Decl, violations: &mut Vec<NamingViolation>) {
             }
             check_expr(initializer, violations);
         }
-        Decl::Import { .. } | Decl::Comment { .. } => {}
+        Decl::Import { .. } | Decl::Namespace { .. } | Decl::Comment { .. } => {}
     }
 }
 

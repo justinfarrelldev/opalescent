@@ -88,12 +88,14 @@ impl Parser {
 
         match &token.token_type {
             &TokenType::DocComment(_)
+            | &TokenType::At
             | &TokenType::Public
             | &TokenType::Entry
             | &TokenType::Function
             | &TokenType::Type
             | &TokenType::Import
             | &TokenType::Let => column == 1,
+            &TokenType::Identifier(ref name) if name == "namespace" => column == 1,
             &TokenType::EndOfFile => true,
             _ => false,
         }
@@ -373,7 +375,8 @@ impl Parser {
             }
 
             match self.current_token().token_type {
-                TokenType::Function
+                TokenType::At
+                | TokenType::Function
                 | TokenType::Let
                 | TokenType::For
                 | TokenType::If

@@ -13,8 +13,9 @@
 
 use super::*;
 use crate::ast::{
-    BinaryOp, Decl, Expr, FunctionModifier, ImportItem, LabeledValue, LambdaBody, LiteralValue,
-    Parameter, Stmt, StringPart, Type, TypeDef, UnaryOp, Visibility,
+    BinaryOp, Decl, DeclarationAnnotation, Expr, FunctionModifier, ImportItem, LabeledValue,
+    LambdaBody, LiteralValue, Parameter, Stmt, StringPart, Type, TypeDeclarationForm, TypeDef,
+    UnaryOp, Visibility,
 };
 use crate::lexer::{Lexer, RESERVED_KEYWORDS};
 use crate::parser::errors::ParseError;
@@ -4852,6 +4853,220 @@ fn test_type_declaration_error_cases() {
     // Test invalid variant syntax
     let result = parse_program_from_string("type Bad:\n    123Invalid");
     assert!(result.is_err(), "Should fail on invalid variant name");
+}
+
+#[test]
+#[expect(
+    clippy::cognitive_complexity,
+    clippy::too_many_lines,
+    clippy::unnecessary_find_map,
+    reason = "Single proposal fixture verifies all accepted Task 6 declaration forms together"
+)]
+fn test_terminal_proposal_declaration_metadata_and_type_forms_parse() {
+    let input = "namespace standard.testing.terminal
+import type TerminalControlCode, TerminalFunctionKeyNumber from ./typed-event-session/typed_event_session.types
+
+@abi_type_id(0x5400000000000010)
+@abi_evolution(closed_major_only)
+public constrained type TerminalControlCode: uint8 where value <= 31 or value is 127
+
+@abi_type_id(0x540000000000002e)
+@abi_evolution(closed_major_only)
+@constructor_visibility(runtime)
+public compiler_registered affine resource type TerminalSession
+
+@availability(test_only)
+@constructor_visibility(test_runner)
+public opaque immutable type TerminalTestAuthority
+
+@abi_type_id(0x5400000000000041)
+@abi_evolution(non_exhaustive_additive)
+public non_exhaustive type TerminalCursorShape:
+    Default = 1
+    BlinkingBlock = 2
+
+@abi_type_id(0x5400000000000101)
+@abi_evolution(closed_major_only)
+public type TerminalChordKey:
+    Control = 1:
+        code: TerminalControlCode
+    Function = 3:
+        number: TerminalFunctionKeyNumber";
+
+    let program = parse_program_from_string(input).expect("proposal declarations should parse");
+    assert_eq!(program.declarations.len(), 7);
+
+    match &program.declarations[0] {
+        Decl::Namespace { path, .. } => {
+            assert_eq!(path.as_slice(), ["standard", "testing", "terminal"]);
+        }
+        other => panic!("expected namespace declaration, got {other:?}"),
+    }
+
+    match &program.declarations[1] {
+        Decl::Import { source, items, .. } => {
+            assert_eq!(source, "./typed-event-session/typed_event_session.types");
+            assert_eq!(items.len(), 2);
+        }
+        other => panic!("expected import declaration, got {other:?}"),
+    }
+
+    let control_code = program
+        .declarations
+        .iter()
+        .find_map(|declaration| match declaration {
+            Decl::Type { name, .. } if name == "TerminalControlCode" => Some(declaration),
+            _ => None,
+        })
+        .expect("TerminalControlCode declaration missing");
+    let Decl::Type {
+        annotations,
+        form,
+        type_def,
+        visibility,
+        ..
+    } = control_code
+    else {
+        panic!("expected type declaration");
+    };
+    assert_eq!(*visibility, Visibility::Public);
+    assert_eq!(*form, TypeDeclarationForm::Constrained);
+    assert!(annotations.iter().any(|annotation| matches!(
+        annotation,
+        DeclarationAnnotation::AbiTypeId { value, .. } if *value == 0x5400_0000_0000_0010_i64
+    )));
+    if let TypeDef::Alias {
+        target_type,
+        constraint,
+        ..
+    } = type_def
+    {
+        assert!(matches!(target_type, Type::Basic { name, .. } if name == "uint8"));
+        let constraint = constraint
+            .as_ref()
+            .expect("where predicate should be stored");
+        assert!(constraint.expression.contains("value"));
+        assert!(constraint.expression.contains("127"));
+    } else {
+        panic!("expected constrained type alias, got {type_def:?}");
+    }
+
+    let terminal_session = program
+        .declarations
+        .iter()
+        .find_map(|declaration| match declaration {
+            Decl::Type { name, .. } if name == "TerminalSession" => Some(declaration),
+            _ => None,
+        })
+        .expect("TerminalSession declaration missing");
+    let Decl::Type {
+        annotations,
+        form,
+        type_def,
+        ..
+    } = terminal_session
+    else {
+        panic!("expected TerminalSession type declaration");
+    };
+    assert_eq!(*form, TypeDeclarationForm::CompilerRegisteredAffineResource);
+    assert!(matches!(type_def, TypeDef::Opaque { .. }));
+    assert!(annotations.iter().any(|annotation| matches!(
+        annotation,
+        DeclarationAnnotation::ConstructorVisibility { value, .. } if value == "runtime"
+    )));
+
+    let test_authority = program
+        .declarations
+        .iter()
+        .find_map(|declaration| match declaration {
+            Decl::Type { name, .. } if name == "TerminalTestAuthority" => Some(declaration),
+            _ => None,
+        })
+        .expect("TerminalTestAuthority declaration missing");
+    let Decl::Type {
+        annotations,
+        form,
+        type_def,
+        ..
+    } = test_authority
+    else {
+        panic!("expected TerminalTestAuthority type declaration");
+    };
+    assert_eq!(*form, TypeDeclarationForm::OpaqueImmutable);
+    assert!(matches!(type_def, TypeDef::Opaque { .. }));
+    assert!(annotations.iter().any(|annotation| matches!(
+        annotation,
+        DeclarationAnnotation::Availability { value, .. } if value == "test_only"
+    )));
+
+    let cursor_shape = program
+        .declarations
+        .iter()
+        .find_map(|declaration| match declaration {
+            Decl::Type { name, .. } if name == "TerminalCursorShape" => Some(declaration),
+            _ => None,
+        })
+        .expect("TerminalCursorShape declaration missing");
+    let Decl::Type { form, type_def, .. } = cursor_shape else {
+        panic!("expected TerminalCursorShape type declaration");
+    };
+    assert_eq!(*form, TypeDeclarationForm::NonExhaustive);
+    if let TypeDef::Sum { variants, .. } = type_def {
+        assert_eq!(variants[0].explicit_id, Some(1));
+        assert_eq!(variants[1].explicit_id, Some(2));
+    } else {
+        panic!("expected non-exhaustive sum type, got {type_def:?}");
+    }
+
+    let chord_key = program
+        .declarations
+        .iter()
+        .find_map(|declaration| match declaration {
+            Decl::Type { name, .. } if name == "TerminalChordKey" => Some(declaration),
+            _ => None,
+        })
+        .expect("TerminalChordKey declaration missing");
+    let Decl::Type { type_def, .. } = chord_key else {
+        panic!("expected TerminalChordKey type declaration");
+    };
+    if let TypeDef::Sum { variants, .. } = type_def {
+        assert_eq!(variants.len(), 2);
+        assert_eq!(variants[0].name, "Control");
+        assert_eq!(variants[0].explicit_id, Some(1));
+        assert_eq!(variants[0].fields[0].name, "code");
+        assert_eq!(variants[1].name, "Function");
+        assert_eq!(variants[1].explicit_id, Some(3));
+        assert_eq!(variants[1].fields[0].name, "number");
+    } else {
+        panic!("expected chord key sum type, got {type_def:?}");
+    }
+}
+
+#[test]
+fn test_terminal_proposal_declaration_metadata_rejections() {
+    let unknown_annotation = "@terminal_only(test_only)\npublic opaque immutable type Bad";
+    assert!(
+        parse_program_from_string(unknown_annotation).is_err(),
+        "unknown annotations must be rejected"
+    );
+
+    let duplicate_abi_id = "@abi_type_id(1)\n@abi_type_id(2)\npublic opaque immutable type Bad";
+    assert!(
+        parse_program_from_string(duplicate_abi_id).is_err(),
+        "duplicate ABI IDs on one declaration must be rejected"
+    );
+
+    let malformed_where = "public constrained type Bad: int32 where";
+    assert!(
+        parse_program_from_string(malformed_where).is_err(),
+        "malformed constrained where predicates must be rejected"
+    );
+
+    let local_availability = "entry main = f(): void => {\n    @availability(test_only)\n    let x = 1\n    return void\n}";
+    assert!(
+        parse_program_from_string(local_availability).is_err(),
+        "@availability(test_only) must not parse as a local statement"
+    );
 }
 
 #[test]

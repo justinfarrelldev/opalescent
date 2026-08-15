@@ -21,7 +21,10 @@ use crate::token::Span;
 use alloc::string::String;
 
 pub use self::operators::{BinaryOp, UnaryOp};
-pub use self::types::{Field, Parameter, Type, TypeDef, TypeParameter, Variant};
+pub use self::types::{
+    DeclarationAnnotation, Field, Parameter, Type, TypeConstraint, TypeDeclarationForm, TypeDef,
+    TypeParameter, Variant,
+};
 
 pub use self::patterns::{MatchArm, Pattern};
 
@@ -162,6 +165,7 @@ impl Decl {
             Self::Function { span, .. }
             | Self::Type { span, .. }
             | Self::Import { span, .. }
+            | Self::Namespace { span, .. }
             | Self::Let { span, .. }
             | Self::Comment { span, .. } => span,
         }
@@ -174,6 +178,7 @@ impl Decl {
             Self::Function { id, .. }
             | Self::Type { id, .. }
             | Self::Import { id, .. }
+            | Self::Namespace { id, .. }
             | Self::Let { id, .. }
             | Self::Comment { id, .. } => id,
         }
@@ -797,8 +802,12 @@ pub enum Decl {
         generic_params: Option<Vec<String>>,
         /// Full generic parameter declarations including constraints.
         generic_constraints: Option<Vec<TypeParameter>>,
-        /// Type definition (sum, product, or alias)
+        /// Type definition (sum, product, alias, or opaque declaration)
         type_def: TypeDef,
+        /// Parsed proposal metadata annotations attached to this declaration.
+        annotations: Vec<DeclarationAnnotation>,
+        /// Proposal-specific declaration form.
+        form: TypeDeclarationForm,
         /// Visibility modifier (public/private)
         visibility: Visibility,
         /// Optional structured documentation derived from doc comments
@@ -824,6 +833,16 @@ pub enum Decl {
         id: NodeId,
         /// Hot-reload metadata
         metadata: HotReloadMetadata,
+    },
+
+    /// Namespace declaration for proposal-owned declaration files.
+    Namespace {
+        /// Dot-separated namespace components.
+        path: Vec<String>,
+        /// Source code location of this namespace declaration
+        span: Span,
+        /// Unique identifier for this AST node
+        id: NodeId,
     },
 
     /// Let declarations (variable declarations that can include lambda expressions)

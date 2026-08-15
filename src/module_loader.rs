@@ -124,7 +124,7 @@ pub fn validate_module_file_role(path: &Path, program: &Program) -> Result<(), T
         )]
         for declaration in &program.declarations {
             match declaration {
-                &(Decl::Type { .. } | Decl::Import { .. }) => {}
+                &(Decl::Type { .. } | Decl::Import { .. } | Decl::Namespace { .. }) => {}
                 &Decl::Let {
                     ref binding, span, ..
                 } => {

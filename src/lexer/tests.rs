@@ -260,14 +260,14 @@ fn test_unterminated_string() {
 
 #[test]
 fn test_unexpected_character() {
-    let input = "hello @ world";
+    let input = "hello $ world";
     let lexer = Lexer::new(input);
     let (_tokens, errors) = lexer.tokenize();
 
     assert_eq!(errors.len(), 1);
     assert!(matches!(
         errors.errors[0],
-        LexError::UnexpectedCharacter { character: '@', .. }
+        LexError::UnexpectedCharacter { character: '$', .. }
     ));
 }
 

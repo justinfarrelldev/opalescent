@@ -176,6 +176,32 @@ pub struct TypeParameter {
     pub span: Span,
 }
 
+/// Supported proposal declaration annotations.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DeclarationAnnotation {
+    Availability { value: String, span: Span },
+    ConstructorVisibility { value: String, span: Span },
+    AbiTypeId { value: i64, span: Span },
+    AbiEvolution { value: String, span: Span },
+}
+
+/// Proposal-specific type declaration forms carried for later semantic tasks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TypeDeclarationForm {
+    Nominal,
+    Constrained,
+    OpaqueImmutable,
+    CompilerRegisteredAffineResource,
+    NonExhaustive,
+}
+
+/// Parsed `where` predicate for constrained proposal aliases.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeConstraint {
+    pub expression: String,
+    pub span: Span,
+}
+
 /// Type definitions for custom types
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeDef {
@@ -199,6 +225,14 @@ pub enum TypeDef {
     Alias {
         /// Target type that this alias refers to
         target_type: Type,
+        /// Optional parsed predicate for constrained proposal aliases.
+        constraint: Option<TypeConstraint>,
+        /// Source code location of this type definition
+        span: Span,
+    },
+
+    /// Opaque type declarations whose representation is intentionally hidden.
+    Opaque {
         /// Source code location of this type definition
         span: Span,
     },
@@ -209,6 +243,8 @@ pub enum TypeDef {
 pub struct Variant {
     /// Name of the variant
     pub name: String,
+    /// Optional explicit proposal ABI/discriminant ID.
+    pub explicit_id: Option<i64>,
     /// Fields associated with this variant
     pub fields: alloc::vec::Vec<Field>,
     /// Source code location of this variant
