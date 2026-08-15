@@ -1,0 +1,44 @@
+# Task 7 parser expressions evidence
+
+Date: 2026-08-15
+Task: Parse borrows, using, is ... into, constrain, and cause propagation syntax
+
+## Successful verification commands
+
+1. `cargo test terminal_proposal`
+   - Environment: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14`
+   - Outcome: PASS
+   - Result: 4 parser tests passed, including Task 6 declaration metadata tests and Task 7 accepted/rejection syntax tests.
+   - Relevant output summary: `test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 1396 filtered out`.
+
+2. `cargo fmt --all -- --check`
+   - Environment: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14`
+   - Outcome: PASS
+   - Result: no formatting diff output.
+
+3. LSP diagnostics on modified parser files
+   - Files: `src/parser.rs`, `src/parser/affine_syntax.rs`, `src/parser/expressions.rs`, `src/parser/declarations.rs`, `src/parser/statements.rs`, `src/parser/tests.rs`
+   - Outcome: PASS
+   - Result: no diagnostics found for every modified file.
+
+4. `cargo test parser`
+   - Environment: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14`
+   - Outcome: PASS
+   - Result: existing parser/guard/import/statement tests continued passing.
+   - Relevant output summary: `test result: ok. 247 passed; 0 failed; 1 ignored; 0 measured; 1152 filtered out`.
+
+5. `cargo test`
+   - Environment: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14`
+   - Outcome: PASS
+   - Result: full default suite passed after extracting Task 7 helpers to `src/parser/affine_syntax.rs`.
+   - Relevant output summaries: `test result: ok. 1392 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out`; doctests `test result: ok. 2 passed; 0 failed; 12 ignored`.
+
+## Implemented parser coverage
+
+- Accepted canonical `ref` and `mutable ref` parameter forms.
+- Accepted canonical `ref` and `mutable ref` argument forms.
+- Accepted `using binding = acquisition():` with an indented body.
+- Accepted `if value is Family.Variant into payload:` refinement syntax.
+- Accepted `constrain Type from value` under propagation.
+- Accepted `propagate error_value`, `propagate error_value cause prior_error`, and `propagate call() cause prior_error`.
+- Rejected equality `into`, `is not ... into`, compound-left refinement, payloadless `into`, proposal-style `match`, `defer`, and malformed `using`.

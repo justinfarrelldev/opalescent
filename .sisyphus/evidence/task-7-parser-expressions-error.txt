@@ -1,0 +1,45 @@
+# Task 7 parser expressions RED/error evidence
+
+Date: 2026-08-15
+
+## RED parser test command
+
+Command:
+`LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal`
+
+Outcome: FAILED before implementation, as expected.
+
+Observed failure summary:
+- New accepted syntax test `parser::tests::test_terminal_proposal_affine_refinement_and_propagation_syntax_parse` failed.
+- The parser rejected or failed to recover around the requested Task 7 syntax forms:
+  - `using session = ...:` left a `:` / `indent` in expression parsing.
+  - `mutable ref` in argument/parameter position was rejected as `keyword 'mutable'`.
+  - `propagate constrain ... from ...` failed with `'propagate' must be followed by a function call expression`.
+  - `if error_value is TerminalSessionOpenError.InvalidOptions into invalid:` failed before the `:` with `keyword 'into'`.
+  - statement-level `propagate error_value` / `propagate error_value cause prior_error` were not accepted in the body.
+
+## Intermediate regression caught by parser suite
+
+Command:
+`LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test parser`
+
+Outcome: FAILED during implementation, then fixed.
+
+Observed failure summary:
+- Existing test `parser::tests::bare_propagate_err_outside_guard_remains_invalid` failed because broad identifier propagation initially accepted legacy `propagate err` outside guard error clauses.
+- Fix: identifier propagation remains accepted for Task 7-style names such as `error_value`, but the legacy bare `err` form outside an active guard remains rejected so existing guard parser behavior stays green.
+
+## Commit hook failure and fix
+
+Command:
+`GIT_MASTER=1 git commit -m "feat(parser): parse affine and refinement syntax" ...`
+
+Outcome: FAILED before commit creation.
+
+Observed failure summary:
+- Pre-commit line-count hook rejected `src/parser/expressions.rs` at 1021 lines, over the 1000-line limit.
+- Fix: moved Task 7 contextual affine/refinement helper methods into new `src/parser/affine_syntax.rs` and registered it from `src/parser.rs`; final `cargo fmt --all -- --check`, `cargo test terminal_proposal`, `cargo test parser`, `cargo test`, and LSP diagnostics passed afterward.
+
+## Final state
+
+The final verification commands are recorded in `task-7-parser-expressions.txt`; all required checks passed after the fixes.
