@@ -1,98 +1,195 @@
-# Proposal-only fixture sketch. Canonical ref name: Type borrows, affine resources, constrain, and opaque inspectors are proposed syntax.
-import terminal_session_capabilities, terminal_session_readiness_source, terminal_session_output_terminal, terminal_session_size_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_set_cursor_visible_sync, terminal_session_set_cursor_shape_sync, terminal_session_pause_sync, terminal_session_resume_sync from standard
+# Proposal-only fixture sketch. Proposed syntax; noncompiling until the selected contract is adopted.
+import terminal_session_capabilities, terminal_session_readiness_source, terminal_session_size_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_set_cursor_visible_sync, terminal_session_set_cursor_shape_sync, terminal_session_pause_sync, terminal_session_resume_sync from standard
 import terminal_session_options_default, terminal_session_options_with_feature_policy, terminal_session_options_with_resource_limits, terminal_session_options_validate from standard
 import trusted_terminal_output_from_application_text, terminal_pause_events_length, terminal_pause_events_at from standard
-import cancellation_source_new, cancellation_token, cancellation_request, system_readiness_wait_sync from standard
-import open_terminal_session_with_recovery_sync, recover_pending_close_after_editor_sync from ./inspect_terminal_capabilities
-import type TerminalSession, CancellationToken, CancellationSource, SystemWaitError, IndexOutOfBoundsError, AllocationFailureError from standard
-import type TerminalSessionOptions, TerminalSessionFeaturePolicy, TerminalSessionResourceLimits, TerminalMouseTracking, TerminalCursorShape, TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalControlCode, TerminalPauseEvents, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalInputSequenceTimeoutMilliseconds, TerminalCommittedTextByteLimit, TerminalCompositionPreeditByteLimit, TerminalPasteChunkByteLimit, TerminalUnknownByteChunkLimit, TerminalPendingSequenceByteLimit, TerminalRetainedEventLimit, TerminalRetainedByteLimit, TerminalCorrelatedEventLimit, TerminalCorrelatedByteLimit, TerminalDiagnosticCountLimit, TerminalDiagnosticCollectionByteLimit from ./typed_event_session.types
+import cancellation_source_new, cancellation_token, cancellation_request from standard
+import system_wait_set_new, system_wait_set_register, system_wait_set_wait_sync from standard
+import monotonic_timer_new, monotonic_timer_readiness_source, monotonic_timer_arm, monotonic_timer_disarm, monotonic_timer_generation, monotonic_clock_now from standard
+import process_control_source_new, process_control_readiness_source, process_control_poll, process_control_acknowledge_suspend, process_control_resume_application from standard
+import take_input, stdout_writer from standard
+import open_terminal_session_with_recovery_sync, recover_close_token_sync from ./inspect_terminal_capabilities
+import type TerminalSession, CancellationToken, CancellationSource, ProcessControlSource, ProcessControlNotification, MonotonicDeadline, SystemWaitWake, SystemWaitSetError, ProcessControlUnavailableError, ProcessControlError, ProcessControlAcknowledgementError, ProcessControlResumeError, MonotonicTimerError, StandardInputReadError, StandardOutputHandleError, IndexOutOfBoundsError, AllocationFailureError from standard
+import type TerminalSessionOptions, TerminalSessionFeaturePolicy, TerminalSessionResourceLimits, TerminalMouseTracking, TerminalCursorShape, TerminalWait, TerminalInputEvent, TerminalPauseEvents, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalInputSequenceTimeoutMilliseconds, TerminalCommittedTextByteLimit, TerminalCompositionPreeditByteLimit, TerminalPasteChunkByteLimit, TerminalUnknownByteChunkLimit, TerminalPendingSequenceByteLimit, TerminalRetainedEventLimit, TerminalRetainedByteLimit, TerminalCorrelatedEventLimit, TerminalCorrelatedByteLimit, TerminalDiagnosticCountLimit, TerminalDiagnosticCollectionByteLimit from ./typed_event_session.types
+
+# Undeclared application-owned placeholder calls in this sketch are intentionally not local function definitions:
+# application_prepare_editor_view, application_render_reviewed_frame, application_apply_editor_event,
+# application_clear_incremental_input_state, application_require_final_pause_boundary,
+# application_stop_child_and_application_work, application_resume_child_and_application_work, application_next_chord_deadline,
+# application_expire_chord_deadline, application_record_close_recovery_token, application_record_close_recovery_diagnostics,
+# application_record_legacy_io_rejection, and application_record_legacy_io_contract_violation.
+# They are infallible application operations. Only application_render_reviewed_frame produces reviewed text;
+# raw input, environment data, remote text, UnknownBytes, UnknownNative, diagnostics, and tokens are never rendered.
 
 let apply_terminal_input_event_to_editor = f(event: TerminalInputEvent): void =>
-    if event is TerminalInputEvent.Key into key_event:
-        handle_editor_key(key_event)
-    if event is TerminalInputEvent.TextInput into text_input:
-        apply_committed_text_to_buffer(text_input.text, text_input.origin, text_input.linked_phase)
-    if event is TerminalInputEvent.CompositionStarted into composition_started:
-        begin_preedit_buffer(composition_started.composition_id)
-    if event is TerminalInputEvent.CompositionUpdated into composition:
-        update_preedit_buffer(composition.preedit_text, composition.cursor)
-    if event is TerminalInputEvent.CompositionEnded into composition_ended:
-        finish_preedit_buffer(composition_ended.composition_id, composition_ended.outcome)
-    if event is TerminalInputEvent.Paste into paste:
-        apply_trusted_paste_to_buffer(paste.text, paste.phase, paste.evidence)
-    if event is TerminalInputEvent.Mouse into mouse:
-        apply_mouse_to_editor(mouse.action, mouse.modifiers, mouse.row, mouse.column)
-    if event is TerminalInputEvent.Resize into resize:
-        apply_resize_to_editor(resize.size)
-    if event is TerminalInputEvent.FocusGained:
-        set_editor_focus(true)
-    if event is TerminalInputEvent.FocusLost:
-        set_editor_focus(false)
     if event is TerminalInputEvent.UnknownBytes:
-        record_untrusted_input_diagnostic()
+        application_apply_editor_event(event)
+        return void
     if event is TerminalInputEvent.UnknownNative:
-        record_untrusted_input_diagnostic()
+        application_apply_editor_event(event)
+        return void
     if event is TerminalInputEvent.InputReset:
-        clear_incremental_input_state()
+        application_clear_incremental_input_state()
+    application_apply_editor_event(event)
     return void
 
-let apply_pause_events_sync = f(events: TerminalPauseEvents): void errors IndexOutOfBoundsError =>
+let demonstrate_legacy_input_rejection_while_active_sync = f(): void =>
+    guard take_input() into unexpected_text else input_error =>
+        if input_error is StandardInputReadError.TerminalCoordinatorUnavailable into unavailable:
+            # The prerequisite guarantees rejection before reading, buffering, decoding, EOF observation, or byte consumption.
+            application_record_legacy_io_rejection(unavailable.state, unavailable.operation)
+            return void
+        application_record_legacy_io_contract_violation()
+        return void
+    # Contract-violation reporting never records or renders the untrusted unexpected_text value.
+    application_record_legacy_io_contract_violation()
+    return void
+
+let demonstrate_legacy_output_rejection_while_active_sync = f(): void =>
+    guard stdout_writer() into unexpected_writer else output_error =>
+        if output_error is StandardOutputHandleError.TerminalCoordinatorUnavailable into unavailable:
+            # Rejection occurs before issuing or refreshing a raw writer lease and performs no output mutation.
+            application_record_legacy_io_rejection(unavailable.state, unavailable.operation)
+            return void
+        application_record_legacy_io_contract_violation()
+        return void
+    # The unexpected_writer handle is never used as a session output path.
+    application_record_legacy_io_contract_violation()
+    return void
+
+let apply_pause_events_through_final_boundary_sync = f(events: TerminalPauseEvents): void errors IndexOutOfBoundsError =>
     let mutable index: int64 = 0
     let event_count = terminal_pause_events_length(events)
     while index < event_count:
         let event = propagate terminal_pause_events_at(events, index)
         apply_terminal_input_event_to_editor(event)
+        if index + 1 is event_count:
+            # The selected contract guarantees this final event is InputReset.PauseBoundary.
+            application_require_final_pause_boundary(event)
+            application_clear_incremental_input_state()
         index = index + 1
     return void
 
-let run_open_editor_session_sync = f(mutable ref session: TerminalSession, token: CancellationToken): void errors SystemWaitError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionOpenError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
-    let capabilities = terminal_session_capabilities(session)
-    let readiness_source = terminal_session_readiness_source(session)
-    let output = propagate terminal_session_output_terminal(session)
-    let size = propagate terminal_session_size_sync(session)
-    prepare_editor_view(output, size, capabilities)
+let acknowledge_suspend_with_retry_sync = f(mutable ref source: ProcessControlSource, generation: uint64): void errors ProcessControlAcknowledgementError =>
+    guard process_control_acknowledge_suspend(source, generation) else acknowledgement_error =>
+        if acknowledgement_error is ProcessControlAcknowledgementError.HostSuspendFailed:
+            # Retry this retryable host failure exactly once with the same generation.
+            return propagate process_control_acknowledge_suspend(source, generation)
+        # WrongGeneration and StaleGeneration propagate as the same already-evaluated immutable error value.
+        propagate acknowledgement_error
+    return void
 
-    # This conversion is the explicit trust boundary; trusted_editor_frame is application-generated rendering only.
-    let initial_frame = propagate trusted_terminal_output_from_application_text(trusted_editor_frame())
-    propagate terminal_session_write_sync(session, initial_frame)
-    propagate terminal_session_set_cursor_visible_sync(session, true)
-    propagate terminal_session_set_cursor_shape_sync(session, new TerminalCursorShape.SteadyBar)
-    propagate terminal_session_flush_sync(session)
+let resume_process_application_with_retry_sync = f(mutable ref source: ProcessControlSource, generation: uint64): void errors ProcessControlResumeError =>
+    guard process_control_resume_application(source, generation) else resume_error =>
+        if resume_error is ProcessControlResumeError.HostApplicationResumeFailed:
+            # Retry this retryable host failure exactly once with the same generation; application work remains stopped.
+            return propagate process_control_resume_application(source, generation)
+        # WrongGeneration and StaleGeneration propagate as the same already-evaluated immutable error value.
+        propagate resume_error
+    return void
 
+let drain_terminal_after_wake_sync = f(mutable ref session: TerminalSession, token: CancellationToken): boolean errors TerminalSessionReadError, TerminalSessionStateError, TerminalSessionWriteError, AllocationFailureError =>
     let mutable running = true
-    while running:
-        # The generic wait may also contain RPC/watch/process/timer sources. Readiness is only a hint.
-        propagate system_readiness_wait_sync(readiness_source, token)
+    let mutable drained = false
+    while running and not drained:
         let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Poll, token)
         if event is TerminalInputEvent.TimedOut:
-            # Another consumer or a state/deadline transition made the readiness observation stale.
-            continue
-
-        if event is TerminalInputEvent.Key into key_event:
-            let logical_key = key_event.key
-            if logical_key is TerminalLogicalKey.Control into control_key:
-                if control_key.code is 17 as TerminalControlCode and key_event.modifiers.control:
-                    let pause_result = propagate terminal_session_pause_sync(session)
-                    propagate apply_pause_events_sync(pause_result.events)
-                    hand_terminal_to_child_process_placeholder()
-                    propagate terminal_session_resume_sync(session)
-                    # The readiness source identity remains the same across pause/resume.
-                    let resumed_size = propagate terminal_session_size_sync(session)
-                    redraw_editor_view(output, resumed_size)
-
-        apply_terminal_input_event_to_editor(event)
-        if event is TerminalInputEvent.Resize into resize:
-            redraw_editor_view(output, resize.size)
+            # TimedOut is the required stale/drained result after this one terminal readiness wake.
+            drained = true
         if event is TerminalInputEvent.Cancelled:
             running = false
         if event is TerminalInputEvent.EndOfInput:
             running = false
+        if not drained and running:
+            apply_terminal_input_event_to_editor(event)
+            # The only terminal declassification: reviewed application-authored rendering.
+            let frame = propagate trusted_terminal_output_from_application_text(application_render_reviewed_frame())
+            propagate terminal_session_write_sync(session, frame)
+            propagate terminal_session_flush_sync(session)
+    return running
 
-        propagate terminal_session_flush_sync(session)
+let run_open_editor_session_sync = f(mutable ref session: TerminalSession, token: CancellationToken): void errors SystemWaitSetError, ProcessControlUnavailableError, ProcessControlError, ProcessControlAcknowledgementError, ProcessControlResumeError, MonotonicTimerError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionOpenError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
+    let terminal_source = terminal_session_readiness_source(session)
+    application_prepare_editor_view(propagate terminal_session_size_sync(session), terminal_session_capabilities(session))
+    let initial_frame = propagate trusted_terminal_output_from_application_text(application_render_reviewed_frame())
+    propagate terminal_session_write_sync(session, initial_frame)
+    propagate terminal_session_set_cursor_visible_sync(session, true)
+    propagate terminal_session_set_cursor_shape_sync(session, new TerminalCursorShape.SteadyBar)
+    propagate terminal_session_flush_sync(session)
+    # Active-state legacy calls are rejection examples only; neither can consume input, issue a handle, or mutate output.
+    demonstrate_legacy_input_rejection_while_active_sync()
+    demonstrate_legacy_output_rejection_while_active_sync()
+
+    using wait_set = propagate system_wait_set_new():
+        using process_control = propagate process_control_source_new():
+            using timer = propagate monotonic_timer_new():
+                let process_source = process_control_readiness_source(process_control)
+                let timer_source = monotonic_timer_readiness_source(timer)
+                # These three bindings retain registrations for the lexical lifetime of this one wait set.
+                let terminal_registration = propagate system_wait_set_register(wait_set, terminal_source)
+                let process_registration = propagate system_wait_set_register(wait_set, process_source)
+                let timer_registration = propagate system_wait_set_register(wait_set, timer_source)
+                let mutable armed_timer_generation = propagate monotonic_timer_arm(timer, application_next_chord_deadline(monotonic_clock_now()))
+                let mutable awaiting_continued = false
+                let mutable suspended_generation: uint64 = 0
+                let mutable last_completed_process_generation: uint64 = 0
+                let mutable running = true
+
+                while running:
+                    # Cancellation is supplied as this wait call's token argument; the prerequisite defines no separately registered cancellation source.
+                    let wake = propagate system_wait_set_wait_sync(wait_set, token)
+                    if wake is SystemWaitWake.Cancelled:
+                        running = false
+                        continue
+
+                    if wake is SystemWaitWake.Ready into ready:
+                        let wake_source = ready.source
+                        let wake_generation = ready.generation
+                        if awaiting_continued and wake_source is not process_source:
+                            # Quiescent continuation wait: no terminal Poll, timer/chord expiry, rendering, or ordinary application work.
+                            continue
+                        if wake_source is process_source:
+                            let notification = propagate process_control_poll(process_control)
+                            if notification is ProcessControlNotification.SuspendRequested into suspend:
+                                # Notification generations are compared only to stored notification generations, never to wake metadata.
+                                if not awaiting_continued and suspend.generation > last_completed_process_generation:
+                                    # Stop child and ordinary application work before terminal restoration begins.
+                                    application_stop_child_and_application_work()
+                                    let pause_result = propagate terminal_session_pause_sync(session)
+                                    propagate apply_pause_events_through_final_boundary_sync(pause_result.events)
+                                    # Supersede every pre-pause timer wake before acknowledgement can suspend the host.
+                                    armed_timer_generation = propagate monotonic_timer_disarm(timer)
+                                    # The helper retries only HostSuspendFailed with this same generation.
+                                    propagate acknowledge_suspend_with_retry_sync(process_control, suspend.generation)
+                                    suspended_generation = suspend.generation
+                                    awaiting_continued = true
+                            if notification is ProcessControlNotification.Continued into continued:
+                                if awaiting_continued and continued.generation is suspended_generation:
+                                    # Fail closed in this exact order. A resume/render/write failure leaves child/application work stopped.
+                                    propagate terminal_session_resume_sync(session)
+                                    propagate resume_process_application_with_retry_sync(process_control, continued.generation)
+                                    application_prepare_editor_view(propagate terminal_session_size_sync(session), terminal_session_capabilities(session))
+                                    let resumed_frame = propagate trusted_terminal_output_from_application_text(application_render_reviewed_frame())
+                                    propagate terminal_session_write_sync(session, resumed_frame)
+                                    propagate terminal_session_flush_sync(session)
+                                    # Recreate caller-owned chord timing only after terminal/process resume and reviewed view restoration succeed.
+                                    armed_timer_generation = propagate monotonic_timer_arm(timer, application_next_chord_deadline(monotonic_clock_now()))
+                                    application_resume_child_and_application_work()
+                                    last_completed_process_generation = continued.generation
+                                    awaiting_continued = false
+                        if wake_source is terminal_source:
+                            if not awaiting_continued:
+                                # Never read a Paused session: transition wakes are observed but terminal Poll is skipped.
+                                running = propagate drain_terminal_after_wake_sync(session, token)
+                        if wake_source is timer_source and not awaiting_continued:
+                            # Timer wake metadata is compared only to this caller-owned live timer generation before chord expiry.
+                            if wake_generation is armed_timer_generation and wake_generation is monotonic_timer_generation(timer):
+                                application_expire_chord_deadline()
+                                armed_timer_generation = propagate monotonic_timer_arm(timer, application_next_chord_deadline(monotonic_clock_now()))
+                return void
     return void
 
 let configured_editor_options = f(): TerminalSessionOptions errors TerminalSessionOptionsError, AllocationFailureError =>
-    let feature_policy = new TerminalSessionFeaturePolicy:
+    let policy = new TerminalSessionFeaturePolicy:
         use_alternate_screen: true
         hide_cursor: true
         enable_bracketed_paste: true
@@ -102,8 +199,7 @@ let configured_editor_options = f(): TerminalSessionOptions errors TerminalSessi
         mouse_tracking: new TerminalMouseTracking.ButtonsAndDrag
         capture_control_keys: true
         require_requested_features: false
-
-    let resource_limits = new TerminalSessionResourceLimits:
+    let limits = new TerminalSessionResourceLimits:
         input_sequence_timeout: 25 as TerminalInputSequenceTimeoutMilliseconds
         maximum_committed_text_bytes: 4096 as TerminalCommittedTextByteLimit
         maximum_composition_preedit_bytes: 4096 as TerminalCompositionPreeditByteLimit
@@ -116,32 +212,31 @@ let configured_editor_options = f(): TerminalSessionOptions errors TerminalSessi
         maximum_correlated_bytes: 65536 as TerminalCorrelatedByteLimit
         maximum_diagnostics: 16 as TerminalDiagnosticCountLimit
         maximum_diagnostic_bytes: 65536 as TerminalDiagnosticCollectionByteLimit
+    return propagate terminal_session_options_validate(propagate terminal_session_options_with_feature_policy(propagate terminal_session_options_with_resource_limits(terminal_session_options_default(), limits), policy))
 
-    let defaults = terminal_session_options_default()
-    let with_limits = propagate terminal_session_options_with_resource_limits(defaults, resource_limits)
-    let with_features = propagate terminal_session_options_with_feature_policy(with_limits, feature_policy)
-    return propagate terminal_session_options_validate(with_features)
-
-let run_editor_event_loop_sync = f(): void errors SystemWaitError, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
-    let source = propagate cancellation_source_new()
-    let token = cancellation_token(source)
-    let options = propagate configured_editor_options()
-
-    guard run_editor_session_with_using_sync(options, token) else cleanup_error =>
-        if cleanup_error is TerminalSessionRestoreError.CloseRestorePending:
-            propagate recover_pending_close_after_editor_sync(cleanup_error)
-            # Recovery succeeded; deliberately propagate the original cleanup error exactly once.
-            propagate cleanup_error
-        propagate cleanup_error
-    return void
-
-let run_editor_session_with_using_sync = f(options: TerminalSessionOptions, token: CancellationToken): void errors SystemWaitError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
+let run_editor_session_with_using_sync = f(options: TerminalSessionOptions, token: CancellationToken): void errors SystemWaitSetError, ProcessControlUnavailableError, ProcessControlError, ProcessControlAcknowledgementError, ProcessControlResumeError, MonotonicTimerError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
     using session = propagate open_terminal_session_with_recovery_sync(options):
         propagate run_open_editor_session_sync(session, token)
     return void
 
 ##
-  Description: Requests cancellation on the thread that owns the moved source authority. No second-class reference crosses a thread boundary.
+  Description: Runs the editor under one generic wait set and explicitly applies cleanup recovery policy after the session binding transfers ownership.
+##
+public let run_editor_event_loop_sync = f(): void errors SystemWaitSetError, ProcessControlUnavailableError, ProcessControlError, ProcessControlAcknowledgementError, ProcessControlResumeError, MonotonicTimerError, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
+    let source = propagate cancellation_source_new()
+    let token = cancellation_token(source)
+    let options = propagate configured_editor_options()
+    guard run_editor_session_with_using_sync(options, token) else cleanup_error =>
+        if cleanup_error is TerminalSessionRestoreError.CloseRestorePending into pending:
+            application_record_close_recovery_diagnostics(pending.diagnostics)
+            application_record_close_recovery_token(pending.recovery_token)
+            propagate recover_close_token_sync(pending.recovery_token) cause cleanup_error
+        # Policy preserves the immutable cleanup error after a successful recovery attempt.
+        propagate cleanup_error
+    return void
+
+##
+  Description: Requests cancellation using the owning source authority; the token is later supplied to the shared wait set.
 ##
 public let request_editor_cancellation_sync = f(mutable ref source: CancellationSource): void =>
     cancellation_request(source)

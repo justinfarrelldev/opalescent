@@ -1,106 +1,203 @@
-# Proposal-only fixture sketch. Canonical ref name: Type borrows, affine cleanup, and opaque inspectors are proposed syntax.
-import terminal_session_open_sync, terminal_session_restore_pending_open_sync, terminal_session_restore_pending_close_sync, terminal_session_capabilities, terminal_capabilities_feature, terminal_capabilities_trusted_paste_framing, terminal_capabilities_color, terminal_diagnostic_state, terminal_session_size_sync, terminal_session_write_sync, terminal_session_write_diagnostic_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+# Proposal-only fixture sketch. Proposed syntax; noncompiling until the selected contract is adopted.
+import terminal_session_open_sync, terminal_session_recover_open_sync, terminal_session_recover_close_sync, terminal_recovery_token_kind, terminal_recovery_token_generation, terminal_session_capabilities, terminal_capabilities_feature, terminal_capabilities_trusted_paste_framing, terminal_capabilities_color, terminal_session_size_sync, terminal_session_write_sync, terminal_session_flush_sync from standard
 import terminal_session_options_default, terminal_session_options_with_feature_policy, terminal_session_options_validate from standard
-import trusted_terminal_output_from_application_text, safe_terminal_diagnostic_format, safe_terminal_diagnostic_collection_format, terminal_diagnostics_length, terminal_diagnostics_at from standard
-import type TerminalSession, ConstraintViolationError, AllocationFailureError, IndexOutOfBoundsError from standard
-import type TerminalSessionOptions, TerminalSessionFeaturePolicy, TerminalMouseTracking, TerminalCapabilities, TerminalOrdinaryFeature, TerminalFeatureCapability, TerminalTrustedPasteCapability, TerminalColorCapability, TerminalSessionState, TerminalDiagnostic, TerminalDiagnosticCollection, TerminalCloseOutcome, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalInputSequenceTimeoutMilliseconds from ./typed_event_session.types
+import trusted_terminal_output_from_application_text, safe_terminal_diagnostic_format, safe_terminal_diagnostic_collection_format from standard
+import terminal_diagnostic_backend, terminal_diagnostic_operation, terminal_diagnostic_stage, terminal_diagnostic_coordinator_state, terminal_diagnostic_session_state, terminal_diagnostic_os_code, terminal_diagnostic_detail, terminal_diagnostic_retryability, terminal_diagnostic_was_truncated from standard
+import terminal_diagnostics_length, terminal_diagnostics_at, terminal_diagnostics_retained_count, terminal_diagnostics_omitted_count, terminal_diagnostics_retained_bytes, terminal_diagnostics_omitted_bytes, terminal_diagnostics_was_truncated from standard
+import error_cause, error_suppressed_length, error_suppressed_at, error_attachment_truncation, error_attachment_truncation_cause_depth, error_attachment_truncation_suppressed_count, error_attachment_truncation_bytes from standard
+import type TerminalSession, Error, ConstraintViolationError, AllocationFailureError, IndexOutOfBoundsError from standard
+import type TerminalSessionOptions, TerminalSessionFeaturePolicy, TerminalMouseTracking, TerminalCapabilities, TerminalOrdinaryFeature, TerminalDiagnostic, TerminalDiagnosticCollection, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalRecoveryToken, TerminalRecoveryLedgerKind, TerminalInputSequenceTimeoutMilliseconds from ./typed_event_session.types
+
+# Undeclared application-owned placeholder calls in this sketch are intentionally not local function definitions:
+# application_record_ordinary_capability, application_record_trusted_paste_capability,
+# application_record_color_capability, application_record_size, application_record_recovery_token,
+# application_record_recovery_kind_mismatch, application_record_structured_diagnostic, application_record_diagnostic_accounting,
+# application_record_error_attachment, application_record_attachment_absence,
+# application_record_attachment_truncation, application_record_safe_diagnostic_output, and application_record_checked_timeout.
+# They are infallible application diagnostics only. They neither mint authority nor render raw input,
+# environment values, remote text, diagnostics, or recovery tokens. Any real fallible integration must
+# declare its own error family at its own application boundary.
+
+let inspect_error_attachments = f(error_value: Error): void errors IndexOutOfBoundsError =>
+    guard error_cause(error_value) into cause else cause_absent =>
+        application_record_attachment_absence(cause_absent)
+        let mutable index: int64 = 0
+        while index < error_suppressed_length(error_value):
+            application_record_error_attachment(propagate error_suppressed_at(error_value, index))
+            index = index + 1
+        let truncation = error_attachment_truncation(error_value)
+        application_record_attachment_truncation(error_attachment_truncation_cause_depth(truncation), error_attachment_truncation_suppressed_count(truncation), error_attachment_truncation_bytes(truncation))
+        return void
+    application_record_error_attachment(cause)
+    let mutable index: int64 = 0
+    while index < error_suppressed_length(error_value):
+        application_record_error_attachment(propagate error_suppressed_at(error_value, index))
+        index = index + 1
+    let truncation = error_attachment_truncation(error_value)
+    application_record_attachment_truncation(error_attachment_truncation_cause_depth(truncation), error_attachment_truncation_suppressed_count(truncation), error_attachment_truncation_bytes(truncation))
+    return void
+
+let inspect_structured_diagnostic = f(diagnostic: TerminalDiagnostic): void errors AllocationFailureError =>
+    application_record_structured_diagnostic(terminal_diagnostic_backend(diagnostic), terminal_diagnostic_operation(diagnostic), terminal_diagnostic_stage(diagnostic), terminal_diagnostic_coordinator_state(diagnostic), terminal_diagnostic_session_state(diagnostic), terminal_diagnostic_os_code(diagnostic), terminal_diagnostic_detail(diagnostic), terminal_diagnostic_retryability(diagnostic), terminal_diagnostic_was_truncated(diagnostic))
+    # Safe formatting happens only after every stable structured field and per-diagnostic truncation is inspected.
+    application_record_safe_diagnostic_output(propagate safe_terminal_diagnostic_format(diagnostic))
+    return void
+
+let inspect_diagnostic_collection = f(diagnostics: TerminalDiagnosticCollection): void errors IndexOutOfBoundsError, AllocationFailureError =>
+    application_record_diagnostic_accounting(terminal_diagnostics_retained_count(diagnostics), terminal_diagnostics_omitted_count(diagnostics), terminal_diagnostics_retained_bytes(diagnostics), terminal_diagnostics_omitted_bytes(diagnostics), terminal_diagnostics_was_truncated(diagnostics))
+    let mutable index: int64 = 0
+    while index < terminal_diagnostics_length(diagnostics):
+        propagate inspect_structured_diagnostic(propagate terminal_diagnostics_at(diagnostics, index))
+        index = index + 1
+    # Collection formatting follows retained/omitted count, byte, truncation, and per-value inspection.
+    application_record_safe_diagnostic_output(propagate safe_terminal_diagnostic_collection_format(diagnostics))
+    return void
+
+let inspect_restore_error_sync = f(error_value: TerminalSessionRestoreError): void errors IndexOutOfBoundsError, AllocationFailureError =>
+    if error_value is TerminalSessionRestoreError.RestoreInputModeFailed into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionRestoreError.RestoreOutputModeFailed into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionRestoreError.RestoreScreenStateFailed into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionRestoreError.MultipleRestoreStepsFailed into failed:
+        propagate inspect_diagnostic_collection(failed.diagnostics)
+    if error_value is TerminalSessionRestoreError.PendingOpenRollbackFailed into pending:
+        propagate inspect_diagnostic_collection(pending.diagnostics)
+    if error_value is TerminalSessionRestoreError.CloseRestorePending into pending:
+        propagate inspect_diagnostic_collection(pending.diagnostics)
+    if error_value is TerminalSessionRestoreError.PendingCloseRestoreFailed into pending:
+        propagate inspect_diagnostic_collection(pending.diagnostics)
+    # Rejection payload tokens are inspected only; none is treated as authority by this helper.
+    if error_value is TerminalSessionRestoreError.WrongSession into rejected:
+        application_record_recovery_token(terminal_recovery_token_kind(rejected.recovery_token), terminal_recovery_token_generation(rejected.recovery_token))
+        propagate inspect_structured_diagnostic(rejected.diagnostic)
+    if error_value is TerminalSessionRestoreError.WrongKind into rejected:
+        application_record_recovery_token(terminal_recovery_token_kind(rejected.recovery_token), terminal_recovery_token_generation(rejected.recovery_token))
+        application_record_recovery_kind_mismatch(rejected.expected_kind, rejected.actual_kind)
+        propagate inspect_structured_diagnostic(rejected.diagnostic)
+    if error_value is TerminalSessionRestoreError.Stale into rejected:
+        application_record_recovery_token(terminal_recovery_token_kind(rejected.recovery_token), rejected.token_generation)
+        propagate inspect_structured_diagnostic(rejected.diagnostic)
+    if error_value is TerminalSessionRestoreError.Consumed into rejected:
+        application_record_recovery_token(terminal_recovery_token_kind(rejected.recovery_token), rejected.token_generation)
+        propagate inspect_structured_diagnostic(rejected.diagnostic)
+    if error_value is TerminalSessionRestoreError.RecoveryInProgress into rejected:
+        application_record_recovery_token(terminal_recovery_token_kind(rejected.recovery_token), rejected.generation)
+        propagate inspect_structured_diagnostic(rejected.diagnostic)
+    if error_value is TerminalSessionRestoreError.ResumeRestorePending into pending:
+        propagate inspect_diagnostic_collection(pending.diagnostics)
+    propagate inspect_error_attachments(error_value)
+    return void
+
+let inspect_open_error_sync = f(error_value: TerminalSessionOpenError): void errors IndexOutOfBoundsError, AllocationFailureError =>
+    if error_value is TerminalSessionOpenError.InputNotInteractive into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionOpenError.OutputNotInteractive into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionOpenError.TerminalAlreadyOwned into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionOpenError.InvalidOptions into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionOpenError.UnsupportedFeature into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionOpenError.ModeReadFailed into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionOpenError.ModeWriteFailed into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionOpenError.AllocationFailed into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionOpenError.RollbackFailed into failed:
+        propagate inspect_diagnostic_collection(failed.diagnostics)
+    if error_value is TerminalSessionOpenError.RecoveryPending into pending:
+        propagate inspect_structured_diagnostic(pending.diagnostic)
+    if error_value is TerminalSessionOpenError.ResumeFailed into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    if error_value is TerminalSessionOpenError.GenerationExhausted into failed:
+        propagate inspect_structured_diagnostic(failed.diagnostic)
+    propagate inspect_error_attachments(error_value)
+    return void
+
+let recover_open_token_sync = f(recovery_token: TerminalRecoveryToken): void errors TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
+    application_record_recovery_token(terminal_recovery_token_kind(recovery_token), terminal_recovery_token_generation(recovery_token))
+    guard terminal_session_recover_open_sync(recovery_token) else recovery_error =>
+        propagate inspect_restore_error_sync(recovery_error)
+        if recovery_error is TerminalSessionRestoreError.PendingOpenRollbackFailed into pending:
+            application_record_recovery_token(terminal_recovery_token_kind(pending.recovery_token), terminal_recovery_token_generation(pending.recovery_token))
+            guard terminal_session_recover_open_sync(pending.recovery_token) else retry_error =>
+                propagate inspect_restore_error_sync(retry_error)
+                # `propagate retry_error` forwards this already-evaluated immutable family value unchanged.
+                propagate retry_error
+            return void
+        # `propagate recovery_error` is the prerequisite's already-evaluated immutable-error forwarding.
+        propagate recovery_error
+    return void
 
 ##
-  Description: Opens a session and retries once after restoring process-owned failed-open recovery. It never attempts failed-close recovery or steals a live session slot.
+  Description: Retries only the authenticated typed close-recovery token issued after lexical cleanup transfer.
 ##
-public let open_terminal_session_with_recovery_sync = f(options: TerminalSessionOptions): TerminalSession errors TerminalSessionOpenError, TerminalSessionRestoreError =>
+public let recover_close_token_sync = f(recovery_token: TerminalRecoveryToken): void errors TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
+    application_record_recovery_token(terminal_recovery_token_kind(recovery_token), terminal_recovery_token_generation(recovery_token))
+    guard terminal_session_recover_close_sync(recovery_token) else recovery_error =>
+        propagate inspect_restore_error_sync(recovery_error)
+        if recovery_error is TerminalSessionRestoreError.PendingCloseRestoreFailed into pending:
+            application_record_recovery_token(terminal_recovery_token_kind(pending.recovery_token), terminal_recovery_token_generation(pending.recovery_token))
+            guard terminal_session_recover_close_sync(pending.recovery_token) else retry_error =>
+                propagate inspect_restore_error_sync(retry_error)
+                propagate retry_error
+            return void
+        propagate recovery_error
+    return void
+
+##
+  Description: Opens a session and retries only an authenticated typed failed-open recovery token.
+##
+public let open_terminal_session_with_recovery_sync = f(options: TerminalSessionOptions): TerminalSession errors TerminalSessionOpenError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
     guard terminal_session_open_sync(options) into session else open_error =>
-        if open_error is TerminalSessionOpenError.RollbackFailed:
-            propagate terminal_session_restore_pending_open_sync() cause open_error
+        propagate inspect_open_error_sync(open_error)
+        if open_error is TerminalSessionOpenError.RollbackFailed into failed:
+            propagate recover_open_token_sync(failed.recovery_token) cause open_error
             return propagate terminal_session_open_sync(options)
         if open_error is TerminalSessionOpenError.RecoveryPending into pending:
-            let recovery_state = terminal_diagnostic_state(pending.diagnostic)
-            if recovery_state is TerminalSessionState.FailedOpenRecovery:
-                propagate terminal_session_restore_pending_open_sync() cause open_error
+            let recovery_kind = terminal_recovery_token_kind(pending.recovery_token)
+            application_record_recovery_token(recovery_kind, terminal_recovery_token_generation(pending.recovery_token))
+            if recovery_kind is TerminalRecoveryLedgerKind.OpenRollback:
+                propagate recover_open_token_sync(pending.recovery_token) cause open_error
                 return propagate terminal_session_open_sync(options)
+            if recovery_kind is TerminalRecoveryLedgerKind.CloseRestore:
+                propagate recover_close_token_sync(pending.recovery_token) cause open_error
+                return propagate terminal_session_open_sync(options)
+            # An unknown/future kind is inspected but never used as authority; preserve the typed open error.
+            propagate open_error
         propagate open_error
     return session
 
-##
-  Description: Retries process-owned pending-close restoration. Failure carries cleanup_error as cause; success returns normally so the caller decides whether to propagate the original notice.
-##
-public let recover_pending_close_after_editor_sync = f(cleanup_error: TerminalSessionRestoreError): void errors TerminalSessionRestoreError =>
-    if cleanup_error is TerminalSessionRestoreError.CloseRestorePending:
-        propagate terminal_session_restore_pending_close_sync() cause cleanup_error
-        return void
-    propagate cleanup_error
-
-let inspect_ordinary_capability = f(capabilities: TerminalCapabilities, feature: TerminalOrdinaryFeature): void =>
-    let capability = terminal_capabilities_feature(capabilities, feature)
-    if capability is TerminalFeatureCapability.Unsupported into unsupported:
-        report_unsupported_capability(feature, unsupported.evidence)
-    if capability is TerminalFeatureCapability.Available into available:
-        report_available_capability(feature, available.evidence)
-    if capability is TerminalFeatureCapability.Enabled into enabled:
-        report_enabled_capability(feature, enabled.evidence)
-    return void
-
-let inspect_open_terminal_capabilities_sync = f(ref session: TerminalSession): void errors TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, AllocationFailureError =>
+let inspect_open_session_sync = f(ref session: TerminalSession): void errors TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, AllocationFailureError =>
     let capabilities = terminal_session_capabilities(session)
-    let size = propagate terminal_session_size_sync(session)
-    report_terminal_size(size)
-
-    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.AlternateScreen)
-    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.CursorShape)
-    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.BracketedPaste)
-    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.FocusEvents)
-    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.MouseButtons)
-    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.MouseMotion)
-    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.KeyReleaseEvents)
-    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.CompositionEvents)
-    inspect_ordinary_capability(capabilities, new TerminalOrdinaryFeature.EnhancedKeyIdentity)
-
-    let trusted_paste_capability = terminal_capabilities_trusted_paste_framing(capabilities)
-    if trusted_paste_capability is TerminalTrustedPasteCapability.Unsupported into unsupported_trust:
-        report_unsupported_trusted_paste_capability(unsupported_trust.evidence)
-    if trusted_paste_capability is TerminalTrustedPasteCapability.Available into available_trust:
-        report_trusted_paste_evidence(available_trust.evidence)
-    if trusted_paste_capability is TerminalTrustedPasteCapability.Enabled into enabled_trust:
-        report_trusted_paste_evidence(enabled_trust.evidence)
-
-    let color_capability = terminal_capabilities_color(capabilities)
-    if color_capability is TerminalColorCapability.Indexed into indexed:
-        report_indexed_color(indexed.count, indexed.evidence)
-    if color_capability is TerminalColorCapability.TrueColor into true_color:
-        report_true_color(true_color.evidence)
-
-    let message = propagate trusted_terminal_output_from_application_text('capability inspection complete\n')
-    propagate terminal_session_write_sync(session, message)
+    application_record_size(propagate terminal_session_size_sync(session))
+    application_record_ordinary_capability(new TerminalOrdinaryFeature.AlternateScreen, terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.AlternateScreen))
+    application_record_ordinary_capability(new TerminalOrdinaryFeature.CursorShape, terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.CursorShape))
+    application_record_ordinary_capability(new TerminalOrdinaryFeature.BracketedPaste, terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.BracketedPaste))
+    application_record_ordinary_capability(new TerminalOrdinaryFeature.FocusEvents, terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.FocusEvents))
+    application_record_ordinary_capability(new TerminalOrdinaryFeature.MouseButtons, terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.MouseButtons))
+    application_record_ordinary_capability(new TerminalOrdinaryFeature.MouseMotion, terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.MouseMotion))
+    application_record_ordinary_capability(new TerminalOrdinaryFeature.KeyReleaseEvents, terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.KeyReleaseEvents))
+    application_record_ordinary_capability(new TerminalOrdinaryFeature.CompositionEvents, terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.CompositionEvents))
+    application_record_ordinary_capability(new TerminalOrdinaryFeature.EnhancedKeyIdentity, terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.EnhancedKeyIdentity))
+    application_record_trusted_paste_capability(terminal_capabilities_trusted_paste_framing(capabilities))
+    application_record_color_capability(terminal_capabilities_color(capabilities))
+    let completion = propagate trusted_terminal_output_from_application_text('capability inspection complete\n')
+    propagate terminal_session_write_sync(session, completion)
     propagate terminal_session_flush_sync(session)
     return void
 
-let write_safe_terminal_diagnostic_sync = f(ref session: TerminalSession, diagnostic: TerminalDiagnostic): void errors AllocationFailureError, TerminalSessionWriteError, TerminalSessionStateError =>
-    let safe_output = propagate safe_terminal_diagnostic_format(diagnostic)
-    propagate terminal_session_write_diagnostic_sync(session, safe_output)
-    return void
-
-let write_safe_terminal_diagnostic_collection_sync = f(ref session: TerminalSession, diagnostics: TerminalDiagnosticCollection): void errors AllocationFailureError, IndexOutOfBoundsError, TerminalSessionWriteError, TerminalSessionStateError =>
-    let diagnostic_count = terminal_diagnostics_length(diagnostics)
-    if diagnostic_count > 0:
-        let first_diagnostic = propagate terminal_diagnostics_at(diagnostics, 0)
-        inspect_first_structured_diagnostic(first_diagnostic)
-    let safe_output = propagate safe_terminal_diagnostic_collection_format(diagnostics)
-    propagate terminal_session_write_diagnostic_sync(session, safe_output)
-    return void
-
-let open_and_explicitly_close_terminal_session_sync = f(options: TerminalSessionOptions): void errors TerminalSessionOpenError, TerminalSessionRestoreError =>
-    using session = propagate terminal_session_open_sync(options):
-        let close_outcome = propagate terminal_session_close_sync(session)
-        # Closed is still explicitly owned here, so the last capability snapshot remains available.
-        let closed_capabilities = terminal_session_capabilities(session)
-        inspect_ordinary_capability(closed_capabilities, new TerminalOrdinaryFeature.EnhancedKeyIdentity)
-        if close_outcome is TerminalCloseOutcome.DiscardedInput into discarded:
-            report_discarded_input_counts(discarded.discarded_bytes, discarded.discarded_events)
+let run_capability_session_with_using_sync = f(options: TerminalSessionOptions): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError, IndexOutOfBoundsError =>
+    using session = propagate open_terminal_session_with_recovery_sync(options):
+        propagate inspect_open_session_sync(session)
     return void
 
 let native_trusted_paste_options = f(): TerminalSessionOptions errors TerminalSessionOptionsError, AllocationFailureError =>
-    # Trusted framing is required while bracketed-paste transport remains disabled; native record boundaries may satisfy it.
-    let feature_policy = new TerminalSessionFeaturePolicy:
+    let policy = new TerminalSessionFeaturePolicy:
         use_alternate_screen: false
         hide_cursor: false
         enable_bracketed_paste: false
@@ -110,17 +207,21 @@ let native_trusted_paste_options = f(): TerminalSessionOptions errors TerminalSe
         mouse_tracking: new TerminalMouseTracking.Disabled
         capture_control_keys: false
         require_requested_features: false
-    let defaults = terminal_session_options_default()
-    let configured = propagate terminal_session_options_with_feature_policy(defaults, feature_policy)
-    return propagate terminal_session_options_validate(configured)
+    return propagate terminal_session_options_validate(propagate terminal_session_options_with_feature_policy(terminal_session_options_default(), policy))
 
-let checked_runtime_sequence_timeout = f(runtime_timeout: int32): TerminalInputSequenceTimeoutMilliseconds errors ConstraintViolationError =>
-    return propagate constrain TerminalInputSequenceTimeoutMilliseconds from runtime_timeout
-
-let inspect_terminal_capabilities_sync = f(runtime_timeout: int32): void errors ConstraintViolationError, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
-    let checked_timeout = propagate checked_runtime_sequence_timeout(runtime_timeout)
-    report_checked_sequence_timeout(checked_timeout)
+##
+  Description: Inspects capabilities and applies explicit outer policy if lexical cleanup transfers close recovery to the coordinator.
+##
+public let inspect_terminal_capabilities_sync = f(runtime_timeout: int32): void errors ConstraintViolationError, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError, IndexOutOfBoundsError =>
+    let checked_timeout = propagate constrain TerminalInputSequenceTimeoutMilliseconds from runtime_timeout
+    application_record_checked_timeout(checked_timeout)
     let options = propagate native_trusted_paste_options()
-    using session = propagate open_terminal_session_with_recovery_sync(options):
-        propagate inspect_open_terminal_capabilities_sync(session)
+    guard run_capability_session_with_using_sync(options) else cleanup_error =>
+        propagate inspect_error_attachments(cleanup_error)
+        if cleanup_error is TerminalSessionRestoreError.CloseRestorePending into pending:
+            propagate inspect_restore_error_sync(cleanup_error)
+            application_record_recovery_token(terminal_recovery_token_kind(pending.recovery_token), terminal_recovery_token_generation(pending.recovery_token))
+            propagate recover_close_token_sync(pending.recovery_token) cause cleanup_error
+        # Preserve the already-evaluated cleanup result as this caller's explicit policy after successful recovery.
+        propagate cleanup_error
     return void
