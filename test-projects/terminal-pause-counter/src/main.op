@@ -1,0 +1,39 @@
+import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_pause_sync, terminal_pause_events_length, terminal_pause_events_at, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
+
+##
+  Description: Proposal RED fixture for pause delivery accounting through the final InputReset.PauseBoundary.
+##
+entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError, IndexOutOfBoundsError =>
+    let source = propagate cancellation_source_new()
+    let token = cancellation_token(source)
+    let options = terminal_session_options_default()
+    let mutable session = propagate terminal_session_open_sync(options)
+
+    let mutable pre_pause_reads: int64 = 0
+    while pre_pause_reads < 2:
+        let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Poll, token)
+        pre_pause_reads = pre_pause_reads + 1
+
+    let pause_result = propagate terminal_session_pause_sync(session)
+    let pause_events = pause_result.events
+    let event_count = terminal_pause_events_length(pause_events)
+    let mutable index: int64 = 0
+    let mutable reset_count: int64 = 0
+    let mutable final_boundary = false
+
+    while index < event_count:
+        let event = propagate terminal_pause_events_at(pause_events, index)
+        if event is TerminalInputEvent.InputReset:
+            reset_count = reset_count + 1
+        if index + 1 is event_count:
+            if event is TerminalInputEvent.InputReset:
+                if event.reason is TerminalInputResetReason.PauseBoundary:
+                    final_boundary = true
+        index = index + 1
+
+    let summary = propagate trusted_terminal_output_from_application_text('PAUSE_COUNTER_SUMMARY pre_pause_reads={pre_pause_reads} pause_events={event_count} input_resets={reset_count} final_boundary=InputReset.PauseBoundary observed={final_boundary}\n')
+    propagate terminal_session_write_sync(session, summary)
+    propagate terminal_session_flush_sync(session)
+    let close_outcome = propagate terminal_session_close_sync(session)
+    return void

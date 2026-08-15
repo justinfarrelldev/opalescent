@@ -1,0 +1,21 @@
+import terminal_session_options_default, terminal_session_open_sync, terminal_session_capabilities, terminal_capabilities_feature, terminal_capabilities_trusted_paste_framing, terminal_session_size_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import trusted_terminal_output_from_application_text from standard
+
+##
+  Description: Proposal RED fixture for capability snapshot and terminal size probing.
+##
+entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+    let options = terminal_session_options_default()
+    let mutable session = propagate terminal_session_open_sync(options)
+    let capabilities = terminal_session_capabilities(session)
+    let enhanced_key_identity = terminal_capabilities_feature(capabilities, new TerminalOrdinaryFeature.EnhancedKeyIdentity)
+    let trusted_paste = terminal_capabilities_trusted_paste_framing(capabilities)
+    let size = propagate terminal_session_size_sync(session)
+
+    let dimensions = propagate trusted_terminal_output_from_application_text('SIZE_PROBE {size.columns}x{size.rows}\n')
+    propagate terminal_session_write_sync(session, dimensions)
+    let summary = propagate trusted_terminal_output_from_application_text('SIZE_PROBE_SUMMARY columns={size.columns} rows={size.rows} ordinary_capability=queried trusted_paste=queried\n')
+    propagate terminal_session_write_sync(session, summary)
+    propagate terminal_session_flush_sync(session)
+    let close_outcome = propagate terminal_session_close_sync(session)
+    return void
