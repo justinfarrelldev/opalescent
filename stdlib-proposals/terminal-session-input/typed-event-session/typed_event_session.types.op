@@ -512,8 +512,8 @@ public type TerminalColorCapability:
 
 ##
   Description: Collects one immutable negotiated capability snapshot cached until the affine session is consumed.
-  Invariant: Every snapshot from one session carries the same hidden authentic input-stream identity used only by standard-library stream consumers. It exposes no stream inspector, host handle, session handle, mutable identity, or application construction path.
-  Evolution: Additive boxed fields may be added in a minor release; known fields and hidden stream-binding semantics retain meaning for the ABI major.
+  Invariant: Every snapshot from one session carries the same hidden authentic input-stream identity and the exact TerminalCorrelatedEventLimit from that session's validated immutable resource limits. Standard-library stream consumers authenticate the snapshot and derive both values internally; the limit metadata is bound to the stream identity and cannot be substituted independently. The snapshot exposes no stream or limit inspector, host handle, session handle, mutable identity, or application construction path.
+  Evolution: Additive boxed fields may be added in a minor release; known fields and hidden stream-binding/correlated-limit semantics retain meaning for the ABI major.
 ##
 @abi_type_id(0x5400000000000048)
 @abi_evolution(additive_opaque)
