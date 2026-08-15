@@ -87,7 +87,8 @@ let inspect_restore_error_sync = f(error_value: TerminalSessionRestoreError): vo
         propagate inspect_structured_diagnostic(rejected.diagnostic) cause error_value
     if error_value is TerminalSessionRestoreError.ResumeRestorePending into pending:
         propagate inspect_diagnostic_collection(pending.diagnostics) cause error_value
-    propagate inspect_error_attachments(error_value) cause error_value
+    # This helper already attaches error_value to every indexed-inspection failure.
+    propagate inspect_error_attachments(error_value)
     return void
 
 let inspect_open_error_sync = f(error_value: TerminalSessionOpenError): void errors IndexOutOfBoundsError, AllocationFailureError =>
@@ -115,17 +116,19 @@ let inspect_open_error_sync = f(error_value: TerminalSessionOpenError): void err
         propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
     if error_value is TerminalSessionOpenError.GenerationExhausted into failed:
         propagate inspect_structured_diagnostic(failed.diagnostic) cause error_value
-    propagate inspect_error_attachments(error_value) cause error_value
+    # This helper already attaches error_value to every indexed-inspection failure.
+    propagate inspect_error_attachments(error_value)
     return void
 
 let recover_open_token_sync = f(recovery_token: TerminalRecoveryToken): void errors TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
     application_record_recovery_token(terminal_recovery_token_kind(recovery_token), terminal_recovery_token_generation(recovery_token))
     guard terminal_session_recover_open_sync(recovery_token) else recovery_error =>
-        propagate inspect_restore_error_sync(recovery_error) cause recovery_error
+        # inspect_restore_error_sync owns attachment of recovery_error on every inspection failure.
+        propagate inspect_restore_error_sync(recovery_error)
         if recovery_error is TerminalSessionRestoreError.PendingOpenRollbackFailed into pending:
             application_record_recovery_token(terminal_recovery_token_kind(pending.recovery_token), terminal_recovery_token_generation(pending.recovery_token))
             guard terminal_session_recover_open_sync(pending.recovery_token) else retry_error =>
-                propagate inspect_restore_error_sync(retry_error) cause retry_error
+                propagate inspect_restore_error_sync(retry_error)
                 # Retry failure is primary; explicit cause preserves the first recovery failure.
                 propagate retry_error cause recovery_error
             return void
@@ -139,11 +142,12 @@ let recover_open_token_sync = f(recovery_token: TerminalRecoveryToken): void err
 public let recover_close_token_sync = f(recovery_token: TerminalRecoveryToken): void errors TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
     application_record_recovery_token(terminal_recovery_token_kind(recovery_token), terminal_recovery_token_generation(recovery_token))
     guard terminal_session_recover_close_sync(recovery_token) else recovery_error =>
-        propagate inspect_restore_error_sync(recovery_error) cause recovery_error
+        # inspect_restore_error_sync owns attachment of recovery_error on every inspection failure.
+        propagate inspect_restore_error_sync(recovery_error)
         if recovery_error is TerminalSessionRestoreError.PendingCloseRestoreFailed into pending:
             application_record_recovery_token(terminal_recovery_token_kind(pending.recovery_token), terminal_recovery_token_generation(pending.recovery_token))
             guard terminal_session_recover_close_sync(pending.recovery_token) else retry_error =>
-                propagate inspect_restore_error_sync(retry_error) cause retry_error
+                propagate inspect_restore_error_sync(retry_error)
                 propagate retry_error cause recovery_error
             return void
         propagate recovery_error
@@ -154,7 +158,8 @@ public let recover_close_token_sync = f(recovery_token: TerminalRecoveryToken): 
 ##
 public let open_terminal_session_with_recovery_sync = f(options: TerminalSessionOptions): TerminalSession errors TerminalSessionOpenError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
     guard terminal_session_open_sync(options) into session else open_error =>
-        propagate inspect_open_error_sync(open_error) cause open_error
+        # inspect_open_error_sync owns attachment of open_error on every inspection failure.
+        propagate inspect_open_error_sync(open_error)
         if open_error is TerminalSessionOpenError.RollbackFailed into failed:
             propagate recover_open_token_sync(failed.recovery_token) cause open_error
             return propagate terminal_session_open_sync(options) cause open_error
@@ -217,9 +222,10 @@ public let inspect_terminal_capabilities_sync = f(runtime_timeout: int32): void 
     application_record_checked_timeout(checked_timeout)
     let options = propagate native_trusted_paste_options()
     guard run_capability_session_with_using_sync(options) else cleanup_error =>
-        propagate inspect_error_attachments(cleanup_error) cause cleanup_error
+        # Each inspection helper owns attachment of cleanup_error on its reachable failures.
+        propagate inspect_error_attachments(cleanup_error)
         if cleanup_error is TerminalSessionRestoreError.CloseRestorePending into pending:
-            propagate inspect_restore_error_sync(cleanup_error) cause cleanup_error
+            propagate inspect_restore_error_sync(cleanup_error)
             application_record_recovery_token(terminal_recovery_token_kind(pending.recovery_token), terminal_recovery_token_generation(pending.recovery_token))
             propagate recover_close_token_sync(pending.recovery_token) cause cleanup_error
         # Preserve the already-evaluated cleanup result as this caller's explicit policy after successful recovery.
