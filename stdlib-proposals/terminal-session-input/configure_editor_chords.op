@@ -26,7 +26,7 @@
 
 import monotonic_timer_arm, monotonic_timer_disarm, monotonic_timer_generation, monotonic_timer_readiness_source, terminal_capabilities_feature, terminal_chord_modifiers, terminal_chord_new, terminal_chord_with_lock_modifier_mask, terminal_chord_sequence_single, terminal_chord_sequence_append, terminal_chord_router_new, terminal_chord_router_register, terminal_chord_router_replace, terminal_chord_router_unregister, terminal_chord_router_process, terminal_chord_router_expire_sync, terminal_chord_router_reset, terminal_chord_released_input_length, terminal_chord_released_input_at from standard
 import type AllocationFailureError, IndexOutOfBoundsError, MonotonicDeadline, MonotonicTimer, MonotonicTimerError, SystemWaitWake from standard
-import type TerminalCapabilities, TerminalOrdinaryFeature, TerminalFeatureCapability, TerminalControlCode, TerminalFunctionKeyNumber, TerminalNamedKey, TerminalInputEvent, TerminalInputSequenceTimeoutMilliseconds, TerminalCorrelatedEventLimit from ./typed-event-session/typed_event_session.types
+import type TerminalCapabilities, TerminalOrdinaryFeature, TerminalFeatureCapability, TerminalControlCode, TerminalFunctionKeyNumber, TerminalNamedKey, TerminalInputEvent, TerminalInputSequenceTimeoutMilliseconds from ./typed-event-session/typed_event_session.types
 import type TerminalChordKey, TerminalChordTrigger, TerminalChordLogicalText, TerminalChord, TerminalLockModifierMask, TerminalChordSequence, TerminalChordTextPolicy, TerminalChordPrefixPolicy, TerminalChordRouterPolicy, TerminalChordRegistrationLimit, TerminalChordSequenceLengthLimit, TerminalChordBufferedEventLimit, TerminalChordPriority, TerminalChordBindingId, TerminalChordValidationError, TerminalChordMutationError, TerminalChordProcessError, TerminalChordMutationResult, TerminalChordRouter, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordResetReason from ./terminal_chords.types
 
 let register_editor_binding = f(mutable ref router: TerminalChordRouter, mutable ref binding_map: EditorBindingMap, sequence: TerminalChordSequence, priority: TerminalChordPriority, text_policy: TerminalChordTextPolicy, application_name: string): TerminalChordBindingId errors TerminalChordValidationError, AllocationFailureError =>
@@ -248,9 +248,8 @@ let run_chord_router_example = f(capabilities: TerminalCapabilities, event: Term
         maximum_sequence_length: 8 as TerminalChordSequenceLengthLimit
         maximum_buffered_events: 64 as TerminalChordBufferedEventLimit
 
-    # This exact value matches the selected session options that produced event.
-    let maximum_correlated_events = 64 as TerminalCorrelatedEventLimit
-    using router = propagate terminal_chord_router_new(capabilities, policy, maximum_correlated_events):
+    # The router authenticates capabilities and derives the stream-bound correlated-event limit internally.
+    using router = propagate terminal_chord_router_new(capabilities, policy):
         # Acquired second: reverse using cleanup clears every application payload before router cleanup on every exit.
         using binding_map = propagate editor_binding_map_new():
             propagate register_editor_chords(router, binding_map, capabilities)
