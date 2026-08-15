@@ -87,6 +87,7 @@ mod string_join_stdlib;
 mod string_stdlib_failures;
 mod string_stdlib_projects;
 mod string_stdlib_success;
+mod terminal_session_input_gated;
 mod terminal_stdlib;
 mod time_stdlib;
 
