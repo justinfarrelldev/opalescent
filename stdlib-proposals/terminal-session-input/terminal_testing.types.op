@@ -15,8 +15,8 @@ import type TerminalCapabilitySupportedEvidence, TerminalCapabilityUnsupportedEv
 public opaque immutable type TerminalTestAuthority
 
 ##
-  Description: Owns test-local synthetic correlation, evidence, fake-backend binding, and event-ID state.
-  Invariant: The affine scenario rejects invalid linked-text, composition, paste, and capability relationships before producing a synthetic value.
+  Description: Owns one test-local synthetic input stream plus correlation, evidence, fake-backend binding, identifier, and delivery-order state.
+  Invariant: Scenario creation issues one hidden test-runner-only stream identity. Every capability snapshot and sealed event produced from the scenario carries that same identity. Successful explicit event factories stamp nonzero delivery ordinals monotonically in factory call order, while fake-backend TimedOut, Cancelled, and EndOfInput outcomes consume that same sequence in publication order; together they cover all sixteen event variants. Validation, allocation, and exhaustion failures do not advance the ordinal. The affine scenario rejects invalid linked-text, composition, paste, and capability relationships before producing a synthetic value.
   Availability: Test-only. This declaration has no production ABI ID or export.
 ##
 @availability(test_only)
@@ -389,7 +389,7 @@ public opaque immutable type TerminalTestFakeBackend
 
 ##
   Description: Reports rejection by a test-only factory.
-  Invariant: Each failure leaves scenario state, fake-backend binding, production values, and recovery authority unchanged. Identifier exhaustion preserves the corresponding last valid nonzero ID and counter, issues no value, changes no live set or correlation bookkeeping, and is retry-stable.
+  Invariant: Each failure leaves scenario state, fake-backend binding, production values, and recovery authority unchanged. Identifier exhaustion preserves the corresponding last valid nonzero ID and counter. DeliveryOrdinalExhausted preserves hidden order state without exposing the last ordinal. Every exhaustion issues no value, changes no live set, correlation, retained accounting, or ordering state, and is retry-stable.
   Availability: Test-only. This declaration has no production ABI ID or export.
 ##
 @availability(test_only)
@@ -424,3 +424,4 @@ public type TerminalTestFactoryError:
         last_issued_event_id: TerminalEventId
     CompositionIdentifierExhausted = 21:
         last_issued_composition_id: TerminalCompositionId
+    DeliveryOrdinalExhausted = 22
