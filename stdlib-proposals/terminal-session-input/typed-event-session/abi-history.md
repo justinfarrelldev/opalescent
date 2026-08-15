@@ -12,10 +12,12 @@ committed Task 1 introduction baselines remain:
 `@abi_type_id` annotations or authoritative ABI IDs. Commit `4278ed3`
 checkpointed 82 selected type IDs. The selected declaration revision added five
 previously unused type IDs and retired the obsolete explicit variant IDs listed
-below, producing exactly 87 active selected production type IDs. This chord
-declaration revision adds only the next unused chord type IDs
-`0x5400000000000114` and `0x5400000000000115`, producing exactly 22 active
-chord production type IDs without changing the selected inventory.
+below, producing exactly 87 active selected production type IDs. Chord revision
+`fd278786c68be255dcf10519662c80ab5215a976` added
+`0x5400000000000114` and `0x5400000000000115`. This chord correction revision,
+`docs(terminal): define lossless chord capacity recovery`, adds only the next
+unused chord type ID `0x5400000000000116`, producing exactly 23 active chord
+production type IDs without changing the selected inventory.
 
 No representation hash, representation version, or generated manifest is
 recorded because none is evidenced by repository history.
@@ -119,16 +121,19 @@ has no committed ABI status.
 ## Active chord inventory
 
 Commit `384f502718e0a85f40862bfda0d02455b2344575` introduced the contiguous
-baseline `0x5400000000000100` through `0x5400000000000113`. This chord
-declaration revision `fd278786c68be255dcf10519662c80ab5215a976` adds only the
-next unused IDs `0x5400000000000114` and `0x5400000000000115`. The active range
-is contiguous and contains exactly 22 chord production type IDs.
+baseline `0x5400000000000100` through `0x5400000000000113`. Chord revision
+`fd278786c68be255dcf10519662c80ab5215a976` added the next unused IDs
+`0x5400000000000114` and `0x5400000000000115`. This chord correction revision,
+`docs(terminal): define lossless chord capacity recovery`, adds only
+`0x5400000000000116`. The active range is contiguous and contains exactly 23
+chord production type IDs.
 
 | Type IDs | Active declarations |
 | --- | --- |
 | `0x5400000000000100` to `0x5400000000000113` | Baseline `TerminalChordTrigger` through `TerminalChordRouter` |
 | `0x5400000000000114` | `TerminalChordMutationResult` |
 | `0x5400000000000115` | `TerminalChordMutationError` |
+| `0x5400000000000116` | `TerminalChordProcessError` |
 
 ### Chord explicit active variant IDs
 
@@ -141,9 +146,10 @@ is contiguous and contains exactly 22 chord production type IDs.
 | `TerminalChordPrefixPolicy` | `RejectAmbiguousPrefixes=1`, `HigherPriorityWins=2`, `LongestThenPriority=3` |
 | `TerminalChordResetReason` | `ApplicationRequested=1`, `FocusLost=2`, `InputReset=3`, `Cancelled=4`, `EndOfInput=5`, `Pause=6` |
 | `TerminalChordRouterOutput` | `Pending=1 { deadline: MonotonicDeadline }`, `ReleasedInput=2`, `Activated=3`, `Idle=4`, `AwaitingCorrelatedInput=5` |
-| `TerminalChordValidationError` | `EmptySequence=1`, `SequenceTooLong=2`, `RegistrationLimitReached=3`, `DuplicateBinding=4`, `PrefixAmbiguity=5`, `EnhancedKeyIdentityRequired=6`, `ReleaseEventsRequired=7`, `BindingIdentifierExhausted=8` |
+| `TerminalChordValidationError` | `EmptySequence=1`, `SequenceTooLong=2`, `RegistrationLimitReached=3`, `DuplicateBinding=4`, `PrefixAmbiguity=5`, `EnhancedKeyIdentityRequired=6`, `ReleaseEventsRequired=7`, `BindingIdentifierExhausted=8`, `BufferCapacityBelowCorrelatedLimit=9` |
 | `TerminalChordMutationResult` | `Unregistered=1`, `Replaced=2` |
 | `TerminalChordMutationError` | `BindingNotFound=1`, `WrongRouter=2`, `CorrelatedGroupPending=3` |
+| `TerminalChordProcessError` | `BufferedCapacityExceeded=1` |
 
 ### Chord representation and additive-variant record
 
@@ -157,7 +163,11 @@ history evidences no representation hash or representation version to record.
 `TerminalChordRouterOutput.Pending=1` retains discriminator 1 and gains the
 exact `MonotonicDeadline` payload required to arm the caller-owned affine timer.
 `Idle=4` and `AwaitingCorrelatedInput=5` use previously unused discriminators.
-No existing chord discriminator is reassigned or retired.
+Chord correction `docs(terminal): define lossless chord capacity recovery` adds
+only `TerminalChordProcessError=0x5400000000000116`, with
+`BufferedCapacityExceeded=1`, and adds previously unused
+`TerminalChordValidationError.BufferCapacityBelowCorrelatedLimit=9`. No existing
+chord type ID or discriminator is reassigned or retired.
 
 ## Retired selected IDs
 
@@ -190,7 +200,8 @@ capacity failure in the committed selected contract is
 
 The chord retired set is evidenced empty from the baseline
 `384f502718e0a85f40862bfda0d02455b2344575` through this chord declaration
-revision `fd278786c68be255dcf10519662c80ab5215a976`. No chord type ID or
+revision `fd278786c68be255dcf10519662c80ab5215a976` and chord correction
+`docs(terminal): define lossless chord capacity recovery`. No chord type ID or
 explicit variant ID is removed, reassigned, or retired. In particular,
 `TerminalChordBindingId` retains `0x540000000000010e`, and
 `TerminalChordRouterOutput.Pending` retains discriminator 1. Every future chord

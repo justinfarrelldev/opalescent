@@ -5,8 +5,8 @@
 
 import monotonic_timer_arm, monotonic_timer_disarm, monotonic_timer_generation, monotonic_timer_readiness_source, terminal_capabilities_feature, terminal_chord_modifiers, terminal_chord_new, terminal_chord_with_lock_modifier_mask, terminal_chord_sequence_single, terminal_chord_sequence_append, terminal_chord_router_new, terminal_chord_router_register, terminal_chord_router_replace, terminal_chord_router_unregister, terminal_chord_router_process, terminal_chord_router_expire_sync, terminal_chord_router_reset, terminal_chord_released_input_length, terminal_chord_released_input_at from standard
 import type AllocationFailureError, IndexOutOfBoundsError, MonotonicTimer, MonotonicTimerError, SystemWaitWake from standard
-import type TerminalCapabilities, TerminalOrdinaryFeature, TerminalFeatureCapability, TerminalControlCode, TerminalFunctionKeyNumber, TerminalNamedKey, TerminalInputEvent, TerminalInputSequenceTimeoutMilliseconds from ./typed-event-session/typed_event_session.types
-import type TerminalChordKey, TerminalChordTrigger, TerminalChordLogicalText, TerminalChord, TerminalLockModifierMask, TerminalChordSequence, TerminalChordTextPolicy, TerminalChordPrefixPolicy, TerminalChordRouterPolicy, TerminalChordRegistrationLimit, TerminalChordSequenceLengthLimit, TerminalChordBufferedEventLimit, TerminalChordPriority, TerminalChordBindingId, TerminalChordValidationError, TerminalChordMutationError, TerminalChordMutationResult, TerminalChordRouter, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordResetReason from ./terminal_chords.types
+import type TerminalCapabilities, TerminalOrdinaryFeature, TerminalFeatureCapability, TerminalControlCode, TerminalFunctionKeyNumber, TerminalNamedKey, TerminalInputEvent, TerminalInputSequenceTimeoutMilliseconds, TerminalCorrelatedEventLimit from ./typed-event-session/typed_event_session.types
+import type TerminalChordKey, TerminalChordTrigger, TerminalChordLogicalText, TerminalChord, TerminalLockModifierMask, TerminalChordSequence, TerminalChordTextPolicy, TerminalChordPrefixPolicy, TerminalChordRouterPolicy, TerminalChordRegistrationLimit, TerminalChordSequenceLengthLimit, TerminalChordBufferedEventLimit, TerminalChordPriority, TerminalChordBindingId, TerminalChordValidationError, TerminalChordMutationError, TerminalChordProcessError, TerminalChordMutationResult, TerminalChordRouter, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordResetReason from ./terminal_chords.types
 
 let register_editor_binding = f(mutable ref router: TerminalChordRouter, sequence: TerminalChordSequence, priority: TerminalChordPriority, text_policy: TerminalChordTextPolicy, application_name: string): TerminalChordBindingId errors TerminalChordValidationError, AllocationFailureError =>
     let binding_id = propagate terminal_chord_router_register(router, sequence, priority, text_policy)
@@ -74,8 +74,16 @@ let process_chord_router_output = f(output: TerminalChordRouterOutput, mutable r
         return void
     return void
 
-let process_editor_chord_event = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer, event: TerminalInputEvent): void errors AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
-    let output = propagate terminal_chord_router_process(router, event)
+let process_editor_chord_event = f(mutable ref router: TerminalChordRouter, mutable ref prefix_timer: MonotonicTimer, event: TerminalInputEvent): void errors TerminalChordProcessError, AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
+    guard terminal_chord_router_process(router, event) into output else process_error =>
+        if process_error is TerminalChordProcessError.BufferedCapacityExceeded into capacity:
+            # The router atomically released only prior complete input and did not accept event.
+            propagate apply_released_input_then_disarm(capacity.released_input, prefix_timer)
+            # Empty-buffer retry is capacity-guaranteed by router construction; allocation may still fail without mutation.
+            let retry_output = propagate terminal_chord_router_process(router, event)
+            propagate process_chord_router_output(retry_output, prefix_timer)
+            return void
+        propagate process_error
     propagate process_chord_router_output(output, prefix_timer)
     return void
 
@@ -135,7 +143,7 @@ let register_editor_chords = f(mutable ref router: TerminalChordRouter, capabili
     let sequence_binding = propagate register_editor_binding(router, sequence, 60 as TerminalChordPriority, new TerminalChordTextPolicy.SuppressLinkedText, 'escape-then-function-four')
     return void
 
-let run_chord_router_example = f(capabilities: TerminalCapabilities, event: TerminalInputEvent, mutable ref prefix_timer: MonotonicTimer, timer_wake: SystemWaitWake): void errors TerminalChordValidationError, TerminalChordMutationError, AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
+let run_chord_router_example = f(capabilities: TerminalCapabilities, event: TerminalInputEvent, mutable ref prefix_timer: MonotonicTimer, timer_wake: SystemWaitWake): void errors TerminalChordValidationError, TerminalChordMutationError, TerminalChordProcessError, AllocationFailureError, IndexOutOfBoundsError, MonotonicTimerError =>
     let policy = new TerminalChordRouterPolicy:
         prefix_policy: new TerminalChordPrefixPolicy.LongestThenPriority
         sequence_timeout: 750 as TerminalInputSequenceTimeoutMilliseconds
@@ -143,7 +151,9 @@ let run_chord_router_example = f(capabilities: TerminalCapabilities, event: Term
         maximum_sequence_length: 8 as TerminalChordSequenceLengthLimit
         maximum_buffered_events: 64 as TerminalChordBufferedEventLimit
 
-    using router = propagate terminal_chord_router_new(capabilities, policy):
+    # This exact value matches the selected session options that produced event.
+    let maximum_correlated_events = 64 as TerminalCorrelatedEventLimit
+    using router = propagate terminal_chord_router_new(capabilities, policy, maximum_correlated_events):
         propagate register_editor_chords(router, capabilities)
         propagate process_editor_chord_event(router, prefix_timer, event)
         propagate expire_editor_chord_prefix_after_timer_wake(router, prefix_timer, timer_wake)

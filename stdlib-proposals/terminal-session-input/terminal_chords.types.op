@@ -2,7 +2,7 @@
 # It contains declarations only; imports and proposed ABI/resource annotations preserve the .types.op file role.
 
 import type MonotonicDeadline from standard
-import type TerminalControlCode, TerminalFunctionKeyNumber, TerminalNamedKey, TerminalInputSequenceTimeoutMilliseconds, TerminalKeyOccurrence from ./typed-event-session/typed_event_session.types
+import type TerminalControlCode, TerminalFunctionKeyNumber, TerminalNamedKey, TerminalInputSequenceTimeoutMilliseconds, TerminalCorrelatedEventLimit, TerminalKeyOccurrence from ./typed-event-session/typed_event_session.types
 
 ##
   Description: Chooses which normalized Key occurrence activates a chord.
@@ -145,8 +145,9 @@ public constrained type TerminalChordRegistrationLimit: int32 where value >= 1 a
 public constrained type TerminalChordSequenceLengthLimit: int32 where value >= 1 and value <= 256
 
 ##
-  Description: Limits normalized events buffered by one router.
+  Description: Limits normalized event slots stored or reserved by one router.
   Range: 1..65536.
+  Invariant: Router construction requires this value to be at least the exact selected-session TerminalCorrelatedEventLimit supplied with the input stream.
   Evolution: Closed; constraint changes require an ABI-major release.
 ##
 @abi_type_id(0x540000000000010c)
@@ -211,7 +212,7 @@ public type TerminalChordRouterOutput:
     AwaitingCorrelatedInput = 5
 
 ##
-  Description: Reports stable structured chord registration failures.
+  Description: Reports stable structured chord construction and registration failures.
   Evolution: Closed; validation semantics change only in an ABI-major release.
 ##
 @abi_type_id(0x5400000000000112)
@@ -230,6 +231,9 @@ public type TerminalChordValidationError:
     EnhancedKeyIdentityRequired = 6
     ReleaseEventsRequired = 7
     BindingIdentifierExhausted = 8
+    BufferCapacityBelowCorrelatedLimit = 9:
+        configured_buffer_limit: TerminalChordBufferedEventLimit
+        required_correlated_limit: TerminalCorrelatedEventLimit
 
 ##
   Description: Owns bounded registration, prefix, and correlated-input buffering state.
@@ -271,3 +275,16 @@ public type TerminalChordMutationError:
     WrongRouter = 2:
         binding_id: TerminalChordBindingId
     CorrelatedGroupPending = 3
+
+##
+  Description: Reports the sole deterministic process-capacity outcome.
+  Invariant: BufferedCapacityExceeded atomically releases every complete unsuppressed buffered event once in order, clears the prefix/deadline/reservations, and does not accept the current caller-owned immutable event. The caller applies released_input once, invalidates its timer, and retries that same event once. A process AllocationFailureError instead changes nothing and releases nothing.
+  Evolution: Closed; additions require an ABI-major release.
+##
+@abi_type_id(0x5400000000000116)
+@abi_evolution(closed_major_only)
+@constructor_visibility(standard_library)
+public type TerminalChordProcessError:
+    BufferedCapacityExceeded = 1:
+        configured_limit: TerminalChordBufferedEventLimit
+        released_input: TerminalChordReleasedInput
