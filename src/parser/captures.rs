@@ -27,6 +27,10 @@ pub(super) fn collect_captured_variables(body: &LambdaBody, params: &[Parameter]
     captures
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "Expression capture traversal intentionally covers all AST expression variants"
+)]
 fn collect_identifiers_in_expr(
     expr: &Expr,
     param_names: &std::collections::HashSet<&str>,
@@ -59,8 +63,18 @@ fn collect_identifiers_in_expr(
         Expr::Member { object, .. } => {
             collect_identifiers_in_expr(object, param_names, seen, captures);
         }
-        Expr::Cast { expr, .. } | Expr::TypeOf { expr, .. } | Expr::Parenthesized { expr, .. } => {
+        Expr::BorrowArgument { target: expr, .. }
+        | Expr::Cast { expr, .. }
+        | Expr::TypeOf { expr, .. }
+        | Expr::Parenthesized { expr, .. } => {
             collect_identifiers_in_expr(expr, param_names, seen, captures);
+        }
+        Expr::Constrain { value, .. } => {
+            collect_identifiers_in_expr(value, param_names, seen, captures);
+        }
+        Expr::Refinement { value, variant, .. } => {
+            collect_identifiers_in_expr(value, param_names, seen, captures);
+            collect_identifiers_in_expr(variant, param_names, seen, captures);
         }
         Expr::Array { elements, .. } => {
             for elem in elements {
@@ -128,8 +142,11 @@ fn collect_identifiers_in_expr(
             collect_identifiers_in_expr(expr, param_names, seen, captures);
             collect_identifiers_in_stmt(else_branch, param_names, seen, captures);
         }
-        Expr::Propagate { call, .. } => {
+        Expr::Propagate { call, cause, .. } => {
             collect_identifiers_in_expr(call, param_names, seen, captures);
+            if let Some(cause_expr) = cause {
+                collect_identifiers_in_expr(cause_expr, param_names, seen, captures);
+            }
         }
         Expr::Literal { .. } => {}
     }
@@ -198,6 +215,12 @@ fn collect_identifiers_in_stmt(
         } => {
             collect_identifiers_in_expr(expression, param_names, seen, captures);
             collect_identifiers_in_stmt(else_body, param_names, seen, captures);
+        }
+        Stmt::Using {
+            acquisition, body, ..
+        } => {
+            collect_identifiers_in_expr(acquisition, param_names, seen, captures);
+            collect_identifiers_in_stmt(body, param_names, seen, captures);
         }
         Stmt::PropagateGuardError { error_binding, .. } => {
             if !param_names.contains(error_binding.as_str()) && seen.insert(error_binding.clone()) {

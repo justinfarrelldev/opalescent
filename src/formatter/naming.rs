@@ -299,6 +299,22 @@ fn check_stmt(stmt: &Stmt, violations: &mut Vec<NamingViolation>) {
             }
         }
         Stmt::Loop { ref body, .. } => check_stmt(body, violations),
+        Stmt::Using {
+            ref binding,
+            ref acquisition,
+            ref body,
+            ..
+        } => {
+            if !is_snake_case(&binding.name) {
+                violations.push(NamingViolation {
+                    name: binding.name.clone(),
+                    expected: NamingStyle::SnakeCase,
+                    location: "using binding".to_owned(),
+                });
+            }
+            check_expr(acquisition, violations);
+            check_stmt(body, violations);
+        }
         Stmt::Comment { .. } => {}
     }
 }
@@ -380,6 +396,7 @@ fn check_expr(expr: &Expr, violations: &mut Vec<NamingViolation>) {
             check_expr(index, violations);
         }
         Expr::Member { ref object, .. } => check_expr(object, violations),
+        Expr::BorrowArgument { ref target, .. } => check_expr(target, violations),
         Expr::Cast {
             expr: ref inner, ..
         }
@@ -449,7 +466,33 @@ fn check_expr(expr: &Expr, violations: &mut Vec<NamingViolation>) {
             check_expr(inner, violations);
             check_stmt(else_branch, violations);
         }
-        Expr::Propagate { ref call, .. } => check_expr(call, violations),
+        Expr::Constrain { ref value, .. } => check_expr(value, violations),
+        Expr::Refinement {
+            ref value,
+            ref variant,
+            ref payload_binding,
+            ..
+        } => {
+            check_expr(value, violations);
+            check_expr(variant, violations);
+            if !is_snake_case(payload_binding) {
+                violations.push(NamingViolation {
+                    name: payload_binding.clone(),
+                    expected: NamingStyle::SnakeCase,
+                    location: "refinement payload binding".to_owned(),
+                });
+            }
+        }
+        Expr::Propagate {
+            ref call,
+            ref cause,
+            ..
+        } => {
+            check_expr(call, violations);
+            if let Some(ref cause_expr) = *cause {
+                check_expr(cause_expr, violations);
+            }
+        }
         Expr::Loop { ref body, .. } => check_stmt(body, violations),
     }
 }

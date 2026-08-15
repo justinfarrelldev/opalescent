@@ -160,6 +160,11 @@ impl TypeChecker {
 
     /// Extract `(variable_name, narrowed_type, span)` from `x is TypeName`.
     fn extract_is_type_narrowing(&self, condition: &Expr) -> Option<(String, CoreType, Span)> {
+        let condition = match *condition {
+            Expr::Parenthesized { ref expr, .. } => expr.as_ref(),
+            _ => condition,
+        };
+
         let &Expr::Binary {
             ref left,
             operator: BinaryOp::Is,

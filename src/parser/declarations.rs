@@ -11,7 +11,7 @@
 extern crate alloc;
 use super::{ParseError, ParseResult, Parser};
 use crate::ast::{
-    AstNode, Decl, DeclarationAnnotation, Documentation, Field, FunctionModifier,
+    AstNode, BorrowKind, Decl, DeclarationAnnotation, Documentation, Field, FunctionModifier,
     HotReloadMetadata, LetBinding, Parameter, Stmt, Type, TypeDeclarationForm, TypeDef,
     TypeParameter, Variant, Visibility,
 };
@@ -341,7 +341,7 @@ impl Parser {
     fn parse_parameter(&mut self) -> ParseResult<Parameter> {
         let start_span = self.current_token().span;
 
-        if self.check(&TokenType::Mutable) {
+        let borrow_kind = if self.check(&TokenType::Mutable) {
             self.advance();
             if !self.check_contextual_keyword("ref") {
                 return Err(ParseError::UnexpectedToken {
@@ -351,9 +351,13 @@ impl Parser {
                 });
             }
             self.advance();
+            BorrowKind::MutableRef
         } else if self.check_contextual_keyword("ref") {
             self.advance();
-        }
+            BorrowKind::Ref
+        } else {
+            BorrowKind::Owned
+        };
 
         let name = if self.check_identifier() {
             let token = self.advance();
@@ -383,6 +387,7 @@ impl Parser {
         Ok(Parameter {
             name,
             param_type,
+            borrow_kind,
             span,
         })
     }

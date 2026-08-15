@@ -191,6 +191,11 @@ fn function_signature(
         if index > 0 {
             signature.push_str(", ");
         }
+        match parameter.borrow_kind {
+            crate::ast::BorrowKind::Owned => {}
+            crate::ast::BorrowKind::Ref => signature.push_str("ref "),
+            crate::ast::BorrowKind::MutableRef => signature.push_str("mutable ref "),
+        }
         signature.push_str(parameter.name.as_str());
         signature.push_str(": ");
         signature.push_str(&parameter.param_type.to_signature_string());

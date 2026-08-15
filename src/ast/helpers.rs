@@ -4,7 +4,9 @@
 //! for various AST node types.
 
 extern crate alloc;
-use crate::ast::{Field, HotReloadMetadata, ImportItem, LetBinding, Parameter, Pattern, Variant};
+use crate::ast::{
+    BorrowKind, Field, HotReloadMetadata, ImportItem, LetBinding, Parameter, Pattern, Variant,
+};
 use crate::token::Span;
 use alloc::string::String;
 
@@ -25,6 +27,11 @@ impl Parameter {
     #[must_use]
     pub fn to_signature_string(&self) -> String {
         let mut result = String::new();
+        match self.borrow_kind {
+            BorrowKind::Owned => {}
+            BorrowKind::Ref => result.push_str("ref "),
+            BorrowKind::MutableRef => result.push_str("mutable ref "),
+        }
         result.push_str(&self.name);
         result.push_str(": ");
         result.push_str(&self.param_type.to_signature_string());

@@ -43,3 +43,31 @@ Observed failure summary:
 ## Final state
 
 The final verification commands are recorded in `task-7-parser-expressions.txt`; all required checks passed after the fixes.
+
+
+## Repair follow-up negative evidence - 2026-08-15
+
+The repair keeps semantic boundaries explicit:
+- `Expr::Constrain` type checking/codegen still returns an explicit not-implemented error instead of silently coercing to a cast.
+- `Expr::Refinement` type checking/codegen still returns an explicit not-implemented error instead of silently lowering to a binary `is` expression.
+- `Stmt::Using` type checking/codegen still returns an explicit not-implemented ownership-semantics error instead of lowering to a block/let.
+- Propagate `cause` syntax is preserved on the AST; opt-in terminal RED coverage is still expected to fail until terminal support lands.
+
+
+## Final RED verification - 2026-08-15
+
+Expected RED check:
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 OPAL_TERMINAL_SESSION_RED=1 cargo test --features integration --test integration_e2e -- terminal_session_input_gated --ignored --nocapture` -> expected FAIL / exit 101.
+- All four terminal gated groups failed because selected typed-event-session APIs are still missing, which is the intended RED evidence until terminal support lands.
+
+
+## Post-hook-refactor RED verification - 2026-08-15
+
+Expected RED check rerun after line-count hook refactor:
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 OPAL_TERMINAL_SESSION_RED=1 cargo test --features integration --test integration_e2e -- terminal_session_input_gated --ignored --nocapture` -> expected FAIL / exit 101.
+- All four terminal gated groups still fail because selected typed-event-session APIs remain unimplemented, preserving the intended future-work signal.
+
+
+## Using owner escape acceptance decision - 2026-08-15
+
+Atlas loose-end resolution: no parser-level owner-escape rejection was added for `using` in Task 7. A direct textual escape heuristic would be unsound at parser time because escape depends on semantic binding identity, shadowing, aliasing, return/closure/dataflow shape, and the ownership/type rules planned for Task 13. Task 7 therefore preserves `Stmt::Using { binding, acquisition, body }` explicitly in the AST and keeps type checking/codegen semantics as explicit not-implemented errors, so Task 13 can enforce owner escape with symbol/type information instead of a lossy parser guess.

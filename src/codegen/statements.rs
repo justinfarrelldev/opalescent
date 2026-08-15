@@ -149,6 +149,9 @@ pub fn codegen_statement<'context>(
         Stmt::Continue { ref values, .. } => {
             codegen_continue_statement(codegen_context, env, values.as_slice())
         }
+        Stmt::Using { .. } => Err(CodegenError::new(
+            "using statement codegen requires ownership semantics",
+        )),
         Stmt::Comment { .. } => Ok(()),
     }
 }

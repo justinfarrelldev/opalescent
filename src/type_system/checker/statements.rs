@@ -258,6 +258,10 @@ impl TypeChecker {
             Stmt::PropagateGuardError { .. } => {
                 self.type_check_guard_error_clause_statement(stmt, expected_return, false)
             }
+            Stmt::Using { span, .. } => Err(TypeError::ConstraintSolvingFailed {
+                reason: "using statement ownership semantics are not implemented yet".to_owned(),
+                span: TypeError::span_from_span(span),
+            }),
             Stmt::Comment { .. } => Ok(()),
         }
     }
@@ -653,7 +657,7 @@ impl TypeChecker {
                     }
                     stack.push(then_branch.as_ref());
                 }
-                Stmt::For { body, .. } | Stmt::While { body, .. } => {
+                Stmt::For { body, .. } | Stmt::While { body, .. } | Stmt::Using { body, .. } => {
                     stack.push(body.as_ref());
                 }
                 Stmt::Guard { else_body, .. } => {

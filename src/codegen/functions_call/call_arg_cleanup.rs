@@ -35,11 +35,25 @@ fn direct_call_arg_requires_malloc_string_cleanup<'context>(
     match *argument {
         Expr::Identifier { .. } => false,
         Expr::StringInterpolation { .. } => true,
+        Expr::BorrowArgument { ref target, .. } => {
+            direct_call_arg_requires_malloc_string_cleanup(codegen_context, env, target.as_ref())
+        }
         Expr::Parenthesized { ref expr, .. } => {
             direct_call_arg_requires_malloc_string_cleanup(codegen_context, env, expr.as_ref())
         }
-        Expr::Propagate { ref call, .. } => {
+        Expr::Propagate {
+            ref call,
+            ref cause,
+            ..
+        } => {
             direct_call_arg_requires_malloc_string_cleanup(codegen_context, env, call.as_ref())
+                || cause.as_ref().is_some_and(|cause_expr| {
+                    direct_call_arg_requires_malloc_string_cleanup(
+                        codegen_context,
+                        env,
+                        cause_expr.as_ref(),
+                    )
+                })
         }
         _ => expr_requires_malloc_string_cleanup(codegen_context, env, argument, &BTreeMap::new()),
     }

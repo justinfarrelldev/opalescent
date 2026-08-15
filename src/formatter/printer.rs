@@ -14,100 +14,19 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::{
-    BinaryOp, Decl, Expr, LambdaBody, LiteralValue, MatchArm, Pattern, Program, Stmt, StringPart,
-    Type, TypeDef, UnaryOp, Variant, Visibility,
+    BorrowKind, Decl, Expr, LambdaBody, MatchArm, Pattern, Program, Stmt, StringPart, TypeDef,
+    UnaryOp, Variant, Visibility,
 };
 use crate::formatter::config::FormatterConfig;
 use crate::formatter::errors::{FormatterError, FormatterResult};
+use crate::formatter::printer_helpers::{
+    escape_single_quoted_string, print_binary_op, print_literal, print_type, print_unary_op,
+};
 use crate::formatter::rules;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 
 // ─── Free functions (no `self`) ──────────────────────────────────────────────
-
-/// Pretty-print a type annotation.
-fn print_type(ty: &Type) -> String {
-    match *ty {
-        Type::Basic { ref name, .. } => name.clone(),
-        Type::Array {
-            ref element_type, ..
-        } => {
-            format!("{}[]", print_type(element_type))
-        }
-        Type::Function {
-            ref parameters,
-            ref return_types,
-            ..
-        } => {
-            let param_strs: Vec<String> = parameters.iter().map(print_type).collect();
-            let ret_strs: Vec<String> = return_types.iter().map(print_type).collect();
-            format!("f({}): {}", param_strs.join(", "), ret_strs.join(", "))
-        }
-        Type::Generic {
-            ref name,
-            ref type_args,
-            ..
-        } => {
-            let arg_strs: Vec<String> = type_args.iter().map(print_type).collect();
-            format!("{name}<{}>", arg_strs.join(", "))
-        }
-    }
-}
-
-/// Pretty-print a literal value.
-fn print_literal(lit: &LiteralValue) -> String {
-    match *lit {
-        LiteralValue::Integer(n) => format!("{n}"),
-        LiteralValue::Float(f) => {
-            let s = format!("{f}");
-            // Ensure float literals always contain a decimal point.
-            if s.contains('.') { s } else { format!("{s}.0") }
-        }
-        LiteralValue::String(ref s) => format!("'{}'", escape_single_quoted_string(s)),
-        LiteralValue::Boolean(b) => (if b { "true" } else { "false" }).to_owned(),
-        LiteralValue::Void => String::from("void"),
-    }
-}
-
-/// Pretty-print a binary operator.
-const fn print_binary_op(op: &BinaryOp) -> &'static str {
-    match *op {
-        BinaryOp::Add => "+",
-        BinaryOp::Subtract => "-",
-        BinaryOp::Multiply => "*",
-        BinaryOp::Divide => "/",
-        BinaryOp::Modulo => "%",
-        BinaryOp::DivEuclid => "div_euclid",
-        BinaryOp::ModEuclid => "mod_euclid",
-        BinaryOp::Power => "^",
-        BinaryOp::Equal | BinaryOp::Is => "is",
-        BinaryOp::NotEqual | BinaryOp::IsNot => "is not",
-        BinaryOp::Less => "<",
-        BinaryOp::LessEqual => "<=",
-        BinaryOp::Greater => ">",
-        BinaryOp::GreaterEqual => ">=",
-        BinaryOp::And => "and",
-        BinaryOp::Or => "or",
-        BinaryOp::Xor => "xor",
-        BinaryOp::BitAnd => "band",
-        BinaryOp::BitOr => "bor",
-        BinaryOp::BitXor => "bxor",
-        BinaryOp::BitShiftLeft => "bshl",
-        BinaryOp::BitShiftRight => "bshr",
-        BinaryOp::BitUnsignedShiftRight => "bushr",
-        BinaryOp::Assign => "=",
-    }
-}
-
-/// Pretty-print a unary operator.
-const fn print_unary_op(op: &UnaryOp) -> &'static str {
-    match *op {
-        UnaryOp::Negate => "-",
-        UnaryOp::Plus => "+",
-        UnaryOp::Not => "not",
-        UnaryOp::BitNot => "bnot",
-    }
-}
 
 /// Pretty-print a pattern.
 fn print_pattern(pattern: &Pattern) -> String {
@@ -144,11 +63,6 @@ fn print_pattern(pattern: &Pattern) -> String {
             format!("({})", ps.join(", "))
         }
     }
-}
-
-/// Escape a string for single-quoted literal rendering.
-fn escape_single_quoted_string(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('\'', "\\'")
 }
 
 /// Normalise line endings and indentation so the source can be safely lexed.
@@ -323,7 +237,7 @@ impl Formatter {
                 let entry = if *is_entry { "entry " } else { "" };
                 let params: Vec<String> = parameters
                     .iter()
-                    .map(|p| format!("{}: {}", p.name, print_type(&p.param_type)))
+                    .map(crate::ast::Parameter::to_signature_string)
                     .collect();
                 let params_str = params.join(", ");
                 let returns = match *return_types {
@@ -777,6 +691,19 @@ impl Formatter {
                 let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
                 format!("{indent}loop =>\n{body_str}")
             }
+            Stmt::Using {
+                ref binding,
+                ref acquisition,
+                ref body,
+                ..
+            } => {
+                let acquisition_str = self.print_expr(acquisition, depth);
+                let body_str = self.print_block_body_indented(body, depth.saturating_add(1));
+                format!(
+                    "{indent}using {} = {acquisition_str}:\n{body_str}",
+                    binding.name
+                )
+            }
             Stmt::Break { ref values, .. } => {
                 if values.is_empty() {
                     format!("{indent}break")
@@ -909,6 +836,18 @@ impl Formatter {
                 let obj = self.print_expr(object, depth);
                 format!("{obj}.{member}")
             }
+            Expr::BorrowArgument {
+                ref target,
+                ref borrow_kind,
+                ..
+            } => {
+                let target_str = self.print_expr(target, depth);
+                match *borrow_kind {
+                    BorrowKind::Owned => target_str,
+                    BorrowKind::Ref => format!("ref {target_str}"),
+                    BorrowKind::MutableRef => format!("mutable ref {target_str}"),
+                }
+            }
             Expr::Cast {
                 ref expr,
                 ref target_type,
@@ -917,6 +856,25 @@ impl Formatter {
                 let inner = self.print_expr(expr, depth);
                 let ty = print_type(target_type);
                 format!("{inner} as {ty}")
+            }
+            Expr::Constrain {
+                ref target_type,
+                ref value,
+                ..
+            } => {
+                let ty = print_type(target_type);
+                let value_str = self.print_expr(value, depth);
+                format!("constrain {ty} from {value_str}")
+            }
+            Expr::Refinement {
+                ref value,
+                ref variant,
+                ref payload_binding,
+                ..
+            } => {
+                let value_str = self.print_expr(value, depth);
+                let variant_str = self.print_expr(variant, depth);
+                format!("{value_str} is {variant_str} into {payload_binding}")
             }
             Expr::TypeOf { ref expr, .. } => {
                 let inner = self.print_expr(expr, depth);
@@ -978,7 +936,7 @@ impl Formatter {
             } => {
                 let params_str: Vec<String> = params
                     .iter()
-                    .map(|p| format!("{}: {}", p.name, print_type(&p.param_type)))
+                    .map(crate::ast::Parameter::to_signature_string)
                     .collect();
                 let ret_strs: Vec<String> = return_types.iter().map(print_type).collect();
                 let errors = if error_types.is_empty() {
@@ -1015,9 +973,19 @@ impl Formatter {
                 let else_str = self.print_stmt(else_branch, depth);
                 format!("guard {inner} into {mutable}{binding_name}{ty} else {else_str}")
             }
-            Expr::Propagate { ref call, .. } => {
+            Expr::Propagate {
+                ref call,
+                ref cause,
+                ..
+            } => {
                 let inner = self.print_expr(call, depth);
-                format!("propagate {inner}")
+                cause.as_ref().map_or_else(
+                    || format!("propagate {inner}"),
+                    |cause_expr| {
+                        let cause_str = self.print_expr(cause_expr, depth);
+                        format!("propagate {inner} cause {cause_str}")
+                    },
+                )
             }
         }
     }

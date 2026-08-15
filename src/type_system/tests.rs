@@ -19,9 +19,10 @@ use super::symbol_table::{ScopeId, SymbolInfo, SymbolTable, SymbolType, Visibili
 use super::type_mapping::ast_type_to_core_type;
 use super::types::{CoreType, TypeVar};
 use crate::ast::{
-    Decl, Documentation, Expr, Field, FunctionModifier, HotReloadMetadata, LabeledValue,
-    LambdaBody, LetBinding, LiteralValue, NodeId, Parameter, Program, Stmt, StringPart, Type,
-    TypeDeclarationForm, TypeDef, TypeParameter, Variant, Visibility as AstVisibility,
+    BorrowKind, Decl, Documentation, Expr, Field, FunctionModifier, HotReloadMetadata,
+    LabeledValue, LambdaBody, LetBinding, LiteralValue, NodeId, Parameter, Program, Stmt,
+    StringPart, Type, TypeDeclarationForm, TypeDef, TypeParameter, Variant,
+    Visibility as AstVisibility,
 };
 use crate::errors::renderer::render_diagnostic;
 use crate::lexer::Lexer;
@@ -241,6 +242,7 @@ fn make_parameter(name: &str, ty: Type) -> Parameter {
     Parameter {
         name: name.to_owned(),
         param_type: ty,
+        borrow_kind: BorrowKind::Owned,
         span: test_span(),
     }
 }
@@ -433,6 +435,7 @@ fn call_expr(callee_name: &str, arg_names: &[&str], id: usize) -> Expr {
 fn propagate_call(call: Expr, id: usize) -> Expr {
     Expr::Propagate {
         call: Box::new(call),
+        cause: None,
         span: test_span(),
         id: node_id(id),
     }
@@ -1915,6 +1918,7 @@ fn test_propagate_error_span_accuracy() {
     };
     let failing_propagate = Expr::Propagate {
         call: Box::new(failing_call),
+        cause: None,
         span: propagate_span,
         id: node_id(6704),
     };
@@ -6414,6 +6418,7 @@ fn test_type_check_program_collects_errors() {
                 name: "int32".to_owned(),
                 span: test_span(),
             },
+            borrow_kind: BorrowKind::Owned,
             span: test_span(),
         }],
         return_types: Some(vec![Type::Basic {
@@ -8753,6 +8758,7 @@ fn ordinary_aliased_constructor_not_treated_as_fallible() {
             vec![("id", literal_expr(LiteralValue::Integer(42), 8_261_101))],
             8_261_102,
         )),
+        cause: None,
         span: test_span(),
         id: node_id(8_261_103),
     };
@@ -8890,6 +8896,7 @@ fn propagate_new_nonfallible_constructor_reports_diagnostic() {
             vec![("id", literal_expr(LiteralValue::Integer(42), 8_270_101))],
             8_270_102,
         )),
+        cause: None,
         span: test_span(),
         id: node_id(8_270_103),
     };

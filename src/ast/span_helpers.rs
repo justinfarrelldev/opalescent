@@ -1,14 +1,12 @@
-//! `AstNode` trait implementations for AST types
-//!
-//! This module implements the `AstNode` trait for all major AST node types,
-//! providing span and node ID accessors, along with hot-reload metadata.
+//! Const span and node-id helpers for AST nodes.
 
-extern crate alloc;
-use crate::ast::{AstNode, Decl, Expr, ModulePath, NodeId, Program, Stmt, SymbolInfo};
+use super::{Decl, Expr, NodeId, Program, Stmt};
 use crate::token::Span;
 
-impl AstNode for Expr {
-    fn span(&self) -> Span {
+impl Expr {
+    /// Retrieve the source span associated with this expression in const contexts.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
         match *self {
             Self::Literal { span, .. }
             | Self::Identifier { span, .. }
@@ -35,7 +33,9 @@ impl AstNode for Expr {
         }
     }
 
-    fn node_id(&self) -> NodeId {
+    /// Retrieve the unique identifier associated with this expression in const contexts.
+    #[must_use]
+    pub const fn node_id_const(&self) -> NodeId {
         match *self {
             Self::Literal { id, .. }
             | Self::Identifier { id, .. }
@@ -61,28 +61,12 @@ impl AstNode for Expr {
             | Self::Propagate { id, .. } => id,
         }
     }
-
-    fn abi_symbols(&self) -> alloc::vec::Vec<SymbolInfo> {
-        match *self {
-            Self::Lambda { ref metadata, .. } => metadata.abi_symbol.iter().cloned().collect(),
-            _ => alloc::vec::Vec::new(),
-        }
-    }
-
-    fn dependencies(&self) -> alloc::vec::Vec<ModulePath> {
-        match *self {
-            Self::Lambda { ref metadata, .. } => metadata.dependencies.clone(),
-            _ => alloc::vec::Vec::new(),
-        }
-    }
-
-    fn is_hot_reloadable(&self) -> bool {
-        matches!(*self, Self::Lambda { ref metadata, .. } if metadata.is_hot_reloadable)
-    }
 }
 
-impl AstNode for Stmt {
-    fn span(&self) -> Span {
+impl Stmt {
+    /// Retrieve the source span associated with this statement in const contexts.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
         match *self {
             Self::Let { span, .. }
             | Self::LetDestructure { span, .. }
@@ -103,7 +87,9 @@ impl AstNode for Stmt {
         }
     }
 
-    fn node_id(&self) -> NodeId {
+    /// Retrieve the unique identifier associated with this statement in const contexts.
+    #[must_use]
+    pub const fn node_id_const(&self) -> NodeId {
         match *self {
             Self::Let { id, .. }
             | Self::LetDestructure { id, .. }
@@ -125,8 +111,10 @@ impl AstNode for Stmt {
     }
 }
 
-impl AstNode for Decl {
-    fn span(&self) -> Span {
+impl Decl {
+    /// Retrieve the source span associated with this declaration in const contexts.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
         match *self {
             Self::Function { span, .. }
             | Self::Type { span, .. }
@@ -137,7 +125,9 @@ impl AstNode for Decl {
         }
     }
 
-    fn node_id(&self) -> NodeId {
+    /// Retrieve the unique identifier associated with this declaration in const contexts.
+    #[must_use]
+    pub const fn node_id_const(&self) -> NodeId {
         match *self {
             Self::Function { id, .. }
             | Self::Type { id, .. }
@@ -147,44 +137,18 @@ impl AstNode for Decl {
             | Self::Comment { id, .. } => id,
         }
     }
-
-    fn abi_symbols(&self) -> alloc::vec::Vec<SymbolInfo> {
-        match *self {
-            Self::Function { ref metadata, .. }
-            | Self::Type { ref metadata, .. }
-            | Self::Import { ref metadata, .. }
-            | Self::Let { ref metadata, .. } => metadata.abi_symbol.iter().cloned().collect(),
-            Self::Namespace { .. } | Self::Comment { .. } => alloc::vec::Vec::new(),
-        }
-    }
-
-    fn dependencies(&self) -> alloc::vec::Vec<ModulePath> {
-        match *self {
-            Self::Function { ref metadata, .. }
-            | Self::Type { ref metadata, .. }
-            | Self::Import { ref metadata, .. }
-            | Self::Let { ref metadata, .. } => metadata.dependencies.clone(),
-            Self::Namespace { .. } | Self::Comment { .. } => alloc::vec::Vec::new(),
-        }
-    }
-
-    fn is_hot_reloadable(&self) -> bool {
-        match *self {
-            Self::Function { ref metadata, .. }
-            | Self::Type { ref metadata, .. }
-            | Self::Import { ref metadata, .. }
-            | Self::Let { ref metadata, .. } => metadata.is_hot_reloadable,
-            Self::Namespace { .. } | Self::Comment { .. } => false,
-        }
-    }
 }
 
-impl AstNode for Program {
-    fn span(&self) -> Span {
+impl Program {
+    /// Retrieve the source span associated with the entire program in const contexts.
+    #[must_use]
+    pub const fn span_const(&self) -> Span {
         self.span
     }
 
-    fn node_id(&self) -> NodeId {
+    /// Retrieve the unique identifier associated with this program in const contexts.
+    #[must_use]
+    pub const fn node_id_const(&self) -> NodeId {
         self.id
     }
 }

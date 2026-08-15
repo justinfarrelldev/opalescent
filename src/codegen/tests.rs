@@ -22,7 +22,7 @@ use crate::compiler::compile_to_module;
 use crate::type_system::types::{CoreType, GenericTypeParameter, TypeVar};
 use crate::{
     ast::{
-        BinaryOp, Decl, Expr, HotReloadMetadata, LabeledValue, LambdaBody, LetBinding,
+        BinaryOp, BorrowKind, Decl, Expr, HotReloadMetadata, LabeledValue, LambdaBody, LetBinding,
         LiteralValue, NodeId, Parameter, Stmt, StringPart, Type, UnaryOp, Visibility,
     },
     token::{Position, Span},
@@ -187,6 +187,7 @@ fn simple_i64_function_decl(id: usize, name: &str, param: &str, body: Stmt) -> D
                 name: String::from("int64"),
                 span: test_span(),
             },
+            borrow_kind: BorrowKind::Owned,
             span: test_span(),
         }],
         return_types: Some(vec![Type::Basic {
@@ -2079,6 +2080,7 @@ fn test_codegen_lambda_closure_as_function_value() {
                 name: String::from("int64"),
                 span: test_span(),
             },
+            borrow_kind: BorrowKind::Owned,
             span: test_span(),
         }],
         return_types: vec![Type::Basic {

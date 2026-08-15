@@ -13,9 +13,9 @@
 
 use super::*;
 use crate::ast::{
-    BinaryOp, Decl, DeclarationAnnotation, Expr, FunctionModifier, ImportItem, LabeledValue,
-    LambdaBody, LiteralValue, Parameter, Stmt, StringPart, Type, TypeDeclarationForm, TypeDef,
-    UnaryOp, Visibility,
+    BinaryOp, BorrowKind, Decl, DeclarationAnnotation, Expr, FunctionModifier, ImportItem,
+    LabeledValue, LambdaBody, LiteralValue, Parameter, Stmt, StringPart, Type, TypeDeclarationForm,
+    TypeDef, UnaryOp, Visibility,
 };
 use crate::lexer::{Lexer, RESERVED_KEYWORDS};
 use crate::parser::errors::ParseError;
@@ -152,8 +152,12 @@ fn expr_contains_feature(expr: &Expr, feature: AstFeature) -> bool {
                 || expr_contains_feature(guarded, feature)
                 || stmt_contains_feature(else_branch, feature)
         }
-        Expr::Propagate { call, .. } => {
-            matches!(feature, AstFeature::Propagate) || expr_contains_feature(call, feature)
+        Expr::Propagate { call, cause, .. } => {
+            matches!(feature, AstFeature::Propagate)
+                || expr_contains_feature(call, feature)
+                || cause
+                    .as_deref()
+                    .is_some_and(|cause_expr| expr_contains_feature(cause_expr, feature))
         }
         Expr::Binary { left, right, .. } => {
             expr_contains_feature(left, feature) || expr_contains_feature(right, feature)
@@ -173,8 +177,13 @@ fn expr_contains_feature(expr: &Expr, feature: AstFeature) -> bool {
             expr_contains_feature(object, feature) || expr_contains_feature(index, feature)
         }
         Expr::Member { object, .. } => expr_contains_feature(object, feature),
+        Expr::BorrowArgument { target, .. } => expr_contains_feature(target, feature),
         Expr::Cast { expr, .. } | Expr::TypeOf { expr, .. } | Expr::Parenthesized { expr, .. } => {
             expr_contains_feature(expr, feature)
+        }
+        Expr::Constrain { value, .. } => expr_contains_feature(value, feature),
+        Expr::Refinement { value, variant, .. } => {
+            expr_contains_feature(value, feature) || expr_contains_feature(variant, feature)
         }
         Expr::If {
             condition,
@@ -261,6 +270,9 @@ fn stmt_contains_feature(stmt: &Stmt, feature: AstFeature) -> bool {
                 || stmt_contains_feature(else_body, feature)
         }
         Stmt::Loop { body, .. } => stmt_contains_feature(body, feature),
+        Stmt::Using {
+            acquisition, body, ..
+        } => expr_contains_feature(acquisition, feature) || stmt_contains_feature(body, feature),
         Stmt::Break { values, .. } | Stmt::Continue { values, .. } => values
             .iter()
             .any(|value| labeled_value_contains_feature(value, feature)),
@@ -5070,6 +5082,11 @@ fn test_terminal_proposal_declaration_metadata_rejections() {
 }
 
 #[test]
+#[expect(
+    clippy::cognitive_complexity,
+    clippy::too_many_lines,
+    reason = "Task 7 regression asserts every preserved AST shape in one proposal fixture"
+)]
 fn test_terminal_proposal_affine_refinement_and_propagation_syntax_parse() {
     let input = "entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionRestoreError, AllocationFailureError =>
     let runtime_timeout = 10
@@ -5092,6 +5109,149 @@ let mutate_session = f(mutable ref session: TerminalSession): void errors Termin
     let program = parse_program_from_string(input).expect("Task 7 proposal syntax should parse");
     assert_eq!(program.declarations.len(), 3);
 
+    let Decl::Function {
+        body: Stmt::Block { statements, .. },
+        ..
+    } = &program.declarations[0]
+    else {
+        panic!("expected entry function with block body");
+    };
+    let Stmt::Using {
+        binding,
+        acquisition,
+        body,
+        ..
+    } = &statements[4]
+    else {
+        panic!("using syntax must be preserved as Stmt::Using");
+    };
+    assert_eq!(binding.name, "session");
+    assert!(
+        matches!(acquisition, Expr::Propagate { cause: None, call, .. } if matches!(call.as_ref(), Expr::Call { .. }))
+    );
+
+    let Stmt::Block {
+        statements: using_statements,
+        ..
+    } = body.as_ref()
+    else {
+        panic!("expected using body block");
+    };
+
+    let Stmt::Expression {
+        expr: Expr::Call { args, .. },
+        ..
+    } = &using_statements[0]
+    else {
+        panic!("expected inspect_session call");
+    };
+    assert!(matches!(
+        &args[0],
+        Expr::BorrowArgument {
+            borrow_kind: BorrowKind::Ref,
+            target,
+            ..
+        } if matches!(target.as_ref(), Expr::Identifier { name, .. } if name == "session")
+    ));
+
+    let Stmt::Expression {
+        expr: Expr::Call { args, .. },
+        ..
+    } = &using_statements[1]
+    else {
+        panic!("expected mutate_session call");
+    };
+    assert!(matches!(
+        &args[0],
+        Expr::BorrowArgument {
+            borrow_kind: BorrowKind::MutableRef,
+            target,
+            ..
+        } if matches!(target.as_ref(), Expr::Identifier { name, .. } if name == "session")
+    ));
+
+    let Stmt::Let {
+        initializer: Some(Expr::Propagate {
+            call, cause: None, ..
+        }),
+        ..
+    } = &using_statements[2]
+    else {
+        panic!("expected propagated constrain initializer");
+    };
+    assert!(matches!(
+        call.as_ref(),
+        Expr::Constrain {
+            target_type: Type::Basic { name, .. },
+            value,
+            ..
+        } if name == "TerminalInputSequenceTimeoutMilliseconds"
+            && matches!(value.as_ref(), Expr::Identifier { name, .. } if name == "runtime_timeout")
+    ));
+
+    let Stmt::If {
+        condition,
+        then_branch,
+        ..
+    } = &using_statements[3]
+    else {
+        panic!("expected refinement if statement");
+    };
+    assert!(matches!(
+        condition,
+        Expr::Refinement {
+            payload_binding,
+            value,
+            variant,
+            ..
+        } if payload_binding == "invalid"
+            && matches!(value.as_ref(), Expr::Identifier { name, .. } if name == "error_value")
+            && matches!(variant.as_ref(), Expr::Member { member, .. } if member == "InvalidOptions")
+    ));
+    let Stmt::Block {
+        statements: then_statements,
+        ..
+    } = then_branch.as_ref()
+    else {
+        panic!("expected refinement body block");
+    };
+    assert!(matches!(
+        &then_statements[0],
+        Stmt::Expression {
+            expr: Expr::Propagate {
+                call,
+                cause: Some(cause),
+                ..
+            },
+            ..
+        } if matches!(call.as_ref(), Expr::Call { .. })
+            && matches!(cause.as_ref(), Expr::Identifier { name, .. } if name == "error_value")
+    ));
+
+    assert!(matches!(
+        &using_statements[4],
+        Stmt::Expression {
+            expr: Expr::Propagate {
+                call,
+                cause: None,
+                ..
+            },
+            ..
+        } if matches!(call.as_ref(), Expr::Identifier { name, .. } if name == "error_value")
+    ));
+    assert!(matches!(
+        &using_statements[5],
+        Stmt::Expression {
+            expr: Expr::Propagate {
+                call,
+                cause: Some(cause),
+                ..
+            },
+            ..
+        } if matches!(call.as_ref(), Expr::Identifier { name, .. } if name == "error_value")
+            && matches!(cause.as_ref(), Expr::Identifier { name, .. } if name == "prior_error")
+    ));
+
     let Decl::Let {
         initializer: Expr::Lambda { params, .. },
         ..
@@ -5100,21 +5260,44 @@ let mutate_session = f(mutable ref session: TerminalSession): void errors Termin
         panic!("expected inspect_session lambda declaration");
     };
     assert_eq!(params[0].name, "session");
+    assert_eq!(params[0].borrow_kind, BorrowKind::Ref);
     assert!(
         matches!(params[0].param_type, Type::Basic { ref name, .. } if name == "TerminalSession")
     );
 
     let Decl::Let {
-        initializer: Expr::Lambda { params, .. },
+        initializer: Expr::Lambda { params, body, .. },
         ..
     } = &program.declarations[2]
     else {
         panic!("expected mutate_session lambda declaration");
     };
     assert_eq!(params[0].name, "session");
+    assert_eq!(params[0].borrow_kind, BorrowKind::MutableRef);
     assert!(
         matches!(params[0].param_type, Type::Basic { ref name, .. } if name == "TerminalSession")
     );
+    assert!(matches!(
+        body,
+        LambdaBody::Block(statements)
+            if matches!(
+                &statements[0],
+                Stmt::Return { values, .. }
+                    if matches!(
+                        &values[0].value,
+                        Expr::Propagate {
+                            call,
+                            cause: Some(cause),
+                            ..
+                        } if matches!(call.as_ref(), Expr::Call { args, .. }
+                            if matches!(
+                                &args[0],
+                                Expr::BorrowArgument { borrow_kind: BorrowKind::MutableRef, .. }
+                            ))
+                            && matches!(cause.as_ref(), Expr::Identifier { name, .. } if name == "cleanup_error")
+                    )
+            )
+    ));
 }
 
 #[test]

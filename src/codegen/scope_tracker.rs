@@ -177,12 +177,54 @@ pub(crate) fn expr_requires_malloc_string_cleanup<'context>(
         &Expr::Call { ref callee, .. } => {
             call_returns_owned_string(codegen_context, env, callee.as_ref())
         }
-        &Expr::Propagate { ref call, .. } => expr_requires_malloc_string_cleanup(
+        &Expr::BorrowArgument { ref target, .. } => expr_requires_malloc_string_cleanup(
             codegen_context,
             env,
-            call.as_ref(),
+            target.as_ref(),
             local_malloc_string_bindings,
         ),
+        &Expr::Constrain { ref value, .. } => expr_requires_malloc_string_cleanup(
+            codegen_context,
+            env,
+            value.as_ref(),
+            local_malloc_string_bindings,
+        ),
+        &Expr::Refinement {
+            ref value,
+            ref variant,
+            ..
+        } => {
+            expr_requires_malloc_string_cleanup(
+                codegen_context,
+                env,
+                value.as_ref(),
+                local_malloc_string_bindings,
+            ) || expr_requires_malloc_string_cleanup(
+                codegen_context,
+                env,
+                variant.as_ref(),
+                local_malloc_string_bindings,
+            )
+        }
+        &Expr::Propagate {
+            ref call,
+            ref cause,
+            ..
+        } => {
+            expr_requires_malloc_string_cleanup(
+                codegen_context,
+                env,
+                call.as_ref(),
+                local_malloc_string_bindings,
+            ) || cause.as_ref().is_some_and(|cause_expr| {
+                expr_requires_malloc_string_cleanup(
+                    codegen_context,
+                    env,
+                    cause_expr.as_ref(),
+                    local_malloc_string_bindings,
+                )
+            })
+        }
         &Expr::Parenthesized { ref expr, .. } => expr_requires_malloc_string_cleanup(
             codegen_context,
             env,
@@ -259,6 +301,10 @@ pub(crate) fn infer_loop_break_binding_requires_malloc_string_cleanup<'context>(
     )
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "Statement traversal keeps loop-break cleanup cases together for auditability"
+)]
 fn infer_loop_break_binding_requires_malloc_string_cleanup_with_locals<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &CodegenEnv<'context>,
@@ -337,6 +383,10 @@ fn infer_loop_break_binding_requires_malloc_string_cleanup_with_locals<'context>
             })
         }
         &Stmt::Guard { ref else_body, .. }
+        | &Stmt::Using {
+            body: ref else_body,
+            ..
+        }
         | &Stmt::Loop {
             body: ref else_body,
             ..

@@ -413,7 +413,7 @@ impl ReuseAnalysis {
                     layout: Self::layout_for_ast_type(&parameter.param_type),
                     declared_at: None,
                     is_ref_like_param: matches!(
-                        parameter.passing_mode,
+                        parameter.borrow_kind,
                         PassingMode::Ref | PassingMode::MutableRef
                     ),
                 },
@@ -633,7 +633,7 @@ mod tests {
         Parameter {
             name: name.to_string(),
             param_type: basic_type(type_name),
-            passing_mode: PassingMode::Owned,
+            borrow_kind: PassingMode::Owned,
             span: span(),
         }
     }
@@ -642,7 +642,7 @@ mod tests {
         Parameter {
             name: name.to_string(),
             param_type: basic_type(type_name),
-            passing_mode: PassingMode::Ref,
+            borrow_kind: PassingMode::Ref,
             span: span(),
         }
     }

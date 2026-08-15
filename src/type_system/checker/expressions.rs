@@ -261,12 +261,21 @@ impl TypeChecker {
                     span: TypeError::span_from_span(span),
                 })
             }
+            Expr::BorrowArgument { ref target, .. } => self.type_check_expr(target.as_ref()),
             Expr::Cast {
                 ref expr,
                 ref target_type,
                 span,
                 ..
             } => self.type_check_cast_expr(expr.as_ref(), target_type, span),
+            Expr::Constrain { span, .. } => Err(TypeError::ConstraintSolvingFailed {
+                reason: "constrain expression semantics are not implemented yet".to_owned(),
+                span: TypeError::span_from_span(span),
+            }),
+            Expr::Refinement { span, .. } => Err(TypeError::ConstraintSolvingFailed {
+                reason: "refinement expression semantics are not implemented yet".to_owned(),
+                span: TypeError::span_from_span(span),
+            }),
             Expr::TypeOf { ref expr, .. } => {
                 self.type_check_expr(expr.as_ref())?;
                 Ok(CoreType::String)
@@ -344,7 +353,15 @@ impl TypeChecker {
                     expected_return: None,
                 })
             }
-            Expr::Propagate { ref call, span, .. } => {
+            Expr::Propagate {
+                ref call,
+                ref cause,
+                span,
+                ..
+            } => {
+                if let Some(ref cause_expr) = *cause {
+                    self.type_check_expr(cause_expr.as_ref())?;
+                }
                 self.type_check_propagate_expr(call.as_ref(), span)
             }
         }

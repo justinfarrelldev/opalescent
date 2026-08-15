@@ -150,6 +150,9 @@ impl TypeChecker {
         context: FallibleExpressionContext,
     ) -> Result<FallibleExpressionInfo, TypeError> {
         match expr {
+            Expr::Parenthesized { expr, .. } | Expr::BorrowArgument { target: expr, .. } => {
+                self.classify_fallible_expression(expr.as_ref(), context)
+            }
             Expr::Call {
                 callee,
                 generic_args,

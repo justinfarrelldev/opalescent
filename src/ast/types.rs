@@ -155,6 +155,20 @@ impl Type {
     }
 }
 
+/// Borrow modifier recorded on function parameters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BorrowKind {
+    /// Ordinary owned/by-value parameter.
+    Owned,
+    /// Immutable second-class borrowed parameter (`ref name: Type`).
+    Ref,
+    /// Mutable second-class borrowed parameter (`mutable ref name: Type`).
+    MutableRef,
+}
+
+/// Backward-compatible alias for existing reference-count analysis terminology.
+pub type PassingMode = BorrowKind;
+
 /// Function parameters
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parameter {
@@ -162,6 +176,8 @@ pub struct Parameter {
     pub name: String,
     /// Type of the parameter
     pub param_type: Type,
+    /// Borrow modifier written for this parameter.
+    pub borrow_kind: BorrowKind,
     /// Source code location of this parameter
     pub span: Span,
 }

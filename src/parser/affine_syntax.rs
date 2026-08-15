@@ -1,7 +1,7 @@
 //! Contextual parser helpers for Task 7 affine and refinement proposal syntax.
 
 use super::{ParseError, ParseResult, Parser, Precedence};
-use crate::ast::{AstNode, BinaryOp, Expr};
+use crate::ast::{AstNode, BinaryOp, BorrowKind, Expr};
 use crate::error::LexError;
 use crate::token::{Span, TokenType};
 
@@ -87,8 +87,18 @@ impl Parser {
             });
         };
 
-        Ok(Expr::Identifier {
+        let target = Expr::Identifier {
             name,
+            span: target_token.span,
+            id: self.next_node_id(),
+        };
+        Ok(Expr::BorrowArgument {
+            target: Box::new(target),
+            borrow_kind: if is_mutable {
+                BorrowKind::MutableRef
+            } else {
+                BorrowKind::Ref
+            },
             span: Span::new(start_span.start, target_token.span.end),
             id: self.next_node_id(),
         })
@@ -102,15 +112,15 @@ impl Parser {
         let value = self.parse_precedence(Precedence::Assignment)?;
         let span = Span::new(start_span.start, value.span().end);
 
-        Ok(Expr::Cast {
-            expr: Box::new(value),
+        Ok(Expr::Constrain {
             target_type,
+            value: Box::new(value),
             span,
             id: self.next_node_id(),
         })
     }
 
-    /// Finish parsing `is` and consume optional valid `into payload` refinement syntax.
+    /// Finish parsing `is` and preserve optional valid `into payload` refinement syntax.
     pub(super) fn finish_is_expression(
         &mut self,
         left: Expr,
@@ -118,7 +128,7 @@ impl Parser {
         right: Expr,
     ) -> ParseResult<Expr> {
         let start_span = left.span();
-        let end_span = if self.check(&TokenType::Into) {
+        if self.check(&TokenType::Into) {
             if !matches!(left, Expr::Identifier { .. }) {
                 return Err(ParseError::InvalidSyntax {
                     message:
@@ -143,11 +153,24 @@ impl Parser {
                     span: ParseError::span_from_token(self.current_token()),
                 });
             }
-            self.advance().span
-        } else {
-            right.span()
-        };
+            let payload_token = self.advance().clone();
+            let TokenType::Identifier(payload_binding) = payload_token.token_type else {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "identifier after 'into'".to_owned(),
+                    found: format!("{}", payload_token.token_type),
+                    span: ParseError::span_from_token(&payload_token),
+                });
+            };
+            return Ok(Expr::Refinement {
+                value: Box::new(left),
+                variant: Box::new(right),
+                payload_binding,
+                span: Span::new(start_span.start, payload_token.span.end),
+                id: self.next_node_id(),
+            });
+        }
 
+        let end_span = right.span();
         Ok(Expr::Binary {
             left: Box::new(left),
             operator,

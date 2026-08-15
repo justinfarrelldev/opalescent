@@ -14,6 +14,7 @@ mod modifiers;
 mod node_impls;
 mod operators;
 mod patterns;
+mod span_helpers;
 mod types;
 
 extern crate alloc;
@@ -22,8 +23,8 @@ use alloc::string::String;
 
 pub use self::operators::{BinaryOp, UnaryOp};
 pub use self::types::{
-    DeclarationAnnotation, Field, Parameter, Type, TypeConstraint, TypeDeclarationForm, TypeDef,
-    TypeParameter, Variant,
+    BorrowKind, DeclarationAnnotation, Field, Parameter, PassingMode, Type, TypeConstraint,
+    TypeDeclarationForm, TypeDef, TypeParameter, Variant,
 };
 
 pub use self::patterns::{MatchArm, Pattern};
@@ -54,134 +55,6 @@ pub trait AstNode {
     /// Returns true if this node is hot-reloadable (eligible for dynamic reload)
     fn is_hot_reloadable(&self) -> bool {
         false
-    }
-}
-
-impl Expr {
-    /// Retrieve the source span associated with this expression in const contexts.
-    #[must_use]
-    pub const fn span_const(&self) -> Span {
-        match *self {
-            Self::Literal { span, .. }
-            | Self::Identifier { span, .. }
-            | Self::Binary { span, .. }
-            | Self::Unary { span, .. }
-            | Self::Call { span, .. }
-            | Self::Constructor { span, .. }
-            | Self::Index { span, .. }
-            | Self::Member { span, .. }
-            | Self::Cast { span, .. }
-            | Self::TypeOf { span, .. }
-            | Self::StringInterpolation { span, .. }
-            | Self::Parenthesized { span, .. }
-            | Self::If { span, .. }
-            | Self::Array { span, .. }
-            | Self::Match { span, .. }
-            | Self::Loop { span, .. }
-            | Self::Lambda { span, .. }
-            | Self::Guard { span, .. }
-            | Self::Propagate { span, .. } => span,
-        }
-    }
-
-    /// Retrieve the unique identifier associated with this expression in const contexts.
-    #[must_use]
-    pub const fn node_id_const(&self) -> NodeId {
-        match *self {
-            Self::Literal { id, .. }
-            | Self::Identifier { id, .. }
-            | Self::Binary { id, .. }
-            | Self::Unary { id, .. }
-            | Self::Call { id, .. }
-            | Self::Constructor { id, .. }
-            | Self::Index { id, .. }
-            | Self::Member { id, .. }
-            | Self::Cast { id, .. }
-            | Self::TypeOf { id, .. }
-            | Self::StringInterpolation { id, .. }
-            | Self::Parenthesized { id, .. }
-            | Self::If { id, .. }
-            | Self::Array { id, .. }
-            | Self::Match { id, .. }
-            | Self::Loop { id, .. }
-            | Self::Lambda { id, .. }
-            | Self::Guard { id, .. }
-            | Self::Propagate { id, .. } => id,
-        }
-    }
-}
-
-impl Stmt {
-    /// Retrieve the source span associated with this statement in const contexts.
-    #[must_use]
-    pub const fn span_const(&self) -> Span {
-        match *self {
-            Self::Let { span, .. }
-            | Self::LetDestructure { span, .. }
-            | Self::Assignment { span, .. }
-            | Self::Return { span, .. }
-            | Self::Expression { span, .. }
-            | Self::Block { span, .. }
-            | Self::If { span, .. }
-            | Self::For { span, .. }
-            | Self::While { span, .. }
-            | Self::Guard { span, .. }
-            | Self::PropagateGuardError { span, .. }
-            | Self::Loop { span, .. }
-            | Self::Break { span, .. }
-            | Self::Continue { span, .. }
-            | Self::Comment { span, .. } => span,
-        }
-    }
-
-    /// Retrieve the unique identifier associated with this statement in const contexts.
-    #[must_use]
-    pub const fn node_id_const(&self) -> NodeId {
-        match *self {
-            Self::Let { id, .. }
-            | Self::LetDestructure { id, .. }
-            | Self::Assignment { id, .. }
-            | Self::Return { id, .. }
-            | Self::Expression { id, .. }
-            | Self::Block { id, .. }
-            | Self::If { id, .. }
-            | Self::For { id, .. }
-            | Self::While { id, .. }
-            | Self::Guard { id, .. }
-            | Self::PropagateGuardError { id, .. }
-            | Self::Loop { id, .. }
-            | Self::Break { id, .. }
-            | Self::Continue { id, .. }
-            | Self::Comment { id, .. } => id,
-        }
-    }
-}
-
-impl Decl {
-    /// Retrieve the source span associated with this declaration in const contexts.
-    #[must_use]
-    pub const fn span_const(&self) -> Span {
-        match *self {
-            Self::Function { span, .. }
-            | Self::Type { span, .. }
-            | Self::Import { span, .. }
-            | Self::Namespace { span, .. }
-            | Self::Let { span, .. }
-            | Self::Comment { span, .. } => span,
-        }
-    }
-
-    /// Retrieve the unique identifier associated with this declaration in const contexts.
-    #[must_use]
-    pub const fn node_id_const(&self) -> NodeId {
-        match *self {
-            Self::Function { id, .. }
-            | Self::Type { id, .. }
-            | Self::Import { id, .. }
-            | Self::Namespace { id, .. }
-            | Self::Let { id, .. }
-            | Self::Comment { id, .. } => id,
-        }
     }
 }
 
@@ -284,6 +157,18 @@ pub enum Expr {
         id: NodeId,
     },
 
+    /// Borrow argument syntax (`ref value`, `mutable ref value`).
+    BorrowArgument {
+        /// Borrowed expression target.
+        target: Box<Expr>,
+        /// Borrow modifier written at the call site.
+        borrow_kind: BorrowKind,
+        /// Source code location of this borrow argument.
+        span: Span,
+        /// Unique identifier for this AST node.
+        id: NodeId,
+    },
+
     /// Type casts (expr as Type)
     Cast {
         /// Expression being cast
@@ -293,6 +178,32 @@ pub enum Expr {
         /// Source code location of this type cast
         span: Span,
         /// Unique identifier for this AST node
+        id: NodeId,
+    },
+
+    /// Runtime constrained construction (`constrain Type from value`).
+    Constrain {
+        /// Type being constructed through its declared constraint.
+        target_type: Type,
+        /// Runtime value being constrained.
+        value: Box<Expr>,
+        /// Source code location of this constrained construction.
+        span: Span,
+        /// Unique identifier for this AST node.
+        id: NodeId,
+    },
+
+    /// Nominal variant refinement (`value is Family.Variant into payload`).
+    Refinement {
+        /// Identifier value being refined.
+        value: Box<Expr>,
+        /// Nominal family variant expression.
+        variant: Box<Expr>,
+        /// Immutable payload binding name introduced for the true branch.
+        payload_binding: String,
+        /// Source code location of this refinement expression.
+        span: Span,
+        /// Unique identifier for this AST node.
         id: NodeId,
     },
 
@@ -516,11 +427,10 @@ pub enum Expr {
     /// - Provides clear error flow through the call stack
     /// - Works with guard to give complete error handling coverage
     Propagate {
-        /// Call expression whose errors should be propagated
-        ///
-        /// Parser validates this is an `Expr::Call` variant.
-        /// Type checker ensures the call's function has error types.
+        /// Call or immutable error expression whose errors should be propagated.
         call: Box<Expr>,
+        /// Optional already-evaluated cause expression requested by `cause` syntax.
+        cause: Option<Box<Expr>>,
         /// Source code location of this propagate expression
         span: Span,
         /// Unique identifier for this AST node
@@ -687,6 +597,20 @@ pub enum Stmt {
         id: NodeId,
     },
 
+    /// Scoped resource acquisition (`using name = acquisition(): body`).
+    Using {
+        /// Owner binding introduced by this resource scope.
+        binding: LetBinding,
+        /// Acquisition expression evaluated exactly once.
+        acquisition: Expr,
+        /// Lexically scoped body guarded by the owner obligation.
+        body: Box<Stmt>,
+        /// Source code location of this using statement.
+        span: Span,
+        /// Unique identifier for this AST node.
+        id: NodeId,
+    },
+
     /// Statement-only terminal propagation of the active guard error binding.
     PropagateGuardError {
         /// Name of the active guard error binding being forwarded.
@@ -736,20 +660,6 @@ pub enum Stmt {
         /// Unique identifier for this AST node
         id: NodeId,
     },
-}
-
-impl Program {
-    /// Retrieve the source span associated with the entire program in const contexts.
-    #[must_use]
-    pub const fn span_const(&self) -> Span {
-        self.span
-    }
-
-    /// Retrieve the unique identifier associated with this program in const contexts.
-    #[must_use]
-    pub const fn node_id_const(&self) -> NodeId {
-        self.id
-    }
 }
 
 /// Top-level declaration AST nodes

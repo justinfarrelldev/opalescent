@@ -32,6 +32,7 @@ pub mod errors;
 pub mod naming;
 /// AST pretty-printer.
 pub mod printer;
+mod printer_helpers;
 /// Textual formatting rules applied after pretty-printing.
 pub mod rules;
 

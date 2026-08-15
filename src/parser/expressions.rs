@@ -281,13 +281,14 @@ impl Parser {
         } else {
             matches!(
                 &inner,
-                &Expr::Call { .. } | &Expr::Constructor { .. } | &Expr::Cast { .. }
+                &Expr::Call { .. } | &Expr::Constructor { .. } | &Expr::Constrain { .. }
             )
         };
 
         if can_propagate {
             Ok(Expr::Propagate {
                 call: Box::new(inner),
+                cause: cause.map(Box::new),
                 span,
                 id: self.next_node_id(),
             })

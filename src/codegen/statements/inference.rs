@@ -61,6 +61,14 @@ pub(super) fn infer_core_type_from_expr<'context>(
             ref args,
             ..
         } => infer_call_return_type(codegen_context, env, callee, args).unwrap_or(CoreType::Int64),
+        Expr::BorrowArgument { ref target, .. }
+        | Expr::Parenthesized {
+            expr: ref target, ..
+        } => infer_core_type_from_expr(codegen_context, env, target.as_ref()),
+        Expr::Constrain { ref value, .. } => {
+            infer_core_type_from_expr(codegen_context, env, value.as_ref())
+        }
+        Expr::Refinement { .. } => CoreType::Boolean,
         Expr::Propagate { ref call, .. } => {
             if let Expr::Call { ref callee, .. } = *call.as_ref() {
                 if let Expr::Identifier { ref name, .. } = *callee.as_ref() {

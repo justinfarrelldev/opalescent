@@ -42,3 +42,58 @@ Task: Parse borrows, using, is ... into, constrain, and cause propagation syntax
 - Accepted `constrain Type from value` under propagation.
 - Accepted `propagate error_value`, `propagate error_value cause prior_error`, and `propagate call() cause prior_error`.
 - Rejected equality `into`, `is not ... into`, compound-left refinement, payloadless `into`, proposal-style `match`, `defer`, and malformed `using`.
+
+
+## Repair follow-up - 2026-08-15
+
+Task 7 repair now preserves the new syntax in dedicated AST nodes instead of lowering it away:
+- borrow parameters retain `BorrowKind`; borrow call-site syntax emits `Expr::BorrowArgument`.
+- `using` emits `Stmt::Using`.
+- `constrain Type from value` emits `Expr::Constrain`.
+- `value is Family.Variant into payload` emits `Expr::Refinement`.
+- `propagate call cause value` keeps `cause: Some(...)` on `Expr::Propagate`.
+
+Conservative downstream audit updates added traversal/dispatch handling in parser captures, formatter naming/printing, type checking, codegen cleanup/inference, documentation signatures, and AST span/id helpers. Runtime ownership/refinement semantics remain intentionally unimplemented outside Task 7 scope.
+
+Verification so far:
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo check` -> PASS
+
+
+## Final repair verification - 2026-08-15
+
+Green checks:
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo check` -> PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check` -> PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal` -> PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test parser` -> PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` -> PASS (1392 passed, 0 failed, 8 ignored; doctests 2 passed, 12 ignored)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo clippy --all-targets -- -D warnings` -> PASS
+
+LSP diagnostics:
+- No errors on all modified Rust files.
+- `src/type_system/rc_analysis.rs` reports only rust-analyzer's existing `unlinked-file` hint.
+
+
+## Post-hook-refactor verification - 2026-08-15
+
+Commit hook line-count repair moved helper/dispatcher code into small modules without changing behavior:
+- `src/ast/span_helpers.rs` holds const span/node-id impls.
+- `src/formatter/printer_helpers.rs` holds formatter helper renderers.
+- `src/codegen/expressions_dispatch.rs` holds the re-exported top-level expression dispatcher.
+
+Green checks rerun after that refactor:
+- LSP diagnostics on refactored/new files -> PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo check` -> PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check` -> PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal` -> PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test parser` -> PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` -> PASS (1392 passed, 0 failed, 8 ignored; doctests 2 passed, 12 ignored)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo clippy --all-targets -- -D warnings` -> PASS
+
+
+## Final hook-lint follow-up - 2026-08-15
+
+After strict pre-commit lint adjustments:
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` -> PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check` -> PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal` -> PASS

@@ -152,7 +152,6 @@ impl Parser {
         self.consume(&TokenType::Assign, "Expected '=' after using binding")?;
         self.skip_newlines_and_comments();
         let acquisition = self.parse_expression()?;
-        let acquisition_span = acquisition.span();
         self.consume(&TokenType::Colon, "Expected ':' after using acquisition")?;
         self.skip_newlines();
         let body = self.parse_indented_body_with_leading_comments(
@@ -161,24 +160,11 @@ impl Parser {
         let body_end = body.span().end;
 
         let binding = self.create_let_binding(name, None, name_span, None, false);
-        let let_stmt = Stmt::Let {
+
+        Ok(Stmt::Using {
             binding,
-            initializer: Some(acquisition),
-            span: Span::new(start_span.start, acquisition_span.end),
-            id: self.next_node_id(),
-        };
-
-        let mut statements = vec![let_stmt];
-        match *body {
-            Stmt::Block {
-                statements: mut body_statements,
-                ..
-            } => statements.append(&mut body_statements),
-            other => statements.push(other),
-        }
-
-        Ok(Stmt::Block {
-            statements,
+            acquisition,
+            body,
             span: Span::new(start_span.start, body_end),
             id: self.next_node_id(),
         })
