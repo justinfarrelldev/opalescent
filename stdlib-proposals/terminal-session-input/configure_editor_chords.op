@@ -73,7 +73,7 @@ let disarm_non_capacity_timer_or_mark_fail_closed = f(mutable ref runtime: Edito
 
 let apply_released_input_then_disarm = f(input: TerminalChordReleasedInput, mutable ref runtime: EditorChordRuntime): void errors IndexOutOfBoundsError, MonotonicTimerError =>
     guard apply_released_chord_input_once(input) else released_input_error =>
-        propagate disarm_non_capacity_timer_or_mark_fail_closed(runtime)
+        propagate disarm_non_capacity_timer_or_mark_fail_closed(runtime) cause released_input_error
         propagate released_input_error
     propagate disarm_non_capacity_timer_or_mark_fail_closed(runtime)
     return void
@@ -192,7 +192,7 @@ let process_editor_chord_event = f(mutable ref runtime: EditorChordRuntime, even
         if process_error is TerminalChordProcessError.BufferedCapacityExceeded into capacity:
             # Fixed-size capture moves release and current event into the co-owned obligation.
             editor_chord_capacity_recovery_capture(runtime.capacity_recovery, capacity.released_input, event)
-            propagate resume_editor_chord_capacity_recovery(runtime)
+            propagate resume_editor_chord_capacity_recovery(runtime) cause process_error
             return void
         propagate process_error
     propagate process_chord_router_output(output, runtime)
