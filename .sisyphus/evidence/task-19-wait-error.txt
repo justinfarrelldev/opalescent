@@ -1,5 +1,6 @@
 Task 19 generic wait-set/readiness/cancellation negative and edge evidence
 Date: 2026-08-21
+Follow-up: removed unbounded wait-set cancellation retention
 
 Negative/edge behavior covered:
 - ordinary registration errors distinguish WrongSet, UnauthenticatedRegistration, and RegistrationLifetimeInvalid
@@ -9,16 +10,17 @@ Negative/edge behavior covered:
 - stale ready generations report StaleGeneration/StaleReadiness through readiness validation
 - cancellation drains older already-published ready work, then wins over newer readiness
 - cancellation remains sticky for tokens of the same generation and does not leak source/generation on Cancelled wakes
-- concurrent blocked wait is woken by cancellation because cancellation is recorded under the wait-set mutex before condvar notification
+- concurrent blocked wait is woken by cancellation because cancellation request synchronizes with the wait-set predicate mutex before condvar notification
 - public Debug output for wait/cancellation/source/registration handles redacts internal source IDs, wait-set IDs, registration IDs, auth secrets, and cancellation generation values
 
 Static guardrails checked:
-- grep of changed Task 19 runtime/stdlib/integration files found no TODO/FIXME/HACK/todo!/unimplemented!/dbg! markers.
-- line-count hook passes after extracting bounded-fair selection helpers to src/runtime/wait/fairness.rs.
+- grep and ast-grep found no remaining cancellation_requests, CancellationWake, recorded_cancellation_sequence, or record_cancellation_request identifiers in Rust sources.
+- WaitSetState has no cancellation generation/sequence retention field.
+- line-count hook passes with src/runtime/wait.rs at 935 lines and src/runtime/wait/fairness.rs at 85 lines after removing retained-record helpers.
 - strict clippy profile passes, including missing private docs and tests_outside_test_module.
 
 Known intentional boundaries:
 - No timer/process/terminal/chord implementation was added.
 - No OS descriptors, HANDLEs, raw registration keys, wait-set IDs, or auth secrets are exposed through the public facade.
 - SystemWaitWake::Cancelled intentionally carries no source or generation.
-- No new Rust dependencies were added.
+- No polling loop, sleeping loop, background scheduler, or new dependency was added.

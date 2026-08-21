@@ -211,3 +211,8 @@
 - Generic wait-set cancellation needs a wait-set-local predicate update before `Condvar::notify_all`; recording only on the cancellation source can lose wakes for already-blocked waiters.
 - Public `Debug` for opaque runtime handles must avoid even diagnostic IDs: source IDs, wait-set IDs, registration IDs, auth secrets, and cancellation generations are all capability-adjacent and should stay redacted.
 - Bounded-fair wake selection is easier to keep hook-compliant when cursor math lives in a small helper module (`src/runtime/wait/fairness.rs`) instead of growing the main wait-set file.
+
+
+## Task 19 bounded cancellation follow-up - 2026-08-21
+- The no-lost-wake cancellation fix does not need a wait-set-local retained predicate. It is enough for `CancellationSource::request()` to set the source/token request sequence, lock and release each watched wait set's predicate mutex, then notify the condvar.
+- `CancellationToken::request_sequence()` remains the sole sticky cancellation predicate; wait-set state should only retain ready work and registration/fairness state.

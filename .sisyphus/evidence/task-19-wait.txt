@@ -1,5 +1,6 @@
 Task 19 generic wait-set/readiness/cancellation positive evidence
 Date: 2026-08-21
+Follow-up: bounded cancellation synchronization after Atlas Phase 1 review
 
 Scope implemented:
 - Added host-opaque runtime wait primitives: SystemWaitSet, SystemReadinessSource, SystemWaitRegistration, SystemOwnedWaitRegistration, SystemWaitWake, SystemReadyWakeStatus, SystemWaitSetError.
@@ -8,6 +9,12 @@ Scope implemented:
 - Added standard.system facade wrappers in src/stdlib/system/wait.rs and wired module exports.
 - Added test-only FakeReadinessSource for deterministic runtime/facade tests.
 
+Bounded cancellation design:
+- CancellationSource::request() sets the sticky request sequence on the cancellation source state, then synchronizes with each watched wait set by locking and releasing that wait set's predicate mutex before Condvar::notify_all.
+- SystemWaitSet::wait_sync() uses CancellationToken::request_sequence() as the sole authoritative sticky cancellation predicate and ordering sequence.
+- WaitSetState does not retain cancellation generations/sequences; there is no per-wait-set cancellation_requests list, map, or vector.
+- Already-published pending ready work with sequence older than cancellation drains first; after that sticky cancellation wins over newer level-ready or queued source work.
+
 Positive behavior covered by tests:
 - register/remove idempotence and duplicate-source retention
 - owned registration retarget/remove/drop lifetimes
@@ -15,6 +22,7 @@ Positive behavior covered by tests:
 - source clones preserve opaque identity after registration removal
 - bounded-fair ready wake ordering
 - facade registration/wait/cancellation smoke behavior
+- concurrent blocked wait cancellation wake without retained wait-set cancellation records
 - integration cancellation-only wait returns SystemWaitWake::Cancelled without source/generation
 
 Verification commands passed with LLVM_SYS_140_PREFIX=/usr/lib/llvm-14:
@@ -25,5 +33,4 @@ Verification commands passed with LLVM_SYS_140_PREFIX=/usr/lib/llvm-14:
 - cargo test (1500 passed; 0 failed; 8 ignored; doc-tests 2 passed/12 ignored)
 - cargo check
 - cargo make lint
-- cargo build
-- LSP diagnostics: zero errors for src/runtime/wait.rs, src/runtime/wait/cancellation.rs, src/runtime/wait/fairness.rs, src/runtime/wait_tests.rs, src/runtime/wait_test_support.rs, src/stdlib/system/wait.rs, src/stdlib/system/tests.rs, src/runtime.rs, src/stdlib/system.rs, tests/wait_primitives.rs
+- LSP diagnostics: zero errors for src/runtime/wait.rs, src/runtime/wait/cancellation.rs, and src/runtime/wait/fairness.rs after the bounded follow-up edit

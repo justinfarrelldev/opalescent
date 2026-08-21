@@ -104,3 +104,8 @@
 - Strict lint includes `clippy::tests_outside_test_module`; integration tests still need a `#[cfg(test)] mod tests` wrapper in this repository.
 - The line-count hook applies to new runtime implementation files, so main runtime modules should be split before they cross 1000 lines even when tests are green.
 - Cancellation ordering is subtle: already-published ready work with an older sequence must drain before cancellation, while newer readiness after cancellation must not starve the sticky cancelled wake.
+
+
+## Task 19 bounded cancellation follow-up findings - 2026-08-21
+- Recording cancellation generations in `WaitSetState` fixes the blocked-wait race but violates the plan-wide no-unbounded-retention guardrail. Prefer synchronization-only handshakes for condvar lost-wake prevention.
+- Evidence must be refreshed after design follow-ups; stale wording that mentions retained cancellation records can fail review even when code and tests are green.

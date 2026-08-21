@@ -48,13 +48,12 @@ impl CancellationSource {
 
     /// Request cancellation for this generation.
     pub fn request(&mut self) {
-        let (request_generation, request_sequence, watchers) = {
+        let watchers = {
             let mut state = lock_or_recover(&self.inner.state);
             if state.request_sequence.is_some() {
                 return;
             }
-            let request_sequence = next_event_sequence();
-            state.request_sequence = Some(request_sequence);
+            state.request_sequence = Some(next_event_sequence());
             state
                 .watchers
                 .retain(|watcher| watcher.wait_set.upgrade().is_some());
@@ -64,10 +63,10 @@ impl CancellationSource {
                 .filter_map(|watcher| watcher.wait_set.upgrade())
                 .collect::<Vec<_>>();
             drop(state);
-            (self.inner.generation, request_sequence, watchers)
+            watchers
         };
         for wait_set in watchers {
-            if wait_set.record_cancellation_request(request_generation, request_sequence) {
+            if wait_set.synchronize_cancellation_request() {
                 wait_set.ready_changed.notify_all();
             }
         }

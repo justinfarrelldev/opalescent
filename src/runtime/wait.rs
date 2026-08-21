@@ -20,10 +20,7 @@ mod cancellation;
 mod fairness;
 
 pub use cancellation::{CancellationSource, CancellationToken};
-use fairness::{
-    adjust_cursor_after_remove, recorded_cancellation_sequence, select_level_ready_wake,
-    select_pending_wake,
-};
+use fairness::{adjust_cursor_after_remove, select_level_ready_wake, select_pending_wake};
 
 /// Monotonic identity source for readiness sources.
 static NEXT_SOURCE_ID: AtomicU64 = AtomicU64::new(1);
@@ -653,9 +650,7 @@ impl SystemWaitSet {
                 return Err(SystemWaitSetError::RegistrationLifetimeInvalid);
             }
 
-            let cancel_sequence = cancellation
-                .request_sequence()
-                .or_else(|| recorded_cancellation_sequence(&state, cancellation.generation()));
+            let cancel_sequence = cancellation.request_sequence();
             if let Some(wake) = select_pending_wake(&mut state, cancel_sequence) {
                 return Ok(wake);
             }
@@ -706,27 +701,12 @@ struct WaitSetInner {
 }
 
 impl WaitSetInner {
-    /// Record a cancellation request under the wait-set predicate mutex.
-    fn record_cancellation_request(&self, generation: u64, sequence: u64) -> bool {
-        let mut state = lock_or_recover(&self.state);
-        if state.destroyed {
-            drop(state);
-            return false;
-        }
-        if state
-            .cancellation_requests
-            .iter()
-            .any(|request| request.generation == generation)
-        {
-            drop(state);
-            return true;
-        }
-        state.cancellation_requests.push(CancellationWake {
-            generation,
-            sequence,
-        });
+    /// Synchronize a cancellation request with the wait-set predicate mutex.
+    fn synchronize_cancellation_request(&self) -> bool {
+        let state = lock_or_recover(&self.state);
+        let should_notify = !state.destroyed;
         drop(state);
-        true
+        should_notify
     }
 
     /// Return whether this wait set has been destroyed.
@@ -868,8 +848,6 @@ struct WaitSetState {
     cursor: usize,
     /// Transition wakes already published to this wait set.
     pending: VecDeque<PendingWake>,
-    /// Cancellation requests observed under this wait-set predicate mutex.
-    cancellation_requests: Vec<CancellationWake>,
 }
 
 /// One live wait-set entry.
@@ -888,14 +866,6 @@ impl Drop for WaitSetEntry {
             lock_or_recover(&authority).removed = true;
         }
     }
-}
-
-/// Cancellation request observed by this wait set.
-struct CancellationWake {
-    /// Cancellation generation identity.
-    generation: u64,
-    /// Global request sequence.
-    sequence: u64,
 }
 
 /// A ready transition queued for one registration.

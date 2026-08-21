@@ -13,15 +13,6 @@ pub(super) fn adjust_cursor_after_remove(state: &mut WaitSetState, removed_index
     }
 }
 
-/// Return the cancellation sequence for `generation` recorded on this wait set.
-pub(super) fn recorded_cancellation_sequence(state: &WaitSetState, generation: u64) -> Option<u64> {
-    state
-        .cancellation_requests
-        .iter()
-        .find(|request| request.generation == generation)
-        .map(|request| request.sequence)
-}
-
 /// Select an eligible pending wake in bounded-fair registration order.
 pub(super) fn select_pending_wake(
     state: &mut WaitSetState,
