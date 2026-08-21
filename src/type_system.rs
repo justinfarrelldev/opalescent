@@ -74,6 +74,8 @@
 )]
 
 // Module declarations - order matters for dependencies
+/// Transactional affine aggregate metadata shared by checker and codegen.
+pub(crate) mod affine_aggregates;
 /// Arithmetic typing metadata and constant-folding helpers.
 mod arithmetic;
 pub mod checker;
