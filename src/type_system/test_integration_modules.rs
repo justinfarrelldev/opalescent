@@ -91,6 +91,17 @@ fn parse_pipeline(source: &str) -> Program {
     program
 }
 
+fn assert_borrow_diagnostic(errors: &[TypeError], expected_reason: &str) {
+    assert!(
+        errors.iter().any(|error| matches!(
+            *error,
+            TypeError::ConstraintSolvingFailed { ref reason, .. }
+                if reason.contains(expected_reason)
+        )),
+        "expected borrow diagnostic containing '{expected_reason}', got: {errors:?}",
+    );
+}
+
 fn symbol(name: &str, core_type: CoreType, visibility: Visibility) -> SymbolInfo {
     SymbolInfo {
         name: name.to_owned(),
@@ -487,22 +498,22 @@ let exercise_selected = f(options: TerminalSessionOptions, policy: TerminalSessi
     propagate terminal_session_recover_close_sync(recovery_token)
     let recovery_kind: TerminalRecoveryLedgerKind = terminal_recovery_token_kind(recovery_token)
     let recovery_generation: uint64 = terminal_recovery_token_generation(recovery_token)
-    let state: TerminalSessionState = terminal_session_state(session)
-    let session_capabilities: TerminalCapabilities = terminal_session_capabilities(session)
+    let state: TerminalSessionState = terminal_session_state(ref session)
+    let session_capabilities: TerminalCapabilities = terminal_session_capabilities(ref session)
     let feature_capability: TerminalFeatureCapability = terminal_capabilities_feature(capabilities, feature)
     let paste_capability: TerminalTrustedPasteCapability = terminal_capabilities_trusted_paste_framing(capabilities)
     let color_capability: TerminalColorCapability = terminal_capabilities_color(capabilities)
-    let readiness: SystemReadinessSource = terminal_session_readiness_source(session)
-    let size: TerminalSize = propagate terminal_session_size_sync(session)
-    let event: TerminalInputEvent = propagate terminal_session_read_event_sync(session, wait, cancellation)
-    propagate terminal_session_write_sync(session, output)
-    propagate terminal_session_write_diagnostic_sync(session, diagnostic_output)
-    propagate terminal_session_flush_sync(session)
-    propagate terminal_session_set_cursor_visible_sync(session, true)
-    propagate terminal_session_set_cursor_shape_sync(session, shape)
-    let pause_result: TerminalPauseResult = propagate terminal_session_pause_sync(session)
-    propagate terminal_session_resume_sync(session)
-    let close_outcome: TerminalCloseOutcome = propagate terminal_session_close_sync(session)
+    let readiness: SystemReadinessSource = terminal_session_readiness_source(ref session)
+    let size: TerminalSize = propagate terminal_session_size_sync(ref session)
+    let event: TerminalInputEvent = propagate terminal_session_read_event_sync(mutable ref session, wait, cancellation)
+    propagate terminal_session_write_sync(ref session, output)
+    propagate terminal_session_write_diagnostic_sync(ref session, diagnostic_output)
+    propagate terminal_session_flush_sync(ref session)
+    propagate terminal_session_set_cursor_visible_sync(ref session, true)
+    propagate terminal_session_set_cursor_shape_sync(ref session, shape)
+    let pause_result: TerminalPauseResult = propagate terminal_session_pause_sync(mutable ref session)
+    propagate terminal_session_resume_sync(mutable ref session)
+    let close_outcome: TerminalCloseOutcome = propagate terminal_session_close_sync(mutable ref session)
     let trusted_output: TrustedTerminalOutput = propagate trusted_terminal_output_from_application_text('safe text')
     let formatted_diagnostic: SafeTerminalDiagnosticOutput = propagate safe_terminal_diagnostic_format(diagnostic)
     let formatted_collection: SafeTerminalDiagnosticOutput = propagate safe_terminal_diagnostic_collection_format(diagnostics)
@@ -554,13 +565,13 @@ let exercise_chords = f(key: TerminalChordKey, trigger: TerminalChordTrigger, ch
     let single_sequence: TerminalChordSequence = propagate terminal_chord_sequence_single(chord)
     let appended_sequence: TerminalChordSequence = propagate terminal_chord_sequence_append(sequence, chord)
     let new_router: TerminalChordRouter = propagate terminal_chord_router_new(capabilities, policy)
-    let registered_id: TerminalChordBindingId = propagate terminal_chord_router_register(router, sequence, priority, text_policy)
-    let unregistered: TerminalChordMutationResult = propagate terminal_chord_router_unregister(router, binding_id)
-    let replaced: TerminalChordMutationResult = propagate terminal_chord_router_replace(router, binding_id, sequence, priority, text_policy)
+    let registered_id: TerminalChordBindingId = propagate terminal_chord_router_register(mutable ref router, sequence, priority, text_policy)
+    let unregistered: TerminalChordMutationResult = propagate terminal_chord_router_unregister(mutable ref router, binding_id)
+    let replaced: TerminalChordMutationResult = propagate terminal_chord_router_replace(mutable ref router, binding_id, sequence, priority, text_policy)
     let ordinal: uint64 = terminal_chord_binding_id_ordinal(binding_id)
-    let processed: TerminalChordRouterOutput = propagate terminal_chord_router_process(router, event)
-    let expired: TerminalChordRouterOutput = propagate terminal_chord_router_expire_sync(router)
-    let reset: TerminalChordReleasedInput = propagate terminal_chord_router_reset(router, reset_reason)
+    let processed: TerminalChordRouterOutput = propagate terminal_chord_router_process(mutable ref router, event)
+    let expired: TerminalChordRouterOutput = propagate terminal_chord_router_expire_sync(mutable ref router)
+    let reset: TerminalChordReleasedInput = propagate terminal_chord_router_reset(mutable ref router, reset_reason)
     let released_length: int64 = terminal_chord_released_input_length(released_input)
     let released_event: TerminalInputEvent = propagate terminal_chord_released_input_at(released_input, 0)
     return void
@@ -589,29 +600,29 @@ import type TerminalTestAuthority, TerminalTestBackendActivation, TerminalTestCo
 let exercise_testing = f(authority: TerminalTestAuthority, limits: TerminalTestScenarioLimits, scenario: TerminalTestScenario, event_id: TerminalEventId, composition_id: TerminalCompositionId, boundary: TerminalTestTrustedPasteBoundary, key: TerminalTestLogicalKey, occurrence: TerminalTestKeyOccurrence, modifiers: TerminalTestModifiers, text_origin: TerminalTestTextInputOrigin, linked_phase: TerminalTestLinkedTextPhase, composition_end: TerminalTestCompositionEnd, paste_phase: TerminalTestPastePhase, evidence: TerminalTrustedPasteEvidence, mouse_action: TerminalTestMouseAction, raw_bytes: Bytes, unknown_reason: TerminalTestUnknownBytesReason, native_metadata: TerminalTestNativeMetadata, reset_reason: TerminalTestInputResetReason, ordinary: TerminalTestOrdinaryCapabilityEntry[], trusted_paste: TerminalTestTrustedPasteCapabilitySpec, color: TerminalTestColorCapabilitySpec, diagnostic_spec: TerminalTestDiagnosticSpec, diagnostics: TerminalDiagnostic[], diagnostic_limits: TerminalTestDiagnosticCollectionLimits, backend: TerminalTestFakeBackend, fault: TerminalTestFakeBackendFault): void errors AllocationFailureError, ConstraintViolationError, TerminalSessionOptionsError, TerminalTestFactoryError =>
     let issued_authority: TerminalTestAuthority = test_runner_terminal_authority()
     let new_scenario: TerminalTestScenario = propagate terminal_test_scenario_new(authority, limits)
-    let issued_event_id: TerminalEventId = propagate terminal_test_event_id_new(scenario)
-    let issued_composition_id: TerminalCompositionId = propagate terminal_test_composition_id_new(scenario)
-    let issued_evidence: TerminalTrustedPasteEvidence = propagate terminal_test_trusted_paste_evidence(scenario, boundary)
-    let key_event: TerminalInputEvent = propagate terminal_test_key_event(scenario, event_id, key, occurrence, modifiers)
-    let text_event: TerminalInputEvent = propagate terminal_test_text_input_event(scenario, 'text', text_origin, linked_phase)
-    let composition_started: TerminalInputEvent = propagate terminal_test_composition_started_event(scenario, composition_id)
-    let composition_updated: TerminalInputEvent = propagate terminal_test_composition_updated_event(scenario, composition_id, 'preedit', 0)
-    let composition_ended: TerminalInputEvent = propagate terminal_test_composition_ended_event(scenario, composition_id, composition_end)
-    let paste_event: TerminalInputEvent = propagate terminal_test_paste_event(scenario, 'paste', paste_phase, evidence)
-    let mouse_event: TerminalInputEvent = propagate terminal_test_mouse_event(scenario, mouse_action, modifiers, 1, 1)
-    let resize_event: TerminalInputEvent = propagate terminal_test_resize_event(scenario, 80, 24)
-    let focus_gained: TerminalInputEvent = propagate terminal_test_focus_gained_event(scenario)
-    let focus_lost: TerminalInputEvent = propagate terminal_test_focus_lost_event(scenario)
-    let unknown_bytes: TerminalInputEvent = propagate terminal_test_unknown_bytes_event(scenario, raw_bytes, unknown_reason)
-    let unknown_native: TerminalInputEvent = propagate terminal_test_unknown_native_event(scenario, native_metadata)
-    let reset_event: TerminalInputEvent = propagate terminal_test_input_reset_event(scenario, reset_reason)
-    let capabilities: TerminalCapabilities = propagate terminal_test_capabilities(scenario, ordinary, trusted_paste, color)
-    let diagnostic: TerminalDiagnostic = propagate terminal_test_diagnostic(scenario, diagnostic_spec)
+    let issued_event_id: TerminalEventId = propagate terminal_test_event_id_new(mutable ref scenario)
+    let issued_composition_id: TerminalCompositionId = propagate terminal_test_composition_id_new(mutable ref scenario)
+    let issued_evidence: TerminalTrustedPasteEvidence = propagate terminal_test_trusted_paste_evidence(mutable ref scenario, boundary)
+    let key_event: TerminalInputEvent = propagate terminal_test_key_event(mutable ref scenario, event_id, key, occurrence, modifiers)
+    let text_event: TerminalInputEvent = propagate terminal_test_text_input_event(mutable ref scenario, 'text', text_origin, linked_phase)
+    let composition_started: TerminalInputEvent = propagate terminal_test_composition_started_event(mutable ref scenario, composition_id)
+    let composition_updated: TerminalInputEvent = propagate terminal_test_composition_updated_event(mutable ref scenario, composition_id, 'preedit', 0)
+    let composition_ended: TerminalInputEvent = propagate terminal_test_composition_ended_event(mutable ref scenario, composition_id, composition_end)
+    let paste_event: TerminalInputEvent = propagate terminal_test_paste_event(mutable ref scenario, 'paste', paste_phase, evidence)
+    let mouse_event: TerminalInputEvent = propagate terminal_test_mouse_event(mutable ref scenario, mouse_action, modifiers, 1, 1)
+    let resize_event: TerminalInputEvent = propagate terminal_test_resize_event(mutable ref scenario, 80, 24)
+    let focus_gained: TerminalInputEvent = propagate terminal_test_focus_gained_event(mutable ref scenario)
+    let focus_lost: TerminalInputEvent = propagate terminal_test_focus_lost_event(mutable ref scenario)
+    let unknown_bytes: TerminalInputEvent = propagate terminal_test_unknown_bytes_event(mutable ref scenario, raw_bytes, unknown_reason)
+    let unknown_native: TerminalInputEvent = propagate terminal_test_unknown_native_event(mutable ref scenario, native_metadata)
+    let reset_event: TerminalInputEvent = propagate terminal_test_input_reset_event(mutable ref scenario, reset_reason)
+    let capabilities: TerminalCapabilities = propagate terminal_test_capabilities(mutable ref scenario, ordinary, trusted_paste, color)
+    let diagnostic: TerminalDiagnostic = propagate terminal_test_diagnostic(mutable ref scenario, diagnostic_spec)
     let diagnostic_collection: TerminalDiagnosticCollection = propagate terminal_test_diagnostic_collection(authority, diagnostics, diagnostic_limits)
     let fake_backend: TerminalTestFakeBackend = propagate terminal_test_fake_backend(authority)
     let faulted_backend: TerminalTestFakeBackend = propagate terminal_test_fake_backend_with_fault(backend, fault)
-    propagate terminal_test_bind_fake_backend(scenario, backend)
-    let activation: TerminalTestBackendActivation = propagate terminal_test_activate_backend(scenario)
+    propagate terminal_test_bind_fake_backend(mutable ref scenario, backend)
+    let activation: TerminalTestBackendActivation = propagate terminal_test_activate_backend(mutable ref scenario)
     return void
 
 entry main = f(): void =>
@@ -636,27 +647,27 @@ import system_wait_set_new, system_wait_set_register, system_wait_set_remove, sy
 
 let exercise_core_prerequisites = f(wait_set: SystemWaitSet, source: SystemReadinessSource, registration: SystemWaitRegistration, owned_registration: SystemOwnedWaitRegistration, cancellation_source: CancellationSource, token: CancellationToken, timer: MonotonicTimer, deadline: MonotonicDeadline, process_source: ProcessControlSource, error_value: Error, truncation: ErrorAttachmentTruncation): void errors AllocationFailureError, ErrorAttachmentAbsentError, IndexOutOfBoundsError, MonotonicTimerError, MonotonicTimerNotArmedError, ProcessControlAcknowledgementError, ProcessControlError, ProcessControlResumeError, ProcessControlUnavailableError, SystemWaitSetError =>
     let new_wait_set: SystemWaitSet = propagate system_wait_set_new()
-    let ordinary_registration: SystemWaitRegistration = propagate system_wait_set_register(wait_set, source)
-    propagate system_wait_set_remove(wait_set, registration)
-    let new_owned_registration: SystemOwnedWaitRegistration = propagate system_wait_set_register_owned(wait_set, source)
-    propagate system_owned_wait_registration_retarget(owned_registration, source)
-    propagate system_owned_wait_registration_remove(owned_registration)
-    let wake: SystemWaitWake = propagate system_wait_set_wait_sync(wait_set, token)
+    let ordinary_registration: SystemWaitRegistration = propagate system_wait_set_register(mutable ref wait_set, source)
+    propagate system_wait_set_remove(mutable ref wait_set, registration)
+    let new_owned_registration: SystemOwnedWaitRegistration = propagate system_wait_set_register_owned(mutable ref wait_set, source)
+    propagate system_owned_wait_registration_retarget(mutable ref owned_registration, source)
+    propagate system_owned_wait_registration_remove(mutable ref owned_registration)
+    let wake: SystemWaitWake = propagate system_wait_set_wait_sync(mutable ref wait_set, token)
     let new_cancellation_source: CancellationSource = propagate cancellation_source_new()
-    let issued_token: CancellationToken = cancellation_token(cancellation_source)
-    cancellation_request(cancellation_source)
+    let issued_token: CancellationToken = cancellation_token(ref cancellation_source)
+    cancellation_request(mutable ref cancellation_source)
     let new_timer: MonotonicTimer = propagate monotonic_timer_new()
-    let timer_source: SystemReadinessSource = monotonic_timer_readiness_source(timer)
-    let arm_generation: uint64 = propagate monotonic_timer_arm(timer, deadline)
-    let disarm_generation: uint64 = propagate monotonic_timer_disarm(timer)
-    let current_generation: uint64 = monotonic_timer_generation(timer)
-    let current_deadline: MonotonicDeadline = propagate monotonic_timer_deadline(timer)
+    let timer_source: SystemReadinessSource = monotonic_timer_readiness_source(ref timer)
+    let arm_generation: uint64 = propagate monotonic_timer_arm(mutable ref timer, deadline)
+    let disarm_generation: uint64 = propagate monotonic_timer_disarm(mutable ref timer)
+    let current_generation: uint64 = monotonic_timer_generation(ref timer)
+    let current_deadline: MonotonicDeadline = propagate monotonic_timer_deadline(ref timer)
     let now: MonotonicDeadline = monotonic_clock_now()
     let new_process_source: ProcessControlSource = propagate process_control_source_new()
-    let process_readiness: SystemReadinessSource = process_control_readiness_source(process_source)
-    let poll_result: ProcessControlPollResult = propagate process_control_poll(process_source)
-    propagate process_control_acknowledge_suspend(process_source, 1)
-    propagate process_control_resume_application(process_source, 1)
+    let process_readiness: SystemReadinessSource = process_control_readiness_source(ref process_source)
+    let poll_result: ProcessControlPollResult = propagate process_control_poll(mutable ref process_source)
+    propagate process_control_acknowledge_suspend(mutable ref process_source, 1)
+    propagate process_control_resume_application(mutable ref process_source, 1)
     let cause: Error = propagate error_cause(error_value)
     let suppressed_length: int64 = error_suppressed_length(error_value)
     let suppressed: Error = propagate error_suppressed_at(error_value, 0)
@@ -705,13 +716,124 @@ entry main = f(): void =>
     }
 
     #[test]
+    fn test_imported_selected_terminal_borrow_modes_are_required() {
+        const MISSING_REF_SOURCE: &str = "
+import terminal_session_size_sync from 'standard.terminal'
+import type TerminalSession, TerminalSessionReadError, TerminalSessionStateError, TerminalSize from 'standard.terminal'
+
+let bad_size = f(session: TerminalSession): TerminalSize errors TerminalSessionReadError, TerminalSessionStateError =>
+    return propagate terminal_session_size_sync(session)
+
+entry main = f(): void =>
+    return void
+";
+        const MISSING_MUTABLE_REF_SOURCE: &str = "
+import terminal_session_read_event_sync from 'standard.terminal'
+import type TerminalInputEvent, TerminalSession, TerminalSessionReadError, TerminalSessionStateError, TerminalWait from 'standard.terminal'
+
+let bad_read = f(session: TerminalSession, wait: TerminalWait, cancellation: CancellationToken): TerminalInputEvent errors TerminalSessionReadError, TerminalSessionStateError =>
+    return propagate terminal_session_read_event_sync(session, wait, cancellation)
+
+entry main = f(): void =>
+    return void
+";
+        const WRONG_MODE_SOURCE: &str = "
+import terminal_session_read_event_sync from 'standard.terminal'
+import type TerminalInputEvent, TerminalSession, TerminalSessionReadError, TerminalSessionStateError, TerminalWait from 'standard.terminal'
+
+let bad_read = f(session: TerminalSession, wait: TerminalWait, cancellation: CancellationToken): TerminalInputEvent errors TerminalSessionReadError, TerminalSessionStateError =>
+    return propagate terminal_session_read_event_sync(ref session, wait, cancellation)
+
+entry main = f(): void =>
+    return void
+";
+
+        for (source, expected_reason) in [
+            (
+                MISSING_REF_SOURCE,
+                "parameter requires a 'ref' call-site borrow argument",
+            ),
+            (
+                MISSING_MUTABLE_REF_SOURCE,
+                "parameter requires a 'mutable ref' call-site borrow argument",
+            ),
+            (
+                WRONG_MODE_SOURCE,
+                "borrow argument mismatch: expected 'mutable ref', found 'ref'",
+            ),
+        ] {
+            let program = parse_pipeline(source);
+            let mut checker = TypeChecker::new();
+            checker.enable_terminal_proposal_imports_for_tests();
+            let errors = checker
+                .type_check_program(&program)
+                .expect_err("imported terminal borrowed calls must require explicit borrow syntax");
+            assert_borrow_diagnostic(errors.as_slice(), expected_reason);
+        }
+    }
+
+    #[test]
+    fn test_imported_core_chord_and_testing_borrow_modes_are_required() {
+        const CORE_SOURCE: &str = "
+import system_wait_set_register from 'standard.system'
+
+let bad_core = f(wait_set: SystemWaitSet, source: SystemReadinessSource): SystemWaitRegistration errors AllocationFailureError, SystemWaitSetError =>
+    return propagate system_wait_set_register(wait_set, source)
+
+entry main = f(): void =>
+    return void
+";
+        const CHORD_SOURCE: &str = "
+import terminal_chord_router_register from 'standard.terminal.chords'
+import type TerminalChordBindingId, TerminalChordPriority, TerminalChordRouter, TerminalChordSequence, TerminalChordTextPolicy, TerminalChordValidationError from 'standard.terminal.chords'
+
+let bad_chord = f(router: TerminalChordRouter, sequence: TerminalChordSequence, priority: TerminalChordPriority, text_policy: TerminalChordTextPolicy): TerminalChordBindingId errors AllocationFailureError, TerminalChordValidationError =>
+    return propagate terminal_chord_router_register(router, sequence, priority, text_policy)
+
+entry main = f(): void =>
+    return void
+";
+        const TESTING_SOURCE: &str = "
+import terminal_test_event_id_new from 'standard.testing.terminal'
+import type TerminalEventId from 'standard.terminal'
+import type TerminalTestFactoryError, TerminalTestScenario from 'standard.testing.terminal'
+
+let bad_testing = f(scenario: TerminalTestScenario): TerminalEventId errors TerminalTestFactoryError =>
+    return propagate terminal_test_event_id_new(scenario)
+
+entry main = f(): void =>
+    return void
+";
+
+        for (source, enable_test_only) in [
+            (CORE_SOURCE, false),
+            (CHORD_SOURCE, false),
+            (TESTING_SOURCE, true),
+        ] {
+            let program = parse_pipeline(source);
+            let mut checker = TypeChecker::new();
+            checker.enable_terminal_proposal_imports_for_tests();
+            if enable_test_only {
+                checker.enable_test_only_imports();
+            }
+            let errors = checker
+                .type_check_program(&program)
+                .expect_err("imported proposal mutable-ref calls must require borrow syntax");
+            assert_borrow_diagnostic(
+                errors.as_slice(),
+                "parameter requires a 'mutable ref' call-site borrow argument",
+            );
+        }
+    }
+
+    #[test]
     fn test_terminal_session_write_rejects_raw_string_output() {
         const SOURCE: &str = "
 import terminal_session_write_sync from 'standard.terminal'
 import type TerminalSession, TerminalSessionStateError, TerminalSessionWriteError from 'standard.terminal'
 
 let bad_write = f(session: TerminalSession): void errors TerminalSessionStateError, TerminalSessionWriteError =>
-    propagate terminal_session_write_sync(session, 'raw string')
+    propagate terminal_session_write_sync(ref session, 'raw string')
 
 entry main = f(): void =>
     return void

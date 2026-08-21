@@ -149,8 +149,7 @@ impl TypeChecker {
             self.register_affine_resource_type(type_name.to_owned());
         }
     }
-
-    /// Record parameter borrow modes for a locally visible function symbol.
+    /// Record local function parameter borrow modes.
     pub(super) fn register_function_borrow_kinds_for_symbol(
         &mut self,
         name: String,
@@ -162,6 +161,21 @@ impl TypeChecker {
             .map(|parameter| parameter.borrow_kind)
             .collect::<Vec<_>>();
         self.ownership.function_borrows.insert(name, borrow_kinds);
+    }
+    /// Record imported function parameter borrow modes.
+    pub(super) fn register_function_borrow_modes_for_symbol(
+        &mut self,
+        name: String,
+        borrow_kinds: &[BorrowKind],
+    ) {
+        self.ownership.remember_function_borrow(&name);
+        self.ownership
+            .function_borrows
+            .insert(name, borrow_kinds.to_vec());
+    }
+    /// Return visible function parameter borrow modes.
+    pub(super) fn function_borrow_kinds_for_symbol(&self, name: &str) -> Option<&[BorrowKind]> {
+        self.ownership.function_borrows.get(name).map(Vec::as_slice)
     }
 
     /// Register owner or borrow metadata for one function/lambda parameter.
@@ -353,25 +367,41 @@ impl TypeChecker {
     pub(super) fn core_type_contains_affine_resource(&self, core_type: &CoreType) -> bool {
         self.core_type_contains_affine_resource_inner(core_type, &mut BTreeSet::new())
     }
-
-    /// Determine whether `name` was declared as an affine resource type.
+    /// Return whether `name` is an affine resource type.
     pub(super) fn is_affine_resource_type_name(&self, name: &str) -> bool {
         self.ownership.affine_resource_types.contains(name)
     }
-
-    /// Find the expected borrow kind for a call argument, when local metadata exists.
+    /// Return the expected borrow kind for a call argument.
     fn expected_borrow_kind_for_call(&self, callee: &Expr, index: usize) -> Option<BorrowKind> {
-        let Expr::Identifier { ref name, .. } = *callee else {
-            return None;
-        };
+        let name = Self::callee_borrow_metadata_name(callee)?;
         self.ownership
             .function_borrows
-            .get(name)
+            .get(name.as_str())
             .and_then(|borrow_kinds| borrow_kinds.get(index))
             .copied()
     }
-
-    /// Validate a call-site `ref` or `mutable ref` argument.
+    /// Return the local symbol used for callee borrow metadata.
+    fn callee_borrow_metadata_name(callee: &Expr) -> Option<String> {
+        match *callee {
+            Expr::Identifier { ref name, .. } => Some(name.clone()),
+            Expr::Member {
+                ref object,
+                ref member,
+                ..
+            } => {
+                let Expr::Identifier {
+                    name: ref module_alias,
+                    ..
+                } = **object
+                else {
+                    return None;
+                };
+                Some(format!("{module_alias}.{member}"))
+            }
+            _ => None,
+        }
+    }
+    /// Type-check explicit `ref` or `mutable ref` call syntax.
     fn type_check_explicit_borrow_argument(
         &mut self,
         argument: &Expr,
@@ -542,7 +572,9 @@ impl TypeChecker {
             } => {
                 self.check_affine_or_borrow_escape(callee.as_ref(), context_description)?;
                 for argument in args {
-                    self.check_affine_or_borrow_escape(argument, context_description)?;
+                    if !matches!(*argument, Expr::BorrowArgument { .. }) {
+                        self.check_affine_or_borrow_escape(argument, context_description)?;
+                    }
                 }
                 Ok(())
             }

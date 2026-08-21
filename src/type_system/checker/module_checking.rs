@@ -52,14 +52,18 @@ impl TypeChecker {
         module_symbol.visibility = symbol_visibility;
         self.module_resolver
             .register_symbol_for_module(&self.current_module_path, module_symbol)?;
-        if let Some(labels) = self.function_return_labels(symbol_name.as_str()) {
-            if let Some(mut interface) = self
-                .module_resolver
-                .module_interface(&self.current_module_path)
-            {
-                interface.register_function_return_labels(symbol_name, labels.to_vec());
-                self.module_resolver.register_module_interface(interface);
+        if let Some(mut interface) = self
+            .module_resolver
+            .module_interface(&self.current_module_path)
+        {
+            if let Some(labels) = self.function_return_labels(symbol_name.as_str()) {
+                interface.register_function_return_labels(symbol_name.clone(), labels.to_vec());
             }
+            if let Some(borrow_kinds) = self.function_borrow_kinds_for_symbol(symbol_name.as_str())
+            {
+                interface.register_function_borrow_kinds(symbol_name, borrow_kinds.to_vec());
+            }
+            self.module_resolver.register_module_interface(interface);
         }
         Ok(())
     }
@@ -190,6 +194,12 @@ impl TypeChecker {
                                 labels.to_vec(),
                             );
                         }
+                        if let Some(borrow_kinds) = interface.function_borrow_kinds(name) {
+                            self.register_function_borrow_modes_for_symbol(
+                                resolved_import_name,
+                                borrow_kinds,
+                            );
+                        }
                     }
                     self.symbol_table.register(symbol_to_register);
                 }
@@ -211,6 +221,14 @@ impl TypeChecker {
                                 self.register_function_return_labels_for_symbol(
                                     symbol.name.clone(),
                                     labels.to_vec(),
+                                );
+                            }
+                            if let Some(borrow_kinds) =
+                                interface.function_borrow_kinds(symbol.name.as_str())
+                            {
+                                self.register_function_borrow_modes_for_symbol(
+                                    symbol.name.clone(),
+                                    borrow_kinds,
                                 );
                             }
                         }
@@ -262,6 +280,14 @@ impl TypeChecker {
                     self.register_function_return_labels_for_symbol(
                         symbol.name.clone(),
                         labels.to_vec(),
+                    );
+                }
+                if let Some(borrow_kinds) =
+                    interface_ref.function_borrow_kinds(original_name.as_str())
+                {
+                    self.register_function_borrow_modes_for_symbol(
+                        symbol.name.clone(),
+                        borrow_kinds,
                     );
                 }
             }
