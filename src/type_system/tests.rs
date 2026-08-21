@@ -3081,9 +3081,9 @@ fn test_guard_statement_allows_block_handler() {
     );
 }
 
-/// Guard else branches must not introduce new error types via nested guard expressions.
+/// Guard else branches may handle nested guard expressions with independent error sets.
 #[test]
-fn test_guard_else_rejects_chained_guard_with_mismatched_errors() {
+fn test_guard_else_allows_chained_guard_with_mismatched_errors() {
     let nested_guard = guard_call_expr(
         call_expr("load_defaults", &[], 7401),
         "fallback",
@@ -3161,14 +3161,10 @@ fn test_guard_else_rejects_chained_guard_with_mismatched_errors() {
     ]);
 
     let mut checker = TypeChecker::new();
-    let errors = checker
-        .type_check_program(&program)
-        .expect_err("nested guard with mismatched error types should error");
+    let result = checker.type_check_program(&program);
     assert!(
-        errors
-            .into_iter()
-            .any(|error| matches!(error, TypeError::GuardChainedErrorMismatch { .. })),
-        "expected GuardChainedErrorMismatch diagnostic"
+        result.is_ok(),
+        "nested guard with independently handled errors should succeed: {result:?}"
     );
 }
 
@@ -3333,8 +3329,8 @@ fn test_guard_else_rejects_propagate_with_mismatched_errors() {
     assert!(
         errors
             .into_iter()
-            .any(|error| matches!(error, TypeError::GuardChainedErrorMismatch { .. })),
-        "expected GuardChainedErrorMismatch diagnostic"
+            .any(|error| matches!(error, TypeError::PropagateErrorMismatch { .. })),
+        "expected PropagateErrorMismatch diagnostic"
     );
 }
 
@@ -3464,8 +3460,8 @@ fn test_guard_statement_else_rejects_mismatched_propagate_errors() {
     assert!(
         errors
             .into_iter()
-            .any(|error| matches!(error, TypeError::GuardChainedErrorMismatch { .. })),
-        "expected GuardChainedErrorMismatch when guard statement else propagates mismatched errors"
+            .any(|error| matches!(error, TypeError::PropagateErrorMismatch { .. })),
+        "expected PropagateErrorMismatch when guard statement else propagates mismatched errors"
     );
 }
 
