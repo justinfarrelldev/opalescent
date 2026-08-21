@@ -313,6 +313,59 @@ impl ModuleResolver {
         self.modules.get(module_path).cloned()
     }
 
+    /// Return the test-only module that declares `type_name`, if any.
+    pub fn test_only_type_source(&self, type_name: &str) -> Option<&str> {
+        self.modules.values().find_map(|interface| {
+            (interface.availability == ModuleAvailability::TestOnly
+                && interface.type_declarations.contains_key(type_name))
+            .then_some(interface.module_path.as_str())
+        })
+    }
+
+    /// Return the first test-only type reached by a core type signature.
+    pub fn core_type_test_only_reference(&self, core_type: &CoreType) -> Option<(String, String)> {
+        match *core_type {
+            CoreType::Array(ref element_type) => self.core_type_test_only_reference(element_type),
+            CoreType::Function {
+                ref generic_params,
+                ref parameters,
+                ref return_types,
+                ref error_types,
+            } => generic_params
+                .iter()
+                .flat_map(|parameter| parameter.constraints.iter())
+                .chain(parameters.iter())
+                .chain(return_types.iter())
+                .chain(error_types.iter())
+                .find_map(|inner_type| self.core_type_test_only_reference(inner_type)),
+            CoreType::Generic {
+                ref name,
+                ref type_args,
+            } => self.test_only_type_source(name).map_or_else(
+                || {
+                    type_args
+                        .iter()
+                        .find_map(|type_arg| self.core_type_test_only_reference(type_arg))
+                },
+                |module_path| Some((name.clone(), module_path.to_owned())),
+            ),
+            CoreType::Int8
+            | CoreType::Int16
+            | CoreType::Int32
+            | CoreType::Int64
+            | CoreType::UInt8
+            | CoreType::UInt16
+            | CoreType::UInt32
+            | CoreType::UInt64
+            | CoreType::Float32
+            | CoreType::Float64
+            | CoreType::String
+            | CoreType::Boolean
+            | CoreType::Unit
+            | CoreType::Variable(_) => None,
+        }
+    }
+
     /// Register one symbol for a module.
     ///
     /// # Errors

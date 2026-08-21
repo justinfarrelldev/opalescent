@@ -62,6 +62,7 @@ mod stdout_text_builtins;
 mod string_builtins;
 /** Terminal proposal gate and constructor visibility metadata. */
 mod terminal_proposal_metadata;
+mod test_only_availability;
 /** Time stdlib built-in signature registration. */
 mod time_builtins;
 /** AST type mapping diagnostic conversion. */
@@ -91,7 +92,6 @@ struct ActiveGuardErrorBinding {
     /// Declaration span of the binding registered for the active guard else scope.
     source_location: Span,
 }
-
 /// High-level shape of a fallible expression accepted by `propagate` and `guard`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FallibleExpressionKind {
