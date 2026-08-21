@@ -5,6 +5,7 @@
 extern crate alloc;
 
 use crate::ast::{Expr, Pattern};
+use crate::codegen::affine_aggregates::maybe_codegen_transactional_aggregate_constructor;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
@@ -738,7 +739,7 @@ fn codegen_sum_variant_constructor<'context>(
     clippy::too_many_lines,
     reason = "product constructor lowering is centralized here"
 )]
-fn codegen_product_constructor<'context>(
+pub(crate) fn codegen_product_constructor<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     fields: &[crate::ast::ConstructorField],
@@ -746,6 +747,15 @@ fn codegen_product_constructor<'context>(
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     if let Some(&CoreType::Generic { ref name, .. }) = expected_type {
         if let Some(field_layout) = env.adt_field_layouts.get(name.as_str()).cloned() {
+            if let Some(aggregate) = maybe_codegen_transactional_aggregate_constructor(
+                codegen_context,
+                env,
+                name.as_str(),
+                fields,
+                field_layout.as_slice(),
+            )? {
+                return Ok(aggregate);
+            }
             let field_map = fields
                 .iter()
                 .map(|field| (field.name.as_str(), &field.value))
@@ -882,7 +892,7 @@ fn codegen_product_constructor<'context>(
     clippy::too_many_lines,
     reason = "nominal child-drop callback setup is centralized here"
 )]
-fn declare_or_get_nominal_drop_children_fn<'context>(
+pub(crate) fn declare_or_get_nominal_drop_children_fn<'context>(
     codegen_context: &CodegenContext<'context>,
     nominal_core_type: &CoreType,
     field_layout: &[(String, CoreType)],

@@ -4,6 +4,8 @@
 
 #[doc = "ADT constructor, field-access, and match lowering support."]
 pub mod adts;
+#[doc = "Transactional affine aggregate rollback and seal helpers."]
+pub(crate) mod affine_aggregates;
 pub mod binding_store;
 pub mod context;
 pub mod control_flow;
@@ -36,6 +38,8 @@ pub mod statements;
 pub mod types;
 pub mod values;
 
+#[cfg(test)]
+mod test_affine_aggregates_codegen;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
