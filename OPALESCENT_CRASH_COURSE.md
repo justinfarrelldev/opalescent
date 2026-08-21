@@ -355,7 +355,7 @@ import take_input, string_to_int32 from standard
 
 let user_input, user_number =
     loop =>
-        let s = take_input()
+        let s = propagate take_input()
         guard string_to_int32(s) into n else e =>
             print('Error: {e}')
             continue

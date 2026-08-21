@@ -24,9 +24,9 @@ An interactive program that asks for a name, generates a random number, and chec
 import take_input, string_to_int32 from standard
 import random_int32 from math
 
-entry main = f(args: string[]): void =>
+entry main = f(args: string[]): void errors StandardInputReadError =>
     print('What is your name?')
-    let name = take_input()
+    let name = propagate take_input()
     let quiz_num = random_int32(1, 5)
 
     print('Hello, {name}! Guess a number between 1 and 5')
@@ -35,7 +35,7 @@ entry main = f(args: string[]): void =>
     # Multiple named return values are destructured on the left.
     let user_input, user_number =
         loop =>
-            let s = take_input()
+            let s = propagate take_input()
             # guard handles errors inline; continue retries the loop on failure.
             guard string_to_int32(s) into n else e =>
                 print('Error: {e}')
