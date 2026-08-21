@@ -2252,7 +2252,7 @@ exit=0
 
 $ cargo make lint
 [cargo-make] INFO - cargo make 0.37.24
-[cargo-make] INFO - 
+[cargo-make] INFO -
 [cargo-make] INFO - Project: opalescent
 [cargo-make] INFO - Build File: Makefile.toml
 [cargo-make] INFO - Task: lint
