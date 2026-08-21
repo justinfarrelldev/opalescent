@@ -10,11 +10,15 @@ Negative/regression coverage added or updated for Task 15:
 - Guard error union propagation rejects unrefined heterogeneous families when the enclosing error surface does not cover every possible family.
 - Existing guard-else mismatched-error tests were updated to preserve stricter propagation behavior while allowing the intended Task 15 heterogeneous guard chaining case.
 
+Follow-up regression confirmation:
+
+- The no-`into` positive refinement test was added under the `terminal_refinement` filter so the required command exercises it directly.
+- The heterogeneous positive guard refinement test keeps the negative unrefined union test unchanged, preserving proof that unrefined `propagate err` still requires every family.
+- The first corrected heterogeneous fixture attempted to use `return void` as local guard-handler recovery and correctly failed with `GuardErrorClauseMissingTerminal`; the final fixture uses valid loop `continue` recovery for non-refined families and keeps the narrowed `propagate err` branch as the proof target.
+
 Focused negative/error verification:
 
-- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_refinement` - passed
-- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_constrain` - passed
-- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_guard_error` - passed
-- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test guard_else` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_refinement` - passed: 4 passed, 0 failed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_guard_error` - passed: 2 passed, 0 failed
 
-Full-suite verification also passed after these regressions: `cargo test`, `cargo check`, `cargo build`, and `cargo make lint` with `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14`.
+Full-suite verification also passed after these regressions: fmt check, line-count, `cargo test terminal_proposal` (23 passed), full `cargo test` (1452 passed, 0 failed, 8 ignored; doctests 2 passed, 12 ignored), `cargo check`, `cargo build`, and `cargo make lint` with `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14`.
