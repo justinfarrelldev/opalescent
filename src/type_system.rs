@@ -92,6 +92,21 @@ mod symbol_table;
 pub mod type_mapping;
 pub mod types;
 
+/// Return whether a module/symbol pair belongs to the gated terminal proposal surface.
+#[must_use]
+pub(crate) fn is_terminal_proposal_codegen_gated_import(
+    module_path: &str,
+    symbol_name: &str,
+) -> bool {
+    module_resolver::is_terminal_proposal_codegen_gated_import(module_path, symbol_name)
+}
+
+/// Return whether a runtime symbol name belongs to any gated terminal proposal surface.
+#[must_use]
+pub(crate) fn is_terminal_proposal_codegen_gated_runtime_name(symbol_name: &str) -> bool {
+    module_resolver::is_terminal_proposal_codegen_gated_runtime_name(symbol_name)
+}
+
 #[cfg(test)]
 mod tests;
 

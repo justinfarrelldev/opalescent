@@ -26,6 +26,21 @@ mod terminal_proposal_abi;
 mod terminal_proposal_modules;
 mod terminal_proposal_symbols;
 
+/// Return whether a module/symbol pair belongs to the gated terminal proposal surface.
+#[must_use]
+pub(super) fn is_terminal_proposal_codegen_gated_import(
+    module_path: &str,
+    symbol_name: &str,
+) -> bool {
+    terminal_proposal_symbols::contains_function(module_path, symbol_name)
+}
+
+/// Return whether a runtime symbol name belongs to any gated terminal proposal surface.
+#[must_use]
+pub(super) fn is_terminal_proposal_codegen_gated_runtime_name(symbol_name: &str) -> bool {
+    terminal_proposal_symbols::contains_function_name(symbol_name)
+}
+
 /// Import availability for a registered module interface.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModuleAvailability {

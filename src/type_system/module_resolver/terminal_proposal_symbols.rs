@@ -897,14 +897,37 @@ pub(super) const TERMINAL_TESTING_FUNCTIONS: &[TerminalApiFunctionSpec] = &[
     },
 ];
 
+/// Return the gated terminal proposal specs registered for a module path.
+fn terminal_proposal_specs(module_path: &str) -> Option<&'static [TerminalApiFunctionSpec]> {
+    match module_path {
+        "standard.system" => Some(CORE_PREREQUISITE_FUNCTIONS),
+        "standard.terminal" => Some(SELECTED_TERMINAL_FUNCTIONS),
+        "standard.terminal.chords" => Some(TERMINAL_CHORD_FUNCTIONS),
+        "standard.testing.terminal" => Some(TERMINAL_TESTING_FUNCTIONS),
+        _ => None,
+    }
+}
+
+/// Return whether a module/symbol pair belongs to the gated terminal proposal.
+pub(super) fn contains_function(module_path: &str, symbol_name: &str) -> bool {
+    terminal_proposal_specs(module_path)
+        .is_some_and(|specs| specs.iter().any(|spec| spec.name == symbol_name))
+}
+
+/// Return whether a symbol name is any registered gated terminal proposal function.
+pub(super) fn contains_function_name(symbol_name: &str) -> bool {
+    CORE_PREREQUISITE_FUNCTIONS
+        .iter()
+        .chain(SELECTED_TERMINAL_FUNCTIONS)
+        .chain(TERMINAL_CHORD_FUNCTIONS)
+        .chain(TERMINAL_TESTING_FUNCTIONS)
+        .any(|spec| spec.name == symbol_name)
+}
+
 /// Add gated proposal function symbols to a parsed terminal proposal interface.
 pub(super) fn register_terminal_proposal_symbols(interface: &mut ModuleInterface) {
-    let specs = match interface.module_path.as_str() {
-        "standard.system" => CORE_PREREQUISITE_FUNCTIONS,
-        "standard.terminal" => SELECTED_TERMINAL_FUNCTIONS,
-        "standard.terminal.chords" => TERMINAL_CHORD_FUNCTIONS,
-        "standard.testing.terminal" => TERMINAL_TESTING_FUNCTIONS,
-        _ => return,
+    let Some(specs) = terminal_proposal_specs(interface.module_path.as_str()) else {
+        return;
     };
 
     for spec in specs {
