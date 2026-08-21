@@ -216,3 +216,9 @@
 ## Task 19 bounded cancellation follow-up - 2026-08-21
 - The no-lost-wake cancellation fix does not need a wait-set-local retained predicate. It is enough for `CancellationSource::request()` to set the source/token request sequence, lock and release each watched wait set's predicate mutex, then notify the condvar.
 - `CancellationToken::request_sequence()` remains the sole sticky cancellation predicate; wait-set state should only retain ready work and registration/fairness state.
+
+
+## Task 20 affine monotonic timers - 2026-08-21
+- Timer deadlines integrate cleanly by storing `SourceAvailability::TimerDeadline` on the existing opaque `SystemReadinessSource`; wait sets only need the minimum `Condvar::wait_timeout` duration and no scheduler thread.
+- Generation exhaustion must preflight before state mutation. Tests should cover both armed and disarmed `u64::MAX` states so retries return the same payload and preserve the prior source generation/readiness.
+- The stdlib facade can stay a thin Rust `standard.system` prerequisite layer around runtime types; no type-system/codegen exposure is needed until later public terminal adoption tasks.

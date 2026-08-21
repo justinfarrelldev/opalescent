@@ -109,3 +109,9 @@
 ## Task 19 bounded cancellation follow-up findings - 2026-08-21
 - Recording cancellation generations in `WaitSetState` fixes the blocked-wait race but violates the plan-wide no-unbounded-retention guardrail. Prefer synchronization-only handshakes for condvar lost-wake prevention.
 - Evidence must be refreshed after design follow-ups; stale wording that mentions retained cancellation records can fail review even when code and tests are green.
+
+
+## Task 20 Atlas retry findings - 2026-08-21
+- Broad `cargo test time` filtering matched unrelated timeout/process/runtime tests and tempted `serial_test` scope creep. Use the required targeted command `cargo test --features integration --test integration_e2e -- time_stdlib --nocapture` instead, and keep `src/bounded_proc.rs`, `src/compiler/tests.rs`, and `src/runtime/tests.rs` untouched for Task 20.
+- Strict lint rejects `pub(crate)` items inside private modules and renamed `fmt` parameters; for private helper modules, use plain `pub` internally while preserving restricted outer re-exports.
+- Required `.sisyphus/evidence/task-20-timer*.txt` files are ignored by default and need force-add during the focused Task 20 commit.
