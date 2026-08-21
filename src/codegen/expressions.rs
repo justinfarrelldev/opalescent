@@ -68,12 +68,13 @@ pub struct UsingCleanupTransfer {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UsingCleanupObligation {
+pub struct UsingCleanupObligation<'context> {
     pub binding_name: String,
     pub cleanup_operation: String,
     pub cleanup_errors: Vec<String>,
     pub transfer: Option<UsingCleanupTransfer>,
     pub consumed: bool,
+    pub runtime_consumed_flag: Option<PointerValue<'context>>,
 }
 
 #[derive(Debug, Clone)]
@@ -108,7 +109,7 @@ pub struct CodegenEnv<'context> {
     /// registered here via `register_scope_binding`, unless the entry is explicitly a
     /// function/global/non-owned binding that should not participate in scope-exit cleanup.
     pub scope_stack: Vec<Vec<String>>,
-    pub using_cleanup_obligations: Vec<UsingCleanupObligation>,
+    pub using_cleanup_obligations: Vec<UsingCleanupObligation<'context>>,
     pub loop_stack: Vec<LoopContext<'context>>,
     pub active_guard_error_slots: Vec<PointerValue<'context>>,
     pub debug_mode: bool,

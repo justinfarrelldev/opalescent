@@ -72,6 +72,7 @@ impl<'context> CodegenEnv<'context> {
                     }
                 }),
                 consumed: false,
+                runtime_consumed_flag: None,
             });
     }
 
@@ -84,6 +85,58 @@ impl<'context> CodegenEnv<'context> {
         {
             obligation.consumed = true;
         }
+    }
+
+    pub fn set_using_cleanup_runtime_consumed_flag(
+        &mut self,
+        binding_name: &str,
+        flag: inkwell::values::PointerValue<'context>,
+    ) {
+        if let Some(obligation) = self
+            .using_cleanup_obligations
+            .iter_mut()
+            .rev()
+            .find(|obligation| obligation.binding_name == binding_name)
+        {
+            obligation.runtime_consumed_flag = Some(flag);
+        }
+    }
+
+    fn enter_using_cleanup_runtime_guard(
+        &mut self,
+        codegen_context: &CodegenContext<'context>,
+        flag: inkwell::values::PointerValue<'context>,
+    ) -> Result<inkwell::basic_block::BasicBlock<'context>, CodegenError> {
+        let current_block = codegen_context.builder.get_insert_block().ok_or_else(|| {
+            CodegenError::new(String::from("using cleanup missing insertion block"))
+        })?;
+        let current_fn = current_block.get_parent().ok_or_else(|| {
+            CodegenError::new(String::from("using cleanup missing current function"))
+        })?;
+        let cleanup_block = codegen_context
+            .context
+            .append_basic_block(current_fn, self.next_name("using.cleanup.run").as_str());
+        let skip_block = codegen_context
+            .context
+            .append_basic_block(current_fn, self.next_name("using.cleanup.skip").as_str());
+        let merge_block = codegen_context
+            .context
+            .append_basic_block(current_fn, self.next_name("using.cleanup.merge").as_str());
+        let consumed_flag = codegen_context
+            .builder
+            .build_load(flag, self.next_name("using.cleanup.consumed.load").as_str())?
+            .into_int_value();
+        codegen_context.builder.build_conditional_branch(
+            consumed_flag,
+            skip_block,
+            cleanup_block,
+        )?;
+        codegen_context.builder.position_at_end(skip_block);
+        codegen_context
+            .builder
+            .build_unconditional_branch(merge_block)?;
+        codegen_context.builder.position_at_end(cleanup_block);
+        Ok(merge_block)
     }
 
     fn release_using_cleanup_obligation(
@@ -122,6 +175,11 @@ impl<'context> CodegenEnv<'context> {
                 "using cleanup obligation '{name}' did not lower to an opaque resource pointer"
             )));
         }
+        let cleanup_merge = obligation
+            .runtime_consumed_flag
+            .map(|flag| self.enter_using_cleanup_runtime_guard(codegen_context, flag))
+            .transpose()?;
+
         let cleanup_fn = declare_using_cleanup_scaffold(
             codegen_context,
             obligation.cleanup_operation.as_str(),
@@ -174,6 +232,12 @@ impl<'context> CodegenEnv<'context> {
                     .builder
                     .build_store(error_slot, selected_error)?;
             }
+        }
+        if let Some(merge_block) = cleanup_merge {
+            codegen_context
+                .builder
+                .build_unconditional_branch(merge_block)?;
+            codegen_context.builder.position_at_end(merge_block);
         }
         Ok(())
     }

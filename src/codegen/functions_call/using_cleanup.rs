@@ -29,6 +29,37 @@ pub(super) fn consume_using_cleanup_obligation_after_success<'context>(
     env.consume_using_cleanup_obligation(binding_name.as_str());
 }
 
+pub(super) fn prepare_using_cleanup_success_flag<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    callee: &Expr,
+    args: &[Expr],
+) -> Result<Option<PointerValue<'context>>, CodegenError> {
+    let Some(binding_name) = using_cleanup_close_binding(env, callee, args) else {
+        return Ok(None);
+    };
+    let flag = codegen_context.builder.build_alloca(
+        codegen_context.context.bool_type(),
+        env.next_name("using.cleanup.consumed").as_str(),
+    )?;
+    codegen_context
+        .builder
+        .build_store(flag, codegen_context.context.bool_type().const_zero())?;
+    env.set_using_cleanup_runtime_consumed_flag(binding_name.as_str(), flag);
+    Ok(Some(flag))
+}
+
+pub(super) fn mark_using_cleanup_success<'context>(
+    codegen_context: &CodegenContext<'context>,
+    flag: PointerValue<'context>,
+) -> Result<(), CodegenError> {
+    codegen_context.builder.build_store(
+        flag,
+        codegen_context.context.bool_type().const_int(1, false),
+    )?;
+    Ok(())
+}
+
 pub(super) fn using_cleanup_close_binding<'context>(
     env: &CodegenEnv<'context>,
     callee: &Expr,

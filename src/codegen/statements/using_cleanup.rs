@@ -2,12 +2,12 @@
 
 extern crate alloc;
 
-use crate::ast::{Expr, LetBinding, Stmt};
+use crate::ast::{BorrowKind, Expr, LetBinding, Stmt};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
 use crate::type_system::types::CoreType;
-use alloc::format;
+use alloc::{format, string::String};
 
 /// Lower `using` as a lexical scope-bound acquisition.
 pub(super) fn codegen_using_statement<'context>(
@@ -36,6 +36,76 @@ pub(super) fn codegen_using_statement<'context>(
         super::unwind_scope_without_cleanup(env);
     }
     Ok(())
+}
+
+pub(super) fn prepare_using_cleanup_success_flag<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    expression: &Expr,
+) -> Result<Option<inkwell::values::PointerValue<'context>>, CodegenError> {
+    let Some(binding_name) = using_cleanup_close_binding(env, expression) else {
+        return Ok(None);
+    };
+    let flag = codegen_context.builder.build_alloca(
+        codegen_context.context.bool_type(),
+        env.next_name("using.cleanup.consumed").as_str(),
+    )?;
+    codegen_context
+        .builder
+        .build_store(flag, codegen_context.context.bool_type().const_zero())?;
+    env.set_using_cleanup_runtime_consumed_flag(binding_name.as_str(), flag);
+    Ok(Some(flag))
+}
+
+pub(super) fn mark_using_cleanup_success<'context>(
+    codegen_context: &CodegenContext<'context>,
+    flag: inkwell::values::PointerValue<'context>,
+) -> Result<(), CodegenError> {
+    codegen_context.builder.build_store(
+        flag,
+        codegen_context.context.bool_type().const_int(1, false),
+    )?;
+    Ok(())
+}
+
+fn using_cleanup_close_binding<'context>(
+    env: &CodegenEnv<'context>,
+    expression: &Expr,
+) -> Option<String> {
+    let Expr::Call {
+        ref callee,
+        ref args,
+        ..
+    } = *expression
+    else {
+        return None;
+    };
+    let Expr::Identifier { ref name, .. } = **callee else {
+        return None;
+    };
+    let runtime_name = env
+        .imported_functions
+        .get(name.as_str())
+        .map_or_else(|| name.as_str(), String::as_str);
+    if runtime_name != "terminal_session_close_sync" {
+        return None;
+    }
+    let Some(Expr::BorrowArgument {
+        target,
+        borrow_kind: BorrowKind::MutableRef,
+        ..
+    }) = args.first()
+    else {
+        return None;
+    };
+    let Expr::Identifier {
+        name: ref binding_name,
+        ..
+    } = **target
+    else {
+        return None;
+    };
+    Some(binding_name.clone())
 }
 
 fn register_using_cleanup_obligation<'context>(

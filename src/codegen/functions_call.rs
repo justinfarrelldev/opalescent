@@ -57,7 +57,9 @@ use self::string_array_calls::{
 use self::tail::declare_external_imported_function;
 use self::using_cleanup::{
     build_error_variant_match, consume_using_cleanup_obligation_after_success,
-    emit_cleanup_aware_error_return, using_cleanup_close_binding, using_cleanup_transfer_variant,
+    emit_cleanup_aware_error_return, mark_using_cleanup_success,
+    prepare_using_cleanup_success_flag, using_cleanup_close_binding,
+    using_cleanup_transfer_variant,
 };
 
 pub fn build_function_type<'context>(
@@ -850,6 +852,21 @@ pub fn codegen_guard_expression<'context>(
                     .context
                     .append_basic_block(current_fn, env.next_name("guard.expr.merge").as_str());
                 let error_ptr = error_value.into_pointer_value();
+                let using_cleanup_success_flag = if let Expr::Call {
+                    ref callee,
+                    ref args,
+                    ..
+                } = *guarded_expr
+                {
+                    prepare_using_cleanup_success_flag(
+                        codegen_context,
+                        env,
+                        callee.as_ref(),
+                        args.as_slice(),
+                    )?
+                } else {
+                    None
+                };
                 let is_success = codegen_context
                     .builder
                     .build_is_null(error_ptr, env.next_name("guard.expr.is_success").as_str())?;
@@ -860,6 +877,9 @@ pub fn codegen_guard_expression<'context>(
                 )?;
 
                 codegen_context.builder.position_at_end(success_block);
+                if let Some(flag) = using_cleanup_success_flag {
+                    mark_using_cleanup_success(codegen_context, flag)?;
+                }
                 codegen_context
                     .builder
                     .build_store(binding_alloca, success_value)?;

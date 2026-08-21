@@ -4754,6 +4754,173 @@ fn using_cleanup_propagate_close_consumes_only_success_and_transfers_exact_error
 }
 
 #[test]
+fn using_cleanup_guard_statement_close_uses_success_flag_for_lexical_cleanup() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "using_cleanup_guard_stmt_close");
+    let i8_ptr = context.i8_type().ptr_type(AddressSpace::default());
+    let result_type = context.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+    let close_type = result_type.fn_type(&[i8_ptr.into()], false);
+    codegen_context
+        .module
+        .add_function("terminal_session_close_sync", close_type, None);
+    let function_type = context.void_type().fn_type(&[], false);
+    let function = codegen_context.module.add_function(
+        "using_cleanup_guard_stmt_close_fn",
+        function_type,
+        None,
+    );
+    let entry = context.append_basic_block(function, "entry");
+    codegen_context.builder.position_at_end(entry);
+    let mut env = CodegenEnv::new(true);
+    let _scope = env.enter_scope();
+    seed_using_cleanup_resource(
+        &context,
+        &codegen_context,
+        &mut env,
+        "session",
+        "terminal_session_close_sync",
+        &["TerminalSessionRestoreError"],
+        Some((
+            "terminal_session_close_sync",
+            "TerminalSessionRestoreError",
+            "CloseRestorePending",
+        )),
+    );
+
+    let close_call = call_expr(
+        46_100,
+        ident(46_101, "terminal_session_close_sync"),
+        vec![Expr::BorrowArgument {
+            target: Box::new(ident(46_102, "session")),
+            borrow_kind: BorrowKind::MutableRef,
+            span: test_span(),
+            id: test_node_id(46_103),
+        }],
+    );
+    let guard = Stmt::Guard {
+        expression: Box::new(close_call),
+        success_binding: None,
+        success_binding_type: None,
+        success_binding_is_mutable: false,
+        success_bindings: Vec::new(),
+        error_binding: String::from("close_error"),
+        else_body: Box::new(Stmt::Block {
+            statements: Vec::new(),
+            span: test_span(),
+            id: test_node_id(46_104),
+        }),
+        span: test_span(),
+        id: test_node_id(46_105),
+    };
+
+    codegen_statement(&codegen_context, &mut env, &guard)
+        .expect("guard statement close should lower");
+    crate::codegen::scope_tracker::cleanup_return_scopes_preserving_codegen_env(
+        &codegen_context,
+        &mut env,
+        &[],
+    )
+    .expect("lexical cleanup after guarded close should lower");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("using.cleanup.consumed"),
+        "guard close success must record a runtime consumed flag: {ir}"
+    );
+    assert!(
+        ir.contains("using.cleanup.skip") && ir.contains("using.cleanup.run"),
+        "lexical cleanup must branch on the guarded close success flag: {ir}"
+    );
+    assert_eq!(
+        ir.matches("call i8* @__opal_using_cleanup_terminal_session_close_sync")
+            .count(),
+        1,
+        "failed guarded close paths must retain one lexical cleanup while success skips duplicate cleanup: {ir}"
+    );
+}
+
+#[test]
+fn using_cleanup_guard_expression_close_uses_success_flag_for_lexical_cleanup() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "using_cleanup_guard_expr_close");
+    let i8_ptr = context.i8_type().ptr_type(AddressSpace::default());
+    let result_type = context.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+    let close_type = result_type.fn_type(&[i8_ptr.into()], false);
+    codegen_context
+        .module
+        .add_function("terminal_session_close_sync", close_type, None);
+    let function_type = i8_ptr.fn_type(&[], false);
+    let function = codegen_context.module.add_function(
+        "using_cleanup_guard_expr_close_fn",
+        function_type,
+        None,
+    );
+    let entry = context.append_basic_block(function, "entry");
+    codegen_context.builder.position_at_end(entry);
+    let mut env = CodegenEnv::new(true);
+    let _scope = env.enter_scope();
+    seed_using_cleanup_resource(
+        &context,
+        &codegen_context,
+        &mut env,
+        "session",
+        "terminal_session_close_sync",
+        &["TerminalSessionRestoreError"],
+        Some((
+            "terminal_session_close_sync",
+            "TerminalSessionRestoreError",
+            "CloseRestorePending",
+        )),
+    );
+
+    let close_call = call_expr(
+        46_200,
+        ident(46_201, "terminal_session_close_sync"),
+        vec![Expr::BorrowArgument {
+            target: Box::new(ident(46_202, "session")),
+            borrow_kind: BorrowKind::MutableRef,
+            span: test_span(),
+            id: test_node_id(46_203),
+        }],
+    );
+    let _guard_value = codegen_guard_expression(
+        &codegen_context,
+        &mut env,
+        &close_call,
+        "closed_session",
+        &Stmt::Expression {
+            expr: ident(46_204, "session"),
+            span: test_span(),
+            id: test_node_id(46_205),
+        },
+        None,
+    )
+    .expect("guard expression close should lower");
+    crate::codegen::scope_tracker::cleanup_return_scopes_preserving_codegen_env(
+        &codegen_context,
+        &mut env,
+        &[],
+    )
+    .expect("lexical cleanup after guard expression close should lower");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("using.cleanup.consumed"),
+        "guard expression close success must record a runtime consumed flag: {ir}"
+    );
+    assert!(
+        ir.contains("using.cleanup.skip") && ir.contains("using.cleanup.run"),
+        "lexical cleanup must remain active for guard expression fallback paths: {ir}"
+    );
+    assert_eq!(
+        ir.matches("call i8* @__opal_using_cleanup_terminal_session_close_sync")
+            .count(),
+        1,
+        "guard expression fallback paths must retain one lexical cleanup while success skips duplicate cleanup: {ir}"
+    );
+}
+
+#[test]
 fn using_cleanup_error_result_is_observed_as_primary_candidate() {
     let context = Context::create();
     let codegen_context = CodegenContext::new(&context, "using_cleanup_error_observed");
