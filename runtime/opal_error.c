@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(OPAL_ENABLE_INTERNAL_TESTING)
+#include "opal_test_alloc.h"
+#endif
+
 #define OPAL_ERROR_MAX_CAUSE_DEPTH 8
 #define OPAL_ERROR_MAX_SUPPRESSED 8
 #define OPAL_ERROR_MAX_BYTES 65536u

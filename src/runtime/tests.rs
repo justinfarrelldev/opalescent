@@ -1608,10 +1608,12 @@ fn compile_and_run_error_attachment_c_test(test_name: &str, source: &str) {
         .args([
             "-std=c11",
             "-D_POSIX_C_SOURCE=200809L",
+            "-DOPAL_ENABLE_INTERNAL_TESTING",
             "-Wall",
             "-Wextra",
             "-Werror",
             source_path.to_str().expect("utf-8 source path"),
+            "runtime/opal_rc.c",
             "runtime/opal_error.c",
             "-Iruntime",
             "-o",
@@ -1736,6 +1738,66 @@ int main(void) {
     FsStringResult negative = error_suppressed_at(with_suppressed, -1);
     if (negative.error == NULL || strcmp(negative.error, "IndexOutOfBoundsError") != 0) {
         return fail("suppressed inspector should reject negative indexes");
+    }
+    return 0;
+}
+"#,
+    );
+}
+
+#[test]
+fn error_attachment_allocation_failure_preserves_aliases_and_marks_bytes() {
+    compile_and_run_error_attachment_c_test(
+        "error_attachment_allocation_failure_preserves_aliases_and_marks_bytes",
+        r#"
+#include "opal_runtime.h"
+#include "opal_test_alloc.h"
+#include <stdio.h>
+#include <string.h>
+
+static int fail(const char* message) {
+    fprintf(stderr, "%s\n", message);
+    return 1;
+}
+
+int main(void) {
+    char* primary = opal_error_new("PrimaryError");
+    char* first = opal_error_new("FirstCauseError");
+    char* second = opal_error_new("SecondCauseError");
+    char* with_cause = opal_error_attach_cause(primary, first);
+
+    opal_test_fail_next_allocation_for_test();
+    char* allocation_limited = opal_error_attach_cause(with_cause, second);
+    if (allocation_limited == with_cause) {
+        return fail("allocation-limited attachment should return a distinct marker alias");
+    }
+
+    FsStringResult original_cause = error_cause(with_cause);
+    if (original_cause.error != NULL || original_cause.value != first) {
+        return fail("allocation failure must not mutate existing immediate cause");
+    }
+    if (error_suppressed_length(with_cause) != 0) {
+        return fail("allocation failure must not mutate existing suppressed edges");
+    }
+    if (error_suppressed_length(allocation_limited) != 0) {
+        return fail("allocation-limited clone should not invent suppressed edges");
+    }
+
+    OpalErrorTruncation* truncation = error_attachment_truncation(allocation_limited);
+    if (!error_attachment_truncation_bytes(truncation)) {
+        return fail("allocation-limited attachment should set the bytes truncation marker");
+    }
+    if (error_attachment_truncation_cause_depth(truncation)
+        || error_attachment_truncation_suppressed_count(truncation)) {
+        return fail("allocation-limited attachment should only set the bytes marker");
+    }
+
+    char* with_suppressed = opal_error_attach_cause(with_cause, second);
+    if (error_suppressed_length(with_suppressed) != 1) {
+        return fail("one-shot allocation failure should be consumed before the next attachment");
+    }
+    if (error_suppressed_length(with_cause) != 0) {
+        return fail("successful retry must still preserve the original alias");
     }
     return 0;
 }
