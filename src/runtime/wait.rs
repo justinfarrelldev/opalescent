@@ -13,14 +13,22 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex, MutexGuard};
+use std::time::Duration;
 
 #[path = "wait/cancellation.rs"]
 mod cancellation;
 #[path = "wait/fairness.rs"]
 mod fairness;
+#[path = "wait/source.rs"]
+mod source;
 
 pub use cancellation::{CancellationSource, CancellationToken};
-use fairness::{adjust_cursor_after_remove, select_level_ready_wake, select_pending_wake};
+use fairness::{
+    adjust_cursor_after_remove, next_timer_wait_duration, select_level_ready_wake,
+    select_pending_wake,
+};
+pub use source::SystemReadinessSource;
+pub(crate) use source::{SourceAvailability, SourceWakePublication};
 
 /// Monotonic identity source for readiness sources.
 static NEXT_SOURCE_ID: AtomicU64 = AtomicU64::new(1);
@@ -59,6 +67,18 @@ fn wait_or_recover<'state, T>(
     match condvar.wait(guard) {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),
+    }
+}
+
+/// Wait on a condition variable with a timeout and recover from poisoning.
+fn wait_timeout_or_recover<'state, T>(
+    condvar: &Condvar,
+    guard: MutexGuard<'state, T>,
+    duration: Duration,
+) -> MutexGuard<'state, T> {
+    match condvar.wait_timeout(guard, duration) {
+        Ok((guard, _timeout_result)) => guard,
+        Err(poisoned) => poisoned.into_inner().0,
     }
 }
 
@@ -102,227 +122,6 @@ pub enum SystemReadyWakeStatus {
     StaleGeneration,
     /// The source generation still matches, but the level condition is no longer ready.
     StaleReadiness,
-}
-
-/// Observable readiness after a source transition.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "later timer/process/terminal sources publish generic readiness transitions"
-    )
-)]
-pub(crate) enum SourceAvailability {
-    /// The source's level condition is ready.
-    Ready,
-    /// The source transitioned but is not level-ready.
-    Idle,
-}
-
-impl SourceAvailability {
-    /// Return whether this availability is level-ready.
-    const fn is_ready(self) -> bool {
-        matches!(self, Self::Ready)
-    }
-}
-
-/// Cloneable, host-stable readiness source identity.
-#[derive(Clone)]
-pub struct SystemReadinessSource {
-    /// Shared source state retained by clones and live registrations.
-    inner: Arc<ReadinessSourceInner>,
-}
-
-impl SystemReadinessSource {
-    /// Create a new host-opaque readiness source for runtime subsystems.
-    #[must_use]
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "later runtime source implementations allocate identities through this crate-internal hook"
-        )
-    )]
-    pub(crate) fn new() -> Self {
-        Self {
-            inner: Arc::new(ReadinessSourceInner {
-                id: next_identity(&NEXT_SOURCE_ID),
-                state: Mutex::new(ReadinessSourceState::default()),
-            }),
-        }
-    }
-
-    /// Return whether two handles name the same stable source identity.
-    #[must_use]
-    #[expect(
-        clippy::missing_const_for_fn,
-        reason = "Arc deref in this identity comparison is not accepted as const on the current toolchain"
-    )]
-    pub fn is_same_identity(&self, other: &Self) -> bool {
-        self.inner.id == other.inner.id
-    }
-
-    /// Return the source's current generation.
-    #[must_use]
-    pub fn generation(&self) -> u64 {
-        lock_or_recover(&self.inner.state).generation
-    }
-
-    /// Validate `generation` against the source's current observable state.
-    #[must_use]
-    pub fn readiness_status_for_generation(&self, generation: u64) -> SystemReadyWakeStatus {
-        let state = lock_or_recover(&self.inner.state);
-        if state.generation != generation {
-            return SystemReadyWakeStatus::StaleGeneration;
-        }
-        if state.level_ready {
-            SystemReadyWakeStatus::Current
-        } else {
-            SystemReadyWakeStatus::StaleReadiness
-        }
-    }
-
-    /// Publish a transition and wake every currently registered wait set.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "later runtime source implementations publish readiness through this hook"
-        )
-    )]
-    pub(crate) fn publish_transition(&self, availability: SourceAvailability) -> u64 {
-        let (generation, sequence, wait_sets) = {
-            let mut state = lock_or_recover(&self.inner.state);
-            state.generation = state.generation.saturating_add(1);
-            state.level_ready = availability.is_ready();
-            let sequence = next_event_sequence();
-            let mut wait_sets = Vec::new();
-            state.registered_wait_sets.retain(|candidate| {
-                candidate.wait_set.upgrade().is_some_and(|wait_set| {
-                    wait_sets.push(wait_set);
-                    true
-                })
-            });
-            (state.generation, sequence, wait_sets)
-        };
-
-        for wait_set in wait_sets {
-            wait_set.enqueue_transition(self, generation, sequence);
-        }
-        generation
-    }
-
-    /// Return the generation when the source is currently level-ready.
-    fn current_ready_generation(&self) -> Option<u64> {
-        let state = lock_or_recover(&self.inner.state);
-        state.level_ready.then_some(state.generation)
-    }
-
-    /// Record one live wait-set registration retaining this source.
-    fn retain_registration(&self, wait_set: &Arc<WaitSetInner>) {
-        let mut state = lock_or_recover(&self.inner.state);
-        state.registration_retain_count = state.registration_retain_count.saturating_add(1);
-        let wait_set_id = wait_set.id;
-        let mut retained_existing = false;
-        for registered in &mut state.registered_wait_sets {
-            let Some(registered_wait_set) = registered.wait_set.upgrade() else {
-                continue;
-            };
-            if registered_wait_set.id == wait_set_id {
-                registered.registration_count = registered.registration_count.saturating_add(1);
-                retained_existing = true;
-            }
-        }
-        state.registered_wait_sets.retain(|candidate| {
-            candidate.wait_set.upgrade().is_some_and(|registered| {
-                registered.id == wait_set_id || candidate.registration_count > 0
-            })
-        });
-        if !retained_existing {
-            state.registered_wait_sets.push(RegisteredWaitSet {
-                wait_set: Arc::downgrade(wait_set),
-                registration_count: 1,
-            });
-        }
-    }
-
-    /// Release one live wait-set registration retaining this source.
-    fn release_registration(&self, wait_set: &Arc<WaitSetInner>) {
-        let mut state = lock_or_recover(&self.inner.state);
-        state.registration_release_count = state.registration_release_count.saturating_add(1);
-        let wait_set_id = wait_set.id;
-        for registered in &mut state.registered_wait_sets {
-            let Some(registered_wait_set) = registered.wait_set.upgrade() else {
-                registered.registration_count = 0;
-                continue;
-            };
-            if registered_wait_set.id == wait_set_id {
-                registered.registration_count = registered.registration_count.saturating_sub(1);
-            }
-        }
-        state.registered_wait_sets.retain(|candidate| {
-            candidate.registration_count > 0 && candidate.wait_set.upgrade().is_some()
-        });
-    }
-
-    /// Return the number of registration retains observed by tests.
-    #[cfg(test)]
-    pub(crate) fn registration_retain_count(&self) -> u64 {
-        lock_or_recover(&self.inner.state).registration_retain_count
-    }
-
-    /// Return the number of registration releases observed by tests.
-    #[cfg(test)]
-    pub(crate) fn registration_release_count(&self) -> u64 {
-        lock_or_recover(&self.inner.state).registration_release_count
-    }
-}
-
-impl fmt::Debug for SystemReadinessSource {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SystemReadinessSource")
-            .finish_non_exhaustive()
-    }
-}
-
-impl PartialEq for SystemReadinessSource {
-    fn eq(&self, other: &Self) -> bool {
-        self.is_same_identity(other)
-    }
-}
-
-impl Eq for SystemReadinessSource {}
-
-/// Shared readiness-source state.
-struct ReadinessSourceInner {
-    /// Stable source identity.
-    id: u64,
-    /// Mutable source readiness state.
-    state: Mutex<ReadinessSourceState>,
-}
-
-/// A wait set currently subscribed to source transitions.
-struct RegisteredWaitSet {
-    /// Weak wait-set identity.
-    wait_set: Weak<WaitSetInner>,
-    /// Number of live registrations in that wait set targeting this source.
-    registration_count: u64,
-}
-
-/// Mutable readiness-source state guarded by [`ReadinessSourceInner::state`].
-#[derive(Default)]
-struct ReadinessSourceState {
-    /// Current generation, incremented on every published transition.
-    generation: u64,
-    /// Whether the source is currently level-ready.
-    level_ready: bool,
-    /// Wait sets that have at least one live registration for this source.
-    registered_wait_sets: Vec<RegisteredWaitSet>,
-    /// Number of registration retains, used by deterministic tests.
-    registration_retain_count: u64,
-    /// Number of registration releases, used by deterministic tests.
-    registration_release_count: u64,
 }
 
 /// A sealed ordinary registration authority for one wait-set entry.
@@ -398,7 +197,7 @@ impl SystemOwnedWaitRegistration {
         if snapshot.removed {
             return Err(SystemWaitSetError::RegistrationLifetimeInvalid);
         }
-        if snapshot.current_source_id == source.inner.id {
+        if snapshot.current_source_id == source.identity_for_wait_set() {
             return Ok(());
         }
 
@@ -408,7 +207,7 @@ impl SystemOwnedWaitRegistration {
         };
         source.retain_registration(&owner);
         old_source.release_registration(&owner);
-        lock_or_recover(&self.authority).current_source_id = source.inner.id;
+        lock_or_recover(&self.authority).current_source_id = source.identity_for_wait_set();
         Ok(())
     }
 
@@ -618,7 +417,7 @@ impl SystemWaitSet {
             auth_secret: self.inner.auth_secret,
             owner: Arc::downgrade(&self.inner),
             removed: false,
-            current_source_id: source.inner.id,
+            current_source_id: source.identity_for_wait_set(),
         }));
         self.inner.push_entry(WaitSetEntry {
             registration_id,
@@ -661,7 +460,14 @@ impl SystemWaitSet {
                 return Ok(wake);
             }
 
-            state = wait_or_recover(&self.inner.ready_changed, state);
+            if let Some(duration) = next_timer_wait_duration(&state) {
+                if duration.is_zero() {
+                    continue;
+                }
+                state = wait_timeout_or_recover(&self.inner.ready_changed, state, duration);
+            } else {
+                state = wait_or_recover(&self.inner.ready_changed, state);
+            }
         }
     }
 }
@@ -750,6 +556,16 @@ impl WaitSetInner {
         }
         drop(state);
         if queued_any {
+            self.ready_changed.notify_all();
+        }
+    }
+
+    /// Notify waiters after a source predicate changes without queueing a wake.
+    fn notify_source_state_change(&self) {
+        let state = lock_or_recover(&self.state);
+        let should_notify = !state.destroyed;
+        drop(state);
+        if should_notify {
             self.ready_changed.notify_all();
         }
     }

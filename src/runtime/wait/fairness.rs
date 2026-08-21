@@ -1,5 +1,7 @@
 //! Bounded-fair wait-set cursor and selection helpers.
 
+use std::time::Duration;
+
 use super::{SystemWaitWake, WaitSetState};
 
 /// Adjust the fairness cursor after removing `removed_index`.
@@ -61,6 +63,15 @@ pub(super) fn select_level_ready_wake(state: &mut WaitSetState) -> Option<System
         });
     }
     None
+}
+
+/// Return the shortest real wait duration for registered timer-like sources.
+pub(super) fn next_timer_wait_duration(state: &WaitSetState) -> Option<Duration> {
+    state
+        .entries
+        .iter()
+        .filter_map(|entry| entry.source.wait_duration_until_ready())
+        .min()
 }
 
 /// Return `value` modulo nonzero `entry_count` using checked arithmetic.
