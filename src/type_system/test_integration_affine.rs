@@ -8,7 +8,7 @@ use crate::parser::Parser;
 use crate::token::{Position, Span};
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
-use alloc::string::String;
+use alloc::{format, string::String};
 
 /// Inject required doc comments for public/entry functions in inline test sources.
 fn with_required_function_docs(source: &str) -> String {
@@ -445,5 +445,153 @@ entry main = f(): void =>
     assert!(
         result.is_ok(),
         "inner non-borrow lambda should clear stale metadata and scope exit should restore outer metadata: {result:?}",
+    );
+}
+
+#[test]
+fn using_terminal_session_requires_acquisition_body_and_cleanup_errors() {
+    const VALID_SOURCE: &str = "
+import terminal_session_open_sync, terminal_session_size_sync from 'standard.terminal'
+import type TerminalSessionOpenError, TerminalSessionOptions, TerminalSessionReadError, TerminalSessionRestoreError, TerminalSessionStateError from 'standard.terminal'
+
+let run = f(options: TerminalSessionOptions): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionRestoreError, TerminalSessionStateError =>
+    using session = propagate terminal_session_open_sync(options):
+        let size = propagate terminal_session_size_sync(ref session)
+        return void
+
+entry main = f(): void =>
+    return void
+";
+    const MISSING_ACQUISITION_ERROR: &str = "
+import terminal_session_open_sync from 'standard.terminal'
+import type TerminalSessionOptions, TerminalSessionRestoreError from 'standard.terminal'
+
+let run = f(options: TerminalSessionOptions): void errors TerminalSessionRestoreError =>
+    using session = propagate terminal_session_open_sync(options):
+        return void
+
+entry main = f(): void =>
+    return void
+";
+    const MISSING_BODY_ERROR: &str = "
+import terminal_session_open_sync, terminal_session_size_sync from 'standard.terminal'
+import type TerminalSessionOpenError, TerminalSessionOptions, TerminalSessionRestoreError from 'standard.terminal'
+
+let run = f(options: TerminalSessionOptions): void errors TerminalSessionOpenError, TerminalSessionRestoreError =>
+    using session = propagate terminal_session_open_sync(options):
+        let size = propagate terminal_session_size_sync(ref session)
+        return void
+
+entry main = f(): void =>
+    return void
+";
+    const MISSING_CLEANUP_ERROR: &str = "
+import terminal_session_open_sync from 'standard.terminal'
+import type TerminalSessionOpenError, TerminalSessionOptions from 'standard.terminal'
+
+let run = f(options: TerminalSessionOptions): void errors TerminalSessionOpenError =>
+    using session = propagate terminal_session_open_sync(options):
+        return void
+
+entry main = f(): void =>
+    return void
+";
+
+    assert!(
+        type_check_terminal_source(VALID_SOURCE).is_ok(),
+        "using must accept acquisition, body, and cleanup errors when all are declared",
+    );
+    for (source, expected_error) in [
+        (MISSING_ACQUISITION_ERROR, "TerminalSessionOpenError"),
+        (MISSING_BODY_ERROR, "TerminalSessionReadError"),
+        (MISSING_CLEANUP_ERROR, "TerminalSessionRestoreError"),
+    ] {
+        let errors = type_check_terminal_source(source)
+            .expect_err("omitting any using error family should be rejected");
+        let rendered_errors = format!("{errors:?}");
+        assert!(
+            rendered_errors.contains(expected_error),
+            "expected using diagnostic to mention {expected_error}, got {errors:?}",
+        );
+    }
+}
+
+#[test]
+fn using_infallible_cleanup_resources_need_no_extra_errors() {
+    const SOURCE: &str = "
+import system_wait_set_new from 'standard.system'
+
+let run = f(): void errors AllocationFailureError =>
+    using wait_set = propagate system_wait_set_new():
+        return void
+
+entry main = f(): void =>
+    return void
+";
+
+    let result = type_check_terminal_source(SOURCE);
+    assert!(
+        result.is_ok(),
+        "infallible compiler-only cleanup must not require an extra errors clause: {result:?}",
+    );
+}
+
+#[test]
+fn using_rejects_affine_resource_without_cleanup_registration() {
+    const SOURCE: &str = "
+public compiler_registered affine resource type LocalResource
+
+let run = f(resource: LocalResource): void =>
+    using local = resource:
+        return void
+
+entry main = f(): void =>
+    return void
+";
+
+    let errors = type_check_plain_source(SOURCE)
+        .expect_err("using a local affine resource without cleanup metadata should be rejected");
+    assert_error_reasons_contain(&errors, &["no declared using cleanup registration"]);
+}
+
+#[test]
+fn using_rejects_owner_escape_through_scope_exit_values() {
+    const SOURCE: &str = "
+import terminal_session_open_sync from 'standard.terminal'
+import type TerminalSession, TerminalSessionOpenError, TerminalSessionOptions, TerminalSessionRestoreError from 'standard.terminal'
+
+let return_session = f(options: TerminalSessionOptions): TerminalSession errors TerminalSessionOpenError, TerminalSessionRestoreError =>
+    using session = propagate terminal_session_open_sync(options):
+        return session
+
+entry main = f(): void =>
+    return void
+";
+
+    let errors = type_check_terminal_source(SOURCE)
+        .expect_err("using owner must not escape before cleanup or registered transfer");
+    assert_error_reasons_contain(&errors, &["escape through return"]);
+}
+
+#[test]
+fn using_explicit_close_keeps_binding_inspectable() {
+    const SOURCE: &str = "
+import terminal_session_close_sync, terminal_session_open_sync, terminal_session_state from 'standard.terminal'
+import type TerminalSessionOpenError, TerminalSessionOptions, TerminalSessionRestoreError from 'standard.terminal'
+
+let close_then_inspect = f(options: TerminalSessionOptions): void errors TerminalSessionOpenError, TerminalSessionRestoreError =>
+    using session = propagate terminal_session_open_sync(options):
+        let outcome = propagate terminal_session_close_sync(mutable ref session)
+        let state = terminal_session_state(ref session)
+        return void
+
+entry main = f(): void =>
+    return void
+";
+
+    let result = type_check_terminal_source(SOURCE);
+    assert!(
+        result.is_ok(),
+        "successful explicit close should consume cleanup obligation without moving the inspectable binding: {result:?}",
     );
 }
