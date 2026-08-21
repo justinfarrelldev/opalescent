@@ -209,7 +209,7 @@ pub(super) fn build_error_variant_match<'context>(
     )?)
 }
 
-pub(super) fn emit_cleanup_aware_error_return<'context>(
+pub fn emit_cleanup_aware_error_return<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     current_fn: FunctionValue<'context>,

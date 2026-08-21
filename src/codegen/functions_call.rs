@@ -62,10 +62,11 @@ use self::string_array_calls::{
     extract_error_abi_success_value, maybe_lower_specialized_string_array_call,
 };
 use self::tail::declare_external_imported_function;
+pub(crate) use self::using_cleanup::emit_cleanup_aware_error_return;
 use self::using_cleanup::{
     build_error_variant_match, consume_using_cleanup_obligation_after_success,
-    emit_cleanup_aware_error_return, mark_using_cleanup_success, mark_using_cleanup_transfer,
-    prepare_using_cleanup_success_flag, using_cleanup_close_transfer,
+    mark_using_cleanup_success, mark_using_cleanup_transfer, prepare_using_cleanup_success_flag,
+    using_cleanup_close_transfer,
 };
 
 pub fn build_function_type<'context>(

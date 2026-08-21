@@ -306,6 +306,9 @@ fn cleanup_registration_for_type(
             )),
         )),
         "TerminalChordRouter" => Some(("terminal_chord_router_drop", &[], None)),
+        "EditorChordRuntime" => Some(("editor_chord_runtime_close", &[], None)),
+        #[cfg(test)]
+        "TerminalAggregateFixture" => Some(("terminal_aggregate_fixture_close", &[], None)),
         "TerminalTestScenario" => Some(("terminal_test_scenario_drop", &[], None)),
         "TerminalTestBackendActivation" => {
             Some(("terminal_test_backend_activation_drop", &[], None))
