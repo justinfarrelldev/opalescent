@@ -4831,6 +4831,14 @@ fn using_cleanup_guard_statement_close_uses_success_flag_for_lexical_cleanup() {
         ir.contains("using.cleanup.skip") && ir.contains("using.cleanup.run"),
         "lexical cleanup must branch on the guarded close success flag: {ir}"
     );
+    assert!(
+        ir.contains("CloseRestorePending") && ir.contains("strcmp"),
+        "guard close failure must compare the exact registered transfer variant: {ir}"
+    );
+    assert!(
+        ir.contains("using.transfer.mark") && ir.contains("using.transfer.keep"),
+        "guard close failure must split transfer and ordinary failure cleanup paths: {ir}"
+    );
     assert_eq!(
         ir.matches("call i8* @__opal_using_cleanup_terminal_session_close_sync")
             .count(),
@@ -4911,6 +4919,14 @@ fn using_cleanup_guard_expression_close_uses_success_flag_for_lexical_cleanup() 
     assert!(
         ir.contains("using.cleanup.skip") && ir.contains("using.cleanup.run"),
         "lexical cleanup must remain active for guard expression fallback paths: {ir}"
+    );
+    assert!(
+        ir.contains("CloseRestorePending") && ir.contains("strcmp"),
+        "guard expression failure must compare the exact registered transfer variant: {ir}"
+    );
+    assert!(
+        ir.contains("using.transfer.mark") && ir.contains("using.transfer.keep"),
+        "guard expression failure must split transfer and ordinary fallback cleanup paths: {ir}"
     );
     assert_eq!(
         ir.matches("call i8* @__opal_using_cleanup_terminal_session_close_sync")

@@ -8,6 +8,9 @@ use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
 use crate::type_system::types::CoreType;
 use alloc::{format, string::String};
+use inkwell::AddressSpace;
+use inkwell::IntPredicate;
+use inkwell::values::{FunctionValue, IntValue, PointerValue};
 
 /// Lower `using` as a lexical scope-bound acquisition.
 pub(super) fn codegen_using_statement<'context>(
@@ -38,7 +41,7 @@ pub(super) fn codegen_using_statement<'context>(
     Ok(())
 }
 
-pub(super) fn prepare_using_cleanup_success_flag<'context>(
+pub(super) fn prepare_flag<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     expression: &Expr,
@@ -59,12 +62,97 @@ pub(super) fn prepare_using_cleanup_success_flag<'context>(
 
 pub(super) fn mark_using_cleanup_success<'context>(
     codegen_context: &CodegenContext<'context>,
-    flag: inkwell::values::PointerValue<'context>,
+    flag: PointerValue<'context>,
 ) -> Result<(), CodegenError> {
     codegen_context.builder.build_store(
         flag,
         codegen_context.context.bool_type().const_int(1, false),
     )?;
+    Ok(())
+}
+
+pub(super) fn mark_success<'context>(
+    codegen_context: &CodegenContext<'context>,
+    flag: Option<PointerValue<'context>>,
+) -> Result<(), CodegenError> {
+    if let Some(flag) = flag {
+        mark_using_cleanup_success(codegen_context, flag)?;
+    }
+    Ok(())
+}
+
+pub(super) fn using_cleanup_transfer_variant<'context>(
+    env: &CodegenEnv<'context>,
+    expression: &Expr,
+) -> Option<String> {
+    let binding_name = using_cleanup_close_binding(env, expression)?;
+    env.using_cleanup_obligations
+        .iter()
+        .rev()
+        .find(|obligation| obligation.binding_name == binding_name)
+        .and_then(|obligation| obligation.transfer.as_ref())
+        .filter(|transfer| {
+            transfer.operation == "terminal_session_close_sync"
+                && transfer.error_family == "TerminalSessionRestoreError"
+        })
+        .map(|transfer| transfer.variant.clone())
+}
+
+pub(super) fn mark_using_cleanup_transfer<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    error_ptr: PointerValue<'context>,
+    flag: PointerValue<'context>,
+    variant: &str,
+) -> Result<(), CodegenError> {
+    let current_block = codegen_context
+        .builder
+        .get_insert_block()
+        .ok_or_else(|| CodegenError::new(String::from("using transfer missing insertion block")))?;
+    let current_fn = current_block
+        .get_parent()
+        .ok_or_else(|| CodegenError::new(String::from("using transfer missing function")))?;
+    let transfer_block = codegen_context
+        .context
+        .append_basic_block(current_fn, env.next_name("using.transfer.mark").as_str());
+    let ordinary_block = codegen_context
+        .context
+        .append_basic_block(current_fn, env.next_name("using.transfer.keep").as_str());
+    let continue_block = codegen_context
+        .context
+        .append_basic_block(current_fn, env.next_name("using.transfer.cont").as_str());
+    let is_transfer = build_error_variant_match(codegen_context, env, error_ptr, variant)?;
+    codegen_context.builder.build_conditional_branch(
+        is_transfer,
+        transfer_block,
+        ordinary_block,
+    )?;
+    codegen_context.builder.position_at_end(transfer_block);
+    mark_using_cleanup_success(codegen_context, flag)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(continue_block)?;
+    codegen_context.builder.position_at_end(ordinary_block);
+    codegen_context
+        .builder
+        .build_unconditional_branch(continue_block)?;
+    codegen_context.builder.position_at_end(continue_block);
+    Ok(())
+}
+
+pub(super) fn mark_transfer<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    expression: &Expr,
+    error_ptr: PointerValue<'context>,
+    flag: Option<PointerValue<'context>>,
+) -> Result<(), CodegenError> {
+    let Some(flag) = flag else {
+        return Ok(());
+    };
+    if let Some(variant) = using_cleanup_transfer_variant(env, expression) {
+        mark_using_cleanup_transfer(codegen_context, env, error_ptr, flag, variant.as_str())?;
+    }
     Ok(())
 }
 
@@ -106,6 +194,54 @@ fn using_cleanup_close_binding<'context>(
         return None;
     };
     Some(binding_name.clone())
+}
+
+fn ensure_strcmp_function<'context>(
+    codegen_context: &CodegenContext<'context>,
+) -> FunctionValue<'context> {
+    if let Some(function) = codegen_context.module.get_function("strcmp") {
+        return function;
+    }
+    let i8_ptr = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    codegen_context.module.add_function(
+        "strcmp",
+        codegen_context
+            .context
+            .i32_type()
+            .fn_type(&[i8_ptr.into(), i8_ptr.into()], false),
+        None,
+    )
+}
+
+fn build_error_variant_match<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    error_ptr: PointerValue<'context>,
+    variant: &str,
+) -> Result<IntValue<'context>, CodegenError> {
+    let variant_ptr = codegen_context
+        .builder
+        .build_global_string_ptr(variant, env.next_name("using.transfer.variant").as_str())?
+        .as_pointer_value();
+    let strcmp_call = codegen_context.builder.build_call(
+        ensure_strcmp_function(codegen_context),
+        &[error_ptr.into(), variant_ptr.into()],
+        env.next_name("using.transfer.strcmp").as_str(),
+    )?;
+    let strcmp_result = strcmp_call
+        .try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("strcmp returned void")))?
+        .into_int_value();
+    Ok(codegen_context.builder.build_int_compare(
+        IntPredicate::EQ,
+        strcmp_result,
+        codegen_context.context.i32_type().const_zero(),
+        env.next_name("using.transfer.matches").as_str(),
+    )?)
 }
 
 fn register_using_cleanup_obligation<'context>(

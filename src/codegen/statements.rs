@@ -54,9 +54,7 @@ use self::inference::{
 use self::runtime_type_info::{
     infer_guard_success_core_type, known_guard_success_type, known_runtime_return_type,
 };
-use self::using_cleanup::{
-    codegen_using_statement, mark_using_cleanup_success, prepare_using_cleanup_success_flag,
-};
+use self::using_cleanup::{codegen_using_statement, mark_success, mark_transfer, prepare_flag};
 
 /// Lower one typed statement into LLVM IR side effects.
 pub fn codegen_statement<'context>(
@@ -981,8 +979,7 @@ fn codegen_guard_statement<'context>(
                 };
 
                 let error_ptr = error_value.into_pointer_value();
-                let using_cleanup_success_flag =
-                    prepare_using_cleanup_success_flag(codegen_context, env, expression)?;
+                let using_cleanup_success_flag = prepare_flag(codegen_context, env, expression)?;
                 let is_success = codegen_context
                     .builder
                     .build_is_null(error_ptr, env.next_name("guard.is_success").as_str())?;
@@ -993,9 +990,7 @@ fn codegen_guard_statement<'context>(
                 )?;
 
                 codegen_context.builder.position_at_end(success_block);
-                if let Some(flag) = using_cleanup_success_flag {
-                    mark_using_cleanup_success(codegen_context, flag)?;
-                }
+                mark_success(codegen_context, using_cleanup_success_flag)?;
                 if uses_multi_bindings {
                     for (index, success_slot) in success_slots.iter().enumerate() {
                         let success_value = codegen_context
@@ -1026,6 +1021,8 @@ fn codegen_guard_statement<'context>(
                 }
 
                 codegen_context.builder.position_at_end(else_block);
+                let cleanup_flag = using_cleanup_success_flag.as_ref().copied();
+                mark_transfer(codegen_context, env, expression, error_ptr, cleanup_flag)?;
                 let _else_scope_depth = env.enter_scope();
                 let error_alloca = codegen_context
                     .builder
