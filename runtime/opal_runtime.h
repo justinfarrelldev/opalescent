@@ -162,13 +162,39 @@ FsVoidResult terminal_move_cursor_sync(int32_t row, int32_t column);
 FsVoidResult sleep_ms_sync(int32_t milliseconds);
 FsFrameClockResult frame_clock_new(int32_t frames_per_second);
 FsVoidResult frame_clock_wait_next_sync(OpalFrameClock* clock);
+#ifndef OPAL_FS_STRING_RESULT_DEFINED
 typedef struct { char*      value; const char* error; } FsStringResult;
+#define OPAL_FS_STRING_RESULT_DEFINED 1
+#endif
+#ifndef OPAL_ERROR_TRUNCATION_DEFINED
+typedef struct OpalErrorTruncation {
+    int8_t cause_depth;
+    int8_t suppressed_count;
+    int8_t bytes;
+} OpalErrorTruncation;
+#define OPAL_ERROR_TRUNCATION_DEFINED 1
+#endif
+char* opal_error_new(const char* variant_name);
+char* opal_error_attach_cause(const char* primary, const char* cause);
+FsStringResult error_cause(const char* error_value);
+int64_t error_suppressed_length(const char* error_value);
+FsStringResult error_suppressed_at(const char* error_value, int64_t index);
+OpalErrorTruncation* error_attachment_truncation(const char* error_value);
+int8_t error_attachment_truncation_cause_depth(OpalErrorTruncation* truncation);
+int8_t error_attachment_truncation_suppressed_count(OpalErrorTruncation* truncation);
+int8_t error_attachment_truncation_bytes(OpalErrorTruncation* truncation);
 typedef struct { int8_t     value; const char* error; } FsBooleanResult;
 typedef struct { int32_t    value; const char* error; } FsInt32Result;
 typedef struct { int64_t    value; const char* error; } FsInt64Result;
 typedef struct { char*      value; const char* error; } FsPathResult;
 typedef struct { char**     value; int64_t count; const char* error; } FsPathArrayResult;
+#ifndef OPAL_FS_STRING_ARRAY_RESULT_DEFINED
 typedef struct { char**     value; int64_t count; const char* error; } FsStringArrayResult;
+#define OPAL_FS_STRING_ARRAY_RESULT_DEFINED 1
+#endif
+#ifndef OPAL_FS_STRING_RESULT_TYPES_DEFINED
+#define OPAL_FS_STRING_RESULT_TYPES_DEFINED 1
+#endif
 typedef struct { void*      value; const char* error; } FsMetadataResult;
 typedef struct { void*      value; const char* error; } FsPermissionsResult;
 

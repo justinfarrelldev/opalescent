@@ -58,9 +58,15 @@ typedef struct { void*      value; const char* error; } FsVoidResult;
 #define OPAL_FS_VOID_RESULT_TYPE_DEFINED 1
 #endif
 typedef struct { OpalBytes* value; const char* error; } FsBytesResult;
-#ifndef OPAL_FS_STRING_RESULT_TYPES_DEFINED
+#ifndef OPAL_FS_STRING_RESULT_DEFINED
 typedef struct { char*      value; const char* error; } FsStringResult;
+#define OPAL_FS_STRING_RESULT_DEFINED 1
+#endif
+#ifndef OPAL_FS_STRING_ARRAY_RESULT_DEFINED
 typedef struct { char**     value; int64_t count; const char* error; } FsStringArrayResult;
+#define OPAL_FS_STRING_ARRAY_RESULT_DEFINED 1
+#endif
+#ifndef OPAL_FS_STRING_RESULT_TYPES_DEFINED
 #define OPAL_FS_STRING_RESULT_TYPES_DEFINED 1
 #endif
 typedef struct { int8_t     value; const char* error; } FsBooleanResult;
