@@ -75,3 +75,10 @@
 
 - Test names matter for mandated filters: the no-`into` proof must include `terminal_refinement` in its Rust test name or `cargo test terminal_refinement` will not execute it.
 - A named guard error handler still intentionally rejects ordinary `return void` as terminal handling (`GuardErrorClauseMissingTerminal`); use a valid control-flow terminator such as loop `continue` when locally recovering from non-refined guard families.
+
+## Task 16 immutable error attachment findings - 2026-08-21
+
+- Parser support for expression-form direct error propagation is syntactic: `propagate error_value cause prior_error` works, but guard-handler shorthand `propagate err` is a separate statement node and does not carry `cause`; Task 16 fixtures should avoid wrapping cause propagation inside named guard handlers.
+- `FsStringResult` and `FsStringArrayResult` share historical guards across `opal_error.c`, `opal_string.c`, `opal_fs.c`, and `opal_runtime.h`; adding one typedef guard too broadly can suppress the array result typedef in the amalgamated runtime.
+- `src/codegen/functions_call.rs` has very little line-count headroom; keep error propagation helpers in `src/codegen/functions_call/error_propagation.rs` and exact cleanup transfer lookup in `src/codegen/functions_call/using_cleanup.rs`.
+- Oracle review noted future hardening opportunities around alias/provenance identity (`let alias = error_value`) and guard binding source-location checks; current Task 16 tests cover exact same-identifier rejection and runtime cycle/truncation guards.

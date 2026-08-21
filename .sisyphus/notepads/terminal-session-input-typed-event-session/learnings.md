@@ -171,3 +171,10 @@
 - Proposal line 17 makes `into` optional; keep a dedicated `terminal_refinement`-filtered checker test where `if event is TerminalInputEvent.Key:` narrows `event` itself enough for payload field access.
 - Heterogeneous guard-union proof must start from a multi-family guarded call such as `TerminalSessionOpenError, TerminalSessionReadError`; a single-family guard only proves ordinary family propagation.
 - No checker implementation change was needed for the follow-up: `extract_variant_refinement` already handles no-`into` `BinaryOp::Is`, and `active_guard_propagation_error_types` already narrows refined guard bindings to the parent family.
+
+## Task 16 immutable error attachments - 2026-08-21
+
+- Immutable error attachment runtime state lives in `runtime/opal_error.c` as side-table metadata keyed by stable error strings; `opal_error_new` interns/copies primary values, while `opal_error_attach_cause` returns the primary string and records cause/suppressed metadata deterministically.
+- Implemented Task 16 inspectors are the only core-prerequisite `standard.system` symbols allowed through the terminal proposal gate before the public terminal API opens; their allowlist now lives in `src/type_system/module_resolver/terminal_proposal_error_inspectors.rs`.
+- Direct `propagate error_value cause prior_error` must stay on the identifier/error-value path, while `propagate new FallibleConstructor` still lowers through ordinary fallible constructor codegen and then branches on its error field.
+- Final verification evidence is recorded in `.sisyphus/evidence/task-16-errors.txt`; focused negative/cycle/bounds/gating evidence is in `.sisyphus/evidence/task-16-errors-error.txt`.
