@@ -1597,6 +1597,227 @@ fn weak_reference_upgrade_fails_after_strong_values_drop() {
     );
 }
 
+fn compile_and_run_error_attachment_c_test(test_name: &str, source: &str) {
+    let temp_dir = tempfile::tempdir().expect("create temp dir for error attachment C test");
+    let source_path = temp_dir.path().join(format!("{test_name}.c"));
+    let binary_path = temp_dir.path().join(test_name);
+
+    fs::write(&source_path, source).expect("write error attachment C runtime test source");
+
+    let compile_output = Command::new("gcc")
+        .args([
+            "-std=c11",
+            "-D_POSIX_C_SOURCE=200809L",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            source_path.to_str().expect("utf-8 source path"),
+            "runtime/opal_error.c",
+            "-Iruntime",
+            "-o",
+            binary_path.to_str().expect("utf-8 binary path"),
+        ])
+        .output();
+
+    let compiled = match compile_output {
+        Ok(output) => output,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("gcc not found, skipping {test_name}");
+            return;
+        }
+        Err(error) => panic!("failed to invoke gcc for {test_name}: {error}"),
+    };
+
+    assert!(
+        compiled.status.success(),
+        "gcc failed for {test_name}:\n{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+
+    let run_output = Command::new(&binary_path)
+        .output()
+        .unwrap_or_else(|error| panic!("failed to run compiled test {test_name}: {error}"));
+
+    assert!(
+        run_output.status.success(),
+        "compiled C test {test_name} failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&run_output.stdout),
+        String::from_utf8_lossy(&run_output.stderr)
+    );
+}
+
+#[test]
+fn error_cause_insertion_is_immutable_and_inspectable() {
+    compile_and_run_error_attachment_c_test(
+        "error_cause_insertion_is_immutable_and_inspectable",
+        r#"
+#include "opal_runtime.h"
+#include <stdio.h>
+#include <string.h>
+
+static int fail(const char* message) {
+    fprintf(stderr, "%s\n", message);
+    return 1;
+}
+
+int main(void) {
+    char* primary = opal_error_new("PrimaryError");
+    char* prior = opal_error_new("PriorError");
+    char* derived = opal_error_attach_cause(primary, prior);
+
+    FsStringResult original_cause = error_cause(primary);
+    if (original_cause.error == NULL || strcmp(original_cause.error, "ErrorAttachmentAbsentError") != 0) {
+        return fail("original alias should remain without a cause");
+    }
+
+    FsStringResult derived_cause = error_cause(derived);
+    if (derived_cause.error != NULL || derived_cause.value != prior) {
+        return fail("derived error should expose the requested cause identity");
+    }
+    if (error_suppressed_length(derived) != 0) {
+        return fail("new immediate cause should not add suppressed values");
+    }
+
+    OpalErrorTruncation* truncation = error_attachment_truncation(derived);
+    if (error_attachment_truncation_cause_depth(truncation)
+        || error_attachment_truncation_suppressed_count(truncation)
+        || error_attachment_truncation_bytes(truncation)) {
+        return fail("ordinary cause insertion should not set truncation markers");
+    }
+    return 0;
+}
+"#,
+    );
+}
+
+#[test]
+fn error_suppressed_fallback_idempotent_and_bounds_checked() {
+    compile_and_run_error_attachment_c_test(
+        "error_suppressed_fallback_idempotent_and_bounds_checked",
+        r#"
+#include "opal_runtime.h"
+#include <stdio.h>
+#include <string.h>
+
+static int fail(const char* message) {
+    fprintf(stderr, "%s\n", message);
+    return 1;
+}
+
+int main(void) {
+    char* primary = opal_error_new("PrimaryError");
+    char* first = opal_error_new("FirstCauseError");
+    char* second = opal_error_new("SecondCauseError");
+    char* with_cause = opal_error_attach_cause(primary, first);
+    char* with_suppressed = opal_error_attach_cause(with_cause, second);
+
+    FsStringResult cause = error_cause(with_suppressed);
+    if (cause.error != NULL || cause.value != first) {
+        return fail("existing immediate cause should not be replaced");
+    }
+    if (error_suppressed_length(with_suppressed) != 1) {
+        return fail("different cause should fall back to one suppressed value");
+    }
+    FsStringResult suppressed = error_suppressed_at(with_suppressed, 0);
+    if (suppressed.error != NULL || suppressed.value != second) {
+        return fail("suppressed value should preserve requested identity");
+    }
+    if (opal_error_attach_cause(with_suppressed, second) != with_suppressed) {
+        return fail("reattaching an existing suppressed identity should be idempotent");
+    }
+    if (opal_error_attach_cause(with_suppressed, first) != with_suppressed) {
+        return fail("reattaching the immediate cause should be idempotent");
+    }
+
+    FsStringResult out_of_bounds = error_suppressed_at(with_suppressed, 1);
+    if (out_of_bounds.error == NULL || strcmp(out_of_bounds.error, "IndexOutOfBoundsError") != 0) {
+        return fail("suppressed inspector should reject out-of-bounds indexes");
+    }
+    FsStringResult negative = error_suppressed_at(with_suppressed, -1);
+    if (negative.error == NULL || strcmp(negative.error, "IndexOutOfBoundsError") != 0) {
+        return fail("suppressed inspector should reject negative indexes");
+    }
+    return 0;
+}
+"#,
+    );
+}
+
+#[test]
+fn error_attachment_cycle_limit_and_storage_truncation_markers() {
+    compile_and_run_error_attachment_c_test(
+        "error_attachment_cycle_limit_and_storage_truncation_markers",
+        r#"
+#include "opal_runtime.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static int fail(const char* message) {
+    fprintf(stderr, "%s\n", message);
+    return 1;
+}
+
+int main(void) {
+    char* primary = opal_error_new("PrimaryError");
+    char* cause = opal_error_new("CauseError");
+    char* primary_with_cause = opal_error_attach_cause(primary, cause);
+    char* cyclic = opal_error_attach_cause(cause, primary_with_cause);
+    OpalErrorTruncation* cyclic_truncation = error_attachment_truncation(cyclic);
+    if (!error_attachment_truncation_cause_depth(cyclic_truncation)) {
+        return fail("cycle prevention without existing cause should set cause-depth marker");
+    }
+
+    char* limited = opal_error_new("Depth0Error");
+    for (int index = 1; index <= 9; ++index) {
+        char name[32];
+        snprintf(name, sizeof(name), "Depth%dError", index);
+        limited = opal_error_attach_cause(opal_error_new(name), limited);
+    }
+    OpalErrorTruncation* depth_truncation = error_attachment_truncation(limited);
+    if (!error_attachment_truncation_cause_depth(depth_truncation)) {
+        return fail("cause-depth overflow should set the cause-depth marker");
+    }
+
+    char* suppressed_primary = opal_error_attach_cause(
+        opal_error_new("SuppressedPrimaryError"),
+        opal_error_new("SuppressedImmediateError")
+    );
+    for (int index = 0; index < 8; ++index) {
+        char name[40];
+        snprintf(name, sizeof(name), "Suppressed%dError", index);
+        suppressed_primary = opal_error_attach_cause(suppressed_primary, opal_error_new(name));
+    }
+    char* suppressed_overflow = opal_error_attach_cause(
+        suppressed_primary,
+        opal_error_new("SuppressedOverflowError")
+    );
+    if (error_suppressed_length(suppressed_overflow) != 8) {
+        return fail("suppressed-count overflow should retain the bounded prefix");
+    }
+    OpalErrorTruncation* suppressed_truncation = error_attachment_truncation(suppressed_overflow);
+    if (!error_attachment_truncation_suppressed_count(suppressed_truncation)) {
+        return fail("suppressed-count overflow should set the suppressed marker");
+    }
+
+    char* large = (char*)malloc(70000u);
+    if (large == NULL) {
+        return fail("large test allocation failed");
+    }
+    memset(large, 'E', 69999u);
+    large[69999u] = '\0';
+    char* bytes_overflow = opal_error_attach_cause(opal_error_new("BytesPrimaryError"), opal_error_new(large));
+    OpalErrorTruncation* bytes_truncation = error_attachment_truncation(bytes_overflow);
+    if (!error_attachment_truncation_bytes(bytes_truncation)) {
+        return fail("storage overflow should set the bytes marker");
+    }
+    free(large);
+    return 0;
+}
+"#,
+    );
+}
+
 fn compile_and_run_rng_c_test(test_name: &str, source: &str) {
     let temp_dir = tempfile::tempdir().expect("create temp dir for RNG C runtime test");
     let source_path = temp_dir.path().join(format!("{test_name}.c"));
