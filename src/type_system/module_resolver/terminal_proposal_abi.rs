@@ -410,6 +410,8 @@ fn validate_explicit_variant_ids(
     retired_variant_ids: &[HistoricalVariantId],
     uncommitted_variant_ids: &[HistoricalVariantId],
 ) -> Result<(), TerminalAbiError> {
+    validate_active_variant_declarations_are_sums(interface, authority, active_variant_tables)?;
+
     for declaration in interface.type_declarations.values() {
         let TypeDef::Sum { variants, .. } = &declaration.type_def else {
             continue;
@@ -478,6 +480,35 @@ fn validate_explicit_variant_ids(
             active_variant_table,
             &active_variant_names,
         )?;
+    }
+
+    Ok(())
+}
+
+fn validate_active_variant_declarations_are_sums(
+    interface: &ModuleInterface,
+    authority: TerminalAuthority,
+    active_variant_tables: &[ActiveVariantIdTable],
+) -> Result<(), TerminalAbiError> {
+    for active_variant_table in active_variant_tables {
+        let Some(declaration) = interface
+            .type_declarations
+            .get(active_variant_table.declaration)
+        else {
+            return Err(TerminalAbiError::new(format!(
+                "{} declaration {} is missing, but abi-history.md records active variants for it",
+                authority.inventory_label(),
+                active_variant_table.declaration
+            )));
+        };
+
+        if !matches!(&declaration.type_def, TypeDef::Sum { .. }) {
+            return Err(TerminalAbiError::new(format!(
+                "{} declaration {} must remain a sum type because abi-history.md records active variants for it",
+                authority.inventory_label(),
+                active_variant_table.declaration
+            )));
+        }
     }
 
     Ok(())
@@ -784,6 +815,20 @@ mod tests {
     }
 
     #[test]
+    fn terminal_abi_rejects_selected_active_variant_declared_as_non_sum() {
+        let mut interfaces = registered_terminal_interfaces();
+        rewrite_restore_error_to_opaque(&mut interfaces);
+
+        let error = validate_terminal_proposal_abi(&interfaces)
+            .expect_err("selected active ABI variant declaration must remain a sum type");
+
+        assert_eq!(
+            error.to_string(),
+            "selected terminal declaration TerminalSessionRestoreError must remain a sum type because abi-history.md records active variants for it"
+        );
+    }
+
+    #[test]
     fn terminal_abi_rejects_chord_active_variant_id_mismatch() {
         let mut interfaces = registered_terminal_interfaces();
         rewrite_variant_id(
@@ -911,6 +956,20 @@ mod tests {
             .find(|variant| variant.name == variant_name)
             .expect("variant should exist");
         variant.explicit_id = Some(explicit_id);
+    }
+
+    fn rewrite_restore_error_to_opaque(interfaces: &mut [ModuleInterface]) {
+        let interface = interfaces
+            .iter_mut()
+            .find(|interface| interface.module_path == TERMINAL_TYPES_MODULE_PATH)
+            .expect("selected terminal interface should exist");
+        let declaration = interface
+            .type_declarations
+            .get_mut("TerminalSessionRestoreError")
+            .expect("restore error declaration should exist");
+        declaration.type_def = TypeDef::Opaque {
+            span: Span::single(Position::start()),
+        };
     }
 
     fn add_test_only_abi_type_id(
