@@ -1,6 +1,6 @@
-Task 14 using cleanup failure-path evidence - 2026-08-21
+Task 14 using cleanup failure-path evidence - retry - 2026-08-21
 
-Negative/error-path coverage added and verified by `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test using` and `cargo test affine`:
+Negative/error-path coverage added and verified by the Task 14 retry verifier set.
 
 1. using_terminal_session_requires_acquisition_body_and_cleanup_errors
    - MISSING_ACQUISITION_ERROR omits TerminalSessionOpenError and verifies the acquisition effect is rejected.
@@ -19,7 +19,20 @@ Negative/error-path coverage added and verified by `LLVM_SYS_140_PREFIX=/usr/lib
    - Verifies TerminalSession is the only registered cleanup-authority transfer.
    - Verifies SystemWaitSet, SystemOwnedWaitRegistration, ProcessControlSource, MonotonicTimer, CancellationSource, TerminalChordRouter, TerminalTestScenario, and TerminalTestBackendActivation have no transfer.
 
-Failure encountered during implementation and resolved:
-- First strict lint run rejected reference-pattern mismatches in using_cleanup.rs; fixed by matching `&Stmt::Using` and `&CoreType::Generic` explicitly.
-- A subsequent compile error from stale `*span` dereferences was fixed after the reference-pattern change.
-- Final `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` passed.
+5. using_cleanup_consumes_only_registered_explicit_close
+   - Verifies `terminal_session_close_sync(mutable ref session)` consumes the active obligation.
+   - Verifies non-close calls, wrong function names, and non-mutable-ref shapes do not consume the obligation.
+
+6. using_cleanup_transfer_requires_exact_registered_result
+   - Verifies successful close consumes the obligation.
+   - Verifies failed close retains the obligation unless the result is exactly the registered TerminalSessionRestoreError.CloseRestorePending transfer.
+   - Verifies wrong operation names, wrong binding names, and wrong error variants do not transfer cleanup authority.
+
+7. Codegen cleanup failure-surface scaffolding
+   - Reverse-order scope cleanup test verifies fallible cleanup scaffolds are emitted as i8* returning calls.
+   - Preserving-exit helper test verifies cleanup scaffolds are emitted before propagated returns.
+   - Consumed-obligation test verifies explicit close avoids a duplicate scope-exit cleanup call.
+
+Failure encountered during retry and resolved:
+- The first retry lint run rejected `src/codegen/functions_call.rs` for `clippy::shadow_unrelated`; the explicit-close helper target binding was renamed and lint passed.
+- Final focused verification after the fix passed: LSP diagnostics on all edited Rust files, fmt check, line-count, `cargo test using`, and `cargo make lint`.

@@ -36,3 +36,10 @@
 - `src/codegen/statements.rs` exceeded its 1250-line cap when `using` lowering was inline; keep using-specific lowering in `src/codegen/statements/using_cleanup.rs`.
 - Strict `cargo make lint` enforces `clippy::pattern_type_mismatch`; destructuring borrowed AST/type values in new helpers should use explicit `&Pattern { ref field, .. }` style.
 - After changing a borrowed `Stmt::Using` pattern to copy `Span`, stale `*span` dereferences caused a compile error; watch for this when converting patterns for Clippy.
+
+
+## Task 14 retry review findings - 2026-08-21
+
+- Task 14 can look complete while still being shallow if codegen only piggybacks on lexical scope cleanup; tests must assert emitted cleanup-operation scaffolds, reverse order, early-exit cleanup, and consumed-obligation duplicate suppression.
+- Strict lint can reject close-recognition helper code for `clippy::shadow_unrelated` when both callee and target identifiers are destructured as `name`; use distinct binding names such as `callee_name` and `binding_name`.
+- Evidence counts should be refreshed after retry tests are added: `cargo test using` is now 12 passed, and full `cargo test` is 1438 passed / 0 failed / 8 ignored with doc-tests 2 passed / 12 ignored.

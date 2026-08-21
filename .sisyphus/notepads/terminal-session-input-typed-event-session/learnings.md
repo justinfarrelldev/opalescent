@@ -128,3 +128,11 @@
 - `Stmt::Using` codegen is intentionally a lexical scope wrapper in `src/codegen/statements/using_cleanup.rs`; it participates in existing reverse scope cleanup without opening public terminal runtime behavior.
 - `codegen_propagate_expression` now runs `cleanup_return_scopes_preserving_codegen_env` on the error early-return block, matching return/break/continue scope cleanup behavior.
 - Final Task 14 verification passed: fmt check, line-count, `cargo test using`, `cargo test affine`, `cargo test terminal_proposal`, full `cargo test`, `cargo check`, `cargo build`, and `cargo make lint`.
+
+
+## Task 14 retry cleanup obligations - 2026-08-21
+
+- Existing lexical scope cleanup is not sufficient for `using`; Task 14 needs explicit obligation state visible to both the checker and codegen so successful explicit close can consume cleanup, failed close can retain it, and exact cleanup-authority transfer can be modeled.
+- Codegen cleanup obligations should be tracked beside scope bindings and released in reverse binding acquisition order, before ordinary RC/malloc-string cleanup, so `return`, `break`, `continue`, and propagated errors share the same cleanup path.
+- `terminal_session_close_sync(mutable ref session)` is the only Task 14 explicit-close consumption shape, and `TerminalSessionRestoreError.CloseRestorePending` is the only cleanup-authority transfer; keep these recognizers exact rather than name-prefix based.
+- Retry verification passed with LSP diagnostics, fmt check, line-count, `cargo test using`, `cargo test affine`, `cargo test terminal_proposal`, full `cargo test`, `cargo check`, `cargo build`, and `cargo make lint`.

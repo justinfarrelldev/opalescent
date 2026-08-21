@@ -1,20 +1,22 @@
-Task 14 using cleanup happy-path evidence - 2026-08-21
+Task 14 using cleanup happy-path evidence - retry - 2026-08-21
 
 Implementation summary:
-- Added compiler-visible using cleanup registry in src/type_system/checker/using_cleanup.rs.
-- Enabled Stmt::Using type checking through acquisition/body/cleanup error-union validation.
-- Registered exact cleanup authorities for SystemWaitSet, SystemOwnedWaitRegistration, ProcessControlSource, MonotonicTimer, CancellationSource, TerminalSession, TerminalChordRouter, TerminalTestScenario, and TerminalTestBackendActivation.
-- TerminalSession is the only registered cleanup-authority transfer: terminal_session_close_sync / TerminalSessionRestoreError.CloseRestorePending.
-- Lowered codegen Stmt::Using as a scope-bound acquisition in src/codegen/statements/using_cleanup.rs.
-- Propagate early-return codegen now runs cleanup_return_scopes_preserving_codegen_env before emitting the error return.
+- Added explicit compiler-visible using cleanup obligation state in src/type_system/checker.rs, src/type_system/checker/using_cleanup.rs, and src/codegen/expressions.rs.
+- Stmt::Using type checking now pushes a cleanup obligation for the acquired binding, validates acquisition/body/cleanup error coverage, preserves failed-close obligations, consumes successful explicit close calls, and permits cleanup-authority transfer only for the exact registered TerminalSessionRestoreError.CloseRestorePending result.
+- Codegen now registers using cleanup obligations in src/codegen/statements/using_cleanup.rs, tracks them per scope in src/codegen/scope_tracker.rs, emits reverse-order __opal_using_cleanup_* scaffold calls on scope cleanup, and skips lexical cleanup after a successful explicit close consumes the obligation.
+- Return/break/continue/propagation cleanup helpers preserve and restore the using obligation map while still emitting cleanup scaffolds for active obligations.
+- The Task 14 cleanup registry remains exact: SystemWaitSet, SystemOwnedWaitRegistration, ProcessControlSource, MonotonicTimer, CancellationSource, TerminalSession, TerminalChordRouter, TerminalTestScenario, and TerminalTestBackendActivation. TerminalSession is the only registered cleanup-authority transfer.
 
-Happy-path tests covered:
-- using_terminal_session_requires_acquisition_body_and_cleanup_errors (valid source declares acquisition, body, and cleanup families)
-- using_infallible_cleanup_resources_need_no_extra_errors
-- using_explicit_close_keeps_binding_inspectable
-- using_cleanup_registry_has_exact_terminal_transfer
+Happy-path and semantic tests covered:
+- codegen::tests::using_cleanup_scope_exit_emits_reverse_order_scaffold_calls verifies nested using obligations emit cleanup scaffold calls in reverse acquisition order.
+- codegen::tests::using_cleanup_preserving_exit_helpers_emit_cleanup_scaffolds verifies preserving exit helpers emit cleanup scaffolds for early exits.
+- codegen::tests::using_cleanup_consumed_obligation_skips_lexical_cleanup verifies successful explicit close consumes the cleanup obligation and avoids duplicate lexical cleanup.
+- type_system::checker::using_cleanup::tests::using_cleanup_consumes_only_registered_explicit_close verifies only exact registered close calls consume obligations.
+- type_system::checker::using_cleanup::tests::using_cleanup_transfer_requires_exact_registered_result verifies cleanup-authority transfer requires the exact registered result/error shape.
+- Existing affine using integration tests still cover declared acquisition/body/cleanup effects and non-transfer resources.
 
-Final successful verification commands:
+Successful verification commands:
+- LSP diagnostics: no errors for src/codegen/expressions.rs, src/codegen/scope_tracker.rs, src/codegen/statements/using_cleanup.rs, src/codegen/functions_call.rs, src/type_system/checker.rs, src/type_system/checker/using_cleanup.rs, src/type_system/checker/fallible_expressions.rs, and src/codegen/tests.rs.
 - LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check
 - bash scripts/check-line-count.sh
 - LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test using
@@ -26,11 +28,9 @@ Final successful verification commands:
 - LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint
 
 Observed final results:
-- cargo test using: 7 passed, 0 failed.
-- cargo test affine: 14 passed, 0 failed.
-- cargo test terminal_proposal: 23 passed, 0 failed.
-- cargo test: 1433 passed, 0 failed, 8 ignored; doc-tests 2 passed, 12 ignored.
+- cargo test using: 12 passed, 0 failed.
+- Full cargo test: 1438 passed, 0 failed, 8 ignored; doc-tests 2 passed, 12 ignored.
 - cargo check: finished successfully.
 - cargo build: finished successfully.
-- cargo make lint: finished successfully.
-- Line count: all checked Rust files within limits; checker.rs remains 1050, checker/statements.rs 997, ref_rules.rs 1000, codegen/statements.rs 1238.
+- cargo make lint: finished successfully after renaming an explicit-close helper binding to satisfy clippy::shadow_unrelated.
+- Line count: all checked Rust files remain within limits; src/type_system/checker.rs remains exactly 1050 lines.
