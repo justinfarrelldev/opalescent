@@ -668,9 +668,9 @@ impl TypeChecker {
 
     /// Extract the parent error family from a branch-local `Family.Variant` nominal type.
     pub(super) fn narrowed_guard_error_family(&self, core_type: &CoreType) -> Option<CoreType> {
-        let &CoreType::Generic {
-            name: ref type_name,
-            ref type_args,
+        let CoreType::Generic {
+            name: type_name,
+            type_args,
         } = core_type
         else {
             return None;

@@ -224,12 +224,19 @@ impl TypeChecker {
             let expected_field_instantiated =
                 self.instantiate_call_type(expected_type, fresh_instantiations, field.span)?;
             let field_value_type = self.type_check_expr(&field.value)?;
-            self.check_value_escape(
+            if !self.allow_affine_aggregate_constructor_field(
+                owner_name,
+                field.name.as_str(),
                 &field.value,
                 &field_value_type,
-                "escape through a constructor field",
-                false,
-            )?;
+            )? {
+                self.check_value_escape(
+                    &field.value,
+                    &field_value_type,
+                    "escape through a constructor field",
+                    false,
+                )?;
+            }
             let expected_field_applied = inference_substitution.apply(&expected_field_instantiated);
             let reconciled_value = if self
                 .types_compatible(&expected_field_applied, &field_value_type)

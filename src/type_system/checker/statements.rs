@@ -37,6 +37,7 @@ impl TypeChecker {
         let mut terminator_seen = false;
         let mut unreachable_warning_emitted = false;
         for statement in statements {
+            self.check_affine_aggregate_statement_before(statement)?;
             if terminator_seen && !unreachable_warning_emitted {
                 self.push_warning(Warning::UnreachableCode {
                     span: TypeError::span_from_span(statement.span()),
@@ -46,6 +47,7 @@ impl TypeChecker {
             }
 
             self.type_check_stmt_with_return(statement, expected_return)?;
+            self.update_affine_aggregate_statement_after(statement)?;
 
             if matches!(
                 statement,
@@ -57,7 +59,7 @@ impl TypeChecker {
                 terminator_seen = true;
             }
         }
-        Ok(())
+        self.finish_affine_aggregate_statement_sequence()
     }
 
     /// Type check a single statement, validating it within the context of an
