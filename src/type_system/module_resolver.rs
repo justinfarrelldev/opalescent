@@ -20,6 +20,8 @@ mod standard_symbols_filesystem_operations;
 mod standard_symbols_filesystem_types_and_errors;
 /// Process-module symbol declarations.
 mod standard_symbols_process;
+/// Terminal-session proposal ABI/history validation helpers.
+mod terminal_proposal_abi;
 /// Terminal-session proposal declaration interfaces.
 mod terminal_proposal_modules;
 
