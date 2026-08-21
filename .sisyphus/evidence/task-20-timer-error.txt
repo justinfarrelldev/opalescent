@@ -1,0 +1,38 @@
+# Task 20 affine monotonic timers edge/error evidence
+
+Date: 2026-08-21
+
+## Contract edge coverage
+
+- Generation exhaustion unchanged-state behavior is covered by `monotonic_timer_generation_exhaustion_preserves_armed_state` and `monotonic_timer_generation_exhaustion_preserves_disarmed_state`.
+  - `arm` and `disarm` both preflight `generation.checked_add(1)`.
+  - On `u64::MAX`, both return `MonotonicTimerError::GenerationExhausted { last_issued_generation: u64::MAX }`.
+  - Armed timers retain the exact prior deadline and source generation; disarmed timers remain disarmed with no sentinel deadline.
+- Disarmed deadline error is covered by `monotonic_timer_new_is_disarmed_with_stable_readiness_source`, `monotonic_timer_repeated_disarm_advances_generation`, and the stdlib facade test.
+  - `deadline()` returns `Err(MonotonicTimerNotArmedError::NotArmed)` while disarmed.
+- Equality expiration is covered by `monotonic_timer_equality_is_expiration`.
+  - Arming to `clock.now()` immediately produces a current ready wake.
+- Stale wake filtering is covered by `monotonic_timer_stale_ready_wake_does_not_expire_newer_deadline`.
+  - A queued wake for an old generation validates as `SystemReadyWakeStatus::StaleGeneration` after rearm.
+  - The stale wake does not mutate the timer and does not expire the newer deadline.
+- Stable source identity is covered by runtime and facade tests.
+  - `readiness_source()` clones preserve identity across new, arm, disarm, and rearm.
+
+## Security/scope checks
+
+- Raw source/wait identities remain encapsulated: public debug for `SystemReadinessSource` is non-exhaustive and does not print IDs; timer facade returns only opaque `SystemReadinessSource` and generation values required by the proposal.
+- `SystemWaitWake.Ready` carries a `SystemReadinessSource` clone plus observed generation, not raw IDs, OS handles, registration keys, auth secrets, or scheduler internals.
+- Fake clock constructors are test-only: `FakeMonotonicClock` and timer test constructors are behind `#[cfg(test)]` and re-exported only as `pub(crate)` from `src/runtime/timer.rs` for crate tests.
+- No scheduler thread, sleeping loop, or polling loop was added. Wait sets compute the earliest registered timer deadline and use bounded `Condvar::wait_timeout`; the wait loop remains the ordinary condition-variable predicate loop.
+- Search over Task 20 files found no `TODO`, `FIXME`, `HACK`, `todo!`, `unimplemented!`, or `dbg!` markers.
+- Scope-creep serialization edits were removed; `src/bounded_proc.rs`, `src/compiler/tests.rs`, and `src/runtime/tests.rs` are clean relative to HEAD.
+
+## Negative/edge verification commands
+
+All commands used `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14`.
+
+- `cargo test monotonic_timer -- --nocapture` — PASS; covers generation exhaustion, not-armed deadline, equality expiration, stable source identity, stale generation filtering, fake-clock determinism, and stdlib facade state preservation.
+- `cargo test wait -- --nocapture` — PASS; covers existing cancellation/readiness behavior plus timer wait-set integration.
+- Forbidden marker scan over Task 20 files — PASS; no matches.
+- Public-leak scan over Task 20 files — reviewed; matches are expected opaque identity comparison API and `#[cfg(test)]` fake clock symbols only.
+- Scheduler/polling scan over Task 20 files — reviewed; only the condition-variable wait predicate loop in `SystemWaitSet::wait_sync` matched.
