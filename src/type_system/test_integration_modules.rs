@@ -1159,6 +1159,111 @@ entry main = f(): void =>
     }
 
     #[test]
+    fn test_error_attachment_inspectors_resolve_without_terminal_gate() {
+        const SOURCE: &str = "
+import error_suppressed_length from 'standard.system'
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "implemented error inspectors should import without opening terminal gate: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_error_cause_propagate_error_value_cause_prior_error_type_checks() {
+        const SOURCE: &str = "
+import error_suppressed_length from 'standard.system'
+import type TerminalSessionOpenError, TerminalSessionReadError from 'standard.terminal'
+
+let forward_read_with_open_cause = f(error_value: TerminalSessionReadError, prior_error: TerminalSessionOpenError): void errors TerminalSessionReadError =>
+    let observed: int64 = error_suppressed_length(prior_error)
+    propagate error_value cause prior_error
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.enable_terminal_proposal_imports_for_tests();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "propagate error_value cause prior_error should preserve primary effect only: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_error_cause_rejects_same_error_identity_statically() {
+        const SOURCE: &str = "
+import type TerminalSessionOpenError from 'standard.terminal'
+
+let invalid_same_identity = f(error_value: TerminalSessionOpenError): void errors TerminalSessionOpenError =>
+    propagate error_value cause error_value
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.enable_terminal_proposal_imports_for_tests();
+        let errors = checker
+            .type_check_program(&program)
+            .expect_err("same primary/cause identity should be rejected");
+        assert!(
+            errors.iter().any(|error| matches!(
+                error,
+                &TypeError::ConstraintSolvingFailed { ref reason, .. }
+                    if reason.contains("same immutable error instance")
+            )),
+            "expected same-identity cause rejection, got: {errors:?}"
+        );
+    }
+
+    #[test]
+    fn test_error_suppressed_erased_error_inspection_does_not_propagate_family() {
+        const SOURCE: &str = "
+import error_suppressed_length from 'standard.system'
+import type Error from 'standard.system'
+import type TerminalSessionOpenError, TerminalSessionReadError from 'standard.terminal'
+
+let maybe_terminal = f(): void errors TerminalSessionOpenError, TerminalSessionReadError =>
+    return void
+
+let erased_error_does_not_forward = f(): void errors TerminalSessionOpenError, TerminalSessionReadError =>
+    guard maybe_terminal() into _ else err =>
+        let erased: Error = err
+        let observed: int64 = error_suppressed_length(erased)
+        propagate erased
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.enable_terminal_proposal_imports_for_tests();
+        let errors = checker
+            .type_check_program(&program)
+            .expect_err("erased Error should not manufacture propagatable family identity");
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(error, &TypeError::PropagateOnNonErrorExpression { .. })),
+            "expected erased Error propagation rejection, got: {errors:?}"
+        );
+    }
+
+    #[test]
     fn test_terminal_session_write_rejects_raw_string_output() {
         const SOURCE: &str = "
 import terminal_session_write_sync from 'standard.terminal'
