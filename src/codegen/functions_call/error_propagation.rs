@@ -25,6 +25,17 @@ pub(super) fn lower_error_pointer_expression<'context>(
     )))
 }
 
+/// Return whether an expression is a direct error value accepted by the checker.
+pub(super) fn is_direct_error_value_expression(expr: &Expr) -> bool {
+    match expr {
+        Expr::Identifier { .. } => true,
+        Expr::Parenthesized { expr, .. } | Expr::BorrowArgument { target: expr, .. } => {
+            is_direct_error_value_expression(expr.as_ref())
+        }
+        _ => false,
+    }
+}
+
 /// Lower `propagate error_value [cause cause_value]` to an immediate cleanup-aware return.
 pub(super) fn propagate_error_value_return<'context>(
     codegen_context: &CodegenContext<'context>,

@@ -1728,6 +1728,120 @@ fn codegen_propagate_error_value_cause_attaches_before_return() {
 }
 
 #[test]
+fn codegen_propagate_parenthesized_error_value_cause_attaches_before_return() {
+    let context = Context::create();
+    let codegen_context =
+        CodegenContext::new(&context, "propagate_parenthesized_error_value_cause");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+    let i8_ptr = context.i8_type().ptr_type(AddressSpace::default());
+
+    for name in ["primary", "cause"] {
+        let slot = codegen_context
+            .builder
+            .build_alloca(i8_ptr, name)
+            .expect("error slot alloca should build");
+        codegen_context
+            .builder
+            .build_store(slot, i8_ptr.const_null())
+            .expect("error slot store should build");
+        env.variables.insert(
+            String::from(name),
+            VariableBinding {
+                alloca: slot,
+                core_type: CoreType::Generic {
+                    name: String::from("Error"),
+                    type_args: Vec::new(),
+                },
+                length: None,
+                capacity: None,
+                is_mutable: false,
+            },
+        );
+    }
+
+    let wrapped_primary = Expr::Parenthesized {
+        expr: Box::new(ident(12_030, "primary")),
+        span: test_span(),
+        id: test_node_id(12_031),
+    };
+    let result = codegen_propagate_expression(
+        &codegen_context,
+        &mut env,
+        &wrapped_primary,
+        Some(&ident(12_032, "cause")),
+        None,
+    );
+    assert!(
+        result.is_ok(),
+        "propagate parenthesized error value with cause should lower: {result:?}"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("@opal_error_attach_cause"),
+        "wrapped direct error propagation should attach cause before returning: {ir}"
+    );
+}
+
+#[test]
+fn codegen_propagate_borrow_wrapped_error_value_cause_attaches_before_return() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "propagate_borrow_error_value_cause");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+    let i8_ptr = context.i8_type().ptr_type(AddressSpace::default());
+
+    for name in ["primary", "cause"] {
+        let slot = codegen_context
+            .builder
+            .build_alloca(i8_ptr, name)
+            .expect("error slot alloca should build");
+        codegen_context
+            .builder
+            .build_store(slot, i8_ptr.const_null())
+            .expect("error slot store should build");
+        env.variables.insert(
+            String::from(name),
+            VariableBinding {
+                alloca: slot,
+                core_type: CoreType::Generic {
+                    name: String::from("Error"),
+                    type_args: Vec::new(),
+                },
+                length: None,
+                capacity: None,
+                is_mutable: false,
+            },
+        );
+    }
+
+    let wrapped_primary = Expr::BorrowArgument {
+        target: Box::new(ident(12_040, "primary")),
+        borrow_kind: BorrowKind::Ref,
+        span: test_span(),
+        id: test_node_id(12_041),
+    };
+    let result = codegen_propagate_expression(
+        &codegen_context,
+        &mut env,
+        &wrapped_primary,
+        Some(&ident(12_042, "cause")),
+        None,
+    );
+    assert!(
+        result.is_ok(),
+        "propagate borrow-wrapped error value with cause should lower: {result:?}"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("@opal_error_attach_cause"),
+        "borrow-wrapped direct error propagation should attach cause before returning: {ir}"
+    );
+}
+
+#[test]
 fn test_import_random_int32_emits_random_int32_declaration() {
     let source = "
 import random_int32 from math

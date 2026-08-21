@@ -51,7 +51,8 @@ use self::array::{
 };
 use self::call_arg_cleanup::{cleanup_call_argument_temporaries, lower_call_argument};
 use self::error_propagation::{
-    attach_requested_error_cause, lower_error_pointer_expression, propagate_error_value_return,
+    attach_requested_error_cause, is_direct_error_value_expression, lower_error_pointer_expression,
+    propagate_error_value_return,
 };
 use self::functions_call_helpers::{
     caller_returns_error_aggregate, current_function, infer_guard_binding_core_type,
@@ -588,7 +589,7 @@ pub fn codegen_propagate_expression<'context>(
         None
     };
 
-    if matches!(*call_expr, Expr::Identifier { .. }) {
+    if is_direct_error_value_expression(call_expr) {
         return propagate_error_value_return(codegen_context, env, call_expr, requested_cause);
     }
 
