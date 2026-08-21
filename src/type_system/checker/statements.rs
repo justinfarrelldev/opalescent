@@ -309,10 +309,7 @@ impl TypeChecker {
         }
         Ok(())
     }
-
-    /// Validate a `let` statement by resolving optional type annotations,
-    /// initializer compatibility, and registering the binding in the current
-    /// scope.
+    /// Validate a `let` statement and register its binding in the current scope.
     pub(super) fn type_check_let_statement(
         &mut self,
         binding: &LetBinding,
@@ -409,6 +406,9 @@ impl TypeChecker {
         };
 
         self.clear_binding_ownership(binding.name.as_str());
+        if let Some(Expr::Lambda { params, .. }) = initializer {
+            self.register_function_borrow_kinds_for_symbol(binding.name.clone(), params.as_slice());
+        }
         self.register_owner_binding_if_affine(binding.name.clone(), &final_type, binding.span);
         self.symbol_table.register(SymbolInfo {
             name: binding.name.clone(),

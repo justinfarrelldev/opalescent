@@ -11,6 +11,19 @@ use crate::{
 };
 
 /// Core/system prerequisite nominal types used by terminal proposal signatures.
+const TERMINAL_PROPOSAL_AFFINE_RESOURCE_TYPES: &[&str] = &[
+    "TerminalSession",
+    "TerminalChordRouter",
+    "TerminalTestScenario",
+    "TerminalTestBackendActivation",
+    "SystemWaitSet",
+    "SystemOwnedWaitRegistration",
+    "ProcessControlSource",
+    "MonotonicTimer",
+    "CancellationSource",
+];
+
+/// Core/system prerequisite nominal types used by terminal proposal signatures.
 const TERMINAL_PROPOSAL_PREREQUISITE_TYPES: &[&str] = &[
     "AllocationFailureError",
     "CancellationSource",
@@ -49,6 +62,7 @@ impl TypeChecker {
         self.allow_terminal_proposal_imports = true;
         self.register_terminal_proposal_prerequisite_types();
         self.register_core_prerequisite_affine_resources();
+        self.register_terminal_proposal_affine_resources();
     }
 
     /// Record constructor visibility metadata for one locally visible type name.
@@ -109,6 +123,13 @@ impl TypeChecker {
                     type_args: Vec::new(),
                 },
             );
+        }
+    }
+
+    /// Register canonical proposal affine resources independent of type imports.
+    fn register_terminal_proposal_affine_resources(&mut self) {
+        for name in TERMINAL_PROPOSAL_AFFINE_RESOURCE_TYPES {
+            self.register_affine_resource_type((*name).to_owned());
         }
     }
 }

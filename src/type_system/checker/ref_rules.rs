@@ -145,6 +145,7 @@ impl TypeChecker {
             "SystemOwnedWaitRegistration",
             "ProcessControlSource",
             "MonotonicTimer",
+            "CancellationSource",
         ] {
             self.register_affine_resource_type(type_name.to_owned());
         }
@@ -177,7 +178,6 @@ impl TypeChecker {
     pub(super) fn function_borrow_kinds_for_symbol(&self, name: &str) -> Option<&[BorrowKind]> {
         self.ownership.function_borrows.get(name).map(Vec::as_slice)
     }
-
     /// Register owner or borrow metadata for one function/lambda parameter.
     pub(super) fn register_parameter_ownership(
         &mut self,
@@ -225,15 +225,15 @@ impl TypeChecker {
             },
         );
     }
-
     /// Clear owner and borrow metadata for a newly shadowed non-affine binding.
     pub(super) fn clear_binding_ownership(&mut self, name: &str) {
         self.ownership.remember_owner(name);
         self.ownership.remember_borrow(name);
+        self.ownership.remember_function_borrow(name);
         self.ownership.owners.remove(name);
         self.ownership.borrows.remove(name);
+        self.ownership.function_borrows.remove(name);
     }
-
     /// Register a second-class borrow binding.
     fn register_borrow_binding(&mut self, name: String, borrow_kind: BorrowKind, span: Span) {
         self.ownership.remember_borrow(&name);

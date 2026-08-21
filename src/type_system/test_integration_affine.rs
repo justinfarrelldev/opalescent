@@ -297,3 +297,153 @@ entry main = f(): void =>
         ],
     );
 }
+
+#[test]
+fn inferred_terminal_proposal_owners_are_affine_without_type_imports() {
+    const SELECTED_SOURCE: &str = "
+import terminal_session_open_sync from 'standard.terminal'
+import type TerminalSessionOpenError, TerminalSessionOptions from 'standard.terminal'
+
+let copy_opened = f(options: TerminalSessionOptions): void errors TerminalSessionOpenError =>
+    let session = propagate terminal_session_open_sync(options)
+    let copied = session
+    return void
+
+entry main = f(): void =>
+    return void
+";
+    const CORE_SOURCE: &str = "
+import cancellation_source_new from 'standard.system'
+
+let copy_source = f(): void errors AllocationFailureError =>
+    let source = propagate cancellation_source_new()
+    let copied = source
+    return void
+
+entry main = f(): void =>
+    return void
+";
+    const CHORD_SOURCE: &str = "
+import terminal_chord_router_new from 'standard.terminal.chords'
+import type TerminalCapabilities from 'standard.terminal'
+import type TerminalChordRouterPolicy, TerminalChordValidationError from 'standard.terminal.chords'
+
+let copy_router = f(capabilities: TerminalCapabilities, policy: TerminalChordRouterPolicy): void errors AllocationFailureError, TerminalChordValidationError =>
+    let router = propagate terminal_chord_router_new(capabilities, policy)
+    let copied = router
+    return void
+
+entry main = f(): void =>
+    return void
+";
+    const TESTING_SOURCE: &str = "
+import terminal_test_activate_backend from 'standard.testing.terminal'
+import type TerminalTestFactoryError, TerminalTestScenario from 'standard.testing.terminal'
+
+let copy_activation = f(scenario: TerminalTestScenario): void errors TerminalTestFactoryError =>
+    let activation = propagate terminal_test_activate_backend(mutable ref scenario)
+    let copied = activation
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+    for source in [SELECTED_SOURCE, CORE_SOURCE, CHORD_SOURCE] {
+        let errors = type_check_terminal_source(source)
+            .expect_err("inferred proposal owner values should remain affine");
+        assert_error_reasons_contain(&errors, &["escape through a let binding"]);
+    }
+
+    let program = parse_pipeline(TESTING_SOURCE);
+    let mut checker = TypeChecker::new();
+    checker.enable_terminal_proposal_imports_for_tests();
+    checker.enable_test_only_imports();
+    let errors = checker
+        .type_check_program(&program)
+        .expect_err("inferred test-only activation should remain affine");
+    assert_error_reasons_contain(&errors, &["escape through a let binding"]);
+}
+
+#[test]
+fn local_let_bound_lambdas_require_matching_borrow_syntax() {
+    const VALID_SOURCE: &str = "
+import type TerminalSession from 'standard.terminal'
+
+let exercise = f(session: TerminalSession): void =>
+    let inspect = f(ref borrowed: TerminalSession): void => { return void }
+    inspect(ref session)
+    return void
+
+entry main = f(): void =>
+    return void
+";
+    const MISSING_REF_SOURCE: &str = "
+import type TerminalSession from 'standard.terminal'
+
+let exercise = f(session: TerminalSession): void =>
+    let inspect = f(ref borrowed: TerminalSession): void => { return void }
+    inspect(session)
+    return void
+
+entry main = f(): void =>
+    return void
+";
+    const WRONG_MUTABLE_MODE_SOURCE: &str = "
+import type TerminalSession from 'standard.terminal'
+
+let exercise = f(session: TerminalSession): void =>
+    let mutate = f(mutable ref borrowed: TerminalSession): void => { return void }
+    mutate(ref session)
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+    let valid_result = type_check_terminal_source(VALID_SOURCE);
+    assert!(
+        valid_result.is_ok(),
+        "local let-bound lambda should accept explicit matching borrow syntax: {valid_result:?}",
+    );
+
+    let missing_errors = type_check_terminal_source(MISSING_REF_SOURCE)
+        .expect_err("local let-bound lambda should require explicit ref syntax");
+    assert_error_reasons_contain(
+        &missing_errors,
+        &["parameter requires a 'ref' call-site borrow argument"],
+    );
+
+    let wrong_mode_errors = type_check_terminal_source(WRONG_MUTABLE_MODE_SOURCE)
+        .expect_err("local let-bound lambda should reject wrong borrow mode");
+    assert_error_reasons_contain(
+        &wrong_mode_errors,
+        &["borrow argument mismatch: expected 'mutable ref', found 'ref'"],
+    );
+}
+
+#[test]
+fn function_borrow_metadata_shadows_and_restores_with_let_bindings() {
+    const SOURCE: &str = "
+import type TerminalSession from 'standard.terminal'
+
+let exercise = f(session: TerminalSession): void =>
+    let inspect = f(ref borrowed: TerminalSession): void => { return void }
+    inspect(ref session)
+    {
+        let inspect = f(value: int64): void => { return void }
+        inspect(1)
+    }
+    inspect(ref session)
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+    let result = type_check_terminal_source(SOURCE);
+    assert!(
+        result.is_ok(),
+        "inner non-borrow lambda should clear stale metadata and scope exit should restore outer metadata: {result:?}",
+    );
+}
