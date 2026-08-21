@@ -153,3 +153,8 @@
 - Codegen now models guarded explicit close success with a runtime consumed flag stored only in guard success blocks; lexical cleanup branches on that flag so success skips duplicate close while failure/fallback paths retain cleanup.
 - The checker transfer inspector should not be invoked just to discard a boolean. Removing the no-op keeps transfer recognition meaningful through existing exact helper tests and the codegen transfer branch.
 - `cargo make lint` catches helper growth quickly; extracting `enter_using_cleanup_runtime_guard` kept `release_using_cleanup_obligation` below the 100-line Clippy limit without suppressing lint.
+
+## Task 14 retry 4 guard transfer semantics - 2026-08-21
+
+- For guards, the runtime cleanup flag means cleanup authority is gone, not only close success. Set it on guarded close success and on failure only when the exact registered `TerminalSessionRestoreError.CloseRestorePending` transfer matches; ordinary failures must leave lexical cleanup active.
+- Guard statement/expression regressions should assert the transfer branch IR (`CloseRestorePending`, `strcmp`, `using.transfer.mark`, `using.transfer.keep`) as well as the cleanup run/skip flag blocks.

@@ -59,3 +59,8 @@
 - A naive guard fix that mutates `CodegenEnv` after success block emission would be wrong for recovered failure/fallback paths, because subsequent lexical cleanup would be skipped globally. Use runtime path flags for guard-controlled exits.
 - `type_check_propagate_expr` had a dead `_has_cleanup_transfer` integration; strict review treats computed-and-discarded transfer recognition as no behavior, so remove no-op reads or connect them to real state.
 - External librarian research still fails with unavailable `opencode/gpt-5-nano`; rely on local explore/direct searches for this codebase task unless the model configuration changes.
+
+## Task 14 retry 4 guard transfer findings - 2026-08-21
+
+- Retry 3 still missed transfer failures in guard else/fallback paths: success flags alone left `CloseRestorePending` with lexical cleanup authority. Add exact-transfer assertions for both guard statement and expression tests.
+- `src/codegen/statements.rs` has too little headroom for inline guard-transfer branches. Move statement-side helper wrappers into `src/codegen/statements/using_cleanup.rs`, but avoid wildcard imports because `cargo make lint` denies them.
