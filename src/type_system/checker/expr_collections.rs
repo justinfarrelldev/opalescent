@@ -79,6 +79,12 @@ impl TypeChecker {
         for element in elements {
             let element_span = element.span();
             let element_core_type = self.type_check_expr(element)?;
+            self.check_value_escape(
+                element,
+                &element_core_type,
+                "escape through an array literal",
+                false,
+            )?;
             if let Some(existing) = element_type.as_ref() {
                 let existing_type = &existing.0;
                 let existing_span = existing.1;

@@ -1,0 +1,299 @@
+//! Integration tests for affine resources and second-class borrow checking.
+
+extern crate alloc;
+
+use crate::ast::Program;
+use crate::lexer::Lexer;
+use crate::parser::Parser;
+use crate::token::{Position, Span};
+use crate::type_system::checker::TypeChecker;
+use crate::type_system::errors::TypeError;
+use alloc::string::String;
+
+/// Inject required doc comments for public/entry functions in inline test sources.
+fn with_required_function_docs(source: &str) -> String {
+    const DOC_COMMENT_BLOCK: &str =
+        "##\n    Description: Test helper generated function documentation text\n##\n";
+
+    let mut rewritten_source = String::new();
+    let mut last_non_empty_line: Option<String> = None;
+
+    for line in source.lines() {
+        let trimmed_start = line.trim_start();
+        let is_public_or_entry_function = (trimmed_start.starts_with("entry ")
+            || trimmed_start.starts_with("public "))
+            && (trimmed_start.contains("= f(") || trimmed_start.contains("= f<"));
+        let has_doc_block_before = last_non_empty_line
+            .as_deref()
+            .is_some_and(|previous_line| previous_line.trim_start().starts_with("##"));
+
+        if is_public_or_entry_function && !has_doc_block_before {
+            rewritten_source.push_str(DOC_COMMENT_BLOCK);
+        }
+
+        rewritten_source.push_str(line);
+        rewritten_source.push('\n');
+
+        if !trimmed_start.is_empty() {
+            last_non_empty_line = Some(trimmed_start.to_owned());
+        }
+    }
+
+    rewritten_source
+}
+
+/// Parse a source snippet through the normal lexer/parser pipeline.
+fn parse_pipeline(source: &str) -> Program {
+    let source_with_docs = with_required_function_docs(source);
+    let lexer = Lexer::new(&source_with_docs);
+    let (tokens, lex_errors) = lexer.tokenize();
+    assert!(
+        lex_errors.is_empty(),
+        "affine source should lex without errors: {:?}",
+        lex_errors.errors,
+    );
+
+    let parser = Parser::new(tokens);
+    let (program_opt, parse_errors) = parser.parse();
+    assert!(
+        parse_errors.is_empty(),
+        "affine source should parse without errors: {:?}",
+        parse_errors.errors,
+    );
+
+    program_opt.map_or_else(
+        || Program {
+            declarations: Vec::new(),
+            span: Span::single(Position::start()),
+            id: crate::ast::NodeId(0),
+        },
+        |program| program,
+    )
+}
+
+/// Type-check source with terminal proposal imports enabled for focused tests.
+fn type_check_terminal_source(source: &str) -> Result<(), Vec<TypeError>> {
+    let program = parse_pipeline(source);
+    let mut checker = TypeChecker::new();
+    checker.enable_terminal_proposal_imports_for_tests();
+    checker.type_check_program(&program)
+}
+
+/// Type-check source without terminal proposal imports.
+fn type_check_plain_source(source: &str) -> Result<(), Vec<TypeError>> {
+    let program = parse_pipeline(source);
+    let mut checker = TypeChecker::new();
+    checker.type_check_program(&program)
+}
+
+/// Assert that at least one type error reason contains every requested snippet.
+fn assert_error_reasons_contain(errors: &[TypeError], expected_snippets: &[&str]) {
+    for expected in expected_snippets {
+        assert!(
+            errors.iter().any(|error| {
+                matches!(
+                    *error,
+                    TypeError::ConstraintSolvingFailed { ref reason, .. } if reason.contains(expected)
+                )
+            }),
+            "expected ownership diagnostic containing '{expected}', got: {errors:?}",
+        );
+    }
+}
+
+#[test]
+fn affine_resource_declaration_makes_local_type_noncopyable() {
+    const SOURCE: &str = "
+public compiler_registered affine resource type LocalResource
+
+let consume = f(resource: LocalResource): void =>
+    return void
+
+let double_move = f(resource: LocalResource): void =>
+    consume(resource)
+    consume(resource)
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+    let errors = type_check_plain_source(SOURCE)
+        .expect_err("local compiler_registered affine resource should reject double move");
+    assert_error_reasons_contain(&errors, &["affine resource 'resource'", "already moved"]);
+}
+
+#[test]
+fn terminal_session_ref_and_mutable_ref_calls_type_check() {
+    const SOURCE: &str = "
+import type TerminalSession from 'standard.terminal'
+
+let inspect = f(ref session: TerminalSession): void =>
+    return void
+
+let mutate = f(mutable ref session: TerminalSession): void =>
+    return void
+
+let exercise = f(session: TerminalSession): void =>
+    inspect(ref session)
+    mutate(mutable ref session)
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+    let result = type_check_terminal_source(SOURCE);
+    assert!(
+        result.is_ok(),
+        "valid ref/mutable ref TerminalSession calls should type-check: {result:?}",
+    );
+}
+
+#[test]
+fn affine_owner_escape_cases_are_rejected() {
+    const SOURCE: &str = "
+import type TerminalSession from 'standard.terminal'
+
+type SessionBox:
+    value: TerminalSession
+
+let consume = f(session: TerminalSession): void =>
+    return void
+
+let inspect = f(ref session: TerminalSession): void =>
+    return void
+
+let copy_owner = f(session: TerminalSession): void =>
+    let copied: TerminalSession = session
+    return void
+
+let use_after_move = f(session: TerminalSession): void =>
+    consume(session)
+    inspect(ref session)
+    return void
+
+let store_array = f(session: TerminalSession): void =>
+    let stored: TerminalSession[] = [session]
+    return void
+
+let store_field = f(session: TerminalSession): void =>
+    let boxed: SessionBox = new SessionBox:
+        value: session
+    return void
+
+let return_owner = f(session: TerminalSession): TerminalSession =>
+    return session
+
+let capture_owner = f(session: TerminalSession): void =>
+    let closure = f(): void => inspect(ref session)
+    return void
+
+let assign_owner = f(session: TerminalSession): void =>
+    let mutable other: int64 = 0
+    other = session
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+    let errors = type_check_terminal_source(SOURCE)
+        .expect_err("affine owner escape cases should be rejected");
+    assert_error_reasons_contain(
+        &errors,
+        &[
+            "escape through a let binding",
+            "already moved",
+            "escape through an array literal",
+            "escape through a constructor field",
+            "escape through return",
+            "captured by a lambda",
+            "escape through assignment",
+        ],
+    );
+}
+
+#[test]
+fn second_class_borrow_escape_cases_are_rejected() {
+    const SOURCE: &str = "
+import type TerminalSession from 'standard.terminal'
+
+let inspect = f(ref session: TerminalSession): void =>
+    return void
+
+let store_borrow = f(ref session: TerminalSession): void =>
+    let stored = session
+    return void
+
+let return_borrow = f(ref session: TerminalSession): TerminalSession =>
+    return session
+
+let capture_borrow = f(ref session: TerminalSession): void =>
+    let closure = f(): void => inspect(ref session)
+    return void
+
+let break_borrow = f(ref session: TerminalSession): void =>
+    loop => { break escaped: session }
+    return void
+
+let continue_borrow = f(ref session: TerminalSession): void =>
+    loop => { continue escaped: session }
+    return void
+
+let borrow_value_stored = f(session: TerminalSession): void =>
+    let stored = ref session
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+    let errors = type_check_terminal_source(SOURCE)
+        .expect_err("second-class borrow escape cases should be rejected");
+    assert_error_reasons_contain(
+        &errors,
+        &[
+            "second-class borrow 'session' cannot escape through a let binding",
+            "second-class borrow 'session' cannot escape through return",
+            "captured by a lambda",
+            "second-class borrow 'session' cannot escape through break",
+            "second-class borrow 'session' cannot escape through continue",
+            "valid only as direct call arguments",
+        ],
+    );
+}
+
+#[test]
+fn borrow_argument_mode_mismatches_are_rejected() {
+    const SOURCE: &str = "
+import type TerminalSession from 'standard.terminal'
+
+let inspect = f(ref session: TerminalSession): void =>
+    return void
+
+let mutate = f(mutable ref session: TerminalSession): void =>
+    return void
+
+let missing_ref = f(session: TerminalSession): void =>
+    inspect(session)
+    return void
+
+let wrong_ref = f(session: TerminalSession): void =>
+    mutate(ref session)
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+    let errors = type_check_terminal_source(SOURCE)
+        .expect_err("borrowed parameters should require matching call-site borrow modes");
+    assert_error_reasons_contain(
+        &errors,
+        &[
+            "parameter requires a 'ref' call-site borrow argument",
+            "borrow argument mismatch: expected 'mutable ref', found 'ref'",
+        ],
+    );
+}

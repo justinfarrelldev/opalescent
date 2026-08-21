@@ -23,6 +23,7 @@ use alloc::{
     vec::Vec,
 };
 use hot_reload::FunctionHotReloadMetadata;
+use ref_rules::OwnershipState;
 /** Bytes stdlib built-in signature registration. */
 mod bytes_builtins;
 mod call_resolution;
@@ -148,8 +149,7 @@ struct TypeCheckContext {
     /// Stack of inferred break payload types for nested loop analysis.
     loop_break_type_stack: Vec<Option<Vec<CoreType>>>,
 }
-/// Core type checker responsible for validating and inferring types
-/// throughout the Opalescent type system
+/// Core type checker responsible for Opalescent type validation and inference.
 pub struct TypeChecker {
     /// Current type environment
     environment: TypeEnvironment,
@@ -161,6 +161,8 @@ pub struct TypeChecker {
     constraints: Vec<TypeConstraint>,
     /// Ad-hoc context stacks for transient checking state.
     context: TypeCheckContext,
+    /// Affine resource owner and second-class borrow state.
+    ownership: OwnershipState,
     /// Collected non-fatal warnings produced while type checking.
     warnings: Vec<Warning>,
     /// Cached function signatures for hot-reload compatibility checks.
@@ -201,6 +203,7 @@ impl TypeChecker {
             symbol_table: SymbolTable::new(),
             constraints: Vec::new(),
             context: TypeCheckContext::default(),
+            ownership: OwnershipState::default(),
             warnings: Vec::new(),
             function_hot_reload_metadata: BTreeMap::new(),
             arithmetic_modes: BTreeMap::new(),
@@ -231,6 +234,7 @@ impl TypeChecker {
             symbol_table: SymbolTable::new(),
             constraints: Vec::new(),
             context: TypeCheckContext::default(),
+            ownership: OwnershipState::default(),
             warnings: Vec::new(),
             function_hot_reload_metadata: BTreeMap::new(),
             arithmetic_modes: BTreeMap::new(),
@@ -1017,14 +1021,15 @@ impl TypeChecker {
         }
         Ok(())
     }
-    /// Execute a closure within a fresh lexical scope, ensuring the scope is
-    /// entered and exited even when the closure returns early.
+    /// Execute a closure inside a fresh lexical and ownership scope.
     pub(super) fn within_new_scope<F, R>(&mut self, action: F) -> R
     where
         F: FnOnce(&mut Self) -> R,
     {
         self.symbol_table.enter_scope();
+        self.enter_ownership_scope();
         let result = action(self);
+        self.exit_ownership_scope();
         self.symbol_table.exit_scope();
         result
     }
@@ -1032,11 +1037,7 @@ impl TypeChecker {
     pub(super) fn current_function_is_pure(&self) -> bool {
         self.function_modifier_stack
             .last()
-            .is_some_and(|modifiers| {
-                modifiers
-                    .iter()
-                    .any(|modifier| *modifier == FunctionModifier::Pure)
-            })
+            .is_some_and(|modifiers| modifiers.contains(&FunctionModifier::Pure))
     }
     /// Enter a function/lambda modifier context.
     pub(super) fn enter_function_modifier_context(&mut self, modifiers: Vec<FunctionModifier>) {

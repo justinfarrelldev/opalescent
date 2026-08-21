@@ -220,7 +220,9 @@ impl TypeChecker {
             } => {
                 let mut current_types = alloc::vec::Vec::new();
                 for value in values {
-                    current_types.push(self.type_check_expr(&value.value)?);
+                    let value_type = self.type_check_expr(&value.value)?;
+                    self.check_value_escape_in(&value.value, &value_type, "escape through break")?;
+                    current_types.push(value_type);
                 }
 
                 let existing_break_types =
@@ -251,7 +253,12 @@ impl TypeChecker {
             }
             Stmt::Continue { ref values, .. } => {
                 for value in values {
-                    self.type_check_expr(&value.value)?;
+                    let value_type = self.type_check_expr(&value.value)?;
+                    self.check_value_escape_in(
+                        &value.value,
+                        &value_type,
+                        "escape through continue",
+                    )?;
                 }
                 Ok(())
             }
@@ -391,12 +398,18 @@ impl TypeChecker {
             }
         };
 
+        if let Some(expr) = initializer {
+            self.check_value_escape(expr, &final_type, "escape through a let binding", true)?;
+        }
+
         let symbol_type = if binding.is_mutable {
             SymbolType::Variable
         } else {
             SymbolType::Constant
         };
 
+        self.clear_binding_ownership(binding.name.as_str());
+        self.register_owner_binding_if_affine(binding.name.clone(), &final_type, binding.span);
         self.symbol_table.register(SymbolInfo {
             name: binding.name.clone(),
             symbol_type,
@@ -581,6 +594,8 @@ impl TypeChecker {
                 SymbolType::Constant
             };
 
+            self.clear_binding_ownership(binding.name.as_str());
+            self.register_owner_binding_if_affine(binding.name.clone(), value_type, binding.span);
             self.symbol_table.register(SymbolInfo {
                 name: binding.name.clone(),
                 symbol_type,
@@ -621,7 +636,14 @@ impl TypeChecker {
                 Stmt::Break { values, .. } => {
                     let mut current_types = alloc::vec::Vec::new();
                     for value in values {
-                        current_types.push(self.type_check_expr(&value.value)?);
+                        let value_type = self.type_check_expr(&value.value)?;
+                        self.check_value_escape(
+                            &value.value,
+                            &value_type,
+                            "escape through break",
+                            false,
+                        )?;
+                        current_types.push(value_type);
                     }
 
                     if let Some(existing) = found_break_types.as_ref() {
@@ -708,7 +730,14 @@ impl TypeChecker {
         }
 
         let target_type = self.type_check_assignment_target(target)?;
+        if self.core_type_contains_affine_resource(&target_type) {
+            return Err(TypeError::ConstraintSolvingFailed {
+                reason: "affine resource owners cannot be reassigned".to_owned(),
+                span: TypeError::span_from_span(target.span()),
+            });
+        }
         let value_type = self.type_check_expr(value)?;
+        self.check_value_escape_in(value, &value_type, "escape through assignment")?;
         let reconciled_value_type = if self.types_compatible(&target_type, &value_type) {
             value_type
         } else if let Some(adjusted) = coerce_literal_to_expected(&target_type, value, &value_type)
@@ -846,6 +875,7 @@ impl TypeChecker {
             for (expected_type, value_type) in
                 expected.iter().zip(resolved.return_types.into_iter())
             {
+                self.check_value_escape_in(&values[0].value, &value_type, "escape through return")?;
                 let reconciled_type = if self.types_compatible(expected_type, &value_type)
                     || matches!(value_type, CoreType::Variable(_))
                     || matches!(expected_type, &CoreType::Variable(_))
@@ -928,6 +958,7 @@ impl TypeChecker {
             } else {
                 self.type_check_expr(&value.value)?
             };
+            self.check_value_escape_in(&value.value, &value_type, "escape through return")?;
             let reconciled_type = if self.types_compatible(expected_type, &value_type)
                 || matches!(value_type, CoreType::Variable(_))
                 || matches!(expected_type, &CoreType::Variable(_))

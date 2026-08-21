@@ -117,6 +117,9 @@ mod test_integration;
 mod test_integration_adt;
 
 #[cfg(test)]
+mod test_integration_affine;
+
+#[cfg(test)]
 mod test_integration_collections;
 
 #[cfg(test)]

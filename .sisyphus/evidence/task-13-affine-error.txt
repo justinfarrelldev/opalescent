@@ -1,0 +1,23 @@
+# Task 13 affine ownership negative evidence
+
+Negative ownership/borrow scenarios are covered by `src/type_system/test_integration_affine.rs` and passed under `cargo test affine`.
+
+Expected rejection coverage:
+- Affine owner reassignment/storage escape.
+- Affine owner array/constructor-field escape.
+- Affine owner return escape.
+- Affine owner lambda capture escape.
+- Use-after-move after passing an owner to an owned parameter.
+- Second-class borrow return/storage/array/field/capture escape.
+- Borrow argument mode mismatches between `ref` and `mutable ref` parameters.
+
+Representative diagnostics assert substrings including:
+- `affine resource '<expression>' of type 'TerminalSession' cannot escape through return`
+- `affine resource 'session' of type 'TerminalSession' was already moved`
+- `second-class borrow 'temporary borrow' cannot escape through return`
+- `borrow argument mismatch: expected 'mutable ref', found 'ref'`
+
+Verification passed on 2026-08-20:
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test affine` (6 passed)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal` (22 passed)
+- Full `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` included all affine tests and passed.

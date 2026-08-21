@@ -289,7 +289,12 @@ impl TypeChecker {
 
                 for (index, arg_expr) in args.iter().enumerate() {
                     let param_type = instantiated_parameters[index].clone();
-                    let arg_type = self.type_check_expr(arg_expr)?;
+                    let arg_type = self.type_check_call_argument_for_param(
+                        callee,
+                        index,
+                        arg_expr,
+                        &param_type,
+                    )?;
                     let constrained_target = Self::resolve_constrained_target(
                         &param_type,
                         generic_params.as_slice(),

@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use super::super::module_resolver::ModuleInterface;
-use crate::ast::{ImportItem, Visibility as AstVisibility};
+use crate::ast::{ImportItem, TypeDeclarationForm, Visibility as AstVisibility};
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
@@ -97,11 +97,15 @@ impl TypeChecker {
         Ok(())
     }
 
+    /// Resolve and register imported symbols from `source`.
     #[expect(
         clippy::pattern_type_mismatch,
         reason = "Import item matching borrows from slice entries"
     )]
-    /// Resolve and register imported symbols from `source`.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Import resolution keeps named and glob registration in one flow"
+    )]
     ///
     /// # Errors
     /// Returns unresolved-import, private-access, missing-symbol, or cycle diagnostics.
@@ -210,6 +214,14 @@ impl TypeChecker {
                                 );
                             }
                         }
+                        let symbol_name = symbol.name.clone();
+                        self.register_imported_type_adt_fields(
+                            source,
+                            symbol_name.as_str(),
+                            symbol_name.as_str(),
+                            &symbol.symbol_type,
+                            &symbol.core_type,
+                        );
                         self.symbol_table.register(symbol);
                     }
                 }
@@ -277,6 +289,14 @@ impl TypeChecker {
         };
 
         self.register_imported_constructor_visibility(source, imported_name, local_name);
+        if interface
+            .type_declaration(imported_name)
+            .is_some_and(|declaration| {
+                declaration.form == TypeDeclarationForm::CompilerRegisteredAffineResource
+            })
+        {
+            self.register_affine_resource_type(local_name.to_owned());
+        }
 
         if let Some(fields) = interface.adt_fields.get(imported_name) {
             self.register_adt_fields(local_name.to_owned(), fields.clone());

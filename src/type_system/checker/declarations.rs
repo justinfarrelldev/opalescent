@@ -10,8 +10,8 @@ extern crate alloc;
 const RESERVED_BUILTIN_TYPE_NAMES: &[&str] = &["Pair"];
 
 use crate::ast::{
-    AstNode, Decl, Expr, FunctionModifier, LetBinding, Parameter, Program, Stmt, Type, TypeDef,
-    TypeParameter, Visibility as AstVisibility,
+    AstNode, Decl, Expr, FunctionModifier, LetBinding, Parameter, Program, Stmt, Type,
+    TypeDeclarationForm, TypeDef, TypeParameter, Visibility as AstVisibility,
 };
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
@@ -350,6 +350,10 @@ impl TypeChecker {
                     return_types: return_core_types,
                     error_types: core_errors,
                 };
+                self.register_function_borrow_kinds_for_symbol(
+                    function_name.clone(),
+                    parameters.as_slice(),
+                );
 
                 if let CoreType::Function {
                     parameters: declared_parameters,
@@ -402,6 +406,7 @@ impl TypeChecker {
                 };
 
                 if let Expr::Lambda {
+                    params,
                     return_types,
                     metadata,
                     ..
@@ -412,6 +417,10 @@ impl TypeChecker {
                         metadata.return_labels.as_slice(),
                         binding.span,
                     )?;
+                    self.register_function_borrow_kinds_for_symbol(
+                        binding.name.clone(),
+                        params.as_slice(),
+                    );
                     if !metadata.return_labels.is_empty() {
                         self.register_function_return_labels_for_symbol(
                             binding.name.clone(),
@@ -447,6 +456,7 @@ impl TypeChecker {
                 generic_constraints,
                 visibility,
                 annotations,
+                form,
                 ..
             } => {
                 if RESERVED_BUILTIN_TYPE_NAMES.contains(&name.as_str()) {
@@ -513,6 +523,9 @@ impl TypeChecker {
                 self.environment_mut()
                     .register_type(name.clone(), nominal_type.clone());
                 self.register_constructor_visibility(name.clone(), annotations);
+                if *form == TypeDeclarationForm::CompilerRegisteredAffineResource {
+                    self.register_affine_resource_type(name.clone());
+                }
                 self.register_adt_generic_params(name.clone(), generic_core_params);
                 self.symbol_table.register(SymbolInfo {
                     name: name.clone(),
@@ -726,6 +739,7 @@ impl TypeChecker {
                     read_count: 0,
                     is_pure: false,
                 });
+                checker.register_parameter_ownership(param, core_type);
             }
 
             checker.type_check_stmt_with_return(params.body, Some(return_core_types.as_slice()))

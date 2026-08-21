@@ -1,0 +1,20 @@
+# Task 13 affine ownership evidence
+
+Implemented affine resource ownership and second-class borrow checking in the type checker.
+
+Key behavior covered:
+- Local `affine resource` declarations register noncopyable owner types.
+- Affine owners move into owned parameters and reject use-after-move.
+- Affine owners cannot escape through return, break/continue payloads, assignment, constructor fields, arrays, or lambda captures.
+- `ref` and `mutable ref` call-site borrow arguments are second-class and valid only for the matching parameter mode/full expression.
+- Terminal proposal test gate registers core prerequisite affine resources without opening public terminal imports or adding runtime/codegen behavior.
+
+Verification passed on 2026-08-20:
+- LSP diagnostics: zero errors on modified Rust files.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test affine` (6 passed)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test ref_rules` (0 matching tests; command passed)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal` (22 passed)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` (1422 passed, 8 ignored; doctests 2 passed, 12 ignored)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 bash scripts/check-line-count.sh`

@@ -261,7 +261,11 @@ impl TypeChecker {
                     span: TypeError::span_from_span(span),
                 })
             }
-            Expr::BorrowArgument { ref target, .. } => self.type_check_expr(target.as_ref()),
+            Expr::BorrowArgument { span, .. } => Err(TypeError::ConstraintSolvingFailed {
+                reason: "second-class borrow arguments are valid only as direct call arguments"
+                    .to_owned(),
+                span: TypeError::span_from_span(span),
+            }),
             Expr::Cast {
                 ref expr,
                 ref target_type,
@@ -319,16 +323,19 @@ impl TypeChecker {
                 ref metadata,
                 span,
                 ..
-            } => self.type_check_lambda_expr(
-                params.as_slice(),
-                return_types.as_slice(),
-                Self::metadata_return_labels(metadata),
-                error_types.as_slice(),
-                body,
-                span,
-                generic_params.as_deref(),
-                generic_constraints.as_deref(),
-            ),
+            } => {
+                self.check_lambda_captures_no_ref_params(params.as_slice(), body, span)?;
+                self.type_check_lambda_expr(
+                    params.as_slice(),
+                    return_types.as_slice(),
+                    Self::metadata_return_labels(metadata),
+                    error_types.as_slice(),
+                    body,
+                    span,
+                    generic_params.as_deref(),
+                    generic_constraints.as_deref(),
+                )
+            }
             Expr::Guard {
                 ref expr,
                 ref binding_name,
@@ -369,6 +376,7 @@ impl TypeChecker {
 
     /// Resolve an identifier to its registered core type or emit a symbol error.
     fn resolve_identifier(&mut self, name: &str, span: Span) -> Result<CoreType, TypeError> {
+        self.ensure_owner_not_moved(name, span)?;
         if let Some(info) = self.symbol_table_mut().lookup_mut(name) {
             info.read_count = info.read_count.saturating_add(1);
             return Ok(info.core_type.clone());
@@ -822,6 +830,7 @@ impl TypeChecker {
                     read_count: 0,
                     is_pure: false,
                 });
+                checker.register_parameter_ownership(param, core_type);
             }
             match *body {
                 LambdaBody::Expression(ref expr) => {

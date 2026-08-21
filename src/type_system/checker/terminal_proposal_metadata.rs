@@ -48,6 +48,7 @@ impl TypeChecker {
     pub(crate) fn enable_terminal_proposal_imports_for_tests(&mut self) {
         self.allow_terminal_proposal_imports = true;
         self.register_terminal_proposal_prerequisite_types();
+        self.register_core_prerequisite_affine_resources();
     }
 
     /// Record constructor visibility metadata for one locally visible type name.
