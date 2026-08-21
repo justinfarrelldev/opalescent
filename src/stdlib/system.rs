@@ -14,6 +14,8 @@
 //! | [`net`] | TCP / UDP socket abstractions (`TcpStream`, `UdpSocket` traits) |
 //! | [`thread`] | Thread spawning, mutex, and MPSC channel |
 //! | [`process`] | Child-process spawning, signal delivery, and exit |
+//! | [`wait`] | Generic readiness wait sets and cancellation |
+//! | [`timer`] | Affine monotonic timers backed by readiness sources |
 
 pub mod args;
 pub mod env;
@@ -22,4 +24,5 @@ pub mod platform;
 pub mod process;
 pub mod tests;
 pub mod thread;
+pub mod timer;
 pub mod wait;

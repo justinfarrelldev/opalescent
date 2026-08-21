@@ -15,13 +15,20 @@ mod system_tests {
         platform::{Arch, OsKind, Platform},
         process::{ChildProcess as _, ExitCode, MockProcessManager, ProcessManager as _, Signal},
         thread::{OpalMutex as _, Spawner as _, StdMutex, SyncSpawner},
+        timer::{
+            monotonic_clock_now, monotonic_timer_arm, monotonic_timer_deadline,
+            monotonic_timer_disarm, monotonic_timer_generation, monotonic_timer_new,
+            monotonic_timer_readiness_source,
+        },
         wait::{
             cancellation_request, cancellation_source_new, cancellation_token, system_wait_set_new,
             system_wait_set_register, system_wait_set_wait_sync,
         },
     };
 
-    use crate::runtime::{SystemReadyWakeStatus, wait_test_support::FakeReadinessSource};
+    use crate::runtime::{
+        MonotonicTimerNotArmedError, SystemReadyWakeStatus, wait_test_support::FakeReadinessSource,
+    };
 
     extern crate alloc;
 
@@ -423,5 +430,46 @@ mod system_tests {
             .expect("facade wait should report cancellation after old ready work drains");
         assert_eq!(cancelled.ready_source(), None);
         assert_eq!(cancelled.ready_generation(), None);
+    }
+
+    #[test]
+    fn monotonic_timer_facade_preserves_source_and_deadline_state() {
+        let mut timer = monotonic_timer_new();
+        let source = monotonic_timer_readiness_source(&timer);
+
+        assert_eq!(monotonic_timer_generation(&timer), 0);
+        assert_eq!(
+            monotonic_timer_deadline(&timer),
+            Err(MonotonicTimerNotArmedError::NotArmed)
+        );
+
+        let deadline = monotonic_clock_now();
+        let arm_generation =
+            monotonic_timer_arm(&mut timer, deadline).expect("facade arm should succeed");
+        let after_arm_source = monotonic_timer_readiness_source(&timer);
+
+        assert_eq!(arm_generation, 1);
+        assert!(
+            source.is_same_identity(&after_arm_source),
+            "facade arm should preserve readiness source identity"
+        );
+        assert_eq!(monotonic_timer_deadline(&timer), Ok(deadline));
+
+        let disarm_generation =
+            monotonic_timer_disarm(&mut timer).expect("facade disarm should succeed");
+
+        assert!(
+            disarm_generation > arm_generation,
+            "facade disarm should advance generation"
+        );
+        assert_eq!(monotonic_timer_generation(&timer), disarm_generation);
+        assert_eq!(
+            monotonic_timer_deadline(&timer),
+            Err(MonotonicTimerNotArmedError::NotArmed)
+        );
+        assert!(
+            source.is_same_identity(&monotonic_timer_readiness_source(&timer)),
+            "facade disarm should preserve readiness source identity"
+        );
     }
 }
