@@ -51,3 +51,11 @@
 - Fallible cleanup scaffolds returning `i8*` are insufficient unless the result is loaded/tested/stored into cleanup flow; assert IR names like `using.cleanup.primary`, `using.cleanup.failed`, and `using.cleanup.primary.select`.
 - Transfer logic can become dead if it is only a private predicate tested directly. Keep a production-facing call-shape inspector and codegen transfer branch tied to the registered operation/error/variant tuple.
 - Line-count regressions are likely when adding propagation helpers to `functions_call.rs`; extract helper modules before running full verification to avoid rework.
+
+
+## Task 14 retry 3 rejection findings - 2026-08-21
+
+- Retry 2 fixed propagate but missed guard statement/expression lowering; both paths bypassed `consume_using_cleanup_obligation_after_success`, allowing successful guarded close to be followed by duplicate lexical cleanup.
+- A naive guard fix that mutates `CodegenEnv` after success block emission would be wrong for recovered failure/fallback paths, because subsequent lexical cleanup would be skipped globally. Use runtime path flags for guard-controlled exits.
+- `type_check_propagate_expr` had a dead `_has_cleanup_transfer` integration; strict review treats computed-and-discarded transfer recognition as no behavior, so remove no-op reads or connect them to real state.
+- External librarian research still fails with unavailable `opencode/gpt-5-nano`; rely on local explore/direct searches for this codebase task unless the model configuration changes.

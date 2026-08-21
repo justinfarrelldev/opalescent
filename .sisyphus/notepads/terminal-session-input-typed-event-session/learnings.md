@@ -145,3 +145,11 @@
 - Current error ABI can forward one error pointer but has no cause/suppressed attachment constructor yet; Task 14 cleanup ordering is modeled by forwarding the first cleanup failure as primary and preserving the original body/propagate error when cleanup succeeds.
 - `src/codegen/functions_call.rs` has a tight 1180-line cap; using-cleanup call helpers belong in `src/codegen/functions_call/using_cleanup.rs` to keep propagation logic maintainable and line-count clean.
 - Final retry 2 verification passed with LSP diagnostics, fmt, line-count, `cargo test using`, `cargo test affine`, `cargo test terminal_proposal`, full `cargo test`, `cargo check`, `cargo build`, and `cargo make lint`.
+
+
+## Task 14 retry 3 guard cleanup semantics - 2026-08-21
+
+- Guard close handling cannot reuse the propagate compile-time consume model: guard expressions can recover through fallback paths, so cleanup consumption must be path-sensitive rather than a global `env.consume_using_cleanup_obligation`.
+- Codegen now models guarded explicit close success with a runtime consumed flag stored only in guard success blocks; lexical cleanup branches on that flag so success skips duplicate close while failure/fallback paths retain cleanup.
+- The checker transfer inspector should not be invoked just to discard a boolean. Removing the no-op keeps transfer recognition meaningful through existing exact helper tests and the codegen transfer branch.
+- `cargo make lint` catches helper growth quickly; extracting `enter_using_cleanup_runtime_guard` kept `release_using_cleanup_obligation` below the 100-line Clippy limit without suppressing lint.
