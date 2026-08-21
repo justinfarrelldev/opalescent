@@ -12,8 +12,8 @@
 //! ### Encoding Semantics
 //!
 //! - **Success**: The trailing error field contains a `null` pointer.
-//! - **Error**: The trailing error field contains a non-null pointer to a
-//!   globally interned string representing the error variant name.
+//! - **Error**: The trailing error field contains a non-null pointer to an
+//!   immutable runtime error string representing the primary error identity.
 //!
 //! ### Error Field Index Rule
 //!
@@ -34,6 +34,7 @@ extern crate alloc;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::CodegenEnv;
+use alloc::string::String;
 use inkwell::AddressSpace;
 use inkwell::context::Context;
 use inkwell::types::{BasicTypeEnum, StructType};
@@ -241,15 +242,53 @@ pub fn build_void_error_aggregate<'context>(
     build_error_aggregate_for_return_type(codegen_context, aggregate_type, error_value)
 }
 
-#[doc = "Canonicalize a variant name for LLVM symbol interning."]
+/// Attach an already-evaluated cause to an immutable runtime error value.
+pub fn attach_error_cause<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    primary: PointerValue<'context>,
+    cause: PointerValue<'context>,
+) -> Result<PointerValue<'context>, CodegenError> {
+    let attach = crate::codegen::functions_stdlib::declare_stdlib_function(
+        codegen_context,
+        "opal_error_attach_cause",
+    )
+    .ok_or_else(|| {
+        CodegenError::new(String::from("opal_error_attach_cause declaration missing"))
+    })?;
+    let call = codegen_context.builder.build_call(
+        attach,
+        &[primary.into(), cause.into()],
+        env.next_name("error.attach").as_str(),
+    )?;
+    call.try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("opal_error_attach_cause returned void")))
+        .map(|value| value.into_pointer_value())
+}
+
+#[doc = "Canonicalize a variant name into a fresh immutable runtime error value."]
 pub fn intern_variant_name<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     variant_name: &str,
-) -> PointerValue<'context> {
-    codegen_context
+) -> Result<PointerValue<'context>, CodegenError> {
+    let variant_ptr = codegen_context
         .builder
-        .build_global_string_ptr(variant_name, &env.next_name("variant.name"))
-        .expect("global string pointer creation should succeed")
-        .as_pointer_value()
+        .build_global_string_ptr(variant_name, &env.next_name("variant.name"))?
+        .as_pointer_value();
+    let constructor = crate::codegen::functions_stdlib::declare_stdlib_function(
+        codegen_context,
+        "opal_error_new",
+    )
+    .ok_or_else(|| CodegenError::new(String::from("opal_error_new declaration missing")))?;
+    let call = codegen_context.builder.build_call(
+        constructor,
+        &[variant_ptr.into()],
+        env.next_name("error.new").as_str(),
+    )?;
+    call.try_as_basic_value()
+        .basic()
+        .ok_or_else(|| CodegenError::new(String::from("opal_error_new returned void")))
+        .map(|value| value.into_pointer_value())
 }

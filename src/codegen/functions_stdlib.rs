@@ -8,9 +8,13 @@ use inkwell::AddressSpace;
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::values::FunctionValue;
 
+#[path = "functions_stdlib_error_inspectors.rs"]
+#[doc = "Task 16 error inspector declaration helpers extracted to satisfy line-count limits."]
+mod error_inspectors;
 #[path = "functions_stdlib_string.rs"]
 #[doc = "String-specific stdlib declaration helpers extracted to satisfy line-count limits."]
 mod string;
+use self::error_inspectors::{ERROR_ATTACHMENT_STDLIB_NAMES, declare_error_inspector_function};
 use self::string::{STRING_STDLIB_NAMES, declare_string_stdlib_function};
 
 #[doc = "Declare a stdlib function in the LLVM module if not already present."]
@@ -33,6 +37,7 @@ pub fn declare_stdlib_function<'context>(
 
     if !STDLIB_NAMES.contains(&name)
         && !STRING_STDLIB_NAMES.contains(&name)
+        && !ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)
         && !is_test_fallible_constructor
     {
         return None;
@@ -207,6 +212,9 @@ pub fn declare_stdlib_function<'context>(
         }),
         name if STRING_STDLIB_NAMES.contains(&name) => {
             declare_string_stdlib_function(codegen_context, name)
+        }
+        name if ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name) => {
+            declare_error_inspector_function(codegen_context, name)
         }
         "print_text_sync" => module.get_function("print_text_sync").or_else(|| {
             Some(declare_fs_result_function(
@@ -818,6 +826,9 @@ pub fn resolve_imported_runtime_name(
         ("standard" | "math" | "process", name) if is_stdlib_runtime_name(name) => {
             Ok(name.to_owned())
         }
+        ("standard.system", name) if ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name) => {
+            Ok(name.to_owned())
+        }
         _ => Err(CodegenError::new(format!(
             "unknown import symbol '{symbol_name}' in module '{module_name}'"
         ))),
@@ -852,7 +863,9 @@ fn terminal_proposal_gate_error(module_name: Option<&str>, symbol_name: &str) ->
 
 #[must_use]
 pub fn is_stdlib_runtime_name(name: &str) -> bool {
-    STDLIB_NAMES.contains(&name) || STRING_STDLIB_NAMES.contains(&name)
+    STDLIB_NAMES.contains(&name)
+        || STRING_STDLIB_NAMES.contains(&name)
+        || ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)
 }
 
 #[doc = "Authoritative list of all stdlib function names."]
