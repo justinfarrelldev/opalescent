@@ -66,6 +66,8 @@ mod time_builtins;
 /** AST type mapping diagnostic conversion. */
 mod type_mapping_error;
 mod unification;
+/** Using cleanup effect and ownership typing. */
+mod using_cleanup;
 /// Labeling mode tracked for return statements within a function/lambda body.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ReturnLabelMode {
@@ -795,7 +797,6 @@ impl TypeChecker {
             .iter()
             .map(ToString::to_string)
             .collect::<BTreeSet<_>>();
-
         let replacement = stdlib_error_families()
             .iter()
             .filter(|family| {
@@ -807,7 +808,6 @@ impl TypeChecker {
                         .all(|member| declared_names.contains(*member))
             })
             .min_by_key(|family| (family.specificity_rank, family.members.len(), family.name));
-
         if let Some(family) = replacement {
             self.push_warning(Warning::ReplaceableErrorList {
                 family_name: family.name.to_owned(),

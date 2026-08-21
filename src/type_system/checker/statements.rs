@@ -265,10 +265,7 @@ impl TypeChecker {
             Stmt::PropagateGuardError { .. } => {
                 self.type_check_guard_error_clause_statement(stmt, expected_return, false)
             }
-            Stmt::Using { span, .. } => Err(TypeError::ConstraintSolvingFailed {
-                reason: "using statement ownership semantics are not implemented yet".to_owned(),
-                span: TypeError::span_from_span(span),
-            }),
+            Stmt::Using { .. } => self.type_check_using_statement(stmt, expected_return),
             Stmt::Comment { .. } => Ok(()),
         }
     }
