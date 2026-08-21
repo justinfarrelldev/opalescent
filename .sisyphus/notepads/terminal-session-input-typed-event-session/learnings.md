@@ -183,3 +183,10 @@
 
 - Checker/codegen parity for direct error-value propagation must cover every wrapper accepted by `propagated_error_value_types`: bare identifiers, parenthesized identifiers, and borrow-argument wrappers all need the immediate cleanup-aware error return path.
 - `runtime/opal_error.c` now participates in `OPAL_ENABLE_INTERNAL_TESTING` allocation fault injection; attachment metadata allocation failures stay best-effort, preserve existing aliases/edges, and surface as the bytes truncation marker rather than a new public error family.
+
+## Task 17 test-only availability boundaries - 2026-08-21
+
+- Test-only availability is a declaration-boundary property: production checking must reject `@availability(test_only)` and sealed `@constructor_visibility(test_runner)` declarations before their signatures enter generated exports.
+- Production-visible surfaces need recursive type checks through fields, function parameters/returns/errors, generic type arguments, and generic constraints; the shared helper in `src/type_system/checker/test_only_availability.rs` keeps this out of declaration registration hot paths.
+- `ModuleResolver::core_type_test_only_reference` is the cross-module source of truth for generated/exported core type signatures that may indirectly reach test-only declarations.
+- Final Task 17 evidence is recorded in `.sisyphus/evidence/task-17-test-only.txt`; focused negative boundary evidence is in `.sisyphus/evidence/task-17-test-only-error.txt`.

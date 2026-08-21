@@ -82,3 +82,9 @@
 - `FsStringResult` and `FsStringArrayResult` share historical guards across `opal_error.c`, `opal_string.c`, `opal_fs.c`, and `opal_runtime.h`; adding one typedef guard too broadly can suppress the array result typedef in the amalgamated runtime.
 - `src/codegen/functions_call.rs` has very little line-count headroom; keep error propagation helpers in `src/codegen/functions_call/error_propagation.rs` and exact cleanup transfer lookup in `src/codegen/functions_call/using_cleanup.rs`.
 - Oracle review noted future hardening opportunities around alias/provenance identity (`let alias = error_value`) and guard binding source-location checks; current Task 16 tests cover exact same-identifier rejection and runtime cycle/truncation guards.
+
+## Task 17 test-only availability findings - 2026-08-21
+
+- `cargo make lint` is the fastest way to catch Task 17 shape regressions: inline generic-constraint validation in declaration registration tripped cognitive-complexity limits, so keep availability traversal helpers isolated.
+- Strict lint denies direct `panic!` in tests and borrowed-match shortcuts under `clippy::pattern_type_mismatch`; use `assert!(result.is_err(), ...)` plus `expect_err` and explicit borrowed `match *value { ref field, .. }` patterns.
+- Positive evidence must be refreshed after fixing lint. A stale `[exit status: 105]` in `.sisyphus/evidence/task-17-test-only.txt` made the implementation look failed even after code and tests were green.
