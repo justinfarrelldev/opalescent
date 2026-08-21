@@ -19,6 +19,8 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
+use inkwell::AddressSpace;
+use inkwell::types::BasicType;
 
 pub(crate) const MALLOC_STRING_CLEANUP_KEY: &str = "__opal_cleanup_kind__";
 pub(crate) const MALLOC_STRING_CLEANUP_VALUE: &str = "malloc_string";
@@ -45,6 +47,83 @@ impl<'context> CodegenEnv<'context> {
         {
             scope_bindings.push(name.to_owned());
         }
+    }
+
+    pub fn register_using_cleanup_obligation(
+        &mut self,
+        binding_name: &str,
+        cleanup_operation: &str,
+        cleanup_errors: &[&str],
+    ) {
+        self.using_cleanup_obligations
+            .push(crate::codegen::expressions::UsingCleanupObligation {
+                binding_name: binding_name.to_owned(),
+                cleanup_operation: cleanup_operation.to_owned(),
+                cleanup_errors: cleanup_errors
+                    .iter()
+                    .map(|error| (*error).to_owned())
+                    .collect(),
+                consumed: false,
+            });
+    }
+
+    pub fn consume_using_cleanup_obligation(&mut self, binding_name: &str) {
+        if let Some(obligation) = self
+            .using_cleanup_obligations
+            .iter_mut()
+            .rev()
+            .find(|obligation| obligation.binding_name == binding_name)
+        {
+            obligation.consumed = true;
+        }
+    }
+
+    fn release_using_cleanup_obligation(
+        &mut self,
+        codegen_context: &CodegenContext<'context>,
+        name: &str,
+        transferred_names: &[String],
+    ) -> Result<(), CodegenError> {
+        if transferred_names
+            .iter()
+            .any(|transferred_name| transferred_name == name)
+        {
+            return Ok(());
+        }
+        let Some(index) = self
+            .using_cleanup_obligations
+            .iter()
+            .rposition(|obligation| obligation.binding_name == name)
+        else {
+            return Ok(());
+        };
+        let obligation = self.using_cleanup_obligations.remove(index);
+        if obligation.consumed {
+            return Ok(());
+        }
+        let Some(binding) = self.variables.get(name) else {
+            return Ok(());
+        };
+        let loaded_value = codegen_context.builder.build_load(
+            binding.alloca,
+            self.next_name("using.cleanup.load").as_str(),
+        )?;
+        if !loaded_value.is_pointer_value() {
+            return Err(CodegenError::new(format!(
+                "using cleanup obligation '{name}' did not lower to an opaque resource pointer"
+            )));
+        }
+        let cleanup_fn = declare_using_cleanup_scaffold(
+            codegen_context,
+            obligation.cleanup_operation.as_str(),
+            !obligation.cleanup_errors.is_empty(),
+        );
+        let _call = codegen_context.builder.build_call(
+            cleanup_fn,
+            &[loaded_value.into_pointer_value().into()],
+            self.next_name("using.cleanup.call").as_str(),
+        )?;
+        Ok(())
     }
 
     pub fn release_scope_binding_value(
@@ -95,6 +174,11 @@ impl<'context> CodegenEnv<'context> {
         };
 
         for binding_name in scope_bindings.into_iter().rev() {
+            self.release_using_cleanup_obligation(
+                codegen_context,
+                binding_name.as_str(),
+                transferred_names,
+            )?;
             self.release_scope_binding_value(
                 codegen_context,
                 binding_name.as_str(),
@@ -125,6 +209,33 @@ impl<'context> CodegenEnv<'context> {
     }
 }
 
+fn declare_using_cleanup_scaffold<'context>(
+    codegen_context: &CodegenContext<'context>,
+    cleanup_operation: &str,
+    returns_error: bool,
+) -> inkwell::values::FunctionValue<'context> {
+    let function_name = format!("__opal_using_cleanup_{cleanup_operation}");
+    if let Some(existing) = codegen_context.module.get_function(function_name.as_str()) {
+        return existing;
+    }
+    let resource_type = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let parameter_types = &[resource_type.as_basic_type_enum().into()];
+    let function_type = if returns_error {
+        resource_type.fn_type(parameter_types, false)
+    } else {
+        codegen_context
+            .context
+            .void_type()
+            .fn_type(parameter_types, false)
+    };
+    codegen_context
+        .module
+        .add_function(function_name.as_str(), function_type, None)
+}
+
 pub(crate) fn cleanup_return_scopes_preserving_codegen_env<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -134,6 +245,7 @@ pub(crate) fn cleanup_return_scopes_preserving_codegen_env<'context>(
     let original_field_indices = env.variable_field_indices.clone();
     let original_field_aliases = env.variable_field_aliases.clone();
     let original_scope_stack = env.scope_stack.clone();
+    let original_using_cleanup_obligations = env.using_cleanup_obligations.clone();
 
     let args_binding_is_unregistered = env.variables.contains_key("args")
         && !env
@@ -154,6 +266,7 @@ pub(crate) fn cleanup_return_scopes_preserving_codegen_env<'context>(
     env.variable_field_indices = original_field_indices;
     env.variable_field_aliases = original_field_aliases;
     env.scope_stack = original_scope_stack;
+    env.using_cleanup_obligations = original_using_cleanup_obligations;
     cleanup_result
 }
 
@@ -585,6 +698,7 @@ pub(crate) fn cleanup_scopes_to_depth_preserving_codegen_env<'context>(
     let original_field_indices = env.variable_field_indices.clone();
     let original_field_aliases = env.variable_field_aliases.clone();
     let original_scope_stack = env.scope_stack.clone();
+    let original_using_cleanup_obligations = env.using_cleanup_obligations.clone();
 
     let cleanup_result = cleanup_scopes_to_depth_with_malloc_string_release(
         codegen_context,
@@ -596,5 +710,6 @@ pub(crate) fn cleanup_scopes_to_depth_preserving_codegen_env<'context>(
     env.variable_field_indices = original_field_indices;
     env.variable_field_aliases = original_field_aliases;
     env.scope_stack = original_scope_stack;
+    env.using_cleanup_obligations = original_using_cleanup_obligations;
     cleanup_result
 }

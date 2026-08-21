@@ -60,6 +60,14 @@ pub struct ValueAccessorBinding {
     pub core_type: CoreType,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UsingCleanupObligation {
+    pub binding_name: String,
+    pub cleanup_operation: String,
+    pub cleanup_errors: Vec<String>,
+    pub consumed: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct LoopContext<'context> {
     pub continue_target: inkwell::basic_block::BasicBlock<'context>,
@@ -92,6 +100,7 @@ pub struct CodegenEnv<'context> {
     /// registered here via `register_scope_binding`, unless the entry is explicitly a
     /// function/global/non-owned binding that should not participate in scope-exit cleanup.
     pub scope_stack: Vec<Vec<String>>,
+    pub using_cleanup_obligations: Vec<UsingCleanupObligation>,
     pub loop_stack: Vec<LoopContext<'context>>,
     pub active_guard_error_slots: Vec<PointerValue<'context>>,
     pub debug_mode: bool,
@@ -115,6 +124,7 @@ impl<'context> CodegenEnv<'context> {
             variable_field_aliases: BTreeMap::new(),
             emitted_specializations: BTreeMap::new(),
             scope_stack: Vec::new(),
+            using_cleanup_obligations: Vec::new(),
             loop_stack: Vec::new(),
             active_guard_error_slots: Vec::new(),
             debug_mode,
