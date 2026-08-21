@@ -1,0 +1,20 @@
+# Task 15 refinement negative-path verification
+
+Date: 2026-08-21
+
+Negative/regression coverage added or updated for Task 15:
+
+- Invalid refinement syntax is rejected during parse, including invalid `into` forms.
+- Payload bindings introduced by `is Variant into binding` are branch-local and do not escape refinement scope.
+- `constrain Type from value` requires `ConstraintViolationError` to be declared on the enclosing fallible surface.
+- Guard error union propagation rejects unrefined heterogeneous families when the enclosing error surface does not cover every possible family.
+- Existing guard-else mismatched-error tests were updated to preserve stricter propagation behavior while allowing the intended Task 15 heterogeneous guard chaining case.
+
+Focused negative/error verification:
+
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_refinement` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_constrain` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_guard_error` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test guard_else` - passed
+
+Full-suite verification also passed after these regressions: `cargo test`, `cargo check`, `cargo build`, and `cargo make lint` with `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14`.

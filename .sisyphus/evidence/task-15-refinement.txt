@@ -1,0 +1,23 @@
+# Task 15 refinement verification
+
+Date: 2026-08-21
+
+Implemented checker support for nominal variant refinement, heterogeneous guard-error unions with branch-local narrowing, and `constrain Type from value` fallibility.
+
+Final verification on the completed tree:
+
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 bash scripts/check-line-count.sh` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_refinement` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_constrain` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_guard_error` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_nominal_variant` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test affine` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test guard_else` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` - passed: 1451 passed, 0 failed, 8 ignored; doctests 2 passed, 12 ignored
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo check` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo build` - passed
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` - passed
+
+Modified source/test files had zero LSP diagnostics before final verification.
