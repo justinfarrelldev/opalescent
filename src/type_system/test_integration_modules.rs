@@ -827,6 +827,310 @@ entry main = f(): void =>
     }
 
     #[test]
+    fn test_terminal_nominal_variant_refinement_binds_payload_in_true_branch() {
+        const SOURCE: &str = "
+import type TerminalDiagnostic, TerminalInputEvent, TerminalInvalidOptions, TerminalKeyOccurrence, TerminalLogicalKey, TerminalModifiers, TerminalSessionOpenError from 'standard.terminal'
+
+let inspect_event = f(event: TerminalInputEvent): void =>
+    if event is TerminalInputEvent.Key into key_event:
+        let key: TerminalLogicalKey = key_event.key
+        let occurrence: TerminalKeyOccurrence = key_event.occurrence
+        let modifiers: TerminalModifiers = key_event.modifiers
+        return void
+    return void
+
+let inspect_open_error = f(error_value: TerminalSessionOpenError): void =>
+    if error_value is TerminalSessionOpenError.InvalidOptions into invalid:
+        let invalid_options: TerminalInvalidOptions = invalid.invalid_options
+        let diagnostic: TerminalDiagnostic = invalid.diagnostic
+        return void
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.enable_terminal_proposal_imports_for_tests();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "terminal nominal variant refinements should type-check: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_terminal_refinement_rejects_invalid_syntax_during_parse() {
+        const CASES: &[(&str, &str, &str)] = &[
+            (
+                "compound-left refinement",
+                "
+import type TerminalInputEvent from 'standard.terminal'
+
+let bad = f(event: TerminalInputEvent): void =>
+    if event.key is TerminalInputEvent.Key into key_event:
+        return void
+    return void
+
+entry main = f(): void =>
+    return void
+",
+                "direct identifier",
+            ),
+            (
+                "non-variant right side",
+                "
+import type TerminalInputEvent from 'standard.terminal'
+
+let bad = f(event: TerminalInputEvent): void =>
+    if event is TerminalInputEvent into payload:
+        return void
+    return void
+
+entry main = f(): void =>
+    return void
+",
+                "Type.Variant",
+            ),
+        ];
+
+        for &(label, source, expected_message) in CASES {
+            let source_with_docs = with_required_function_docs(source);
+            let lexer = Lexer::new(&source_with_docs);
+            let (tokens, lex_errors) = lexer.tokenize();
+            assert!(
+                lex_errors.is_empty(),
+                "{label} fixture must lex: {lex_errors:?}"
+            );
+            let parser = Parser::new(tokens);
+            let (_, parse_errors) = parser.parse();
+            assert!(
+                parse_errors
+                    .errors
+                    .iter()
+                    .any(|error| error.to_string().contains(expected_message)),
+                "expected parser to reject {label}, got: {:?}",
+                parse_errors.errors
+            );
+        }
+    }
+
+    #[test]
+    fn test_terminal_refinement_rejects_invalid_into_forms() {
+        const CASES: &[(&str, &str)] = &[
+            (
+                "payloadless variant",
+                "
+import type TerminalInputEvent from 'standard.terminal'
+
+let bad = f(event: TerminalInputEvent): void =>
+    if event is TerminalInputEvent.TimedOut into timeout_event:
+        return void
+    return void
+
+entry main = f(): void =>
+    return void
+",
+            ),
+            (
+                "unknown variant",
+                "
+import type TerminalInputEvent from 'standard.terminal'
+
+let bad = f(event: TerminalInputEvent): void =>
+    if event is TerminalInputEvent.DoesNotExist into payload:
+        return void
+    return void
+
+entry main = f(): void =>
+    return void
+",
+            ),
+        ];
+
+        for &(label, source) in CASES {
+            let program = parse_pipeline(source);
+            let mut checker = TypeChecker::new();
+            checker.enable_terminal_proposal_imports_for_tests();
+            let errors = checker.type_check_program(&program).expect_err(label);
+            assert!(
+                errors
+                    .iter()
+                    .any(|error| matches!(error, &TypeError::ConstraintSolvingFailed { .. })),
+                "expected ConstraintSolvingFailed for {label}, got: {errors:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_terminal_refinement_payload_binding_does_not_escape_branch() {
+        const SOURCE: &str = "
+import type TerminalInputEvent, TerminalLogicalKey from 'standard.terminal'
+
+let leak = f(event: TerminalInputEvent): void =>
+    if event is TerminalInputEvent.Key into key_event:
+        return void
+    let key: TerminalLogicalKey = key_event.key
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.enable_terminal_proposal_imports_for_tests();
+        let errors = checker
+            .type_check_program(&program)
+            .expect_err("payload binding should not escape the refinement branch");
+        assert!(
+            errors.iter().any(|error| matches!(
+                error,
+                &TypeError::SymbolNotFound { ref name, .. } if name == "key_event"
+            )),
+            "expected key_event to be unavailable outside the branch, got: {errors:?}"
+        );
+    }
+
+    #[test]
+    fn test_terminal_is_equality_still_accepts_non_variant_operands() {
+        const SOURCE: &str = "
+let compare_values = f(left: int32, right: int32): void =>
+    if left is right:
+        return void
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "ordinary `is` equality should keep existing non-variant semantics: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_terminal_constrain_type_checks_runtime_value_and_error_surface() {
+        const SOURCE: &str = "
+import type TerminalWaitMilliseconds from 'standard.terminal'
+
+let checked_wait = f(runtime_value: int32): TerminalWaitMilliseconds errors ConstraintViolationError =>
+    return propagate constrain TerminalWaitMilliseconds from runtime_value
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.enable_terminal_proposal_imports_for_tests();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "constrain should produce the constrained terminal alias with ConstraintViolationError: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_terminal_constrain_requires_constraint_violation_error_declaration() {
+        const SOURCE: &str = "
+import type TerminalSessionOpenError, TerminalWaitMilliseconds from 'standard.terminal'
+
+let checked_wait = f(runtime_value: int32): TerminalWaitMilliseconds errors TerminalSessionOpenError =>
+    return propagate constrain TerminalWaitMilliseconds from runtime_value
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.enable_terminal_proposal_imports_for_tests();
+        let errors = checker
+            .type_check_program(&program)
+            .expect_err("constrain must surface ConstraintViolationError");
+        assert!(
+            errors.iter().any(|error| matches!(
+                error,
+                &TypeError::PropagateErrorMismatch { ref found, .. }
+                    if found.contains("ConstraintViolationError")
+            )),
+            "expected propagated ConstraintViolationError mismatch, got: {errors:?}"
+        );
+    }
+
+    #[test]
+    fn test_terminal_guard_error_union_requires_all_unrefined_families() {
+        const SOURCE: &str = "
+import type TerminalSessionOpenError, TerminalSessionReadError from 'standard.terminal'
+
+let maybe_terminal = f(): void errors TerminalSessionOpenError, TerminalSessionReadError =>
+    return void
+
+let forward_union = f(): void errors TerminalSessionOpenError =>
+    guard maybe_terminal() into _ else err =>
+        let observed: int32 = 1
+        propagate err
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.enable_terminal_proposal_imports_for_tests();
+        let errors = checker
+            .type_check_program(&program)
+            .expect_err("unrefined guard union propagation must require every family");
+        assert!(
+            errors.iter().any(|error| matches!(
+                error,
+                &TypeError::PropagateErrorMismatch { ref found, .. }
+                    if found.contains("TerminalSessionOpenError")
+                        && found.contains("TerminalSessionReadError")
+            )),
+            "expected heterogeneous guard union mismatch, got: {errors:?}"
+        );
+    }
+
+    #[test]
+    fn test_terminal_guard_error_refined_branch_can_propagate_narrowed_family() {
+        const SOURCE: &str = "
+import type TerminalInvalidOptions, TerminalSessionOpenError from 'standard.terminal'
+
+let maybe_open = f(): void errors TerminalSessionOpenError =>
+    return void
+
+let forward_invalid_options = f(): void errors TerminalSessionOpenError =>
+    guard maybe_open() into _ else err =>
+        if err is TerminalSessionOpenError.InvalidOptions into invalid:
+            let invalid_options: TerminalInvalidOptions = invalid.invalid_options
+            propagate err
+        let observed: int32 = 1
+        propagate err
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.enable_terminal_proposal_imports_for_tests();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "refined guard branch should propagate only the narrowed family: {result:?}"
+        );
+    }
+
+    #[test]
     fn test_terminal_session_write_rejects_raw_string_output() {
         const SOURCE: &str = "
 import terminal_session_write_sync from 'standard.terminal'
