@@ -1,38 +1,43 @@
-Task 14 using cleanup failure-path evidence - retry - 2026-08-21
+Task 14 using cleanup failure-path evidence - retry 2 - 2026-08-21
 
-Negative/error-path coverage added and verified by the Task 14 retry verifier set.
+Top-level rejection fixed:
 
-1. using_terminal_session_requires_acquisition_body_and_cleanup_errors
-   - MISSING_ACQUISITION_ERROR omits TerminalSessionOpenError and verifies the acquisition effect is rejected.
-   - MISSING_BODY_ERROR omits TerminalSessionReadError/TerminalSessionStateError and verifies body effects are rejected.
-   - MISSING_CLEANUP_ERROR omits TerminalSessionRestoreError and verifies cleanup effects are rejected even when the body returns normally.
+1. Failed explicit close no longer consumes before branching
+   - Removed unconditional `consume_using_cleanup_obligation_after_success` from raw `codegen_call_expression`.
+   - `codegen_propagate_expression` now calls consumption only in the success continuation after checking the fallible error field.
+   - Regression: `using_cleanup_propagate_close_consumes_only_success_and_transfers_exact_error` would fail on the rejected implementation because lexical cleanup would be skipped on all close failures.
 
-2. using_rejects_affine_resource_without_cleanup_registration
-   - Declares a local compiler_registered affine resource without cleanup metadata.
-   - `using local = resource:` is rejected with a diagnostic containing `no declared using cleanup registration`.
+2. Failed explicit close retains cleanup unless exact transfer result occurs
+   - Codegen records the exact transfer tuple on using obligations.
+   - Propagate error path compares the returned close error against `CloseRestorePending` with `strcmp`.
+   - Transfer branch skips lexical cleanup for the transferred binding; ordinary failure branch runs lexical cleanup.
+   - Wrong operation, wrong binding, and wrong variant remain non-transfer cases in checker tests.
 
-3. using_rejects_owner_escape_through_scope_exit_values
-   - Attempts to return the using-owned TerminalSession before cleanup/transfer.
-   - Rejected with existing affine escape diagnostic containing `escape through return`.
+3. Cleanup failures are observed rather than ignored
+   - Fallible `__opal_using_cleanup_terminal_session_close_sync` call results are extracted as `i8*` error pointers.
+   - Cleanup helpers maintain a `using.cleanup.primary` slot and select the first non-null cleanup failure.
+   - Cleanup-aware error returns forward cleanup failure as primary under the current single-pointer error ABI; if cleanup succeeds, the original body/propagate error remains primary.
+   - Regression: `using_cleanup_error_result_is_observed_as_primary_candidate` asserts the IR stores/tests/selects cleanup error pointers.
 
-4. using_cleanup_registry_has_exact_terminal_transfer
-   - Verifies TerminalSession is the only registered cleanup-authority transfer.
-   - Verifies SystemWaitSet, SystemOwnedWaitRegistration, ProcessControlSource, MonotonicTimer, CancellationSource, TerminalChordRouter, TerminalTestScenario, and TerminalTestBackendActivation have no transfer.
+4. Transfer predicate is integrated into production checker flow
+   - Added `call_has_registered_cleanup_authority_transfer` in `src/type_system/checker/using_cleanup.rs`.
+   - `type_check_propagate_expr` invokes the production-facing inspector before success-path consumption.
+   - Unit tests now verify exact call-shape transfer recognition for the real close operation and reject wrong operation/binding shapes.
 
-5. using_cleanup_consumes_only_registered_explicit_close
-   - Verifies `terminal_session_close_sync(mutable ref session)` consumes the active obligation.
-   - Verifies non-close calls, wrong function names, and non-mutable-ref shapes do not consume the obligation.
+Preserved behavior:
+- Acquisition/body/cleanup error union checking still passes existing affine using tests.
+- Reverse acquisition cleanup order still passes.
+- Fallthrough/return/break/continue/propagation cleanup scaffold tests still pass.
+- Successful explicit close still avoids duplicate lexical cleanup.
 
-6. using_cleanup_transfer_requires_exact_registered_result
-   - Verifies successful close consumes the obligation.
-   - Verifies failed close retains the obligation unless the result is exactly the registered TerminalSessionRestoreError.CloseRestorePending transfer.
-   - Verifies wrong operation names, wrong binding names, and wrong error variants do not transfer cleanup authority.
-
-7. Codegen cleanup failure-surface scaffolding
-   - Reverse-order scope cleanup test verifies fallible cleanup scaffolds are emitted as i8* returning calls.
-   - Preserving-exit helper test verifies cleanup scaffolds are emitted before propagated returns.
-   - Consumed-obligation test verifies explicit close avoids a duplicate scope-exit cleanup call.
-
-Failure encountered during retry and resolved:
-- The first retry lint run rejected `src/codegen/functions_call.rs` for `clippy::shadow_unrelated`; the explicit-close helper target binding was renamed and lint passed.
-- Final focused verification after the fix passed: LSP diagnostics on all edited Rust files, fmt check, line-count, `cargo test using`, and `cargo make lint`.
+Verification evidence:
+- LSP diagnostics: no errors on all edited Rust files.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check`: passed.
+- `bash scripts/check-line-count.sh`: passed, 309 Rust files within limits.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test using`: 14 passed, 0 failed.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test affine`: 14 passed, 0 failed.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal`: 23 passed, 0 failed.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test`: 1440 passed, 0 failed, 8 ignored; doc-tests 2 passed, 12 ignored.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo check`: passed.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo build`: passed.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint`: passed.
