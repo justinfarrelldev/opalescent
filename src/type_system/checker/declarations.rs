@@ -276,6 +276,11 @@ impl TypeChecker {
                 let mut generic_bindings: Vec<(alloc::string::String, CoreType)> = Vec::new();
                 let mut parameter_types = Vec::with_capacity(parameters.len());
                 let mut generic_core_params = Vec::new();
+                self.validate_production_type_parameter_constraints(
+                    "generic constraint",
+                    function_name,
+                    generic_constraints.as_deref(),
+                )?;
                 if let Some(declarations) = generic_constraints.as_ref() {
                     for declaration in declarations {
                         let variable_core =
@@ -342,6 +347,17 @@ impl TypeChecker {
                     span,
                 )?;
 
+                for error_type in error_types {
+                    self.validate_production_core_type_surface(
+                        "error surface",
+                        function_name,
+                        &CoreType::Generic {
+                            name: error_type.clone(),
+                            type_args: Vec::new(),
+                        },
+                        span,
+                    )?;
+                }
                 let core_errors = self.resolve_error_types(error_types, span)?;
 
                 let function_type = CoreType::Function {
@@ -350,6 +366,12 @@ impl TypeChecker {
                     return_types: return_core_types,
                     error_types: core_errors,
                 };
+                self.validate_production_core_type_surface(
+                    "function signature",
+                    function_name,
+                    &function_type,
+                    span,
+                )?;
                 self.register_function_borrow_kinds_for_symbol(
                     function_name.clone(),
                     parameters.as_slice(),
@@ -430,6 +452,12 @@ impl TypeChecker {
                 }
 
                 if let Some(core_type) = inferred_type {
+                    self.validate_production_core_type_surface(
+                        "let binding",
+                        &binding.name,
+                        &core_type,
+                        binding.span,
+                    )?;
                     let symbol_type = if binding.is_mutable {
                         SymbolType::Variable
                     } else {
@@ -465,7 +493,14 @@ impl TypeChecker {
                         span: TypeError::span_from_span(decl.span()),
                     });
                 }
+                self.validate_production_declaration_availability(name, annotations, decl.span())?;
+                self.validate_production_type_def_surface(name, type_def)?;
                 let mut generic_bindings: Vec<(alloc::string::String, CoreType)> = Vec::new();
+                self.validate_production_type_parameter_constraints(
+                    "generic constraint",
+                    name,
+                    generic_constraints.as_deref(),
+                )?;
                 if let Some(declarations) = generic_constraints.as_ref() {
                     for declaration in declarations {
                         let variable_core =
@@ -812,6 +847,13 @@ impl TypeChecker {
                 ),
                 span: TypeError::span_from_span(binding.span),
             })?;
+
+        self.validate_production_core_type_surface(
+            "let binding",
+            &binding.name,
+            &inferred_type,
+            binding.span,
+        )?;
 
         let symbol_type = if binding.is_mutable {
             SymbolType::Variable

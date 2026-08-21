@@ -50,6 +50,17 @@ impl TypeChecker {
         let mut module_symbol = symbol;
         let symbol_name = module_symbol.name.clone();
         module_symbol.visibility = symbol_visibility;
+        if matches!(
+            module_symbol.visibility,
+            Visibility::Public | Visibility::Entry
+        ) {
+            self.validate_production_core_type_surface(
+                "module export",
+                symbol_name.as_str(),
+                &module_symbol.core_type,
+                module_symbol.source_location,
+            )?;
+        }
         self.module_resolver
             .register_symbol_for_module(&self.current_module_path, module_symbol)?;
         if let Some(mut interface) = self

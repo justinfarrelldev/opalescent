@@ -102,6 +102,18 @@ fn assert_borrow_diagnostic(errors: &[TypeError], expected_reason: &str) {
     );
 }
 
+fn assert_test_only_availability_diagnostic(errors: &[TypeError], expected_fragment: &str) {
+    assert!(
+        errors.iter().any(|error| matches!(
+            *error,
+            TypeError::ConstraintSolvingFailed { ref reason, .. }
+                if reason.contains("test-only availability violation")
+                    && reason.contains(expected_fragment)
+        )),
+        "expected test-only availability diagnostic containing '{expected_fragment}', got: {errors:?}",
+    );
+}
+
 fn symbol(name: &str, core_type: CoreType, visibility: Visibility) -> SymbolInfo {
     SymbolInfo {
         name: name.to_owned(),
@@ -425,12 +437,16 @@ entry main = f(): void =>
     }
 
     #[test]
-    fn test_standard_testing_terminal_import_resolves_in_test_mode() {
+    fn test_standard_testing_terminal_authority_call_type_checks_in_test_mode() {
         const SOURCE: &str = "
+import test_runner_terminal_authority from 'standard.testing.terminal'
 import type TerminalTestAuthority from 'standard.testing.terminal'
 
-entry main = f(): TerminalTestAuthority =>
-    return authority
+let issued_authority = f(): TerminalTestAuthority =>
+    return test_runner_terminal_authority()
+
+entry main = f(): void =>
+    return void
 ";
 
         let program = parse_pipeline(SOURCE);
@@ -439,22 +455,141 @@ entry main = f(): TerminalTestAuthority =>
         let result = checker.type_check_program(&program);
 
         assert!(
-            result.is_err(),
-            "test-mode import should pass availability and continue to body checking",
+            result.is_ok(),
+            "test-runner authority should type-check in test-authorized mode: {result:?}",
         );
-        let errors = result.expect_err("undefined value should remain the only failure");
-        assert!(
-            errors
-                .iter()
-                .all(|error| !matches!(*error, TypeError::ModuleUnavailable { .. })),
-            "test-mode import should not report availability errors: {errors:?}",
-        );
-        assert!(
-            errors
-                .iter()
-                .any(|error| matches!(*error, TypeError::SymbolNotFound { ref name, .. } if name == "authority")),
-            "body should reach ordinary symbol checking after import succeeds: {errors:?}",
-        );
+    }
+
+    #[test]
+    fn test_production_surfaces_reject_test_only_type_names() {
+        for (label, source, expected_fragment) in [
+            (
+                "field",
+                "
+public type ProductionLeak:
+    authority: TerminalTestAuthority
+
+entry main = f(): void =>
+    return void
+",
+                "TerminalTestAuthority",
+            ),
+            (
+                "alias",
+                "
+public type ProductionAlias: TerminalTestAuthority[]
+
+entry main = f(): void =>
+    return void
+",
+                "TerminalTestAuthority",
+            ),
+            (
+                "function signature",
+                "
+public let leak_authority = f(authority: TerminalTestAuthority): TerminalTestAuthority =>
+    return authority
+
+entry main = f(): void =>
+    return void
+",
+                "TerminalTestAuthority",
+            ),
+            (
+                "error surface",
+                "
+public let leak_error = f(): void errors TerminalTestFactoryError =>
+    return void
+
+entry main = f(): void =>
+    return void
+",
+                "TerminalTestFactoryError",
+            ),
+            (
+                "function type field",
+                "
+public type CallbackLeak:
+    callback: f(TerminalTestAuthority): void
+
+entry main = f(): void =>
+    return void
+",
+                "TerminalTestAuthority",
+            ),
+        ] {
+            let program = parse_pipeline(source);
+            let mut checker = TypeChecker::new();
+            let result = checker.type_check_program(&program);
+            assert!(result.is_err(), "{label} should reject test-only names");
+            let errors = result.expect_err("checked above");
+            assert_test_only_availability_diagnostic(errors.as_slice(), expected_fragment);
+        }
+    }
+
+    #[test]
+    fn test_production_metadata_rejects_test_only_availability_annotations() {
+        for (label, source, expected_fragment) in [
+            (
+                "availability",
+                "
+@availability(test_only)
+public opaque immutable type LocalTestOnly
+
+entry main = f(): void =>
+    return void
+",
+                "@availability(test_only)",
+            ),
+            (
+                "test runner constructor",
+                "
+@constructor_visibility(test_runner)
+public opaque immutable type LocalAuthority
+
+entry main = f(): void =>
+    return void
+",
+                "@constructor_visibility(test_runner)",
+            ),
+        ] {
+            let program = parse_pipeline(source);
+            let mut checker = TypeChecker::new();
+            let result = checker.type_check_program(&program);
+            assert!(result.is_err(), "{label} metadata should be rejected");
+            let errors = result.expect_err("checked above");
+            assert_test_only_availability_diagnostic(errors.as_slice(), expected_fragment);
+        }
+    }
+
+    #[test]
+    fn test_rejected_test_only_surfaces_do_not_enter_generated_exports() {
+        const SOURCE: &str = "
+public type ExportedLeak:
+    authority: TerminalTestAuthority
+
+public let leak_authority = f(value: TerminalTestAuthority): TerminalTestAuthority =>
+    return value
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.set_current_module_path(String::from("./task17-production"));
+        let errors = checker
+            .type_check_program(&program)
+            .expect_err("test-only production exports must be rejected");
+        assert_test_only_availability_diagnostic(errors.as_slice(), "TerminalTestAuthority");
+
+        if let Some(interface) = checker.module_interface("./task17-production") {
+            assert!(
+                !interface.exports.contains_key("ExportedLeak")
+                    && !interface.exports.contains_key("leak_authority"),
+                "rejected test-only surfaces must not enter generated exports: {interface:?}",
+            );
+        }
     }
 
     #[test]
