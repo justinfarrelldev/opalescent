@@ -1,37 +1,36 @@
-Task 14 using cleanup happy-path evidence - retry 2 - 2026-08-21
+Task 14 using cleanup happy-path evidence - retry 3 - 2026-08-21
 
 Implementation summary:
-- Fixed codegen explicit close consumption so `terminal_session_close_sync(mutable ref session)` consumes a using cleanup obligation only in the `propagate` success continuation, after the fallible result has branched.
-- Added codegen cleanup-authority transfer metadata to using cleanup obligations and registered the exact TerminalSession transfer tuple: terminal_session_close_sync / TerminalSessionRestoreError / CloseRestorePending.
-- Added exact runtime transfer detection in `src/codegen/functions_call/using_cleanup.rs`; the emitted flow compares the close error pointer with `CloseRestorePending` using `strcmp`, skips lexical cleanup only on that transfer result, and runs cleanup for every non-transfer close failure.
-- Added cleanup-error observation in `src/codegen/scope_tracker.rs`: fallible `__opal_using_cleanup_*` calls now store/test/select the first non-null cleanup error pointer instead of discarding it.
-- Added cleanup-aware error return flow for `propagate` exits: cleanup failure becomes the forwarded primary error under the current single-pointer error ABI; otherwise the original body/propagate error is forwarded. Cause/suppressed attachment APIs are not implemented yet, so this models Task 14 ordering as far as the current ABI permits.
-- Extracted using-cleanup call lowering into `src/codegen/functions_call/using_cleanup.rs` to keep `src/codegen/functions_call.rs` under the line-count cap.
+- Fixed guard lowering for explicit successful close paths. `guard terminal_session_close_sync(mutable ref session)` now records runtime close success in both statement and expression guard success blocks.
+- Added runtime cleanup-consumed flags to codegen using cleanup obligations. Lexical cleanup now branches on that flag, so successful guarded close skips duplicate cleanup while failed/recovered guard paths retain the lexical cleanup obligation.
+- Preserved retry-2 `propagate` semantics: `terminal_session_close_sync(mutable ref session)` still consumes the cleanup obligation only in the `propagate` success continuation, after the error branch is emitted.
+- Preserved exact transfer behavior: `TerminalSessionRestoreError.CloseRestorePending` remains variant-gated via runtime comparison; non-transfer close failures keep lexical cleanup.
+- Removed the checker no-op transfer read from `type_check_propagate_expr`; no `_has_cleanup_transfer` value is computed and discarded.
+- Kept cleanup-aware fallthrough/return/break/continue/propagation paths through the existing scope cleanup helpers, now with optional runtime flag gating for guard-controlled exits.
 
 Meaningful regression tests added/updated:
-- codegen::tests::using_cleanup_propagate_close_consumes_only_success_and_transfers_exact_error proves the rejected implementation cannot regress: transfer comparison is emitted, non-transfer failed close still runs lexical cleanup, transfer skips cleanup, and the success continuation avoids duplicate cleanup.
-- codegen::tests::using_cleanup_error_result_is_observed_as_primary_candidate proves fallible cleanup results are stored, tested, and selected as primary candidates instead of ignored.
-- type_system::checker::using_cleanup::tests::using_cleanup_transfer_requires_exact_registered_result now also exercises the production-facing call-shape transfer inspector.
-- Existing using cleanup tests still cover reverse acquisition order, preserving-exit cleanup scaffolds, and no duplicate cleanup after successful explicit close.
+- `codegen::tests::using_cleanup_guard_statement_close_uses_success_flag_for_lexical_cleanup` proves statement guards emit a runtime consumed flag plus cleanup run/skip blocks and retain exactly one lexical cleanup scaffold for failed guarded close paths.
+- `codegen::tests::using_cleanup_guard_expression_close_uses_success_flag_for_lexical_cleanup` proves expression guards do the same for fallback/recovery paths.
+- Existing retry-2 tests still prove propagate success-only consumption, exact `CloseRestorePending` transfer comparison, cleanup-error observation, reverse cleanup order, preserving-exit cleanup scaffolds, and no duplicate cleanup after explicit close.
 
 Successful verification commands:
-- LSP diagnostics: no errors for src/codegen/expressions.rs, src/codegen/functions_call.rs, src/codegen/functions_call/using_cleanup.rs, src/codegen/scope_tracker.rs, src/codegen/statements/using_cleanup.rs, src/codegen/tests.rs, src/type_system/checker/using_cleanup.rs, and src/type_system/checker/fallible_expressions.rs.
-- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check
-- bash scripts/check-line-count.sh
-- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test using
-- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test affine
-- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal
-- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test
-- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo check
-- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo build
-- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint
+- LSP diagnostics: no errors for `src/codegen/expressions.rs`, `src/codegen/functions_call.rs`, `src/codegen/functions_call/using_cleanup.rs`, `src/codegen/scope_tracker.rs`, `src/codegen/statements.rs`, `src/codegen/statements/using_cleanup.rs`, `src/codegen/tests.rs`, and `src/type_system/checker/fallible_expressions.rs`.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check`
+- `bash scripts/check-line-count.sh`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test using`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test affine`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo check`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo build`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint`
 
 Observed final results:
-- cargo test using: 14 passed, 0 failed.
-- cargo test affine: 14 passed, 0 failed.
-- cargo test terminal_proposal: 23 passed, 0 failed.
-- Full cargo test: 1440 passed, 0 failed, 8 ignored; doc-tests 2 passed, 12 ignored.
-- cargo check: finished successfully.
-- cargo build: finished successfully.
-- cargo make lint: finished successfully.
-- Line count: all 309 checked Rust source files are within limits; src/codegen/functions_call.rs is 1113/1180 and src/type_system/checker.rs remains 1050/1050.
+- `cargo test using`: 16 passed, 0 failed.
+- `cargo test affine`: 14 passed, 0 failed.
+- `cargo test terminal_proposal`: 23 passed, 0 failed.
+- Full `cargo test`: 1442 passed, 0 failed, 8 ignored; doc-tests 2 passed, 12 ignored.
+- `cargo check`: finished successfully.
+- `cargo build`: finished successfully.
+- `cargo make lint`: finished successfully after extracting the runtime guard helper to keep `release_using_cleanup_obligation` under Clippy's 100-line limit.
+- Line count: all 309 checked Rust source files are within limits; `src/codegen/functions_call.rs` is 1133/1180, `src/codegen/statements.rs` is 1245/1250, `src/codegen/scope_tracker.rs` is 938 lines, and `src/type_system/checker.rs` remains 1050/1050.
