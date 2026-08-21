@@ -43,3 +43,11 @@
 - Task 14 can look complete while still being shallow if codegen only piggybacks on lexical scope cleanup; tests must assert emitted cleanup-operation scaffolds, reverse order, early-exit cleanup, and consumed-obligation duplicate suppression.
 - Strict lint can reject close-recognition helper code for `clippy::shadow_unrelated` when both callee and target identifiers are destructured as `name`; use distinct binding names such as `callee_name` and `binding_name`.
 - Evidence counts should be refreshed after retry tests are added: `cargo test using` is now 12 passed, and full `cargo test` is 1438 passed / 0 failed / 8 ignored with doc-tests 2 passed / 12 ignored.
+
+
+## Task 14 retry 2 rejection fixes - 2026-08-21
+
+- A test that only checks consumed cleanup after manually calling `env.consume_using_cleanup_obligation` misses the real bug: `codegen_call_expression` can consume before fallible branching. Add propagate-level IR tests when validating explicit close.
+- Fallible cleanup scaffolds returning `i8*` are insufficient unless the result is loaded/tested/stored into cleanup flow; assert IR names like `using.cleanup.primary`, `using.cleanup.failed`, and `using.cleanup.primary.select`.
+- Transfer logic can become dead if it is only a private predicate tested directly. Keep a production-facing call-shape inspector and codegen transfer branch tied to the registered operation/error/variant tuple.
+- Line-count regressions are likely when adding propagation helpers to `functions_call.rs`; extract helper modules before running full verification to avoid rework.

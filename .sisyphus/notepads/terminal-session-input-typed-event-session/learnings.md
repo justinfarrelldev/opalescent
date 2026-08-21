@@ -136,3 +136,12 @@
 - Codegen cleanup obligations should be tracked beside scope bindings and released in reverse binding acquisition order, before ordinary RC/malloc-string cleanup, so `return`, `break`, `continue`, and propagated errors share the same cleanup path.
 - `terminal_session_close_sync(mutable ref session)` is the only Task 14 explicit-close consumption shape, and `TerminalSessionRestoreError.CloseRestorePending` is the only cleanup-authority transfer; keep these recognizers exact rather than name-prefix based.
 - Retry verification passed with LSP diagnostics, fmt check, line-count, `cargo test using`, `cargo test affine`, `cargo test terminal_proposal`, full `cargo test`, `cargo check`, `cargo build`, and `cargo make lint`.
+
+
+## Task 14 retry 2 cleanup semantics - 2026-08-21
+
+- Codegen must not consume `using` cleanup authority at raw call emission time. For fallible explicit close, consume only in the `propagate` success continuation after the error branch is known.
+- Runtime transfer modeling needs the exact registered tuple in codegen, not only the checker: `terminal_session_close_sync` + `TerminalSessionRestoreError` + `CloseRestorePending` now drives the transfer branch that skips lexical cleanup.
+- Current error ABI can forward one error pointer but has no cause/suppressed attachment constructor yet; Task 14 cleanup ordering is modeled by forwarding the first cleanup failure as primary and preserving the original body/propagate error when cleanup succeeds.
+- `src/codegen/functions_call.rs` has a tight 1180-line cap; using-cleanup call helpers belong in `src/codegen/functions_call/using_cleanup.rs` to keep propagation logic maintainable and line-count clean.
+- Final retry 2 verification passed with LSP diagnostics, fmt, line-count, `cargo test using`, `cargo test affine`, `cargo test terminal_proposal`, full `cargo test`, `cargo check`, `cargo build`, and `cargo make lint`.
