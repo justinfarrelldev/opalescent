@@ -88,3 +88,4 @@
 - `cargo make lint` is the fastest way to catch Task 17 shape regressions: inline generic-constraint validation in declaration registration tripped cognitive-complexity limits, so keep availability traversal helpers isolated.
 - Strict lint denies direct `panic!` in tests and borrowed-match shortcuts under `clippy::pattern_type_mismatch`; use `assert!(result.is_err(), ...)` plus `expect_err` and explicit borrowed `match *value { ref field, .. }` patterns.
 - Positive evidence must be refreshed after fixing lint. A stale `[exit status: 105]` in `.sisyphus/evidence/task-17-test-only.txt` made the implementation look failed even after code and tests were green.
+- `.sisyphus/evidence` is ignored by default, so required Task 17 evidence files need explicit `git add -f`; otherwise a clean working tree can still lack committed evidence for Atlas.

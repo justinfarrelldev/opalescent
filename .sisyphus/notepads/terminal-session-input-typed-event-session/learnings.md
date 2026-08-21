@@ -190,3 +190,8 @@
 - Production-visible surfaces need recursive type checks through fields, function parameters/returns/errors, generic type arguments, and generic constraints; the shared helper in `src/type_system/checker/test_only_availability.rs` keeps this out of declaration registration hot paths.
 - `ModuleResolver::core_type_test_only_reference` is the cross-module source of truth for generated/exported core type signatures that may indirectly reach test-only declarations.
 - Final Task 17 evidence is recorded in `.sisyphus/evidence/task-17-test-only.txt`; focused negative boundary evidence is in `.sisyphus/evidence/task-17-test-only-error.txt`.
+
+## Task 17 verification follow-up - 2026-08-21
+
+- Atlas-style verification checks committed repository artifacts, not just transient command output. Force-add ignored `.sisyphus/evidence/task-17-test-only*.txt` files when a task explicitly requires evidence files.
+- Task 17 sealed-authority coverage now includes direct construction rejection for `TerminalTestAuthority`, `TerminalTestScenario`, `TerminalTestBackendActivation`, `TerminalTestFakeBackend`, and `TerminalTestFactoryError` in test-authorized mode.
