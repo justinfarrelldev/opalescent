@@ -1,0 +1,35 @@
+# Task 20 affine monotonic timers evidence
+
+Date: 2026-08-21
+Branch: feature/terminal-session-input-typed-event-session
+
+## Implementation summary
+
+- Added `src/runtime/timer.rs` and `src/runtime/timer/clock.rs` with affine `MonotonicTimer`, opaque `MonotonicDeadline`, `MonotonicTimerError::GenerationExhausted`, `MonotonicTimerNotArmedError::NotArmed`, and `monotonic_clock_now`.
+- Timer readiness uses one stable `SystemReadinessSource` identity for the timer lifetime. Successful arm/disarm preflight and advance a never-reused generation before publishing readiness state.
+- Integrated timer deadlines into generic wait primitives by moving source readiness state to `src/runtime/wait/source.rs` and adding bounded `Condvar::wait_timeout` scheduling from `src/runtime/wait/fairness.rs`; no scheduler thread or polling loop was added.
+- Added `src/stdlib/system/timer.rs` facade functions matching the Task 20 proposal names, and wired `standard.system` module exports/tests.
+- Added focused runtime, stdlib facade, and public wait integration coverage in `src/runtime/timer_tests.rs`, `src/stdlib/system/tests.rs`, and `tests/wait_primitives.rs`.
+- Reverted unrelated `serial_test` scope-creep edits in `src/bounded_proc.rs`, `src/compiler/tests.rs`, and `src/runtime/tests.rs`; targeted `time_stdlib` verification is used instead of broad `cargo test time` filtering.
+
+## Final verification
+
+All commands used `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14`.
+
+- `cargo fmt --all -- --check` — PASS.
+- `bash scripts/check-line-count.sh` — PASS; summary checked 330 Rust source files and all were within the line limit.
+- `cargo test monotonic_timer -- --nocapture` — PASS; 10 passed, 0 failed, including runtime timer and facade tests.
+- `cargo test wait -- --nocapture` — PASS; 17 lib wait/timer tests passed plus the filtered public wait integration test.
+- `cargo test --features integration --test integration_e2e -- time_stdlib --nocapture` — PASS; 9 passed, 0 failed.
+- `cargo test` — PASS; lib tests 1512 passed / 0 failed / 8 ignored, wait integration tests 2 passed, doc-tests 2 passed / 12 ignored.
+- `cargo check` — PASS.
+- `cargo build` — PASS.
+- `cargo make lint` — PASS with the project strict Clippy profile.
+- LSP diagnostics on all modified Task 20 Rust files — PASS; no diagnostics.
+
+## Scope check
+
+- No changes remain in `src/bounded_proc.rs`, `src/compiler/tests.rs`, or `src/runtime/tests.rs`.
+- No dependencies were added.
+- No terminal session, terminal event, process-control, chord-router, or public terminal API behavior was implemented.
+- No `src/type_system/**` or `src/codegen/**` changes were needed for Task 20 runtime/stdlib prerequisite behavior.
