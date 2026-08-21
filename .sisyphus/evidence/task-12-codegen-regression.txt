@@ -1,0 +1,30 @@
+Task 12 codegen regression evidence
+Date: 2026-08-20
+
+Regression scope:
+- Existing take_input codegen remains unchanged and still emits the take_input declaration.
+- Existing stdout text/writer codegen remains unchanged and still emits handle/void-error ABI declarations.
+- Existing current terminal/stdout terminal codegen remains unchanged and still emits handle, boolean, and void-error ABI declarations.
+
+Successful command summaries:
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test test_import_take_input_emits_take_input_declaration
+  Result: passed. 1 codegen regression test passed; 0 failed.
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test codegen_stdout
+  Result: passed. 2 codegen regression tests passed; 0 failed.
+  Covered tests:
+  - codegen::tests::codegen_stdout_text_functions_emit_void_error_abi_declarations
+  - codegen::tests::codegen_stdout_writer_functions_emit_handle_and_void_error_abi_declarations
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test codegen_terminal_functions_emit_handle_boolean_and_void_error_abi_declarations
+  Result: passed. 1 codegen regression test passed; 0 failed.
+
+Also revalidated after the final source change:
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test codegen_terminal_proposal
+  Result: passed. 2 Task 12 gate tests passed; 0 failed.
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal
+  Result: passed. 22 tests passed; 0 failed.
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test
+  Result: passed. 1423 lib tests passed; 0 failed; 8 ignored. Integration/doc-test targets passed; doc-tests reported 2 passed and 12 ignored.
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint
+  Result: passed under strict clippy settings.
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 bash scripts/check-line-count.sh
+  Result: passed. All files were within line limits.

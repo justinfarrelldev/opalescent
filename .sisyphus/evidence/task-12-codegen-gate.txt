@@ -1,0 +1,27 @@
+Task 12 codegen gate evidence
+Date: 2026-08-20
+
+Implementation summary:
+- Codegen now recognizes all Task 11 terminal proposal function symbols through the authoritative terminal_proposal_symbols inventory.
+- Gated proposal imports from standard.system, standard.terminal, standard.terminal.chords, and standard.testing.terminal fail before LLVM declaration with the diagnostic prefix: "terminal proposal gate not complete".
+- A direct imported-function mapping bypass for terminal_session_options_default also fails with the same diagnostic and emits no @terminal_session_options_default LLVM external.
+
+Successful command summaries:
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test codegen_terminal_proposal
+  Result: passed. 2 codegen tests passed; 0 failed.
+  Covered tests:
+  - codegen::tests::codegen_terminal_proposal_imports_fail_with_gate_diagnostic
+  - codegen::tests::codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal
+  Result: passed. 22 tests passed; 0 failed.
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check
+  Result: passed with no output.
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test
+  Result: passed. 1423 lib tests passed; 0 failed; 8 ignored. Integration/doc-test targets passed; doc-tests reported 2 passed and 12 ignored.
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint
+  Result: passed under strict clippy settings.
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 bash scripts/check-line-count.sh
+  Result: passed. All 305 Rust source files were within line limits; terminal_proposal_symbols.rs was 998 lines.
+
+LSP diagnostics:
+- No diagnostics found for modified files except one rust-analyzer inactive-code hint in src/codegen/functions_stdlib.rs for an existing #[cfg(test)] test-only branch.
