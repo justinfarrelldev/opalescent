@@ -4515,6 +4515,7 @@ fn seed_using_cleanup_resource<'context>(
     name: &str,
     cleanup_operation: &str,
     cleanup_errors: &[&str],
+    transfer: Option<(&str, &str, &str)>,
 ) {
     let pointer_type = context.i8_type().ptr_type(AddressSpace::default());
     let alloca = codegen_context
@@ -4539,7 +4540,7 @@ fn seed_using_cleanup_resource<'context>(
         },
     );
     env.register_scope_binding(name);
-    env.register_using_cleanup_obligation(name, cleanup_operation, cleanup_errors);
+    env.register_using_cleanup_obligation(name, cleanup_operation, cleanup_errors, transfer);
 }
 
 #[test]
@@ -4556,6 +4557,7 @@ fn using_cleanup_scope_exit_emits_reverse_order_scaffold_calls() {
         "outer_wait_set",
         "system_wait_set_drop",
         &[],
+        None,
     );
     seed_using_cleanup_resource(
         &context,
@@ -4564,6 +4566,7 @@ fn using_cleanup_scope_exit_emits_reverse_order_scaffold_calls() {
         "inner_timer",
         "monotonic_timer_drop",
         &[],
+        None,
     );
 
     crate::codegen::scope_tracker::cleanup_scopes_to_depth_with_malloc_string_release(
@@ -4601,6 +4604,11 @@ fn using_cleanup_preserving_exit_helpers_emit_cleanup_scaffolds() {
         "session",
         "terminal_session_close_sync",
         &["TerminalSessionRestoreError"],
+        Some((
+            "terminal_session_close_sync",
+            "TerminalSessionRestoreError",
+            "CloseRestorePending",
+        )),
     );
 
     crate::codegen::scope_tracker::cleanup_return_scopes_preserving_codegen_env(
@@ -4644,6 +4652,11 @@ fn using_cleanup_consumed_obligation_skips_lexical_cleanup() {
         "session",
         "terminal_session_close_sync",
         &["TerminalSessionRestoreError"],
+        Some((
+            "terminal_session_close_sync",
+            "TerminalSessionRestoreError",
+            "CloseRestorePending",
+        )),
     );
     env.consume_using_cleanup_obligation("session");
 
@@ -4659,5 +4672,127 @@ fn using_cleanup_consumed_obligation_skips_lexical_cleanup() {
     assert!(
         !ir.contains("__opal_using_cleanup_terminal_session_close_sync"),
         "successful explicit close consumption must prevent duplicate lexical cleanup: {ir}"
+    );
+}
+
+#[test]
+fn using_cleanup_propagate_close_consumes_only_success_and_transfers_exact_error() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "using_cleanup_propagate_close");
+    let i8_ptr = context.i8_type().ptr_type(AddressSpace::default());
+    let result_type = context.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
+    let close_type = result_type.fn_type(&[i8_ptr.into()], false);
+    codegen_context
+        .module
+        .add_function("terminal_session_close_sync", close_type, None);
+    let function_type = result_type.fn_type(&[], false);
+    let function = codegen_context.module.add_function(
+        "using_cleanup_propagate_close_fn",
+        function_type,
+        None,
+    );
+    let entry = context.append_basic_block(function, "entry");
+    codegen_context.builder.position_at_end(entry);
+    let mut env = CodegenEnv::new(true);
+    let _scope = env.enter_scope();
+    seed_using_cleanup_resource(
+        &context,
+        &codegen_context,
+        &mut env,
+        "session",
+        "terminal_session_close_sync",
+        &["TerminalSessionRestoreError"],
+        Some((
+            "terminal_session_close_sync",
+            "TerminalSessionRestoreError",
+            "CloseRestorePending",
+        )),
+    );
+
+    let close_call = call_expr(
+        46_000,
+        ident(46_001, "terminal_session_close_sync"),
+        vec![Expr::BorrowArgument {
+            target: Box::new(ident(46_002, "session")),
+            borrow_kind: BorrowKind::MutableRef,
+            span: test_span(),
+            id: test_node_id(46_003),
+        }],
+    );
+    let _success_value = codegen_propagate_expression(
+        &codegen_context,
+        &mut env,
+        &close_call,
+        Some(&CoreType::Generic {
+            name: String::from("TerminalCloseOutcome"),
+            type_args: Vec::new(),
+        }),
+    )
+    .expect("using close propagate should lower");
+    crate::codegen::scope_tracker::cleanup_return_scopes_preserving_codegen_env(
+        &codegen_context,
+        &mut env,
+        &[],
+    )
+    .expect("success continuation cleanup should lower after consumed close");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("CloseRestorePending"),
+        "exact transfer variant must be materialized for runtime comparison: {ir}"
+    );
+    assert!(
+        ir.contains("strcmp"),
+        "transfer detection must compare the actual cleanup error result, not consume unconditionally: {ir}"
+    );
+    assert_eq!(
+        ir.matches("call i8* @__opal_using_cleanup_terminal_session_close_sync")
+            .count(),
+        1,
+        "non-transfer close failures must retain lexical cleanup while transfer and success paths skip duplicate cleanup: {ir}"
+    );
+}
+
+#[test]
+fn using_cleanup_error_result_is_observed_as_primary_candidate() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "using_cleanup_error_observed");
+    let _function = create_codegen_function(&codegen_context, "using_cleanup_error_observed_fn");
+    let mut env = CodegenEnv::new(true);
+    let _scope = env.enter_scope();
+    seed_using_cleanup_resource(
+        &context,
+        &codegen_context,
+        &mut env,
+        "session",
+        "terminal_session_close_sync",
+        &["TerminalSessionRestoreError"],
+        Some((
+            "terminal_session_close_sync",
+            "TerminalSessionRestoreError",
+            "CloseRestorePending",
+        )),
+    );
+
+    let _cleanup_error =
+        crate::codegen::scope_tracker::cleanup_return_scopes_preserving_codegen_env_with_error(
+            &codegen_context,
+            &mut env,
+            &[],
+        )
+        .expect("cleanup-aware return helper should lower");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("using.cleanup.primary"),
+        "fallible cleanup result must be stored as a primary cleanup-error candidate: {ir}"
+    );
+    assert!(
+        ir.contains("using.cleanup.failed"),
+        "fallible cleanup result must be tested instead of ignored: {ir}"
+    );
+    assert!(
+        ir.contains("using.cleanup.primary.select"),
+        "first cleanup failure should win primary cleanup-error ordering: {ir}"
     );
 }

@@ -61,10 +61,18 @@ pub struct ValueAccessorBinding {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UsingCleanupTransfer {
+    pub operation: String,
+    pub error_family: String,
+    pub variant: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UsingCleanupObligation {
     pub binding_name: String,
     pub cleanup_operation: String,
     pub cleanup_errors: Vec<String>,
+    pub transfer: Option<UsingCleanupTransfer>,
     pub consumed: bool,
 }
 

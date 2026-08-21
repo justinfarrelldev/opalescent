@@ -60,33 +60,50 @@ fn register_using_cleanup_obligation<'context>(
             binding.name
         )));
     }
-    let Some((cleanup_operation, cleanup_errors)) = cleanup_registration_for_type(name.as_str())
+    let Some((cleanup_operation, cleanup_errors, transfer)) =
+        cleanup_registration_for_type(name.as_str())
     else {
         return Err(CodegenError::new(format!(
             "using binding '{}' has no compiler-visible cleanup registration for {name}",
             binding.name
         )));
     };
-    env.register_using_cleanup_obligation(binding.name.as_str(), cleanup_operation, cleanup_errors);
+    env.register_using_cleanup_obligation(
+        binding.name.as_str(),
+        cleanup_operation,
+        cleanup_errors,
+        transfer,
+    );
     Ok(())
 }
 
 fn cleanup_registration_for_type(
     resource_type: &str,
-) -> Option<(&'static str, &'static [&'static str])> {
+) -> Option<(
+    &'static str,
+    &'static [&'static str],
+    Option<(&'static str, &'static str, &'static str)>,
+)> {
     match resource_type {
-        "SystemWaitSet" => Some(("system_wait_set_drop", &[])),
-        "SystemOwnedWaitRegistration" => Some(("system_owned_wait_registration_drop", &[])),
-        "ProcessControlSource" => Some(("process_control_source_drop", &[])),
-        "MonotonicTimer" => Some(("monotonic_timer_drop", &[])),
-        "CancellationSource" => Some(("cancellation_source_drop", &[])),
+        "SystemWaitSet" => Some(("system_wait_set_drop", &[], None)),
+        "SystemOwnedWaitRegistration" => Some(("system_owned_wait_registration_drop", &[], None)),
+        "ProcessControlSource" => Some(("process_control_source_drop", &[], None)),
+        "MonotonicTimer" => Some(("monotonic_timer_drop", &[], None)),
+        "CancellationSource" => Some(("cancellation_source_drop", &[], None)),
         "TerminalSession" => Some((
             "terminal_session_close_sync",
             &["TerminalSessionRestoreError"],
+            Some((
+                "terminal_session_close_sync",
+                "TerminalSessionRestoreError",
+                "CloseRestorePending",
+            )),
         )),
-        "TerminalChordRouter" => Some(("terminal_chord_router_drop", &[])),
-        "TerminalTestScenario" => Some(("terminal_test_scenario_drop", &[])),
-        "TerminalTestBackendActivation" => Some(("terminal_test_backend_activation_drop", &[])),
+        "TerminalChordRouter" => Some(("terminal_chord_router_drop", &[], None)),
+        "TerminalTestScenario" => Some(("terminal_test_scenario_drop", &[], None)),
+        "TerminalTestBackendActivation" => {
+            Some(("terminal_test_backend_activation_drop", &[], None))
+        }
         _ => None,
     }
 }

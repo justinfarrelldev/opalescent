@@ -8,7 +8,7 @@
 )]
 extern crate alloc;
 
-use crate::ast::{BorrowKind, Expr, Stmt, Type};
+use crate::ast::{Expr, Stmt, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
@@ -18,7 +18,6 @@ use crate::codegen::expressions_array::{
     materialize_runtime_array_from_raw_elements,
 };
 use crate::codegen::monomorphization::ensure_monomorphized_function_declaration;
-use crate::codegen::scope_tracker::cleanup_return_scopes_preserving_codegen_env;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::format;
@@ -42,18 +41,24 @@ mod functions_call_helpers;
 mod string_array_calls;
 #[path = "functions_call/tail.rs"]
 mod tail;
+#[path = "functions_call/using_cleanup.rs"]
+mod using_cleanup;
 use self::array::{
     codegen_array_intrinsic_call, codegen_array_member_call, is_array_intrinsic_name,
 };
 use self::call_arg_cleanup::{cleanup_call_argument_temporaries, lower_call_argument};
 use self::functions_call_helpers::{
-    caller_returns_error_aggregate, current_function, emit_function_default_return,
-    infer_guard_binding_core_type, llvm_metadata_type_to_core_type, uses_aggregate_result_dispatch,
+    caller_returns_error_aggregate, current_function, infer_guard_binding_core_type,
+    llvm_metadata_type_to_core_type, uses_aggregate_result_dispatch,
 };
 use self::string_array_calls::{
     extract_error_abi_success_value, maybe_lower_specialized_string_array_call,
 };
 use self::tail::declare_external_imported_function;
+use self::using_cleanup::{
+    build_error_variant_match, consume_using_cleanup_obligation_after_success,
+    emit_cleanup_aware_error_return, using_cleanup_close_binding, using_cleanup_transfer_variant,
+};
 
 pub fn build_function_type<'context>(
     codegen_context: &CodegenContext<'context>,
@@ -513,7 +518,6 @@ pub fn codegen_call_expression<'context>(
             |value| value,
         );
 
-        consume_using_cleanup_obligation_after_success(env, callee, args);
         if let Expr::Identifier { ref name, .. } = *callee {
             let runtime_name = env
                 .imported_functions
@@ -555,39 +559,6 @@ pub fn codegen_call_expression<'context>(
     }
 }
 
-fn consume_using_cleanup_obligation_after_success<'context>(
-    env: &mut CodegenEnv<'context>,
-    callee: &Expr,
-    args: &[Expr],
-) {
-    let Expr::Identifier { ref name, .. } = *callee else {
-        return;
-    };
-    let runtime_name = env
-        .imported_functions
-        .get(name.as_str())
-        .map_or_else(|| name.as_str(), String::as_str);
-    if runtime_name != "terminal_session_close_sync" {
-        return;
-    }
-    let Some(Expr::BorrowArgument {
-        target,
-        borrow_kind: BorrowKind::MutableRef,
-        ..
-    }) = args.first()
-    else {
-        return;
-    };
-    let Expr::Identifier {
-        name: ref binding_name,
-        ..
-    } = **target
-    else {
-        return;
-    };
-    env.consume_using_cleanup_obligation(binding_name.as_str());
-}
-
 #[doc = "Lower propagate expression control flow."]
 pub fn codegen_propagate_expression<'context>(
     codegen_context: &CodegenContext<'context>,
@@ -595,6 +566,21 @@ pub fn codegen_propagate_expression<'context>(
     call_expr: &Expr,
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
+    let explicit_close_transfer = if let Expr::Call {
+        ref callee,
+        ref args,
+        ..
+    } = *call_expr
+    {
+        using_cleanup_close_binding(env, callee.as_ref(), args.as_slice()).and_then(
+            |binding_name| {
+                using_cleanup_transfer_variant(env, binding_name.as_str())
+                    .map(|variant| (binding_name, variant))
+            },
+        )
+    } else {
+        None
+    };
     let value = if let Expr::Call {
         ref callee,
         ref args,
@@ -652,9 +638,66 @@ pub fn codegen_propagate_expression<'context>(
                 )?;
             }
             codegen_context.builder.position_at_end(early_return);
-            cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
-            emit_function_default_return(codegen_context, current_fn, forward_error)?;
+            if let (Some(body_error), Some((binding_name, transfer_variant))) =
+                (forward_error, explicit_close_transfer)
+            {
+                let transfer_cleanup = codegen_context.context.append_basic_block(
+                    current_fn,
+                    env.next_name("using.transfer.cleanup").as_str(),
+                );
+                let ordinary_cleanup = codegen_context.context.append_basic_block(
+                    current_fn,
+                    env.next_name("using.ordinary.cleanup").as_str(),
+                );
+                let is_transfer = build_error_variant_match(
+                    codegen_context,
+                    env,
+                    body_error,
+                    transfer_variant.as_str(),
+                )?;
+                let _branch = codegen_context.builder.build_conditional_branch(
+                    is_transfer,
+                    transfer_cleanup,
+                    ordinary_cleanup,
+                )?;
+                codegen_context.builder.position_at_end(transfer_cleanup);
+                emit_cleanup_aware_error_return(
+                    codegen_context,
+                    env,
+                    current_fn,
+                    Some(body_error),
+                    &[binding_name],
+                )?;
+                codegen_context.builder.position_at_end(ordinary_cleanup);
+                emit_cleanup_aware_error_return(
+                    codegen_context,
+                    env,
+                    current_fn,
+                    Some(body_error),
+                    &[],
+                )?;
+            } else {
+                emit_cleanup_aware_error_return(
+                    codegen_context,
+                    env,
+                    current_fn,
+                    forward_error,
+                    &[],
+                )?;
+            }
             codegen_context.builder.position_at_end(continue_block);
+            if let Expr::Call {
+                ref callee,
+                ref args,
+                ..
+            } = *call_expr
+            {
+                consume_using_cleanup_obligation_after_success(
+                    env,
+                    callee.as_ref(),
+                    args.as_slice(),
+                );
+            }
             let success_field_count = crate::codegen::error_abi::error_field_index(field_count);
             if success_field_count == 0 {
                 return Ok(value);

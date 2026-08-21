@@ -54,6 +54,7 @@ impl<'context> CodegenEnv<'context> {
         binding_name: &str,
         cleanup_operation: &str,
         cleanup_errors: &[&str],
+        transfer: Option<(&str, &str, &str)>,
     ) {
         self.using_cleanup_obligations
             .push(crate::codegen::expressions::UsingCleanupObligation {
@@ -63,6 +64,13 @@ impl<'context> CodegenEnv<'context> {
                     .iter()
                     .map(|error| (*error).to_owned())
                     .collect(),
+                transfer: transfer.map(|(operation, error_family, variant)| {
+                    crate::codegen::expressions::UsingCleanupTransfer {
+                        operation: operation.to_owned(),
+                        error_family: error_family.to_owned(),
+                        variant: variant.to_owned(),
+                    }
+                }),
                 consumed: false,
             });
     }
@@ -83,6 +91,7 @@ impl<'context> CodegenEnv<'context> {
         codegen_context: &CodegenContext<'context>,
         name: &str,
         transferred_names: &[String],
+        primary_cleanup_error: Option<inkwell::values::PointerValue<'context>>,
     ) -> Result<(), CodegenError> {
         if transferred_names
             .iter()
@@ -118,11 +127,54 @@ impl<'context> CodegenEnv<'context> {
             obligation.cleanup_operation.as_str(),
             !obligation.cleanup_errors.is_empty(),
         );
-        let _call = codegen_context.builder.build_call(
+        let call = codegen_context.builder.build_call(
             cleanup_fn,
             &[loaded_value.into_pointer_value().into()],
             self.next_name("using.cleanup.call").as_str(),
         )?;
+        if !obligation.cleanup_errors.is_empty() {
+            let cleanup_error = call
+                .try_as_basic_value()
+                .basic()
+                .ok_or_else(|| {
+                    CodegenError::new(format!(
+                        "fallible using cleanup '{}' did not return an error pointer",
+                        obligation.cleanup_operation
+                    ))
+                })?
+                .into_pointer_value();
+            if let Some(error_slot) = primary_cleanup_error {
+                let current_error = codegen_context
+                    .builder
+                    .build_load(
+                        error_slot,
+                        self.next_name("using.cleanup.primary.load").as_str(),
+                    )?
+                    .into_pointer_value();
+                let no_primary_error = codegen_context.builder.build_is_null(
+                    current_error,
+                    self.next_name("using.cleanup.primary.empty").as_str(),
+                )?;
+                let cleanup_failed = codegen_context.builder.build_is_not_null(
+                    cleanup_error,
+                    self.next_name("using.cleanup.failed").as_str(),
+                )?;
+                let take_cleanup_error = codegen_context.builder.build_and(
+                    no_primary_error,
+                    cleanup_failed,
+                    self.next_name("using.cleanup.take").as_str(),
+                )?;
+                let selected_error = codegen_context.builder.build_select(
+                    take_cleanup_error,
+                    cleanup_error,
+                    current_error,
+                    self.next_name("using.cleanup.primary.select").as_str(),
+                )?;
+                codegen_context
+                    .builder
+                    .build_store(error_slot, selected_error)?;
+            }
+        }
         Ok(())
     }
 
@@ -169,6 +221,15 @@ impl<'context> CodegenEnv<'context> {
         codegen_context: &CodegenContext<'context>,
         transferred_names: &[String],
     ) -> Result<(), CodegenError> {
+        self.exit_scope_cleanup_with_error_slot(codegen_context, transferred_names, None)
+    }
+
+    fn exit_scope_cleanup_with_error_slot(
+        &mut self,
+        codegen_context: &CodegenContext<'context>,
+        transferred_names: &[String],
+        primary_cleanup_error: Option<inkwell::values::PointerValue<'context>>,
+    ) -> Result<(), CodegenError> {
         let Some(scope_bindings) = self.scope_stack.pop() else {
             return Ok(());
         };
@@ -178,6 +239,7 @@ impl<'context> CodegenEnv<'context> {
                 codegen_context,
                 binding_name.as_str(),
                 transferred_names,
+                primary_cleanup_error,
             )?;
             self.release_scope_binding_value(
                 codegen_context,
@@ -202,8 +264,27 @@ impl<'context> CodegenEnv<'context> {
         target_depth: usize,
         transferred_names: &[String],
     ) -> Result<(), CodegenError> {
+        self.cleanup_scopes_to_depth_with_error_slot(
+            codegen_context,
+            target_depth,
+            transferred_names,
+            None,
+        )
+    }
+
+    pub(crate) fn cleanup_scopes_to_depth_with_error_slot(
+        &mut self,
+        codegen_context: &CodegenContext<'context>,
+        target_depth: usize,
+        transferred_names: &[String],
+        primary_cleanup_error: Option<inkwell::values::PointerValue<'context>>,
+    ) -> Result<(), CodegenError> {
         while self.scope_stack.len() > target_depth {
-            self.exit_scope_cleanup(codegen_context, transferred_names)?;
+            self.exit_scope_cleanup_with_error_slot(
+                codegen_context,
+                transferred_names,
+                primary_cleanup_error,
+            )?;
         }
         Ok(())
     }
@@ -268,6 +349,60 @@ pub(crate) fn cleanup_return_scopes_preserving_codegen_env<'context>(
     env.scope_stack = original_scope_stack;
     env.using_cleanup_obligations = original_using_cleanup_obligations;
     cleanup_result
+}
+
+pub(crate) fn cleanup_return_scopes_preserving_codegen_env_with_error<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    transferred_names: &[String],
+) -> Result<inkwell::values::PointerValue<'context>, CodegenError> {
+    let i8_ptr = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
+    let primary_cleanup_error = codegen_context
+        .builder
+        .build_alloca(i8_ptr, env.next_name("using.cleanup.primary").as_str())?;
+    codegen_context
+        .builder
+        .build_store(primary_cleanup_error, i8_ptr.const_null())?;
+
+    let original_variables = env.variables.clone();
+    let original_field_indices = env.variable_field_indices.clone();
+    let original_field_aliases = env.variable_field_aliases.clone();
+    let original_scope_stack = env.scope_stack.clone();
+    let original_using_cleanup_obligations = env.using_cleanup_obligations.clone();
+
+    let args_binding_is_unregistered = env.variables.contains_key("args")
+        && !env
+            .scope_stack
+            .iter()
+            .any(|scope| scope.iter().any(|binding_name| binding_name == "args"));
+    if args_binding_is_unregistered {
+        env.scope_stack.push(vec![String::from("args")]);
+    }
+
+    let cleanup_result = cleanup_scopes_to_depth_with_error_slot(
+        codegen_context,
+        env,
+        0,
+        transferred_names,
+        Some(primary_cleanup_error),
+    );
+    env.variables = original_variables;
+    env.variable_field_indices = original_field_indices;
+    env.variable_field_aliases = original_field_aliases;
+    env.scope_stack = original_scope_stack;
+    env.using_cleanup_obligations = original_using_cleanup_obligations;
+    cleanup_result?;
+    codegen_context
+        .builder
+        .build_load(
+            primary_cleanup_error,
+            env.next_name("using.cleanup.primary.final").as_str(),
+        )
+        .map(|value| value.into_pointer_value())
+        .map_err(CodegenError::from)
 }
 
 pub(crate) fn expr_requires_malloc_string_cleanup<'context>(
@@ -678,6 +813,37 @@ pub(crate) fn cleanup_scopes_to_depth_with_malloc_string_release<'context>(
     cleanup_skips.extend(malloc_string_bindings.iter().cloned());
     let cleanup_result =
         env.cleanup_scopes_to_depth(codegen_context, target_depth, cleanup_skips.as_slice());
+    if cleanup_result.is_ok() {
+        for binding_name in malloc_string_bindings {
+            clear_binding_cleanup_metadata(env, binding_name.as_str());
+            let _removed_binding = env.variables.remove(binding_name.as_str());
+            let _removed_indices = env.variable_field_indices.remove(binding_name.as_str());
+        }
+    }
+    cleanup_result
+}
+
+pub(crate) fn cleanup_scopes_to_depth_with_error_slot<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    target_depth: usize,
+    transferred_names: &[String],
+    primary_cleanup_error: Option<inkwell::values::PointerValue<'context>>,
+) -> Result<(), CodegenError> {
+    let malloc_string_bindings =
+        collect_malloc_string_cleanup_bindings(env, target_depth, transferred_names);
+    for binding_name in &malloc_string_bindings {
+        release_malloc_string_binding_value(codegen_context, env, binding_name.as_str())?;
+    }
+
+    let mut cleanup_skips = transferred_names.to_vec();
+    cleanup_skips.extend(malloc_string_bindings.iter().cloned());
+    let cleanup_result = env.cleanup_scopes_to_depth_with_error_slot(
+        codegen_context,
+        target_depth,
+        cleanup_skips.as_slice(),
+        primary_cleanup_error,
+    );
     if cleanup_result.is_ok() {
         for binding_name in malloc_string_bindings {
             clear_binding_cleanup_metadata(env, binding_name.as_str());
