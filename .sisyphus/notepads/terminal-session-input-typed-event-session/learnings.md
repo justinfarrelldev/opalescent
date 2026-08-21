@@ -158,3 +158,9 @@
 
 - For guards, the runtime cleanup flag means cleanup authority is gone, not only close success. Set it on guarded close success and on failure only when the exact registered `TerminalSessionRestoreError.CloseRestorePending` transfer matches; ordinary failures must leave lexical cleanup active.
 - Guard statement/expression regressions should assert the transfer branch IR (`CloseRestorePending`, `strcmp`, `using.transfer.mark`, `using.transfer.keep`) as well as the cleanup run/skip flag blocks.
+
+## Task 15 refinement/checker semantics - 2026-08-21
+
+- Nominal variant refinement belongs in the checker as branch-local type/binding state: `is Variant into payload` narrows only the true branch and the payload binding must not escape.
+- `constrain Type from value` is a fallible expression surface, not just a cast; it must require `ConstraintViolationError` on the enclosing fallible declaration and participate in normal guard/propagate handling.
+- Guard-error heterogeneous unions should carry narrowed family information from refinement branches, while unrefined heterogeneous propagation must still require every possible family on the enclosing error surface.

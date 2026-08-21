@@ -64,3 +64,8 @@
 
 - Retry 3 still missed transfer failures in guard else/fallback paths: success flags alone left `CloseRestorePending` with lexical cleanup authority. Add exact-transfer assertions for both guard statement and expression tests.
 - `src/codegen/statements.rs` has too little headroom for inline guard-transfer branches. Move statement-side helper wrappers into `src/codegen/statements/using_cleanup.rs`, but avoid wildcard imports because `cargo make lint` denies them.
+
+## Task 15 refinement findings - 2026-08-21
+
+- Exact guard-error-set equality was too strict for the Task 15 model; it blocked valid heterogeneous guard chaining even when later branches refined and propagated only a compatible family.
+- Parser-level `into` rejection already covered several invalid refinement forms, so checker tests should focus on semantic behavior: scoped payload bindings, narrowed propagation, and missing `ConstraintViolationError` declarations.
