@@ -8,16 +8,19 @@
 
 extern crate alloc;
 
+use super::helpers::{coerce_literal_to_expected, type_mismatch_error};
 use super::{
     FallibleCallShape, FallibleExpressionContext, FallibleExpressionInfo, FallibleExpressionKind,
     TypeChecker,
 };
-use crate::ast::{AstNode, Expr, Type};
+use crate::ast::{AstNode, Expr, Type, TypeDeclarationForm, TypeDef};
 use crate::token::Span;
+use crate::type_system::constraints::TypeConstraint;
 use crate::type_system::errors::TypeError;
 use crate::type_system::fallible_constructors::{
     CanonicalTypeIdentity, lookup_fallible_constructor,
 };
+use crate::type_system::type_mapping::ast_type_to_core_type;
 use crate::type_system::types::CoreType;
 use alloc::{format, string::String};
 
@@ -65,16 +68,6 @@ impl TypeChecker {
             }
             Some(errors) => errors.to_vec(),
         };
-
-        if let Some(active_errors) = self.context.guard_error_stack.last() {
-            if !Self::guard_error_type_sets_match(active_errors.as_slice(), error_types) {
-                return Err(TypeError::GuardChainedErrorMismatch {
-                    expected: Self::format_error_type_list(active_errors.as_slice()),
-                    found: Self::format_error_type_list(error_types),
-                    span: TypeError::span_from_span(span),
-                });
-            }
-        }
 
         let is_subset = error_types.iter().all(|error_type| {
             current_fn_error_types
@@ -179,6 +172,12 @@ impl TypeChecker {
                 *span,
                 context,
             ),
+            Expr::Constrain {
+                target_type,
+                value,
+                span,
+                ..
+            } => self.classify_constrain_fallible_expression(target_type, value, *span),
             _ => Err(Self::non_error_expression_type_error(context, expr.span())),
         }
     }
@@ -253,6 +252,163 @@ impl TypeChecker {
             expression_kind: FallibleExpressionKind::RegisteredConstructor,
             constructor_entry: Some(entry),
         })
+    }
+
+    /// Type-check a bare `constrain` expression and report its unhandled error surface.
+    pub(super) fn type_check_unhandled_constrain_expr(
+        &mut self,
+        target_type: &Type,
+        value: &Expr,
+        span: Span,
+    ) -> Result<CoreType, TypeError> {
+        let _success_type = self.type_check_constrain_expr(target_type, value, span)?;
+        Err(TypeError::UnhandledCallError {
+            name: "constrain".to_owned(),
+            error_types: "ConstraintViolationError".to_owned(),
+            span: TypeError::span_from_span(span),
+        })
+    }
+
+    /// Classify `constrain Type from value` as a fallible constrained construction.
+    fn classify_constrain_fallible_expression(
+        &mut self,
+        target_type: &Type,
+        value: &Expr,
+        span: Span,
+    ) -> Result<FallibleExpressionInfo, TypeError> {
+        let success_type = self.type_check_constrain_expr(target_type, value, span)?;
+        let error_type = self.constraint_violation_error_type(span)?;
+        Ok(FallibleExpressionInfo {
+            success_type,
+            error_types: vec![error_type],
+            expression_kind: FallibleExpressionKind::Call,
+            constructor_entry: None,
+        })
+    }
+
+    /// Type-check the constrained target and runtime source value.
+    fn type_check_constrain_expr(
+        &mut self,
+        target_type: &Type,
+        value: &Expr,
+        span: Span,
+    ) -> Result<CoreType, TypeError> {
+        let target_core_type = ast_type_to_core_type(target_type).map_err(TypeError::from)?;
+        let source_type = self.constrained_alias_source_type(&target_core_type, span)?;
+        let value_type = self.type_check_expr(value)?;
+        let reconciled_value_type = if self.types_compatible(&source_type, &value_type) {
+            value_type
+        } else if let Some(adjusted) = coerce_literal_to_expected(&source_type, value, &value_type)
+        {
+            adjusted
+        } else {
+            return Err(type_mismatch_error(
+                &source_type,
+                None,
+                &value_type,
+                value.span(),
+            ));
+        };
+        self.add_constraint(TypeConstraint::equality(
+            source_type,
+            reconciled_value_type,
+            None,
+            Some(value.span()),
+        ));
+        Ok(target_core_type)
+    }
+
+    /// Resolve the underlying source type for a constrained proposal alias.
+    fn constrained_alias_source_type(
+        &self,
+        target_core_type: &CoreType,
+        span: Span,
+    ) -> Result<CoreType, TypeError> {
+        let Some(type_name) = Self::constrained_type_name(target_core_type) else {
+            return Err(TypeError::ConstraintSolvingFailed {
+                reason: format!("constrain target '{target_core_type}' is not a nominal type"),
+                span: TypeError::span_from_span(span),
+            });
+        };
+
+        for module_path in [
+            "standard.terminal",
+            "standard.terminal.chords",
+            "standard.testing.terminal",
+        ] {
+            let Some(interface) = self.module_resolver.module_interface(module_path) else {
+                continue;
+            };
+            let Some(declaration) = interface.type_declaration(type_name) else {
+                continue;
+            };
+            return Self::constrained_declaration_source_type(declaration, span);
+        }
+
+        Err(TypeError::ConstraintSolvingFailed {
+            reason: format!("constrain target '{type_name}' is not a constrained type"),
+            span: TypeError::span_from_span(span),
+        })
+    }
+
+    /// Resolve a parsed constrained alias declaration to its source representation type.
+    fn constrained_declaration_source_type(
+        declaration: &crate::type_system::module_resolver::ModuleTypeDeclaration,
+        span: Span,
+    ) -> Result<CoreType, TypeError> {
+        if declaration.form != TypeDeclarationForm::Constrained {
+            return Err(TypeError::ConstraintSolvingFailed {
+                reason: format!(
+                    "constrain target '{}' is not a constrained type",
+                    declaration.name
+                ),
+                span: TypeError::span_from_span(span),
+            });
+        }
+
+        let TypeDef::Alias {
+            target_type,
+            constraint: Some(_),
+            ..
+        } = &declaration.type_def
+        else {
+            return Err(TypeError::ConstraintSolvingFailed {
+                reason: format!(
+                    "constrained type '{}' has no runtime-checkable where clause",
+                    declaration.name
+                ),
+                span: TypeError::span_from_span(span),
+            });
+        };
+
+        ast_type_to_core_type(target_type).map_err(TypeError::from)
+    }
+
+    /// Return the core error type produced by runtime constrained construction.
+    fn constraint_violation_error_type(&self, span: Span) -> Result<CoreType, TypeError> {
+        if let Ok(core_type) = self
+            .environment
+            .lookup_type("ConstraintViolationError", span)
+        {
+            return Ok(core_type.clone());
+        }
+        if let Some(symbol) = self.symbol_table.lookup("ConstraintViolationError") {
+            if symbol.symbol_type == crate::type_system::symbol_table::SymbolType::Type {
+                return Ok(symbol.core_type.clone());
+            }
+        }
+        Err(TypeError::UndeclaredErrorType {
+            name: "ConstraintViolationError".to_owned(),
+            span: TypeError::span_from_span(span),
+        })
+    }
+
+    /// Extract a non-generic nominal type name from a constrain target.
+    fn constrained_type_name(target_core_type: &CoreType) -> Option<&str> {
+        match target_core_type {
+            CoreType::Generic { name, type_args } if type_args.is_empty() => Some(name.as_str()),
+            _ => None,
+        }
     }
 
     /// Build the diagnostic used for non-fallible propagate/guard subjects.

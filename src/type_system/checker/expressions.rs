@@ -272,14 +272,24 @@ impl TypeChecker {
                 span,
                 ..
             } => self.type_check_cast_expr(expr.as_ref(), target_type, span),
-            Expr::Constrain { span, .. } => Err(TypeError::ConstraintSolvingFailed {
-                reason: "constrain expression semantics are not implemented yet".to_owned(),
-                span: TypeError::span_from_span(span),
-            }),
-            Expr::Refinement { span, .. } => Err(TypeError::ConstraintSolvingFailed {
-                reason: "refinement expression semantics are not implemented yet".to_owned(),
-                span: TypeError::span_from_span(span),
-            }),
+            Expr::Constrain {
+                ref target_type,
+                ref value,
+                span,
+                ..
+            } => self.type_check_unhandled_constrain_expr(target_type, value.as_ref(), span),
+            Expr::Refinement {
+                ref value,
+                ref variant,
+                ref payload_binding,
+                span,
+                ..
+            } => self.type_check_refinement_expr(
+                value.as_ref(),
+                variant.as_ref(),
+                payload_binding,
+                span,
+            ),
             Expr::TypeOf { ref expr, .. } => {
                 self.type_check_expr(expr.as_ref())?;
                 Ok(CoreType::String)

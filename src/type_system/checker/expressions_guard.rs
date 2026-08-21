@@ -16,7 +16,7 @@
 extern crate alloc;
 
 use super::control_flow::{GuardCheckRequest, GuardUsage};
-use super::helpers::coerce_literal_to_expected;
+use super::helpers::{coerce_literal_to_expected, ensure_boolean_type};
 use super::{FallibleExpressionContext, FallibleExpressionInfo};
 use crate::ast::{AstNode, Expr, LabeledValue, LetBinding, Stmt};
 use crate::token::Span;
@@ -92,20 +92,6 @@ impl TypeChecker {
                     found: annotated_type.to_string(),
                     span: TypeError::span_from_span(annotated_type_ast.span()),
                 });
-            }
-        }
-
-        let should_chain_guard_errors = usage != GuardUsage::Statement || error_binding.is_none();
-        if should_chain_guard_errors {
-            if let Some(active_errors) = self.context.guard_error_stack.last() {
-                if !Self::guard_error_type_sets_match(active_errors.as_slice(), &callee_error_types)
-                {
-                    return Err(TypeError::GuardChainedErrorMismatch {
-                        expected: Self::format_error_type_list(active_errors.as_slice()),
-                        found: Self::format_error_type_list(&callee_error_types),
-                        span: TypeError::span_from_span(expr.span()),
-                    });
-                }
             }
         }
 
@@ -462,12 +448,59 @@ impl TypeChecker {
         }
     }
 
+    /// Type-check one branch of an `if` nested inside a named guard error clause.
+    fn type_check_guard_error_conditional_branch(
+        &mut self,
+        statement: &Stmt,
+        expected_return: Option<&[CoreType]>,
+    ) -> Result<(), TypeError> {
+        match statement {
+            Stmt::PropagateGuardError { .. } | Stmt::Return { .. } => {
+                self.type_check_guard_error_clause_terminal_statement(statement, expected_return)
+            }
+            Stmt::Block {
+                statements, span, ..
+            } => self.type_check_guard_error_clause_statements(
+                statements.as_slice(),
+                expected_return,
+                *span,
+                true,
+            ),
+            _ => self.type_check_guard_error_clause_prelude_statement(statement, expected_return),
+        }
+    }
+
     fn type_check_guard_error_clause_prelude_statement(
         &mut self,
         statement: &Stmt,
         expected_return: Option<&[CoreType]>,
     ) -> Result<(), TypeError> {
         match statement {
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+                ..
+            } => {
+                let condition_type = self.type_check_expr(condition)?;
+                ensure_boolean_type(&condition_type, condition.span(), "guard error condition")?;
+                self.within_new_scope(|checker| {
+                    checker.apply_true_branch_type_narrowing(condition);
+                    checker.type_check_guard_error_conditional_branch(
+                        then_branch.as_ref(),
+                        expected_return,
+                    )
+                })?;
+                if let Some(else_statement) = else_branch.as_deref() {
+                    self.within_new_scope(|checker| {
+                        checker.type_check_guard_error_conditional_branch(
+                            else_statement,
+                            expected_return,
+                        )
+                    })?;
+                }
+                Ok(())
+            }
             Stmt::Block {
                 statements, span, ..
             } => {
@@ -606,6 +639,51 @@ impl TypeChecker {
         }
     }
 
+    /// Return the active guard error family set, narrowed by branch-local refinement when present.
+    fn active_guard_propagation_error_types(&self, error_binding: &str) -> Vec<CoreType> {
+        let active_guard_errors = self
+            .context
+            .guard_error_stack
+            .last()
+            .cloned()
+            .unwrap_or_default();
+        let Some(symbol) = self.symbol_table().lookup(error_binding) else {
+            return active_guard_errors;
+        };
+        let Some(narrowed_family) = self.narrowed_guard_error_family(&symbol.core_type) else {
+            return active_guard_errors;
+        };
+        if active_guard_errors
+            .iter()
+            .any(|error_type| Self::declared_error_type_covers(&narrowed_family, error_type))
+        {
+            vec![narrowed_family]
+        } else {
+            active_guard_errors
+        }
+    }
+
+    /// Extract the parent error family from a branch-local `Family.Variant` nominal type.
+    fn narrowed_guard_error_family(&self, core_type: &CoreType) -> Option<CoreType> {
+        let &CoreType::Generic {
+            name: ref type_name,
+            ref type_args,
+        } = core_type
+        else {
+            return None;
+        };
+        if !type_args.is_empty() {
+            return None;
+        }
+        let (family_name, _) = type_name.split_once('.')?;
+        let is_known_variant = self.adt_variants.get(family_name).is_some_and(|variants| {
+            variants
+                .iter()
+                .any(|variant_name| variant_name == type_name)
+        });
+        is_known_variant.then(|| Self::nominal_type(family_name))
+    }
+
     fn type_check_guard_error_propagate_terminal(
         &mut self,
         error_binding: &str,
@@ -633,12 +711,7 @@ impl TypeChecker {
             Some(errors) => errors.to_vec(),
         };
 
-        let active_guard_errors = self
-            .context
-            .guard_error_stack
-            .last()
-            .cloned()
-            .unwrap_or_default();
+        let active_guard_errors = self.active_guard_propagation_error_types(error_binding);
         let is_subset = active_guard_errors.iter().all(|error_type| {
             current_fn_error_types
                 .iter()
