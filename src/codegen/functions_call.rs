@@ -8,7 +8,7 @@
 )]
 extern crate alloc;
 
-use crate::ast::{Expr, Stmt, Type};
+use crate::ast::{BorrowKind, Expr, Stmt, Type};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
@@ -513,6 +513,7 @@ pub fn codegen_call_expression<'context>(
             |value| value,
         );
 
+        consume_using_cleanup_obligation_after_success(env, callee, args);
         if let Expr::Identifier { ref name, .. } = *callee {
             let runtime_name = env
                 .imported_functions
@@ -552,6 +553,39 @@ pub fn codegen_call_expression<'context>(
         }
         Err(error) => Err(error),
     }
+}
+
+fn consume_using_cleanup_obligation_after_success<'context>(
+    env: &mut CodegenEnv<'context>,
+    callee: &Expr,
+    args: &[Expr],
+) {
+    let Expr::Identifier { ref name, .. } = *callee else {
+        return;
+    };
+    let runtime_name = env
+        .imported_functions
+        .get(name.as_str())
+        .map_or_else(|| name.as_str(), String::as_str);
+    if runtime_name != "terminal_session_close_sync" {
+        return;
+    }
+    let Some(Expr::BorrowArgument {
+        target,
+        borrow_kind: BorrowKind::MutableRef,
+        ..
+    }) = args.first()
+    else {
+        return;
+    };
+    let Expr::Identifier {
+        name: ref binding_name,
+        ..
+    } = **target
+    else {
+        return;
+    };
+    env.consume_using_cleanup_obligation(binding_name.as_str());
 }
 
 #[doc = "Lower propagate expression control flow."]

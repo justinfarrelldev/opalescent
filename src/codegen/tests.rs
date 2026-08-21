@@ -4507,3 +4507,157 @@ fn test_windows_target_uses_dllexport_linkage() {
         "public function on Windows target should have dllexport in LLVM IR: {ir}"
     );
 }
+
+fn seed_using_cleanup_resource<'context>(
+    context: &'context Context,
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    name: &str,
+    cleanup_operation: &str,
+    cleanup_errors: &[&str],
+) {
+    let pointer_type = context.i8_type().ptr_type(AddressSpace::default());
+    let alloca = codegen_context
+        .builder
+        .build_alloca(pointer_type, name)
+        .expect("using cleanup test should allocate opaque resource binding");
+    codegen_context
+        .builder
+        .build_store(alloca, pointer_type.const_null())
+        .expect("using cleanup test should initialize opaque resource binding");
+    env.variables.insert(
+        name.to_owned(),
+        VariableBinding {
+            alloca,
+            core_type: CoreType::Generic {
+                name: name.to_owned(),
+                type_args: Vec::new(),
+            },
+            length: None,
+            capacity: None,
+            is_mutable: true,
+        },
+    );
+    env.register_scope_binding(name);
+    env.register_using_cleanup_obligation(name, cleanup_operation, cleanup_errors);
+}
+
+#[test]
+fn using_cleanup_scope_exit_emits_reverse_order_scaffold_calls() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "using_cleanup_reverse_order");
+    let _function = create_codegen_function(&codegen_context, "using_cleanup_reverse_order_fn");
+    let mut env = CodegenEnv::new(true);
+    let _scope = env.enter_scope();
+    seed_using_cleanup_resource(
+        &context,
+        &codegen_context,
+        &mut env,
+        "outer_wait_set",
+        "system_wait_set_drop",
+        &[],
+    );
+    seed_using_cleanup_resource(
+        &context,
+        &codegen_context,
+        &mut env,
+        "inner_timer",
+        "monotonic_timer_drop",
+        &[],
+    );
+
+    crate::codegen::scope_tracker::cleanup_scopes_to_depth_with_malloc_string_release(
+        &codegen_context,
+        &mut env,
+        0,
+        &[],
+    )
+    .expect("using cleanup scope exit should lower");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    let inner_call = ir
+        .find("call void @__opal_using_cleanup_monotonic_timer_drop")
+        .expect("inner using cleanup call should be emitted");
+    let outer_call = ir
+        .find("call void @__opal_using_cleanup_system_wait_set_drop")
+        .expect("outer using cleanup call should be emitted");
+    assert!(
+        inner_call < outer_call,
+        "nested using cleanup must run in reverse acquisition order: {ir}"
+    );
+}
+
+#[test]
+fn using_cleanup_preserving_exit_helpers_emit_cleanup_scaffolds() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "using_cleanup_preserving_exits");
+    let _function = create_codegen_function(&codegen_context, "using_cleanup_preserving_exits_fn");
+    let mut env = CodegenEnv::new(true);
+    let _scope = env.enter_scope();
+    seed_using_cleanup_resource(
+        &context,
+        &codegen_context,
+        &mut env,
+        "session",
+        "terminal_session_close_sync",
+        &["TerminalSessionRestoreError"],
+    );
+
+    crate::codegen::scope_tracker::cleanup_return_scopes_preserving_codegen_env(
+        &codegen_context,
+        &mut env,
+        &[],
+    )
+    .expect("return/propagate cleanup helper should lower using cleanup");
+    crate::codegen::scope_tracker::cleanup_scopes_to_depth_preserving_codegen_env(
+        &codegen_context,
+        &mut env,
+        0,
+        &[],
+    )
+    .expect("break/continue cleanup helper should lower using cleanup");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare i8* @__opal_using_cleanup_terminal_session_close_sync(i8*)"),
+        "fallible terminal cleanup scaffold should return an error pointer for primary/cause/suppressed ordering: {ir}"
+    );
+    assert_eq!(
+        ir.matches("call i8* @__opal_using_cleanup_terminal_session_close_sync")
+            .count(),
+        2,
+        "return/propagate and break/continue cleanup helpers should each emit the registered cleanup scaffold: {ir}"
+    );
+}
+
+#[test]
+fn using_cleanup_consumed_obligation_skips_lexical_cleanup() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "using_cleanup_consumed");
+    let _function = create_codegen_function(&codegen_context, "using_cleanup_consumed_fn");
+    let mut env = CodegenEnv::new(true);
+    let _scope = env.enter_scope();
+    seed_using_cleanup_resource(
+        &context,
+        &codegen_context,
+        &mut env,
+        "session",
+        "terminal_session_close_sync",
+        &["TerminalSessionRestoreError"],
+    );
+    env.consume_using_cleanup_obligation("session");
+
+    crate::codegen::scope_tracker::cleanup_scopes_to_depth_with_malloc_string_release(
+        &codegen_context,
+        &mut env,
+        0,
+        &[],
+    )
+    .expect("consumed using cleanup scope exit should lower");
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        !ir.contains("__opal_using_cleanup_terminal_session_close_sync"),
+        "successful explicit close consumption must prevent duplicate lexical cleanup: {ir}"
+    );
+}
