@@ -12,7 +12,7 @@ use crate::codegen::control_flow::{
 use crate::codegen::expressions::{CodegenEnv, VariableBinding, codegen_expression};
 use crate::codegen::functions::{
     codegen_call_expression, codegen_function_declaration, codegen_guard_expression,
-    codegen_propagate_expression, emit_default_return,
+    codegen_import_declaration, codegen_propagate_expression, emit_default_return,
 };
 use crate::codegen::functions_stdlib::declare_stdlib_function;
 use crate::codegen::monomorphization::monomorphized_function_name;
@@ -22,8 +22,9 @@ use crate::compiler::compile_to_module;
 use crate::type_system::types::{CoreType, GenericTypeParameter, TypeVar};
 use crate::{
     ast::{
-        BinaryOp, BorrowKind, Decl, Expr, HotReloadMetadata, LabeledValue, LambdaBody, LetBinding,
-        LiteralValue, NodeId, Parameter, Stmt, StringPart, Type, UnaryOp, Visibility,
+        BinaryOp, BorrowKind, Decl, Expr, HotReloadMetadata, ImportItem, ImportStatement,
+        LabeledValue, LambdaBody, LetBinding, LiteralValue, NodeId, Parameter, Stmt, StringPart,
+        Type, UnaryOp, Visibility,
     },
     token::{Position, Span},
 };
@@ -219,6 +220,52 @@ fn create_codegen_function<'context>(
         .append_basic_block(function, "entry");
     codegen_context.builder.position_at_end(entry_block);
     function
+}
+
+fn proposal_import_decl(source: &str, symbol_name: &str) -> Decl {
+    Decl::Import {
+        statement: ImportStatement {
+            names: vec![symbol_name.to_owned()],
+            module: source.to_owned(),
+        },
+        items: vec![ImportItem::Named {
+            name: symbol_name.to_owned(),
+            alias: None,
+            span: test_span(),
+        }],
+        source: source.to_owned(),
+        span: test_span(),
+        id: test_node_id(12_000),
+        metadata: HotReloadMetadata::for_import(),
+    }
+}
+
+fn assert_terminal_proposal_import_codegen_gate(source: &str, symbol_name: &str) {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "terminal_proposal_codegen_gate");
+    let mut env = CodegenEnv::new(true);
+    let declaration = proposal_import_decl(source, symbol_name);
+
+    let result = codegen_import_declaration(&codegen_context, &mut env, &declaration);
+    assert!(
+        result.is_err(),
+        "gated proposal import {symbol_name} from {source} should fail before runtime declaration"
+    );
+    let err_msg = result.expect_err("checked above").to_string();
+    assert!(
+        err_msg.contains("terminal proposal gate not complete"),
+        "gated proposal import should use the Task 12 diagnostic, got: {err_msg}"
+    );
+    assert!(
+        err_msg.contains(symbol_name) && err_msg.contains(source),
+        "gated proposal diagnostic should name the symbol and module, got: {err_msg}"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        !ir.contains(&format!("@{symbol_name}")),
+        "gated proposal import must not emit an unresolved LLVM external: {ir}"
+    );
 }
 
 #[test]
@@ -1528,6 +1575,58 @@ entry main = f(): void => {
     assert!(
         ir.contains("declare i8* @take_input()"),
         "import take_input from standard should emit declare i8* @take_input(): {ir}"
+    );
+}
+
+#[test]
+fn codegen_terminal_proposal_imports_fail_with_gate_diagnostic() {
+    for (source, symbol_name) in [
+        ("standard.system", "system_wait_set_new"),
+        ("standard.terminal", "terminal_session_options_default"),
+        ("standard.terminal.chords", "terminal_chord_modifiers"),
+        (
+            "standard.testing.terminal",
+            "test_runner_terminal_authority",
+        ),
+    ] {
+        assert_terminal_proposal_import_codegen_gate(source, symbol_name);
+    }
+}
+
+#[test]
+fn codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "terminal_proposal_direct_call_gate");
+    let _function = create_codegen_function(&codegen_context, "terminal_proposal_direct_call_fn");
+    let mut env = CodegenEnv::new(true);
+    env.imported_functions.insert(
+        String::from("open_options"),
+        String::from("terminal_session_options_default"),
+    );
+
+    let result = codegen_call_expression(
+        &codegen_context,
+        &mut env,
+        &ident(12_010, "open_options"),
+        None,
+        &[],
+        None,
+    );
+    assert!(
+        result.is_err(),
+        "directly mapped proposal call should fail before runtime resolution"
+    );
+    let err_msg = result.expect_err("checked above").to_string();
+    assert!(
+        err_msg.contains("terminal proposal gate not complete")
+            && err_msg.contains("terminal_session_options_default"),
+        "directly mapped proposal call should use focused gate diagnostic, got: {err_msg}"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        !ir.contains("@terminal_session_options_default"),
+        "gated direct call must not emit unresolved terminal proposal external: {ir}"
     );
 }
 

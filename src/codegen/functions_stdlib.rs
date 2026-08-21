@@ -810,6 +810,10 @@ pub fn resolve_imported_runtime_name(
     module_name: &str,
     symbol_name: &str,
 ) -> Result<String, CodegenError> {
+    if let Some(error) = terminal_proposal_import_gate_error(module_name, symbol_name) {
+        return Err(error);
+    }
+
     match (module_name, symbol_name) {
         ("standard" | "math" | "process", name) if is_stdlib_runtime_name(name) => {
             Ok(name.to_owned())
@@ -818,6 +822,32 @@ pub fn resolve_imported_runtime_name(
             "unknown import symbol '{symbol_name}' in module '{module_name}'"
         ))),
     }
+}
+
+/// Return the explicit Task 12 codegen gate diagnostic for proposal imports.
+pub fn terminal_proposal_import_gate_error(
+    module_name: &str,
+    symbol_name: &str,
+) -> Option<CodegenError> {
+    crate::type_system::is_terminal_proposal_codegen_gated_import(module_name, symbol_name)
+        .then(|| terminal_proposal_gate_error(Some(module_name), symbol_name))
+}
+
+/// Return the explicit Task 12 codegen gate diagnostic for proposal call resolution.
+pub fn terminal_proposal_runtime_gate_error(symbol_name: &str) -> Option<CodegenError> {
+    crate::type_system::is_terminal_proposal_codegen_gated_runtime_name(symbol_name)
+        .then(|| terminal_proposal_gate_error(None, symbol_name))
+}
+
+/// Build the shared user-facing diagnostic for terminal proposal runtime gaps.
+fn terminal_proposal_gate_error(module_name: Option<&str>, symbol_name: &str) -> CodegenError {
+    let location = module_name.map_or_else(
+        || format!("runtime symbol '{symbol_name}'"),
+        |module| format!("'{symbol_name}' from module '{module}'"),
+    );
+    CodegenError::new(format!(
+        "terminal proposal gate not complete: codegen/runtime lowering for {location} is intentionally disabled until the terminal runtime implementation lands"
+    ))
 }
 
 #[must_use]

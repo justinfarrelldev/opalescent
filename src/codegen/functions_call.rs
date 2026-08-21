@@ -841,6 +841,13 @@ fn resolve_callee_function<'context>(
                         "{imported_runtime_name} is compiler-lowered and does not resolve to a standalone runtime symbol",
                     )));
                 }
+                if let Some(error) =
+                    crate::codegen::functions_stdlib::terminal_proposal_runtime_gate_error(
+                        imported_runtime_name.as_str(),
+                    )
+                {
+                    return Err(error);
+                }
                 codegen_context
                     .module
                     .get_function(imported_runtime_name.as_str())
