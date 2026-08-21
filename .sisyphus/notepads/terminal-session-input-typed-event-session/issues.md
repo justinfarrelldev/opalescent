@@ -28,3 +28,11 @@
 
 - Imported function-return owner checks can pass when parameter borrow metadata is fixed but still miss affine behavior if compiler-registered resource type names are only registered through type imports; add inferred-return owner regressions whenever terminal proposal function imports are tested.
 - Local lambda borrow enforcement can regress separately from imported/top-level function enforcement because lambda initializers go through `type_check_let_statement`; test both direct function declarations and let-bound lambda initializers.
+
+
+## Task 14 using cleanup gotchas - 2026-08-21
+
+- `src/type_system/checker.rs` remains exactly at its 1050-line cap after adding the `using_cleanup` module; keeping it green required removing two blank separator lines inside an existing helper. Avoid adding root checker lines without extracting or trimming first.
+- `src/codegen/statements.rs` exceeded its 1250-line cap when `using` lowering was inline; keep using-specific lowering in `src/codegen/statements/using_cleanup.rs`.
+- Strict `cargo make lint` enforces `clippy::pattern_type_mismatch`; destructuring borrowed AST/type values in new helpers should use explicit `&Pattern { ref field, .. }` style.
+- After changing a borrowed `Stmt::Using` pattern to copy `Span`, stale `*span` dereferences caused a compile error; watch for this when converting patterns for Clippy.

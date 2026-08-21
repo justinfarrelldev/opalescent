@@ -1,0 +1,36 @@
+Task 14 using cleanup happy-path evidence - 2026-08-21
+
+Implementation summary:
+- Added compiler-visible using cleanup registry in src/type_system/checker/using_cleanup.rs.
+- Enabled Stmt::Using type checking through acquisition/body/cleanup error-union validation.
+- Registered exact cleanup authorities for SystemWaitSet, SystemOwnedWaitRegistration, ProcessControlSource, MonotonicTimer, CancellationSource, TerminalSession, TerminalChordRouter, TerminalTestScenario, and TerminalTestBackendActivation.
+- TerminalSession is the only registered cleanup-authority transfer: terminal_session_close_sync / TerminalSessionRestoreError.CloseRestorePending.
+- Lowered codegen Stmt::Using as a scope-bound acquisition in src/codegen/statements/using_cleanup.rs.
+- Propagate early-return codegen now runs cleanup_return_scopes_preserving_codegen_env before emitting the error return.
+
+Happy-path tests covered:
+- using_terminal_session_requires_acquisition_body_and_cleanup_errors (valid source declares acquisition, body, and cleanup families)
+- using_infallible_cleanup_resources_need_no_extra_errors
+- using_explicit_close_keeps_binding_inspectable
+- using_cleanup_registry_has_exact_terminal_transfer
+
+Final successful verification commands:
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check
+- bash scripts/check-line-count.sh
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test using
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test affine
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo check
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo build
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint
+
+Observed final results:
+- cargo test using: 7 passed, 0 failed.
+- cargo test affine: 14 passed, 0 failed.
+- cargo test terminal_proposal: 23 passed, 0 failed.
+- cargo test: 1433 passed, 0 failed, 8 ignored; doc-tests 2 passed, 12 ignored.
+- cargo check: finished successfully.
+- cargo build: finished successfully.
+- cargo make lint: finished successfully.
+- Line count: all checked Rust files within limits; checker.rs remains 1050, checker/statements.rs 997, ref_rules.rs 1000, codegen/statements.rs 1238.

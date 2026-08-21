@@ -1,0 +1,25 @@
+Task 14 using cleanup failure-path evidence - 2026-08-21
+
+Negative/error-path coverage added and verified by `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test using` and `cargo test affine`:
+
+1. using_terminal_session_requires_acquisition_body_and_cleanup_errors
+   - MISSING_ACQUISITION_ERROR omits TerminalSessionOpenError and verifies the acquisition effect is rejected.
+   - MISSING_BODY_ERROR omits TerminalSessionReadError/TerminalSessionStateError and verifies body effects are rejected.
+   - MISSING_CLEANUP_ERROR omits TerminalSessionRestoreError and verifies cleanup effects are rejected even when the body returns normally.
+
+2. using_rejects_affine_resource_without_cleanup_registration
+   - Declares a local compiler_registered affine resource without cleanup metadata.
+   - `using local = resource:` is rejected with a diagnostic containing `no declared using cleanup registration`.
+
+3. using_rejects_owner_escape_through_scope_exit_values
+   - Attempts to return the using-owned TerminalSession before cleanup/transfer.
+   - Rejected with existing affine escape diagnostic containing `escape through return`.
+
+4. using_cleanup_registry_has_exact_terminal_transfer
+   - Verifies TerminalSession is the only registered cleanup-authority transfer.
+   - Verifies SystemWaitSet, SystemOwnedWaitRegistration, ProcessControlSource, MonotonicTimer, CancellationSource, TerminalChordRouter, TerminalTestScenario, and TerminalTestBackendActivation have no transfer.
+
+Failure encountered during implementation and resolved:
+- First strict lint run rejected reference-pattern mismatches in using_cleanup.rs; fixed by matching `&Stmt::Using` and `&CoreType::Generic` explicitly.
+- A subsequent compile error from stale `*span` dereferences was fixed after the reference-pattern change.
+- Final `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` passed.

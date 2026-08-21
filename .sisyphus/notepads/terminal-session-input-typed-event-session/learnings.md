@@ -119,3 +119,12 @@
 - Terminal proposal test adoption must register compiler-known affine resource names from both core prerequisites and selected/chord/test-only proposal metadata, because callers can infer owner types from imported functions without importing the types themselves.
 - Borrow metadata is binding metadata, not just function metadata: local let-bound lambdas need the same `ref` / `mutable ref` parameter registration as top-level functions, and shadowing must clear/restore function borrow entries lexically to avoid stale call-site requirements.
 - `CancellationSource` is a core-prerequisite affine authority; keep it in the compiler-known test-gated resource set alongside `ProcessControlSource`, `SystemWaitSet`, and timer/wait-registration resources.
+
+
+## Task 14 using cleanup - 2026-08-21
+
+- `using` cleanup typing now lives in `src/type_system/checker/using_cleanup.rs`; keep future cleanup/effect additions there instead of growing `checker/statements.rs` or `ref_rules.rs`.
+- The compiler-visible cleanup registry is static and exact for Task 14: core/system resources, `TerminalSession`, `TerminalChordRouter`, and test-only terminal resources. `TerminalSessionRestoreError.CloseRestorePending` is the only cleanup-authority transfer entry.
+- `Stmt::Using` codegen is intentionally a lexical scope wrapper in `src/codegen/statements/using_cleanup.rs`; it participates in existing reverse scope cleanup without opening public terminal runtime behavior.
+- `codegen_propagate_expression` now runs `cleanup_return_scopes_preserving_codegen_env` on the error early-return block, matching return/break/continue scope cleanup behavior.
+- Final Task 14 verification passed: fmt check, line-count, `cargo test using`, `cargo test affine`, `cargo test terminal_proposal`, full `cargo test`, `cargo check`, `cargo build`, and `cargo make lint`.
