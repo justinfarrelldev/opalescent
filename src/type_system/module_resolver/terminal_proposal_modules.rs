@@ -46,7 +46,28 @@ const TERMINAL_TESTING_TYPES_SOURCE: &str =
 
 /// Register proposal declaration interfaces without opening production terminal imports.
 pub(super) fn register_terminal_proposal_modules(resolver: &mut ModuleResolver) {
-    for interface in terminal_proposal_interfaces() {
+    let interfaces = terminal_proposal_interfaces();
+    let validation = super::terminal_proposal_abi::validate_terminal_proposal_abi(&interfaces);
+    if let Err(error) = &validation {
+        let error_message = format!("{error}");
+        assert!(
+            error_message.is_empty(),
+            "terminal proposal ABI validation failed: {error_message}"
+        );
+    }
+    let Ok(inventory) = validation else {
+        return;
+    };
+    assert_eq!(
+        inventory.selected_active_production_type_ids, 87,
+        "selected terminal ABI validation must report exactly 87 active production type IDs"
+    );
+    assert_eq!(
+        inventory.chord_active_production_type_ids, 23,
+        "terminal chord ABI validation must report exactly 23 active production type IDs"
+    );
+
+    for interface in interfaces {
         resolver.register_module_interface(interface);
     }
 }
