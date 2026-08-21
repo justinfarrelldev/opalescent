@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use crate::ast::{
-    DeclarationAnnotation, TypeDeclarationForm, TypeDef, Visibility as AstVisibility,
+    BorrowKind, DeclarationAnnotation, TypeDeclarationForm, TypeDef, Visibility as AstVisibility,
 };
 use crate::token::{Position, Span};
 use crate::type_system::errors::TypeError;
@@ -22,6 +22,8 @@ mod standard_symbols_filesystem_types_and_errors;
 mod standard_symbols_process;
 /// Terminal-session proposal ABI/history validation helpers.
 mod terminal_proposal_abi;
+/// Terminal-session proposal function borrow metadata.
+mod terminal_proposal_borrows;
 /// Terminal-session proposal declaration interfaces.
 mod terminal_proposal_modules;
 mod terminal_proposal_symbols;
@@ -128,6 +130,8 @@ pub struct ModuleInterface {
     pub adt_fields: BTreeMap<String, BTreeMap<String, CoreType>>,
     /// Ordered function return-label metadata keyed by exported/local symbol name.
     pub function_return_labels: BTreeMap<String, Vec<String>>,
+    /// Ordered function parameter borrow metadata keyed by exported/local symbol name.
+    pub function_borrow_kinds: BTreeMap<String, Vec<BorrowKind>>,
     /// Availability gate applied before imports from this interface are resolved.
     pub availability: ModuleAvailability,
     /// Namespace declarations parsed from the authoritative module source.
@@ -156,6 +160,7 @@ impl ModuleInterface {
             module_path,
             adt_fields: BTreeMap::new(),
             function_return_labels: BTreeMap::new(),
+            function_borrow_kinds: BTreeMap::new(),
             availability,
             namespaces: Vec::new(),
             type_declarations: BTreeMap::new(),
@@ -195,6 +200,22 @@ impl ModuleInterface {
     /// Read ordered return-label metadata for one symbol name.
     pub fn function_return_labels(&self, symbol_name: &str) -> Option<&[String]> {
         self.function_return_labels
+            .get(symbol_name)
+            .map(Vec::as_slice)
+    }
+
+    /// Register ordered parameter borrow metadata for one symbol name.
+    pub fn register_function_borrow_kinds(
+        &mut self,
+        symbol_name: String,
+        borrow_kinds: Vec<BorrowKind>,
+    ) {
+        self.function_borrow_kinds.insert(symbol_name, borrow_kinds);
+    }
+
+    /// Read ordered parameter borrow metadata for one symbol name.
+    pub fn function_borrow_kinds(&self, symbol_name: &str) -> Option<&[BorrowKind]> {
+        self.function_borrow_kinds
             .get(symbol_name)
             .map(Vec::as_slice)
     }

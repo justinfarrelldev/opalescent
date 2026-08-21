@@ -1,9 +1,6 @@
-//! Gated terminal proposal function symbol tables.
-//!
-//! These signatures intentionally stop at type-check/module-resolution metadata.
-//! They do not imply code generation, runtime lowering, or public availability.
+//! Gated terminal proposal function symbol tables for type-check/module metadata only.
 
-use super::ModuleInterface;
+use super::{ModuleInterface, terminal_proposal_borrows::function_borrow_kinds};
 use crate::{
     token::{Position, Span},
     type_system::{
@@ -938,6 +935,9 @@ pub(super) fn register_terminal_proposal_symbols(interface: &mut ModuleInterface
             interface.module_path,
             spec.name
         );
+        if let Some(borrow_kinds) = function_borrow_kinds(spec) {
+            interface.register_function_borrow_kinds(String::from(spec.name), borrow_kinds);
+        }
     }
 }
 
