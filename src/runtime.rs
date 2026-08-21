@@ -13,6 +13,9 @@ pub mod strings;
 pub mod timer;
 pub mod wait;
 
+#[path = "runtime/terminal_coordinator.rs"]
+pub(crate) mod terminal_coordinator;
+
 pub use arrays::{allocate_array, array_index, array_length};
 pub use errors::{RuntimeError, RuntimeResult, RuntimeResultExt};
 pub use io::{DefaultIoHandler, IoHandler, print, take_input};

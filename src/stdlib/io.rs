@@ -13,6 +13,7 @@
 
 extern crate alloc;
 
+use crate::runtime::terminal_coordinator::{diagnostic_lane_allows, sanitize_diagnostic};
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -89,7 +90,10 @@ impl StdlibIoHandler for MockStdlibIoHandler {
 ///
 /// Propagates write errors from the [`StdlibIoHandler`].
 pub fn print(handler: &mut impl StdlibIoHandler, value: &str) -> Result<(), String> {
-    handler.write_str(value)
+    if !diagnostic_lane_allows() {
+        return Ok(());
+    }
+    handler.write_str(&sanitize_diagnostic(value))
 }
 
 /// Write `value` to the output sink followed by a newline character.
@@ -98,7 +102,10 @@ pub fn print(handler: &mut impl StdlibIoHandler, value: &str) -> Result<(), Stri
 ///
 /// Propagates write errors from the [`StdlibIoHandler`].
 pub fn println(handler: &mut impl StdlibIoHandler, value: &str) -> Result<(), String> {
-    handler.write_str(value)?;
+    if !diagnostic_lane_allows() {
+        return Ok(());
+    }
+    handler.write_str(&sanitize_diagnostic(value))?;
     handler.write_str("\n")
 }
 
@@ -111,4 +118,36 @@ pub fn println(handler: &mut impl StdlibIoHandler, value: &str) -> Result<(), St
 /// Propagates read errors from the [`StdlibIoHandler`].
 pub fn read_line(handler: &mut impl StdlibIoHandler) -> Result<String, String> {
     handler.read_line_str()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::terminal_coordinator::{TerminalCoordinatorState, set_state_for_tests};
+
+    #[test]
+    fn diagnostic_print_and_println_drop_without_writing() {
+        let _state_guard = set_state_for_tests(TerminalCoordinatorState::RestorePending);
+        let mut handler = MockStdlibIoHandler::new();
+
+        print(&mut handler, "hidden").expect("dropped print should succeed");
+        println(&mut handler, "hidden newline").expect("dropped println should succeed");
+
+        assert_eq!(handler.take_output(), "");
+    }
+
+    #[test]
+    fn diagnostic_println_sanitizes_and_adds_newline_when_allowed() {
+        let _state_guard = set_state_for_tests(TerminalCoordinatorState::Paused);
+        let mut handler = MockStdlibIoHandler::new();
+        let value = format!("ok\u{1B}\u{200F}\u{FDD0}{}", "x".repeat(300));
+
+        println(&mut handler, &value).expect("allowed println should succeed");
+
+        let output = handler.take_output();
+        assert!(output.contains("\\x1B"));
+        assert!(output.contains("\\u{200F}"));
+        assert!(output.contains("\\u{FDD0}"));
+        assert!(output.ends_with("...[truncated]\n"));
+    }
 }
