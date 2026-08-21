@@ -112,3 +112,10 @@
 - Second-class call-site borrows (`ref`/`mutable ref`) are accepted only when the callee parameter metadata expects the same borrow kind, and escape analysis rejects borrow/owner storage through returns, assignments, arrays, constructor fields, and lambda captures.
 - `check_value_escape_in` is the compact no-fresh-owner wrapper used from statement checking to preserve the line-count hook while keeping `let` initializers able to accept fresh owner-producing calls.
 - Task 13 follow-up: borrow-mode metadata must live on `ModuleInterface` as function metadata, not only local checker state; named imports, aliases, globs, and module aliases all need to restore qualified borrow entries so imported proposal APIs still require explicit call-site `ref` / `mutable ref`.
+
+
+## Task 13 retry metadata completeness - 2026-08-21
+
+- Terminal proposal test adoption must register compiler-known affine resource names from both core prerequisites and selected/chord/test-only proposal metadata, because callers can infer owner types from imported functions without importing the types themselves.
+- Borrow metadata is binding metadata, not just function metadata: local let-bound lambdas need the same `ref` / `mutable ref` parameter registration as top-level functions, and shadowing must clear/restore function borrow entries lexically to avoid stale call-site requirements.
+- `CancellationSource` is a core-prerequisite affine authority; keep it in the compiler-known test-gated resource set alongside `ProcessControlSource`, `SystemWaitSet`, and timer/wait-registration resources.
