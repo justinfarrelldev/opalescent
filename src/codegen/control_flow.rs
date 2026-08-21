@@ -781,7 +781,7 @@ fn codegen_error_aware_return_statement<'context>(
         let labeled_value = &values[0];
         if labeled_value.label == "err" {
             let variant_name = extract_error_variant_name(&labeled_value.value)?;
-            let error_ptr = intern_variant_name(codegen_context, env, variant_name.as_str());
+            let error_ptr = intern_variant_name(codegen_context, env, variant_name.as_str())?;
             let aggregate = if is_error_abi_struct_type(error_return_type)
                 && error_return_type.count_fields() == 2
                 && error_return_type
@@ -806,7 +806,7 @@ fn codegen_error_aware_return_statement<'context>(
             if let Some(variant_name) =
                 extract_guard_wrapper_error_variant(codegen_context, env, &labeled_value.value)?
             {
-                let error_ptr = intern_variant_name(codegen_context, env, variant_name.as_str());
+                let error_ptr = intern_variant_name(codegen_context, env, variant_name.as_str())?;
                 let aggregate = if is_error_abi_struct_type(error_return_type)
                     && error_return_type.count_fields() == 2
                     && error_return_type

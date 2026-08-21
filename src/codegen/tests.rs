@@ -1631,6 +1631,103 @@ fn codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic() {
 }
 
 #[test]
+fn codegen_error_attachment_inspector_imports_emit_runtime_declarations() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "error_attachment_inspector_imports");
+    let mut env = CodegenEnv::new(true);
+
+    for symbol in [
+        "error_cause",
+        "error_suppressed_at",
+        "error_suppressed_length",
+        "error_attachment_truncation",
+        "error_attachment_truncation_cause_depth",
+    ] {
+        let import = proposal_import_decl("standard.system", symbol);
+        let result = codegen_import_declaration(&codegen_context, &mut env, &import);
+        assert!(result.is_ok(), "{symbol} should import cleanly: {result:?}");
+    }
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("declare { i8*, i8* } @error_cause(i8*)")
+            || ir.contains("declare { ptr, ptr } @error_cause(ptr)"),
+        "error_cause should use fallible pointer-result ABI: {ir}"
+    );
+    assert!(
+        ir.contains("declare { i8*, i8* } @error_suppressed_at(i8*, i64)")
+            || ir.contains("declare { ptr, ptr } @error_suppressed_at(ptr, i64)"),
+        "error_suppressed_at should use indexed fallible pointer-result ABI: {ir}"
+    );
+    assert!(
+        ir.contains("declare i64 @error_suppressed_length(i8*)")
+            || ir.contains("declare i64 @error_suppressed_length(ptr)"),
+        "error_suppressed_length should return an int64 count: {ir}"
+    );
+    assert!(
+        ir.contains("declare i8* @error_attachment_truncation(i8*)")
+            || ir.contains("declare ptr @error_attachment_truncation(ptr)"),
+        "error_attachment_truncation should return nullable text: {ir}"
+    );
+    assert!(
+        ir.contains("declare i8 @error_attachment_truncation_cause_depth(i8*)")
+            || ir.contains("declare i8 @error_attachment_truncation_cause_depth(ptr)"),
+        "truncation bit helper should return byte boolean: {ir}"
+    );
+}
+
+#[test]
+fn codegen_propagate_error_value_cause_attaches_before_return() {
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "propagate_error_value_cause");
+    let _host = create_codegen_function(&codegen_context, "host");
+    let mut env = CodegenEnv::new(true);
+    let i8_ptr = context.i8_type().ptr_type(AddressSpace::default());
+
+    for name in ["primary", "cause"] {
+        let slot = codegen_context
+            .builder
+            .build_alloca(i8_ptr, name)
+            .expect("error slot alloca should build");
+        codegen_context
+            .builder
+            .build_store(slot, i8_ptr.const_null())
+            .expect("error slot store should build");
+        env.variables.insert(
+            String::from(name),
+            VariableBinding {
+                alloca: slot,
+                core_type: CoreType::Generic {
+                    name: String::from("Error"),
+                    type_args: Vec::new(),
+                },
+                length: None,
+                capacity: None,
+                is_mutable: false,
+            },
+        );
+    }
+
+    let result = codegen_propagate_expression(
+        &codegen_context,
+        &mut env,
+        &ident(12_020, "primary"),
+        Some(&ident(12_021, "cause")),
+        None,
+    );
+    assert!(
+        result.is_ok(),
+        "propagate error value with cause should lower: {result:?}"
+    );
+
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains("@opal_error_attach_cause"),
+        "cause propagation should attach before returning primary error: {ir}"
+    );
+}
+
+#[test]
 fn test_import_random_int32_emits_random_int32_declaration() {
     let source = "
 import random_int32 from math
@@ -1995,6 +2092,7 @@ fn test_codegen_propagate_and_guard_expressions_lower_error_flow() {
         &codegen_context,
         &mut env,
         &call_expr(623, ident(624, "fallible"), vec![int_lit(625, 2)]),
+        None,
         None,
     );
     assert!(
@@ -4723,6 +4821,7 @@ fn using_cleanup_propagate_close_consumes_only_success_and_transfers_exact_error
         &codegen_context,
         &mut env,
         &close_call,
+        None,
         Some(&CoreType::Generic {
             name: String::from("TerminalCloseOutcome"),
             type_args: Vec::new(),

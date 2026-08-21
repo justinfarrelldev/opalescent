@@ -115,9 +115,17 @@ pub fn codegen_expression<'context>(
             else_branch.as_ref(),
             expected_type,
         ),
-        Expr::Propagate { ref call, .. } => {
-            codegen_propagate_expression(codegen_context, env, call.as_ref(), expected_type)
-        }
+        Expr::Propagate {
+            ref call,
+            ref cause,
+            ..
+        } => codegen_propagate_expression(
+            codegen_context,
+            env,
+            call.as_ref(),
+            cause.as_deref(),
+            expected_type,
+        ),
         Expr::StringInterpolation { ref parts, .. } => {
             codegen_string_interpolation(codegen_context, env, parts.as_slice())
         }

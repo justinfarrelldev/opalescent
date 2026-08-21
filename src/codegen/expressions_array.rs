@@ -216,7 +216,7 @@ pub fn codegen_array_at_call<'context>(
         .build_unconditional_branch(cont_block)?;
 
     codegen_context.builder.position_at_end(error_block);
-    let error_ptr = intern_variant_name(codegen_context, env, "IndexOutOfBoundsError");
+    let error_ptr = intern_variant_name(codegen_context, env, "IndexOutOfBoundsError")?;
     let error_result = build_error_aggregate(
         codegen_context,
         result_value_type.as_basic_type_enum(),
@@ -303,7 +303,7 @@ pub fn codegen_string_at_call<'context>(
         .build_unconditional_branch(cont_block)?;
 
     codegen_context.builder.position_at_end(error_block);
-    let error_ptr = intern_variant_name(codegen_context, env, "IndexOutOfBoundsError");
+    let error_ptr = intern_variant_name(codegen_context, env, "IndexOutOfBoundsError")?;
     let error_result = build_error_aggregate(
         codegen_context,
         string_value.get_type().as_basic_type_enum(),

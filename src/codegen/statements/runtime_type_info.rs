@@ -55,8 +55,18 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "string_extract_range"
         | "get_environment_variable"
         | "get_environment_variable_or" => Some(CoreType::String),
-        "string_find_index_or" | "string_find_last_index_of_text" => Some(CoreType::Int64),
+        "string_find_index_or" | "string_find_last_index_of_text" | "error_suppressed_length" => {
+            Some(CoreType::Int64)
+        }
         "string_split_lines" => Some(CoreType::Array(alloc::boxed::Box::new(CoreType::String))),
+        "error_cause" | "error_suppressed_at" => Some(CoreType::Generic {
+            name: String::from("Error"),
+            type_args: Vec::new(),
+        }),
+        "error_attachment_truncation" => Some(CoreType::Generic {
+            name: String::from("ErrorAttachmentTruncation"),
+            type_args: Vec::new(),
+        }),
         "random_int8" => Some(CoreType::Int8),
         "random_int16" => Some(CoreType::Int16),
         "random_int32" | "bytes_length" => Some(CoreType::Int32),
@@ -187,8 +197,18 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
 /// Map known runtime result wrappers to the success type produced by `guard`.
 pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
     match name {
-        "string_find_last_index_of_text" | "string_find_index_or" => Some(CoreType::Int64),
+        "string_find_last_index_of_text" | "string_find_index_or" | "error_suppressed_length" => {
+            Some(CoreType::Int64)
+        }
         "string_split_lines" => Some(CoreType::Array(alloc::boxed::Box::new(CoreType::String))),
+        "error_cause" | "error_suppressed_at" => Some(CoreType::Generic {
+            name: String::from("Error"),
+            type_args: Vec::new(),
+        }),
+        "error_attachment_truncation" => Some(CoreType::Generic {
+            name: String::from("ErrorAttachmentTruncation"),
+            type_args: Vec::new(),
+        }),
         "string_to_int8" => Some(CoreType::Int8),
         "string_to_int16" => Some(CoreType::Int16),
         "string_to_int32" => Some(CoreType::Int32),
