@@ -47,6 +47,7 @@ impl TypeChecker {
             fallible_info.error_types.as_slice(),
             span,
         )?;
+        let _has_cleanup_transfer = self.call_has_registered_cleanup_authority_transfer(call);
         self.consume_using_cleanup_obligation_after_success(call);
         Ok(fallible_info.success_type)
     }

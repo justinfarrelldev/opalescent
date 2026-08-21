@@ -307,6 +307,38 @@ impl TypeChecker {
             })
     }
 
+    /// Return whether `call` can produce a registered cleanup-authority transfer result.
+    pub(super) fn call_has_registered_cleanup_authority_transfer(&self, call: &Expr) -> bool {
+        let Expr::Call {
+            ref callee,
+            ref args,
+            ..
+        } = *call
+        else {
+            return false;
+        };
+        let Some(operation_name) = cleanup_operation_name(callee.as_ref()) else {
+            return false;
+        };
+        let Some(binding_name) = cleanup_mutable_ref_binding(args.as_slice()) else {
+            return false;
+        };
+        self.context
+            .using_cleanup_obligations
+            .iter()
+            .rev()
+            .find(|obligation| obligation.binding_name == binding_name)
+            .and_then(|obligation| obligation.transfer)
+            .is_some_and(|transfer| {
+                self.cleanup_result_transfers_authority(
+                    binding_name,
+                    operation_name,
+                    transfer.error_family,
+                    transfer.variant,
+                )
+            })
+    }
+
     /// Register the scoped owner binding introduced by `using`.
     fn register_using_owner_binding(&mut self, binding: &LetBinding, core_type: CoreType) {
         let symbol_type = if binding.is_mutable {
@@ -482,6 +514,24 @@ mod tests {
             "TerminalSessionRestoreError",
             "CloseRestorePending",
         ));
+        assert!(
+            checker.call_has_registered_cleanup_authority_transfer(&mutable_ref_call(
+                "terminal_session_close_sync",
+                "session",
+            ))
+        );
+        assert!(
+            !checker.call_has_registered_cleanup_authority_transfer(&mutable_ref_call(
+                "terminal_session_state",
+                "session",
+            ))
+        );
+        assert!(
+            !checker.call_has_registered_cleanup_authority_transfer(&mutable_ref_call(
+                "terminal_session_close_sync",
+                "other_session",
+            ))
+        );
         assert!(!checker.cleanup_result_transfers_authority(
             "session",
             "terminal_session_close_sync",
