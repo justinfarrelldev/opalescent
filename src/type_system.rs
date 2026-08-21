@@ -101,6 +101,18 @@ pub(crate) fn is_terminal_proposal_codegen_gated_import(
     module_resolver::is_terminal_proposal_codegen_gated_import(module_path, symbol_name)
 }
 
+/// Return whether a module/symbol pair belongs to the implemented Task 16 error surface.
+#[must_use]
+pub(crate) fn is_terminal_proposal_implemented_error_inspector_import(
+    module_path: &str,
+    symbol_name: &str,
+) -> bool {
+    module_resolver::is_terminal_proposal_implemented_error_inspector_import(
+        module_path,
+        symbol_name,
+    )
+}
+
 /// Return whether a runtime symbol name belongs to any gated terminal proposal surface.
 #[must_use]
 pub(crate) fn is_terminal_proposal_codegen_gated_runtime_name(symbol_name: &str) -> bool {

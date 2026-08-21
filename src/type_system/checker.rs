@@ -34,6 +34,7 @@ mod control_flow;
 mod declarations;
 /** Default construction and test-only import configuration. */
 mod defaults;
+mod error_compatibility;
 mod expr_collections;
 mod expressions;
 mod expressions_guard;
@@ -820,16 +821,7 @@ impl TypeChecker {
     }
     /// Return whether a declared error type covers an emitted error type.
     pub(super) fn declared_error_type_covers(emitted: &CoreType, declared: &CoreType) -> bool {
-        if emitted == declared {
-            return true;
-        }
-
-        let emitted_name = emitted.to_string();
-        let declared_name = declared.to_string();
-        crate::type_system::error_families::error_type_is_covered_by_declared_type(
-            &emitted_name,
-            &declared_name,
-        )
+        error_compatibility::declared_error_type_covers(emitted, declared)
     }
 
     /// Type check a pattern match expression
@@ -962,6 +954,14 @@ impl TypeChecker {
                     type_args: right_args,
                 },
             ) => {
+                if error_compatibility::root_error_accepts_nominal_error(
+                    left_name.as_str(),
+                    left_args.as_slice(),
+                    right_name.as_str(),
+                    right_args.as_slice(),
+                ) {
+                    return true;
+                }
                 if left_name != right_name || left_args.len() != right_args.len() {
                     return false;
                 }
