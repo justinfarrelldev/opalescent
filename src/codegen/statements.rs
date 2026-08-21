@@ -45,12 +45,16 @@ mod inference;
 #[path = "statements/runtime_type_info.rs"]
 #[doc = "Runtime return and guard-success type mapping helpers for statement lowering."]
 mod runtime_type_info;
+#[path = "statements/using_cleanup.rs"]
+#[doc = "Using statement scope-cleanup lowering helpers."]
+mod using_cleanup;
 use self::inference::{
     ast_type_to_core_type_for_let, infer_call_return_types, infer_core_type_from_expr,
 };
 use self::runtime_type_info::{
     infer_guard_success_core_type, known_guard_success_type, known_runtime_return_type,
 };
+use self::using_cleanup::codegen_using_statement;
 
 /// Lower one typed statement into LLVM IR side effects.
 pub fn codegen_statement<'context>(
@@ -149,9 +153,12 @@ pub fn codegen_statement<'context>(
         Stmt::Continue { ref values, .. } => {
             codegen_continue_statement(codegen_context, env, values.as_slice())
         }
-        Stmt::Using { .. } => Err(CodegenError::new(
-            "using statement codegen requires ownership semantics",
-        )),
+        Stmt::Using {
+            ref binding,
+            ref acquisition,
+            ref body,
+            ..
+        } => codegen_using_statement(codegen_context, env, binding, acquisition, body.as_ref()),
         Stmt::Comment { .. } => Ok(()),
     }
 }
