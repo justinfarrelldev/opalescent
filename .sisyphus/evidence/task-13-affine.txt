@@ -18,3 +18,15 @@ Verification passed on 2026-08-20:
 - `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` (1422 passed, 8 ignored; doctests 2 passed, 12 ignored)
 - `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint`
 - `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 bash scripts/check-line-count.sh`
+
+Follow-up verification passed on 2026-08-20 for imported function borrow metadata:
+- Imported selected/core/chord/test proposal calls now preserve `ref` / `mutable ref` parameter metadata through named imports, aliases, globs, and module-alias member calls.
+- LSP diagnostics: zero errors on modified Rust files.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 bash scripts/check-line-count.sh`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test imported_` (5 passed)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test signatures_type_check` (4 passed)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test affine` (6 passed)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal` (22 passed)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` (1424 passed, 8 ignored; doctests 2 passed, 12 ignored)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint`

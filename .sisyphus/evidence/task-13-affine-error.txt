@@ -21,3 +21,9 @@ Verification passed on 2026-08-20:
 - `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test affine` (6 passed)
 - `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal` (22 passed)
 - Full `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` included all affine tests and passed.
+
+Follow-up negative coverage passed on 2026-08-20:
+- `test_imported_selected_terminal_borrow_modes_are_required` rejects unborrowed imported selected terminal calls and accepts explicit borrow syntax.
+- `test_imported_core_chord_and_testing_borrow_modes_are_required` rejects unborrowed core, chord, and test-only terminal proposal calls, including module-alias member calls.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test imported_` (5 passed)
+- Full `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` included both imported-borrow regressions and passed.
