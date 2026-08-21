@@ -5,6 +5,7 @@
 
 extern crate alloc;
 
+use super::terminal_proposal_symbols::register_terminal_proposal_symbols;
 use super::{ModuleAvailability, ModuleInterface, ModuleResolver, ModuleTypeDeclaration};
 use crate::ast::{Decl, Program, TypeDef, Visibility as AstVisibility};
 use crate::lexer::Lexer;
@@ -148,6 +149,7 @@ fn proposal_interface_from_source(
         }
     }
 
+    register_terminal_proposal_symbols(&mut interface);
     interface
 }
 
@@ -367,5 +369,167 @@ mod tests {
                 .iter()
                 .any(|annotation| matches!(annotation, DeclarationAnnotation::AbiTypeId { .. }))
         );
+    }
+
+    #[test]
+    fn registers_all_core_prerequisite_function_signatures() {
+        let resolver = ModuleResolver::new();
+        let interface = resolver
+            .module_interface("standard.system")
+            .expect("core prerequisite proposal interface should be registered");
+
+        assert_eq!(interface.availability, ModuleAvailability::FuturePublicApi);
+        assert_interface_function_signatures(
+            &interface,
+            super::super::terminal_proposal_symbols::CORE_PREREQUISITE_FUNCTIONS,
+        );
+    }
+
+    #[test]
+    fn registers_all_selected_terminal_function_signatures() {
+        let resolver = ModuleResolver::new();
+        let interface = resolver
+            .module_interface(TERMINAL_TYPES_MODULE_PATH)
+            .expect("selected terminal proposal interface should be registered");
+
+        assert_interface_function_signatures(
+            &interface,
+            super::super::terminal_proposal_symbols::SELECTED_TERMINAL_FUNCTIONS,
+        );
+    }
+
+    #[test]
+    fn registers_all_chord_function_signatures() {
+        let resolver = ModuleResolver::new();
+        let interface = resolver
+            .module_interface(TERMINAL_CHORDS_MODULE_PATH)
+            .expect("chord proposal interface should be registered");
+
+        assert_interface_function_signatures(
+            &interface,
+            super::super::terminal_proposal_symbols::TERMINAL_CHORD_FUNCTIONS,
+        );
+    }
+
+    #[test]
+    fn registers_all_test_only_terminal_function_signatures() {
+        let resolver = ModuleResolver::new();
+        let interface = resolver
+            .module_interface(TERMINAL_TESTING_MODULE_PATH)
+            .expect("test-only terminal proposal interface should be registered");
+
+        assert_interface_function_signatures(
+            &interface,
+            super::super::terminal_proposal_symbols::TERMINAL_TESTING_FUNCTIONS,
+        );
+    }
+
+    fn assert_interface_function_signatures(
+        interface: &ModuleInterface,
+        specs: &[super::super::terminal_proposal_symbols::TerminalApiFunctionSpec],
+    ) {
+        let function_export_count = interface
+            .exports
+            .values()
+            .filter(|symbol| symbol.symbol_type == SymbolType::Function)
+            .count();
+        assert_eq!(
+            function_export_count,
+            specs.len(),
+            "{} should export exactly the proposal function table",
+            interface.module_path
+        );
+
+        for spec in specs {
+            let Some(symbol) = interface.exports.get(spec.name) else {
+                assert!(
+                    interface.exports.contains_key(spec.name),
+                    "{} should export proposal function {}",
+                    interface.module_path,
+                    spec.name
+                );
+                continue;
+            };
+            let CoreType::Function {
+                parameters,
+                return_types,
+                error_types,
+                ..
+            } = &symbol.core_type
+            else {
+                assert!(
+                    matches!(symbol.core_type, CoreType::Function { .. }),
+                    "{} should be a function symbol",
+                    spec.name
+                );
+                continue;
+            };
+            assert_eq!(
+                parameters,
+                &spec
+                    .parameters
+                    .iter()
+                    .copied()
+                    .map(expected_core_type)
+                    .collect::<Vec<_>>(),
+                "{} parameter signature changed",
+                spec.name
+            );
+            assert_eq!(
+                return_types,
+                &vec![expected_core_type(spec.return_type)],
+                "{} return signature changed",
+                spec.name
+            );
+            assert_eq!(
+                error_types,
+                &spec
+                    .errors
+                    .iter()
+                    .map(|error| expected_nominal_type(error))
+                    .collect::<Vec<_>>(),
+                "{} error signature changed",
+                spec.name
+            );
+        }
+    }
+
+    fn expected_core_type(
+        type_ref: super::super::terminal_proposal_symbols::ApiTypeRef,
+    ) -> CoreType {
+        match type_ref {
+            super::super::terminal_proposal_symbols::ApiTypeRef::Named(name) => {
+                expected_named_core_type(name)
+            }
+            super::super::terminal_proposal_symbols::ApiTypeRef::Array(element) => {
+                CoreType::Array(Box::new(expected_named_core_type(element)))
+            }
+        }
+    }
+
+    fn expected_named_core_type(name: &str) -> CoreType {
+        match name {
+            "int8" => CoreType::Int8,
+            "int16" => CoreType::Int16,
+            "int32" => CoreType::Int32,
+            "int64" => CoreType::Int64,
+            "uint8" => CoreType::UInt8,
+            "uint16" => CoreType::UInt16,
+            "uint32" => CoreType::UInt32,
+            "uint64" => CoreType::UInt64,
+            "float32" => CoreType::Float32,
+            "float64" => CoreType::Float64,
+            "string" => CoreType::String,
+            "boolean" => CoreType::Boolean,
+            "void" => CoreType::Unit,
+            other => expected_nominal_type(other),
+        }
+    }
+
+    fn expected_nominal_type(name: &str) -> CoreType {
+        CoreType::Generic {
+            name: String::from(name),
+            type_args: Vec::new(),
+        }
     }
 }

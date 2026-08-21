@@ -88,6 +88,7 @@ fn is_stdlib_import_source(import_source: &str) -> bool {
         "standard"
             | "math"
             | "process"
+            | "standard.system"
             | "standard.terminal"
             | "standard.terminal.chords"
             | "standard.testing.terminal"
@@ -550,6 +551,7 @@ mod tests {
     fn resolve_import_path_terminal_proposal_stdlib_sentinels() {
         let from_file = PathBuf::from("/tmp/main.op");
         for module_path in [
+            "standard.system",
             "standard.terminal",
             "standard.terminal.chords",
             "standard.testing.terminal",

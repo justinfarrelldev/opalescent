@@ -25,6 +25,7 @@ impl TypeChecker {
     ) -> Result<CoreType, TypeError> {
         match *callee {
             Expr::Identifier { ref name, .. } => {
+                self.validate_public_constructor_visibility(name, span)?;
                 if fields.is_empty() {
                     return Self::type_check_propertyless_constructor(name, span);
                 }
@@ -53,6 +54,7 @@ impl TypeChecker {
                         });
                     }
 
+                    self.validate_public_constructor_visibility(&qualified_variant, span)?;
                     if fields.is_empty() {
                         return Self::type_check_propertyless_constructor(&qualified_variant, span);
                     }

@@ -24,6 +24,7 @@ mod standard_symbols_process;
 mod terminal_proposal_abi;
 /// Terminal-session proposal declaration interfaces.
 mod terminal_proposal_modules;
+mod terminal_proposal_symbols;
 
 /// Import availability for a registered module interface.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,11 +40,15 @@ pub enum ModuleAvailability {
 impl ModuleAvailability {
     /// Return true when this availability is importable under the current checker mode.
     #[must_use]
-    pub const fn is_import_allowed(self, allow_test_only: bool) -> bool {
+    pub const fn is_import_allowed(
+        self,
+        allow_test_only: bool,
+        allow_future_public_api: bool,
+    ) -> bool {
         match self {
             Self::Always => true,
             Self::TestOnly => allow_test_only,
-            Self::FuturePublicApi => false,
+            Self::FuturePublicApi => allow_future_public_api,
         }
     }
 

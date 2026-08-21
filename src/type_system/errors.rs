@@ -6,6 +6,8 @@ use thiserror::Error;
 
 /// Source-span helpers for type-checking diagnostics.
 mod type_error_impl;
+/** Warning helper methods. */
+mod warning_impl;
 /// Type checking errors that can occur during type analysis
 #[derive(Error, Debug, Clone, PartialEq, Eq, Diagnostic)]
 pub enum TypeError {
@@ -99,6 +101,25 @@ pub enum TypeError {
         field_name: String,
         #[label("duplicate field specified here")]
         /// Source location of the duplicate field occurrence.
+        span: SourceSpan,
+    },
+    /// Constructor visibility metadata reserves construction to a non-public issuer.
+    #[error(
+        "Constructor for type '{type_name}' is not available to application code ({visibility})"
+    )]
+    #[diagnostic(
+        code(opalescent::type_system::constructor_unavailable),
+        help(
+            "Use the standard-library, runtime, or test-runner factory that issues this sealed value"
+        )
+    )]
+    ConstructorUnavailable {
+        /// Type whose constructor is sealed away from application code.
+        type_name: String,
+        /// Constructor visibility authority from the declaration metadata.
+        visibility: String,
+        #[label("sealed constructor used here")]
+        /// Source location of the rejected constructor expression.
         span: SourceSpan,
     },
     /// Type declaration reuses a reserved predefined name.
@@ -1013,36 +1034,4 @@ pub enum Warning {
         /// Optional suppression annotation identifier for future warning controls.
         suppression_annotation: Option<String>,
     },
-}
-impl Warning {
-    /// Return the suppression annotation attached to this warning, if present.
-    pub fn suppression_annotation(&self) -> Option<&str> {
-        let suppression_annotation = match *self {
-            Self::ArithmeticOverflow {
-                ref suppression_annotation,
-                ..
-            }
-            | Self::UnsafeCast {
-                ref suppression_annotation,
-                ..
-            }
-            | Self::UnusedVariable {
-                ref suppression_annotation,
-                ..
-            }
-            | Self::UnreachableCode {
-                ref suppression_annotation,
-                ..
-            }
-            | Self::ReplaceableErrorList {
-                ref suppression_annotation,
-                ..
-            }
-            | Self::NonExhaustiveMatch {
-                ref suppression_annotation,
-                ..
-            } => suppression_annotation,
-        };
-        suppression_annotation.as_deref()
-    }
 }

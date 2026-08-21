@@ -7,6 +7,7 @@ use super::standard_symbols_filesystem_operations::standard_symbols_filesystem_o
 use super::standard_symbols_filesystem_types_and_errors::standard_symbols_filesystem_types_and_errors;
 use super::standard_symbols_process::standard_symbols_process;
 use super::terminal_proposal_modules::register_terminal_proposal_modules;
+use super::terminal_proposal_symbols::register_terminal_proposal_symbols;
 use crate::type_system::symbol_table::{SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
@@ -17,6 +18,7 @@ pub(super) fn register_standard_modules(resolver: &mut ModuleResolver) {
     register_standard_module(resolver);
     register_math_module(resolver);
     register_process_module(resolver);
+    register_core_prerequisite_module(resolver);
     register_terminal_proposal_modules(resolver);
 }
 
@@ -86,6 +88,16 @@ fn register_process_module(resolver: &mut ModuleResolver) {
             return;
         }
     }
+    resolver.register_module_interface(interface);
+}
+
+/// Register future-gated core/system prerequisite symbols.
+fn register_core_prerequisite_module(resolver: &mut ModuleResolver) {
+    let mut interface = ModuleInterface::with_availability(
+        String::from("standard.system"),
+        super::ModuleAvailability::FuturePublicApi,
+    );
+    register_terminal_proposal_symbols(&mut interface);
     resolver.register_module_interface(interface);
 }
 

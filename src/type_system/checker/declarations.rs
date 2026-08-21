@@ -446,6 +446,7 @@ impl TypeChecker {
                 type_def,
                 generic_constraints,
                 visibility,
+                annotations,
                 ..
             } => {
                 if RESERVED_BUILTIN_TYPE_NAMES.contains(&name.as_str()) {
@@ -511,6 +512,7 @@ impl TypeChecker {
                 };
                 self.environment_mut()
                     .register_type(name.clone(), nominal_type.clone());
+                self.register_constructor_visibility(name.clone(), annotations);
                 self.register_adt_generic_params(name.clone(), generic_core_params);
                 self.symbol_table.register(SymbolInfo {
                     name: name.clone(),

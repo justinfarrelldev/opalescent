@@ -82,10 +82,10 @@ impl TypeChecker {
         import_span: Span,
     ) -> Result<(), TypeError> {
         if let Some(interface) = self.module_resolver.module_interface(source) {
-            if !interface
-                .availability
-                .is_import_allowed(self.allow_test_only_imports)
-            {
+            if !interface.availability.is_import_allowed(
+                self.allow_test_only_imports,
+                self.allow_terminal_proposal_imports,
+            ) {
                 return Err(TypeError::ModuleUnavailable {
                     module: source.to_owned(),
                     reason: interface.availability.rejection_reason().to_owned(),
@@ -275,6 +275,8 @@ impl TypeChecker {
         let Some(interface) = self.module_resolver.module_interface(source) else {
             return;
         };
+
+        self.register_imported_constructor_visibility(source, imported_name, local_name);
 
         if let Some(fields) = interface.adt_fields.get(imported_name) {
             self.register_adt_fields(local_name.to_owned(), fields.clone());

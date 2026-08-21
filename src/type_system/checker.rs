@@ -10,7 +10,6 @@ use super::errors::{TypeError, Warning};
 use super::module_resolver::ModuleResolver;
 use super::substitution::Substitution;
 use super::symbol_table::{SymbolInfo, SymbolTable, SymbolType, Visibility};
-use super::type_mapping::AstTypeMappingError;
 use super::types::{CoreType, GenericTypeParameter, TypeVar};
 use crate::{
     ast::FunctionModifier,
@@ -24,44 +23,47 @@ use alloc::{
     vec::Vec,
 };
 use hot_reload::FunctionHotReloadMetadata;
-// Sub-modules
-/// Bytes stdlib built-in signature registration.
+/** Bytes stdlib built-in signature registration. */
 mod bytes_builtins;
 mod call_resolution;
 mod collections;
-/// ADT constructor expression and schema validation helpers.
+/** ADT constructor expression and schema validation helpers. */
 mod constructors;
 mod control_flow;
 mod declarations;
-/// Default construction and test-only import configuration.
+/** Default construction and test-only import configuration. */
 mod defaults;
 mod expr_collections;
 mod expressions;
 mod expressions_guard;
 mod fallible_expressions;
-/// Filesystem stdlib built-in type registration.
+/** Filesystem stdlib built-in type registration. */
 mod fs_builtins;
-/// Generic ADT and function instantiation metadata helpers.
+/** Generic ADT and function instantiation metadata helpers. */
 mod generics;
 mod helpers;
 mod hot_reload;
-/// Module import/export declaration checking support.
+/** Module import/export declaration checking support. */
 mod module_checking;
-/// Pattern-matching typing and exhaustiveness checks.
+/** Pattern-matching typing and exhaustiveness checks. */
 mod patterns;
-/// Process stdlib built-in nominal error registration.
+/** Process stdlib built-in nominal error registration. */
 mod process_builtins;
-/// Reference parameter and second-class reference validation rules.
+/** Reference parameter and second-class reference validation rules. */
 mod ref_rules;
 mod returns;
 mod size_specific_builtins;
 mod statements;
-/// Stdout text stdlib built-in signature registration.
+/** Stdout text stdlib built-in signature registration. */
 mod stdout_text_builtins;
-/// String stdlib built-in signature registration.
+/** String stdlib built-in signature registration. */
 mod string_builtins;
-/// Time stdlib built-in signature registration.
+/** Terminal proposal gate and constructor visibility metadata. */
+mod terminal_proposal_metadata;
+/** Time stdlib built-in signature registration. */
 mod time_builtins;
+/** AST type mapping diagnostic conversion. */
+mod type_mapping_error;
 mod unification;
 /// Labeling mode tracked for return statements within a function/lambda body.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -183,6 +185,10 @@ pub struct TypeChecker {
     current_module_path: String,
     /// Whether imports from test-only module interfaces are permitted.
     allow_test_only_imports: bool,
+    /// Whether future terminal proposal imports are permitted for focused tests.
+    allow_terminal_proposal_imports: bool,
+    /// Constructor visibility annotations keyed by locally visible type name.
+    constructor_visibilities: BTreeMap<String, String>,
     /// Stack tracking active function modifiers for the currently checked function/lambda.
     function_modifier_stack: Vec<Vec<FunctionModifier>>,
 }
@@ -207,6 +213,8 @@ impl TypeChecker {
             function_return_labels: BTreeMap::new(),
             current_module_path: String::from("__main__"),
             allow_test_only_imports: false,
+            allow_terminal_proposal_imports: false,
+            constructor_visibilities: BTreeMap::new(),
             function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
@@ -235,6 +243,8 @@ impl TypeChecker {
             function_return_labels: BTreeMap::new(),
             current_module_path: String::from("__main__"),
             allow_test_only_imports: false,
+            allow_terminal_proposal_imports: false,
+            constructor_visibilities: BTreeMap::new(),
             function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
@@ -1035,15 +1045,5 @@ impl TypeChecker {
     /// Exit current function/lambda modifier context.
     pub(super) fn exit_function_modifier_context(&mut self) {
         self.function_modifier_stack.pop();
-    }
-}
-impl From<AstTypeMappingError> for TypeError {
-    fn from(value: AstTypeMappingError) -> Self {
-        match value {
-            AstTypeMappingError::TypeNotFound { type_name, span } => Self::TypeNotFound {
-                type_name,
-                span: Self::span_from_span(span),
-            },
-        }
     }
 }
