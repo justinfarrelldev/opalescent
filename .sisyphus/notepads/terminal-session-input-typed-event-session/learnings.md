@@ -178,3 +178,8 @@
 - Implemented Task 16 inspectors are the only core-prerequisite `standard.system` symbols allowed through the terminal proposal gate before the public terminal API opens; their allowlist now lives in `src/type_system/module_resolver/terminal_proposal_error_inspectors.rs`.
 - Direct `propagate error_value cause prior_error` must stay on the identifier/error-value path, while `propagate new FallibleConstructor` still lowers through ordinary fallible constructor codegen and then branches on its error field.
 - Final verification evidence is recorded in `.sisyphus/evidence/task-16-errors.txt`; focused negative/cycle/bounds/gating evidence is in `.sisyphus/evidence/task-16-errors-error.txt`.
+
+## Task 16 semantic follow-up - 2026-08-21
+
+- Checker/codegen parity for direct error-value propagation must cover every wrapper accepted by `propagated_error_value_types`: bare identifiers, parenthesized identifiers, and borrow-argument wrappers all need the immediate cleanup-aware error return path.
+- `runtime/opal_error.c` now participates in `OPAL_ENABLE_INTERNAL_TESTING` allocation fault injection; attachment metadata allocation failures stay best-effort, preserve existing aliases/edges, and surface as the bytes truncation marker rather than a new public error family.

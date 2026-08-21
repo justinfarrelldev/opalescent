@@ -1,4 +1,7 @@
 
+$ env GIT_MASTER=1 git diff --check 77a2bd4..HEAD
+exit=0
+
 $ cargo fmt --all -- --check
 exit=0
 
@@ -269,7 +272,7 @@ Checking Rust source files for line count limit...
 ✅ ./src/codegen/functions_call/array/intrinsics.rs has 1880 lines
 ✅ ./src/codegen/functions_call/array/zip.rs has 213 lines
 ✅ ./src/codegen/functions_call/tail.rs has 569 lines
-✅ ./src/codegen/functions_call/error_propagation.rs has 63 lines
+✅ ./src/codegen/functions_call/error_propagation.rs has 74 lines
 ✅ ./src/codegen/functions_call/call_arg_cleanup.rs has 168 lines
 ✅ ./src/codegen/functions_call/array.rs has 42 lines
 ✅ ./src/codegen/functions_call/string_array_calls.rs has 175 lines
@@ -285,7 +288,7 @@ Checking Rust source files for line count limit...
 ✅ ./src/codegen/functions_call_tests.rs has 223 lines
 ✅ ./src/codegen/expressions_dispatch.rs has 136 lines
 ✅ ./src/codegen/context.rs has 164 lines
-✅ ./src/codegen/functions_call.rs has 1165 lines
+✅ ./src/codegen/functions_call.rs has 1166 lines
 ✅ ./src/codegen/expressions_cast_helpers.rs has 50 lines
 ✅ ./src/codegen/values.rs has 20 lines
 ✅ ./src/codegen/types.rs has 120 lines
@@ -323,119 +326,14 @@ Summary: Checked 313 Rust source files
 ✅ All files are within the line limit.
 exit=0
 
-$ cargo test test_error_ -- --nocapture
-   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.78s
-     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
-
-running 11 tests
-test errors::tests::test_error_doc_link_stable_generation ... ok
-test errors::tests::test_error_bundle_joins_multiple_entries ... ok
-test parser::tests::test_error_handling_sample_contains_guard_and_propagate ... ok
-test type_system::test_integration_ecosystem::ecosystem_tests::test_error_handling_samples_spec_file_parses ... ok
-test parser::tests::test_error_handling_sample_parses_successfully ... ok
-test type_system::test_integration::tests::test_error_span_for_undefined_symbol_is_non_zero ... ok
-test type_system::test_integration_modules::tests::test_error_attachment_inspectors_resolve_without_terminal_gate ... ok
-test type_system::test_integration_modules::tests::test_error_cause_rejects_same_error_identity_statically ... ok
-test type_system::test_integration::tests::test_error_span_is_non_zero_for_type_mismatch ... ok
-test type_system::test_integration_modules::tests::test_error_suppressed_erased_error_inspection_does_not_propagate_family ... ok
-test type_system::test_integration_modules::tests::test_error_cause_propagate_error_value_cause_prior_error_type_checks ... ok
-
-test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 1458 filtered out; finished in 0.03s
-
-     Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/array_integration.rs (target/debug/deps/array_integration-04bfea5ff87daf9b)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-cf740cc5fbecb7d9)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-3259cfeb1046fe01)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-4227316b5aefa412)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/integration_print.rs (target/debug/deps/integration_print-906b5fb738c554cb)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-exit=0
-
-$ cargo test codegen::tests::codegen_error_attachment -- --nocapture
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
-     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
-
-running 1 test
-test codegen::tests::codegen_error_attachment_inspector_imports_emit_runtime_declarations ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1468 filtered out; finished in 0.00s
-
-     Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/array_integration.rs (target/debug/deps/array_integration-04bfea5ff87daf9b)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-cf740cc5fbecb7d9)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-3259cfeb1046fe01)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-4227316b5aefa412)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/integration_print.rs (target/debug/deps/integration_print-906b5fb738c554cb)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-exit=0
-
-$ cargo test codegen::tests::codegen_propagate_error_value_cause -- --nocapture
+$ cargo test codegen::tests::codegen_propagate_error_value_cause_attaches_before_return -- --nocapture
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
      Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
 
 running 1 test
 test codegen::tests::codegen_propagate_error_value_cause_attaches_before_return ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1468 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.00s
 
      Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
 
@@ -475,16 +373,156 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 exit=0
 
-$ cargo test runtime::tests::error_ -- --nocapture
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+$ cargo test codegen::tests::codegen_propagate_parenthesized_error_value_cause_attaches_before_return -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
      Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
 
-running 3 tests
-test runtime::tests::error_cause_insertion_is_immutable_and_inspectable ... ok
-test runtime::tests::error_suppressed_fallback_idempotent_and_bounds_checked ... ok
+running 1 test
+test codegen::tests::codegen_propagate_parenthesized_error_value_cause_attaches_before_return ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-04bfea5ff87daf9b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-cf740cc5fbecb7d9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-3259cfeb1046fe01)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-4227316b5aefa412)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-906b5fb738c554cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit=0
+
+$ cargo test codegen::tests::codegen_propagate_borrow_wrapped_error_value_cause_attaches_before_return -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+running 1 test
+test codegen::tests::codegen_propagate_borrow_wrapped_error_value_cause_attaches_before_return ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-04bfea5ff87daf9b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-cf740cc5fbecb7d9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-3259cfeb1046fe01)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-4227316b5aefa412)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-906b5fb738c554cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit=0
+
+$ cargo test runtime::tests::error_attachment_allocation_failure_preserves_aliases_and_marks_bytes -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+running 1 test
+test runtime::tests::error_attachment_allocation_failure_preserves_aliases_and_marks_bytes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.28s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-04bfea5ff87daf9b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-cf740cc5fbecb7d9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-3259cfeb1046fe01)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-4227316b5aefa412)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-906b5fb738c554cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit=0
+
+$ cargo test runtime::tests::error_attachment -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+running 2 tests
+test runtime::tests::error_attachment_allocation_failure_preserves_aliases_and_marks_bytes ... ok
 test runtime::tests::error_attachment_cycle_limit_and_storage_truncation_markers ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 1466 filtered out; finished in 0.19s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1470 filtered out; finished in 0.23s
 
      Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
 
@@ -524,79 +562,14 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 exit=0
 
-$ cargo test using -- --nocapture
+$ cargo test type_system::test_integration_modules::tests::test_error_cause_propagate_error_value_cause_prior_error_type_checks -- --nocapture
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
      Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
 
-running 16 tests
-test codegen::tests::using_cleanup_consumed_obligation_skips_lexical_cleanup ... ok
-test codegen::tests::using_cleanup_preserving_exit_helpers_emit_cleanup_scaffolds ... ok
-test codegen::tests::using_cleanup_guard_expression_close_uses_success_flag_for_lexical_cleanup ... ok
-test parser::tests::test_terminal_proposal_refinement_and_using_rejections ... ok
-test codegen::tests::using_cleanup_propagate_close_consumes_only_success_and_transfers_exact_error ... ok
-test codegen::tests::using_cleanup_scope_exit_emits_reverse_order_scaffold_calls ... ok
-test type_system::checker::using_cleanup::tests::using_cleanup_registry_has_exact_terminal_transfer ... ok
-test codegen::tests::using_cleanup_error_result_is_observed_as_primary_candidate ... ok
-test codegen::tests::using_cleanup_guard_statement_close_uses_success_flag_for_lexical_cleanup ... ok
-test type_system::checker::using_cleanup::tests::using_cleanup_transfer_requires_exact_registered_result ... ok
-test type_system::test_integration_affine::using_infallible_cleanup_resources_need_no_extra_errors ... ok
-test type_system::checker::using_cleanup::tests::using_cleanup_consumes_only_registered_explicit_close ... ok
-test type_system::test_integration_affine::using_explicit_close_keeps_binding_inspectable ... ok
-test type_system::test_integration_affine::using_rejects_affine_resource_without_cleanup_registration ... ok
-test type_system::test_integration_affine::using_rejects_owner_escape_through_scope_exit_values ... ok
-test type_system::test_integration_affine::using_terminal_session_requires_acquisition_body_and_cleanup_errors ... ok
+running 1 test
+test type_system::test_integration_modules::tests::test_error_cause_propagate_error_value_cause_prior_error_type_checks ... ok
 
-test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 1453 filtered out; finished in 0.06s
-
-     Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/array_integration.rs (target/debug/deps/array_integration-04bfea5ff87daf9b)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-cf740cc5fbecb7d9)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-3259cfeb1046fe01)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-4227316b5aefa412)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-     Running tests/integration_print.rs (target/debug/deps/integration_print-906b5fb738c554cb)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-exit=0
-
-$ cargo test terminal_refinement -- --nocapture
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
-     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
-
-running 4 tests
-test type_system::test_integration_modules::tests::test_terminal_refinement_rejects_invalid_syntax_during_parse ... ok
-test type_system::test_integration_modules::tests::test_terminal_refinement_without_into_narrows_identifier ... ok
-test type_system::test_integration_modules::tests::test_terminal_refinement_payload_binding_does_not_escape_branch ... ok
-test type_system::test_integration_modules::tests::test_terminal_refinement_rejects_invalid_into_forms ... ok
-
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 1465 filtered out; finished in 0.03s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.02s
 
      Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
 
@@ -642,30 +615,30 @@ $ cargo test terminal_proposal -- --nocapture
 
 running 23 tests
 test module_loader::tests::resolve_import_path_terminal_proposal_stdlib_sentinels ... ok
+test parser::tests::test_terminal_proposal_declaration_metadata_rejections ... ok
 test parser::tests::test_terminal_proposal_declaration_metadata_and_type_forms_parse ... ok
 test parser::tests::test_terminal_proposal_affine_refinement_and_propagation_syntax_parse ... ok
-test parser::tests::test_terminal_proposal_declaration_metadata_rejections ... ok
-test codegen::tests::codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic ... ok
 test formatter::tests::formatter_tests::test_formatter_preserves_terminal_proposal_syntax_metadata ... ok
-test codegen::tests::codegen_terminal_proposal_imports_fail_with_gate_diagnostic ... ok
 test parser::tests::test_terminal_proposal_refinement_and_using_rejections ... ok
-test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_selected_active_variant_id_mismatch ... ok
-test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_chord_active_variant_id_mismatch ... ok
-test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_selected_active_variant_declared_as_non_sum ... ok
-test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_test_only_production_type_id ... ok
-test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_keeps_restore_generation_exhausted_candidate_uncommitted ... ok
-test type_system::module_resolver::terminal_proposal_modules::tests::loads_chord_declarations_with_variant_ids_and_fields ... ok
-test type_system::module_resolver::terminal_proposal_modules::tests::loads_selected_terminal_declarations_from_authoritative_file ... ok
-test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_chord_function_signatures ... ok
-test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_reports_selected_and_chord_inventory_counts ... ok
-test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_core_prerequisite_function_signatures ... ok
+test codegen::tests::codegen_terminal_proposal_imports_fail_with_gate_diagnostic ... ok
+test codegen::tests::codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic ... ok
 test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_reused_retired_selected_variant_id ... ok
-test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_selected_terminal_function_signatures ... ok
+test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_test_only_production_type_id ... ok
+test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_reports_selected_and_chord_inventory_counts ... ok
+test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_selected_active_variant_declared_as_non_sum ... ok
+test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_selected_active_variant_id_mismatch ... ok
+test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_keeps_restore_generation_exhausted_candidate_uncommitted ... ok
+test type_system::module_resolver::terminal_proposal_modules::tests::loads_selected_terminal_declarations_from_authoritative_file ... ok
+test type_system::module_resolver::terminal_proposal_modules::tests::loads_chord_declarations_with_variant_ids_and_fields ... ok
+test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_chord_active_variant_id_mismatch ... ok
+test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_core_prerequisite_function_signatures ... ok
+test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_chord_function_signatures ... ok
 test type_system::module_resolver::terminal_proposal_modules::tests::loads_test_only_terminal_declarations_with_namespace_and_without_abi_ids ... ok
 test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_test_only_terminal_function_signatures ... ok
+test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_selected_terminal_function_signatures ... ok
 test type_system::test_integration_affine::inferred_terminal_proposal_owners_are_affine_without_type_imports ... ok
 
-test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 1446 filtered out; finished in 0.08s
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 1449 filtered out; finished in 0.07s
 
      Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
 
@@ -706,62 +679,63 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 exit=0
 
 $ cargo test
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
      Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
 
-running 1469 tests
+running 1472 tests
+test app::tests::build_no_config_returns_error ... ok
 test app::tests::check_missing_file_arg_returns_error ... ok
 test app::tests::check_nonexistent_file_returns_error ... ok
-test app::tests::dash_dash_help_shows_top_level_help ... ok
-test app::tests::cli_rejects_invalid_target ... ok
 test app::tests::dash_dash_help_with_topic_shows_topic ... ok
-test app::tests::check_invalid_source_returns_error ... ok
-test app::tests::doc_missing_file_returns_error ... ok
 test app::tests::doc_format_flag_accepted ... ok
+test app::tests::check_invalid_source_returns_error ... ok
+test app::tests::cli_rejects_invalid_target ... ok
+test app::tests::dash_dash_help_shows_top_level_help ... ok
 test app::tests::doc_nonexistent_file_returns_error ... ok
+test app::tests::doc_missing_file_returns_error ... ok
 test app::tests::doc_with_valid_source_returns_ok ... ok
 test app::tests::fmt_check_mode_returns_ok_when_already_formatted ... ok
-test app::tests::fmt_nonexistent_file_returns_error ... ok
 test app::tests::fmt_missing_file_returns_error ... ok
 test app::tests::help_bench_shows_usage ... ok
-test app::tests::fmt_config_flag_accepted ... ok
 test app::tests::help_command_returns_ok ... ok
-test app::tests::fmt_formats_file_in_place ... ok
 test app::tests::help_doc_shows_format_flag ... ok
+test app::tests::fmt_nonexistent_file_returns_error ... ok
 test app::tests::help_fmt_shows_all_flags ... ok
 test app::tests::help_lsp_shows_stdio_flag ... ok
 test app::tests::help_pkg_shows_all_subcommands ... ok
 test app::tests::help_test_shows_flags ... ok
-test app::tests::help_text_build_contains_usage ... ok
 test app::tests::help_text_check_contains_usage ... ok
+test app::tests::help_text_build_contains_usage ... ok
 test app::tests::help_text_none_lists_all_commands ... ok
-test app::tests::help_text_run_contains_usage ... ok
 test app::tests::help_text_watch_contains_usage ... ok
+test app::tests::help_text_run_contains_usage ... ok
 test app::tests::help_unknown_topic_contains_error ... ok
 test app::tests::help_with_topic_returns_ok ... ok
 test app::tests::lsp_starts_server_returns_ok ... ok
 test app::tests::missing_file_returns_error ... ok
 test app::tests::no_args_returns_error ... ok
 test app::tests::run_subcommand_nonexistent_file_returns_error ... ok
+test app::tests::fmt_formats_file_in_place ... ok
+test app::tests::fmt_config_flag_accepted ... ok
 test app::tests::test_command_empty_suite_returns_ok ... ok
 test app::tests::test_help_lists_all_commands_integration ... ok
+test app::tests::run_args_after_double_dash_separated ... ok
+test app::tests::check_valid_source_returns_ok ... ok
+test app::tests::run_subcommand_missing_file_returns_error ... ok
 test app::tests::test_pkg_still_unimplemented ... ok
 test app::tests::test_run_is_alternative_to_run_flag ... ok
-test app::tests::test_with_filter_returns_ok ... ok
 test app::tests::test_with_target_returns_ok ... ok
+test app::tests::test_with_filter_returns_ok ... ok
+test app::tests::build_with_config_compiles_project ... ok
 test app::tests::top_level_help_contains_all_commands ... ok
 test app::tests::top_level_help_contains_examples_section ... ok
 test app::tests::unimplemented_doc_returns_error ... ok
-test app::tests::unimplemented_lsp_returns_error ... ok
 test app::tests::unimplemented_pkg_returns_error ... ok
+test ast::operators::tests::test_token_to_binary_op ... ok
+test app::tests::unimplemented_lsp_returns_error ... ok
+test ast::operators::tests::test_unary_op_display ... ok
 test app::tests::watch_missing_file_arg_returns_error ... ok
 test app::tests::watch_nonexistent_file_returns_error ... ok
-test ast::operators::tests::test_binary_op_display ... ok
-test app::tests::build_with_config_compiles_project ... ok
-test app::tests::build_no_config_returns_error ... ok
-test ast::operators::tests::test_token_to_unary_op ... ok
-test ast::operators::tests::test_token_to_binary_op ... ok
-test ast::operators::tests::test_unary_op_display ... ok
 test ast::tests::test_binary_expr ... ok
 test ast::tests::test_declaration_span_and_node_id ... ok
 test ast::tests::test_import_item_span_accessor ... ok
@@ -769,13 +743,12 @@ test ast::tests::test_literal_expr ... ok
 test ast::tests::test_statement_span_and_node_id ... ok
 test benchmarks::tests::measured_benchmark_wraps_timing_and_memory_metrics ... ok
 test benchmarks::tests::hot_reload_swap_measurement_returns_named_result ... ok
+test ast::operators::tests::test_binary_op_display ... ok
 test benchmarks::tests::regression_detection_reports_violation_and_success ... ok
-test app::tests::check_valid_source_returns_ok ... ok
-test app::tests::run_subcommand_missing_file_returns_error ... ok
-test app::tests::run_args_after_double_dash_separated ... ok
+test ast::operators::tests::test_token_to_unary_op ... ok
 test benchmarks::tests::runtime_benchmarks_return_named_results ... ok
-test bounded_proc::tests::run_error_exposes_execution_failure_payload ... ok
 test benchmarks::tests::suite_collects_results_and_reports_by_name ... ok
+test bounded_proc::tests::run_error_exposes_execution_failure_payload ... ok
 test build_system::linker::tests::linker_command_cc_builds_correct_args ... ok
 test build_system::linker::tests::linker_command_clang_builds_correct_args ... ok
 test build_system::linker::tests::linker_command_mingw_builds_correct_args ... ok
@@ -816,16 +789,16 @@ test build_system::tests::parse_legacy_windows_resolves_as_msvc ... ok
 test build_system::tests::parse_rust_mingw_triple ... ok
 test build_system::tests::parse_rust_msvc_triple ... ok
 test build_system::tests::parse_version_constraint_supports_range_equality_and_bare_versions ... ok
-test build_system::tests::portability_header_compiles_with_gcc ... ok
 test build_system::linker::tests::no_pie_flag_only_on_linux ... ok
+test build_system::tests::portability_header_compiles_with_gcc ... ok
 test build_system::tests::reject_3_segment ... ok
 test build_system::tests::reject_aarch64_windows_msvc ... ok
 test build_system::tests::reject_unknown_env ... ok
 test build_system::tests::resolve_dependencies_reports_conflicts_for_same_package ... ok
 test build_system::tests::resolve_dependencies_selects_highest_matching_versions ... ok
 test build_system::tests::rc_header_layout_constants_are_correct ... ok
-test build_system::tests::rng_portability_header_compiles_with_gcc ... ok
 test build_system::tests::runtime_aggregator_compiles_without_c_includes ... ok
+test build_system::tests::rng_portability_header_compiles_with_gcc ... ok
 test build_system::tests::target_triples_parse_and_dynamic_library_extensions_match_platform ... ok
 test build_system::tests::tests_target_triple_typed_api ... ok
 test build_system::tests::to_rust_triple_roundtrips ... ok
@@ -834,180 +807,181 @@ test codegen::context::tests::for_triple_linux_gnu ... ok
 test codegen::context::tests::for_triple_windows_msvc ... ok
 test codegen::control_flow::tests::return_statement_builds_void_error_abi_success_and_error_returns ... ok
 test codegen::control_flow::tests::return_statement_rejects_payload_bearing_error_variants ... ok
-test benchmarks::tests::compile_time_benchmarks_return_named_results ... ok
-test codegen::expressions_array::tests::heap_class_array_children_preserves_string_representation_semantics ... ok
 test codegen::expressions::loop_stack_tests::with_loop_isolated_clears_and_restores_loop_stack ... ok
+test codegen::expressions_array::tests::heap_class_array_children_preserves_string_representation_semantics ... ok
 test codegen::functions_call::array::helpers::tests::array_helper_wrappers_emit_rc_uniqueness_predicates ... ok
 test codegen::functions_stdlib::tests::stdlib_names_registry_exists_and_has_correct_count ... ok
 test codegen::tests::codegen_error_attachment_inspector_imports_emit_runtime_declarations ... ok
+test benchmarks::tests::compile_time_benchmarks_return_named_results ... ok
 test codegen::tests::codegen_fallible_constructor_alias_name_uses_canonical_registry_entry ... ok
 test codegen::tests::codegen_fallible_constructor_test_second_entry_uses_registry_path ... ok
-test build_system::tests::runtime_init_compiles_with_gcc ... ok
-test codegen::tests::codegen_guard_shorthand_does_not_register_underscore_metadata ... ok
-test app::tests::test_all_commands_no_unimplemented ... ok
 test app::tests::bench_command_returns_ok ... ok
-test codegen::tests::codegen_nested_string_interpolation_frees_inner_temporary_buffer ... ok
+test codegen::tests::codegen_guard_shorthand_does_not_register_underscore_metadata ... ok
 test codegen::tests::codegen_explicit_new_bytes_lowers_to_bytes_new ... ok
 test codegen::tests::codegen_frame_clock_functions_emit_handle_and_void_error_abi_declarations ... ok
-test codegen::tests::codegen_propagate_error_value_cause_attaches_before_return ... ok
+test codegen::tests::codegen_nested_string_interpolation_frees_inner_temporary_buffer ... ok
+test build_system::tests::runtime_init_compiles_with_gcc ... ok
+test app::tests::test_all_commands_no_unimplemented ... ok
+test codegen::tests::codegen_propagate_borrow_wrapped_error_value_cause_attaches_before_return ... ok
 test codegen::tests::codegen_inferred_new_bytes_lowers_to_bytes_new ... ok
-test codegen::tests::codegen_inferred_new_bytes_member_access_uses_bytes_type ... ok
+test codegen::tests::codegen_propagate_parenthesized_error_value_cause_attaches_before_return ... ok
+test codegen::tests::codegen_propagate_error_value_cause_attaches_before_return ... ok
 test codegen::tests::codegen_new_frameclock_uses_registered_runtime_symbol ... ok
-test codegen::tests::codegen_sleep_ms_sync_emits_void_error_abi_declaration ... ok
-test codegen::tests::codegen_string_interpolation_pure_literal ... ok
+test codegen::tests::codegen_inferred_new_bytes_member_access_uses_bytes_type ... ok
 test codegen::tests::codegen_string_interpolation_frees_to_string_temporary_arguments ... ok
+test codegen::tests::codegen_string_interpolation_pure_literal ... ok
 test codegen::tests::codegen_string_interpolation_with_variable ... ok
 test codegen::tests::codegen_new_string_builder_and_helpers_emit_expected_abi_declarations ... ok
+test codegen::tests::codegen_sleep_ms_sync_emits_void_error_abi_declaration ... ok
 test codegen::tests::codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic ... ok
-test codegen::tests::emit_default_return_for_error_bearing_unit_function_returns_success_aggregate ... ok
 test codegen::tests::codegen_terminal_proposal_imports_fail_with_gate_diagnostic ... ok
+test codegen::tests::emit_default_return_for_error_bearing_unit_function_returns_success_aggregate ... ok
 test codegen::tests::codegen_stdout_writer_functions_emit_handle_and_void_error_abi_declarations ... ok
 test codegen::tests::codegen_stdout_text_functions_emit_void_error_abi_declarations ... ok
 test codegen::tests::legacy_bytes_new_codegen_still_calls_bytes_new ... ok
 test codegen::tests::codegen_terminal_functions_emit_handle_boolean_and_void_error_abi_declarations ... ok
-test codegen::tests::string_indexing ... ok
-test codegen::tests::test_array_length_member_emits_i64_return ... ok
 test codegen::tests::test_codegen_adt_constructor_emits_tagged_union_layout_for_sum_variant ... ok
-test codegen::tests::test_codegen_assignment_non_identifier_target_error_message ... ok
 test codegen::tests::test_codegen_arithmetic_overflow_and_division_traps ... ok
+test codegen::tests::test_codegen_assignment_non_identifier_target_error_message ... ok
 test codegen::tests::test_codegen_assignment_to_immutable_variable_returns_error ... ok
 test codegen::tests::test_codegen_boolean_string_and_unit_literals ... ok
-test codegen::tests::test_codegen_cast_function_type_error_message ... ok
 test codegen::tests::test_codegen_call_expression_lowers_function_call ... ok
+test codegen::tests::test_codegen_cast_function_type_error_message ... ok
 test codegen::tests::test_codegen_cast_unknown_basic_type_error_message ... ok
 test codegen::tests::test_codegen_context_new_creates_module_and_builder ... ok
 test codegen::tests::test_codegen_context_sets_target_triple ... ok
-test codegen::tests::test_codegen_function_declaration_lowers_function_definition ... ok
-test codegen::tests::test_codegen_function_pointer_is_comparison_emits_icmp ... ok
+test codegen::tests::string_indexing ... ok
 test codegen::tests::test_codegen_div_euclid_operator ... ok
+test codegen::tests::test_codegen_function_declaration_lowers_function_definition ... ok
+test codegen::tests::test_array_length_member_emits_i64_return ... ok
+test codegen::tests::test_codegen_function_pointer_is_comparison_emits_icmp ... ok
 test codegen::tests::test_codegen_function_pointer_is_not_comparison_emits_icmp ... ok
 test codegen::tests::test_codegen_if_statement_and_if_expression_lower_control_flow ... ok
-test codegen::tests::test_array_at_lowering_is_compiler_lowered_without_generic_array_at_abi ... ok
 test codegen::tests::test_codegen_integer_and_float_literals_with_type_hints ... ok
 test codegen::tests::test_codegen_identifier_backed_indexed_assignment_emits_array_clone_and_rebind ... ok
 test codegen::tests::test_codegen_is_operator_on_int64_emits_icmp_eq ... ok
 test codegen::tests::test_codegen_lambda_closure_as_function_value ... ok
-test codegen::tests::test_codegen_local_nominal_field_access_uses_pointer_backed_payload_path ... ok
-test codegen::tests::test_codegen_match_expression_lowers_to_switch ... ok
-test codegen::tests::test_codegen_loop_forms_and_return_multi_value ... ok
 test codegen::tests::test_codegen_let_assignment_array_and_access_statements ... ok
+test codegen::tests::test_codegen_local_nominal_field_access_uses_pointer_backed_payload_path ... ok
+test codegen::tests::test_codegen_loop_forms_and_return_multi_value ... ok
+test codegen::tests::test_codegen_match_expression_lowers_to_switch ... ok
 test codegen::tests::test_codegen_monomorphization_name_generation_and_generic_adt_instantiation ... ok
 test codegen::tests::test_codegen_mod_euclid_operator ... ok
+test codegen::tests::test_array_at_lowering_is_compiler_lowered_without_generic_array_at_abi ... ok
 test codegen::tests::test_codegen_narrowing_signed_int_cast_emits_runtime_range_trap ... ok
+test codegen::tests::test_codegen_nested_nominal_field_access_infers_intermediate_receiver_type ... ok
 test codegen::tests::test_codegen_power_operator_float_computes_correct_value ... ok
 test codegen::tests::test_codegen_nominal_product_with_array_child_emits_drop_callback ... ok
-test codegen::tests::test_codegen_nested_nominal_field_access_infers_intermediate_receiver_type ... ok
-test codegen::tests::test_codegen_power_operator_int_computes_correct_value ... ok
-test codegen::tests::test_codegen_product_field_access_loads_named_field ... ok
-test codegen::tests::test_codegen_propagate_and_guard_expressions_lower_error_flow ... ok
 test codegen::tests::test_codegen_same_width_signed_to_unsigned_cast_emits_runtime_range_trap ... ok
-test codegen::tests::test_codegen_same_width_unsigned_to_signed_cast_emits_runtime_range_trap ... ok
+test codegen::tests::test_codegen_propagate_and_guard_expressions_lower_error_flow ... ok
+test codegen::tests::test_codegen_product_field_access_loads_named_field ... ok
+test codegen::tests::test_codegen_power_operator_int_computes_correct_value ... ok
 test codegen::tests::test_codegen_string_is_comparison_emits_strcmp ... ok
-test codegen::tests::test_codegen_unary_logical_not_emits_i1_compare ... ok
 test codegen::tests::test_codegen_string_is_not_comparison_emits_strcmp ... ok
 test codegen::tests::test_codegen_unary_and_cast_operations ... ok
+test codegen::tests::test_codegen_unary_logical_not_emits_i1_compare ... ok
 test codegen::tests::test_codegen_unsigned_int_to_float_cast_uses_uitofp ... ok
 test codegen::tests::test_codegen_unsupported_expression_kind_error_message ... ok
 test codegen::tests::test_codegen_unsupported_let_type_annotation_error_message ... ok
 test codegen::tests::test_core_type_mapping_covers_all_variants ... ok
-test codegen::tests::test_builtin_calls_emit_runtime_declarations_without_imports ... ok
+test codegen::tests::test_codegen_same_width_unsigned_to_signed_cast_emits_runtime_range_trap ... ok
 test codegen::tests::test_codegen_widening_signed_int_cast_emits_no_range_trap ... ok
-test codegen::tests::test_entry_main_wrapper_calls_runtime_init_before_entrypoint ... ok
+test codegen::tests::test_builtin_calls_emit_runtime_declarations_without_imports ... ok
 test codegen::tests::test_entry_function_with_string_array_parameter_emits_callable_main_wrapper ... ok
-test codegen::tests::test_fibonacci_if_n_is_zero_compiles_to_valid_llvm_ir ... ok
 test codegen::tests::test_entry_main_wrapper_has_argc_argv_params ... ok
+test codegen::tests::test_fibonacci_if_n_is_zero_compiles_to_valid_llvm_ir ... ok
 test codegen::tests::test_entry_main_wrapper_traps_on_error_returning_entrypoint ... ok
-test codegen::tests::test_guard_bound_read_lines_length_emits_count_extract_and_runtime_call ... ok
 test codegen::tests::test_guard_statement_coerces_runtime_boolean_success_to_i1 ... ok
-test codegen::tests::test_import_bytes_from_hex_emits_struct_result_declaration ... ok
-test codegen::tests::test_import_bytes_concatenate_emits_two_arg_declaration ... ok
+test codegen::tests::test_entry_main_wrapper_calls_runtime_init_before_entrypoint ... ok
+test codegen::tests::test_guard_bound_read_lines_length_emits_count_extract_and_runtime_call ... ok
+test bounded_proc::tests::bounded_proc_timeout_returns_quickly ... ok
 test codegen::tests::test_guard_statement_compiles_to_valid_llvm_ir ... ok
 test codegen::tests::test_import_bytes_slice_emits_struct_result_declaration ... ok
-test codegen::tests::test_import_bytes_to_hex_emits_string_return ... ok
+test codegen::tests::test_import_bytes_from_hex_emits_struct_result_declaration ... ok
+test codegen::tests::test_import_bytes_concatenate_emits_two_arg_declaration ... ok
 test codegen::tests::test_import_bytes_length_emits_i32_return ... ok
 test codegen::tests::test_import_random_int32_emits_random_int32_declaration ... ok
 test codegen::tests::test_linux_target_uses_direct_fs_small_results_and_sret_for_array_results ... ok
-test codegen::tests::test_import_random_int64_emits_correct_declaration ... ok
 test codegen::tests::test_rc_emitter_uniqueness_predicates_declare_runtime_helpers_once ... ok
+test codegen::tests::test_import_bytes_to_hex_emits_string_return ... ok
 test codegen::tests::test_string_array_literal_does_not_emit_rc_child_hooks ... ok
-test bounded_proc::tests::bounded_proc_timeout_returns_quickly ... ok
+test codegen::tests::test_import_standard_multiple_symbols_emit_all_runtime_declarations ... ok
 test codegen::tests::test_import_string_to_int64_emits_correct_declaration ... ok
 test codegen::tests::test_windows_msvc_target_uses_sret_for_filesystem_results ... ok
 test codegen::tests::test_windows_target_uses_dllexport_linkage ... ok
 test codegen::tests::using_cleanup_consumed_obligation_skips_lexical_cleanup ... ok
-test codegen::tests::test_import_standard_multiple_symbols_emit_all_runtime_declarations ... ok
+test codegen::tests::test_import_take_input_emits_take_input_declaration ... ok
 test codegen::tests::using_cleanup_error_result_is_observed_as_primary_candidate ... ok
-test codegen::tests::using_cleanup_guard_statement_close_uses_success_flag_for_lexical_cleanup ... ok
+test codegen::tests::test_import_random_int64_emits_correct_declaration ... ok
 test codegen::tests::using_cleanup_guard_expression_close_uses_success_flag_for_lexical_cleanup ... ok
 test codegen::tests::using_cleanup_preserving_exit_helpers_emit_cleanup_scaffolds ... ok
-test codegen::tests::using_cleanup_propagate_close_consumes_only_success_and_transfers_exact_error ... ok
+test codegen::tests::using_cleanup_guard_statement_close_uses_success_flag_for_lexical_cleanup ... ok
 test codegen::tests::using_cleanup_scope_exit_emits_reverse_order_scaffold_calls ... ok
-test codegen::tests::test_import_take_input_emits_take_input_declaration ... ok
+test codegen::tests::using_cleanup_propagate_close_consumes_only_success_and_transfers_exact_error ... ok
 test codegen::tests_optimization::test_optimization_level_o0_vs_o2_changes_ir ... ok
-test codegen::tests::test_string_indexing_lowering_emits_runtime_helper ... ok
+test codegen::tests_optimization::test_release_optimization_folds_constants ... ok
 test codegen::types::tests::test_integer_literal_bits_negative_one ... ok
 test codegen::types::tests::test_integer_literal_bits_positive ... ok
 test codegen::types::tests::test_integer_literal_bits_zero ... ok
 test codegen::types::tests::test_is_signed_core_type_float ... ok
 test codegen::types::tests::test_is_signed_core_type_signed ... ok
-test codegen::tests_optimization::test_release_optimization_folds_constants ... ok
 test codegen::types::tests::test_is_signed_core_type_unsigned ... ok
 test compiler::tests::build_linker_command_linux_includes_no_pie ... ok
 test compiler::tests::build_linker_command_macos_omits_no_pie ... ok
 test codegen::tests_optimization::test_release_optimization_inlines_small_functions ... ok
 test codegen::tests_optimization::test_release_optimization_removes_dead_store ... ok
 test codegen::tests::test_string_at_lowering_uses_error_abi_without_trap_metadata ... ok
+test codegen::tests::test_string_indexing_lowering_emits_runtime_helper ... ok
 test codegen::tests::test_string_length_member_emits_i64_return ... ok
 test compiler::tests::compile_program_respects_target_override ... ok
 test compiler::tests::compile_to_module_lex_error ... ok
 test compiler::tests::compile_checked_program_to_module_preserves_windows_target_for_stdlib_abi ... ok
-test compiler::tests::compile_to_module_for_target_preserves_windows_target_for_stdlib_abi ... ok
 test compiler::tests::compile_project_type_errors_return_miette_report ... ok
+test compiler::tests::compile_to_module_for_target_preserves_windows_target_for_stdlib_abi ... ok
+test bounded_proc::tests::bounded_proc_kills_process_group_and_leaves_no_sleep_orphan ... ok
+test compiler::tests::build_linker_command_windows_uses_appropriate_linker ... ok
 test compiler::tests::compile_to_module_type_error ... ok
 test compiler::tests::compile_to_module_collects_multiple_type_errors ... ok
-test compiler::tests::build_linker_command_windows_uses_appropriate_linker ... ok
 test compiler::tests::compile_to_module_valid_void_program ... ok
 test compiler::tests::emit_object_file_linux_produces_elf ... ok
-test compiler::tests::emit_object_file_windows_msvc_produces_coff ... ok
 test compiler::tests::indexed_assignment_with_identifier_index_still_compiles ... ok
+test compiler::tests::emit_object_file_windows_msvc_produces_coff ... ok
 test compiler::tests::legacy_array_bracket_value_read_reports_at_guidance ... ok
-test compiler::tests::runtime_source_includes_runtime_and_rc_symbols_exactly_once ... ok
 test compiler::tests::legacy_string_bracket_value_read_reports_at_guidance ... ok
-test doc_gen::tests::test_cross_reference_linking_rewrites_known_symbols ... ok
 test doc_gen::tests::test_extractor_includes_only_public_symbols ... ok
+test doc_gen::tests::test_cross_reference_linking_rewrites_known_symbols ... ok
 test doc_gen::tests::test_extractor_preserves_proposal_type_metadata_in_signatures ... ok
 test doc_gen::tests::test_extractor_renders_labeled_multi_return_signatures ... ok
+test compiler::tests::runtime_source_includes_runtime_and_rc_symbols_exactly_once ... ok
+test doc_gen::tests::test_parse_doc_attributes_extracts_param_returns_and_example ... ok
 test doc_gen::tests::test_generate_markdown_for_program_wires_pipeline ... ok
-test bounded_proc::tests::bounded_proc_kills_process_group_and_leaves_no_sleep_orphan ... ok
 test doc_gen::tests::test_renderer_html_mode_renders_html_headings ... ok
-test doc_gen::tests::test_renderer_markdown_contains_api_sections_and_attributes ... ok
 test error::tests::test_lex_errors_creation ... ok
-test error::tests::test_span_conversion ... ok
+test doc_gen::tests::test_renderer_markdown_contains_api_sections_and_attributes ... ok
+test doc_gen::tests::test_source_contains_documentation_struct_on_declarations ... ok
 test error::tests::test_span_from_span ... ok
 test errors::renderer::tests::test_render_diagnostic_lex_error ... ok
 test errors::renderer::tests::test_render_diagnostic_unknown_span ... ok
-test errors::renderer::tests::test_render_report_multiple_errors_with_summary ... ok
 test errors::renderer::tests::test_renderer_handles_codegen_error_without_span ... ok
-test errors::renderer::tests::test_renderer_includes_suggestions_when_available ... ok
+test error::tests::test_span_conversion ... ok
+test errors::renderer::tests::test_render_report_multiple_errors_with_summary ... ok
 test errors::renderer::tests::test_renderer_produces_source_context_for_parse_error ... ok
 test errors::renderer::tests::test_renderer_produces_source_context_for_type_error ... ok
+test errors::renderer::tests::test_renderer_includes_suggestions_when_available ... ok
 test errors::suggestions::tests::test_get_suggestion_dispatches_to_type_error ... ok
 test errors::suggestions::tests::test_immutable_assignment_suggests_let_mutable ... ok
 test errors::suggestions::tests::test_missing_entry_point_shows_full_example ... ok
 test errors::suggestions::tests::test_type_mismatch_suggestion_mentions_both_types ... ok
 test errors::suggestions::tests::test_unterminated_string_suggestion ... ok
-test doc_gen::tests::test_parse_doc_attributes_extracts_param_returns_and_example ... ok
-test doc_gen::tests::test_source_contains_documentation_struct_on_declarations ... ok
 test errors::tests::e2e_tests::test_e2e_lex_error_renders_with_source_context ... ok
 test errors::tests::e2e_tests::test_e2e_parse_error_renders_with_source_context ... ok
+test errors::tests::e2e_tests::test_e2e_multi_error_renders_all_errors ... ok
 test errors::tests::e2e_tests::test_e2e_empty_file_does_not_panic ... ok
-test errors::tests::e2e_tests::test_e2e_type_error_renders_with_suggestion ... ok
 test errors::tests::guard_ambiguous_if_else_diagnostic ... ok
 test errors::tests::test_cannot_infer_generic_formatting_surfaces_type_annotation_suggestion ... ok
-test errors::tests::e2e_tests::test_e2e_multi_error_renders_all_errors ... ok
 test errors::tests::test_compilation_error_report_collects_and_renders_multi_phase_errors ... ok
-test errors::tests::test_error_doc_link_stable_generation ... ok
 test errors::tests::test_error_bundle_joins_multiple_entries ... ok
+test errors::tests::test_error_doc_link_stable_generation ... ok
 test errors::tests::test_format_codegen_error_uses_standardized_code ... ok
 test errors::tests::test_format_diagnostic_includes_phase_code_help_and_docs ... ok
 test errors::tests::test_format_diagnostic_uses_codegen_variant_with_codegen_error_message ... ok
@@ -1018,26 +992,28 @@ test errors::tests::test_legacy_bracket_read_diagnostics_surface_at_guidance ...
 test errors::tests::test_levenshtein_distance_handles_common_cases ... ok
 test errors::tests::test_lex_errors_can_be_promoted_to_report ... ok
 test errors::tests::test_reporter_extends_bulk_error_collections ... ok
+test errors::tests::e2e_tests::test_e2e_type_error_renders_with_suggestion ... ok
 test errors::tests::test_symbol_not_found_formatting_surfaces_did_you_mean_suggestion ... ok
 test errors::tests::test_type_annotation_hint_for_generic_inference_failure ... ok
 test errors::tests::test_type_error_symbol_not_found_supports_suggestion_field ... ok
 test formatter::tests::formatter_tests::fmt_new_bytes_roundtrip ... ok
 test formatter::tests::formatter_tests::test_config_defaults ... ok
+test errors::tests::e2e_tests::test_e2e_valid_source_produces_no_error ... ok
 test formatter::tests::formatter_tests::test_config_from_toml_str ... ok
 test formatter::tests::formatter_tests::test_config_from_toml_str_ignores_unknown_keys ... ok
 test formatter::tests::formatter_tests::test_config_from_toml_str_invalid_indent_size ... ok
 test formatter::tests::formatter_tests::test_config_from_toml_str_invalid_use_tabs ... ok
 test formatter::tests::formatter_tests::test_config_from_toml_str_tabs ... ok
-test formatter::tests::formatter_tests::test_config_from_toml_str_zero_indent_size ... ok
 test formatter::tests::formatter_tests::test_config_indent_unit_spaces ... ok
 test formatter::tests::formatter_tests::test_config_indent_unit_tab ... ok
+test formatter::tests::formatter_tests::test_config_from_toml_str_zero_indent_size ... ok
 test formatter::tests::formatter_tests::test_custom_indent_size_2 ... ok
 test formatter::tests::formatter_tests::test_custom_indent_size_8 ... ok
-test formatter::tests::formatter_tests::test_format_command_custom_config ... ok
 test formatter::tests::formatter_tests::test_format_command_execute ... ok
 test formatter::tests::formatter_tests::test_format_command_in_place_no_file_io ... ok
 test formatter::tests::formatter_tests::test_formatter_boolean_literal ... ok
 test formatter::tests::formatter_tests::test_formatter_comment_idempotency ... ok
+test formatter::tests::formatter_tests::test_format_command_custom_config ... ok
 test formatter::tests::formatter_tests::test_formatter_comments_reparse_clean ... ok
 test formatter::tests::formatter_tests::test_formatter_emits_match_brace_syntax ... ok
 test formatter::tests::formatter_tests::test_formatter_emits_new_constructor_indented_block ... ok
@@ -1047,50 +1023,49 @@ test formatter::tests::formatter_tests::test_formatter_for_body_leading_comment 
 test formatter::tests::formatter_tests::test_formatter_guard_body_leading_comment ... ok
 test formatter::tests::formatter_tests::test_formatter_guard_into_underscore_preserved ... ok
 test formatter::tests::formatter_tests::test_formatter_guard_shorthand_roundtrip ... ok
-test errors::tests::e2e_tests::test_e2e_valid_source_produces_no_error ... ok
 test formatter::tests::formatter_tests::test_formatter_handles_crlf_and_tabs_combined ... ok
 test formatter::tests::formatter_tests::test_formatter_handles_crlf_line_endings ... ok
 test formatter::tests::formatter_tests::test_formatter_handles_tab_indented_source ... ok
 test formatter::tests::formatter_tests::test_formatter_idempotent_let_decl ... ok
 test formatter::tests::formatter_tests::test_formatter_idempotent_simple_function ... ok
 test formatter::tests::formatter_tests::test_formatter_idempotent_with_return ... ok
+test errors::tests::test_string_join_allocation_failure_error_renders_with_docs ... ok
 test formatter::tests::formatter_tests::test_formatter_if_body_leading_comment ... ok
 test formatter::tests::formatter_tests::test_formatter_integer_literal ... ok
 test formatter::tests::formatter_tests::test_formatter_loop_body_leading_comment ... ok
 test formatter::tests::formatter_tests::test_formatter_loop_body_leading_doc_comment ... ok
-test formatter::tests::formatter_tests::test_formatter_new_constructor_round_trips ... ok
 test formatter::tests::formatter_tests::test_formatter_parse_error ... ok
+test formatter::tests::formatter_tests::test_formatter_new_constructor_round_trips ... ok
 test formatter::tests::formatter_tests::test_formatter_preserves_body_comments ... ok
-test formatter::tests::formatter_tests::test_formatter_preserves_doc_comments ... ok
 test formatter::tests::formatter_tests::test_formatter_preserves_file_header_comment ... ok
+test formatter::tests::formatter_tests::test_formatter_preserves_doc_comments ... ok
 test formatter::tests::formatter_tests::test_formatter_preserves_first_body_comment_after_doc_comment ... ok
 test formatter::tests::formatter_tests::test_formatter_preserves_multi_level_indentation_for_nested_block ... ok
 test formatter::tests::formatter_tests::test_formatter_preserves_multiline_non_doc_comment ... ok
-test formatter::tests::formatter_tests::test_formatter_preserves_single_line_comments_between_declarations ... ok
-test errors::tests::test_string_join_allocation_failure_error_renders_with_docs ... ok
 test formatter::tests::formatter_tests::test_formatter_rejects_misaligned_new_constructor_fields ... ok
+test formatter::tests::formatter_tests::test_formatter_preserves_single_line_comments_between_declarations ... ok
 test formatter::tests::formatter_tests::test_formatter_reports_unknown_proposal_annotation ... ok
 test formatter::tests::formatter_tests::test_formatter_simple_function ... ok
+test formatter::tests::formatter_tests::test_formatter_while_body_leading_comment ... ok
 test formatter::tests::formatter_tests::test_formatter_string_interpolation_escaped_quote ... ok
 test formatter::tests::formatter_tests::test_formatter_preserves_terminal_proposal_syntax_metadata ... ok
-test formatter::tests::formatter_tests::test_formatter_while_body_leading_comment ... ok
 test formatter::tests::formatter_tests::test_idempotent_spaces ... ok
-test formatter::tests::formatter_tests::test_mixed_to_spaces ... ok
 test formatter::tests::formatter_tests::test_idempotent_tabs ... ok
+test formatter::tests::formatter_tests::test_mixed_to_spaces ... ok
 test formatter::tests::formatter_tests::test_mixed_to_tabs ... ok
 test formatter::tests::formatter_tests::test_naming_check_program_camel_function ... ok
 test formatter::tests::formatter_tests::test_naming_check_program_no_violations ... ok
 test formatter::tests::formatter_tests::test_naming_check_program_snake_type ... ok
-test formatter::tests::formatter_tests::test_naming_pascal_case_invalid ... ok
 test formatter::tests::formatter_tests::test_naming_guard_omitted_success_binding_has_no_violation ... ok
-test formatter::tests::formatter_tests::test_naming_let_destructure_uses_local_binding_names_not_return_labels ... ok
+test formatter::tests::formatter_tests::test_naming_pascal_case_invalid ... ok
 test formatter::tests::formatter_tests::test_naming_pascal_case_valid ... ok
+test formatter::tests::formatter_tests::test_naming_let_destructure_uses_local_binding_names_not_return_labels ... ok
 test formatter::tests::formatter_tests::test_naming_snake_case_invalid ... ok
-test formatter::tests::formatter_tests::test_naming_violation_display ... ok
 test formatter::tests::formatter_tests::test_naming_snake_case_valid ... ok
+test formatter::tests::formatter_tests::test_naming_violation_display ... ok
 test formatter::tests::formatter_tests::test_rules_apply_all_idempotent_text ... ok
-test formatter::tests::formatter_tests::test_nested_indentation_tabs ... ok
 test formatter::tests::formatter_tests::test_nested_indentation_spaces ... ok
+test formatter::tests::formatter_tests::test_nested_indentation_tabs ... ok
 test formatter::tests::formatter_tests::test_rules_apply_all_preserves_eight_space_leading_indent ... ok
 test formatter::tests::formatter_tests::test_rules_apply_all_preserves_four_space_leading_indent ... ok
 test formatter::tests::formatter_tests::test_rules_collapse_blank_lines ... ok
@@ -1102,11 +1077,11 @@ test formatter::tests::formatter_tests::test_rules_operator_spacing_collapses_no
 test formatter::tests::formatter_tests::test_rules_operator_spacing_preserves_leading_spaces_inside_string_literals ... ok
 test formatter::tests::formatter_tests::test_rules_operator_spacing_preserves_single_quoted_string_whitespace ... ok
 test formatter::tests::formatter_tests::test_rules_remove_trailing_whitespace ... ok
-test formatter::tests::formatter_tests::test_spec_compliance_for_no_braces ... ok
 test formatter::tests::formatter_tests::test_spaces_to_tabs ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_for_no_braces ... ok
+test formatter::tests::formatter_tests::test_spec_compliance_formatted_output_parses_cleanly ... ok
 test formatter::tests::formatter_tests::test_spec_compliance_function_body_arrow_syntax ... ok
 test formatter::tests::formatter_tests::test_spec_compliance_if_no_braces ... ok
-test formatter::tests::formatter_tests::test_spec_compliance_formatted_output_parses_cleanly ... ok
 test formatter::tests::formatter_tests::test_spec_compliance_loop_no_braces ... ok
 test formatter::tests::formatter_tests::test_spec_compliance_nested_control_flow_no_braces ... ok
 test formatter::tests::formatter_tests::test_spec_compliance_no_semicolons_in_control_flow ... ok
@@ -1214,35 +1189,34 @@ test package_manager::tests::package_manager_tests::parse_constraint_parses_mult
 test package_manager::tests::package_manager_tests::parse_manifest_reads_dependencies_section ... ok
 test package_manager::tests::package_manager_tests::parse_manifest_reads_optional_fields ... ok
 test package_manager::tests::package_manager_tests::parse_manifest_reads_required_fields ... ok
-test compiler::tests::linker_timeout_error_reports_link_phase ... ok
+test package_manager::tests::package_manager_tests::parse_manifest_returns_error_when_name_missing ... ok
 test package_manager::tests::package_manager_tests::parse_manifest_returns_error_when_version_missing ... ok
 test package_manager::tests::package_manager_tests::platform_extension_linux_is_so ... ok
 test package_manager::tests::package_manager_tests::platform_extension_macos_is_dylib ... ok
 test package_manager::tests::package_manager_tests::platform_extension_windows_is_dll ... ok
-test package_manager::tests::package_manager_tests::parse_manifest_returns_error_when_name_missing ... ok
 test package_manager::tests::package_manager_tests::publisher_plan_returns_error_for_empty_name ... ok
 test package_manager::tests::package_manager_tests::publisher_publishes_valid_manifest_with_mock_uploader ... ok
 test package_manager::tests::package_manager_tests::publisher_returns_error_when_uploader_fails ... ok
 test package_manager::tests::package_manager_tests::resolver_picks_highest_compatible_version ... ok
 test package_manager::tests::package_manager_tests::resolver_resolves_transitive_dependencies ... ok
-test package_manager::tests::package_manager_tests::resolver_returns_error_when_package_not_in_registry ... ok
 test package_manager::tests::package_manager_tests::resolver_returns_error_when_no_version_matches ... ok
+test package_manager::tests::package_manager_tests::resolver_returns_error_when_package_not_in_registry ... ok
 test package_manager::tests::package_manager_tests::serialize_manifest_round_trips ... ok
 test parser::tests::bare_new_bytes_inferred_let_parses ... ok
-test parser::tests::debug_print_error_handling_tokens ... ignored
 test parser::tests::bare_propagate_err_outside_guard_remains_invalid ... ok
+test parser::tests::debug_print_error_handling_tokens ... ignored
 test parser::tests::empty_colon_new_bytes_rejected ... ok
 test parser::tests::guard_ambiguous_if_else_diagnostic ... ok
-test parser::tests::guard_expression_shorthand_still_requires_into ... ok
 test parser::tests::guard_ambiguous_if_else_recovers_without_cascading_errors ... ok
+test parser::tests::guard_expression_shorthand_still_requires_into ... ok
 test parser::tests::guard_into_underscore_still_parses_as_explicit_binding ... ok
 test parser::tests::guard_parenthesized_if_subject_parses ... ok
 test parser::tests::guard_shorthand_without_into_parses_as_statement ... ok
 test parser::tests::malformed_multiline_array_reports_span ... ok
 test parser::tests::multiline_top_level_let_initializer_parses_across_blank_line ... ok
 test parser::tests::nested_multiline_array_constructor_field_parses_inside_new_constructor ... ok
-test parser::tests::nested_multiline_array_constructor_field_rejects_missing_expression_after_comma ... ok
 test parser::tests::nested_multiline_array_constructor_field_rejects_missing_closing_bracket ... ok
+test parser::tests::nested_multiline_array_constructor_field_rejects_missing_expression_after_comma ... ok
 test parser::tests::new_expression_parses_bare_bytes ... ok
 test parser::tests::new_expression_parses_bare_user_type ... ok
 test parser::tests::new_expression_parses_module_qualified ... ok
@@ -1253,6 +1227,7 @@ test parser::tests::parse_expression_guard_accepts_new_constructor_with_into_aft
 test parser::tests::parse_propagate_accepts_new_constructor_expression ... ok
 test parser::tests::parse_statement_guard_accepts_new_constructor_with_aligned_else ... ok
 test parser::tests::parse_statement_guard_rejects_misindented_constructor_else ... ok
+test compiler::tests::linker_timeout_error_reports_link_phase ... ok
 test parser::tests::prop_comparison_roundtrip ... ok
 test parser::tests::prop_arithmetic_roundtrip ... ok
 test parser::tests::prop_dangling_operator_expressions_fail ... ok
@@ -1387,9 +1362,8 @@ test parser::tests::test_lambda_expression_block_body ... ok
 test parser::tests::test_lambda_expression_complex_generics ... ok
 test parser::tests::test_lambda_expression_error_cases ... ok
 test parser::tests::test_lambda_expression_generic ... ok
-test parser::tests::prop_random_parenthesized_expression_parses ... ok
-test parser::tests::test_lambda_expression_nested ... ok
 test parser::tests::test_lambda_expression_multiple_generics ... ok
+test parser::tests::test_lambda_expression_nested ... ok
 test parser::tests::test_lambda_expression_no_params ... ok
 test parser::tests::test_lambda_expression_with_generic_constraints ... ok
 test parser::tests::test_lambda_with_generic_and_errors ... ok
@@ -1397,34 +1371,35 @@ test parser::tests::test_lambda_with_no_captures ... ok
 test parser::tests::test_legacy_brace_constructor_no_longer_parses_as_expression ... ok
 test parser::tests::test_let_destructure_loop_expression_statement ... ok
 test parser::tests::test_let_doc_comment_associated ... ok
+test parser::tests::prop_random_boolean_expression_parses ... ok
 test parser::tests::test_literal_expressions ... ok
-test parser::tests::test_loop_expression_parses_in_expression_position ... ok
 test parser::tests::test_loop_error_cases ... ok
-test parser::tests::test_loop_with_various_statements ... ok
+test parser::tests::test_loop_expression_parses_in_expression_position ... ok
 test parser::tests::test_loop_statements ... ok
+test parser::tests::test_loop_with_various_statements ... ok
 test parser::tests::test_multiple_error_collection ... ok
 test parser::tests::test_missing_token_errors ... ok
 test parser::tests::test_multiple_return_explicit_destructuring_label_to_local_syntax_parses ... ok
 test parser::tests::test_multiple_return_payload_requires_colon ... ok
 test parser::tests::test_nested_index_expression ... ok
 test parser::tests::test_multiple_return_signature_labels_parse ... ok
-test parser::tests::test_operator_precedence ... ok
 test parser::tests::test_new_expression_missing_indent_block_is_parse_error ... ok
+test parser::tests::test_operator_precedence ... ok
 test parser::tests::test_parenthesized_expressions ... ok
 test parser::tests::test_parse_guard_array_at_member_call ... ok
 test parser::tests::test_parse_guard_missing_else_reports_guard_specific_error ... ok
 test parser::tests::test_parse_guard_missing_into_reports_guard_specific_error ... ok
 test parser::tests::test_parse_guard_string_at_member_call ... ok
 test parser::tests::test_parse_guard_with_block_else_and_type_mutable ... ok
-test parser::tests::test_parse_propagate_array_at_member_call ... ok
 test parser::tests::test_parse_guard_with_expression_else ... ok
+test parser::tests::prop_random_parenthesized_expression_parses ... ok
+test parser::tests::test_parse_propagate_array_at_member_call ... ok
 test parser::tests::test_parse_propagate_rejects_non_call ... ok
 test parser::tests::test_parse_propagate_string_at_member_call ... ok
 test parser::tests::test_parse_propagate_with_call ... ok
 test parser::tests::test_precedence_and_vs_bitor ... ok
 test parser::tests::test_precedence_bitand_vs_equality ... ok
 test parser::tests::test_precedence_bitor_vs_bitxor ... ok
-test parser::tests::prop_random_boolean_expression_parses ... ok
 test parser::tests::test_precedence_bitxor_vs_bitand ... ok
 test parser::tests::test_precedence_chain_arithmetic ... ok
 test parser::tests::test_precedence_chain_bitwise ... ok
@@ -1432,21 +1407,21 @@ test parser::tests::test_precedence_chain_logical_and_comparison ... ok
 test parser::tests::test_precedence_comparison_in_and ... ok
 test parser::tests::test_precedence_comparison_in_or ... ok
 test parser::tests::test_precedence_comparison_vs_shift ... ok
+test parser::tests::test_precedence_equality_vs_comparison ... ok
 test parser::tests::test_precedence_factor_vs_power ... ok
 test parser::tests::test_precedence_or_vs_xor ... ok
-test parser::tests::test_precedence_equality_vs_comparison ... ok
-test parser::tests::test_precedence_paren_overrides_logical ... ok
 test parser::tests::test_precedence_paren_overrides_multiplication ... ok
+test parser::tests::test_precedence_paren_overrides_logical ... ok
 test parser::tests::test_precedence_power_vs_unary ... ok
 test parser::tests::test_precedence_shift_vs_term ... ok
 test parser::tests::test_precedence_term_vs_factor ... ok
 test parser::tests::test_precedence_unary_negate_with_add ... ok
-test parser::tests::test_precedence_unary_not_with_and ... ok
 test parser::tests::test_precedence_unary_bitnot_with_bitor ... ok
+test parser::tests::test_precedence_unary_not_with_and ... ok
 test parser::tests::test_precedence_xor_vs_and ... ok
+test parser::tests::test_product_type_parsing ... ok
 test parser::tests::test_simple_function_parsing ... ok
 test parser::tests::test_simple_sum_type_parsing ... ok
-test parser::tests::test_product_type_parsing ... ok
 test parser::tests::test_simple_type_declaration_no_doc ... ok
 test parser::tests::test_string_indexing_length_minus_one_parses ... ok
 test parser::tests::test_string_indexing_literal_object_parses ... ok
@@ -1454,23 +1429,23 @@ test parser::tests::test_string_interpolation_complex_expressions ... ok
 test parser::tests::test_string_interpolation_error_cases ... ok
 test parser::tests::test_string_interpolation_function_calls ... ok
 test parser::tests::test_string_interpolation_multiple ... ok
-test parser::tests::test_string_interpolation_no_spaces ... ok
 test parser::tests::test_string_interpolation_only_expression ... ok
+test parser::tests::test_string_interpolation_no_spaces ... ok
 test parser::tests::test_string_interpolation_preserves_inner_expression_span ... ok
 test parser::tests::test_string_interpolation_simple ... ok
 test parser::tests::test_string_interpolation_type_of ... ok
 test parser::tests::test_sum_type_with_fields_parsing ... ok
-test parser::tests::test_terminal_proposal_affine_refinement_and_propagation_syntax_parse ... ok
-test parser::tests::test_terminal_proposal_declaration_metadata_and_type_forms_parse ... ok
 test parser::tests::test_terminal_proposal_declaration_metadata_rejections ... ok
+test parser::tests::test_terminal_proposal_declaration_metadata_and_type_forms_parse ... ok
+test parser::tests::test_terminal_proposal_affine_refinement_and_propagation_syntax_parse ... ok
 test parser::tests::test_type_annotation_errors ... ok
-test parser::tests::test_type_declaration_error_cases ... ok
 test parser::tests::test_terminal_proposal_refinement_and_using_rejections ... ok
+test parser::tests::test_type_declaration_error_cases ... ok
 test parser::tests::test_type_doc_comment_associated ... ok
 test parser::tests::test_type_of_error_cases ... ok
-test parser::tests::test_type_of_expressions ... ok
 test parser::tests::test_unary_expressions ... ok
 test parser::tests::test_type_of_in_complex_expressions ... ok
+test parser::tests::test_type_of_expressions ... ok
 test parser::tests::test_unary_op_bitnot ... ok
 test parser::tests::test_unary_op_plus ... ok
 test parser::tests::test_unexpected_eof_errors ... ok
@@ -1480,33 +1455,34 @@ test parser::tests::test_while_statements ... ok
 test hot_reload::tests::fs_module_loader_hot_swap_with_real_library_abi_compat ... ok
 test runtime::tests::allocation_fault_injection_is_one_shot_resettable_and_preserves_realloc_input ... ok
 test hot_reload::tests::fs_module_loader_loads_real_shared_library ... ok
-test runtime::tests::array_at_runtime_falls_back_for_empty_array_index_zero ... ok
 test hot_reload::tests::fs_module_loader_repeated_loads_create_distinct_temp_copy_paths ... ok
+test runtime::tests::array_at_runtime_falls_back_for_empty_array_index_zero ... ok
 test runtime::tests::array_at_runtime_falls_back_for_negative_index ... ok
 test runtime::tests::array_runtime_supports_allocation_indexing_and_bounds_checks ... ok
 test runtime::tests::array_at_runtime_falls_back_for_one_past_end_index ... ok
 test runtime::tests::array_at_runtime_nested_access_uses_inner_row_length ... ok
 test runtime::tests::c_runtime_string_bounds_reporting_uses_unicode_scalar_columns ... ok
 test runtime::tests::array_at_runtime_returns_first_element_for_index_zero ... ok
+test runtime::tests::error_attachment_allocation_failure_preserves_aliases_and_marks_bytes ... ok
 test runtime::tests::interpolate_string_errors_when_placeholder_values_missing ... ok
 test runtime::tests::interpolate_string_formats_mixed_placeholder_parts ... ok
 test runtime::tests::io_runtime_uses_injected_handler_for_print_and_take_input ... ok
+test runtime::tests::array_at_runtime_returns_last_element_for_length_minus_one ... ok
 test runtime::tests::error_attachment_cycle_limit_and_storage_truncation_markers ... ok
-test runtime::tests::error_cause_insertion_is_immutable_and_inspectable ... ok
 test runtime::tests::opal_array_slice_returns_error_for_invalid_range ... ok
 test runtime::tests::opal_array_slice_returns_expected_range ... ok
 test runtime::tests::array_at_runtime_returns_middle_element_for_dynamic_index ... ok
-test runtime::tests::error_suppressed_fallback_idempotent_and_bounds_checked ... ok
-test runtime::tests::array_at_runtime_returns_last_element_for_length_minus_one ... ok
-test runtime::tests::random_int32_with_source_is_deterministic_and_range_checked ... ok
 test runtime::tests::opal_array_rc_alloc_empty_and_roundtrip_metadata ... ok
+test runtime::tests::error_suppressed_fallback_idempotent_and_bounds_checked ... ok
+test runtime::tests::error_cause_insertion_is_immutable_and_inspectable ... ok
+test runtime::tests::random_int32_with_source_is_deterministic_and_range_checked ... ok
 test runtime::tests::opal_array_rc_non_empty_layout_and_data_pointer_math_hold ... ok
-test runtime::tests::random_full_domain_ranges_are_safe_and_inclusive ... ok
 test runtime::tests::opal_runtime_heap_accounting_tracks_array_liveness ... ok
+test runtime::tests::rc_debug_counter_registry_tracks_categories_with_test_only_hooks ... ok
 test runtime::tests::runtime_error_exposes_code_message_and_result_helper ... ok
 test runtime::tests::runtime_error_reporting_formats_miette_style_multiline_output ... ok
-test runtime::tests::rc_debug_counter_registry_tracks_categories_with_test_only_hooks ... ok
 test runtime::tests::rc_drop_stack_oom_fails_closed ... ok
+test runtime::tests::random_full_domain_ranges_are_safe_and_inclusive ... ok
 test runtime::tests::path_normalization_oom_is_fatal_not_empty_sentinel ... ok
 test runtime::tests::rc_uniqueness_strong_only ... ok
 test runtime::tests::rc_uniqueness_weak_blocks_reuse ... ok
@@ -1515,10 +1491,10 @@ test runtime::tests::string_at_runtime_falls_back_for_negative_index ... ok
 test runtime::tests::string_find_helpers_use_unicode_scalar_indices ... ok
 test runtime::tests::string_indexing_rejects_empty_string_access_with_zero_length_bounds ... ok
 test runtime::tests::string_indexing_uses_unicode_scalar_semantics_and_bounds_checks ... ok
-test runtime::tests::string_at_runtime_returns_first_scalar_for_index_zero ... ok
+test runtime::tests::string_at_runtime_falls_back_for_one_past_end_index ... ok
 test runtime::tests::string_runtime_supports_all_required_operations ... ok
 test runtime::tests::string_search_stdlib_error_behavior ... ignored, invalid guard-else fixture shape; error contract covered by direct runtime helper assertions
-test runtime::tests::string_at_runtime_falls_back_for_one_past_end_index ... ok
+test runtime::tests::string_at_runtime_returns_first_scalar_for_index_zero ... ok
 test runtime::tests::string_stdlib_behavior_legacy_broad ... ignored, broad compile-and-run fixture; skip during focused search verification
 test runtime::tests::string_stdlib_behavior_unicode ... ignored, broad compile-and-run fixture; skip during focused search verification
 test runtime::tests::string_stdlib_lines_whitespace ... ok
@@ -1747,7 +1723,7 @@ test token::tests::test_token_creation ... ok
 test token::tests::test_token_type_display ... ok
 test type_system::checker::using_cleanup::tests::using_cleanup_consumes_only_registered_explicit_close ... ok
 test type_system::checker::using_cleanup::tests::using_cleanup_registry_has_exact_terminal_transfer ... ok
-test type_system::checker::using_cleanup::tests::using_cleanup_transfer_requires_exact_registered_result ... ok
+test runtime::tests::string_at_runtime_returns_middle_scalar_for_dynamic_index ... ok
 test type_system::heap_class::tests::classifies_caller_owned_nominal_surfaces ... ok
 test type_system::heap_class::tests::classifies_reference_counted_core_surfaces ... ok
 test type_system::heap_class::tests::classifies_runtime_managed_nominal_surfaces ... ok
@@ -1758,27 +1734,28 @@ test type_system::memory::tests::test_float_type_sizes ... ok
 test type_system::memory::tests::test_integer_type_alignments ... ok
 test type_system::memory::tests::test_integer_type_sizes ... ok
 test type_system::memory::tests::test_unsigned_integer_type_sizes ... ok
-test runtime::tests::string_at_runtime_returns_middle_scalar_for_dynamic_index ... ok
+test type_system::checker::using_cleanup::tests::using_cleanup_transfer_requires_exact_registered_result ... ok
+test runtime::tests::string_builder_push_overflow_returns_allocation_failure_error ... ok
 test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_keeps_restore_generation_exhausted_candidate_uncommitted ... ok
 test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_chord_active_variant_id_mismatch ... ok
 test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_reused_retired_selected_variant_id ... ok
 test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_selected_active_variant_declared_as_non_sum ... ok
 test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_selected_active_variant_id_mismatch ... ok
 test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_rejects_test_only_production_type_id ... ok
-test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_reports_selected_and_chord_inventory_counts ... ok
-test type_system::module_resolver::terminal_proposal_modules::tests::loads_chord_declarations_with_variant_ids_and_fields ... ok
 test type_system::module_resolver::terminal_proposal_modules::tests::loads_selected_terminal_declarations_from_authoritative_file ... ok
-test type_system::module_resolver::terminal_proposal_modules::tests::loads_test_only_terminal_declarations_with_namespace_and_without_abi_ids ... ok
-test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_chord_function_signatures ... ok
+test type_system::module_resolver::terminal_proposal_modules::tests::loads_chord_declarations_with_variant_ids_and_fields ... ok
+test type_system::module_resolver::terminal_proposal_abi::tests::terminal_abi_reports_selected_and_chord_inventory_counts ... ok
 test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_core_prerequisite_function_signatures ... ok
-test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_selected_terminal_function_signatures ... ok
+test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_chord_function_signatures ... ok
+test type_system::module_resolver::terminal_proposal_modules::tests::loads_test_only_terminal_declarations_with_namespace_and_without_abi_ids ... ok
 test type_system::propertyless_constructors::tests::lookup_bytes_propertyless_constructor ... ok
 test type_system::propertyless_constructors::tests::lookup_string_builder_propertyless_constructor ... ok
 test type_system::propertyless_constructors::tests::propertyless_constructor_type_predicate ... ok
 test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_test_only_terminal_function_signatures ... ok
+test type_system::module_resolver::terminal_proposal_modules::tests::registers_all_selected_terminal_function_signatures ... ok
 test type_system::test_integration::tests::test_assignment_to_immutable_variable_reports_immutable_assignment_error ... ok
-test type_system::test_integration::tests::test_assignment_to_mutable_variable_succeeds ... ok
 test type_system::test_integration::tests::test_bshl_masked_bshr_masked_intrinsics_type_check_successfully ... ok
+test type_system::test_integration::tests::test_assignment_to_mutable_variable_succeeds ... ok
 test type_system::test_integration::tests::test_call_with_uninferable_generic_reports_cannot_infer_generic_type ... ok
 test type_system::test_integration::tests::test_clean_program_produces_zero_errors_and_zero_warnings ... ok
 test type_system::test_integration::tests::test_constant_addition_metadata_records_folded_value ... ok
@@ -1786,75 +1763,74 @@ test type_system::test_integration::tests::test_constant_negative_shift_count_re
 test type_system::test_integration::tests::test_constant_out_of_range_shift_count_reports_invalid_shift_count ... ok
 test type_system::test_integration::tests::test_entry_function_with_args_string_array_type_checks ... ok
 test type_system::test_integration::tests::test_entry_function_without_args_remains_backward_compatible ... ok
-test runtime::tests::string_builder_push_overflow_returns_allocation_failure_error ... ok
+test type_system::test_integration::tests::test_fib_iterative_equivalent_parses_and_type_checks ... ok
 test type_system::test_integration::tests::test_error_span_is_non_zero_for_type_mismatch ... ok
 test type_system::test_integration::tests::test_error_span_for_undefined_symbol_is_non_zero ... ok
-test type_system::test_integration::tests::test_fib_iterative_equivalent_parses_and_type_checks ... ok
 test type_system::test_integration::tests::test_fib_iterative_spec_file_parses_and_type_checks ... ok
 test type_system::test_integration::tests::test_fib_recursive_equivalent_parses_and_type_checks ... ok
 test type_system::test_integration::tests::test_fib_recursive_spec_file_parses_and_type_checks ... ok
 test type_system::test_integration::tests::test_generic_lambda_identity_type_checks ... ok
 test type_system::test_integration::tests::test_guard_propagate_and_multiple_returns_integrate ... ok
-test type_system::test_integration::tests::test_if_expression_without_else_in_non_unit_return_reports_exhaustiveness_error ... ok
 test type_system::test_integration::tests::test_hello_world_full_pipeline_parses_and_type_checks ... ok
+test type_system::test_integration::tests::test_if_expression_without_else_in_non_unit_return_reports_exhaustiveness_error ... ok
 test type_system::test_integration::tests::test_if_is_type_narrows_true_branch_binding ... ok
 test type_system::test_integration::tests::test_integration_pure_entry_rejected ... ok
 test type_system::test_integration::tests::test_integration_pure_function_calls_pure_function ... ok
 test type_system::test_integration::tests::test_integration_pure_function_rejects_non_pure_call ... ok
 test type_system::test_integration::tests::test_integration_pure_function_rejects_print ... ok
 test type_system::test_integration::tests::test_integration_pure_function_rejects_random ... ok
-test type_system::test_integration::tests::test_lambda_closure_captures_outer_scope_variable ... ok
 test type_system::test_integration::tests::test_integration_pure_function_with_local_mutation ... ok
+test runtime::tests::string_lines_whitespace_stdlib_behavior ... ok
 test type_system::test_integration::tests::test_masked_shift_intrinsics_type_check_successfully ... ok
-test type_system::test_integration::tests::test_match_basic_works ... ok
+test type_system::test_integration::tests::test_lambda_closure_captures_outer_scope_variable ... ok
 test type_system::test_integration::tests::test_match_arm_type_mismatch ... ok
+test type_system::test_integration::tests::test_match_basic_works ... ok
 test type_system::test_integration::tests::test_match_binding_introduces_variable ... ok
-test type_system::test_integration::tests::test_match_guard_clause_type_checks ... ok
 test type_system::test_integration::tests::test_match_nonexhaustive_produces_error ... ok
-test type_system::test_integration::tests::test_multi_error_correct_and_bad_declarations_all_checked ... ok
-test type_system::test_integration::tests::test_multi_error_reporting_errors_have_type_mismatch_kind ... ok
+test type_system::test_integration::tests::test_match_guard_clause_type_checks ... ok
+test runtime::tests::string_stdlib_behavior ... ok
 test type_system::test_integration::tests::test_parse_succeeds_on_semantically_invalid_program ... ok
 test type_system::test_integration::tests::test_program_with_duplicate_entry_reports_duplicate_entry_point ... ok
 test type_system::test_integration::tests::test_program_without_entry_reports_missing_entry_point ... ok
 test type_system::test_integration::tests::test_match_wildcard_is_exhaustive ... ok
-test type_system::test_integration::tests::test_multi_error_reporting_returns_all_errors ... ok
+test type_system::test_integration::tests::test_multi_error_correct_and_bad_declarations_all_checked ... ok
+test type_system::test_integration::tests::test_multi_error_reporting_errors_have_type_mismatch_kind ... ok
 test type_system::test_integration::tests::test_underscore_prefixed_unused_variable_is_ignored ... ok
-test type_system::test_integration::tests::test_unreachable_code_after_return_emits_warning ... ok
-test type_system::test_integration::tests::test_unused_variable_emits_warning_not_error ... ok
-test type_system::test_integration_adt::tests::test_adt_missing_field_reports_error ... ok
+test type_system::test_integration::tests::test_multi_error_reporting_returns_all_errors ... ok
 test type_system::test_integration_adt::tests::test_adt_duplicate_field_reports_error ... ok
-test type_system::test_integration_adt::tests::test_has_field_constraint_solving_works ... ok
+test type_system::test_integration::tests::test_unreachable_code_after_return_emits_warning ... ok
+test type_system::test_integration_adt::tests::test_adt_missing_field_reports_error ... ok
+test type_system::test_integration::tests::test_unused_variable_emits_warning_not_error ... ok
 test type_system::test_integration_adt::tests::test_product_type_field_access_type_checks ... ok
-test type_system::test_integration_adt::tests::test_product_type_field_type_mismatch_reports_error ... ok
+test type_system::test_integration_adt::tests::test_has_field_constraint_solving_works ... ok
 test type_system::test_integration_adt::tests::test_sum_type_unknown_variant_reports_error ... ok
+test type_system::test_integration_adt::tests::test_product_type_field_type_mismatch_reports_error ... ok
 test type_system::test_integration_adt::tests::test_sum_type_variant_constructor_type_checks ... ok
 test type_system::test_integration_affine::affine_owner_escape_cases_are_rejected ... ok
-test type_system::test_integration_affine::affine_resource_declaration_makes_local_type_noncopyable ... ok
 test type_system::test_integration_affine::borrow_argument_mode_mismatches_are_rejected ... ok
 test type_system::test_integration_affine::function_borrow_metadata_shadows_and_restores_with_let_bindings ... ok
+test type_system::test_integration_affine::affine_resource_declaration_makes_local_type_noncopyable ... ok
 test type_system::test_integration_affine::second_class_borrow_escape_cases_are_rejected ... ok
-test type_system::test_integration_affine::terminal_session_ref_and_mutable_ref_calls_type_check ... ok
-test type_system::test_integration_affine::local_let_bound_lambdas_require_matching_borrow_syntax ... ok
 test type_system::test_integration_affine::using_infallible_cleanup_resources_need_no_extra_errors ... ok
+test type_system::test_integration_affine::terminal_session_ref_and_mutable_ref_calls_type_check ... ok
 test type_system::test_integration_affine::using_explicit_close_keeps_binding_inspectable ... ok
-test type_system::test_integration_affine::inferred_terminal_proposal_owners_are_affine_without_type_imports ... ok
-test runtime::tests::string_stdlib_behavior ... ok
-test runtime::tests::string_stdlib_search ... ok
 test type_system::test_integration_affine::using_rejects_affine_resource_without_cleanup_registration ... ok
 test type_system::test_integration_affine::using_rejects_owner_escape_through_scope_exit_values ... ok
+test type_system::test_integration_affine::inferred_terminal_proposal_owners_are_affine_without_type_imports ... ok
+test type_system::test_integration_affine::local_let_bound_lambdas_require_matching_borrow_syntax ... ok
+test type_system::test_integration_collections::tests::string_join_allocation_failure_contract ... ok
 test type_system::test_integration_collections::tests::test_array_filter_returns_same_array_type ... ok
 test type_system::test_integration_collections::tests::test_array_length_returns_int64 ... ok
-test type_system::test_integration_collections::tests::string_join_allocation_failure_contract ... ok
 test type_system::test_integration_collections::tests::test_array_map_returns_mapped_array_type ... ok
 test type_system::test_integration_collections::tests::test_array_method_chaining_infers_types ... ok
 test type_system::test_integration_collections::tests::test_array_pop_returns_element_type ... ok
-test type_system::test_integration_collections::tests::test_array_push_type_checks ... ok
 test type_system::test_integration_collections::tests::test_array_reduce_returns_accumulator_type ... ok
+test type_system::test_integration_collections::tests::test_array_push_type_checks ... ok
 test type_system::test_integration_collections::tests::test_array_zip_type_checks ... ok
 test type_system::test_integration_collections::tests::test_for_loop_over_string_iterable_type_checks ... ok
 test type_system::test_integration_collections::tests::test_string_contains_returns_boolean ... ok
-test type_system::test_integration_collections::tests::test_string_join_accepts_string_array ... ok
 test type_system::test_integration_collections::tests::test_string_length_returns_int64 ... ok
+test type_system::test_integration_collections::tests::test_string_join_accepts_string_array ... ok
 test type_system::test_integration_collections::tests::test_string_slice_and_to_lower_return_string ... ok
 test type_system::test_integration_ecosystem::ecosystem_tests::test_array_helpers_spec_file_parses_and_type_checks ... ignored, array_helpers.op uses colon-block syntax (for x in xs:) - causes infinite loop during type-checking
 test type_system::test_integration_ecosystem::ecosystem_tests::test_error_handling_samples_spec_file_parses ... ok
@@ -1864,323 +1840,323 @@ test type_system::test_integration_ecosystem::ecosystem_tests::test_types_exampl
 test type_system::test_integration_ecosystem::ecosystem_tests::test_unique_adjacent_sorted_spec_file_parses_and_type_checks ... ignored, unique_adjacent_sorted.op: type checker hits infinite loop during generic type resolution (separate bug, not parser issue)
 test type_system::test_integration_collections::tests::test_string_split_returns_string_array ... ok
 test type_system::test_integration_collections::tests::test_string_starts_and_ends_with_return_boolean ... ok
-test runtime::tests::string_lines_whitespace_stdlib_behavior ... ok
-test type_system::test_integration_affine::using_terminal_session_requires_acquisition_body_and_cleanup_errors ... ok
 test type_system::test_integration_collections::tests::test_string_to_upper_returns_string ... ok
 test type_system::test_integration_generics::tests::test_builtin_pair_constructor_infers_multiple_type_args ... ok
 test type_system::test_integration_generics::tests::test_builtin_pair_field_access_resolves_concrete_field_types ... ok
-test type_system::test_integration_generics::tests::test_generic_adt_constraint_violation_reports_type_error ... ok
-test type_system::test_integration_generics::tests::test_generic_function_call_site_inference_identity ... ok
 test type_system::test_integration_generics::tests::test_builtin_pair_redeclaration_reports_reserved_name_error ... ok
-test type_system::test_integration_generics::tests::test_generic_product_constructor_infers_single_type_arg ... ok
-test type_system::test_integration_module_validation::tests::test_expression_loop_with_break_value_type_checks_correctly ... ok
-test type_system::test_integration_module_validation::tests::test_all_19_new_standard_conversion_functions_are_importable ... ok
+test type_system::test_integration_generics::tests::test_generic_adt_constraint_violation_reports_type_error ... ok
+test type_system::test_integration_affine::using_terminal_session_requires_acquisition_body_and_cleanup_errors ... ok
+test type_system::test_integration_generics::tests::test_generic_function_call_site_inference_identity ... ok
 test type_system::test_integration_generics::tests::test_generic_instantiation_metadata_records_unique_call_and_constructor_instantiations ... ok
+test type_system::test_integration_generics::tests::test_generic_product_constructor_infers_single_type_arg ... ok
+test type_system::test_integration_module_validation::tests::test_expression_loop_with_bare_break_returns_unit ... ok
+test type_system::test_integration_module_validation::tests::test_expression_loop_with_break_value_type_checks_correctly ... ok
 test type_system::test_integration_module_validation::tests::test_expression_loop_with_mismatched_break_types_reports_error ... ok
 test type_system::test_integration_module_validation::tests::test_importing_same_name_from_two_modules_reports_import_name_conflict ... ok
-test type_system::test_integration_module_validation::tests::test_expression_loop_with_bare_break_returns_unit ... ok
+test type_system::test_integration_module_validation::tests::test_all_19_new_standard_conversion_functions_are_importable ... ok
 test type_system::test_integration_module_validation::tests::test_module_alias_import_reports_type_mismatch_for_bad_argument ... ok
 test type_system::test_integration_module_validation::tests::test_module_alias_import_resolves_member_call ... ok
 test type_system::test_integration_module_validation::tests::test_module_interface_collects_public_symbols_only ... ok
-test type_system::test_integration_module_validation::tests::test_private_symbol_access_from_other_module_reports_private_access_error ... ok
 test type_system::test_integration_module_validation::tests::test_nested_expression_loops_have_independent_break_types ... ok
-test type_system::test_integration_module_validation::tests::test_two_modules_with_same_public_function_can_be_disambiguated_by_aliases ... ok
+test type_system::test_integration_module_validation::tests::test_private_symbol_access_from_other_module_reports_private_access_error ... ok
 test type_system::test_integration_module_validation::tests::test_process_module_imports_all_frozen_symbols ... ok
-test type_system::test_integration_modules::tests::test_core_prerequisite_surface_is_future_gated_in_production_mode ... ok
-test type_system::test_integration_modules::tests::test_cross_module_function_call_type_mismatch_is_reported ... ok
+test type_system::test_integration_module_validation::tests::test_two_modules_with_same_public_function_can_be_disambiguated_by_aliases ... ok
 test type_system::test_integration_modules::tests::test_circular_dependency_reports_error ... ok
-test type_system::test_integration_modules::tests::test_error_attachment_inspectors_resolve_without_terminal_gate ... ok
+test type_system::test_integration_modules::tests::test_core_prerequisite_surface_is_future_gated_in_production_mode ... ok
 test type_system::test_integration_modules::tests::test_core_prerequisite_signatures_type_check_under_internal_gate ... ok
+test type_system::test_integration_modules::tests::test_cross_module_function_call_type_mismatch_is_reported ... ok
+test type_system::test_integration_modules::tests::test_error_attachment_inspectors_resolve_without_terminal_gate ... ok
 test type_system::test_integration_modules::tests::test_error_cause_propagate_error_value_cause_prior_error_type_checks ... ok
-test type_system::test_integration_modules::tests::test_import_unknown_symbol_reports_symbol_not_found ... ok
-test type_system::test_integration_modules::tests::test_cross_module_multi_return_labels_survive_export_import ... ok
 test type_system::test_integration_modules::tests::test_error_cause_rejects_same_error_identity_statically ... ok
 test type_system::test_integration_modules::tests::test_error_suppressed_erased_error_inspection_does_not_propagate_family ... ok
+test type_system::test_integration_modules::tests::test_cross_module_multi_return_labels_survive_export_import ... ok
+test type_system::test_integration_modules::tests::test_import_unknown_symbol_reports_symbol_not_found ... ok
 test type_system::test_integration_modules::tests::test_private_symbol_import_reports_private_access_error ... ok
-test type_system::test_integration_modules::tests::test_public_terminal_and_chord_modules_remain_future_gated ... ok
 test type_system::test_integration_modules::tests::test_multi_return_labels_do_not_affect_underlying_function_type_identity ... ok
 test type_system::test_integration_modules::tests::test_standard_import_resolves_symbols_in_scope ... ok
+test type_system::test_integration_modules::tests::test_public_terminal_and_chord_modules_remain_future_gated ... ok
+test type_system::test_integration_modules::tests::test_imported_selected_terminal_borrow_modes_are_required ... ok
+test type_system::test_integration_modules::tests::test_imported_core_chord_and_testing_borrow_modes_are_required ... ok
 test type_system::test_integration_modules::tests::test_standard_testing_terminal_import_is_rejected_in_production_mode ... ok
 test type_system::test_integration_modules::tests::test_standard_testing_terminal_import_resolves_in_test_mode ... ok
-test type_system::test_integration_modules::tests::test_imported_core_chord_and_testing_borrow_modes_are_required ... ok
-test type_system::test_integration_modules::tests::test_imported_selected_terminal_borrow_modes_are_required ... ok
-test type_system::test_integration_modules::tests::test_terminal_chord_signatures_type_check_under_internal_gate ... ok
 test type_system::test_integration_modules::tests::test_terminal_constrain_requires_constraint_violation_error_declaration ... ok
+test type_system::test_integration_modules::tests::test_terminal_chord_signatures_type_check_under_internal_gate ... ok
 test type_system::test_integration_modules::tests::test_terminal_constrain_type_checks_runtime_value_and_error_surface ... ok
-test type_system::test_integration_modules::tests::test_terminal_guard_error_refined_branch_can_propagate_narrowed_family ... ok
-test type_system::test_integration_modules::tests::test_terminal_guard_error_union_requires_all_unrefined_families ... ok
-test type_system::test_integration_modules::tests::test_terminal_constructor_visibility_rejects_test_runner_authority ... ok
-test type_system::test_integration_modules::tests::test_terminal_is_equality_still_accepts_non_variant_operands ... ok
 test type_system::test_integration_modules::tests::test_standard_testing_terminal_signatures_type_check_only_in_test_mode ... ok
+test type_system::test_integration_modules::tests::test_terminal_constructor_visibility_rejects_test_runner_authority ... ok
+test type_system::test_integration_modules::tests::test_terminal_guard_error_refined_branch_can_propagate_narrowed_family ... ok
+test type_system::test_integration_modules::tests::test_selected_terminal_signatures_type_check_under_internal_gate ... ok
+test type_system::test_integration_modules::tests::test_terminal_is_equality_still_accepts_non_variant_operands ... ok
+test type_system::test_integration_modules::tests::test_terminal_guard_error_union_requires_all_unrefined_families ... ok
 test type_system::test_integration_modules::tests::test_terminal_refinement_rejects_invalid_syntax_during_parse ... ok
 test type_system::test_integration_modules::tests::test_terminal_nominal_variant_refinement_binds_payload_in_true_branch ... ok
-test type_system::test_integration_modules::tests::test_selected_terminal_signatures_type_check_under_internal_gate ... ok
-test type_system::test_integration_modules::tests::test_terminal_refinement_rejects_invalid_into_forms ... ok
-test type_system::tests::fallible_constructor_lookup_uses_resolved_canonical_type ... ok
 test type_system::test_integration_modules::tests::test_terminal_refinement_payload_binding_does_not_escape_branch ... ok
-test type_system::tests::fallible_constructor_registry_supports_test_second_entry ... ok
-test type_system::tests::fallible_constructor_registry_registers_frameclock ... ok
-test type_system::tests::expression_guard_bare_fallible_fallback_requires_handling ... ok
 test type_system::test_integration_modules::tests::test_terminal_refinement_without_into_narrows_identifier ... ok
+test type_system::tests::fallible_constructor_lookup_uses_resolved_canonical_type ... ok
+test type_system::tests::fallible_constructor_registry_registers_frameclock ... ok
+test type_system::tests::fallible_constructor_registry_supports_test_second_entry ... ok
+test type_system::test_integration_modules::tests::test_terminal_constructor_visibility_rejects_sealed_runtime_values ... ok
 test type_system::test_integration_modules::tests::test_terminal_session_write_rejects_raw_string_output ... ok
+test type_system::test_integration_modules::tests::test_terminal_refinement_rejects_invalid_into_forms ... ok
+test type_system::tests::guard_else_bare_fallible_unit_prelude_requires_handling ... ok
+test type_system::tests::expression_guard_bare_fallible_fallback_requires_handling ... ok
 test type_system::tests::guard_else_bare_fallible_let_initializer_requires_handling ... ok
 test type_system::tests::guard_new_frameclock_typechecks_via_registry ... ok
 test type_system::tests::new_bytes_inferred_let_typechecks_as_bytes ... ok
-test type_system::tests::guard_else_bare_fallible_unit_prelude_requires_handling ... ok
-test type_system::tests::ordinary_aliased_constructor_not_treated_as_fallible ... ok
 test type_system::tests::propagate_new_constructor_error_mismatch_reports_existing_rule ... ok
-test type_system::test_integration_modules::tests::test_terminal_constructor_visibility_rejects_sealed_runtime_values ... ok
-test type_system::tests::propagate_new_frameclock_typechecks_via_registry ... ok
+test type_system::tests::ordinary_aliased_constructor_not_treated_as_fallible ... ok
 test type_system::tests::propagate_new_nonfallible_constructor_reports_diagnostic ... ok
 test type_system::tests::propertyless_constructor_accepts_bytes ... ok
-test type_system::tests::propertyless_constructor_accepts_stringbuilder ... ok
+test type_system::tests::propagate_new_frameclock_typechecks_via_registry ... ok
+test runtime::tests::string_stdlib_search ... ok
 test type_system::tests::string_indexing_invalid_index_type ... ok
-test type_system::tests::string_indexing ... ok
+test type_system::tests::propertyless_constructor_accepts_stringbuilder ... ok
 test type_system::tests::propertyless_constructor_rejects_unknown_user_type ... ok
-test type_system::tests::test_adt_type_validation_sum ... ok
-test type_system::tests::test_adt_type_validation_product ... ok
+test type_system::tests::string_indexing ... ok
 test type_system::tests::string_search_stdlib_signatures ... ok
+test type_system::tests::test_adt_type_validation_product ... ok
+test type_system::tests::test_adt_type_validation_sum ... ok
 test type_system::tests::test_ast_type_to_core_type ... ok
-test type_system::tests::test_array_at_bare_call_requires_handling ... ok
-test type_system::tests::test_array_at_guard_type_checks_with_element_fallback ... ok
 test type_system::tests::test_ast_type_to_core_type_complex_types ... ok
 test type_system::tests::test_ast_type_to_core_type_extended_integers ... ok
 test type_system::tests::test_ast_type_to_core_type_float_types ... ok
-test type_system::tests::test_bare_call_to_string_to_uint32_produces_unhandled_call_error ... ok
-test type_system::tests::test_bare_call_error_message_mentions_function_name ... ok
-test type_system::tests::test_builtin_bytes_concatenate_returns_bytes ... ok
-test type_system::tests::test_array_length_member_type_checks_as_int64 ... ok
+test type_system::tests::test_array_at_guard_type_checks_with_element_fallback ... ok
 test type_system::tests::test_array_at_propagate_type_checks_and_returns_element_type ... ok
+test type_system::tests::test_array_at_bare_call_requires_handling ... ok
+test type_system::tests::test_array_length_member_type_checks_as_int64 ... ok
+test type_system::tests::test_bare_call_error_message_mentions_function_name ... ok
+test type_system::tests::test_bare_call_to_string_to_uint32_produces_unhandled_call_error ... ok
+test type_system::tests::test_builtin_bytes_concatenate_returns_bytes ... ok
 test type_system::tests::test_builtin_bytes_from_hex_requires_error_handling ... ok
 test type_system::tests::test_builtin_bytes_from_hex_type_checks_under_propagate ... ok
+test type_system::tests::test_builtin_bytes_new_returns_bytes ... ok
 test type_system::tests::test_builtin_bytes_slice_type_checks_under_propagate ... ok
 test type_system::tests::test_builtin_bytes_to_hex_returns_string ... ok
-test type_system::tests::test_builtin_bytes_new_returns_bytes ... ok
-test type_system::tests::test_builtin_calls_report_wrong_arity ... ok
 test type_system::tests::test_builtin_print_declares_generic_parameter ... ok
-test type_system::tests::test_builtin_random_int32_signature_type_checks ... ok
+test type_system::tests::test_builtin_calls_report_wrong_arity ... ok
 test type_system::tests::test_builtin_print_supports_generic_arguments ... ok
-test type_system::tests::test_builtin_string_to_int32_signature_type_checks ... ok
+test type_system::tests::test_builtin_random_int32_signature_type_checks ... ok
+test type_system::tests::test_builtin_random_int64_is_not_registered ... ok
 test type_system::tests::test_cast_generic_type ... ok
 test type_system::tests::test_cast_with_type_variable ... ok
 test type_system::tests::test_centralized_ast_type_to_core_type_import ... ok
-test type_system::tests::test_builtin_random_int64_is_not_registered ... ok
+test type_system::tests::test_builtin_string_to_int32_signature_type_checks ... ok
 test type_system::tests::test_builtin_take_input_returns_string ... ok
-test type_system::tests::test_constant_division_by_zero_is_rejected_with_rhs_span ... ok
-test type_system::tests::test_complete_leaf_list_warning_mentions_exact_replaceable_errors ... ok
 test type_system::tests::test_builtin_string_to_int64_is_not_registered ... ok
+test type_system::tests::test_complete_leaf_list_warning_mentions_exact_replaceable_errors ... ok
 test type_system::tests::test_constant_i32_addition_overflow_emits_warning ... ok
+test type_system::tests::test_constant_division_by_zero_is_rejected_with_rhs_span ... ok
 test type_system::tests::test_constant_i32_multiplication_overflow_emits_warning ... ok
 test type_system::tests::test_constant_modulo_by_zero_is_rejected_with_rhs_span ... ok
-test type_system::tests::test_constant_shift_count_at_i32_bit_width_is_rejected ... ok
-test type_system::tests::test_constant_i32_subtraction_overflow_emits_warning ... ok
 test type_system::tests::test_constant_negative_shift_count_is_rejected ... ok
-test type_system::tests::test_core_type_equality ... ok
 test type_system::tests::test_constant_shift_count_at_i32_upper_bound_is_valid ... ok
+test type_system::tests::test_constant_shift_count_at_i32_bit_width_is_rejected ... ok
+test type_system::tests::test_core_type_equality ... ok
+test type_system::tests::test_constant_i32_subtraction_overflow_emits_warning ... ok
 test type_system::tests::test_environment_get_type_names ... ok
-test type_system::tests::string_stdlib_signatures ... ok
 test type_system::tests::test_constraint_solver_applies_substitution_to_inferred_top_level_bindings ... ok
 test type_system::tests::test_constraint_solver_reports_incompatible_types_for_generic_call ... ok
+test type_system::tests::string_stdlib_signatures ... ok
+test type_system::tests::test_else_less_if_expression_defaults_to_unit_type ... ok
 test type_system::tests::test_explicit_generic_call_respects_constraints ... ok
-test type_system::tests::test_float64_to_string_type_checks ... ok
 test type_system::tests::test_constraint_solver_unifies_compatible_type_variables_in_sequence ... ok
 test type_system::tests::test_generic_type_instantiation ... ok
-test type_system::tests::test_else_less_if_expression_defaults_to_unit_type ... ok
+test type_system::tests::test_generic_constraint_violation_reports_error ... ok
+test type_system::tests::test_fresh_type_var_generation ... ok
+test type_system::tests::test_float64_to_string_type_checks ... ok
 test type_system::tests::test_generic_constraint_inference_succeeds_for_matching_argument ... ok
 test type_system::tests::test_generic_lambda_populates_function_generic_params ... ok
-test type_system::tests::test_fresh_type_var_generation ... ok
-test type_system::tests::test_guard_else_allows_chained_guard_with_identical_errors ... ok
-test type_system::tests::test_generic_constraint_violation_reports_error ... ok
 test type_system::tests::test_guard_binding_available_after_guard ... ok
+test type_system::tests::test_guard_else_allows_chained_guard_with_identical_errors ... ok
 test type_system::tests::test_guard_else_expression_allows_matching_success_type ... ok
-test type_system::tests::test_guard_else_allows_chained_guard_with_mismatched_errors ... ok
+test type_system::tests::test_guard_else_rejects_propagate_with_mismatched_errors ... ok
 test type_system::tests::test_guard_else_expression_requires_matching_success_type ... ok
+test type_system::tests::test_guard_else_allows_chained_guard_with_mismatched_errors ... ok
+test type_system::tests::test_guard_error_clause_must_handle_or_propagate_bound_error ... ok
 test type_system::tests::test_guard_error_binding_is_not_available_after_guard ... ok
 test type_system::tests::test_guard_else_expression_rejects_heterogeneous_error_sets ... ok
-test type_system::tests::test_guard_else_rejects_propagate_with_mismatched_errors ... ok
-test type_system::tests::test_guard_error_clause_must_handle_or_propagate_bound_error ... ok
-test type_system::tests::test_guard_error_clause_propagate_err_must_be_terminal ... ok
 test type_system::tests::test_guard_error_clause_rejects_success_fallback_return ... ok
-test type_system::tests::test_guard_error_clause_only_propagate_is_rejected ... ok
+test type_system::tests::test_guard_error_clause_rejects_void_return_after_side_effect ... ok
 test type_system::tests::test_guard_error_clause_rejects_wrapper_return_with_aliased_source ... ok
 test type_system::tests::test_guard_error_clause_return_err_is_rejected ... ok
-test type_system::tests::test_guard_error_clause_rejects_void_return_after_side_effect ... ok
+test type_system::tests::test_guard_error_clause_side_effect_then_propagate_err_is_allowed ... ok
+test type_system::tests::test_guard_error_clause_only_propagate_is_rejected ... ok
+test type_system::tests::test_guard_error_clause_propagate_err_must_be_terminal ... ok
 test type_system::tests::test_guard_rejects_empty_error_list ... ok
 test type_system::tests::test_guard_requires_call_expression ... ok
-test type_system::tests::test_guard_error_clause_side_effect_then_propagate_err_is_allowed ... ok
 test type_system::tests::test_guard_statement_allows_block_handler ... ok
 test type_system::tests::test_guard_error_clause_success_binding_does_not_leak_over_outer_shadowing ... ok
-test type_system::tests::test_guard_statement_else_allows_matching_propagate ... ok
-test type_system::tests::test_guard_statement_return_err_uses_dedicated_guard_diagnostic ... ok
-test type_system::tests::test_guard_statement_else_expression_requires_unit ... ok
-test type_system::tests::test_guard_statement_else_expression_accepts_unit_handler ... ok
 test type_system::tests::test_guard_statement_binds_success_and_error_types ... ok
-test type_system::tests::test_guard_statement_multi_error_binding_stays_contextual ... ok
-test type_system::tests::test_guard_statement_success_binding_is_hidden_inside_else_clause ... ok
-test type_system::tests::test_hello_world_spec_file_type_checks_with_builtins ... ok
-test type_system::tests::test_guard_with_string_to_int32_type_checks ... ok
-test type_system::tests::test_if_expression_infers_branch_type_when_branches_match ... ok
-test type_system::tests::test_int32_to_string_does_not_require_error_handling ... ok
-test type_system::tests::test_int32_to_string_then_string_to_int32_roundtrip_type_checks ... ok
+test type_system::tests::test_guard_statement_return_err_uses_dedicated_guard_diagnostic ... ok
+test type_system::tests::test_guard_statement_else_expression_accepts_unit_handler ... ok
+test type_system::tests::test_guard_statement_else_allows_matching_propagate ... ok
 test type_system::tests::test_guard_statement_else_rejects_mismatched_propagate_errors ... ok
-test type_system::tests::test_invalid_cast_boolean_type ... ok
+test type_system::tests::test_guard_statement_else_expression_requires_unit ... ok
+test type_system::tests::test_guard_with_string_to_int32_type_checks ... ok
+test type_system::tests::test_guard_statement_success_binding_is_hidden_inside_else_clause ... ok
+test type_system::tests::test_guard_statement_multi_error_binding_stays_contextual ... ok
+test type_system::tests::test_if_expression_infers_branch_type_when_branches_match ... ok
+test type_system::tests::test_hello_world_spec_file_type_checks_with_builtins ... ok
 test type_system::tests::test_invalid_cast_array_types ... ok
+test type_system::tests::test_invalid_cast_boolean_type ... ok
 test type_system::tests::test_invalid_cast_function_types ... ok
 test type_system::tests::test_invalid_cast_non_numeric_types ... ok
 test type_system::tests::test_invalid_cast_string_type ... ok
 test type_system::tests::test_invalid_cast_unit_type ... ok
 test type_system::tests::test_if_expression_branch_mismatch_reports_type_error ... ok
+test type_system::tests::test_int32_to_string_does_not_require_error_handling ... ok
+test type_system::tests::test_int32_to_string_then_string_to_int32_roundtrip_type_checks ... ok
 test type_system::tests::test_int32_to_string_type_checks ... ok
+test type_system::tests::test_lambda_inside_pure_function_inherits_purity ... ok
+test type_system::tests::test_lambda_inside_non_pure_function_allows_print ... ok
+test type_system::tests::test_lambda_expression_body_type_checking ... ok
 test type_system::tests::test_integer_intrinsic_member_calls_type_check ... ok
 test type_system::tests::test_lambda_block_body_type_checking ... ok
-test type_system::tests::test_lambda_inside_pure_function_inherits_purity ... ok
-test type_system::tests::test_lambda_expression_body_type_checking ... ok
-test type_system::tests::test_lambda_inside_non_pure_function_allows_print ... ok
 test type_system::tests::test_lambda_return_type_mismatch_is_reported ... ok
 test type_system::tests::test_member_access_chained_member_resolves_type ... ok
-test type_system::tests::test_member_access_module_member_resolves_type ... ok
-test type_system::tests::test_member_access_missing_member_reports_symbol_error_with_span ... ok
-test type_system::tests::test_occurs_check ... ok
 test type_system::tests::test_member_access_struct_like_field_resolves_type ... ok
+test type_system::tests::test_member_access_missing_member_reports_symbol_error_with_span ... ok
+test type_system::tests::test_member_access_module_member_resolves_type ... ok
+test type_system::tests::test_occurs_check ... ok
 test type_system::tests::test_multiple_generic_constraints_conflict_reports_error ... ok
-test type_system::tests::test_non_constant_lhs_with_literal_zero_divisor_is_still_rejected ... ok
-test type_system::tests::test_non_constant_integer_addition_does_not_emit_overflow_warning ... ok
 test type_system::tests::test_non_constant_divisor_does_not_emit_compile_time_division_by_zero ... ok
-test type_system::tests::test_pattern_match_incompatible_arm_reports_span ... ok
-test type_system::tests::test_occurs_check_prevents_infinite_types ... ok
+test type_system::tests::test_non_constant_integer_addition_does_not_emit_overflow_warning ... ok
+test type_system::tests::test_non_constant_lhs_with_literal_zero_divisor_is_still_rejected ... ok
 test type_system::tests::test_pattern_match_incompatible_pattern_reports_span ... ok
-test type_system::tests::test_pattern_match_type_check ... ok
+test type_system::tests::test_occurs_check_prevents_infinite_types ... ok
+test type_system::tests::test_pattern_match_incompatible_arm_reports_span ... ok
 test type_system::tests::test_propagate_call_remains_valid_unmodified ... ok
 test type_system::tests::test_propagate_error_mismatch_reports_readable_types ... ok
-test type_system::tests::test_propagate_fails_outside_error_function ... ok
+test type_system::tests::test_pattern_match_type_check ... ok
 test type_system::tests::test_propagate_error_span_accuracy ... ok
+test type_system::tests::test_propagate_fails_outside_error_function ... ok
 test type_system::tests::test_propagate_fails_when_error_types_mismatch ... ok
-test type_system::tests::test_propagate_inside_lambda_with_errors ... ok
 test type_system::tests::test_propagate_nested_expressions ... ok
-test type_system::tests::test_propagate_string_to_int32_in_error_function_type_checks ... ok
-test type_system::tests::test_propagate_rejects_structurally_identical_error_names ... ok
+test type_system::tests::test_propagate_inside_lambda_with_errors ... ok
 test type_system::tests::test_propagate_rejects_empty_error_list ... ok
-test type_system::tests::test_propagate_succeeds_with_subset_errors ... ok
+test type_system::tests::test_propagate_string_to_int32_in_error_function_type_checks ... ok
 test type_system::tests::test_propagate_multiple_error_types_subset_and_superset ... ok
+test type_system::tests::test_propagate_rejects_structurally_identical_error_names ... ok
+test type_system::tests::test_pure_function_allows_collection_member_calls ... ok
 test type_system::tests::test_purity_violation_variant_exists ... ok
 test type_system::tests::test_safe_cast_identity ... ok
 test type_system::tests::test_safe_cast_integer_to_float ... ok
-test type_system::tests::test_pure_entry_combination_rejected ... ok
-test type_system::tests::test_safe_cast_widening_signed_integers ... ok
 test type_system::tests::test_safe_cast_widening_floats ... ok
+test type_system::tests::test_safe_cast_widening_signed_integers ... ok
 test type_system::tests::test_safe_cast_widening_unsigned_integers ... ok
-test type_system::tests::test_pure_function_allows_collection_member_calls ... ok
+test type_system::tests::test_propagate_succeeds_with_subset_errors ... ok
 test type_system::tests::test_pure_function_can_call_pure_user_function ... ok
-test type_system::tests::test_pure_function_allows_local_mutation ... ok
-test type_system::tests::test_solve_constraints_callable_with_function_type ... ok
-test type_system::tests::test_solve_constraints_applies_substitution_to_registered_symbols ... ok
-test type_system::tests::test_solve_constraints_callable_wrong_argument_type ... ok
+test type_system::tests::test_pure_entry_combination_rejected ... ok
 test type_system::tests::test_pure_function_cannot_call_non_pure_user_function ... ok
-test type_system::tests::test_solve_constraints_conflict_reports_spans ... ok
+test type_system::tests::test_pure_function_allows_local_mutation ... ok
+test type_system::tests::test_solve_constraints_applies_substitution_to_registered_symbols ... ok
+test type_system::tests::test_solve_constraints_callable_with_function_type ... ok
+test type_system::tests::test_solve_constraints_callable_wrong_argument_type ... ok
 test type_system::tests::test_solve_constraints_callable_wrong_arity ... ok
 test type_system::tests::test_solve_constraints_composes_substitutions ... ok
+test type_system::tests::test_solve_constraints_conflict_reports_spans ... ok
+test type_system::tests::test_solve_constraints_detects_conflicts ... ok
 test type_system::tests::test_solve_constraints_unifies_equalities ... ok
 test type_system::tests::test_solve_constraints_occurs_check_reports_span ... ok
-test type_system::tests::test_solve_constraints_detects_conflicts ... ok
 test type_system::tests::test_stdlib_family_preserves_manual_leaf_declarations ... ok
 test type_system::tests::test_strict_guard_diagnostic_codes_and_labels ... ok
 test type_system::tests::test_stdlib_error_families_cover_lambda_members ... ok
-test type_system::tests::test_stdlib_error_family_warning_negative_cases ... ok
 test type_system::tests::test_string_at_bare_call_requires_handling ... ok
+test type_system::tests::test_stdlib_error_family_warning_selection_for_lambda_overlap_and_extra_errors ... ok
 test type_system::tests::test_string_at_propagate_requires_index_out_of_bounds_error_declaration ... ok
 test type_system::tests::test_string_at_guard_type_checks_with_local_fallback ... ok
+test type_system::tests::test_stdlib_error_family_warning_negative_cases ... ok
 test type_system::tests::test_string_indexing_rejects_non_integral_index_type ... ok
-test type_system::tests::test_string_indexing_type_checks_as_string ... ok
-test type_system::tests::test_stdlib_error_family_warning_selection_for_lambda_overlap_and_extra_errors ... ok
-test type_system::tests::test_substitution_apply_function ... ok
 test type_system::tests::test_substitution_apply_array ... ok
+test type_system::tests::test_substitution_apply_function ... ok
 test type_system::tests::test_substitution_apply_primitive ... ok
+test type_system::tests::test_substitution_apply_variable ... ok
 test type_system::tests::test_substitution_compose ... ok
 test type_system::tests::test_substitution_empty ... ok
 test type_system::tests::test_substitution_single ... ok
-test type_system::tests::test_substitution_apply_variable ... ok
-test type_system::tests::test_symbol_table_cannot_exit_global_scope - should panic ... ok
-test type_system::tests::test_string_interpolation_type_error_reports_expression_offset ... ok
-test type_system::tests::test_symbol_table_exported_symbols ... ok
-test type_system::tests::test_symbol_table_scope_management ... ok
-test type_system::tests::test_symbol_table_shadowing ... ok
+test type_system::tests::test_string_indexing_type_checks_as_string ... ok
 test type_system::tests::test_string_length_member_type_checks_as_int64 ... ok
-test type_system::tests::test_top_level_lambda_signature_accepts_imported_nominal_types ... ok
+test type_system::tests::test_symbol_table_cannot_exit_global_scope - should panic ... ok
+test type_system::tests::test_symbol_table_exported_symbols ... ok
+test type_system::tests::test_symbol_table_shadowing ... ok
+test type_system::tests::test_symbol_table_scope_management ... ok
+test type_system::tests::test_string_interpolation_type_error_reports_expression_offset ... ok
 test type_system::tests::test_symbol_info_tracks_purity ... ok
 test type_system::tests::test_type_check_array_literal_detects_mismatched_elements ... ok
-test type_system::tests::test_stdlib_error_families_cover_function_declaration_members ... ok
 test type_system::tests::test_type_check_array_literal_with_consistent_elements ... ok
-test type_system::tests::test_type_check_error_handling_sample_program ... ok
+test type_system::tests::test_top_level_lambda_signature_accepts_imported_nominal_types ... ok
 test type_system::tests::test_type_check_assignment_type_mismatch ... ok
 test type_system::tests::test_type_check_fallible_multiple_return_exact_name_destructuring_from_propagate ... ok
-test type_system::tests::test_type_check_fallible_multiple_return_guard_statement_exact_name_destructuring_handles_error_path ... ok
-test type_system::tests::test_type_check_fallible_multiple_return_reversed_explicit_labels_are_rejected_from_guard_statement ... ok
 test type_system::tests::test_type_check_fallible_multiple_return_explicit_label_to_local_destructuring_from_propagate ... ok
 test type_system::tests::test_type_check_fallible_multiple_return_guard_statement_explicit_label_to_local_destructuring_handles_error_path ... ok
+test type_system::tests::test_type_check_error_handling_sample_program ... ok
+test type_system::tests::test_type_check_fallible_multiple_return_reversed_explicit_labels_are_rejected_from_guard_statement ... ok
+test type_system::tests::test_type_check_fallible_multiple_return_guard_statement_exact_name_destructuring_handles_error_path ... ok
 test type_system::tests::test_type_check_fallible_multiple_return_reversed_explicit_labels_are_rejected_from_propagate ... ok
+test type_system::tests::test_type_check_for_loop_registers_loop_variable_in_body_scope ... ok
+test type_system::tests::test_type_check_for_loop_requires_iterable_array ... ok
 test type_system::tests::test_type_check_if_requires_boolean_condition ... ok
 test type_system::tests::test_type_check_labeled_and_unlabeled_returns_cannot_mix ... ok
 test type_system::tests::test_type_check_labeled_returns_require_consistent_ordered_labels ... ok
-test type_system::tests::test_type_check_let_statement_registers_symbol ... ok
+test type_system::tests::test_stdlib_error_families_cover_function_declaration_members ... ok
 test type_system::tests::test_type_check_let_destructure_loop_break_values ... ok
-test type_system::tests::test_type_check_for_loop_registers_loop_variable_in_body_scope ... ok
 test type_system::tests::test_type_check_literal_expression ... ok
-test type_system::tests::test_type_check_for_loop_requires_iterable_array ... ok
-test type_system::tests::test_type_check_multiple_return_explicit_label_to_local_destructuring ... ok
 test type_system::tests::test_type_check_multiple_return_exact_name_destructuring_from_call ... ok
-test type_system::tests::test_type_check_multiple_return_requires_signature_labels_miette_diagnostic ... ok
-test type_system::tests::test_type_check_multiple_return_return_labels_must_match_declared_signature_order ... ok
 test type_system::tests::test_type_check_multiple_return_requires_explicit_labels_for_renamed_destructure_bindings ... ok
-test type_system::tests::test_type_check_multiple_return_reversed_explicit_labels_are_rejected ... ok
-test type_system::tests::test_type_check_multiple_return_scalar_call_argument_rejected ... ok
+test type_system::tests::test_type_check_multiple_return_explicit_label_to_local_destructuring ... ok
+test type_system::tests::test_type_check_let_statement_registers_symbol ... ok
 test type_system::tests::test_type_check_multiple_return_return_pass_through_preserves_ordered_labels ... ok
+test type_system::tests::test_type_check_multiple_return_return_labels_must_match_declared_signature_order ... ok
+test type_system::tests::test_type_check_multiple_return_requires_signature_labels_miette_diagnostic ... ok
+test type_system::tests::test_type_check_multiple_return_reversed_explicit_labels_are_rejected ... ok
 test type_system::tests::test_type_check_multiple_return_scalar_let_binding_rejected ... ok
+test type_system::tests::test_type_check_multiple_return_scalar_call_argument_rejected ... ok
 test type_system::tests::test_type_check_non_pure_function_allows_print_call ... ok
-test type_system::tests::test_type_check_program_accumulates_multiple_errors ... ok
-test type_system::tests::test_type_check_program_handles_forward_function_reference ... ok
-test type_system::tests::test_type_check_program_reports_let_type_mismatch ... ok
 test type_system::tests::test_type_check_program_collects_errors ... ok
-test type_system::tests::test_type_check_pure_function_allows_string_to_int32 ... ok
+test type_system::tests::test_type_check_program_accumulates_multiple_errors ... ok
+test type_system::tests::test_type_check_program_reports_let_type_mismatch ... ok
+test type_system::tests::test_type_check_program_handles_forward_function_reference ... ok
 test type_system::tests::test_type_check_pure_function_rejects_print_call ... ok
-test type_system::tests::test_type_check_pure_function_rejects_print_string ... ok
+test type_system::tests::test_type_check_pure_function_allows_string_to_int32 ... ok
 test type_system::tests::test_type_check_pure_function_rejects_print_int32 ... ok
 test type_system::tests::test_type_check_pure_function_rejects_random_uint64 ... ok
+test type_system::tests::test_type_check_pure_function_rejects_print_string ... ok
 test type_system::tests::test_type_check_return_enforces_expected_type ... ok
+test type_system::tests::test_type_check_return_arity_mismatch_for_multiple_returns ... ok
 test type_system::tests::test_type_environment_creation ... ok
 test type_system::tests::test_type_environment_lookup ... ok
 test type_system::tests::test_type_environment_register ... ok
 test type_system::tests::test_type_error_messages ... ok
 test type_system::tests::test_type_var_creation ... ok
-test type_system::tests::test_type_check_return_arity_mismatch_for_multiple_returns ... ok
-test type_system::tests::test_type_check_single_return_backward_compatibility ... ok
 test type_system::tests::test_type_checker_creation ... ok
+test type_system::tests::test_type_check_single_return_backward_compatibility ... ok
 test type_system::tests::test_type_check_string_interpolation_rejects_non_displayable_expression ... ok
-test type_system::tests::test_types_compatible ... ok
 test type_system::tests::test_unify_different_primitives ... ok
-test type_system::tests::test_unify_arrays ... ok
-test type_system::tests::test_unify_arrays_with_variables ... ok
-test type_system::tests::test_unsafe_cast_float_narrowing ... ok
-test type_system::tests::test_unsafe_cast_float_to_integer ... ok
+test type_system::tests::test_types_compatible ... ok
 test type_system::tests::test_unify_functions ... ok
-test type_system::tests::test_unsafe_cast_narrowing_unsigned_integers ... ok
-test type_system::tests::test_unsafe_cast_signed_unsigned_conversion ... ok
+test type_system::tests::test_unify_arrays_with_variables ... ok
+test type_system::tests::test_unify_arrays ... ok
 test type_system::tests::test_unify_identical_primitives ... ok
-test type_system::tests::test_unsafe_cast_is_warning_not_type_error ... ok
+test type_system::tests::test_unsafe_cast_float_narrowing ... ok
+test type_system::tests::test_unsafe_cast_narrowing_unsigned_integers ... ok
+test type_system::tests::test_unsafe_cast_float_to_integer ... ok
+test type_system::tests::test_unsafe_cast_signed_unsigned_conversion ... ok
 test type_system::tests::test_unify_variable_with_type ... ok
 test type_system::tests::test_warning_creation_for_unsafe_cast ... ok
 test type_system::tests::test_unify_variable_with_variable ... ok
-test type_system::tests::type_check_guard_into_underscore_does_not_introduce_binding_after_guard ... ok
-test type_system::tests::test_warning_collection_for_unsafe_cast ... ok
 test type_system::tests::test_validate_type_name ... ok
-test type_system::tests::type_check_guard_shorthand_discards_success_binding ... ok
+test type_system::tests::test_unsafe_cast_is_warning_not_type_error ... ok
+test type_system::tests::type_check_guard_into_underscore_does_not_introduce_binding_after_guard ... ok
 test type_system::tests::type_check_guard_into_underscore_still_valid ... ok
-test type_system::tests::type_check_named_guard_binding_still_available_after_guard ... ok
+test type_system::tests::test_warning_collection_for_unsafe_cast ... ok
 test type_system::tests::type_check_guard_shorthand_success_binding_not_in_scope ... ok
+test type_system::tests::type_check_guard_shorthand_discards_success_binding ... ok
+test type_system::tests::type_check_named_guard_binding_still_available_after_guard ... ok
 test type_system::tests::test_stdlib_error_family_taxonomy_covers_all_current_leaves ... ok
-test compiler::tests::imported_public_array_values_compile_through_loop_length_and_indexing ... ok
 test compiler::tests::imported_public_scalar_values_compile_in_expressions ... ok
+test compiler::tests::imported_public_array_values_compile_through_loop_length_and_indexing ... ok
 
-test result: ok. 1461 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 5.36s
+test result: ok. 1464 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 5.39s
 
      Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
 
@@ -2241,13 +2217,11 @@ test result: ok. 2 passed; 0 failed; 12 ignored; 0 measured; 0 filtered out; fin
 exit=0
 
 $ cargo check
-    Checking opalescent v0.1.0 (/home/justi/Projects/opalescent)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.15s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
 exit=0
 
 $ cargo build
-   Compiling opalescent v0.1.0 (/home/justi/Projects/opalescent)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.59s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
 exit=0
 
 $ cargo make lint
@@ -2260,18 +2234,18 @@ $ cargo make lint
 [cargo-make] INFO - Running Task: lint
 [cargo-make] INFO - Execute Command: "cargo" "clippy" "--all-targets" "--all-features" "--" "-D" "warnings" "-D" "clippy::all" "-D" "clippy::pedantic" "-D" "clippy::nursery" "-A" "clippy::cargo" "-D" "clippy::undocumented_unsafe_blocks" "-A" "clippy::multiple_unsafe_ops_per_block" "-D" "clippy::missing_docs_in_private_items" "-D" "clippy::missing_safety_doc" "-D" "clippy::panic" "-D" "clippy::todo" "-D" "clippy::unimplemented" "-A" "clippy::indexing_slicing" "-D" "clippy::arithmetic_side_effects" "-D" "clippy::integer_division" "-D" "clippy::lossy_float_literal" "-D" "clippy::dbg_macro" "-D" "clippy::empty_drop" "-D" "clippy::exit" "-D" "clippy::filetype_is_file" "-D" "clippy::float_cmp_const" "-D" "clippy::get_unwrap" "-D" "clippy::shadow_unrelated" "-D" "clippy::string_slice" "-D" "clippy::try_err" "-D" "clippy::clone_on_ref_ptr" "-D" "clippy::create_dir" "-D" "clippy::decimal_literal_representation" "-D" "clippy::deref_by_slicing" "-D" "clippy::float_arithmetic" "-D" "clippy::if_then_some_else_none" "-D" "clippy::let_underscore_must_use" "-D" "clippy::map_err_ignore" "-D" "clippy::mem_forget" "-D" "clippy::missing_assert_message" "-D" "clippy::mod_module_files" "-D" "clippy::partial_pub_fields" "-D" "clippy::pub_use" "-D" "clippy::rc_buffer" "-D" "clippy::rc_mutex" "-D" "clippy::ref_patterns" "-D" "clippy::rest_pat_in_fully_bound_structs" "-D" "clippy::same_name_method" "-D" "clippy::single_char_lifetime_names" "-D" "clippy::str_to_string" "-D" "clippy::string_add" "-D" "clippy::string_to_string" "-D" "clippy::suspicious_xor_used_as_pow" "-D" "clippy::tests_outside_test_module" "-D" "clippy::unseparated_literal_suffix" "-D" "clippy::use_debug" "-D" "clippy::verbose_file_reads" "-A" "clippy::absolute_paths" "-D" "clippy::allow_attributes" "-D" "clippy::allow_attributes_without_reason" "-D" "clippy::as_conversions" "-A" "clippy::assertions_on_result_states" "-D" "clippy::big_endian_bytes" "-D" "clippy::default_numeric_fallback" "-D" "clippy::empty_enum_variants_with_brackets" "-D" "clippy::empty_structs_with_brackets" "-D" "clippy::error_impl_error" "-A" "clippy::exhaustive_enums" "-A" "clippy::exhaustive_structs" "-D" "clippy::fn_to_numeric_cast_any" "-D" "clippy::format_push_string" "-D" "clippy::host_endian_bytes" "-D" "clippy::infinite_loop" "-D" "clippy::large_include_file" "-D" "clippy::let_underscore_untyped" "-D" "clippy::little_endian_bytes" "-D" "clippy::macro_use_imports" "-A" "clippy::min_ident_chars" "-A" "clippy::missing_trait_methods" "-D" "clippy::mixed_read_write_in_expression" "-D" "clippy::multiple_inherent_impl" "-D" "clippy::mutex_atomic" "-D" "clippy::needless_raw_strings" "-A" "clippy::needless_borrowed_reference" "-D" "clippy::panic_in_result_fn" "-D" "clippy::pattern_type_mismatch" "-D" "clippy::print_literal" "-D" "clippy::redundant_type_annotations" "-D" "clippy::renamed_function_params" "-D" "clippy::semicolon_inside_block" "-A" "clippy::semicolon_outside_block" "-D" "clippy::std_instead_of_alloc" "-A" "clippy::std_instead_of_core" "-D" "clippy::tuple_array_conversions" "-D" "clippy::unneeded_field_pattern" "-D" "clippy::unwrap_in_result"
     Checking opalescent v0.1.0 (/home/justi/Projects/opalescent)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.17s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.20s
 [cargo-make] INFO - ==================Time Summary==================
-[cargo-make] INFO - lint:                       94.45%     8.38 seconds
-[cargo-make] INFO - [Setup Env]:                2.74%      0.24 seconds
-[cargo-make] INFO - [Setup Env - Crate Info]:   2.12%      0.19 seconds
-[cargo-make] INFO - [Setup Env - Rust]:         0.35%      0.03 seconds
-[cargo-make] INFO - [Setup Env - Git]:          0.27%      0.02 seconds
+[cargo-make] INFO - lint:                       94.63%     8.41 seconds
+[cargo-make] INFO - [Setup Env]:                2.66%      0.24 seconds
+[cargo-make] INFO - [Setup Env - Crate Info]:   1.99%      0.18 seconds
+[cargo-make] INFO - [Setup Env - Rust]:         0.37%      0.03 seconds
+[cargo-make] INFO - [Setup Env - Git]:          0.28%      0.03 seconds
 [cargo-make] INFO - [Load Makefiles]:           0.07%      0.01 seconds
 [cargo-make] INFO - [Setup Env - Duckscript]:   0.00%      0.00 seconds
 [cargo-make] INFO - [Setup Env - CI]:           0.00%      0.00 seconds
 [cargo-make] INFO - [Setup Env - Project]:      0.00%      0.00 seconds
 [cargo-make] INFO - [Setup Env - Vars]:         0.00%      0.00 seconds
 [cargo-make] INFO - ================================================
-[cargo-make] INFO - Build Done in 8.63 seconds.
+[cargo-make] INFO - Build Done in 8.65 seconds.
 exit=0

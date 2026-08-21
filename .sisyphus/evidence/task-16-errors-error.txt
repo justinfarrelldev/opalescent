@@ -1,12 +1,153 @@
 
+$ cargo test codegen::tests::codegen_propagate_parenthesized_error_value_cause_attaches_before_return -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+running 1 test
+test codegen::tests::codegen_propagate_parenthesized_error_value_cause_attaches_before_return ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-04bfea5ff87daf9b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-cf740cc5fbecb7d9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-3259cfeb1046fe01)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-4227316b5aefa412)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-906b5fb738c554cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit=0
+
+$ cargo test codegen::tests::codegen_propagate_borrow_wrapped_error_value_cause_attaches_before_return -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+running 1 test
+test codegen::tests::codegen_propagate_borrow_wrapped_error_value_cause_attaches_before_return ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-04bfea5ff87daf9b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-cf740cc5fbecb7d9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-3259cfeb1046fe01)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-4227316b5aefa412)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-906b5fb738c554cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit=0
+
+$ cargo test runtime::tests::error_attachment_allocation_failure_preserves_aliases_and_marks_bytes -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+running 1 test
+test runtime::tests::error_attachment_allocation_failure_preserves_aliases_and_marks_bytes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.28s
+
+     Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/array_integration.rs (target/debug/deps/array_integration-04bfea5ff87daf9b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fmt_integration.rs (target/debug/deps/fmt_integration-cf740cc5fbecb7d9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hot_reload_integration.rs (target/debug/deps/hot_reload_integration-3259cfeb1046fe01)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_e2e.rs (target/debug/deps/integration_e2e-4227316b5aefa412)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_print.rs (target/debug/deps/integration_print-906b5fb738c554cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit=0
+
 $ cargo test type_system::test_integration_modules::tests::test_error_cause_rejects_same_error_identity_statically -- --nocapture
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
      Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
 
 running 1 test
 test type_system::test_integration_modules::tests::test_error_cause_rejects_same_error_identity_statically ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1468 filtered out; finished in 0.01s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.01s
 
      Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
 
@@ -47,13 +188,13 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 exit=0
 
 $ cargo test type_system::test_integration_modules::tests::test_error_suppressed_erased_error_inspection_does_not_propagate_family -- --nocapture
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
      Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
 
 running 1 test
 test type_system::test_integration_modules::tests::test_error_suppressed_erased_error_inspection_does_not_propagate_family ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1468 filtered out; finished in 0.02s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.02s
 
      Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
 
@@ -100,7 +241,7 @@ $ cargo test runtime::tests::error_attachment_cycle_limit_and_storage_truncation
 running 1 test
 test runtime::tests::error_attachment_cycle_limit_and_storage_truncation_markers ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1468 filtered out; finished in 0.23s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.27s
 
      Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
 
@@ -147,7 +288,7 @@ $ cargo test runtime::tests::error_suppressed_fallback_idempotent_and_bounds_che
 running 1 test
 test runtime::tests::error_suppressed_fallback_idempotent_and_bounds_checked ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1468 filtered out; finished in 0.24s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.27s
 
      Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
 
@@ -194,7 +335,7 @@ $ cargo test type_system::test_integration_modules::tests::test_core_prerequisit
 running 1 test
 test type_system::test_integration_modules::tests::test_core_prerequisite_surface_is_future_gated_in_production_mode ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1468 filtered out; finished in 0.01s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.01s
 
      Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
 
@@ -235,13 +376,13 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 exit=0
 
 $ cargo test type_system::test_integration_modules::tests::test_import_unknown_symbol_reports_symbol_not_found -- --nocapture
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
      Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
 
 running 1 test
 test type_system::test_integration_modules::tests::test_import_unknown_symbol_reports_symbol_not_found ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1468 filtered out; finished in 0.01s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1471 filtered out; finished in 0.01s
 
      Running unittests src/main.rs (target/debug/deps/opalescent-26c23d3405c5e00e)
 
