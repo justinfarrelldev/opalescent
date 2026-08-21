@@ -27,3 +27,11 @@ Follow-up negative coverage passed on 2026-08-20:
 - `test_imported_core_chord_and_testing_borrow_modes_are_required` rejects unborrowed core, chord, and test-only terminal proposal calls, including module-alias member calls.
 - `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test imported_` (5 passed)
 - Full `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` included both imported-borrow regressions and passed.
+
+
+Retry negative coverage passed on 2026-08-21:
+- `inferred_terminal_proposal_owners_are_affine_without_type_imports` rejects reuse of inferred compiler-registered terminal proposal owners after move.
+- `local_let_bound_lambdas_require_matching_borrow_syntax` rejects calls to let-bound lambdas that omit required `ref` / `mutable ref` borrow syntax.
+- `function_borrow_metadata_shadows_and_restores_with_let_bindings` rejects stale borrow metadata while a same-name binding shadows a function and restores the original function borrow metadata after scope exit.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test affine` (9 passed)
+- Full `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` included all new affine regressions and passed.

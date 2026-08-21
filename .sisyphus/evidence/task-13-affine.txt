@@ -30,3 +30,19 @@ Follow-up verification passed on 2026-08-20 for imported function borrow metadat
 - `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal` (22 passed)
 - `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` (1424 passed, 8 ignored; doctests 2 passed, 12 ignored)
 - `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint`
+
+
+Retry verification passed on 2026-08-21 for affine/borrow metadata completeness:
+- `CancellationSource` is registered as a compiler-known affine resource under the terminal proposal test gate.
+- Terminal/chord/test-only compiler-registered affine resource names remain affine when callers import only functions and infer returned owner types.
+- Local let-bound lambdas with `ref` / `mutable ref` parameters now require explicit matching call-site borrow syntax.
+- Function/lambda borrow metadata is cleared/restored with lexical ownership scopes when bindings shadow each other.
+- LSP diagnostics: zero errors on modified Rust files.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 bash scripts/check-line-count.sh`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test affine` (9 passed)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test imported_` (5 passed)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_proposal` (23 passed)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test` (1427 passed, 8 ignored; doctests 2 passed, 12 ignored)
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test signatures_type_check` (4 passed)
