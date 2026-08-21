@@ -861,6 +861,33 @@ entry main = f(): void =>
     }
 
     #[test]
+    fn test_terminal_refinement_without_into_narrows_identifier() {
+        const SOURCE: &str = "
+import type TerminalInputEvent, TerminalKeyOccurrence, TerminalLogicalKey, TerminalModifiers from 'standard.terminal'
+
+let inspect_event = f(event: TerminalInputEvent): void =>
+    if event is TerminalInputEvent.Key:
+        let key: TerminalLogicalKey = event.key
+        let occurrence: TerminalKeyOccurrence = event.occurrence
+        let modifiers: TerminalModifiers = event.modifiers
+        return void
+    return void
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.enable_terminal_proposal_imports_for_tests();
+        let result = checker.type_check_program(&program);
+        assert!(
+            result.is_ok(),
+            "terminal nominal variant refinement without into should narrow the identifier: {result:?}"
+        );
+    }
+
+    #[test]
     fn test_terminal_refinement_rejects_invalid_syntax_during_parse() {
         const CASES: &[(&str, &str, &str)] = &[
             (
@@ -1102,18 +1129,19 @@ entry main = f(): void =>
     #[test]
     fn test_terminal_guard_error_refined_branch_can_propagate_narrowed_family() {
         const SOURCE: &str = "
-import type TerminalInvalidOptions, TerminalSessionOpenError from 'standard.terminal'
+import type TerminalInvalidOptions, TerminalSessionOpenError, TerminalSessionReadError from 'standard.terminal'
 
-let maybe_open = f(): void errors TerminalSessionOpenError =>
+let maybe_terminal = f(): void errors TerminalSessionOpenError, TerminalSessionReadError =>
     return void
 
 let forward_invalid_options = f(): void errors TerminalSessionOpenError =>
-    guard maybe_open() into _ else err =>
-        if err is TerminalSessionOpenError.InvalidOptions into invalid:
-            let invalid_options: TerminalInvalidOptions = invalid.invalid_options
-            propagate err
-        let observed: int32 = 1
-        propagate err
+    while true:
+        guard maybe_terminal() into _ else err =>
+            if err is TerminalSessionOpenError.InvalidOptions into invalid:
+                let invalid_options: TerminalInvalidOptions = invalid.invalid_options
+                propagate err
+            continue
+        return void
     return void
 
 entry main = f(): void =>
