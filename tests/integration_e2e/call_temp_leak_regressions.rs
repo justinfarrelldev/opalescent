@@ -191,8 +191,8 @@ import stdout_writer, writer_write_sync, writer_flush_sync from standard
 ##
   Description: Mixed borrowed and owned string dispositions should not leak call temporaries.
 ##
-entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
-    let writer = stdout_writer()
+entry main = f(args: string[]): void errors StandardOutputHandleError, WriteFailureError, FlushFailureError, SinkClosedError =>
+    let writer = propagate stdout_writer()
     let borrowed = 'borrowed-text'
     propagate writer_write_sync(writer, borrowed)
     propagate writer_write_sync(writer, 'owned-text:{args.length}')
@@ -217,8 +217,8 @@ import string_to_int32 from standard
 ##
   Description: Earlier direct call-temp allocations should be cleaned when a later propagate fails.
 ##
-entry main = f(args: string[]): void errors WriteFailureError, SinkClosedError, ParseError =>
-    let writer = stdout_writer()
+entry main = f(args: string[]): void errors StandardOutputHandleError, WriteFailureError, SinkClosedError, ParseError =>
+    let writer = propagate stdout_writer()
     propagate writer_write_sync(writer, 'first:{args.length}')
     let _forced_fail = propagate string_to_int32('not-a-number')
     propagate writer_write_sync(writer, 'second:unreachable')
@@ -241,8 +241,8 @@ import stdout_writer, writer_write_sync, writer_flush_sync from standard
 ##
   Description: Ownership-transfer call path should not double-free a direct interpolation temporary.
 ##
-entry main = f(args: string[]): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
-    let writer = stdout_writer()
+entry main = f(args: string[]): void errors StandardOutputHandleError, WriteFailureError, FlushFailureError, SinkClosedError =>
+    let writer = propagate stdout_writer()
     let rendered: string = 'transfer:{args.length}'
     propagate writer_write_sync(writer, rendered)
     propagate writer_flush_sync(writer)

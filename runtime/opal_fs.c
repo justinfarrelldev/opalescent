@@ -69,7 +69,10 @@ typedef struct { char**     value; int64_t count; const char* error; } FsStringA
 #ifndef OPAL_FS_STRING_RESULT_TYPES_DEFINED
 #define OPAL_FS_STRING_RESULT_TYPES_DEFINED 1
 #endif
+#ifndef OPAL_FS_BOOLEAN_RESULT_DEFINED
 typedef struct { int8_t     value; const char* error; } FsBooleanResult;
+#define OPAL_FS_BOOLEAN_RESULT_DEFINED 1
+#endif
 typedef struct { int32_t    value; const char* error; } FsInt32Result;
 typedef struct { int64_t    value; const char* error; } FsInt64Result;
 typedef struct { char*      value; const char* error; } FsPathResult;

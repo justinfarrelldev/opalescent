@@ -52,12 +52,12 @@ Prints one string line. This is registered as a standard symbol for string-only 
 println('hello')
 ```
 
-### `take_input(): string`
+### `take_input(): string errors StandardInputReadError`
 
-Reads one line from standard input and returns it without the trailing newline. On EOF, the runtime returns an empty string.
+Reads one line from standard input and returns it without the trailing newline. Callers must handle `StandardInputReadError` with `guard` or `propagate`. Empty input at EOF fails with `StandardInputReadError: EndOfInput`; a final line without a newline is still returned successfully.
 
 ```opal
-let answer = take_input()
+let answer = propagate take_input()
 print('you typed {answer}')
 ```
 
@@ -575,9 +575,9 @@ Writes text to standard output without adding a newline.
 
 Flushes standard output.
 
-### `stdout_writer(): StdoutWriter`
+### `stdout_writer(): StdoutWriter errors StandardOutputHandleError`
 
-Returns a writer handle for standard output.
+Returns a writer handle for standard output; callers must handle coordinator acquisition failures.
 
 ### `writer_write_sync(writer: StdoutWriter, text: string): void errors WriteFailureError, SinkClosedError`
 
@@ -587,13 +587,13 @@ Writes text through a writer handle.
 
 Flushes a writer handle.
 
-### `stdout_terminal(): StdoutTerminal`
+### `stdout_terminal(): StdoutTerminal errors StandardOutputHandleError`
 
-Returns a terminal handle for standard output.
+Returns a terminal handle for standard output; callers must handle coordinator acquisition failures.
 
-### `terminal_supports_ansi(terminal: StdoutTerminal): boolean`
+### `terminal_supports_ansi(terminal: StdoutTerminal): boolean errors StandardOutputCapabilityError`
 
-Returns whether the terminal supports ANSI control sequences.
+Returns whether the terminal supports ANSI control sequences; stale or unavailable leases are reported through `StandardOutputCapabilityError`.
 
 ### `terminal_clear_screen_on_sync(terminal: StdoutTerminal): void errors TerminalWriteFailureError, SinkClosedError`
 

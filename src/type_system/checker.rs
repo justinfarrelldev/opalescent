@@ -304,7 +304,10 @@ impl TypeChecker {
             generic_params: Vec::new(),
             parameters: Vec::new(),
             return_types: vec![CoreType::String],
-            error_types: Vec::new(),
+            error_types: vec![CoreType::Generic {
+                name: "StandardInputReadError".to_owned(),
+                type_args: Vec::new(),
+            }],
         };
         self.environment
             .register_builtin("take_input".to_owned(), take_input_signature.clone());

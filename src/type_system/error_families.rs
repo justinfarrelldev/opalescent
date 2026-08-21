@@ -58,6 +58,24 @@ const STDLIB_ERROR_FAMILIES: &[StdlibErrorFamily] = &[
         specificity_rank: 0,
     },
     StdlibErrorFamily {
+        name: "StandardInputReadError",
+        members: &["StandardInputReadError"],
+        warning_eligible: false,
+        specificity_rank: 0,
+    },
+    StdlibErrorFamily {
+        name: "StandardOutputHandleError",
+        members: &["StandardOutputHandleError"],
+        warning_eligible: false,
+        specificity_rank: 0,
+    },
+    StdlibErrorFamily {
+        name: "StandardOutputCapabilityError",
+        members: &["StandardOutputCapabilityError"],
+        warning_eligible: false,
+        specificity_rank: 0,
+    },
+    StdlibErrorFamily {
         name: "TerminalError",
         members: &[
             "TerminalWriteFailureError",

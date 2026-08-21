@@ -3,8 +3,8 @@ import stdout_terminal, terminal_draw_rows_sync, flush_standard_output_sync from
 ##
   Description: Verifies terminal_draw_rows_sync joins rows with newlines and no trailing newline.
 ##
-entry main = f(args: string[]): void errors TerminalWriteFailureError, FlushFailureError, SinkClosedError =>
-    let terminal = stdout_terminal()
+entry main = f(args: string[]): void errors StandardOutputHandleError, TerminalWriteFailureError, FlushFailureError, SinkClosedError =>
+    let terminal = propagate stdout_terminal()
     propagate terminal_draw_rows_sync(terminal, ['##', '..'])
     propagate flush_standard_output_sync()
     return void

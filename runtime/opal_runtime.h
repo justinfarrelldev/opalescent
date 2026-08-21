@@ -24,9 +24,19 @@ typedef struct { uint64_t value; const char* error; } ParseResultU64;
 typedef struct { float value;    const char* error; } ParseResultF32;
 typedef struct { double value;   const char* error; } ParseResultF64;
 
+#ifndef OPAL_FS_STRING_RESULT_DEFINED
+typedef struct { char* value; const char* error; } FsStringResult;
+#define OPAL_FS_STRING_RESULT_DEFINED 1
+#endif
+typedef struct { void* value; const char* error; } FsHandleResult;
+#ifndef OPAL_FS_BOOLEAN_RESULT_DEFINED
+typedef struct { int8_t value; const char* error; } FsBooleanResult;
+#define OPAL_FS_BOOLEAN_RESULT_DEFINED 1
+#endif
+
 void opal_runtime_error(const char* message);
 
-char* take_input(void);
+FsStringResult take_input(void);
 void print_string(const char* s);
 
 void print_int8(int8_t n);
@@ -149,16 +159,29 @@ typedef struct OpalFrameClock OpalFrameClock;
 typedef struct { OpalFrameClock* value; const char* error; } FsFrameClockResult;
 FsVoidResult print_text_sync(const char* value);
 FsVoidResult flush_standard_output_sync(void);
-OpalStdoutWriter* stdout_writer(void);
+FsHandleResult stdout_writer(void);
 FsVoidResult writer_write_sync(OpalStdoutWriter* writer, const char* value);
 FsVoidResult writer_flush_sync(OpalStdoutWriter* writer);
-OpalStdoutTerminal* stdout_terminal(void);
-int8_t terminal_supports_ansi(OpalStdoutTerminal* terminal);
+FsHandleResult stdout_terminal(void);
+FsBooleanResult terminal_supports_ansi(OpalStdoutTerminal* terminal);
 FsVoidResult terminal_clear_screen_on_sync(OpalStdoutTerminal* terminal);
 FsVoidResult terminal_move_cursor_on_sync(OpalStdoutTerminal* terminal, int32_t row, int32_t column);
 FsVoidResult terminal_draw_rows_sync(OpalStdoutTerminal* terminal, const char** rows, int64_t count);
 FsVoidResult terminal_clear_screen_sync(void);
 FsVoidResult terminal_move_cursor_sync(int32_t row, int32_t column);
+#ifdef OPAL_ENABLE_INTERNAL_TESTING
+#define OPAL_TERMINAL_TEST_FREE 0
+#define OPAL_TERMINAL_TEST_OPENING 1
+#define OPAL_TERMINAL_TEST_ACTIVE 2
+#define OPAL_TERMINAL_TEST_PAUSED 3
+#define OPAL_TERMINAL_TEST_RESTORE_PENDING 4
+#define OPAL_TERMINAL_TEST_FAILED_OPEN_RECOVERY 5
+#define OPAL_TERMINAL_TEST_FAILED_CLOSE_RECOVERY 6
+void opal_terminal_test_reset(void);
+void opal_terminal_test_set_state(int state);
+int opal_terminal_test_reserve_opening(void);
+void opal_terminal_test_return_free(void);
+#endif
 FsVoidResult sleep_ms_sync(int32_t milliseconds);
 FsFrameClockResult frame_clock_new(int32_t frames_per_second);
 FsVoidResult frame_clock_wait_next_sync(OpalFrameClock* clock);
@@ -183,7 +206,10 @@ OpalErrorTruncation* error_attachment_truncation(const char* error_value);
 int8_t error_attachment_truncation_cause_depth(OpalErrorTruncation* truncation);
 int8_t error_attachment_truncation_suppressed_count(OpalErrorTruncation* truncation);
 int8_t error_attachment_truncation_bytes(OpalErrorTruncation* truncation);
+#ifndef OPAL_FS_BOOLEAN_RESULT_DEFINED
 typedef struct { int8_t     value; const char* error; } FsBooleanResult;
+#define OPAL_FS_BOOLEAN_RESULT_DEFINED 1
+#endif
 typedef struct { int32_t    value; const char* error; } FsInt32Result;
 typedef struct { int64_t    value; const char* error; } FsInt64Result;
 typedef struct { char*      value; const char* error; } FsPathResult;

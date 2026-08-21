@@ -146,7 +146,7 @@ fn take_input_strips_terminal_newlines_and_preserves_eof() {
 
     let execution_result: Result<(), String> = (|| {
         let source_path = Path::new("test-projects/simple-quiz/src/main.op");
-        let source = "import take_input from standard\n\n##\n    Description: reads a single line for trimming tests\n##\nentry main = f(args: string[]): void =>\n    let value = take_input()\n    print('<<{value}>>')\n    return void";
+        let source = "import take_input from standard\n\n##\n    Description: reads a single line for trimming tests\n##\nentry main = f(args: string[]): void errors StandardInputReadError =>\n    let value = propagate take_input()\n    print('<<{value}>>')\n    return void";
 
         let binary_result =
             compile_program_for_tests(source_path, source, &temp_dir, &TargetTriple::host());

@@ -7607,8 +7607,8 @@ entry demo = f(): unit =>
 #[test]
 fn test_builtin_take_input_returns_string() {
     const SOURCE: &str = "
-entry demo = f(): string =>
-    let input: string = take_input()
+entry demo = f(): string errors StandardInputReadError =>
+    let input: string = propagate take_input()
     return input
 ";
 
@@ -9493,6 +9493,12 @@ fn test_stdlib_error_family_taxonomy_covers_all_current_leaves() {
             "OutputError",
             &["WriteFailureError", "FlushFailureError", "SinkClosedError"],
         ),
+        ("StandardInputReadError", &["StandardInputReadError"]),
+        ("StandardOutputHandleError", &["StandardOutputHandleError"]),
+        (
+            "StandardOutputCapabilityError",
+            &["StandardOutputCapabilityError"],
+        ),
         (
             "TerminalError",
             &[
@@ -9656,6 +9662,9 @@ fn test_stdlib_error_family_taxonomy_covers_all_current_leaves() {
         "WriteFailureError",
         "FlushFailureError",
         "SinkClosedError",
+        "StandardInputReadError",
+        "StandardOutputHandleError",
+        "StandardOutputCapabilityError",
         "TerminalWriteFailureError",
         "InvalidCursorPositionError",
         "InvalidDurationError",

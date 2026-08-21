@@ -217,11 +217,23 @@ pub(super) fn infer_guard_binding_core_type(
                     type_args: Vec::new(),
                 };
             }
+            if name == "take_input" {
+                return CoreType::String;
+            }
+            if name == "stdout_writer" {
+                return CoreType::Generic {
+                    name: String::from("StdoutWriter"),
+                    type_args: Vec::new(),
+                };
+            }
             if name == "stdout_terminal" {
                 return CoreType::Generic {
                     name: String::from("StdoutTerminal"),
                     type_args: Vec::new(),
                 };
+            }
+            if name == "terminal_supports_ansi" {
+                return CoreType::Boolean;
             }
             if name == "print_text_sync"
                 || name == "flush_standard_output_sync"

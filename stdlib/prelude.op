@@ -7,13 +7,16 @@
 # print<T>(value: T): unit
 
 # Reads a line of text from input and returns it as string.
-# take_input(): string
+# take_input(): string errors StandardInputReadError
 
 # Parses decimal text into int32; may fail with ParseError.
 # string_to_int32(s: string): int32 errors ParseError
 
 # Returns a pseudo-random int32 in the inclusive [min, max] range.
 # random_int32(min: int32, max: int32): int32
+# stdout_writer(): StdoutWriter errors StandardOutputHandleError
+# stdout_terminal(): StdoutTerminal errors StandardOutputHandleError
+# terminal_supports_ansi(terminal: StdoutTerminal): boolean errors StandardOutputCapabilityError
 # Strings expose `.length`, which lowers to `string_length(value)` and returns int64.
 # Arrays expose `.length`, which lowers to `array_length(values, len)` and returns int64.
 

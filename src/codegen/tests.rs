@@ -1554,8 +1554,8 @@ import take_input from standard
 ##
     Description: Entry function validates imported take_input declaration
 ##
-entry main = f(): void => {
-    let user_input = take_input()
+entry main = f(): void errors StandardInputReadError => {
+    let user_input = propagate take_input()
     print(user_input)
     return void
 }
@@ -1573,8 +1573,9 @@ entry main = f(): void => {
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("declare i8* @take_input()"),
-        "import take_input from standard should emit declare i8* @take_input(): {ir}"
+        ir.contains("declare { i8*, i8* } @take_input()")
+            || ir.contains("declare { ptr, ptr } @take_input()"),
+        "import take_input from standard should emit a string result wrapper declaration: {ir}"
     );
 }
 
@@ -1954,8 +1955,8 @@ let parse_text = f(text: string): int32 errors ParseError =>
 ##
     Description: Entry function keeps this standard import declaration test runnable
 ##
-entry main = f(): void =>
-    let text = take_input()
+entry main = f(): void errors StandardInputReadError =>
+    let text = propagate take_input()
     print(text)
     return void
 ";
@@ -1972,7 +1973,8 @@ entry main = f(): void =>
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("declare i8* @take_input()"),
+        ir.contains("declare { i8*, i8* } @take_input()")
+            || ir.contains("declare { ptr, ptr } @take_input()"),
         "take_input declaration should exist when imported from standard: {ir}"
     );
     assert!(
@@ -2106,8 +2108,8 @@ let parse_roll = f(raw: string): int32 errors ParseError =>
 ##
     Description: Entry function keeps builtin declaration coverage runnable
 ##
-entry main = f(): void =>
-    let raw = take_input()
+entry main = f(): void errors StandardInputReadError =>
+    let raw = propagate take_input()
     let roll = random_int32(1, 6)
     print('raw: {raw}, roll: {roll}')
     return void
@@ -2125,7 +2127,8 @@ entry main = f(): void =>
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("declare i8* @take_input()"),
+        ir.contains("declare { i8*, i8* } @take_input()")
+            || ir.contains("declare { ptr, ptr } @take_input()"),
         "take_input builtin should emit take_input declaration: {ir}"
     );
     assert!(
@@ -3900,8 +3903,8 @@ import stdout_writer, writer_write_sync, writer_flush_sync from standard
 ##
     Description: Entry function guards stdout writer APIs to pin handle and error ABI lowering
 ##
-let write_via_writer = f(): void errors WriteFailureError, FlushFailureError, SinkClosedError =>
-    let writer = stdout_writer()
+let write_via_writer = f(): void errors StandardOutputHandleError, WriteFailureError, FlushFailureError, SinkClosedError =>
+    let writer = propagate stdout_writer()
     propagate writer_write_sync(writer, 'frame')
     return propagate writer_flush_sync(writer)
 
@@ -3924,8 +3927,9 @@ entry main = f(): void => {
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("declare i8* @stdout_writer()"),
-        "stdout_writer should declare as an opaque handle constructor: {ir}"
+        ir.contains("declare { i8*, i8* } @stdout_writer()")
+            || ir.contains("declare { ptr, ptr } @stdout_writer()"),
+        "stdout_writer should declare with the handle result wrapper: {ir}"
     );
     assert!(
         ir.contains("declare { i8*, i8* } @writer_write_sync(i8*, i8*)")
@@ -3950,9 +3954,9 @@ import stdout_terminal, terminal_supports_ansi, terminal_clear_screen_on_sync, t
 ##
     Description: Entry function guards terminal APIs to pin handle, bool, and error ABI lowering
 ##
-let draw_frame = f(): void errors TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError =>
-    let terminal = stdout_terminal()
-    let supports = terminal_supports_ansi(terminal)
+let draw_frame = f(): void errors StandardOutputHandleError, StandardOutputCapabilityError, TerminalWriteFailureError, InvalidCursorPositionError, SinkClosedError =>
+    let terminal = propagate stdout_terminal()
+    let supports = propagate terminal_supports_ansi(terminal)
     if supports:
         propagate terminal_clear_screen_on_sync(terminal)
     propagate terminal_move_cursor_on_sync(terminal, 0, 0)
@@ -3979,12 +3983,14 @@ entry main = f(): void => {
     };
     let ir = module.print_to_string().to_string();
     assert!(
-        ir.contains("declare i8* @stdout_terminal()"),
-        "stdout_terminal should declare as an opaque handle constructor: {ir}"
+        ir.contains("declare { i8*, i8* } @stdout_terminal()")
+            || ir.contains("declare { ptr, ptr } @stdout_terminal()"),
+        "stdout_terminal should declare with the handle result wrapper: {ir}"
     );
     assert!(
-        ir.contains("declare i8 @terminal_supports_ansi(i8*)"),
-        "terminal_supports_ansi should declare as an i8-returning boolean helper: {ir}"
+        ir.contains("declare { i8, i8* } @terminal_supports_ansi(i8*)")
+            || ir.contains("declare { i8, ptr } @terminal_supports_ansi(ptr)"),
+        "terminal_supports_ansi should declare with the boolean result wrapper: {ir}"
     );
     assert!(
         ir.contains("declare { i8*, i8* } @terminal_clear_screen_on_sync(i8*)")

@@ -24,6 +24,10 @@ const SINK_CLOSED_ERROR: &str = "SinkClosedError";
 const TERMINAL_WRITE_FAILURE_ERROR: &str = "TerminalWriteFailureError";
 /// Interned error name for invalid terminal cursor positions.
 const INVALID_CURSOR_POSITION_ERROR: &str = "InvalidCursorPositionError";
+/// Standard-owned error family for fallible stdout handle acquisition.
+const STANDARD_OUTPUT_HANDLE_ERROR: &str = "StandardOutputHandleError";
+/// Standard-owned error family for fallible terminal capability inspection.
+const STANDARD_OUTPUT_CAPABILITY_ERROR: &str = "StandardOutputCapabilityError";
 
 /// Opaque nominal type name for the shared stdout writer handle.
 const STDOUT_WRITER_TYPE_NAME: &str = "StdoutWriter";
@@ -65,7 +69,7 @@ impl TypeChecker {
             "stdout_writer",
             Vec::new(),
             vec![stdout_writer_core_type()],
-            Vec::new(),
+            vec![stdlib_error_core_type(STANDARD_OUTPUT_HANDLE_ERROR)],
         );
 
         self.register_stdout_text_builtin(
@@ -95,14 +99,14 @@ impl TypeChecker {
             "stdout_terminal",
             Vec::new(),
             vec![stdout_terminal_core_type()],
-            Vec::new(),
+            vec![stdlib_error_core_type(STANDARD_OUTPUT_HANDLE_ERROR)],
         );
 
         self.register_stdout_text_builtin(
             "terminal_supports_ansi",
             vec![stdout_terminal_core_type()],
             vec![CoreType::Boolean],
-            Vec::new(),
+            vec![stdlib_error_core_type(STANDARD_OUTPUT_CAPABILITY_ERROR)],
         );
 
         self.register_stdout_text_builtin(
@@ -198,6 +202,14 @@ impl TypeChecker {
         self.environment.register_type(
             INVALID_CURSOR_POSITION_ERROR.to_owned(),
             stdlib_error_core_type(INVALID_CURSOR_POSITION_ERROR),
+        );
+        self.environment.register_type(
+            STANDARD_OUTPUT_HANDLE_ERROR.to_owned(),
+            stdlib_error_core_type(STANDARD_OUTPUT_HANDLE_ERROR),
+        );
+        self.environment.register_type(
+            STANDARD_OUTPUT_CAPABILITY_ERROR.to_owned(),
+            stdlib_error_core_type(STANDARD_OUTPUT_CAPABILITY_ERROR),
         );
     }
 

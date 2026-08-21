@@ -144,6 +144,7 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
             name: String::from("StdoutTerminal"),
             type_args: Vec::new(),
         }),
+        "terminal_supports_ansi" => Some(CoreType::Boolean),
         "frame_clock_new" => Some(CoreType::Generic {
             name: String::from("FrameClock"),
             type_args: Vec::new(),
@@ -239,10 +240,16 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
         | "string_extract_range"
         | "get_environment_variable"
         | "get_environment_variable_or" => Some(CoreType::String),
+        "take_input" => Some(CoreType::String),
+        "stdout_writer" => Some(CoreType::Generic {
+            name: String::from("StdoutWriter"),
+            type_args: Vec::new(),
+        }),
         "stdout_terminal" => Some(CoreType::Generic {
             name: String::from("StdoutTerminal"),
             type_args: Vec::new(),
         }),
+        "terminal_supports_ansi" => Some(CoreType::Boolean),
         "print_text_sync"
         | "flush_standard_output_sync"
         | "writer_write_sync"

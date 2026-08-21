@@ -4,19 +4,21 @@ import is_alive_at from ./board
 ##
   Description: Clears the terminal once when ANSI cursor control is available for animation.
 ##
-public let prepare_display = f(): void errors TerminalWriteFailureError, SinkClosedError =>
-    let terminal = stdout_terminal()
-    if terminal_supports_ansi(terminal):
+public let prepare_display = f(): void errors StandardOutputHandleError, StandardOutputCapabilityError, TerminalWriteFailureError, SinkClosedError =>
+    let terminal = propagate stdout_terminal()
+    let supports_ansi = propagate terminal_supports_ansi(terminal)
+    if supports_ansi:
         propagate terminal_clear_screen_on_sync(terminal)
     return void
 
 ##
   Description: Clears supported terminals, streams one complete frame, and flushes after the final row.
 ##
-public let write_frame = f(width: int64, height: int64, board: int8[], generation: int64): void errors OutputError, TerminalWriteFailureError =>
-    let terminal = stdout_terminal()
-    let writer = stdout_writer()
-    if terminal_supports_ansi(terminal):
+public let write_frame = f(width: int64, height: int64, board: int8[], generation: int64): void errors StandardOutputHandleError, StandardOutputCapabilityError, OutputError, TerminalWriteFailureError =>
+    let terminal = propagate stdout_terminal()
+    let writer = propagate stdout_writer()
+    let supports_ansi = propagate terminal_supports_ansi(terminal)
+    if supports_ansi:
         propagate terminal_clear_screen_on_sync(terminal)
     else:
         propagate writer_write_sync(writer, '\n')

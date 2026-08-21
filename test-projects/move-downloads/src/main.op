@@ -1,14 +1,14 @@
 import path_from, path_to_string, path_exists_sync, list_directory_sync, join_path_components, create_directory_sync, move_path_sync, int64_to_string, take_input from standard
 
-let wait_for_input = f(message: string): void =>
+let wait_for_input = f(message: string): void errors StandardInputReadError =>
     print(message)
-    let _ignored_input = take_input()
+    let _ignored_input = propagate take_input()
     return void
 
 ##
   Description: Moves every child entry from the configured Downloads folder into the Desktop To-Be-Deleted folder.
 ##
-entry main = f(args: string[]): void errors FilesystemError =>
+entry main = f(args: string[]): void errors FilesystemError, StandardInputReadError =>
     let folder = path_from('C:\\Users\\justi\\Downloads')
     let desktop_folder = path_from('C:\\Users\\justi\\OneDrive\\Desktop')
     let destination_folder = path_from('C:\\Users\\justi\\OneDrive\\Desktop\\To-Be-Deleted')

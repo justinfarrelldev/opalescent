@@ -104,7 +104,7 @@ pub fn declare_stdlib_function<'context>(
             Some(module.add_function("printf", ft, None))
         }),
         "take_input" => module.get_function("take_input").or_else(|| {
-            let ft = i8_ptr.fn_type(&[], false);
+            let ft = pointer_error_result_type.fn_type(&[], false);
             Some(module.add_function("take_input", ft, None))
         }),
         "print_string" => void_fn!("print_string", i8_ptr),
@@ -237,7 +237,7 @@ pub fn declare_stdlib_function<'context>(
                 })
         }
         "stdout_writer" => module.get_function("stdout_writer").or_else(|| {
-            let ft = i8_ptr.fn_type(&[], false);
+            let ft = pointer_error_result_type.fn_type(&[], false);
             Some(module.add_function("stdout_writer", ft, None))
         }),
         "writer_write_sync" => module.get_function("writer_write_sync").or_else(|| {
@@ -257,11 +257,11 @@ pub fn declare_stdlib_function<'context>(
             ))
         }),
         "stdout_terminal" => module.get_function("stdout_terminal").or_else(|| {
-            let ft = i8_ptr.fn_type(&[], false);
+            let ft = pointer_error_result_type.fn_type(&[], false);
             Some(module.add_function("stdout_terminal", ft, None))
         }),
         "terminal_supports_ansi" => module.get_function("terminal_supports_ansi").or_else(|| {
-            let ft = i8_type.fn_type(&[i8_ptr.into()], false);
+            let ft = fs_boolean_result_type.fn_type(&[i8_ptr.into()], false);
             Some(module.add_function("terminal_supports_ansi", ft, None))
         }),
         "terminal_clear_screen_on_sync" => module

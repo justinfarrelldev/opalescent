@@ -534,8 +534,7 @@ pub fn codegen_call_expression<'context>(
                 .map_or_else(|| name.as_str(), String::as_str);
             let direct_runtime_boolean = matches!(
                 runtime_name,
-                "terminal_supports_ansi"
-                    | "environment_variable_exists"
+                "environment_variable_exists"
                     | "string_is_blank"
                     | "error_attachment_truncation_cause_depth"
                     | "error_attachment_truncation_suppressed_count"

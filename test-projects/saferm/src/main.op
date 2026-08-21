@@ -7,9 +7,9 @@ import trash_directory, create_trash_path_if_not_exists, get_trash_entries, move
 ##
     Description: Asks the user for a yes/no confirmation and accepts common affirmative answers.
 ##
-let should_confirm = f(prompt: string): boolean =>
+let should_confirm = f(prompt: string): boolean errors StandardInputReadError =>
     print(prompt)
-    let answer = take_input()
+    let answer = propagate take_input()
     if answer is 'y' or answer is 'Y' or answer is 'yes' or answer is 'YES':
         return true
     return false
@@ -20,7 +20,7 @@ let should_confirm = f(prompt: string): boolean =>
 
     This is a Unix-only program, not meant for Windows
 ##
-entry main = f(args: string[]): void errors DirectoryNotFoundError, FilesystemPathError, ReadFailureError, IsNotADirectoryError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, InvalidEnvironmentVariableNameError, InvalidUtf8Error, IndexOutOfBoundsError =>
+entry main = f(args: string[]): void errors StandardInputReadError, DirectoryNotFoundError, FilesystemPathError, ReadFailureError, IsNotADirectoryError, CurrentWorkingDirectoryUnavailableError, FileNotFoundError, MoveFailureError, FileAlreadyExistsError, CreateFailureError, FilesystemFullError, InvalidEnvironmentVariableNameError, InvalidUtf8Error, IndexOutOfBoundsError =>
     let dest = propagate trash_directory()
 
     if args.length < 2:
@@ -173,7 +173,8 @@ entry main = f(args: string[]): void errors DirectoryNotFoundError, FilesystemPa
 
     if prompt_once:
         if operand_count > 3 or recursive:
-            if should_confirm('saferm: move selected items to trash?'):
+            let confirmed = propagate should_confirm('saferm: move selected items to trash?')
+            if confirmed:
                 print('saferm: proceeding')
             else:
                 return void
@@ -196,7 +197,8 @@ entry main = f(args: string[]): void errors DirectoryNotFoundError, FilesystemPa
                     continue
 
         if prompt_each:
-            if should_confirm('saferm: move {operand} to trash?'):
+            let confirmed = propagate should_confirm('saferm: move {operand} to trash?')
+            if confirmed:
                 if verbose:
                     print('saferm: confirmed {operand}')
             else:

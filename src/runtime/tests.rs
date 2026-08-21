@@ -1648,6 +1648,197 @@ fn compile_and_run_error_attachment_c_test(test_name: &str, source: &str) {
     );
 }
 
+fn compile_and_run_terminal_coordinator_c_test(test_name: &str, source: &str) {
+    let temp_dir = tempfile::tempdir().expect("create temp dir for terminal coordinator C test");
+    let source_path = temp_dir.path().join(format!("{test_name}.c"));
+    let binary_path = temp_dir.path().join(test_name);
+
+    fs::write(&source_path, source).expect("write terminal coordinator C test source");
+
+    let compile_output = Command::new("gcc")
+        .args([
+            "-std=c11",
+            "-D_POSIX_C_SOURCE=200809L",
+            "-DOPAL_ENABLE_INTERNAL_TESTING",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            source_path.to_str().expect("utf-8 source path"),
+            "runtime/opal_io.c",
+            "-Iruntime",
+            "-o",
+            binary_path.to_str().expect("utf-8 binary path"),
+        ])
+        .output();
+
+    let compiled = match compile_output {
+        Ok(output) => output,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("gcc not found, skipping {test_name}");
+            return;
+        }
+        Err(error) => panic!("failed to invoke gcc for {test_name}: {error}"),
+    };
+
+    assert!(
+        compiled.status.success(),
+        "gcc failed for {test_name}:\n{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+
+    let run_output = Command::new(&binary_path)
+        .output()
+        .unwrap_or_else(|error| panic!("failed to run compiled test {test_name}: {error}"));
+
+    assert!(
+        run_output.status.success(),
+        "compiled C test {test_name} failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&run_output.stdout),
+        String::from_utf8_lossy(&run_output.stderr)
+    );
+}
+
+#[test]
+fn terminal_coordinator_c_rejects_before_stdout_mutation() {
+    compile_and_run_terminal_coordinator_c_test(
+        "terminal-coordinator-c-rejects-before-stdout-mutation",
+        r#"
+#include "opal_runtime.h"
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+static long captured_size(FILE *capture) {
+    long size;
+    fflush(stdout);
+    assert(fseek(capture, 0, SEEK_END) == 0);
+    size = ftell(capture);
+    assert(size >= 0);
+    return size;
+}
+
+int main(void) {
+    int saved_stdin = dup(STDIN_FILENO);
+    int saved_stdout = dup(STDOUT_FILENO);
+    FILE *input = tmpfile();
+    FILE *capture = tmpfile();
+    assert(saved_stdin >= 0);
+    assert(saved_stdout >= 0);
+    assert(input != NULL);
+    assert(capture != NULL);
+    assert(fputs("accepted\n", input) >= 0);
+    assert(fflush(input) == 0);
+    assert(fseek(input, 0, SEEK_SET) == 0);
+    assert(dup2(fileno(input), STDIN_FILENO) >= 0);
+    assert(dup2(fileno(capture), STDOUT_FILENO) >= 0);
+
+    opal_terminal_test_reset();
+    opal_terminal_test_set_state(OPAL_TERMINAL_TEST_OPENING);
+    FsVoidResult result = print_text_sync("blocked");
+    assert(result.error != NULL);
+    assert(strstr(result.error, "WriteFailureError") != NULL);
+    assert(strstr(result.error, "TerminalCoordinatorUnavailable") != NULL);
+    print_string("blocked\\033[31m");
+    FsStringResult blocked_input = take_input();
+    assert(blocked_input.value == NULL);
+    assert(blocked_input.error != NULL);
+    assert(strstr(blocked_input.error, "StandardInputReadError") != NULL);
+    assert(strstr(blocked_input.error, "state: Opening") != NULL);
+    assert(strstr(blocked_input.error, "operation: TakeInput") != NULL);
+    result = terminal_clear_screen_sync();
+    assert(result.error != NULL);
+    assert(strstr(result.error, "TerminalWriteFailureError") != NULL);
+    assert(captured_size(capture) == 0);
+
+    opal_terminal_test_reset();
+    FsStringResult accepted_input = take_input();
+    assert(accepted_input.error == NULL);
+    assert(accepted_input.value != NULL);
+    assert(strcmp(accepted_input.value, "accepted") == 0);
+    free(accepted_input.value);
+    FsHandleResult old_writer_result = stdout_writer();
+    FsHandleResult old_terminal_result = stdout_terminal();
+    assert(old_writer_result.error == NULL);
+    assert(old_terminal_result.error == NULL);
+    OpalStdoutWriter *old_writer = (OpalStdoutWriter *)old_writer_result.value;
+    OpalStdoutTerminal *old_terminal = (OpalStdoutTerminal *)old_terminal_result.value;
+    assert(opal_terminal_test_reserve_opening() == 1);
+    opal_terminal_test_return_free();
+    result = writer_write_sync(old_writer, "stale");
+    assert(result.error != NULL);
+    assert(strstr(result.error, "WriterWrite") != NULL);
+    result = terminal_clear_screen_on_sync(old_terminal);
+    assert(result.error != NULL);
+    assert(strstr(result.error, "TerminalClearScreenOn") != NULL);
+    FsBooleanResult stale_capability = terminal_supports_ansi(old_terminal);
+    assert(stale_capability.value == 0);
+    assert(stale_capability.error != NULL);
+    assert(strstr(stale_capability.error, "StandardOutputCapabilityError") != NULL);
+    assert(strstr(stale_capability.error, "state: Free") != NULL);
+    assert(strstr(stale_capability.error, "operation: TerminalSupportsAnsi") != NULL);
+    assert(captured_size(capture) == 0);
+
+    FsHandleResult fresh_writer_result = stdout_writer();
+    FsHandleResult fresh_terminal_result = stdout_terminal();
+    assert(fresh_writer_result.error == NULL);
+    assert(fresh_terminal_result.error == NULL);
+    OpalStdoutWriter *fresh_writer = (OpalStdoutWriter *)fresh_writer_result.value;
+    OpalStdoutTerminal *fresh_terminal = (OpalStdoutTerminal *)fresh_terminal_result.value;
+    result = writer_write_sync(fresh_writer, "fresh");
+    assert(result.error == NULL);
+    result = terminal_move_cursor_on_sync(fresh_terminal, 0, 0);
+    assert(result.error == NULL);
+    long size_after_fresh_use = captured_size(capture);
+    assert(size_after_fresh_use > 5);
+    const char safe_text[] = {'s', 'a', 'f', 'e', 0x1B, '[', '3', '1', 'm', '\0'};
+    print_string(safe_text);
+    assert(captured_size(capture) > size_after_fresh_use);
+    char captured[512] = {0};
+    assert(fseek(capture, 0, SEEK_SET) == 0);
+    size_t captured_length = fread(captured, 1, sizeof(captured) - 1, capture);
+    captured[captured_length] = '\0';
+    const char escaped_text[] = {'s', 'a', 'f', 'e', 0x5C, 'x', '1', 'B', '[', '3', '1', 'm', '\0'};
+    assert(strstr(captured, escaped_text) != NULL);
+    long size_after_allowed_use = captured_size(capture);
+
+    result = writer_write_sync(old_writer, "still stale");
+    assert(result.error != NULL);
+    assert(strstr(result.error, "WriterWrite") != NULL);
+    result = terminal_clear_screen_on_sync(old_terminal);
+    assert(result.error != NULL);
+    assert(strstr(result.error, "TerminalClearScreenOn") != NULL);
+    assert(captured_size(capture) == size_after_allowed_use);
+
+    opal_terminal_test_set_state(OPAL_TERMINAL_TEST_ACTIVE);
+    FsHandleResult active_writer = stdout_writer();
+    FsHandleResult active_terminal = stdout_terminal();
+    assert(active_writer.value == NULL);
+    assert(active_writer.error != NULL);
+    assert(active_terminal.value == NULL);
+    assert(active_terminal.error != NULL);
+    opal_terminal_test_set_state(OPAL_TERMINAL_TEST_OPENING);
+    FsHandleResult opening_writer = stdout_writer();
+    FsHandleResult opening_terminal = stdout_terminal();
+    assert(opening_writer.value == NULL);
+    assert(opening_writer.error != NULL);
+    assert(opening_terminal.value == NULL);
+    assert(opening_terminal.error != NULL);
+    opal_terminal_test_return_free();
+
+    assert(dup2(saved_stdin, STDIN_FILENO) >= 0);
+    assert(dup2(saved_stdout, STDOUT_FILENO) >= 0);
+    close(saved_stdin);
+    close(saved_stdout);
+    fclose(input);
+    fclose(capture);
+    return 0;
+}
+"#,
+    );
+}
+
 #[test]
 fn error_cause_insertion_is_immutable_and_inspectable() {
     compile_and_run_error_attachment_c_test(

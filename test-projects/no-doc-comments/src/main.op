@@ -6,12 +6,12 @@
 public let add = f(num1: int32, num2: int32): int32 => 
     return num1 + num2
 
-entry main = f(): void => 
+entry main = f(): void errors StandardInputReadError =>
     print(int32_to_string(5))
     print('Enter num 1:')
-    let num1 = take_input()
+    let num1 = propagate take_input()
     print('Enter num 2:')
-    let num2 = take_input()
+    let num2 = propagate take_input()
 
     guard string_to_int32(num1) into num1_int else e => 
         print('An error occurred: {e}')

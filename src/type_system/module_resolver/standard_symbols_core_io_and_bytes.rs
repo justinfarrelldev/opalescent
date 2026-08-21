@@ -46,7 +46,10 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                     generic_params: Vec::new(),
                     parameters: Vec::new(),
                     return_types: vec![CoreType::String],
-                    error_types: Vec::new(),
+                    error_types: vec![CoreType::Generic {
+                        name: String::from("StandardInputReadError"),
+                        type_args: Vec::new(),
+                    }],
                 },
                 SymbolType::Function,
             ),
@@ -407,7 +410,10 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                         name: String::from("StdoutWriter"),
                         type_args: Vec::new(),
                     }],
-                    error_types: Vec::new(),
+                    error_types: vec![CoreType::Generic {
+                        name: String::from("StandardOutputHandleError"),
+                        type_args: Vec::new(),
+                    }],
                 },
                 SymbolType::Function,
             ),
@@ -467,7 +473,10 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                         name: String::from("StdoutTerminal"),
                         type_args: Vec::new(),
                     }],
-                    error_types: Vec::new(),
+                    error_types: vec![CoreType::Generic {
+                        name: String::from("StandardOutputHandleError"),
+                        type_args: Vec::new(),
+                    }],
                 },
                 SymbolType::Function,
             ),
@@ -480,7 +489,10 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                         type_args: Vec::new(),
                     }],
                     return_types: vec![CoreType::Boolean],
-                    error_types: Vec::new(),
+                    error_types: vec![CoreType::Generic {
+                        name: String::from("StandardOutputCapabilityError"),
+                        type_args: Vec::new(),
+                    }],
                 },
                 SymbolType::Function,
             ),
@@ -781,6 +793,30 @@ macro_rules! standard_symbols_core_io_and_bytes_vec {
                 String::from("StdoutTerminal"),
                 CoreType::Generic {
                     name: String::from("StdoutTerminal"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("StandardInputReadError"),
+                CoreType::Generic {
+                    name: String::from("StandardInputReadError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("StandardOutputHandleError"),
+                CoreType::Generic {
+                    name: String::from("StandardOutputHandleError"),
+                    type_args: Vec::new(),
+                },
+                SymbolType::Type,
+            ),
+            (
+                String::from("StandardOutputCapabilityError"),
+                CoreType::Generic {
+                    name: String::from("StandardOutputCapabilityError"),
                     type_args: Vec::new(),
                 },
                 SymbolType::Type,

@@ -137,8 +137,8 @@ mod tests {
         const SOURCE: &str = "
 import print, take_input from standard
 
-entry main = f(): void => {
-    let s: string = take_input()
+entry main = f(): void errors StandardInputReadError => {
+    let s: string = propagate take_input()
     print(s)
     return void
 }
