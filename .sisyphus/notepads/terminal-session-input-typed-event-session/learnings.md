@@ -205,3 +205,9 @@
 - Keep TypeChecker transient state in a checker submodule when adding new task-specific context; moving TypeCheckContext to src/type_system/checker/context.rs kept checker.rs at 1039 lines and preserved field documentation.
 - Transactional aggregate construction must preserve nominal representation: seal fields as an allocation-free SSA struct, then store that sealed value in the normal RC nominal payload and return i8* for non-Pair CoreType::Generic.
 - Focused codegen tests should build a real return/store-compatible path and verify the LLVM module; checking only lowered.is_struct_value() missed the anonymous-struct/nominal-pointer mismatch.
+
+
+## Task 19 wait/cancellation runtime learnings - 2026-08-21
+- Generic wait-set cancellation needs a wait-set-local predicate update before `Condvar::notify_all`; recording only on the cancellation source can lose wakes for already-blocked waiters.
+- Public `Debug` for opaque runtime handles must avoid even diagnostic IDs: source IDs, wait-set IDs, registration IDs, auth secrets, and cancellation generations are all capability-adjacent and should stay redacted.
+- Bounded-fair wake selection is easier to keep hook-compliant when cursor math lives in a small helper module (`src/runtime/wait/fairness.rs`) instead of growing the main wait-set file.

@@ -98,3 +98,9 @@
 - Atlas rejected the earlier aggregate implementation because checker.rs exceeded the 1050-line cap and evidence still referenced stale counts/results.
 - The first aggregate constructor codegen proof was too weak: it asserted the anonymous sealed struct shape and forbade allocation, but ordinary nominal generics lower to i8* and require a nominal payload pointer.
 - Required evidence files under .sisyphus/evidence remain ignored by default; force-add task-18 aggregate evidence during commit.
+
+
+## Task 19 wait/cancellation gotchas - 2026-08-21
+- Strict lint includes `clippy::tests_outside_test_module`; integration tests still need a `#[cfg(test)] mod tests` wrapper in this repository.
+- The line-count hook applies to new runtime implementation files, so main runtime modules should be split before they cross 1000 lines even when tests are green.
+- Cancellation ordering is subtle: already-published ready work with an older sequence must drain before cancellation, while newer readiness after cancellation must not starve the sticky cancelled wake.

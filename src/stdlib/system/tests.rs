@@ -15,7 +15,13 @@ mod system_tests {
         platform::{Arch, OsKind, Platform},
         process::{ChildProcess as _, ExitCode, MockProcessManager, ProcessManager as _, Signal},
         thread::{OpalMutex as _, Spawner as _, StdMutex, SyncSpawner},
+        wait::{
+            cancellation_request, cancellation_source_new, cancellation_token, system_wait_set_new,
+            system_wait_set_register, system_wait_set_wait_sync,
+        },
     };
+
+    use crate::runtime::{SystemReadyWakeStatus, wait_test_support::FakeReadinessSource};
 
     extern crate alloc;
 
@@ -391,5 +397,31 @@ mod system_tests {
         let _c2 = pm.spawn("cat", &["file.txt"]).expect("spawn 2");
         assert_eq!(pm.spawn_calls.len(), 2);
         assert_eq!(pm.spawn_calls[1].program, "cat");
+    }
+
+    #[test]
+    fn system_wait_facade_reports_fake_ready_source() {
+        let fake = FakeReadinessSource::new();
+        let mut wait_set = system_wait_set_new();
+        system_wait_set_register(&mut wait_set, &fake.source())
+            .expect("facade registration should succeed");
+        let cancellation = cancellation_source_new();
+        let token = cancellation_token(&cancellation);
+
+        fake.publish_ready();
+
+        let wake = system_wait_set_wait_sync(&mut wait_set, &token)
+            .expect("facade wait should report ready source");
+        assert_eq!(
+            wake.readiness_against(&fake.source()),
+            SystemReadyWakeStatus::Current
+        );
+
+        let mut requested = cancellation;
+        cancellation_request(&mut requested);
+        let cancelled = system_wait_set_wait_sync(&mut wait_set, &token)
+            .expect("facade wait should report cancellation after old ready work drains");
+        assert_eq!(cancelled.ready_source(), None);
+        assert_eq!(cancelled.ready_generation(), None);
     }
 }

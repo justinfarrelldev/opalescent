@@ -10,6 +10,7 @@ pub mod memory;
 pub mod reporting;
 pub mod stdlib;
 pub mod strings;
+pub mod wait;
 
 pub use arrays::{allocate_array, array_index, array_length};
 pub use errors::{RuntimeError, RuntimeResult, RuntimeResultExt};
@@ -25,6 +26,15 @@ pub use strings::{
     string_find_last_index_of_text, string_index, string_is_blank, string_length,
     string_split_lines, string_take_prefix, string_take_suffix, string_trim_whitespace,
 };
+pub use wait::{
+    CancellationSource, CancellationToken, SystemOwnedWaitRegistration, SystemReadinessSource,
+    SystemReadyWakeStatus, SystemWaitRegistration, SystemWaitSet, SystemWaitSetError,
+    SystemWaitWake,
+};
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub(crate) mod wait_test_support;
+#[cfg(test)]
+mod wait_tests;

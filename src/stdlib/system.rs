@@ -22,3 +22,4 @@ pub mod platform;
 pub mod process;
 pub mod tests;
 pub mod thread;
+pub mod wait;
