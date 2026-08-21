@@ -14,6 +14,7 @@ use crate::{
 const TERMINAL_PROPOSAL_AFFINE_RESOURCE_TYPES: &[&str] = &[
     "TerminalSession",
     "TerminalChordRouter",
+    "EditorChordRuntime",
     "TerminalTestScenario",
     "TerminalTestBackendActivation",
     "SystemWaitSet",
@@ -33,6 +34,10 @@ const TERMINAL_PROPOSAL_PREREQUISITE_TYPES: &[&str] = &[
     "Error",
     "ErrorAttachmentAbsentError",
     "ErrorAttachmentTruncation",
+    "EditorBindingMap",
+    "EditorChordCapacityRecovery",
+    "EditorChordRuntime",
+    "EditorChordTimerRecoverySlot",
     "MonotonicDeadline",
     "MonotonicTimer",
     "MonotonicTimerError",
@@ -63,6 +68,7 @@ impl TypeChecker {
         self.register_terminal_proposal_prerequisite_types();
         self.register_core_prerequisite_affine_resources();
         self.register_terminal_proposal_affine_resources();
+        self.register_terminal_affine_aggregates();
     }
 
     /// Record constructor visibility metadata for one locally visible type name.

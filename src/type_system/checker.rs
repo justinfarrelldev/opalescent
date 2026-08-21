@@ -14,7 +14,10 @@ use super::types::{CoreType, GenericTypeParameter, TypeVar};
 use crate::{
     ast::FunctionModifier,
     token::Span,
-    type_system::{arithmetic::ArithmeticMode, error_families::stdlib_error_families},
+    type_system::{
+        affine_aggregates::AffineAggregateSpec, arithmetic::ArithmeticMode,
+        error_families::stdlib_error_families,
+    },
 };
 use alloc::{
     collections::{BTreeMap, BTreeSet},
@@ -22,14 +25,17 @@ use alloc::{
     string::String,
     vec::Vec,
 };
+use context::TypeCheckContext;
 use hot_reload::FunctionHotReloadMetadata;
 use ref_rules::OwnershipState;
+mod affine_aggregates;
 /** Bytes stdlib built-in signature registration. */
 mod bytes_builtins;
 mod call_resolution;
 mod collections;
 /** ADT constructor expression and schema validation helpers. */
 mod constructors;
+mod context;
 mod control_flow;
 mod declarations;
 /** Default construction and test-only import configuration. */
@@ -133,27 +139,6 @@ pub(super) struct FallibleCallShape {
     pub(super) error_types: Vec<CoreType>,
 }
 
-#[derive(Default)]
-struct TypeCheckContext {
-    /// Nesting depth of guard `else` handlers currently being type checked.
-    guard_else_depth: usize,
-    /// Stack tracking the error types handled by active guard else branches.
-    guard_error_stack: Vec<Vec<CoreType>>,
-    /// Stack of guard success bindings intentionally hidden while typing the active error clause.
-    pending_guard_success_bindings: Vec<String>,
-    /// Stack of active guard error binding metadata currently in scope.
-    active_guard_error_bindings: Vec<ActiveGuardErrorBinding>,
-    /// Tracks whether calls are being checked from within a propagate expression.
-    in_propagate_context: bool,
-    /// Tracks whether calls are being checked as the subject expression of a guard.
-    in_guard_subject_context: bool,
-    /// Stack tracking return label mode for active function/lambda bodies.
-    return_label_modes: Vec<ReturnLabelMode>,
-    /// Stack of inferred break payload types for nested loop analysis.
-    loop_break_type_stack: Vec<Option<Vec<CoreType>>>,
-    /// Active `using` cleanup obligations for affine resources.
-    using_cleanup_obligations: Vec<using_cleanup::UsingCleanupObligation>,
-}
 /// Core type checker responsible for Opalescent type validation and inference.
 pub struct TypeChecker {
     /// Current type environment
@@ -164,7 +149,7 @@ pub struct TypeChecker {
     symbol_table: SymbolTable,
     /// Collected type constraints for inference (Phase 2)
     constraints: Vec<TypeConstraint>,
-    /// Ad-hoc context stacks for transient checking state.
+    /// Per-check contextual stacks for guard, loop, cleanup, and aggregate analysis.
     context: TypeCheckContext,
     /// Affine resource owner and second-class borrow state.
     ownership: OwnershipState,
@@ -186,17 +171,19 @@ pub struct TypeChecker {
     generic_instantiations: BTreeMap<String, Vec<Vec<CoreType>>>,
     /// Resolver for module interfaces and dependency cycle checks.
     module_resolver: ModuleResolver,
-    /// Ordered signature return labels keyed by the currently visible symbol name.
+    /// Return labels registered by function name for labeled-return checks.
     function_return_labels: BTreeMap<String, Vec<String>>,
-    /// Module identifier currently associated with this checker instance.
+    /// Module path currently being type checked.
     current_module_path: String,
-    /// Whether imports from test-only module interfaces are permitted.
+    /// Whether test-only modules may be imported during this check.
     allow_test_only_imports: bool,
-    /// Whether future terminal proposal imports are permitted for focused tests.
+    /// Whether terminal proposal modules may be imported during this check.
     allow_terminal_proposal_imports: bool,
-    /// Constructor visibility annotations keyed by locally visible type name.
+    /// Constructor visibility registry keyed by constructor name.
     constructor_visibilities: BTreeMap<String, String>,
-    /// Stack tracking active function modifiers for the currently checked function/lambda.
+    /// Registered affine aggregate specs keyed by aggregate type name.
+    affine_aggregate_specs: BTreeMap<String, AffineAggregateSpec>,
+    /// Active function modifier stack for nested function checks.
     function_modifier_stack: Vec<Vec<FunctionModifier>>,
 }
 impl TypeChecker {
@@ -223,6 +210,7 @@ impl TypeChecker {
             allow_test_only_imports: false,
             allow_terminal_proposal_imports: false,
             constructor_visibilities: BTreeMap::new(),
+            affine_aggregate_specs: BTreeMap::new(),
             function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
@@ -254,6 +242,7 @@ impl TypeChecker {
             allow_test_only_imports: false,
             allow_terminal_proposal_imports: false,
             constructor_visibilities: BTreeMap::new(),
+            affine_aggregate_specs: BTreeMap::new(),
             function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
