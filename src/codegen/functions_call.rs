@@ -57,7 +57,7 @@ use self::string_array_calls::{
 use self::tail::declare_external_imported_function;
 use self::using_cleanup::{
     build_error_variant_match, consume_using_cleanup_obligation_after_success,
-    emit_cleanup_aware_error_return, mark_using_cleanup_success,
+    emit_cleanup_aware_error_return, mark_using_cleanup_success, mark_using_cleanup_transfer,
     prepare_using_cleanup_success_flag, using_cleanup_close_binding,
     using_cleanup_transfer_variant,
 };
@@ -852,6 +852,20 @@ pub fn codegen_guard_expression<'context>(
                     .context
                     .append_basic_block(current_fn, env.next_name("guard.expr.merge").as_str());
                 let error_ptr = error_value.into_pointer_value();
+                let using_cleanup_transfer = if let Expr::Call {
+                    ref callee,
+                    ref args,
+                    ..
+                } = *guarded_expr
+                {
+                    using_cleanup_close_binding(env, callee.as_ref(), args.as_slice()).and_then(
+                        |closed_binding| {
+                            using_cleanup_transfer_variant(env, closed_binding.as_str())
+                        },
+                    )
+                } else {
+                    None
+                };
                 let using_cleanup_success_flag = if let Expr::Call {
                     ref callee,
                     ref args,
@@ -891,6 +905,18 @@ pub fn codegen_guard_expression<'context>(
                     .build_unconditional_branch(merge_block)?;
 
                 codegen_context.builder.position_at_end(else_block);
+                if let (Some(flag), Some(transfer_variant)) = (
+                    using_cleanup_success_flag.as_ref().copied(),
+                    using_cleanup_transfer.as_ref(),
+                ) {
+                    mark_using_cleanup_transfer(
+                        codegen_context,
+                        env,
+                        error_ptr,
+                        flag,
+                        transfer_variant.as_str(),
+                    )?;
+                }
                 let else_value = codegen_expression(codegen_context, env, expr, expected_type)?;
                 let else_end = codegen_context.builder.get_insert_block().ok_or_else(|| {
                     CodegenError::new(String::from("guard expression else block missing"))

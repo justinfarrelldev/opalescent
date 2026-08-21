@@ -60,6 +60,48 @@ pub(super) fn mark_using_cleanup_success<'context>(
     Ok(())
 }
 
+pub(super) fn mark_using_cleanup_transfer<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    error_ptr: PointerValue<'context>,
+    flag: PointerValue<'context>,
+    variant: &str,
+) -> Result<(), CodegenError> {
+    let current_block = codegen_context
+        .builder
+        .get_insert_block()
+        .ok_or_else(|| CodegenError::new(String::from("using transfer missing insertion block")))?;
+    let current_fn = current_block
+        .get_parent()
+        .ok_or_else(|| CodegenError::new(String::from("using transfer missing function")))?;
+    let transfer_block = codegen_context
+        .context
+        .append_basic_block(current_fn, env.next_name("using.transfer.mark").as_str());
+    let ordinary_block = codegen_context
+        .context
+        .append_basic_block(current_fn, env.next_name("using.transfer.keep").as_str());
+    let continue_block = codegen_context
+        .context
+        .append_basic_block(current_fn, env.next_name("using.transfer.cont").as_str());
+    let is_transfer = build_error_variant_match(codegen_context, env, error_ptr, variant)?;
+    codegen_context.builder.build_conditional_branch(
+        is_transfer,
+        transfer_block,
+        ordinary_block,
+    )?;
+    codegen_context.builder.position_at_end(transfer_block);
+    mark_using_cleanup_success(codegen_context, flag)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(continue_block)?;
+    codegen_context.builder.position_at_end(ordinary_block);
+    codegen_context
+        .builder
+        .build_unconditional_branch(continue_block)?;
+    codegen_context.builder.position_at_end(continue_block);
+    Ok(())
+}
+
 pub(super) fn using_cleanup_close_binding<'context>(
     env: &CodegenEnv<'context>,
     callee: &Expr,
