@@ -135,6 +135,17 @@ pub(super) fn using_cleanup_close_binding<'context>(
     Some(binding_name.clone())
 }
 
+pub(super) fn using_cleanup_close_transfer<'context>(
+    env: &CodegenEnv<'context>,
+    callee: &Expr,
+    args: &[Expr],
+) -> Option<(String, String)> {
+    using_cleanup_close_binding(env, callee, args).and_then(|binding_name| {
+        using_cleanup_transfer_variant(env, binding_name.as_str())
+            .map(|variant| (binding_name, variant))
+    })
+}
+
 pub(super) fn using_cleanup_transfer_variant<'context>(
     env: &CodegenEnv<'context>,
     binding_name: &str,

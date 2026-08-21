@@ -34,6 +34,9 @@ use inkwell::values::{
 mod array;
 #[path = "functions_call/call_arg_cleanup.rs"]
 mod call_arg_cleanup;
+#[path = "functions_call/error_propagation.rs"]
+#[doc = "Error propagation helpers for call lowering internals."]
+mod error_propagation;
 #[path = "functions_call_helpers.rs"]
 #[doc = "Helper utilities for call-expression lowering internals."]
 mod functions_call_helpers;
@@ -47,6 +50,9 @@ use self::array::{
     codegen_array_intrinsic_call, codegen_array_member_call, is_array_intrinsic_name,
 };
 use self::call_arg_cleanup::{cleanup_call_argument_temporaries, lower_call_argument};
+use self::error_propagation::{
+    attach_requested_error_cause, lower_error_pointer_expression, propagate_error_value_return,
+};
 use self::functions_call_helpers::{
     caller_returns_error_aggregate, current_function, infer_guard_binding_core_type,
     llvm_metadata_type_to_core_type, uses_aggregate_result_dispatch,
@@ -58,8 +64,7 @@ use self::tail::declare_external_imported_function;
 use self::using_cleanup::{
     build_error_variant_match, consume_using_cleanup_obligation_after_success,
     emit_cleanup_aware_error_return, mark_using_cleanup_success, mark_using_cleanup_transfer,
-    prepare_using_cleanup_success_flag, using_cleanup_close_binding,
-    using_cleanup_transfer_variant,
+    prepare_using_cleanup_success_flag, using_cleanup_close_transfer,
 };
 
 pub fn build_function_type<'context>(
@@ -527,7 +532,12 @@ pub fn codegen_call_expression<'context>(
                 .map_or_else(|| name.as_str(), String::as_str);
             let direct_runtime_boolean = matches!(
                 runtime_name,
-                "terminal_supports_ansi" | "environment_variable_exists" | "string_is_blank"
+                "terminal_supports_ansi"
+                    | "environment_variable_exists"
+                    | "string_is_blank"
+                    | "error_attachment_truncation_cause_depth"
+                    | "error_attachment_truncation_suppressed_count"
+                    | "error_attachment_truncation_bytes"
             );
             if direct_runtime_boolean && call_result.is_int_value() {
                 let int_value = call_result.into_int_value();
@@ -566,23 +576,22 @@ pub fn codegen_propagate_expression<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     call_expr: &Expr,
+    cause_expr: Option<&Expr>,
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let explicit_close_transfer = if let Expr::Call {
-        ref callee,
-        ref args,
-        ..
-    } = *call_expr
-    {
-        using_cleanup_close_binding(env, callee.as_ref(), args.as_slice()).and_then(
-            |binding_name| {
-                using_cleanup_transfer_variant(env, binding_name.as_str())
-                    .map(|variant| (binding_name, variant))
-            },
-        )
+    let requested_cause = cause_expr
+        .map(|cause| lower_error_pointer_expression(codegen_context, env, cause, "propagate cause"))
+        .transpose()?;
+    let explicit_close_transfer = if let Expr::Call { callee, args, .. } = call_expr {
+        using_cleanup_close_transfer(env, callee.as_ref(), args.as_slice())
     } else {
         None
     };
+
+    if matches!(*call_expr, Expr::Identifier { .. }) {
+        return propagate_error_value_return(codegen_context, env, call_expr, requested_cause);
+    }
+
     let value = if let Expr::Call {
         ref callee,
         ref args,
@@ -640,6 +649,11 @@ pub fn codegen_propagate_expression<'context>(
                 )?;
             }
             codegen_context.builder.position_at_end(early_return);
+            let forward_error = forward_error
+                .map(|primary| {
+                    attach_requested_error_cause(codegen_context, env, primary, requested_cause)
+                })
+                .transpose()?;
             if let (Some(body_error), Some((binding_name, transfer_variant))) =
                 (forward_error, explicit_close_transfer)
             {
@@ -852,17 +866,9 @@ pub fn codegen_guard_expression<'context>(
                     .context
                     .append_basic_block(current_fn, env.next_name("guard.expr.merge").as_str());
                 let error_ptr = error_value.into_pointer_value();
-                let using_cleanup_transfer = if let Expr::Call {
-                    ref callee,
-                    ref args,
-                    ..
-                } = *guarded_expr
-                {
-                    using_cleanup_close_binding(env, callee.as_ref(), args.as_slice()).and_then(
-                        |closed_binding| {
-                            using_cleanup_transfer_variant(env, closed_binding.as_str())
-                        },
-                    )
+                let using_cleanup_transfer = if let Expr::Call { callee, args, .. } = guarded_expr {
+                    using_cleanup_close_transfer(env, callee.as_ref(), args.as_slice())
+                        .map(|(_, variant)| variant)
                 } else {
                     None
                 };
