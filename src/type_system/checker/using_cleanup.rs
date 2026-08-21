@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use super::helpers::type_mismatch_error;
-use crate::ast::{AstNode, Expr, LetBinding, Stmt, Type};
+use crate::ast::{AstNode, BorrowKind, Expr, LetBinding, Stmt, Type};
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
@@ -34,6 +34,19 @@ struct CleanupRegistration {
     cleanup_errors: &'static [&'static str],
     /// Optional exact cleanup-authority transfer result.
     transfer: Option<CleanupAuthorityTransfer>,
+}
+
+/// One active compiler-owned cleanup obligation for a scoped `using` binding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct UsingCleanupObligation {
+    /// Binding whose resource owns the cleanup obligation.
+    binding_name: String,
+    /// Declared cleanup operation that can consume this obligation.
+    cleanup_operation: &'static str,
+    /// Optional exact cleanup-authority transfer result.
+    transfer: Option<CleanupAuthorityTransfer>,
+    /// Whether successful explicit close already consumed the obligation.
+    consumed: bool,
 }
 
 /// The exact Task 14 compiler-visible cleanup registry.
@@ -131,10 +144,13 @@ impl TypeChecker {
             true,
         )?;
 
-        self.within_new_scope(|checker| {
+        self.push_using_cleanup_obligation(binding.name.clone(), registration);
+        let result = self.within_new_scope(|checker| {
             checker.register_using_owner_binding(binding, binding_type.clone());
             checker.type_check_stmt_with_return(body.as_ref(), expected_return)
-        })
+        });
+        let _obligation = self.context.using_cleanup_obligations.pop();
+        result
     }
 
     /// Reconcile an optional `using` binding annotation with its acquisition type.
@@ -225,6 +241,72 @@ impl TypeChecker {
         })
     }
 
+    /// Push one active cleanup obligation for a `using` binding.
+    fn push_using_cleanup_obligation(
+        &mut self,
+        binding_name: String,
+        registration: &'static CleanupRegistration,
+    ) {
+        self.context
+            .using_cleanup_obligations
+            .push(UsingCleanupObligation {
+                binding_name,
+                cleanup_operation: registration.cleanup_operation,
+                transfer: registration.transfer,
+                consumed: false,
+            });
+    }
+
+    /// Record successful explicit cleanup if `call` is the registered operation for a live obligation.
+    pub(super) fn consume_using_cleanup_obligation_after_success(&mut self, call: &Expr) {
+        let Expr::Call {
+            ref callee,
+            ref args,
+            ..
+        } = *call
+        else {
+            return;
+        };
+        let Some(operation_name) = cleanup_operation_name(callee.as_ref()) else {
+            return;
+        };
+        let Some(binding_name) = cleanup_mutable_ref_binding(args.as_slice()) else {
+            return;
+        };
+        if let Some(obligation) = self
+            .context
+            .using_cleanup_obligations
+            .iter_mut()
+            .rev()
+            .find(|obligation| obligation.binding_name == binding_name)
+        {
+            if obligation.cleanup_operation == operation_name {
+                obligation.consumed = true;
+            }
+        }
+    }
+
+    /// Return whether a cleanup result is the exact registered authority transfer.
+    fn cleanup_result_transfers_authority(
+        &self,
+        binding_name: &str,
+        operation: &str,
+        error_family: &str,
+        variant: &str,
+    ) -> bool {
+        self.context
+            .using_cleanup_obligations
+            .iter()
+            .rev()
+            .find(|obligation| obligation.binding_name == binding_name)
+            .and_then(|obligation| obligation.transfer)
+            .is_some_and(|transfer| {
+                transfer.operation == operation
+                    && transfer.error_family == error_family
+                    && transfer.variant == variant
+            })
+    }
+
     /// Register the scoped owner binding introduced by `using`.
     fn register_using_owner_binding(&mut self, binding: &LetBinding, core_type: CoreType) {
         let symbol_type = if binding.is_mutable {
@@ -273,6 +355,31 @@ fn using_annotation_to_core_type(annotation: &Type) -> Result<CoreType, TypeErro
     }
 }
 
+/// Extract a called operation name from a direct or module-qualified callee.
+fn cleanup_operation_name(callee: &Expr) -> Option<&str> {
+    match *callee {
+        Expr::Identifier { ref name, .. } => Some(name.as_str()),
+        Expr::Member { ref member, .. } => Some(member.as_str()),
+        _ => None,
+    }
+}
+
+/// Extract the binding name from a cleanup operation's `mutable ref` argument.
+fn cleanup_mutable_ref_binding(args: &[Expr]) -> Option<&str> {
+    let Expr::BorrowArgument {
+        ref target,
+        borrow_kind: BorrowKind::MutableRef,
+        ..
+    } = *args.first()?
+    else {
+        return None;
+    };
+    let Expr::Identifier { ref name, .. } = **target else {
+        return None;
+    };
+    Some(name.as_str())
+}
+
 /// Extract a direct nominal affine resource type name.
 fn direct_resource_type_name(core_type: &CoreType) -> Option<&str> {
     let &CoreType::Generic {
@@ -303,6 +410,91 @@ mod tests {
     )]
 
     use super::*;
+
+    fn test_span() -> Span {
+        Span::single(crate::token::Position::new(1, 1, 0))
+    }
+
+    fn mutable_ref_call(operation: &str, binding_name: &str) -> Expr {
+        Expr::Call {
+            callee: Box::new(Expr::Identifier {
+                name: operation.to_owned(),
+                span: test_span(),
+                id: crate::ast::NodeId(91_000),
+            }),
+            generic_args: None,
+            args: vec![Expr::BorrowArgument {
+                target: Box::new(Expr::Identifier {
+                    name: binding_name.to_owned(),
+                    span: test_span(),
+                    id: crate::ast::NodeId(91_001),
+                }),
+                borrow_kind: BorrowKind::MutableRef,
+                span: test_span(),
+                id: crate::ast::NodeId(91_002),
+            }],
+            span: test_span(),
+            id: crate::ast::NodeId(91_003),
+        }
+    }
+
+    #[test]
+    fn using_cleanup_consumes_only_registered_explicit_close() {
+        let mut checker = TypeChecker::new();
+        let registration = cleanup_registration("TerminalSession")
+            .expect("TerminalSession cleanup registration must exist");
+        checker.push_using_cleanup_obligation(String::from("session"), registration);
+        checker.consume_using_cleanup_obligation_after_success(&mutable_ref_call(
+            "terminal_session_state",
+            "session",
+        ));
+        assert!(
+            !checker.context.using_cleanup_obligations[0].consumed,
+            "ordinary mutable-ref operations must not consume cleanup authority"
+        );
+        checker.consume_using_cleanup_obligation_after_success(&mutable_ref_call(
+            "terminal_session_close_sync",
+            "other_session",
+        ));
+        assert!(
+            !checker.context.using_cleanup_obligations[0].consumed,
+            "registered cleanup operation on another binding must not consume this obligation"
+        );
+        checker.consume_using_cleanup_obligation_after_success(&mutable_ref_call(
+            "terminal_session_close_sync",
+            "session",
+        ));
+        assert!(
+            checker.context.using_cleanup_obligations[0].consumed,
+            "successful registered close must consume exactly the live using obligation"
+        );
+    }
+
+    #[test]
+    fn using_cleanup_transfer_requires_exact_registered_result() {
+        let mut checker = TypeChecker::new();
+        let registration = cleanup_registration("TerminalSession")
+            .expect("TerminalSession cleanup registration must exist");
+        checker.push_using_cleanup_obligation(String::from("session"), registration);
+        assert!(checker.cleanup_result_transfers_authority(
+            "session",
+            "terminal_session_close_sync",
+            "TerminalSessionRestoreError",
+            "CloseRestorePending",
+        ));
+        assert!(!checker.cleanup_result_transfers_authority(
+            "session",
+            "terminal_session_close_sync",
+            "TerminalSessionRestoreError",
+            "PendingCloseRestoreFailed",
+        ));
+        assert!(!checker.cleanup_result_transfers_authority(
+            "session",
+            "terminal_session_state",
+            "TerminalSessionRestoreError",
+            "CloseRestorePending",
+        ));
+    }
 
     #[test]
     fn using_cleanup_registry_has_exact_terminal_transfer() {

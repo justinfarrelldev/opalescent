@@ -150,6 +150,8 @@ struct TypeCheckContext {
     return_label_modes: Vec<ReturnLabelMode>,
     /// Stack of inferred break payload types for nested loop analysis.
     loop_break_type_stack: Vec<Option<Vec<CoreType>>>,
+    /// Active `using` cleanup obligations for affine resources.
+    using_cleanup_obligations: Vec<using_cleanup::UsingCleanupObligation>,
 }
 /// Core type checker responsible for Opalescent type validation and inference.
 pub struct TypeChecker {
@@ -790,7 +792,6 @@ impl TypeChecker {
         }
         Ok(resolved)
     }
-
     /// Emit the most specific eligible replacement warning for a declared error list.
     pub(super) fn warn_for_replaceable_error_list(&mut self, error_types: &[CoreType], span: Span) {
         let declared_names = error_types
@@ -817,7 +818,6 @@ impl TypeChecker {
             });
         }
     }
-
     /// Return whether a declared error type covers an emitted error type.
     pub(super) fn declared_error_type_covers(emitted: &CoreType, declared: &CoreType) -> bool {
         if emitted == declared {

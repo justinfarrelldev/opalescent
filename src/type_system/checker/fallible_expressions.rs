@@ -47,6 +47,7 @@ impl TypeChecker {
             fallible_info.error_types.as_slice(),
             span,
         )?;
+        self.consume_using_cleanup_obligation_after_success(call);
         Ok(fallible_info.success_type)
     }
 
