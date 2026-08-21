@@ -18,7 +18,7 @@ use crate::codegen::expressions_array::{
     materialize_runtime_array_from_raw_elements,
 };
 use crate::codegen::monomorphization::ensure_monomorphized_function_declaration;
-
+use crate::codegen::scope_tracker::cleanup_return_scopes_preserving_codegen_env;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::format;
@@ -618,6 +618,7 @@ pub fn codegen_propagate_expression<'context>(
                 )?;
             }
             codegen_context.builder.position_at_end(early_return);
+            cleanup_return_scopes_preserving_codegen_env(codegen_context, env, &[])?;
             emit_function_default_return(codegen_context, current_fn, forward_error)?;
             codegen_context.builder.position_at_end(continue_block);
             let success_field_count = crate::codegen::error_abi::error_field_index(field_count);
