@@ -389,4 +389,85 @@ entry main = f(): int32 => {
             "expected TypeMismatch error, got: {errors:?}",
         );
     }
+
+    #[test]
+    fn test_standard_testing_terminal_import_is_rejected_in_production_mode() {
+        const SOURCE: &str = "
+import type TerminalTestAuthority from 'standard.testing.terminal'
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        let errors = result.expect_err("test-only terminal imports must fail in production mode");
+        assert!(
+            errors.iter().any(|error| matches!(
+                *error,
+                TypeError::ModuleUnavailable { ref module, ref reason, .. }
+                    if module == "standard.testing.terminal" && reason.contains("test-only")
+            )),
+            "expected test-only ModuleUnavailable diagnostic, got: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_standard_testing_terminal_import_resolves_in_test_mode() {
+        const SOURCE: &str = "
+import type TerminalTestAuthority from 'standard.testing.terminal'
+
+entry main = f(): TerminalTestAuthority =>
+    return authority
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        checker.enable_test_only_imports();
+        let result = checker.type_check_program(&program);
+
+        assert!(
+            result.is_err(),
+            "test-mode import should pass availability and continue to body checking",
+        );
+        let errors = result.expect_err("undefined value should remain the only failure");
+        assert!(
+            errors
+                .iter()
+                .all(|error| !matches!(*error, TypeError::ModuleUnavailable { .. })),
+            "test-mode import should not report availability errors: {errors:?}",
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| matches!(*error, TypeError::SymbolNotFound { ref name, .. } if name == "authority")),
+            "body should reach ordinary symbol checking after import succeeds: {errors:?}",
+        );
+    }
+
+    #[test]
+    fn test_public_terminal_and_chord_modules_remain_future_gated() {
+        for (module_path, type_name) in [
+            ("standard.terminal", "TerminalSession"),
+            ("standard.terminal.chords", "TerminalChordRouter"),
+        ] {
+            let source = format!(
+                "\nimport type {type_name} from '{module_path}'\n\nentry main = f(): void =>\n    return void\n"
+            );
+            let program = parse_pipeline(&source);
+            let mut checker = TypeChecker::new();
+            checker.enable_test_only_imports();
+            let result = checker.type_check_program(&program);
+            let errors = result.expect_err("future public terminal modules must remain gated");
+            assert!(
+                errors.iter().any(|error| matches!(
+                    *error,
+                    TypeError::ModuleUnavailable { ref module, ref reason, .. }
+                        if module == module_path && reason.contains("public terminal API gate")
+                )),
+                "expected future-gate ModuleUnavailable diagnostic for {module_path}, got: {errors:?}",
+            );
+        }
+    }
 }

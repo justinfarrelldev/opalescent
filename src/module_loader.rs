@@ -21,7 +21,8 @@ use std::path::{Path, PathBuf};
 /// Supported forms:
 /// - `./path` -> `<from_dir>/path.op`
 /// - `./path.types` -> `<from_dir>/path.types.op`
-/// - `standard` / `math` / `process` -> `__stdlib__/<name>` sentinel path
+/// - registered stdlib modules such as `standard`, `math`, `process`, and terminal proposal modules
+///   -> `__stdlib__/<name>` sentinel path
 /// - `@scope/name` -> `TypeError::PackageImportNotSupported`
 ///
 /// # Errors
@@ -40,7 +41,7 @@ fn resolve_import_path_with_span(
     import_source: &str,
     span: Span,
 ) -> Result<PathBuf, TypeError> {
-    if matches!(import_source, "standard" | "math" | "process") {
+    if is_stdlib_import_source(import_source) {
         return Ok(PathBuf::from(format!("__stdlib__/{import_source}")));
     }
 
@@ -78,6 +79,19 @@ fn resolve_import_path_with_span(
     }
 
     Ok(resolved)
+}
+
+/// Return true for import source strings resolved through built-in stdlib sentinels.
+fn is_stdlib_import_source(import_source: &str) -> bool {
+    matches!(
+        import_source,
+        "standard"
+            | "math"
+            | "process"
+            | "standard.terminal"
+            | "standard.terminal.chords"
+            | "standard.testing.terminal"
+    )
 }
 
 /// Checks if a file path represents a types file (ends with `.types.op`).
@@ -530,6 +544,20 @@ mod tests {
         let from_file = PathBuf::from("/tmp/main.op");
         let resolved = resolve_import_path(&from_file, "process").expect("process stdlib resolves");
         assert_eq!(resolved, PathBuf::from("__stdlib__/process"));
+    }
+
+    #[test]
+    fn resolve_import_path_terminal_proposal_stdlib_sentinels() {
+        let from_file = PathBuf::from("/tmp/main.op");
+        for module_path in [
+            "standard.terminal",
+            "standard.terminal.chords",
+            "standard.testing.terminal",
+        ] {
+            let resolved = resolve_import_path(&from_file, module_path)
+                .expect("terminal proposal stdlib sentinel should resolve");
+            assert_eq!(resolved, PathBuf::from(format!("__stdlib__/{module_path}")));
+        }
     }
 
     #[test]

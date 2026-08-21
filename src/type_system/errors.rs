@@ -1,9 +1,11 @@
 //! Type checking error types and error handling utilities
 extern crate alloc;
-use crate::token::Span;
 use alloc::string::String;
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
+
+/// Source-span helpers for type-checking diagnostics.
+mod type_error_impl;
 /// Type checking errors that can occur during type analysis
 #[derive(Error, Debug, Clone, PartialEq, Eq, Diagnostic)]
 pub enum TypeError {
@@ -734,6 +736,20 @@ pub enum TypeError {
         /// Span of the unresolved import declaration.
         span: SourceSpan,
     },
+    /// Import source is known but unavailable for this compilation mode.
+    #[error("Module '{module}' is not available from this compilation context: {reason}")]
+    #[diagnostic(code(opalescent::type_system::module_unavailable), help("{help}"))]
+    ModuleUnavailable {
+        /// Registered module path that was rejected by availability gating.
+        module: String,
+        /// Precise reason this module cannot be imported.
+        reason: String,
+        /// Suggested fix for the current availability failure.
+        help: String,
+        #[label("unavailable module import")]
+        /// Span of the import declaration.
+        span: SourceSpan,
+    },
     /// Two imports introduce the same local binding name from different modules.
     #[error(
         "Import name conflict for '{name}': already imported from '{first_module}', cannot also import from '{second_module}'"
@@ -1028,23 +1044,5 @@ impl Warning {
             } => suppression_annotation,
         };
         suppression_annotation.as_deref()
-    }
-}
-impl TypeError {
-    /// Convert AST Span to miette `SourceSpan`
-    ///
-    /// This utility method provides consistent conversion from the compiler's internal
-    /// [`Span`] type to miette's [`SourceSpan`] for error reporting.
-    pub fn span_from_span(span: Span) -> SourceSpan {
-        let start: usize = span.start.offset;
-        let len = span.end.offset.saturating_sub(span.start.offset);
-        SourceSpan::new(start.into(), len)
-    }
-    /// Create a default/unknown source span for errors without location information
-    ///
-    /// Used as a temporary measure for code that doesn't yet track source locations.
-    /// All code should eventually be updated to provide actual spans.
-    pub fn unknown_span() -> SourceSpan {
-        SourceSpan::new(0.into(), 0)
     }
 }

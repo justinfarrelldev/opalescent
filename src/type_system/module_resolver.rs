@@ -1,5 +1,8 @@
 extern crate alloc;
 
+use crate::ast::{
+    DeclarationAnnotation, TypeDeclarationForm, TypeDef, Visibility as AstVisibility,
+};
 use crate::token::{Position, Span};
 use crate::type_system::errors::TypeError;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
@@ -17,6 +20,78 @@ mod standard_symbols_filesystem_operations;
 mod standard_symbols_filesystem_types_and_errors;
 /// Process-module symbol declarations.
 mod standard_symbols_process;
+/// Terminal-session proposal declaration interfaces.
+mod terminal_proposal_modules;
+
+/// Import availability for a registered module interface.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModuleAvailability {
+    /// Importable from ordinary production and test compilations.
+    Always,
+    /// Importable only when the checker is explicitly running in test mode.
+    TestOnly,
+    /// Parsed and retained for source-of-truth metadata, but not importable yet.
+    FuturePublicApi,
+}
+
+impl ModuleAvailability {
+    /// Return true when this availability is importable under the current checker mode.
+    #[must_use]
+    pub const fn is_import_allowed(self, allow_test_only: bool) -> bool {
+        match self {
+            Self::Always => true,
+            Self::TestOnly => allow_test_only,
+            Self::FuturePublicApi => false,
+        }
+    }
+
+    /// Human-readable reason used in diagnostics when an import is rejected.
+    #[must_use]
+    pub const fn rejection_reason(self) -> &'static str {
+        match self {
+            Self::Always => "module is available",
+            Self::TestOnly => {
+                "module is test-only and may only be imported by test-runner compilations"
+            }
+            Self::FuturePublicApi => {
+                "terminal proposal module is gated until the public terminal API gate opens"
+            }
+        }
+    }
+
+    /// Human-readable help used in diagnostics when an import is rejected.
+    #[must_use]
+    pub const fn rejection_help(self) -> &'static str {
+        match self {
+            Self::Always => "No availability action is required.",
+            Self::TestOnly => {
+                "Remove this production import or run the checker in test-only terminal mode."
+            }
+            Self::FuturePublicApi => {
+                "Do not import this terminal proposal module until the public API gate opens."
+            }
+        }
+    }
+}
+
+/// Parsed type-declaration metadata retained for module-interface consumers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModuleTypeDeclaration {
+    /// Type name exported or declared by this interface.
+    pub name: String,
+    /// Exact repository-relative declaration source path.
+    pub source_path: String,
+    /// Parsed proposal annotations attached to this declaration.
+    pub annotations: Vec<DeclarationAnnotation>,
+    /// Parsed proposal-specific declaration form.
+    pub form: TypeDeclarationForm,
+    /// Parsed type definition, including constraints, variant IDs, and fields.
+    pub type_def: TypeDef,
+    /// Source declaration visibility.
+    pub visibility: AstVisibility,
+    /// Source span inside the authoritative declaration file.
+    pub span: Span,
+}
 
 /// Export/import view for one module path.
 #[derive(Debug, Clone)]
@@ -31,22 +106,37 @@ pub struct ModuleInterface {
     pub adt_fields: BTreeMap<String, BTreeMap<String, CoreType>>,
     /// Ordered function return-label metadata keyed by exported/local symbol name.
     pub function_return_labels: BTreeMap<String, Vec<String>>,
+    /// Availability gate applied before imports from this interface are resolved.
+    pub availability: ModuleAvailability,
+    /// Namespace declarations parsed from the authoritative module source.
+    pub namespaces: Vec<Vec<String>>,
+    /// Parsed type declaration metadata keyed by declared type name.
+    pub type_declarations: BTreeMap<String, ModuleTypeDeclaration>,
 }
 
 impl ModuleInterface {
     /// Build an empty interface for `module_path`.
+    #[must_use]
+    pub fn new(module_path: String) -> Self {
+        Self::with_availability(module_path, ModuleAvailability::Always)
+    }
+
+    /// Build an empty interface with an explicit import availability gate.
     #[expect(
         clippy::missing_const_for_fn,
         reason = "BTreeMap::new is not const in current toolchain"
     )]
     #[must_use]
-    pub fn new(module_path: String) -> Self {
+    pub fn with_availability(module_path: String, availability: ModuleAvailability) -> Self {
         Self {
             exports: BTreeMap::new(),
             private_symbols: BTreeMap::new(),
             module_path,
             adt_fields: BTreeMap::new(),
             function_return_labels: BTreeMap::new(),
+            availability,
+            namespaces: Vec::new(),
+            type_declarations: BTreeMap::new(),
         }
     }
 
@@ -85,6 +175,22 @@ impl ModuleInterface {
         self.function_return_labels
             .get(symbol_name)
             .map(Vec::as_slice)
+    }
+
+    /// Register one namespace declaration parsed from the authoritative source.
+    pub fn register_namespace(&mut self, namespace: Vec<String>) {
+        self.namespaces.push(namespace);
+    }
+
+    /// Register parsed type-declaration metadata for interface consumers.
+    pub fn register_type_declaration(&mut self, declaration: ModuleTypeDeclaration) {
+        self.type_declarations
+            .insert(declaration.name.clone(), declaration);
+    }
+
+    /// Read parsed type-declaration metadata for one type name.
+    pub fn type_declaration(&self, type_name: &str) -> Option<&ModuleTypeDeclaration> {
+        self.type_declarations.get(type_name)
     }
 }
 

@@ -6,6 +6,7 @@ use super::standard_symbols_core_io_and_bytes::standard_symbols_core_io_and_byte
 use super::standard_symbols_filesystem_operations::standard_symbols_filesystem_operations;
 use super::standard_symbols_filesystem_types_and_errors::standard_symbols_filesystem_types_and_errors;
 use super::standard_symbols_process::standard_symbols_process;
+use super::terminal_proposal_modules::register_terminal_proposal_modules;
 use crate::type_system::symbol_table::{SymbolType, Visibility};
 use crate::type_system::types::CoreType;
 use alloc::collections::BTreeMap;
@@ -16,6 +17,7 @@ pub(super) fn register_standard_modules(resolver: &mut ModuleResolver) {
     register_standard_module(resolver);
     register_math_module(resolver);
     register_process_module(resolver);
+    register_terminal_proposal_modules(resolver);
 }
 
 /// Register `standard` built-in module symbols.

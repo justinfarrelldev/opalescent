@@ -33,6 +33,8 @@ mod collections;
 mod constructors;
 mod control_flow;
 mod declarations;
+/// Default construction and test-only import configuration.
+mod defaults;
 mod expr_collections;
 mod expressions;
 mod expressions_guard;
@@ -179,6 +181,8 @@ pub struct TypeChecker {
     function_return_labels: BTreeMap<String, Vec<String>>,
     /// Module identifier currently associated with this checker instance.
     current_module_path: String,
+    /// Whether imports from test-only module interfaces are permitted.
+    allow_test_only_imports: bool,
     /// Stack tracking active function modifiers for the currently checked function/lambda.
     function_modifier_stack: Vec<Vec<FunctionModifier>>,
 }
@@ -202,6 +206,7 @@ impl TypeChecker {
             module_resolver: ModuleResolver::new(),
             function_return_labels: BTreeMap::new(),
             current_module_path: String::from("__main__"),
+            allow_test_only_imports: false,
             function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
@@ -229,6 +234,7 @@ impl TypeChecker {
             module_resolver: ModuleResolver::new(),
             function_return_labels: BTreeMap::new(),
             current_module_path: String::from("__main__"),
+            allow_test_only_imports: false,
             function_modifier_stack: Vec::new(),
         };
         checker.register_standard_builtins();
@@ -1039,10 +1045,5 @@ impl From<AstTypeMappingError> for TypeError {
                 span: Self::span_from_span(span),
             },
         }
-    }
-}
-impl Default for TypeChecker {
-    fn default() -> Self {
-        Self::new()
     }
 }

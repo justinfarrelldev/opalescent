@@ -75,6 +75,28 @@ impl TypeChecker {
         }
     }
 
+    /// Validate availability metadata for a registered module before resolving imported symbols.
+    fn validate_module_import_availability(
+        &self,
+        source: &str,
+        import_span: Span,
+    ) -> Result<(), TypeError> {
+        if let Some(interface) = self.module_resolver.module_interface(source) {
+            if !interface
+                .availability
+                .is_import_allowed(self.allow_test_only_imports)
+            {
+                return Err(TypeError::ModuleUnavailable {
+                    module: source.to_owned(),
+                    reason: interface.availability.rejection_reason().to_owned(),
+                    help: interface.availability.rejection_help().to_owned(),
+                    span: TypeError::span_from_span(import_span),
+                });
+            }
+        }
+        Ok(())
+    }
+
     #[expect(
         clippy::pattern_type_mismatch,
         reason = "Import item matching borrows from slice entries"
@@ -96,6 +118,8 @@ impl TypeChecker {
                 span: TypeError::span_from_span(import_span),
             });
         }
+
+        self.validate_module_import_availability(source, import_span)?;
 
         self.module_resolver
             .register_dependency(&self.current_module_path, source);
