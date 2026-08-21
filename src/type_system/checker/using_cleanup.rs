@@ -98,6 +98,12 @@ const CLEANUP_REGISTRATIONS: &[CleanupRegistration] = &[
         transfer: None,
     },
     CleanupRegistration {
+        resource_type: "EditorChordRuntime",
+        cleanup_operation: "editor_chord_runtime_close",
+        cleanup_errors: &[],
+        transfer: None,
+    },
+    CleanupRegistration {
         resource_type: "TerminalTestScenario",
         cleanup_operation: "terminal_test_scenario_drop",
         cleanup_errors: &[],
@@ -106,6 +112,13 @@ const CLEANUP_REGISTRATIONS: &[CleanupRegistration] = &[
     CleanupRegistration {
         resource_type: "TerminalTestBackendActivation",
         cleanup_operation: "terminal_test_backend_activation_drop",
+        cleanup_errors: &[],
+        transfer: None,
+    },
+    #[cfg(test)]
+    CleanupRegistration {
+        resource_type: "TerminalAggregateFixture",
+        cleanup_operation: "terminal_aggregate_fixture_close",
         cleanup_errors: &[],
         transfer: None,
     },

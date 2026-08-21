@@ -322,7 +322,7 @@ impl TypeChecker {
         allow_new_owner_call: bool,
     ) -> Result<(), TypeError> {
         if self.core_type_contains_affine_resource(value_type) {
-            if allow_new_owner_call && Self::is_new_owner_call_result(expr) {
+            if allow_new_owner_call && self.is_fresh_owner_binding_result(expr, value_type) {
                 return Ok(());
             }
             self.check_affine_or_borrow_escape(expr, context_description)?;
@@ -494,7 +494,7 @@ impl TypeChecker {
     }
 
     /// Return whether an expression syntactically produces a fresh call result.
-    fn is_new_owner_call_result(expr: &Expr) -> bool {
+    pub(super) fn is_new_owner_call_result(expr: &Expr) -> bool {
         match *expr {
             Expr::Call { .. } | Expr::Guard { .. } => true,
             Expr::Propagate { ref call, .. } => Self::is_new_owner_call_result(call.as_ref()),
