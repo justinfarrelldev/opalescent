@@ -1,0 +1,21 @@
+Task 18 transactional affine aggregate negative evidence
+
+Negative coverage added and verified by `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test terminal_aggregate -- --nocapture`:
+- duplicate aggregate cleanup obligations are rejected
+- missing aggregate cleanup obligation is rejected
+- exported/public aggregate member owner surfaces are rejected
+- retarget requires immediate matching commit; observable/fallible interposition is rejected
+- wrong-root commit does not clear the pending retarget barrier
+- non-mutable commit arguments do not clear the pending retarget barrier
+- late matching aggregate arguments do not clear the pending retarget barrier
+- declared same-root mutable commit clears the retarget barrier
+- undeclared layout transitions are rejected
+- rollback codegen cleans provisional members in reverse order
+- fallible constructor field acquisition emits a rollback edge that returns the original error
+- seal codegen publishes once without allocation before the final nominal payload store
+- transactional aggregate constructor result is verified through a real i8* return path, so anonymous-struct results are rejected by the focused test shape
+
+Atlas retry fixes:
+- `bash scripts/check-line-count.sh` had rejected src/type_system/checker.rs at 1060 lines; moving TypeCheckContext into src/type_system/checker/context.rs brought checker.rs to 1039 lines without deleting useful docs or hiding logic.
+- `core_type_to_llvm` maps non-Pair CoreType::Generic to i8*, so returning the sealed anonymous struct was wrong. The aggregate path now stores the sealed struct into a nominal RC payload and returns the payload pointer, consistent with ordinary product constructor lowering in src/codegen/adts.rs.
+- Strict lint remains green after the retry repair: `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint` passed.

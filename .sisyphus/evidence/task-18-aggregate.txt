@@ -1,0 +1,24 @@
+Task 18 transactional affine aggregate evidence
+
+Implemented proposal-gated/private aggregate support for EditorChordRuntime transactional construction:
+- shared aggregate metadata registry and validation in src/type_system/affine_aggregates.rs
+- checker enforcement in src/type_system/checker/affine_aggregates.rs
+- transient checker context extracted to src/type_system/checker/context.rs so src/type_system/checker.rs stays below the line-count cap
+- constructor fresh-provisional exception and aggregate registration hooks in checker modules
+- cleanup registration/verification hooks for transactional commit obligations
+- rollback/seal codegen helpers in src/codegen/affine_aggregates.rs
+- transactional aggregate constructor now seals fields allocation-free, stores the sealed value into the normal nominal heap payload, and returns the expected i8* representation for CoreType::Generic
+- codegen test exercises a real return-compatible i8* path and verifies the LLVM module, catching the anonymous-struct mismatch Atlas found
+- traceability test for CHORDS.md and configure_editor_chords.op in tests/integration_e2e/terminal_aggregate.rs
+
+Positive verification (all with LLVM_SYS_140_PREFIX=/usr/lib/llvm-14):
+- lsp_diagnostics on modified source/test files: no diagnostics found
+- cargo fmt --all -- --check: pass
+- bash scripts/check-line-count.sh: pass; src/type_system/checker.rs is 1039 lines
+- cargo test terminal_aggregate -- --nocapture: pass; 17 passed, 0 failed
+- cargo test affine: pass
+- cargo test terminal_proposal: pass
+- cargo test: pass; 1484 passed, 0 failed, 8 ignored; doc-tests 2 passed, 12 ignored
+- cargo check: pass
+- cargo build: pass
+- cargo make lint: pass

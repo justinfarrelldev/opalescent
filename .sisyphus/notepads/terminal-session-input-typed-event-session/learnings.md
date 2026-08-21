@@ -195,3 +195,13 @@
 
 - Atlas-style verification checks committed repository artifacts, not just transient command output. Force-add ignored `.sisyphus/evidence/task-17-test-only*.txt` files when a task explicitly requires evidence files.
 - Task 17 sealed-authority coverage now includes direct construction rejection for `TerminalTestAuthority`, `TerminalTestScenario`, `TerminalTestBackendActivation`, `TerminalTestFakeBackend`, and `TerminalTestFactoryError` in test-authorized mode.
+
+## 2026-08-21 Task 18 aggregate implementation
+- EditorChordRuntime transactional aggregate support stayed private/proposal-gated: aggregate specs live in src/type_system/affine_aggregates.rs and checker/codegen hooks consume those specs without adding public owner exports or general field moves.
+- The retarget/commit rule is easiest to enforce as a pending checker barrier: a successful retarget records the expected commit target, and the next fallible/observable operation or mismatched commit reports an interposition diagnostic.
+- Verification for this task passed with LLVM_SYS_140_PREFIX=/usr/lib/llvm-14: cargo fmt --all -- --check, scripts/check-line-count.sh, cargo check, cargo test terminal_aggregate, cargo clippy --all-targets --all-features -- -D warnings, and cargo test.
+
+## 2026-08-21 Task 18 Atlas retry fixes
+- Keep TypeChecker transient state in a checker submodule when adding new task-specific context; moving TypeCheckContext to src/type_system/checker/context.rs kept checker.rs at 1039 lines and preserved field documentation.
+- Transactional aggregate construction must preserve nominal representation: seal fields as an allocation-free SSA struct, then store that sealed value in the normal RC nominal payload and return i8* for non-Pair CoreType::Generic.
+- Focused codegen tests should build a real return/store-compatible path and verify the LLVM module; checking only lowered.is_struct_value() missed the anonymous-struct/nominal-pointer mismatch.

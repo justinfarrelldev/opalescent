@@ -89,3 +89,12 @@
 - Strict lint denies direct `panic!` in tests and borrowed-match shortcuts under `clippy::pattern_type_mismatch`; use `assert!(result.is_err(), ...)` plus `expect_err` and explicit borrowed `match *value { ref field, .. }` patterns.
 - Positive evidence must be refreshed after fixing lint. A stale `[exit status: 105]` in `.sisyphus/evidence/task-17-test-only.txt` made the implementation look failed even after code and tests were green.
 - `.sisyphus/evidence` is ignored by default, so required Task 17 evidence files need explicit `git add -f`; otherwise a clean working tree can still lack committed evidence for Atlas.
+
+## 2026-08-21 Task 18 aggregate issues
+- The line-count hook is strict: src/type_system/checker.rs must stay at or below 1050 lines. Task 18 additions pushed it over; comment-only cleanup brought it to exactly 1050, so future checker work should move logic into submodules first.
+- Strict clippy with --all-targets catches test-only issues too. `assert!(false, ...)` must be `panic!(...)`, and redundant `&... ref ...` patterns need the simpler borrowed binding form.
+
+## 2026-08-21 Task 18 Atlas retry issues
+- Atlas rejected the earlier aggregate implementation because checker.rs exceeded the 1050-line cap and evidence still referenced stale counts/results.
+- The first aggregate constructor codegen proof was too weak: it asserted the anonymous sealed struct shape and forbade allocation, but ordinary nominal generics lower to i8* and require a nominal payload pointer.
+- Required evidence files under .sisyphus/evidence remain ignored by default; force-add task-18 aggregate evidence during commit.
