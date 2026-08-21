@@ -69,3 +69,9 @@
 
 - Exact guard-error-set equality was too strict for the Task 15 model; it blocked valid heterogeneous guard chaining even when later branches refined and propagated only a compatible family.
 - Parser-level `into` rejection already covered several invalid refinement forms, so checker tests should focus on semantic behavior: scoped payload bindings, narrowed propagation, and missing `ConstraintViolationError` declarations.
+
+
+## Task 15 follow-up coverage findings - 2026-08-21
+
+- Test names matter for mandated filters: the no-`into` proof must include `terminal_refinement` in its Rust test name or `cargo test terminal_refinement` will not execute it.
+- A named guard error handler still intentionally rejects ordinary `return void` as terminal handling (`GuardErrorClauseMissingTerminal`); use a valid control-flow terminator such as loop `continue` when locally recovering from non-refined guard families.

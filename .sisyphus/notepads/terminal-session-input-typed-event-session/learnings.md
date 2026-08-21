@@ -164,3 +164,10 @@
 - Nominal variant refinement belongs in the checker as branch-local type/binding state: `is Variant into payload` narrows only the true branch and the payload binding must not escape.
 - `constrain Type from value` is a fallible expression surface, not just a cast; it must require `ConstraintViolationError` on the enclosing fallible declaration and participate in normal guard/propagate handling.
 - Guard-error heterogeneous unions should carry narrowed family information from refinement branches, while unrefined heterogeneous propagation must still require every possible family on the enclosing error surface.
+
+
+## Task 15 follow-up refinement proof - 2026-08-21
+
+- Proposal line 17 makes `into` optional; keep a dedicated `terminal_refinement`-filtered checker test where `if event is TerminalInputEvent.Key:` narrows `event` itself enough for payload field access.
+- Heterogeneous guard-union proof must start from a multi-family guarded call such as `TerminalSessionOpenError, TerminalSessionReadError`; a single-family guard only proves ordinary family propagation.
+- No checker implementation change was needed for the follow-up: `extract_variant_refinement` already handles no-`into` `BinaryOp::Is`, and `active_guard_propagation_error_types` already narrows refined guard bindings to the parent family.
