@@ -517,6 +517,17 @@ entry main = f(): void =>
 ",
                 "TerminalTestAuthority",
             ),
+            (
+                "generic bound",
+                "
+public let generic_leak = f<T: TerminalTestAuthority>(value: T): T =>
+    return value
+
+entry main = f(): void =>
+    return void
+",
+                "TerminalTestAuthority",
+            ),
         ] {
             let program = parse_pipeline(source);
             let mut checker = TypeChecker::new();
@@ -1458,29 +1469,36 @@ entry main = f(): void =>
 
     #[test]
     fn test_terminal_constructor_visibility_rejects_test_runner_authority() {
-        const SOURCE: &str = "
-import type TerminalTestAuthority from 'standard.testing.terminal'
-
-let sealed = f(): TerminalTestAuthority =>
-    return new TerminalTestAuthority
-
-entry main = f(): void =>
-    return void
-";
-
-        let program = parse_pipeline(SOURCE);
-        let mut checker = TypeChecker::new();
-        checker.enable_test_only_imports();
-        let errors = checker
-            .type_check_program(&program)
-            .expect_err("test-runner-only authority construction must be rejected");
-        assert!(
-            errors.iter().any(|error| matches!(
-                *error,
-                TypeError::ConstructorUnavailable { ref type_name, ref visibility, .. }
-                    if type_name == "TerminalTestAuthority" && visibility == "test_runner"
-            )),
-            "expected test-runner constructor rejection, got: {errors:?}",
-        );
+        for (type_name, constructor_expr) in [
+            ("TerminalTestAuthority", "new TerminalTestAuthority"),
+            ("TerminalTestScenario", "new TerminalTestScenario"),
+            (
+                "TerminalTestBackendActivation",
+                "new TerminalTestBackendActivation",
+            ),
+            ("TerminalTestFakeBackend", "new TerminalTestFakeBackend"),
+            (
+                "TerminalTestFactoryError",
+                "new TerminalTestFactoryError.LinkedTextPhaseInvalid",
+            ),
+        ] {
+            let source = format!(
+                "\nimport type {type_name} from 'standard.testing.terminal'\n\nlet sealed = f(): {type_name} =>\n    return {constructor_expr}\n\nentry main = f(): void =>\n    return void\n"
+            );
+            let program = parse_pipeline(&source);
+            let mut checker = TypeChecker::new();
+            checker.enable_test_only_imports();
+            let errors = checker
+                .type_check_program(&program)
+                .expect_err("test-runner-only construction must be rejected");
+            assert!(
+                errors.iter().any(|error| matches!(
+                    *error,
+                    TypeError::ConstructorUnavailable { type_name: ref rejected, ref visibility, .. }
+                        if rejected == type_name && visibility == "test_runner"
+                )),
+                "expected test-runner constructor rejection for {type_name}, got: {errors:?}",
+            );
+        }
     }
 }
