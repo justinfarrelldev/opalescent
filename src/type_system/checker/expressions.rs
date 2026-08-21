@@ -377,7 +377,7 @@ impl TypeChecker {
                 ..
             } => {
                 if let Some(ref cause_expr) = *cause {
-                    self.type_check_expr(cause_expr.as_ref())?;
+                    self.type_check_propagate_cause_expr(call.as_ref(), cause_expr.as_ref(), span)?;
                 }
                 self.type_check_propagate_expr(call.as_ref(), span)
             }

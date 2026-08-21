@@ -29,7 +29,8 @@ impl TypeChecker {
     ///
     /// This function ensures that:
     /// 1. The `propagate` expression is used inside a function that declares error types.
-    /// 2. The inner expression is a fallible call or registered fallible constructor.
+    /// 2. The inner expression is a fallible call, registered fallible constructor, or
+    ///    already-evaluated immutable error binding.
     /// 3. The error types produced by the inner expression are a subset of the error types
     ///    declared by the enclosing function.
     ///
@@ -43,6 +44,11 @@ impl TypeChecker {
         call: &Expr,
         span: Span,
     ) -> Result<CoreType, TypeError> {
+        if let Some(error_types) = self.propagated_error_value_types(call)? {
+            self.ensure_propagate_error_types_allowed(call, error_types.as_slice(), span)?;
+            return Ok(CoreType::Unit);
+        }
+
         let fallible_info =
             self.classify_fallible_expression(call, FallibleExpressionContext::Propagate)?;
         self.ensure_propagate_error_types_allowed(
@@ -52,6 +58,137 @@ impl TypeChecker {
         )?;
         self.consume_using_cleanup_obligation_after_success(call);
         Ok(fallible_info.success_type)
+    }
+
+    /// Validate the optional `cause` operand for a propagate expression.
+    pub(super) fn type_check_propagate_cause_expr(
+        &self,
+        primary: &Expr,
+        cause: &Expr,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        let Expr::Identifier {
+            name: cause_name,
+            span: cause_span,
+            ..
+        } = cause
+        else {
+            return Err(TypeError::ConstraintSolvingFailed {
+                reason: "propagate cause must be an already-evaluated immutable error binding"
+                    .to_owned(),
+                span: TypeError::span_from_span(cause.span()),
+            });
+        };
+
+        if Self::identifier_name(primary).is_some_and(|primary_name| primary_name == cause_name) {
+            return Err(TypeError::ConstraintSolvingFailed {
+                reason: "propagate cause cannot reference the same immutable error instance as the primary"
+                    .to_owned(),
+                span: TypeError::span_from_span(span),
+            });
+        }
+
+        let Some(symbol) = self.symbol_table().lookup(cause_name) else {
+            return Err(TypeError::SymbolNotFound {
+                name: cause_name.clone(),
+                suggestion: self.suggest_visible_identifier(cause_name),
+                span: TypeError::span_from_span(*cause_span),
+            });
+        };
+
+        if symbol.is_mutable || !Self::core_type_can_be_error_value(&symbol.core_type) {
+            return Err(TypeError::ConstraintSolvingFailed {
+                reason: format!(
+                    "propagate cause binding '{cause_name}' must be an immutable error value, found '{}'",
+                    symbol.core_type
+                ),
+                span: TypeError::span_from_span(*cause_span),
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Return the nominal families represented by an already-evaluated error value.
+    fn propagated_error_value_types(
+        &self,
+        expr: &Expr,
+    ) -> Result<Option<Vec<CoreType>>, TypeError> {
+        match expr {
+            Expr::Parenthesized { expr, .. } | Expr::BorrowArgument { target: expr, .. } => {
+                self.propagated_error_value_types(expr.as_ref())
+            }
+            Expr::Identifier { name, span, .. } => {
+                let Some(symbol) = self.symbol_table().lookup(name) else {
+                    return Err(TypeError::SymbolNotFound {
+                        name: name.clone(),
+                        suggestion: self.suggest_visible_identifier(name),
+                        span: TypeError::span_from_span(*span),
+                    });
+                };
+                Ok(self.propagated_error_types_from_core_type(name, &symbol.core_type))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Map a core type for an error binding back to its propagatable nominal families.
+    fn propagated_error_types_from_core_type(
+        &self,
+        binding_name: &str,
+        core_type: &CoreType,
+    ) -> Option<Vec<CoreType>> {
+        if self
+            .context
+            .active_guard_error_bindings
+            .last()
+            .is_some_and(|binding| binding.name == binding_name)
+        {
+            return Some(self.active_guard_propagation_error_types(binding_name));
+        }
+
+        if let CoreType::Generic { name, type_args } = core_type {
+            if name == "GuardErrorContext" {
+                return Some(type_args.clone());
+            }
+            if name == "Error" {
+                return None;
+            }
+            if let Some(narrowed_family) = self.narrowed_guard_error_family(core_type) {
+                return Some(vec![narrowed_family]);
+            }
+            if type_args.is_empty() && Self::type_name_can_be_error_value(name) {
+                return Some(vec![core_type.clone()]);
+            }
+        }
+
+        None
+    }
+
+    /// Return whether a source expression is an identifier and borrow its name.
+    fn identifier_name(expr: &Expr) -> Option<&str> {
+        match expr {
+            Expr::Parenthesized { expr, .. } | Expr::BorrowArgument { target: expr, .. } => {
+                Self::identifier_name(expr.as_ref())
+            }
+            Expr::Identifier { name, .. } => Some(name.as_str()),
+            _ => None,
+        }
+    }
+
+    /// Return whether a core type can be used as an immutable error cause value.
+    fn core_type_can_be_error_value(core_type: &CoreType) -> bool {
+        matches!(
+            core_type,
+            CoreType::Generic { name, type_args }
+                if (name == "GuardErrorContext" || name == "Error" || Self::type_name_can_be_error_value(name))
+                    && (name == "GuardErrorContext" || type_args.is_empty())
+        )
+    }
+
+    /// Return whether a nominal type name is error-like enough for cause retention.
+    fn type_name_can_be_error_value(name: &str) -> bool {
+        name.ends_with("Error") || name.contains("Error.")
     }
 
     pub(super) fn ensure_propagate_error_types_allowed(

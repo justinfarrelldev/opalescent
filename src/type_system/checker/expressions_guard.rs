@@ -640,7 +640,10 @@ impl TypeChecker {
     }
 
     /// Return the active guard error family set, narrowed by branch-local refinement when present.
-    fn active_guard_propagation_error_types(&self, error_binding: &str) -> Vec<CoreType> {
+    pub(super) fn active_guard_propagation_error_types(
+        &self,
+        error_binding: &str,
+    ) -> Vec<CoreType> {
         let active_guard_errors = self
             .context
             .guard_error_stack
@@ -664,7 +667,7 @@ impl TypeChecker {
     }
 
     /// Extract the parent error family from a branch-local `Family.Variant` nominal type.
-    fn narrowed_guard_error_family(&self, core_type: &CoreType) -> Option<CoreType> {
+    pub(super) fn narrowed_guard_error_family(&self, core_type: &CoreType) -> Option<CoreType> {
         let &CoreType::Generic {
             name: ref type_name,
             ref type_args,
