@@ -21,3 +21,4 @@
 ## Task 13 line-count/rustfmt gotcha - 2026-08-20
 
 - `src/type_system/checker.rs` and `src/type_system/checker/statements.rs` are exactly at their line-count limits after Task 13 (1050 and 1000 respectively). Rustfmt may expand long one-line calls and re-break the hook; prefer moving shared helper wrappers into focused submodules such as `ref_rules.rs` rather than compacting statements by hand.
+- Task 13 follow-up: `ref_rules.rs` is also exactly at 1000 lines after imported-borrow metadata repair. Do not remove helper docs to satisfy line-count because `cargo make lint` denies missing private docs; trim blank separators or extract a helper module instead.
