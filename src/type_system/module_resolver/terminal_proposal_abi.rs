@@ -14,12 +14,17 @@
 
 extern crate alloc;
 
+mod active_variant_ids;
+
 use super::terminal_proposal_modules::{
     TERMINAL_CHORDS_MODULE_PATH, TERMINAL_CHORDS_TYPES_PATH, TERMINAL_TESTING_MODULE_PATH,
     TERMINAL_TESTING_TYPES_PATH, TERMINAL_TYPES_MODULE_PATH, TYPED_EVENT_SESSION_TYPES_PATH,
 };
 use super::{ModuleAvailability, ModuleInterface, ModuleTypeDeclaration};
 use crate::ast::{DeclarationAnnotation, TypeDef};
+use active_variant_ids::{
+    ACTIVE_CHORD_VARIANT_IDS, ACTIVE_SELECTED_VARIANT_IDS, ActiveVariantIdTable,
+};
 use alloc::collections::BTreeMap;
 use alloc::{format, string::String};
 use core::fmt;
@@ -114,6 +119,7 @@ pub(super) fn validate_terminal_proposal_abi(
     validate_explicit_variant_ids(
         selected,
         TerminalAuthority::Selected,
+        ACTIVE_SELECTED_VARIANT_IDS,
         RETIRED_SELECTED_VARIANT_IDS,
         UNCOMMITTED_SELECTED_VARIANT_IDS,
     )?;
@@ -126,7 +132,13 @@ pub(super) fn validate_terminal_proposal_abi(
         &[],
         CHORD_ACTIVE_TYPE_ID_COUNT,
     )?;
-    validate_explicit_variant_ids(chords, TerminalAuthority::Chord, &[], &[])?;
+    validate_explicit_variant_ids(
+        chords,
+        TerminalAuthority::Chord,
+        ACTIVE_CHORD_VARIANT_IDS,
+        &[],
+        &[],
+    )?;
 
     validate_test_only_scope(testing)?;
 
@@ -394,6 +406,7 @@ fn validate_abi_evolution_metadata(
 fn validate_explicit_variant_ids(
     interface: &ModuleInterface,
     authority: TerminalAuthority,
+    active_variant_tables: &[ActiveVariantIdTable],
     retired_variant_ids: &[HistoricalVariantId],
     uncommitted_variant_ids: &[HistoricalVariantId],
 ) -> Result<(), TerminalAbiError> {
@@ -402,7 +415,11 @@ fn validate_explicit_variant_ids(
             continue;
         };
 
+        let active_variant_table =
+            active_variant_table_by_declaration(active_variant_tables, &declaration.name);
         let mut active_variant_ids = BTreeMap::new();
+        let mut active_variant_names = BTreeMap::new();
+
         for variant in variants {
             let Some(variant_id) = variant.explicit_id else {
                 return Err(TerminalAbiError::new(format!(
@@ -443,11 +460,97 @@ fn validate_explicit_variant_ids(
                 uncommitted_variant_ids,
             )?;
 
+            validate_active_variant_history(
+                authority,
+                declaration,
+                &variant.name,
+                variant_id,
+                active_variant_table,
+            )?;
+
             active_variant_ids.insert(variant_id, variant.name.as_str());
+            active_variant_names.insert(variant.name.as_str(), variant_id);
+        }
+
+        validate_active_variant_history_completeness(
+            authority,
+            declaration,
+            active_variant_table,
+            &active_variant_names,
+        )?;
+    }
+
+    Ok(())
+}
+
+fn validate_active_variant_history(
+    authority: TerminalAuthority,
+    declaration: &ModuleTypeDeclaration,
+    active_variant_name: &str,
+    active_variant_id: i64,
+    active_variant_table: Option<ActiveVariantIdTable>,
+) -> Result<(), TerminalAbiError> {
+    let Some(active_variant_table) = active_variant_table else {
+        return Ok(());
+    };
+
+    let Some(expected_variant_id) = active_variant_table.expected_variant_id(active_variant_name)
+    else {
+        return Err(TerminalAbiError::new(format!(
+            "{} active variant {}.{} is missing from abi-history.md active variant table",
+            authority.variant_label(),
+            declaration.name,
+            active_variant_name
+        )));
+    };
+
+    if expected_variant_id != active_variant_id {
+        return Err(TerminalAbiError::new(format!(
+            "{} active variant {}.{} uses ABI variant ID {}; abi-history.md records {}",
+            authority.variant_label(),
+            declaration.name,
+            active_variant_name,
+            active_variant_id,
+            expected_variant_id
+        )));
+    }
+
+    Ok(())
+}
+
+fn validate_active_variant_history_completeness(
+    authority: TerminalAuthority,
+    declaration: &ModuleTypeDeclaration,
+    active_variant_table: Option<ActiveVariantIdTable>,
+    active_variant_names: &BTreeMap<&str, i64>,
+) -> Result<(), TerminalAbiError> {
+    let Some(active_variant_table) = active_variant_table else {
+        return Ok(());
+    };
+
+    for (expected_variant_name, expected_variant_id) in active_variant_table.variants {
+        if !active_variant_names.contains_key(expected_variant_name) {
+            return Err(TerminalAbiError::new(format!(
+                "{} active variant {}.{}={} from abi-history.md is missing from active declarations",
+                authority.variant_label(),
+                declaration.name,
+                expected_variant_name,
+                expected_variant_id
+            )));
         }
     }
 
     Ok(())
+}
+
+fn active_variant_table_by_declaration(
+    active_variant_tables: &[ActiveVariantIdTable],
+    declaration_name: &str,
+) -> Option<ActiveVariantIdTable> {
+    active_variant_tables
+        .iter()
+        .copied()
+        .find(|table| table.declaration == declaration_name)
 }
 
 fn validate_historical_variant_status(
@@ -657,6 +760,46 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "retired selected ABI variant ID TerminalSessionRestoreError.RecoveryOwnerMismatch=8 cannot be reused by active variant TerminalSessionRestoreError.WrongSession"
+        );
+    }
+
+    #[test]
+    fn terminal_abi_rejects_selected_active_variant_id_mismatch() {
+        let mut interfaces = registered_terminal_interfaces();
+        rewrite_variant_id(
+            &mut interfaces,
+            TERMINAL_TYPES_MODULE_PATH,
+            "TerminalSessionRestoreError",
+            "WrongSession",
+            16,
+        );
+
+        let error = validate_terminal_proposal_abi(&interfaces)
+            .expect_err("selected active ABI variant ID mismatch must fail");
+
+        assert_eq!(
+            error.to_string(),
+            "selected ABI variant ID active variant TerminalSessionRestoreError.WrongSession uses ABI variant ID 16; abi-history.md records 9"
+        );
+    }
+
+    #[test]
+    fn terminal_abi_rejects_chord_active_variant_id_mismatch() {
+        let mut interfaces = registered_terminal_interfaces();
+        rewrite_variant_id(
+            &mut interfaces,
+            TERMINAL_CHORDS_MODULE_PATH,
+            "TerminalChordTrigger",
+            "Release",
+            4,
+        );
+
+        let error = validate_terminal_proposal_abi(&interfaces)
+            .expect_err("chord active ABI variant ID mismatch must fail");
+
+        assert_eq!(
+            error.to_string(),
+            "chord ABI variant ID active variant TerminalChordTrigger.Release uses ABI variant ID 4; abi-history.md records 3"
         );
     }
 
