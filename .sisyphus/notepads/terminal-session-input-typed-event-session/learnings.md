@@ -222,3 +222,16 @@
 - Timer deadlines integrate cleanly by storing `SourceAvailability::TimerDeadline` on the existing opaque `SystemReadinessSource`; wait sets only need the minimum `Condvar::wait_timeout` duration and no scheduler thread.
 - Generation exhaustion must preflight before state mutation. Tests should cover both armed and disarmed `u64::MAX` states so retries return the same payload and preserve the prior source generation/readiness.
 - The stdlib facade can stay a thin Rust `standard.system` prerequisite layer around runtime types; no type-system/codegen exposure is needed until later public terminal adoption tasks.
+
+## 2026-08-21 Task 22 generated I/O coordination
+
+- Generated C `take_input` must check the coordinator before calling `opal_getline`; because its legacy ABI is infallible, rejected calls return an allocated empty string while preserving stdin for the next free-state read. The direct C harness now proves both non-consumption and subsequent successful input.
+
+## 2026-08-21 Task 22 fallible legacy I/O completion
+
+- Fallible legacy I/O must use `{ value, error }` result wrappers end-to-end in source signatures, LLVM declarations, generated calls, C prototypes, and direct C harnesses; rejection assertions must inspect structured error text rather than sentinel values.
+- Runtime amalgamation compiles multiple `.c` files as one translation unit, so shared `FsStringResult`, `FsBooleanResult`, and `FsHandleResult` typedefs require consistent preprocessor guards across `opal_io.c`, `opal_fs.c`, `opal_string.c`, and `opal_error.c`.
+
+## 2026-08-21 Task 22 ABI wording correction
+
+- The earlier generated-I/O note describing an infallible ABI and an allocated empty-string rejection fallback is superseded by the final fallible legacy I/O completion. Coordinator rejection returns `FsStringResult { value: NULL, error: "StandardInputReadError: TerminalCoordinatorUnavailable ..." }` before stdin consumption; empty EOF returns `StandardInputReadError: EndOfInput`, while a final partial line without a newline succeeds.

@@ -1,0 +1,129 @@
+# Task 22 legacy I/O coordinator evidence
+
+$ git diff --check -- :!node_modules
+exit=0
+
+$ cargo fmt --all -- --check
+exit=0
+
+$ cargo test terminal_coordinator --lib
+exit=0
+--- stdout ---
+
+running 12 tests
+test runtime::terminal_coordinator::tests::all_proposal_operations_are_classified ... ok
+test runtime::terminal_coordinator::tests::free_state_operation_validates ... ok
+test runtime::terminal_coordinator::tests::debug_redacts_epoch_and_lease ... ok
+test runtime::terminal_coordinator::tests::epoch_exhaustion_preserves_state_and_epoch ... ok
+test runtime::terminal_coordinator::tests::global_coordinator_is_available_without_io ... ok
+test runtime::terminal_coordinator::tests::lease_acquisition_rejects_with_requested_operation ... ok
+test runtime::terminal_coordinator::tests::non_free_state_rejects_with_state_and_operation ... ok
+test runtime::terminal_coordinator::tests::terminal_lease_validates_capability_and_mutation_in_free_state ... ok
+test runtime::terminal_coordinator::tests::opening_invalidates_prior_lease_forever ... ok
+test runtime::terminal_coordinator::tests::writer_and_terminal_leases_stale_after_opening_reservation ... ok
+test runtime::terminal_coordinator::tests::writer_lease_validates_write_and_flush_in_free_state ... ok
+test runtime::tests::terminal_coordinator_c_rejects_before_stdout_mutation ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 1526 filtered out; finished in 0.23s
+
+
+--- stderr ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+
+$ cargo test --lib test_import_take_input_emits_take_input_declaration
+exit=0
+--- stdout ---
+
+running 1 test
+test codegen::tests::test_import_take_input_emits_take_input_declaration ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1537 filtered out; finished in 0.01s
+
+
+--- stderr ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+
+$ cargo test --lib codegen_stdout_writer_functions_emit_handle_and_void_error_abi_declarations
+exit=0
+--- stdout ---
+
+running 1 test
+test codegen::tests::codegen_stdout_writer_functions_emit_handle_and_void_error_abi_declarations ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1537 filtered out; finished in 0.01s
+
+
+--- stderr ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+
+$ cargo test --lib codegen_terminal_functions_emit_handle_boolean_and_void_error_abi_declarations
+exit=0
+--- stdout ---
+
+running 1 test
+test codegen::tests::codegen_terminal_functions_emit_handle_boolean_and_void_error_abi_declarations ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1537 filtered out; finished in 0.01s
+
+
+--- stderr ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+
+$ cargo test --lib test_builtin_take_input_returns_string
+exit=0
+--- stdout ---
+
+running 1 test
+test type_system::tests::test_builtin_take_input_returns_string ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1537 filtered out; finished in 0.01s
+
+
+--- stderr ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+
+$ cargo test --lib test_stdlib_error_family_taxonomy_covers_all_current_leaves
+exit=0
+--- stdout ---
+
+running 1 test
+test type_system::tests::test_stdlib_error_family_taxonomy_covers_all_current_leaves ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1537 filtered out; finished in 0.24s
+
+
+--- stderr ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (target/debug/deps/opalescent-6adb27878242f8c1)
+
+
+No duplicated coordinator-unavailable wording remains:
+$ python3 -c from pathlib import Path
+root=Path('.')
+needle='TerminalCoordinatorUnavailable: TerminalCoordinatorUnavailable'
+found=[]
+for path in root.rglob('*'):
+    if '.git' in path.parts or 'target' in path.parts or path.is_dir():
+        continue
+    try:
+        data=path.read_text(errors='ignore')
+    except Exception:
+        continue
+    if needle in data:
+        found.append(str(path))
+print('matches=' + str(found))
+raise SystemExit(1 if found else 0)
+exit=0
+--- stdout ---
+matches=[]
+
