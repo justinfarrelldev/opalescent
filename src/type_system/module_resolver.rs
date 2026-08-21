@@ -24,8 +24,11 @@ mod standard_symbols_process;
 mod terminal_proposal_abi;
 /// Terminal-session proposal function borrow metadata.
 mod terminal_proposal_borrows;
+/// Implemented Task 16 error-inspector inventory.
+mod terminal_proposal_error_inspectors;
 /// Terminal-session proposal declaration interfaces.
 mod terminal_proposal_modules;
+/// Terminal-session proposal function signature inventory.
 mod terminal_proposal_symbols;
 
 /// Return whether a module/symbol pair belongs to the gated terminal proposal surface.
@@ -35,12 +38,31 @@ pub(super) fn is_terminal_proposal_codegen_gated_import(
     symbol_name: &str,
 ) -> bool {
     terminal_proposal_symbols::contains_function(module_path, symbol_name)
+        && !terminal_proposal_error_inspectors::contains_implemented_error_inspector(
+            module_path,
+            symbol_name,
+        )
+}
+
+/// Return whether a module/symbol pair is an implemented Task 16 error inspector.
+#[must_use]
+pub(super) fn is_terminal_proposal_implemented_error_inspector_import(
+    module_path: &str,
+    symbol_name: &str,
+) -> bool {
+    terminal_proposal_error_inspectors::contains_implemented_error_inspector(
+        module_path,
+        symbol_name,
+    )
 }
 
 /// Return whether a runtime symbol name belongs to any gated terminal proposal surface.
 #[must_use]
 pub(super) fn is_terminal_proposal_codegen_gated_runtime_name(symbol_name: &str) -> bool {
     terminal_proposal_symbols::contains_function_name(symbol_name)
+        && !terminal_proposal_error_inspectors::contains_implemented_error_inspector_name(
+            symbol_name,
+        )
 }
 
 /// Import availability for a registered module interface.

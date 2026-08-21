@@ -82,6 +82,7 @@ impl TypeChecker {
     /// Validate availability metadata for a registered module before resolving imported symbols.
     fn validate_module_import_availability(
         &self,
+        items: &[ImportItem],
         source: &str,
         import_span: Span,
     ) -> Result<(), TypeError> {
@@ -89,7 +90,8 @@ impl TypeChecker {
             if !interface.availability.is_import_allowed(
                 self.allow_test_only_imports,
                 self.allow_terminal_proposal_imports,
-            ) {
+            ) && !Self::items_are_implemented_error_inspector_imports(items, source)
+            {
                 return Err(TypeError::ModuleUnavailable {
                     module: source.to_owned(),
                     reason: interface.availability.rejection_reason().to_owned(),
@@ -99,6 +101,19 @@ impl TypeChecker {
             }
         }
         Ok(())
+    }
+
+    /// Return whether every imported item is an implemented Task 16 error inspector.
+    fn items_are_implemented_error_inspector_imports(items: &[ImportItem], source: &str) -> bool {
+        !items.is_empty()
+            && items.iter().all(|item| match *item {
+                ImportItem::Named { ref name, .. } => {
+                    crate::type_system::is_terminal_proposal_implemented_error_inspector_import(
+                        source, name,
+                    )
+                }
+                ImportItem::Type { .. } | ImportItem::Glob { .. } => false,
+            })
     }
 
     /// Resolve and register imported symbols from `source`.
@@ -127,7 +142,7 @@ impl TypeChecker {
             });
         }
 
-        self.validate_module_import_availability(source, import_span)?;
+        self.validate_module_import_availability(items, source, import_span)?;
 
         self.module_resolver
             .register_dependency(&self.current_module_path, source);
