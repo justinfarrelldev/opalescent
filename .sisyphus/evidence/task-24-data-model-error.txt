@@ -1,0 +1,23 @@
+$ cargo run -- check /tmp/opencode/task24_gate.op
+[exit 1]
+
+
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running `target/debug/opalescent check /tmp/opencode/task24_gate.op`
+[31mopalescent::type_system::undeclared_error_type[0m
+
+  [31m×[0m Undeclared error type 'TerminalSessionOpenError'
+   ╭─[[36;1;4m/tmp/opencode/task24_gate.op:6:7[0m]
+ [2m5[0m │     ##
+ [2m6[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m entry main = f(): void errors TerminalSessionOpenError =>
+ [2m7[0m │ [35;1m│[0m       let session = propagate terminal_session_open_sync(terminal_session_options_default())
+ [2m8[0m │ [35;1m├[0m[35;1m─[0m[35;1m▶[0m     return void
+   · [35;1m╰[0m[35;1m───[0m[35;1m─[0m [35;1mundeclared error type[0m
+   ╰────
+[36m  help: [0mEnsure the error type 'TerminalSessionOpenError' is defined and visible in the current scope.
+
+
+error: aborting due to 1 previous error
