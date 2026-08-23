@@ -118,3 +118,4 @@
 
 ## Task 21 branch-level verification issue - 2026-08-22
 - `timeout 900 cargo test --all-features` still fails in `tests::terminal_aggregate::terminal_aggregate_proposal_traceability_mentions_private_runtime_contract` with `CHORDS.md should name the retarget-to-commit transition`. That assertion is outside Task 21 file scope (`src/runtime/**`, `src/stdlib/system/**`, Task 21 evidence/notepad), so record it as branch-level evidence rather than folding unrelated proposal-doc work into the process-control commit.
+- Corrective Task 21 note: the real POSIX backend is process-global by design, so tests that call `ProcessControlSource::new()` must serialize backend installation. The fix uses a test-only guard shared by runtime and stdlib smoke tests to avoid false `UnsupportedHost` races under parallel libtest execution.

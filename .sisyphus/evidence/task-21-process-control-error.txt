@@ -1,4 +1,4 @@
-Task 21 process-control additional verification notes
+Task 21 process-control corrective additional verification notes
 Date: 2026-08-22
 
 Broad all-features check executed:
@@ -10,6 +10,6 @@ Result:
 - Failure excerpt: "CHORDS.md should name the retarget-to-commit transition"
 
 Assessment:
-- This failure is unrelated to Task 21 runtime/stdlib process-control changes.
-- The asserted artifact is proposal documentation under terminal aggregate/chord work, which is outside the allowed Task 21 file scope.
-- Task 21-specific verification remained green before and after this command: process_control filter, process integration smoke, fmt, line-count, lint, default cargo test, and cargo build all passed.
+- This failure remains unrelated to Task 21 runtime/stdlib process-control changes.
+- The asserted artifact is proposal documentation under terminal aggregate/chord work, which is outside the allowed Task 21 correction scope.
+- Task 21-specific corrective verification remained green before and after this command: process_control filter, process filter, process integration smoke, fmt, line-count, lint, default cargo test, and cargo build all passed.

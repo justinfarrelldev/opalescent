@@ -1,8 +1,17 @@
-Task 21 process-control verification
+Task 21 process-control corrective verification
 Date: 2026-08-22
 
+Corrective scope:
+- Replaced the production placeholder backend with a real POSIX backend in `src/runtime/process_control/posix.rs`.
+- Production construction now installs process-global `SIGTSTP` and `SIGCONT` handlers, bridges them through a nonblocking self-pipe, forwards bytes on a helper thread into runtime observations, and publishes readiness through `SystemReadinessSource`.
+- Suspend acknowledgement now performs a real host action via `kill(getpid(), SIGSTOP)`.
+- Continuation becomes observable only after the host resumes the process with `SIGCONT`.
+- Application resume remains explicit and consumes a host-derived continuation epoch; it does not restore terminal/application state implicitly.
+- Windows still returns `ProcessControlUnavailableError.UnsupportedHost` before allocation.
+- Production backend ownership is process-global and singleton: only one live source can own the installed handlers at a time, and dropping the source restores the previous handlers.
+
 Commands executed successfully:
-- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test process_control
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test process_control -- --nocapture
 - LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test process
 - LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test --features integration --test integration_e2e -- process_api_smoke --nocapture
 - LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check
@@ -12,7 +21,7 @@ Commands executed successfully:
 - LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo build
 
 Focused Task 21 notes:
-- Process-control remains separate from TerminalInputEvent; grep found no runtime/stdlib coupling.
-- Windows construction path returns ProcessControlUnavailableError.UnsupportedHost before source allocation.
-- Runtime tests cover queued notification ordering, idle non-mutation, host observation failure without mutation, generation exhaustion retry stability, acknowledge/resume retries, and wrong vs stale generation errors.
-- Stdlib smoke test confirms the future standard.system facade returns a stable readiness identity and Idle on the placeholder supported POSIX path.
+- `grep` found no remaining `NoopProcessControlHost` or placeholder POSIX backend text under `src/**/*.rs`.
+- Runtime state-machine coverage still proves queue ordering, idle non-mutation, host observation failure non-mutation, generation exhaustion retry stability, acknowledge/retry behavior, explicit continuation, and wrong vs stale generation errors.
+- New production-backend tests prove: singleton process-global handler ownership, safe real suspend/continue round trip in a helper subprocess, and stdlib smoke support on non-Windows hosts.
+- The helper subprocess test avoids hanging the main cargo test process: the child catches `SIGTSTP`, prints the suspend notification, stops only on explicit acknowledgement, and the parent resumes it with `SIGCONT` before explicit application resume.
