@@ -6,6 +6,13 @@
 extern crate alloc;
 extern crate std;
 
+#[cfg(unix)]
+mod posix;
+#[cfg(test)]
+mod tests;
+
+#[cfg(unix)]
+use self::posix::PosixProcessControlHost;
 use alloc::boxed::Box;
 use alloc::collections::VecDeque;
 #[cfg(test)]
@@ -137,13 +144,6 @@ pub enum ProcessControlPollResult {
 
 /// Observable host indications used by the source backend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the placeholder POSIX backend does not synthesize host notifications outside tests yet"
-    )
-)]
 enum ProcessControlHostObservation {
     /// The host requested suspension.
     SuspendRequested,
@@ -157,13 +157,6 @@ struct ProcessControlHostObservationError;
 
 /// Host action failures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the placeholder POSIX backend does not fail suspend or resume actions outside tests yet"
-    )
-)]
 enum ProcessControlHostActionError {
     /// Host suspension failed.
     SuspendFailed,
@@ -178,38 +171,15 @@ trait ProcessControlHost: Send {
         &mut self,
     ) -> Result<Option<ProcessControlHostObservation>, ProcessControlHostObservationError>;
 
+    /// Return whether untranslated host indications are still pending.
+    fn has_pending_observation(&self) -> bool;
+
     /// Ask the host to enter suspended state for `generation`.
     fn acknowledge_suspend(&mut self, generation: u64)
     -> Result<(), ProcessControlHostActionError>;
 
     /// Ask the host to resume application work for `generation`.
     fn resume_application(&mut self, generation: u64) -> Result<(), ProcessControlHostActionError>;
-}
-
-/// Placeholder POSIX backend used until live host observation is wired.
-#[derive(Debug, Default)]
-struct NoopProcessControlHost;
-
-impl ProcessControlHost for NoopProcessControlHost {
-    fn observe_notification(
-        &mut self,
-    ) -> Result<Option<ProcessControlHostObservation>, ProcessControlHostObservationError> {
-        Ok(None)
-    }
-
-    fn acknowledge_suspend(
-        &mut self,
-        _generation: u64,
-    ) -> Result<(), ProcessControlHostActionError> {
-        Ok(())
-    }
-
-    fn resume_application(
-        &mut self,
-        _generation: u64,
-    ) -> Result<(), ProcessControlHostActionError> {
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -339,6 +309,15 @@ impl ProcessControlHost for TestProcessControlHost {
         }
     }
 
+    fn has_pending_observation(&self) -> bool {
+        !self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .observations
+            .is_empty()
+    }
+
     fn acknowledge_suspend(
         &mut self,
         _generation: u64,
@@ -428,6 +407,18 @@ pub struct ProcessControlSource {
     backend: Box<dyn ProcessControlHost>,
 }
 
+#[cfg(all(test, unix))]
+/// Serialize tests that install the real process-global POSIX backend.
+pub(crate) fn production_backend_test_guard() -> std::sync::MutexGuard<'static, ()> {
+    use std::sync::{Mutex, OnceLock};
+
+    static TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+    TEST_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 impl ProcessControlSource {
     /// Create a new process-control source for the current host.
     ///
@@ -442,9 +433,20 @@ impl ProcessControlSource {
             return Err(ProcessControlUnavailableError::UnsupportedHost);
         }
 
-        #[cfg(not(windows))]
+        #[cfg(unix)]
         {
-            Ok(Self::from_backend(Box::new(NoopProcessControlHost)))
+            let readiness_source = SystemReadinessSource::new();
+            let backend = PosixProcessControlHost::new(readiness_source.clone())?;
+            Ok(Self {
+                readiness_source,
+                state: ProcessControlState::new(),
+                backend: Box::new(backend),
+            })
+        }
+
+        #[cfg(all(not(windows), not(unix)))]
+        {
+            Err(ProcessControlUnavailableError::UnsupportedHost)
         }
     }
 
@@ -585,6 +587,13 @@ impl ProcessControlSource {
     }
 
     /// Build a source from a concrete backend.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "non-test construction goes through the real POSIX backend initializer"
+        )
+    )]
     fn from_backend(backend: Box<dyn ProcessControlHost>) -> Self {
         let readiness_source = SystemReadinessSource::new();
         Self {
@@ -678,7 +687,9 @@ impl ProcessControlSource {
 
     /// Reflect the queue's current readiness level.
     fn publish_queue_readiness(&self) {
-        let availability = if self.state.queued_notifications.is_empty() {
+        let availability = if self.state.queued_notifications.is_empty()
+            && !self.backend.has_pending_observation()
+        {
             SourceAvailability::Idle
         } else {
             SourceAvailability::Ready
@@ -691,256 +702,5 @@ impl fmt::Debug for ProcessControlSource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ProcessControlSource")
             .finish_non_exhaustive()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #![allow(
-        clippy::panic,
-        clippy::too_many_lines,
-        reason = "the focused unit tests use explicit panic assertions and cover the full state machine"
-    )]
-    use super::{
-        ProcessControlAcknowledgementError, ProcessControlError, ProcessControlNotification,
-        ProcessControlPollResult, ProcessControlResumeError, ProcessControlSource,
-        ProcessControlUnavailableError, TestProcessControlHost, TestProcessControlHostObservation,
-    };
-    use std::sync::atomic::AtomicUsize;
-
-    fn poll_notification(source: &mut ProcessControlSource) -> ProcessControlNotification {
-        match source.poll().expect("poll should succeed") {
-            ProcessControlPollResult::Notification { notification } => notification,
-            ProcessControlPollResult::Idle => unreachable!("expected notification, found idle"),
-        }
-    }
-
-    #[test]
-    fn process_control_source_rejects_unsupported_host_before_allocation() {
-        let host = TestProcessControlHost::unsupported();
-        let allocation_probe = AtomicUsize::new(0);
-
-        let result = ProcessControlSource::new_with_test_host(host, &allocation_probe);
-        assert!(matches!(
-            result,
-            Err(ProcessControlUnavailableError::UnsupportedHost)
-        ));
-        assert_eq!(
-            allocation_probe.load(std::sync::atomic::Ordering::SeqCst),
-            0
-        );
-    }
-
-    #[test]
-    fn process_control_source_exposes_stable_readiness_identity() {
-        let host = TestProcessControlHost::supported();
-        let allocation_probe = AtomicUsize::new(0);
-        let source = ProcessControlSource::new_with_test_host(host, &allocation_probe)
-            .expect("supported host should build");
-        let readiness = source.readiness_source();
-        assert!(readiness.is_same_identity(&source.readiness_source()));
-        assert_eq!(
-            allocation_probe.load(std::sync::atomic::Ordering::SeqCst),
-            1
-        );
-    }
-
-    #[test]
-    fn process_control_poll_returns_queued_notifications_before_host_observation() {
-        let host = TestProcessControlHost::supported();
-        host.push_observation(TestProcessControlHostObservation::SuspendRequested);
-        let allocation_probe = AtomicUsize::new(0);
-        let mut source = ProcessControlSource::new_with_test_host(host, &allocation_probe)
-            .expect("supported host should build");
-        source.enqueue_notification_for_tests(ProcessControlNotification::Continued(7));
-
-        let first = match source.poll().expect("poll should succeed") {
-            ProcessControlPollResult::Notification { notification } => notification,
-            ProcessControlPollResult::Idle => {
-                unreachable!("queued notification should return first")
-            }
-        };
-        assert_eq!(first, ProcessControlNotification::Continued(7));
-        let second = match source.poll().expect("poll should succeed") {
-            ProcessControlPollResult::Notification { notification } => notification,
-            ProcessControlPollResult::Idle => unreachable!("host observation should return second"),
-        };
-        assert_eq!(second, ProcessControlNotification::SuspendRequested(1));
-    }
-
-    #[test]
-    fn process_control_poll_returns_idle_without_mutation_when_no_host_indication_is_available() {
-        let host = TestProcessControlHost::supported();
-        let allocation_probe = AtomicUsize::new(0);
-        let mut source = ProcessControlSource::new_with_test_host(host, &allocation_probe)
-            .expect("supported host should build");
-        let readiness = source.readiness_source();
-        let original_generation = readiness.generation();
-
-        assert_eq!(
-            source.poll().expect("poll should succeed"),
-            ProcessControlPollResult::Idle
-        );
-        assert_eq!(
-            source.poll().expect("poll should succeed"),
-            ProcessControlPollResult::Idle
-        );
-        assert_eq!(
-            readiness.generation(),
-            original_generation,
-            "idle polls must not publish readiness transitions"
-        );
-    }
-
-    #[test]
-    fn process_control_poll_reports_host_observation_failure_without_mutation() {
-        let host = TestProcessControlHost::supported();
-        host.push_observation_failure();
-        let allocation_probe = AtomicUsize::new(0);
-        let mut source = ProcessControlSource::new_with_test_host(host, &allocation_probe)
-            .expect("supported host should build");
-        let readiness = source.readiness_source();
-        let original_generation = readiness.generation();
-
-        assert_eq!(
-            source.poll(),
-            Err(ProcessControlError::HostNotificationObservationFailed)
-        );
-        assert_eq!(
-            readiness.generation(),
-            original_generation,
-            "observation failure must not publish readiness transitions"
-        );
-        assert_eq!(
-            source.poll().expect("poll should succeed"),
-            ProcessControlPollResult::Idle
-        );
-    }
-
-    #[test]
-    fn process_control_generation_exhaustion_preserves_pending_host_indication() {
-        let host = TestProcessControlHost::supported();
-        host.push_observation(TestProcessControlHostObservation::SuspendRequested);
-        let allocation_probe = AtomicUsize::new(0);
-        let mut source = ProcessControlSource::new_with_test_host(host, &allocation_probe)
-            .expect("supported host should build");
-        source.state.last_issued_generation = u64::MAX;
-        let first = source.poll();
-        assert_eq!(
-            first,
-            Err(ProcessControlError::GenerationExhausted {
-                last_issued_generation: u64::MAX
-            })
-        );
-        let second = source.poll();
-        assert_eq!(
-            second,
-            Err(ProcessControlError::GenerationExhausted {
-                last_issued_generation: u64::MAX
-            })
-        );
-    }
-
-    #[test]
-    fn process_control_suspend_acknowledge_and_resume_state_machine() {
-        let host = TestProcessControlHost::supported();
-        host.push_observation(TestProcessControlHostObservation::SuspendRequested);
-        host.push_observation(TestProcessControlHostObservation::Continued);
-        let allocation_probe = AtomicUsize::new(0);
-        let mut source = ProcessControlSource::new_with_test_host(host, &allocation_probe)
-            .expect("supported host should build");
-
-        let suspend_notification = poll_notification(&mut source);
-        assert_eq!(
-            suspend_notification,
-            ProcessControlNotification::SuspendRequested(1)
-        );
-        assert_eq!(source.acknowledge_suspend(1), Ok(()));
-        assert_eq!(source.acknowledge_suspend(1), Ok(()));
-        assert_eq!(
-            source.acknowledge_suspend(2),
-            Err(ProcessControlAcknowledgementError::WrongGeneration)
-        );
-
-        let continued_notification = poll_notification(&mut source);
-        assert_eq!(
-            continued_notification,
-            ProcessControlNotification::Continued(1)
-        );
-        assert_eq!(source.resume_application(1), Ok(()));
-        assert_eq!(source.resume_application(1), Ok(()));
-        assert_eq!(
-            source.resume_application(2),
-            Err(ProcessControlResumeError::WrongGeneration)
-        );
-    }
-
-    #[test]
-    fn process_control_suspend_and_resume_failures_are_retryable() {
-        let host = TestProcessControlHost::supported();
-        host.push_observation(TestProcessControlHostObservation::SuspendRequested);
-        host.fail_next_suspend_acknowledgement();
-        host.fail_next_resume();
-        let allocation_probe = AtomicUsize::new(0);
-        let mut source = ProcessControlSource::new_with_test_host(host.clone(), &allocation_probe)
-            .expect("supported host should build");
-
-        let suspend_notification = poll_notification(&mut source);
-        assert_eq!(
-            suspend_notification,
-            ProcessControlNotification::SuspendRequested(1),
-            "the first notification must be the initial suspend request"
-        );
-        assert_eq!(
-            source.acknowledge_suspend(1),
-            Err(ProcessControlAcknowledgementError::HostSuspendFailed)
-        );
-        assert_eq!(source.acknowledge_suspend(1), Ok(()));
-
-        host.push_observation(TestProcessControlHostObservation::Continued);
-        let continued_notification = poll_notification(&mut source);
-        assert_eq!(
-            continued_notification,
-            ProcessControlNotification::Continued(1),
-            "the retry path must still deliver the continued notification"
-        );
-        assert_eq!(
-            source.resume_application(1),
-            Err(ProcessControlResumeError::HostApplicationResumeFailed)
-        );
-        assert_eq!(source.resume_application(1), Ok(()));
-    }
-
-    #[test]
-    fn process_control_stale_generation_errors_are_distinct_from_wrong_generation_errors() {
-        let host = TestProcessControlHost::supported();
-        host.push_observation(TestProcessControlHostObservation::SuspendRequested);
-        let allocation_probe = AtomicUsize::new(0);
-        let mut source = ProcessControlSource::new_with_test_host(host, &allocation_probe)
-            .expect("supported host should build");
-
-        let suspend_notification = poll_notification(&mut source);
-        assert_eq!(
-            suspend_notification,
-            ProcessControlNotification::SuspendRequested(1),
-            "the first notification must be the initial suspend request"
-        );
-        assert_eq!(
-            source.acknowledge_suspend(2),
-            Err(ProcessControlAcknowledgementError::WrongGeneration)
-        );
-        assert_eq!(
-            source.resume_application(2),
-            Err(ProcessControlResumeError::WrongGeneration)
-        );
-        assert_eq!(
-            source.resume_application(1),
-            Err(ProcessControlResumeError::StaleGeneration)
-        );
-        assert_eq!(source.acknowledge_suspend(1), Ok(()));
-        assert_eq!(
-            source.resume_application(1),
-            Err(ProcessControlResumeError::StaleGeneration)
-        );
     }
 }
