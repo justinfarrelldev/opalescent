@@ -14,6 +14,9 @@ mod system_tests {
         net::{MockTcpStream, MockUdpSocket, NetError, SocketAddr, TcpStream as _, UdpSocket as _},
         platform::{Arch, OsKind, Platform},
         process::{ChildProcess as _, ExitCode, MockProcessManager, ProcessManager as _, Signal},
+        process_control::{
+            process_control_poll, process_control_readiness_source, process_control_source_new,
+        },
         thread::{OpalMutex as _, Spawner as _, StdMutex, SyncSpawner},
         timer::{
             monotonic_clock_now, monotonic_timer_arm, monotonic_timer_deadline,
@@ -368,6 +371,27 @@ mod system_tests {
         assert_eq!(
             pm.current_dir().expect("current_dir should succeed"),
             String::from("/mock/dir")
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn process_control_facade_new_returns_supported_source_and_idle_poll() {
+        let mut source = process_control_source_new().expect("supported host should build");
+        let readiness = process_control_readiness_source(&source);
+        assert!(readiness.is_same_identity(&process_control_readiness_source(&source)));
+        assert_eq!(
+            process_control_poll(&mut source),
+            Ok(crate::runtime::process_control::ProcessControlPollResult::Idle)
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn process_control_facade_new_returns_unsupported_host_on_windows() {
+        assert_eq!(
+            process_control_source_new(),
+            Err(crate::runtime::process_control::ProcessControlUnavailableError::UnsupportedHost)
         );
     }
 
