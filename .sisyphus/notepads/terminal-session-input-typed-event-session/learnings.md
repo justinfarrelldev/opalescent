@@ -247,3 +247,9 @@
 - 2026-08-23: The corrective Task 23 split should treat `standard.system` separately from selected terminal/chord/test surfaces. One authoritative runtime-ready inventory over `CORE_PREREQUISITE_FUNCTIONS` keeps codegen/import behavior consistent: completed core prerequisites lower now, later Task 24-32 APIs still stop at the runtime-readiness gate.
 - 2026-08-23: Generated programs currently treat core prerequisite nominals like `SystemWaitSet`, `MonotonicTimer`, `ProcessControlSource`, and `MonotonicDeadline` as opaque pointer-backed generics. That lets Task 23 add real generated-runtime lowering without implementing the later public terminal/chord data models from Task 24.
 - 2026-08-23: The compiler’s embedded runtime is a concatenated C amalgamation. New runtime files must follow the existing pattern: include `opal_portability.h` first, use local typedef guards, and avoid including `opal_runtime.h` directly or they will conflict with later concatenated typedefs.
+
+## Task 23 generated runtime repair - 2026-08-23
+
+- Real generated POSIX process-control proof can live in `tests/integration_e2e/terminal_core_prerequisites.rs` as a compiled helper child: the helper calls `process_control_*` directly, the parent waits with `waitpid(..., WUNTRACED)`, sends `SIGCONT`, and asserts `CONTINUED 1` before explicit `RESUMED 1`.
+- The generated C runtime can stay async-signal-safe without a helper thread by using a self-pipe plus retained pending-host-observation state in `runtime/opal_system.c`; poll stays queue-first, nonblocking on empty state, and generation-exhaustion retries by keeping the consumed pipe observation in source state instead of dropping it.
+- Final Task 23 corrective commits are `c1ac311` (`fix(runtime): repair generated posix process control`) and `abd153a` (`docs(task): refresh generated process control evidence`).

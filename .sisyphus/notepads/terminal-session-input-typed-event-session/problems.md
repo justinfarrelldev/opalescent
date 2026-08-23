@@ -23,3 +23,6 @@
 
 ## Task 22 acceptance wording cleanup - 2026-08-21
 - Coordinator family constants now pass bare family names to the shared formatter, producing one `TerminalCoordinatorUnavailable { state, operation }` variant; `STDLIB.md` documents EOF as `StandardInputReadError: EndOfInput` while preserving successful partial final-line reads.
+
+## Task 23 inherited branch problem - 2026-08-23
+- Broad `cargo test --features integration` remains blocked by the unrelated proposal-traceability test `tests::terminal_aggregate::terminal_aggregate_proposal_traceability_mentions_private_runtime_contract`; follow-up terminal work should not treat that failure as a generated process-control regression.

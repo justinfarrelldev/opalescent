@@ -123,3 +123,8 @@
 - 2026-08-22: `cargo test --all-features` still fails in the inherited `tests::terminal_aggregate::terminal_aggregate_proposal_traceability_mentions_private_runtime_contract` assertion (`CHORDS.md should name the retarget-to-commit transition`). Task 23 records that branch-level failure but does not fix unrelated proposal documentation.
 - 2026-08-23: The original Task 23 follow-up rejection was valid: opening the prerequisite gate without a per-symbol runtime-ready split left completed core prerequisites behind the same blanket codegen rejection as `TerminalSession` APIs. The fix required both a codegen inventory change and real generated-runtime symbols.
 - 2026-08-23: `cargo make c-quality` does not currently enumerate the new `runtime/opal_system.c` file in its per-file output, so the decisive proof for the new core prerequisite C runtime came from `cargo build`, `cargo test`, and the generated-binary integration smoke rather than the cppcheck file list alone.
+
+## Task 23 generated runtime verification - 2026-08-23
+
+- `cargo test --features integration` still fails in inherited `tests::terminal_aggregate::terminal_aggregate_proposal_traceability_mentions_private_runtime_contract` with `CHORDS.md should name the retarget-to-commit transition`; the generated process-control repair leaves that proposal-doc failure untouched per scope.
+- `cargo make c-quality` still does not enumerate `runtime/opal_system.c`, so the decisive Task 23 C-quality proof remains the standalone command `cc -std=gnu11 -Werror -I. -c runtime/opal_system.c -o /tmp/opencode/opal_system.o` alongside the generated helper-child integration test.
