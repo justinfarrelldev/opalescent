@@ -1076,7 +1076,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(stdlib): coordinate legacy I/O with terminal ownership` | Files: [src/runtime/**, src/stdlib/**, src/type_system/**, src/codegen/**, tests/**]
 
-- [ ] 23. Open public terminal API gate only after prerequisite validation
+- [x] 23. Open public terminal API gate only after prerequisite validation
 
   **What to do**: Replace the temporary gate from Tasks 11-12 with a prerequisite validation gate that opens selected public terminal/chord/core/test APIs only when Tasks 13-22 prerequisites are implemented. Add tests proving no public API is reachable if any required prerequisite is disabled in test configuration.
   **Must NOT do**: Do not expose partial `TerminalSession` APIs. Do not leave stale “proposal gate not complete” diagnostics after all prerequisites are verified. Do not bypass ABI validation.
