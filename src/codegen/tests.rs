@@ -1620,8 +1620,9 @@ entry main = f(): void errors AllocationFailureError, SystemWaitSetError, Monoto
     let mutable process_source = propagate process_control_source_new()
     let process_readiness = process_control_readiness_source(ref process_source)
     let poll_result = propagate process_control_poll(mutable ref process_source)
-    propagate process_control_acknowledge_suspend(mutable ref process_source, 0)
-    propagate process_control_resume_application(mutable ref process_source, 0)
+    let assumed_process_generation: uint64 = 1 as uint64
+    propagate process_control_acknowledge_suspend(mutable ref process_source, assumed_process_generation)
+    propagate process_control_resume_application(mutable ref process_source, assumed_process_generation)
     let disarm_generation = propagate monotonic_timer_disarm(mutable ref timer)
     return void
 ";
