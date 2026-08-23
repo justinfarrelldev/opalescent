@@ -1,52 +1,37 @@
-# Task 23 API Gate Verification
+# Task 23 Generated POSIX Process-Control Verification
 
-## Focused gate, codegen, and ABI checks
+- Repair commit: `c1ac311` (`fix(runtime): repair generated posix process control`)
 
-- `cargo test test_selected_terminal_modules_report_missing_prerequisites_until_full_feature_set_is_enabled`
-  - PASS
-  - Confirms every Task 13-22 prerequisite can be disabled individually and that `standard.system`, `standard.terminal`, `standard.terminal.chords`, and `standard.testing.terminal` then fail with an explicit missing-prerequisite diagnostic.
-- `cargo test test_error_attachment_inspectors_resolve_without_terminal_gate`
-  - PASS
-  - Confirms the narrow Task 16 error-inspector exception remains importable even with all terminal public API prerequisites cleared.
-- `cargo test test_selected_terminal_signatures_type_check_under_internal_gate`
-  - PASS
-  - Confirms selected terminal signatures type-check once the authoritative prerequisite set is satisfied.
-- `cargo test test_standard_testing_terminal_signatures_type_check_only_in_test_mode`
-  - PASS
-  - Confirms test-only terminal symbols still require test-only mode in addition to the satisfied prerequisite set.
-- `cargo test test_core_prerequisite_signatures_type_check_under_internal_gate`
-  - PASS
-  - Confirms the `standard.system` prerequisite surface remains coherent under the same authoritative prerequisite validator.
-- `cargo test codegen_core_prerequisite_imports_emit_runtime_declarations`
-  - PASS
-  - Confirms completed `standard.system` prerequisite imports compile through codegen and emit real runtime declarations for wait, cancellation, timer, and process-control symbols.
-- `cargo test codegen_error_attachment_inspector_imports_emit_runtime_declarations`
-  - PASS
-  - Confirms implemented immutable-error inspectors continue to lower to runtime declarations on the allowed path.
-- `cargo test codegen_terminal_proposal_imports_fail_with_gate_diagnostic`
-  - PASS
-  - Confirms only later selected terminal/chord/test imports stay behind the runtime-readiness diagnostic after the prerequisite gate opens.
-- `cargo test codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic`
-  - PASS
-  - Confirms directly mapped later terminal runtime names still fail with the explicit runtime-readiness diagnostic and emit no unresolved extern.
-- `cargo test --features integration --test integration_e2e terminal_core_prerequisites_generated_runtime_compile_and_run`
-  - PASS
-  - Confirms generated binaries now link and execute real wait/cancellation, timer, process-control, and immutable-error prerequisite targets instead of blanket runtime blocking.
-- `cargo test terminal_abi_rejects_reused_retired_selected_variant_id`
-  - PASS
-  - Confirms terminal/chord ABI validation still fails before exposure when authoritative metadata is invalid.
+## Focused generated-runtime correction checks
 
-## Required repo-wide verification
+- `cc -std=gnu11 -Werror -I. -c runtime/opal_system.c -o /tmp/opencode/opal_system.o`
+  - PASS
+  - Confirms the repaired generated C runtime compiles cleanly with warnings treated as errors on the supported host.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test codegen_core_prerequisite_imports_emit_runtime_declarations`
+  - PASS
+  - Confirms the compiler-side runtime declaration smoke still lowers the completed `standard.system` prerequisite surface, including `process_control_*`, without the generation-0 bypass.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test process_control_ -- --nocapture`
+  - PASS (`10 passed; 0 failed`)
+  - Confirms the Rust state-machine reference coverage remains green for queue-first idle behavior, generation exhaustion retention, wrong-vs-stale handling, retry semantics, and unsupported-host construction.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test --features integration --test integration_e2e -- terminal_core_prerequisites_generated_runtime_compile_and_run --nocapture`
+  - PASS
+  - Confirms generated runtime smoke still compiles/runs and that the new helper-child round trip observes `SUSPEND 1`, real stop via `waitpid(..., WUNTRACED)`, parent-issued `SIGCONT`, `CONTINUED 1`, and explicit `RESUMED 1` without hanging.
+- `grep -nE 'process_control_acknowledge_suspend\([^\n]*, 0\)|process_control_resume_application\([^\n]*, 0\)|result->kind = OPAL_PROCESS_CONTROL_POLL_IDLE;|last_generation' runtime/opal_system.c src/codegen/tests.rs tests/integration_e2e/terminal_core_prerequisites.rs`
+  - PASS (no matches)
+  - Confirms the generation-0 success path, unconditional idle stub assignment, and stale `last_generation` field name are absent from the repaired surfaces.
 
-- `cargo fmt --all -- --check`
+## Repository verification rerun after the repair
+
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check`
   - PASS
 - `bash scripts/check-line-count.sh`
   - PASS
-- `cargo make lint`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint`
   - PASS
-- `cargo make c-quality`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make c-quality`
   - PASS
-- `cargo test`
-  - PASS (`1544 passed; 0 failed; 8 ignored` plus integration/doctest success)
-- `cargo build`
+  - Note: the repo task currently does not enumerate `runtime/opal_system.c`, so the direct `cc -Werror` compile above is the decisive per-file C proof for the repaired generated runtime.
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo build`
   - PASS
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test`
+  - PASS (`1544 passed; 0 failed; 8 ignored` plus doctest success)

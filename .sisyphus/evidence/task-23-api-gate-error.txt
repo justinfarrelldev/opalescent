@@ -1,50 +1,25 @@
-# Task 23 API Gate Negative / Inherited Failure Evidence
+# Task 23 Generated POSIX Process-Control Negative / Inherited Failure Evidence
 
-## Negative gate coverage now enforced by Task 23 tests
+- Repair commit under test: `c1ac311` (`fix(runtime): repair generated posix process control`)
 
-- `cargo test test_selected_terminal_modules_report_missing_prerequisites_until_full_feature_set_is_enabled`
-  - PASS
-  - The test explicitly disables each prerequisite one at a time and asserts `TypeError::ModuleUnavailable` reason/help text names the missing prerequisite.
-  - Missing-prerequisite names asserted by the test:
-    - `affine ownership`
-    - `cleanup/transfer`
-    - `refinement/constrain`
-    - `immutable errors`
-    - `test-only authority`
-    - `transactional affine aggregates`
-    - `wait/cancellation`
-    - `timers`
-    - `process control`
-    - `terminal coordinator/legacy I/O coordination`
-- `cargo test codegen_terminal_proposal_imports_fail_with_gate_diagnostic`
-  - PASS
-  - Confirms later selected terminal/chord/test imports still stop at the runtime-readiness gate after the prerequisite gate opens.
-- `cargo test codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic`
-  - PASS
-  - Confirms directly mapped selected terminal calls still fail before unresolved extern emission.
-- `cargo test codegen_core_prerequisite_imports_emit_runtime_declarations`
-  - PASS
-  - Confirms the corrective split no longer leaves completed `standard.system` prerequisites behind the same blanket codegen rejection as later TerminalSession APIs.
-- `cargo test terminal_abi_rejects_reused_retired_selected_variant_id`
-  - PASS
-  - Confirms invalid ABI metadata still blocks exposure.
+## Negative and boundary coverage still enforced
 
-## Confirmed ready-vs-blocked split
-
-- Ready now after the full prerequisite set is enabled:
-  - wait/cancellation imports and lowering (`system_wait_set_*`, `cancellation_*`)
-  - monotonic timer imports and lowering (`monotonic_timer_*`, `monotonic_clock_now`)
-  - process-control imports and lowering (`process_control_*`)
-  - implemented immutable-error inspectors (`error_*` inspector surface already accepted before the public gate)
-- Still runtime-blocked on purpose pending Tasks 24-32:
-  - selected terminal session APIs under `standard.terminal`
-  - terminal chord APIs under `standard.terminal.chords`
-  - test-only terminal factories under `standard.testing.terminal`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test process_control_ -- --nocapture`
+  - PASS (`10 passed; 0 failed`)
+  - Includes explicit green coverage for:
+    - `process_control_poll_returns_idle_without_mutation_when_no_host_indication_is_available`
+    - `process_control_generation_exhaustion_preserves_pending_host_indication`
+    - `process_control_stale_generation_errors_are_distinct_from_wrong_generation_errors`
+    - `process_control_suspend_and_resume_failures_are_retryable`
+    - `process_control_source_rejects_unsupported_host_before_allocation`
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test --features integration --test integration_e2e -- terminal_core_prerequisites_generated_runtime_compile_and_run --nocapture`
+  - PASS
+  - Confirms the generated helper-child proof no longer relies on acknowledgement/resume generation `0`, proves real child stop plus parent `SIGCONT`, and asserts continued notification before explicit resume.
 
 ## Inherited out-of-scope branch failure
 
-- `cargo test --all-features`
-  - FAILS in the same known out-of-scope integration assertion noted by the task context:
+- `LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test --features integration`
+  - FAILS in the same unrelated branch-level integration assertion already called out in Task 23 context/history:
     - `tests::terminal_aggregate::terminal_aggregate_proposal_traceability_mentions_private_runtime_contract`
     - message: `CHORDS.md should name the retarget-to-commit transition`
-  - This corrective slice reran the command after enabling generated core prerequisite lowering; the only failure remains the unrelated CHORDS traceability assertion, so Task 23 still records it as inherited branch state rather than fixing unrelated proposal documentation.
+  - The generated POSIX process-control repair does **not** touch `CHORDS.md`, and the task explicitly forbids unrelated proposal-traceability edits, so this remains recorded as inherited branch state rather than part of the focused repair.
