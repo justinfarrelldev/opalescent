@@ -32,8 +32,9 @@ use crate::type_system::types::CoreType;
 use alloc::string::String;
 use alloc::{collections::BTreeMap, vec::Vec};
 use compiler_helpers::{
-    collect_imported_symbol_signatures, collect_module_symbol_signatures,
-    collect_program_adt_field_indices, collect_program_adt_field_layouts,
+    collect_imported_adt_field_layouts, collect_imported_symbol_signatures,
+    collect_module_symbol_signatures, collect_program_adt_field_indices,
+    collect_program_adt_field_layouts, merge_interface_adt_field_layouts,
     compile_checked_program_to_module, is_main_module_path, lambda_body_to_function_body,
     parse_source_to_program, validate_entry_declarations_for_module,
 };
@@ -316,7 +317,8 @@ pub fn compile_to_module_for_target<'context>(
     let module_symbol_signatures =
         collect_module_symbol_signatures(&checker, source_path.display().to_string().as_str());
     let adt_field_indices = collect_program_adt_field_indices(&program);
-    let adt_field_layouts = collect_program_adt_field_layouts(&program);
+    let mut adt_field_layouts = collect_program_adt_field_layouts(&program);
+    adt_field_layouts.extend(collect_imported_adt_field_layouts(&checker, &program));
     let codegen_context = CodegenContext::for_triple(context, "opalescent_module", target)
         .map_err(|error| {
             let mut codegen_report = CompilationErrorReport::new();
@@ -968,12 +970,15 @@ pub fn compile_project_with_run_policy(
 
     let mut global_adt_field_indices: BTreeMap<String, BTreeMap<String, u32>> = BTreeMap::new();
     let mut global_adt_field_layouts: BTreeMap<String, Vec<(String, CoreType)>> = BTreeMap::new();
-    for program in parsed_programs.values() {
+    for (module_path, program) in &parsed_programs {
         for (name, fields) in collect_program_adt_field_indices(program) {
             global_adt_field_indices.insert(name, fields);
         }
         for (name, fields) in collect_program_adt_field_layouts(program) {
             global_adt_field_layouts.insert(name, fields);
+        }
+        if let Some(interface) = discovered_interfaces.get(module_path) {
+            merge_interface_adt_field_layouts(interface, &mut global_adt_field_layouts);
         }
     }
 

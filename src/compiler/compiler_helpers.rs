@@ -183,6 +183,87 @@ pub fn collect_program_adt_field_layouts(
     adt_field_layouts
 }
 
+/// Collect imported ADT field layouts from authoritative module metadata.
+pub fn collect_imported_adt_field_layouts(
+    checker: &TypeChecker,
+    program: &Program,
+) -> BTreeMap<String, Vec<(String, CoreType)>> {
+    let mut adt_field_layouts = BTreeMap::new();
+    for declaration in &program.declarations {
+        let Decl::Import { source, .. } = declaration else {
+            continue;
+        };
+        let Some(interface) = checker.module_interface(source.as_str()) else {
+            continue;
+        };
+        for (type_name, type_declaration) in &interface.type_declarations {
+            match &type_declaration.type_def {
+                TypeDef::Product { fields, .. } => {
+                    let mut field_layout = Vec::new();
+                    for field in fields {
+                        let Ok(core_type) = ast_type_to_core_type(&field.type_annotation) else {
+                            continue;
+                        };
+                        field_layout.push((field.name.clone(), core_type));
+                    }
+                    adt_field_layouts.insert(type_name.clone(), field_layout);
+                }
+                TypeDef::Sum { variants, .. } => {
+                    for variant in variants {
+                        let mut field_layout = Vec::new();
+                        for field in &variant.fields {
+                            let Ok(core_type) = ast_type_to_core_type(&field.type_annotation) else {
+                                continue;
+                            };
+                            field_layout.push((field.name.clone(), core_type));
+                        }
+                        adt_field_layouts
+                            .insert(format!("{type_name}.{}", variant.name), field_layout);
+                    }
+                }
+                TypeDef::Alias { .. } | TypeDef::Opaque { .. } => {}
+            }
+        }
+    }
+    adt_field_layouts
+}
+
+/// Merge authoritative imported ADT layouts from one discovered module interface.
+pub fn merge_interface_adt_field_layouts(
+    interface: &crate::type_system::ModuleInterface,
+    adt_field_layouts: &mut BTreeMap<String, Vec<(String, CoreType)>>,
+) {
+    for (type_name, declaration) in &interface.type_declarations {
+        match &declaration.type_def {
+            TypeDef::Product { fields, .. } => {
+                let mut field_layout = Vec::new();
+                for field in fields {
+                    let Ok(core_type) = ast_type_to_core_type(&field.type_annotation) else {
+                        continue;
+                    };
+                    field_layout.push((field.name.clone(), core_type));
+                }
+                adt_field_layouts.entry(type_name.clone()).or_insert(field_layout);
+            }
+            TypeDef::Sum { variants, .. } => {
+                for variant in variants {
+                    let mut field_layout = Vec::new();
+                    for field in &variant.fields {
+                        let Ok(core_type) = ast_type_to_core_type(&field.type_annotation) else {
+                            continue;
+                        };
+                        field_layout.push((field.name.clone(), core_type));
+                    }
+                    adt_field_layouts
+                        .entry(format!("{type_name}.{}", variant.name))
+                        .or_insert(field_layout);
+                }
+            }
+            TypeDef::Alias { .. } | TypeDef::Opaque { .. } => {}
+        }
+    }
+}
+
 /// Collects the current module's public and private symbol signatures for codegen.
 pub fn collect_module_symbol_signatures(
     checker: &TypeChecker,

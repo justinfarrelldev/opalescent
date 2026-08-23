@@ -217,6 +217,23 @@ pub fn declare_stdlib_function<'context>(
             let ft = i8_ptr.fn_type(&[i8_type.into()], false);
             Some(module.add_function("bool_to_string", ft, None))
         }),
+        "opal_terminal_constrain_i32_range" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                pointer_error_result_type.fn_type(
+                    &[i32_type.into(), i32_type.into(), i32_type.into()],
+                    false,
+                ),
+                None,
+            ))
+        }),
+        "opal_terminal_constrain_u8_control_code" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                pointer_error_result_type.fn_type(&[i8_type.into()], false),
+                None,
+            ))
+        }),
         name if STRING_STDLIB_NAMES.contains(&name) => {
             declare_string_stdlib_function(codegen_context, name)
         }
@@ -998,6 +1015,8 @@ pub const STDLIB_NAMES: &[&str] = &[
     "is_directory_sync",
     "is_directory_nofollow_sync",
     "exit_process",
+    "opal_terminal_constrain_i32_range",
+    "opal_terminal_constrain_u8_control_code",
 ];
 
 #[cfg(test)]
@@ -1008,8 +1027,8 @@ mod tests {
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
             STDLIB_NAMES.len() + STRING_STDLIB_NAMES.len(),
-            128,
-            "stdlib registry should have 128 names"
+            130,
+            "stdlib registry should have 130 names"
         );
         assert!(is_stdlib_runtime_name("opal_runtime_error"));
         assert!(is_stdlib_runtime_name("print"));

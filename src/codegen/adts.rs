@@ -5,6 +5,10 @@
 extern crate alloc;
 
 use crate::ast::{Expr, Pattern};
+#[path = "adts_sum.rs"]
+#[doc = "Extracted sum-constructor lowering helpers to keep adts.rs under the repository line-count cap."]
+mod adts_sum;
+
 use crate::codegen::affine_aggregates::maybe_codegen_transactional_aggregate_constructor;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
@@ -98,7 +102,12 @@ pub fn codegen_constructor_expression<'context>(
             }
         }
         if matches!(callee.as_ref(), &Expr::Member { .. }) {
-            return codegen_sum_variant_constructor(codegen_context, env, fields.as_slice());
+            return adts_sum::codegen_sum_variant_constructor(
+                codegen_context,
+                env,
+                fields.as_slice(),
+                expected_type,
+            );
         }
         return codegen_product_constructor(codegen_context, env, fields.as_slice(), expected_type);
     }
@@ -689,49 +698,6 @@ fn codegen_registered_fallible_constructor<'context>(
     };
 
     Ok(fallible_constructor_value)
-}
-
-#[doc = "Lower sum variant constructors into tagged-union struct values."]
-fn codegen_sum_variant_constructor<'context>(
-    codegen_context: &CodegenContext<'context>,
-    env: &mut CodegenEnv<'context>,
-    fields: &[crate::ast::ConstructorField],
-) -> Result<BasicValueEnum<'context>, CodegenError> {
-    let tagged_type = codegen_context.context.struct_type(
-        &[
-            codegen_context.context.i64_type().into(),
-            codegen_context.context.i8_type().array_type(64).into(),
-        ],
-        false,
-    );
-    let alloca = codegen_context
-        .builder
-        .build_alloca(tagged_type, &env.next_name("sum.alloca"))?;
-
-    // SAFETY: GEP targets the tag field on the same stack-allocated tagged union value.
-    let tag_ptr = unsafe {
-        codegen_context.builder.build_in_bounds_gep(
-            alloca,
-            &[
-                codegen_context.context.i32_type().const_zero(),
-                codegen_context.context.i32_type().const_zero(),
-            ],
-            &env.next_name("sum.tag.ptr"),
-        )?
-    };
-    let _store_tag = codegen_context.builder.build_store(
-        tag_ptr,
-        codegen_context.context.i64_type().const_int(0, false),
-    )?;
-
-    if let Some(first_field) = fields.first() {
-        let _payload_value = codegen_expression(codegen_context, env, &first_field.value, None)?;
-    }
-
-    codegen_context
-        .builder
-        .build_load(alloca, &env.next_name("sum.value"))
-        .map_err(CodegenError::from)
 }
 
 #[doc = "Lower product constructors to plain LLVM struct values or heap-backed nominal payloads."]

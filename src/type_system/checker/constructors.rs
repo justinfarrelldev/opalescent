@@ -27,7 +27,7 @@ impl TypeChecker {
             Expr::Identifier { ref name, .. } => {
                 self.validate_public_constructor_visibility(name, span)?;
                 if fields.is_empty() {
-                    return Self::type_check_propertyless_constructor(name, span);
+                    return self.type_check_propertyless_constructor(name, span);
                 }
 
                 let owner_type = self.type_check_constructor_fields(name, fields, span)?;
@@ -56,7 +56,7 @@ impl TypeChecker {
 
                     self.validate_public_constructor_visibility(&qualified_variant, span)?;
                     if fields.is_empty() {
-                        return Self::type_check_propertyless_constructor(&qualified_variant, span);
+                        return self.type_check_propertyless_constructor(&qualified_variant, span);
                     }
 
                     let owner_type =
@@ -84,12 +84,18 @@ impl TypeChecker {
 
     /// Type check propertyless constructor expressions.
     fn type_check_propertyless_constructor(
+        &self,
         owner_name: &str,
         span: Span,
     ) -> Result<CoreType, TypeError> {
-        if lookup_propertyless_constructor(owner_name).is_some() {
+        if lookup_propertyless_constructor(owner_name).is_some()
+            || (owner_name.contains('.') && self.symbol_table().lookup(owner_name).is_some())
+        {
+            let type_name = owner_name
+                .split_once('.')
+                .map_or_else(|| owner_name.to_owned(), |(owner, _)| owner.to_owned());
             return Ok(CoreType::Generic {
-                name: owner_name.to_owned(),
+                name: type_name,
                 type_args: Vec::new(),
             });
         }

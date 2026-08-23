@@ -1648,6 +1648,56 @@ fn compile_and_run_error_attachment_c_test(test_name: &str, source: &str) {
     );
 }
 
+fn compile_and_run_terminal_model_c_test(test_name: &str, source: &str) {
+    let temp_dir = std::env::temp_dir();
+    let source_path = temp_dir.join(format!("{test_name}.c"));
+    let binary_path = temp_dir.join(format!("{test_name}.bin"));
+    std::fs::write(&source_path, source)
+        .unwrap_or_else(|error| panic!("failed to write C source for {test_name}: {error}"));
+
+    let compile_output = std::process::Command::new("gcc")
+        .args([
+            "-std=c11",
+            "-D_POSIX_C_SOURCE=200809L",
+            "-DOPAL_ENABLE_INTERNAL_TESTING",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            source_path.to_str().expect("utf-8 source path"),
+            "runtime/opal_terminal_model.c",
+            "-Iruntime",
+            "-o",
+            binary_path.to_str().expect("utf-8 binary path"),
+        ])
+        .output();
+
+    let compiled = match compile_output {
+        Ok(output) => output,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("gcc not found, skipping {test_name}");
+            return;
+        }
+        Err(error) => panic!("failed to invoke gcc for {test_name}: {error}"),
+    };
+
+    assert!(
+        compiled.status.success(),
+        "gcc failed for {test_name}:\n{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+
+    let run_output = std::process::Command::new(&binary_path)
+        .output()
+        .unwrap_or_else(|error| panic!("failed to run compiled test {test_name}: {error}"));
+
+    assert!(
+        run_output.status.success(),
+        "compiled C test {test_name} failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&run_output.stdout),
+        String::from_utf8_lossy(&run_output.stderr)
+    );
+}
+
 fn compile_and_run_terminal_coordinator_c_test(test_name: &str, source: &str) {
     let temp_dir = tempfile::tempdir().expect("create temp dir for terminal coordinator C test");
     let source_path = temp_dir.path().join(format!("{test_name}.c"));
@@ -1695,6 +1745,107 @@ fn compile_and_run_terminal_coordinator_c_test(test_name: &str, source: &str) {
         "compiled C test {test_name} failed:\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&run_output.stdout),
         String::from_utf8_lossy(&run_output.stderr)
+    );
+}
+
+#[test]
+fn terminal_model_c_inspectors_and_formatters_work() {
+    compile_and_run_terminal_model_c_test(
+        "terminal-model-c-inspectors-and-formatters-work",
+        r#"
+#include "opal_runtime.h"
+#include <assert.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+    int64_t tag;
+    int32_t evidence;
+    int32_t count;
+} OpalTerminalCapabilityValue;
+
+typedef struct {
+    int64_t tag;
+    uint8_t payload[64];
+} OpalTerminalTaggedValue;
+
+typedef struct {
+    uint32_t magic;
+    int64_t backend;
+    int64_t operation;
+    int64_t stage;
+    int64_t coordinator_state;
+    int64_t session_state;
+    int64_t os_code_tag;
+    int64_t os_code_i64;
+    char* detail;
+    int64_t retryability;
+    _Bool was_truncated;
+    uint64_t accounted_bytes;
+} OpalTerminalDiagnostic;
+
+int main(void) {
+    void* caps = opal_terminal_test_make_capabilities();
+    assert(caps != NULL);
+    OpalTerminalTaggedValue feature = {1, {0}};
+    OpalTerminalCapabilityValue* ordinary = (OpalTerminalCapabilityValue*)terminal_capabilities_feature(caps, &feature);
+    assert(ordinary != NULL);
+    assert(ordinary->tag == 2);
+    OpalTerminalCapabilityValue* trusted = (OpalTerminalCapabilityValue*)terminal_capabilities_trusted_paste_framing(caps);
+    assert(trusted != NULL);
+    assert(trusted->tag == 3);
+    OpalTerminalCapabilityValue* color = (OpalTerminalCapabilityValue*)terminal_capabilities_color(caps);
+    assert(color != NULL);
+    assert(color->tag == 3);
+    assert(color->count == 256);
+
+    void* diagnostic = opal_terminal_test_make_diagnostic("bad\x1B[31m", 1);
+    assert(diagnostic != NULL);
+    OpalTerminalTaggedValue* backend = (OpalTerminalTaggedValue*)terminal_diagnostic_backend(diagnostic);
+    OpalTerminalTaggedValue* operation = (OpalTerminalTaggedValue*)terminal_diagnostic_operation(diagnostic);
+    OpalTerminalTaggedValue* stage = (OpalTerminalTaggedValue*)terminal_diagnostic_stage(diagnostic);
+    OpalTerminalTaggedValue* coordinator = (OpalTerminalTaggedValue*)terminal_diagnostic_coordinator_state(diagnostic);
+    OpalTerminalTaggedValue* session = (OpalTerminalTaggedValue*)terminal_diagnostic_session_state(diagnostic);
+    OpalTerminalTaggedValue* os_code = (OpalTerminalTaggedValue*)terminal_diagnostic_os_code(diagnostic);
+    OpalTerminalTaggedValue* retry = (OpalTerminalTaggedValue*)terminal_diagnostic_retryability(diagnostic);
+    char* detail = (char*)terminal_diagnostic_detail(diagnostic);
+    assert(backend && backend->tag == 1);
+    assert(operation && operation->tag == 16);
+    assert(stage && stage->tag == 13);
+    assert(coordinator && coordinator->tag == 1);
+    assert(session && session->tag == 1);
+    assert(os_code && os_code->tag == 2);
+    assert(retry && retry->tag == 1);
+    assert(detail != NULL && strcmp(detail, "bad\x1B[31m") == 0);
+    assert(terminal_diagnostic_was_truncated(diagnostic));
+
+    FsHandleResult safe = safe_terminal_diagnostic_format(diagnostic);
+    assert(safe.error == NULL);
+    assert(safe.value != NULL);
+    assert(strstr((char*)safe.value, "\\u{1B}") != NULL);
+
+    void* collection = opal_terminal_test_make_collection();
+    assert(collection != NULL);
+    assert(terminal_diagnostics_length(collection) == 1);
+    assert(terminal_diagnostics_retained_count(collection) == 1u);
+    assert(terminal_diagnostics_omitted_count(collection) == 2u);
+    assert(terminal_diagnostics_omitted_bytes(collection) == UINT64_MAX);
+    assert(terminal_diagnostics_was_truncated(collection));
+    assert(terminal_diagnostics_at(collection, 0) != NULL);
+    FsHandleResult formatted_collection = safe_terminal_diagnostic_collection_format(collection);
+    assert(formatted_collection.error == NULL);
+    assert(formatted_collection.value != NULL);
+    assert(strstr((char*)formatted_collection.value, "omitted_count=2") != NULL);
+
+    FsHandleResult trusted_text = trusted_terminal_output_from_application_text("render\x1B[2J");
+    assert(trusted_text.error == NULL);
+    assert(trusted_text.value != NULL);
+    assert(strcmp((char*)trusted_text.value, "render\x1B[2J") == 0);
+    return 0;
+}
+"#,
     );
 }
 
