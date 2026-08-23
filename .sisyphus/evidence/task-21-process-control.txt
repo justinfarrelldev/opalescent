@@ -1,0 +1,18 @@
+Task 21 process-control verification
+Date: 2026-08-22
+
+Commands executed successfully:
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test process_control
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test process
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test --features integration --test integration_e2e -- process_api_smoke --nocapture
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo fmt --all -- --check
+- bash scripts/check-line-count.sh
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo make lint
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo test
+- LLVM_SYS_140_PREFIX=/usr/lib/llvm-14 cargo build
+
+Focused Task 21 notes:
+- Process-control remains separate from TerminalInputEvent; grep found no runtime/stdlib coupling.
+- Windows construction path returns ProcessControlUnavailableError.UnsupportedHost before source allocation.
+- Runtime tests cover queued notification ordering, idle non-mutation, host observation failure without mutation, generation exhaustion retry stability, acknowledge/resume retries, and wrong vs stale generation errors.
+- Stdlib smoke test confirms the future standard.system facade returns a stable readiness identity and Idle on the placeholder supported POSIX path.

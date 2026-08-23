@@ -235,3 +235,7 @@
 ## 2026-08-21 Task 22 ABI wording correction
 
 - The earlier generated-I/O note describing an infallible ABI and an allocated empty-string rejection fallback is superseded by the final fallible legacy I/O completion. Coordinator rejection returns `FsStringResult { value: NULL, error: "StandardInputReadError: TerminalCoordinatorUnavailable ..." }` before stdin consumption; empty EOF returns `StandardInputReadError: EndOfInput`, while a final partial line without a newline succeeds.
+
+- 2026-08-21: Task 21 scope is runtime/stdlib-first, not type-system-first: `ProcessControlSource` and its gated symbols are already wired through `standard.system`, borrow metadata, cleanup registration, and checker metadata. The implementation slice should focus on a POSIX-backed runtime source plus a Windows `UnsupportedHost` constructor path that fails before allocating identity/queue/generation state.
+- 2026-08-22: Task 21 strict-lint cleanup required treating `src/runtime/process_control.rs` like any other central runtime module: private state-machine helpers need full docs, `cargo make lint` rejects panic/expect paths inside `Result`-returning helpers, and placeholder non-test host branches should use explicit `cfg` logic plus reasoned lint expectations rather than broad allows.
+- 2026-08-22: The Task 21 runtime tests now prove more than repeated `Idle`: they assert no readiness-generation change on empty-host polls and host-observation failures, which matches the core prerequisite rule that `Idle` must be non-mutating for queue/readiness/generation state.

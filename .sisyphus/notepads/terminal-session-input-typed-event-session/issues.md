@@ -115,3 +115,6 @@
 - Broad `cargo test time` filtering matched unrelated timeout/process/runtime tests and tempted `serial_test` scope creep. Use the required targeted command `cargo test --features integration --test integration_e2e -- time_stdlib --nocapture` instead, and keep `src/bounded_proc.rs`, `src/compiler/tests.rs`, and `src/runtime/tests.rs` untouched for Task 20.
 - Strict lint rejects `pub(crate)` items inside private modules and renamed `fmt` parameters; for private helper modules, use plain `pub` internally while preserving restricted outer re-exports.
 - Required `.sisyphus/evidence/task-20-timer*.txt` files are ignored by default and need force-add during the focused Task 20 commit.
+
+## Task 21 branch-level verification issue - 2026-08-22
+- `timeout 900 cargo test --all-features` still fails in `tests::terminal_aggregate::terminal_aggregate_proposal_traceability_mentions_private_runtime_contract` with `CHORDS.md should name the retarget-to-commit transition`. That assertion is outside Task 21 file scope (`src/runtime/**`, `src/stdlib/system/**`, Task 21 evidence/notepad), so record it as branch-level evidence rather than folding unrelated proposal-doc work into the process-control commit.
