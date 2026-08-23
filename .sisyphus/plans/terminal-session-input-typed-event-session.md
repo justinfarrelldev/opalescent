@@ -994,7 +994,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(runtime): add affine monotonic timers` | Files: [src/runtime/**, src/stdlib/system/**, src/type_system/**, src/codegen/**, tests/**]
 
-- [ ] 21. Implement separate POSIX process-control source with Windows unavailable
+- [x] 21. Implement separate POSIX process-control source with Windows unavailable
 
   **What to do**: Implement `ProcessControlSource`, readiness source, `ProcessControlPollResult`, `ProcessControlNotification`, `process_control_poll`, `process_control_acknowledge_suspend`, and `process_control_resume_application` per prerequisite. POSIX hosts observe catchable job-control suspension/continuation; Windows returns `ProcessControlUnavailableError.UnsupportedHost` before allocation.
   **Must NOT do**: Do not synthesize terminal input events for suspend/continue. Do not add Windows console-control equivalents. Do not acknowledge/resume terminal/application work implicitly.
