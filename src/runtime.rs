@@ -7,6 +7,7 @@ pub mod arrays;
 pub mod errors;
 pub mod io;
 pub mod memory;
+pub mod process_control;
 pub mod reporting;
 pub mod stdlib;
 pub mod strings;
@@ -20,6 +21,11 @@ pub use arrays::{allocate_array, array_index, array_length};
 pub use errors::{RuntimeError, RuntimeResult, RuntimeResultExt};
 pub use io::{DefaultIoHandler, IoHandler, print, take_input};
 pub use memory::{DefaultRuntimeAllocator, OpalArray, OpalString, RuntimeAllocator};
+pub use process_control::{
+    ProcessControlAcknowledgementError, ProcessControlError, ProcessControlNotification,
+    ProcessControlPollResult, ProcessControlResumeError, ProcessControlSource,
+    ProcessControlUnavailableError,
+};
 pub use reporting::format_runtime_error;
 pub use stdlib::{
     DefaultRandomIntSource, RandomIntSource, format_interpolated_string, opal_array_slice,

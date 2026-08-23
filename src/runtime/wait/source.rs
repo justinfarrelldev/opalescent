@@ -18,13 +18,6 @@ use super::{
 
 /// Observable readiness after a source transition.
 #[derive(Debug, Clone)]
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "later process/terminal sources publish generic readiness transitions"
-    )
-)]
 pub enum SourceAvailability {
     /// The source's level condition is ready.
     Ready,
@@ -141,13 +134,6 @@ impl SystemReadinessSource {
     }
 
     /// Publish a transition and wake every currently registered wait set.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "later process/terminal sources publish readiness through this hook"
-        )
-    )]
     pub(crate) fn publish_transition(&self, availability: SourceAvailability) -> u64 {
         self.publish_state_change(None, availability, SourceWakePublication::QueueReady)
     }
