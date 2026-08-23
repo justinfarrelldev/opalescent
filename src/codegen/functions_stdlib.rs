@@ -835,7 +835,7 @@ pub fn resolve_imported_runtime_name(
     }
 }
 
-/// Return the explicit Task 12 codegen gate diagnostic for proposal imports.
+/// Return the explicit runtime-readiness diagnostic for proposal imports.
 pub fn terminal_proposal_import_gate_error(
     module_name: &str,
     symbol_name: &str,
@@ -844,20 +844,20 @@ pub fn terminal_proposal_import_gate_error(
         .then(|| terminal_proposal_gate_error(Some(module_name), symbol_name))
 }
 
-/// Return the explicit Task 12 codegen gate diagnostic for proposal call resolution.
+/// Return the explicit runtime-readiness diagnostic for proposal call resolution.
 pub fn terminal_proposal_runtime_gate_error(symbol_name: &str) -> Option<CodegenError> {
     crate::type_system::is_terminal_proposal_codegen_gated_runtime_name(symbol_name)
         .then(|| terminal_proposal_gate_error(None, symbol_name))
 }
 
-/// Build the shared user-facing diagnostic for terminal proposal runtime gaps.
+/// Build the shared user-facing diagnostic for missing terminal runtime lowering.
 fn terminal_proposal_gate_error(module_name: Option<&str>, symbol_name: &str) -> CodegenError {
     let location = module_name.map_or_else(
         || format!("runtime symbol '{symbol_name}'"),
         |module| format!("'{symbol_name}' from module '{module}'"),
     );
     CodegenError::new(format!(
-        "terminal proposal gate not complete: codegen/runtime lowering for {location} is intentionally disabled until the terminal runtime implementation lands"
+        "terminal public API prerequisites are satisfied, but runtime lowering for {location} is not implemented yet"
     ))
 }
 

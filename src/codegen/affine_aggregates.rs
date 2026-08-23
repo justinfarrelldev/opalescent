@@ -198,6 +198,10 @@ fn emit_nominal_aggregate_payload<'context>(
 }
 
 /// Lower one aggregate field and rollback already-initialized fields on failure.
+#[expect(
+    clippy::needless_borrowed_reference,
+    reason = "cargo make lint requires borrowed AST pattern matching here"
+)]
 fn codegen_transactional_aggregate_field<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,

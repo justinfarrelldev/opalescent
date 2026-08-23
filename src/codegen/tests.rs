@@ -253,8 +253,10 @@ fn assert_terminal_proposal_import_codegen_gate(source: &str, symbol_name: &str)
     );
     let err_msg = result.expect_err("checked above").to_string();
     assert!(
-        err_msg.contains("terminal proposal gate not complete"),
-        "gated proposal import should use the Task 12 diagnostic, got: {err_msg}"
+        err_msg.contains("runtime lowering")
+            && err_msg.contains("prerequisites are satisfied")
+            && !err_msg.contains("terminal proposal gate not complete"),
+        "gated proposal import should use the runtime-readiness diagnostic, got: {err_msg}"
     );
     assert!(
         err_msg.contains(symbol_name) && err_msg.contains(source),
@@ -1619,9 +1621,11 @@ fn codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic() {
     );
     let err_msg = result.expect_err("checked above").to_string();
     assert!(
-        err_msg.contains("terminal proposal gate not complete")
-            && err_msg.contains("terminal_session_options_default"),
-        "directly mapped proposal call should use focused gate diagnostic, got: {err_msg}"
+        err_msg.contains("runtime lowering")
+            && err_msg.contains("prerequisites are satisfied")
+            && err_msg.contains("terminal_session_options_default")
+            && !err_msg.contains("terminal proposal gate not complete"),
+        "directly mapped proposal call should use the runtime-readiness diagnostic, got: {err_msg}"
     );
 
     let ir = codegen_context.module.print_to_string().to_string();
