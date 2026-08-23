@@ -11,6 +11,7 @@ pub mod process_control;
 pub mod reporting;
 pub mod stdlib;
 pub mod strings;
+pub mod terminal;
 pub mod timer;
 pub mod wait;
 
@@ -36,6 +37,34 @@ pub use strings::{
     string_find_last_index_of_text, string_index, string_is_blank, string_length,
     string_split_lines, string_take_prefix, string_take_suffix, string_trim_whitespace,
 };
+pub use terminal::{
+    SAFE_TERMINAL_DIAGNOSTIC_OUTPUT_MAX_BYTES, SafeTerminalDiagnosticOutput, TerminalBackend,
+    TerminalCapabilities, TerminalCapabilitySupportedEvidence,
+    TerminalCapabilityUnsupportedEvidence, TerminalColorCapability, TerminalColorCount,
+    TerminalColumnCount, TerminalColumnIndex, TerminalCommittedText,
+    TerminalCommittedTextByteLimit, TerminalCompositionId, TerminalCompositionPreeditByteLimit,
+    TerminalCompositionPreeditText, TerminalCompositionScalarIndex, TerminalConstraintError,
+    TerminalControlCode, TerminalCoordinatorState, TerminalCorrelatedByteLimit,
+    TerminalCorrelatedEventLimit, TerminalCursorShape, TerminalDiagnostic,
+    TerminalDiagnosticCollection, TerminalDiagnosticCollectionByteLimit,
+    TerminalDiagnosticCollectionLimits, TerminalDiagnosticCountLimit, TerminalDiagnosticDetail,
+    TerminalDiagnosticRetryability, TerminalDiagnosticSessionState, TerminalDiagnosticStage,
+    TerminalEventId, TerminalFeature, TerminalFeatureCapability, TerminalFunctionKeyNumber,
+    TerminalInputEvent, TerminalInputEventKind, TerminalInputResetReason,
+    TerminalInputSequenceTimeoutMilliseconds, TerminalInvalidOptions, TerminalKeyOccurrence,
+    TerminalKeyRepeatCount, TerminalLinkedTextPhase, TerminalLogicalKey, TerminalModifiers,
+    TerminalMouseAction, TerminalMouseButton, TerminalMouseTracking, TerminalNamedKey,
+    TerminalNativeEventKind, TerminalNativeEventName, TerminalNativeMetadata, TerminalOperation,
+    TerminalOrdinaryFeature, TerminalOsCode, TerminalPasteChunkByteLimit, TerminalPastePhase,
+    TerminalPasteText, TerminalPendingSequenceByteLimit, TerminalRecoveryLedgerKind,
+    TerminalRetainedByteLimit, TerminalRetainedEventLimit, TerminalRowCount, TerminalRowIndex,
+    TerminalScrollDirection, TerminalSessionFeaturePolicy, TerminalSessionOptions,
+    TerminalSessionOptionsError, TerminalSessionResourceLimits, TerminalSessionState, TerminalSize,
+    TerminalTextInputOrigin, TerminalTrustedPasteCapability, TerminalTrustedPasteEvidence,
+    TerminalUnknownByteChunkLimit, TerminalUnknownBytesReason, TerminalWait,
+    TerminalWaitMilliseconds, TrustedTerminalOutput, required_ordinary_features,
+    safe_terminal_diagnostic_collection_format, safe_terminal_diagnostic_format,
+};
 pub use timer::{
     MonotonicDeadline, MonotonicTimer, MonotonicTimerError, MonotonicTimerNotArmedError,
     monotonic_clock_now,
@@ -46,6 +75,8 @@ pub use wait::{
     SystemWaitWake,
 };
 
+#[cfg(test)]
+mod terminal_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
