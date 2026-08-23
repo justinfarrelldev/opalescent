@@ -24,6 +24,7 @@ use inkwell::module::Linkage;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::{BasicValue, FunctionValue};
 
+use crate::codegen::functions_call::declare_external_imported_function;
 pub use crate::codegen::functions_call::{
     ast_type_to_core_type_for_signature, build_function_type, codegen_call_expression,
     codegen_guard_expression, codegen_propagate_expression, emit_c_main_wrapper,
@@ -420,6 +421,41 @@ pub fn codegen_import_declaration<'context>(
                     )
                 {
                     env.imported_functions.insert(local_name, name.clone());
+                    continue;
+                }
+                if source == "standard.terminal"
+                    && !crate::type_system::is_terminal_proposal_codegen_gated_import(
+                        source.as_str(),
+                        name.as_str(),
+                    )
+                {
+                    let Some(signature) = env
+                        .imported_signatures
+                        .get(name.as_str())
+                        .cloned()
+                        .or_else(|| {
+                            crate::type_system::terminal_proposal_function_signature(
+                                source.as_str(),
+                                name.as_str(),
+                            )
+                        })
+                    else {
+                        return Err(CodegenError::new(format!(
+                            "missing imported signature for terminal proposal symbol '{name}'"
+                        )));
+                    };
+                    let extern_fn = declare_external_imported_function(
+                        codegen_context,
+                        name.as_str(),
+                        &signature,
+                    )?;
+                    env.imported_functions.insert(
+                        local_name,
+                        extern_fn
+                            .get_name()
+                            .to_str()
+                            .map_or_else(|_| name.clone(), alloc::borrow::ToOwned::to_owned),
+                    );
                     continue;
                 }
                 let runtime_name = crate::codegen::functions_stdlib::resolve_imported_runtime_name(

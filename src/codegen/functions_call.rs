@@ -61,7 +61,7 @@ use self::functions_call_helpers::{
 use self::string_array_calls::{
     extract_error_abi_success_value, maybe_lower_specialized_string_array_call,
 };
-use self::tail::declare_external_imported_function;
+pub(crate) use self::tail::declare_external_imported_function;
 pub(crate) use self::using_cleanup::emit_cleanup_aware_error_return;
 use self::using_cleanup::{
     build_error_variant_match, consume_using_cleanup_obligation_after_success,

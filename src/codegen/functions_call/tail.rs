@@ -23,7 +23,7 @@ use inkwell::IntPredicate;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::{BasicMetadataValueEnum, FunctionValue, IntValue, PointerValue};
 
-pub(super) fn declare_external_imported_function<'context>(
+pub fn declare_external_imported_function<'context>(
     codegen_context: &CodegenContext<'context>,
     function_name: &str,
     signature: &CoreType,

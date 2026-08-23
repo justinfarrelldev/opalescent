@@ -1584,7 +1584,7 @@ entry main = f(): void errors StandardInputReadError => {
 #[test]
 fn codegen_terminal_proposal_imports_fail_with_gate_diagnostic() {
     for (source, symbol_name) in [
-        ("standard.terminal", "terminal_session_options_default"),
+        ("standard.terminal", "terminal_session_open_sync"),
         ("standard.terminal.chords", "terminal_chord_modifiers"),
         (
             "standard.testing.terminal",
@@ -1593,6 +1593,49 @@ fn codegen_terminal_proposal_imports_fail_with_gate_diagnostic() {
     ] {
         assert_terminal_proposal_import_codegen_gate(source, symbol_name);
     }
+}
+
+#[test]
+fn codegen_terminal_data_model_imports_emit_runtime_declarations() {
+    let source = "
+import terminal_session_options_default, terminal_session_options_validate, trusted_terminal_output_from_application_text from 'standard.terminal'
+import type TerminalSessionOptions, TerminalSessionOptionsError, TrustedTerminalOutput from 'standard.terminal'
+
+##
+    Description: Entry point exercising selected terminal data-model lowering
+##
+entry main = f(): void errors AllocationFailureError, TerminalSessionOptionsError =>
+    let options: TerminalSessionOptions = terminal_session_options_default()
+    let validated: TerminalSessionOptions = propagate terminal_session_options_validate(options)
+    let trusted: TrustedTerminalOutput = propagate trusted_terminal_output_from_application_text('hello')
+    return void
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("terminal-data-model.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "runtime-ready terminal data-model imports should compile through codegen: {module_result:?}"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    for runtime_name in [
+        "terminal_session_options_default",
+        "terminal_session_options_validate",
+        "trusted_terminal_output_from_application_text",
+    ] {
+        assert!(
+            ir.contains(&format!("@{runtime_name}")),
+            "terminal data-model import should emit runtime declaration for {runtime_name}: {ir}"
+        );
+    }
+    assert!(
+        !ir.contains("runtime lowering for 'terminal_session_options_default'"),
+        "runtime-ready terminal data-model imports should not hit the runtime-readiness gate: {ir}"
+    );
 }
 
 #[test]
@@ -1676,7 +1719,7 @@ fn codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic() {
     let mut env = CodegenEnv::new(true);
     env.imported_functions.insert(
         String::from("open_options"),
-        String::from("terminal_session_options_default"),
+        String::from("terminal_session_open_sync"),
     );
 
     let result = codegen_call_expression(
@@ -1695,14 +1738,14 @@ fn codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic() {
     assert!(
         err_msg.contains("runtime lowering")
             && err_msg.contains("prerequisites are satisfied")
-            && err_msg.contains("terminal_session_options_default")
+            && err_msg.contains("terminal_session_open_sync")
             && !err_msg.contains("terminal proposal gate not complete"),
         "directly mapped proposal call should use the runtime-readiness diagnostic, got: {err_msg}"
     );
 
     let ir = codegen_context.module.print_to_string().to_string();
     assert!(
-        !ir.contains("@terminal_session_options_default"),
+        !ir.contains("@terminal_session_open_sync"),
         "gated direct call must not emit unresolved terminal proposal external: {ir}"
     );
 }
