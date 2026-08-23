@@ -28,6 +28,8 @@ mod terminal_proposal_borrows;
 mod terminal_proposal_error_inspectors;
 /// Terminal-session proposal declaration interfaces.
 mod terminal_proposal_modules;
+/// Proposal symbols that already have real runtime/codegen lowering.
+mod terminal_proposal_runtime_ready;
 /// Terminal-session proposal function signature inventory.
 mod terminal_proposal_symbols;
 
@@ -44,10 +46,7 @@ pub(super) fn is_terminal_proposal_codegen_gated_import(
     symbol_name: &str,
 ) -> bool {
     terminal_proposal_symbols::contains_function(module_path, symbol_name)
-        && !terminal_proposal_error_inspectors::contains_implemented_error_inspector(
-            module_path,
-            symbol_name,
-        )
+        && !terminal_proposal_runtime_ready::contains_import(module_path, symbol_name)
 }
 
 /// Return whether a module/symbol pair is an implemented Task 16 error inspector.
@@ -66,9 +65,7 @@ pub(super) fn is_terminal_proposal_implemented_error_inspector_import(
 #[must_use]
 pub(super) fn is_terminal_proposal_codegen_gated_runtime_name(symbol_name: &str) -> bool {
     terminal_proposal_symbols::contains_function_name(symbol_name)
-        && !terminal_proposal_error_inspectors::contains_implemented_error_inspector_name(
-            symbol_name,
-        )
+        && !terminal_proposal_runtime_ready::contains_runtime_name(symbol_name)
 }
 
 /// Import availability for a registered module interface.

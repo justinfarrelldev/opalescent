@@ -14,8 +14,14 @@ mod error_inspectors;
 #[path = "functions_stdlib_string.rs"]
 #[doc = "String-specific stdlib declaration helpers extracted to satisfy line-count limits."]
 mod string;
+#[path = "functions_stdlib_terminal_core.rs"]
+#[doc = "Task 23 core prerequisite runtime declaration helpers extracted to satisfy line-count limits."]
+mod terminal_core;
 use self::error_inspectors::{ERROR_ATTACHMENT_STDLIB_NAMES, declare_error_inspector_function};
 use self::string::{STRING_STDLIB_NAMES, declare_string_stdlib_function};
+use self::terminal_core::{
+    declare_terminal_core_prerequisite_function, is_terminal_core_prerequisite_runtime_name,
+};
 
 #[doc = "Declare a stdlib function in the LLVM module if not already present."]
 #[expect(
@@ -38,6 +44,7 @@ pub fn declare_stdlib_function<'context>(
     if !STDLIB_NAMES.contains(&name)
         && !STRING_STDLIB_NAMES.contains(&name)
         && !ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)
+        && !is_terminal_core_prerequisite_runtime_name(name)
         && !is_test_fallible_constructor
     {
         return None;
@@ -215,6 +222,9 @@ pub fn declare_stdlib_function<'context>(
         }
         name if ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name) => {
             declare_error_inspector_function(codegen_context, name)
+        }
+        name if is_terminal_core_prerequisite_runtime_name(name) => {
+            declare_terminal_core_prerequisite_function(codegen_context, name)
         }
         "print_text_sync" => module.get_function("print_text_sync").or_else(|| {
             Some(declare_fs_result_function(
@@ -826,7 +836,10 @@ pub fn resolve_imported_runtime_name(
         ("standard" | "math" | "process", name) if is_stdlib_runtime_name(name) => {
             Ok(name.to_owned())
         }
-        ("standard.system", name) if ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name) => {
+        ("standard.system", name)
+            if ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)
+                || is_terminal_core_prerequisite_runtime_name(name) =>
+        {
             Ok(name.to_owned())
         }
         _ => Err(CodegenError::new(format!(
@@ -866,6 +879,7 @@ pub fn is_stdlib_runtime_name(name: &str) -> bool {
     STDLIB_NAMES.contains(&name)
         || STRING_STDLIB_NAMES.contains(&name)
         || ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)
+        || is_terminal_core_prerequisite_runtime_name(name)
 }
 
 #[doc = "Authoritative list of all stdlib function names."]

@@ -17,7 +17,10 @@ typedef struct { int64_t value;  const char* error; } ParseResultI64;
 typedef struct { uint8_t value;  const char* error; } ParseResultU8;
 typedef struct { uint16_t value; const char* error; } ParseResultU16;
 typedef struct { uint32_t value; const char* error; } ParseResultU32;
+#ifndef OPAL_PARSE_RESULT_U64_DEFINED
 typedef struct { uint64_t value; const char* error; } ParseResultU64;
+#define OPAL_PARSE_RESULT_U64_DEFINED 1
+#endif
 typedef struct { float value;    const char* error; } ParseResultF32;
 typedef struct { double value;   const char* error; } ParseResultF64;
 

@@ -58,6 +58,9 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         "string_find_index_or" | "string_find_last_index_of_text" | "error_suppressed_length" => {
             Some(CoreType::Int64)
         }
+        "monotonic_timer_arm" | "monotonic_timer_disarm" | "monotonic_timer_generation" => {
+            Some(CoreType::UInt64)
+        }
         "string_split_lines" => Some(CoreType::Array(alloc::boxed::Box::new(CoreType::String))),
         "error_cause" | "error_suppressed_at" => Some(CoreType::Generic {
             name: String::from("Error"),
@@ -65,6 +68,52 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         }),
         "error_attachment_truncation" => Some(CoreType::Generic {
             name: String::from("ErrorAttachmentTruncation"),
+            type_args: Vec::new(),
+        }),
+        "system_wait_set_new" => Some(CoreType::Generic {
+            name: String::from("SystemWaitSet"),
+            type_args: Vec::new(),
+        }),
+        "system_wait_set_register" => Some(CoreType::Generic {
+            name: String::from("SystemWaitRegistration"),
+            type_args: Vec::new(),
+        }),
+        "system_wait_set_register_owned" => Some(CoreType::Generic {
+            name: String::from("SystemOwnedWaitRegistration"),
+            type_args: Vec::new(),
+        }),
+        "system_wait_set_wait_sync" => Some(CoreType::Generic {
+            name: String::from("SystemWaitWake"),
+            type_args: Vec::new(),
+        }),
+        "cancellation_source_new" => Some(CoreType::Generic {
+            name: String::from("CancellationSource"),
+            type_args: Vec::new(),
+        }),
+        "cancellation_token" => Some(CoreType::Generic {
+            name: String::from("CancellationToken"),
+            type_args: Vec::new(),
+        }),
+        "monotonic_timer_new" => Some(CoreType::Generic {
+            name: String::from("MonotonicTimer"),
+            type_args: Vec::new(),
+        }),
+        "monotonic_timer_readiness_source" | "process_control_readiness_source" => {
+            Some(CoreType::Generic {
+                name: String::from("SystemReadinessSource"),
+                type_args: Vec::new(),
+            })
+        }
+        "monotonic_timer_deadline" | "monotonic_clock_now" => Some(CoreType::Generic {
+            name: String::from("MonotonicDeadline"),
+            type_args: Vec::new(),
+        }),
+        "process_control_source_new" => Some(CoreType::Generic {
+            name: String::from("ProcessControlSource"),
+            type_args: Vec::new(),
+        }),
+        "process_control_poll" => Some(CoreType::Generic {
+            name: String::from("ProcessControlPollResult"),
             type_args: Vec::new(),
         }),
         "random_int8" => Some(CoreType::Int8),
@@ -156,6 +205,12 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "frame_clock_wait_next_sync"
         | "set_current_working_directory_sync"
         | "exit_process"
+        | "system_wait_set_remove"
+        | "system_owned_wait_registration_retarget"
+        | "system_owned_wait_registration_remove"
+        | "cancellation_request"
+        | "process_control_acknowledge_suspend"
+        | "process_control_resume_application"
         | "terminal_clear_screen_on_sync"
         | "terminal_move_cursor_on_sync"
         | "terminal_draw_rows_sync"
@@ -201,6 +256,7 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
         "string_find_last_index_of_text" | "string_find_index_or" | "error_suppressed_length" => {
             Some(CoreType::Int64)
         }
+        "monotonic_timer_arm" | "monotonic_timer_disarm" => Some(CoreType::UInt64),
         "string_split_lines" => Some(CoreType::Array(alloc::boxed::Box::new(CoreType::String))),
         "error_cause" | "error_suppressed_at" => Some(CoreType::Generic {
             name: String::from("Error"),
@@ -208,6 +264,42 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
         }),
         "error_attachment_truncation" => Some(CoreType::Generic {
             name: String::from("ErrorAttachmentTruncation"),
+            type_args: Vec::new(),
+        }),
+        "system_wait_set_new" => Some(CoreType::Generic {
+            name: String::from("SystemWaitSet"),
+            type_args: Vec::new(),
+        }),
+        "system_wait_set_register" => Some(CoreType::Generic {
+            name: String::from("SystemWaitRegistration"),
+            type_args: Vec::new(),
+        }),
+        "system_wait_set_register_owned" => Some(CoreType::Generic {
+            name: String::from("SystemOwnedWaitRegistration"),
+            type_args: Vec::new(),
+        }),
+        "system_wait_set_wait_sync" => Some(CoreType::Generic {
+            name: String::from("SystemWaitWake"),
+            type_args: Vec::new(),
+        }),
+        "cancellation_source_new" => Some(CoreType::Generic {
+            name: String::from("CancellationSource"),
+            type_args: Vec::new(),
+        }),
+        "monotonic_timer_new" => Some(CoreType::Generic {
+            name: String::from("MonotonicTimer"),
+            type_args: Vec::new(),
+        }),
+        "monotonic_timer_deadline" | "monotonic_clock_now" => Some(CoreType::Generic {
+            name: String::from("MonotonicDeadline"),
+            type_args: Vec::new(),
+        }),
+        "process_control_source_new" => Some(CoreType::Generic {
+            name: String::from("ProcessControlSource"),
+            type_args: Vec::new(),
+        }),
+        "process_control_poll" => Some(CoreType::Generic {
+            name: String::from("ProcessControlPollResult"),
             type_args: Vec::new(),
         }),
         "string_to_int8" => Some(CoreType::Int8),
@@ -255,6 +347,12 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
         | "writer_write_sync"
         | "writer_flush_sync"
         | "sleep_ms_sync"
+        | "system_wait_set_remove"
+        | "system_owned_wait_registration_retarget"
+        | "system_owned_wait_registration_remove"
+        | "cancellation_request"
+        | "process_control_acknowledge_suspend"
+        | "process_control_resume_application"
         | "set_current_working_directory_sync"
         | "frame_clock_wait_next_sync"
         | "string_builder_push"

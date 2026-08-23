@@ -1584,7 +1584,6 @@ entry main = f(): void errors StandardInputReadError => {
 #[test]
 fn codegen_terminal_proposal_imports_fail_with_gate_diagnostic() {
     for (source, symbol_name) in [
-        ("standard.system", "system_wait_set_new"),
         ("standard.terminal", "terminal_session_options_default"),
         ("standard.terminal.chords", "terminal_chord_modifiers"),
         (
@@ -1594,6 +1593,78 @@ fn codegen_terminal_proposal_imports_fail_with_gate_diagnostic() {
     ] {
         assert_terminal_proposal_import_codegen_gate(source, symbol_name);
     }
+}
+
+#[test]
+fn codegen_core_prerequisite_imports_emit_runtime_declarations() {
+    let source = "
+import system_wait_set_new, system_wait_set_register, system_wait_set_remove, system_wait_set_wait_sync, cancellation_source_new, cancellation_token, cancellation_request, monotonic_timer_new, monotonic_timer_readiness_source, monotonic_timer_arm, monotonic_timer_disarm, monotonic_timer_generation, monotonic_timer_deadline, monotonic_clock_now, process_control_source_new, process_control_readiness_source, process_control_poll, process_control_acknowledge_suspend, process_control_resume_application from 'standard.system'
+
+##
+    Description: Entry point exercising generated core prerequisite runtime lowering
+##
+entry main = f(): void errors AllocationFailureError, SystemWaitSetError, MonotonicTimerError, MonotonicTimerNotArmedError, ProcessControlUnavailableError, ProcessControlError, ProcessControlAcknowledgementError, ProcessControlResumeError =>
+    let mutable wait_set = propagate system_wait_set_new()
+    let mutable cancellation_source = propagate cancellation_source_new()
+    let token = cancellation_token(ref cancellation_source)
+    let mutable timer = propagate monotonic_timer_new()
+    let deadline = monotonic_clock_now()
+    let timer_source = monotonic_timer_readiness_source(ref timer)
+    let registration = propagate system_wait_set_register(mutable ref wait_set, timer_source)
+    propagate system_wait_set_remove(mutable ref wait_set, registration)
+    let mutable arm_generation = propagate monotonic_timer_arm(mutable ref timer, deadline)
+    let current_generation = monotonic_timer_generation(ref timer)
+    let current_deadline = propagate monotonic_timer_deadline(ref timer)
+    cancellation_request(mutable ref cancellation_source)
+    let wake = propagate system_wait_set_wait_sync(mutable ref wait_set, token)
+    let mutable process_source = propagate process_control_source_new()
+    let process_readiness = process_control_readiness_source(ref process_source)
+    let poll_result = propagate process_control_poll(mutable ref process_source)
+    propagate process_control_acknowledge_suspend(mutable ref process_source, 0)
+    propagate process_control_resume_application(mutable ref process_source, 0)
+    let disarm_generation = propagate monotonic_timer_disarm(mutable ref timer)
+    return void
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("core-prerequisites.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "implemented core prerequisites should compile through codegen: {module_result:?}"
+    );
+
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    for runtime_name in [
+        "system_wait_set_new",
+        "system_wait_set_register",
+        "system_wait_set_wait_sync",
+        "cancellation_source_new",
+        "cancellation_token",
+        "cancellation_request",
+        "monotonic_timer_new",
+        "monotonic_timer_arm",
+        "monotonic_timer_disarm",
+        "monotonic_timer_generation",
+        "monotonic_timer_deadline",
+        "monotonic_clock_now",
+        "process_control_source_new",
+        "process_control_readiness_source",
+        "process_control_poll",
+        "process_control_acknowledge_suspend",
+        "process_control_resume_application",
+    ] {
+        assert!(
+            ir.contains(&format!("@{runtime_name}")),
+            "implemented core prerequisite import should emit runtime declaration for {runtime_name}: {ir}"
+        );
+    }
+    assert!(
+        !ir.contains("terminal public API prerequisites are satisfied, but runtime lowering"),
+        "implemented core prerequisite imports should not hit the runtime-readiness gate: {ir}"
+    );
 }
 
 #[test]
