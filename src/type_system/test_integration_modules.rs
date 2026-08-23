@@ -1488,6 +1488,35 @@ entry main = f(): void =>
     }
 
     #[test]
+    fn test_terminal_constructor_visibility_rejects_standard_library_only_values() {
+        for (type_name, constructor_expr) in [
+            ("TerminalSessionOptions", "new TerminalSessionOptions"),
+            ("TrustedTerminalOutput", "new TrustedTerminalOutput"),
+            (
+                "SafeTerminalDiagnosticOutput",
+                "new SafeTerminalDiagnosticOutput",
+            ),
+        ] {
+            let source = format!(
+                "\nimport type {type_name} from 'standard.terminal'\n\nlet sealed = f(): {type_name} =>\n    return {constructor_expr}\n\nentry main = f(): void =>\n    return void\n"
+            );
+            let program = parse_pipeline(&source);
+            let mut checker = TypeChecker::new();
+            let errors = checker
+                .type_check_program(&program)
+                .expect_err("standard-library-only construction must be rejected");
+            assert!(
+                errors.iter().any(|error| matches!(
+                    *error,
+                    TypeError::ConstructorUnavailable { type_name: ref rejected, ref visibility, .. }
+                        if rejected == type_name && visibility == "standard_library"
+                )),
+                "expected standard-library constructor rejection for {type_name}, got: {errors:?}",
+            );
+        }
+    }
+
+    #[test]
     fn test_terminal_constructor_visibility_rejects_test_runner_authority() {
         for (type_name, constructor_expr) in [
             ("TerminalTestAuthority", "new TerminalTestAuthority"),

@@ -129,6 +129,20 @@ pub(crate) fn is_terminal_proposal_codegen_gated_runtime_name(symbol_name: &str)
     module_resolver::is_terminal_proposal_codegen_gated_runtime_name(symbol_name)
 }
 
+/// Resolve one stdlib terminal proposal function signature from the authoritative resolver.
+#[must_use]
+pub(crate) fn terminal_proposal_function_signature(
+    module_path: &str,
+    symbol_name: &str,
+) -> Option<types::CoreType> {
+    let resolver = module_resolver::ModuleResolver::new();
+    let span = crate::token::Span::single(crate::token::Position::start());
+    resolver
+        .resolve_symbol(module_path, symbol_name, span)
+        .ok()
+        .map(|symbol| symbol.core_type)
+}
+
 #[cfg(test)]
 mod tests;
 
