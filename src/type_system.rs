@@ -91,8 +91,16 @@ mod module_resolver;
 pub mod propertyless_constructors;
 mod substitution;
 mod symbol_table;
+/// Selected terminal public API prerequisite inventory and diagnostics.
+pub(crate) mod terminal_public_api_prerequisites;
 pub mod type_mapping;
 pub mod types;
+
+/// Return whether a module path belongs to the selected terminal proposal inventory.
+#[must_use]
+pub(crate) fn is_terminal_proposal_module_path(module_path: &str) -> bool {
+    module_resolver::is_terminal_proposal_module_path(module_path)
+}
 
 /// Return whether a module/symbol pair belongs to the gated terminal proposal surface.
 #[must_use]

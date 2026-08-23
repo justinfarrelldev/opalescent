@@ -75,7 +75,6 @@ fn parse_pipeline(source: &str) -> Program {
 fn type_check_terminal_source(source: &str) -> Result<(), Vec<TypeError>> {
     let program = parse_pipeline(source);
     let mut checker = TypeChecker::new();
-    checker.enable_terminal_proposal_imports_for_tests();
     checker.type_check_program(&program)
 }
 
@@ -357,7 +356,6 @@ entry main = f(): void =>
 
     let program = parse_pipeline(TESTING_SOURCE);
     let mut checker = TypeChecker::new();
-    checker.enable_terminal_proposal_imports_for_tests();
     checker.enable_test_only_imports();
     let errors = checker
         .type_check_program(&program)

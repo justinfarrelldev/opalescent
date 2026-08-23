@@ -17,6 +17,7 @@ use crate::{
     type_system::{
         affine_aggregates::AffineAggregateSpec, arithmetic::ArithmeticMode,
         error_families::stdlib_error_families,
+        terminal_public_api_prerequisites::TerminalPublicApiPrerequisites,
     },
 };
 use alloc::{
@@ -115,7 +116,6 @@ enum FallibleExpressionContext {
     /// Classifying the subject of a `guard` expression.
     Guard,
 }
-
 /// Shared metadata extracted from a fallible expression subject.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FallibleExpressionInfo {
@@ -177,8 +177,8 @@ pub struct TypeChecker {
     current_module_path: String,
     /// Whether test-only modules may be imported during this check.
     allow_test_only_imports: bool,
-    /// Whether terminal proposal modules may be imported during this check.
-    allow_terminal_proposal_imports: bool,
+    /// Authoritative Task 13-22 prerequisite capabilities for the terminal public API.
+    terminal_public_api_prerequisites: TerminalPublicApiPrerequisites,
     /// Constructor visibility registry keyed by constructor name.
     constructor_visibilities: BTreeMap<String, String>,
     /// Registered affine aggregate specs keyed by aggregate type name.
@@ -208,7 +208,7 @@ impl TypeChecker {
             function_return_labels: BTreeMap::new(),
             current_module_path: String::from("__main__"),
             allow_test_only_imports: false,
-            allow_terminal_proposal_imports: false,
+            terminal_public_api_prerequisites: TerminalPublicApiPrerequisites::default(),
             constructor_visibilities: BTreeMap::new(),
             affine_aggregate_specs: BTreeMap::new(),
             function_modifier_stack: Vec::new(),
@@ -217,6 +217,10 @@ impl TypeChecker {
         if let Some(standard_interface) = checker.module_resolver.module_interface("standard") {
             checker.register_module_interface(standard_interface);
         }
+        checker.register_terminal_public_api_prerequisite_types();
+        checker.register_core_prerequisite_affine_resources();
+        checker.register_terminal_proposal_affine_resources();
+        checker.register_terminal_affine_aggregates();
         checker
     }
     /// Create a type checker with a specific environment
@@ -240,7 +244,7 @@ impl TypeChecker {
             function_return_labels: BTreeMap::new(),
             current_module_path: String::from("__main__"),
             allow_test_only_imports: false,
-            allow_terminal_proposal_imports: false,
+            terminal_public_api_prerequisites: TerminalPublicApiPrerequisites::default(),
             constructor_visibilities: BTreeMap::new(),
             affine_aggregate_specs: BTreeMap::new(),
             function_modifier_stack: Vec::new(),
@@ -249,6 +253,10 @@ impl TypeChecker {
         if let Some(standard_interface) = checker.module_resolver.module_interface("standard") {
             checker.register_module_interface(standard_interface);
         }
+        checker.register_terminal_public_api_prerequisite_types();
+        checker.register_core_prerequisite_affine_resources();
+        checker.register_terminal_proposal_affine_resources();
+        checker.register_terminal_affine_aggregates();
         checker
     }
     /// Register field metadata for a nominal owner type.

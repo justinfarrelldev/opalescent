@@ -1,13 +1,16 @@
-//! Internal terminal proposal typechecker gates and metadata.
+//! Terminal public API prerequisite metadata and constructor visibility.
 //!
-//! This module keeps proposal-only APIs unavailable to production programs while
-//! allowing focused typechecker tests to inspect future signatures.
+//! This module wires the authoritative Task 13-22 prerequisite validator into
+//! the checker while preserving constructor visibility and affine metadata.
 
 use super::TypeChecker;
 use crate::{
     ast::DeclarationAnnotation,
     token::Span,
-    type_system::{errors::TypeError, types::CoreType},
+    type_system::{
+        errors::TypeError, terminal_public_api_prerequisites::TerminalPublicApiPrerequisite,
+        types::CoreType,
+    },
 };
 
 /// Core/system prerequisite nominal types used by terminal proposal signatures.
@@ -58,17 +61,34 @@ const TERMINAL_PROPOSAL_PREREQUISITE_TYPES: &[&str] = &[
 ];
 
 impl TypeChecker {
-    /// Permit proposal-only terminal imports for focused typechecker tests.
-    ///
-    /// This is deliberately separate from [`enable_test_only_imports`](Self::enable_test_only_imports):
-    /// selected public terminal and chord APIs stay future-gated for production,
-    /// while `standard.testing.terminal` remains test-only.
-    pub(crate) fn enable_terminal_proposal_imports_for_tests(&mut self) {
-        self.allow_terminal_proposal_imports = true;
-        self.register_terminal_proposal_prerequisite_types();
-        self.register_core_prerequisite_affine_resources();
-        self.register_terminal_proposal_affine_resources();
-        self.register_terminal_affine_aggregates();
+    /// Disable one prerequisite capability for focused Task 23 gate tests.
+    pub(crate) fn disable_terminal_public_api_prerequisite_for_tests(
+        &mut self,
+        prerequisite: TerminalPublicApiPrerequisite,
+    ) {
+        self.terminal_public_api_prerequisites
+            .disable_for_tests(prerequisite);
+    }
+
+    /// Disable every prerequisite capability for narrow bypass tests.
+    pub(crate) fn clear_terminal_public_api_prerequisites_for_tests(&mut self) {
+        self.terminal_public_api_prerequisites.clear_for_tests();
+    }
+
+    /// Return whether every Task 13-22 prerequisite is currently enabled.
+    pub(super) fn terminal_public_api_prerequisites_are_satisfied(&self) -> bool {
+        self.terminal_public_api_prerequisites
+            .allows_selected_public_api()
+    }
+
+    /// Build the precise missing-prerequisite diagnostic reason.
+    pub(super) fn terminal_public_api_prerequisite_reason(&self) -> String {
+        self.terminal_public_api_prerequisites.unavailable_reason()
+    }
+
+    /// Build the matching missing-prerequisite diagnostic help text.
+    pub(super) fn terminal_public_api_prerequisite_help(&self) -> String {
+        self.terminal_public_api_prerequisites.unavailable_help()
     }
 
     /// Record constructor visibility metadata for one locally visible type name.
@@ -119,8 +139,8 @@ impl TypeChecker {
         })
     }
 
-    /// Register prerequisite nominal types for internal gated signature tests.
-    fn register_terminal_proposal_prerequisite_types(&mut self) {
+    /// Register prerequisite nominal types required by the selected public API.
+    pub(super) fn register_terminal_public_api_prerequisite_types(&mut self) {
         for name in TERMINAL_PROPOSAL_PREREQUISITE_TYPES {
             self.environment.register_type(
                 (*name).to_owned(),
@@ -133,7 +153,7 @@ impl TypeChecker {
     }
 
     /// Register canonical proposal affine resources independent of type imports.
-    fn register_terminal_proposal_affine_resources(&mut self) {
+    pub(super) fn register_terminal_proposal_affine_resources(&mut self) {
         for name in TERMINAL_PROPOSAL_AFFINE_RESOURCE_TYPES {
             self.register_affine_resource_type((*name).to_owned());
         }

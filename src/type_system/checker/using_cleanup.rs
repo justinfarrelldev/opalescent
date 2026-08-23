@@ -426,6 +426,10 @@ fn cleanup_mutable_ref_binding(args: &[Expr]) -> Option<&str> {
 }
 
 /// Extract a direct nominal affine resource type name.
+#[expect(
+    clippy::needless_borrowed_reference,
+    reason = "cargo make lint requires borrowed CoreType pattern matching here"
+)]
 fn direct_resource_type_name(core_type: &CoreType) -> Option<&str> {
     let &CoreType::Generic {
         ref name,

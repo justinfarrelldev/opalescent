@@ -31,6 +31,12 @@ mod terminal_proposal_modules;
 /// Terminal-session proposal function signature inventory.
 mod terminal_proposal_symbols;
 
+/// Return whether a module path belongs to the selected terminal proposal inventory.
+#[must_use]
+pub(super) fn is_terminal_proposal_module_path(module_path: &str) -> bool {
+    terminal_proposal_symbols::contains_module(module_path)
+}
+
 /// Return whether a module/symbol pair belongs to the gated terminal proposal surface.
 #[must_use]
 pub(super) fn is_terminal_proposal_codegen_gated_import(
@@ -100,7 +106,7 @@ impl ModuleAvailability {
                 "module is test-only and may only be imported by test-runner compilations"
             }
             Self::FuturePublicApi => {
-                "terminal proposal module is gated until the public terminal API gate opens"
+                "terminal public API prerequisite validation has not completed"
             }
         }
     }
@@ -114,7 +120,7 @@ impl ModuleAvailability {
                 "Remove this production import or run the checker in test-only terminal mode."
             }
             Self::FuturePublicApi => {
-                "Do not import this terminal proposal module until the public API gate opens."
+                "Enable the selected terminal public API prerequisite set before importing this module."
             }
         }
     }

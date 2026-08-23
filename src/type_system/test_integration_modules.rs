@@ -1,3 +1,8 @@
+#![expect(
+    clippy::needless_borrowed_reference,
+    reason = "cargo make lint requires borrowed error-pattern matching in this file"
+)]
+
 extern crate alloc;
 
 use crate::ast::{Decl, Documentation, Program, Visibility as AstVisibility};
@@ -8,6 +13,7 @@ use crate::type_system::checker::TypeChecker;
 use crate::type_system::errors::TypeError;
 use crate::type_system::module_resolver::ModuleInterface;
 use crate::type_system::symbol_table::{SymbolInfo, SymbolType, Visibility};
+use crate::type_system::terminal_public_api_prerequisites::TerminalPublicApiPrerequisite;
 use crate::type_system::types::CoreType;
 
 /// Inject required doc comments for public/entry functions in inline test sources.
@@ -89,6 +95,12 @@ fn parse_pipeline(source: &str) -> Program {
     }
 
     program
+}
+
+fn import_only_program(source: &str, symbol_name: &str) -> Program {
+    parse_pipeline(&format!(
+        "\nimport {symbol_name} from '{source}'\n\nentry main = f(): void =>\n    return void\n"
+    ))
 }
 
 fn assert_borrow_diagnostic(errors: &[TypeError], expected_reason: &str) {
@@ -604,7 +616,7 @@ entry main = f(): void =>
     }
 
     #[test]
-    fn test_public_terminal_and_chord_modules_remain_future_gated() {
+    fn test_public_terminal_and_chord_modules_open_when_prerequisites_are_satisfied() {
         for (module_path, type_name) in [
             ("standard.terminal", "TerminalSession"),
             ("standard.terminal.chords", "TerminalChordRouter"),
@@ -614,16 +626,10 @@ entry main = f(): void =>
             );
             let program = parse_pipeline(&source);
             let mut checker = TypeChecker::new();
-            checker.enable_test_only_imports();
             let result = checker.type_check_program(&program);
-            let errors = result.expect_err("future public terminal modules must remain gated");
             assert!(
-                errors.iter().any(|error| matches!(
-                    *error,
-                    TypeError::ModuleUnavailable { ref module, ref reason, .. }
-                        if module == module_path && reason.contains("public terminal API gate")
-                )),
-                "expected future-gate ModuleUnavailable diagnostic for {module_path}, got: {errors:?}",
+                result.is_ok(),
+                "public terminal module {module_path} should open once prerequisites are satisfied: {result:?}",
             );
         }
     }
@@ -689,11 +695,10 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let result = checker.type_check_program(&program);
         assert!(
             result.is_ok(),
-            "selected terminal signatures should type-check under the internal gate: {result:?}",
+            "selected terminal signatures should type-check when terminal public API prerequisites are satisfied: {result:?}",
         );
     }
 
@@ -728,11 +733,10 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let result = checker.type_check_program(&program);
         assert!(
             result.is_ok(),
-            "terminal chord signatures should type-check under the internal gate: {result:?}",
+            "terminal chord signatures should type-check when terminal public API prerequisites are satisfied: {result:?}",
         );
     }
 
@@ -777,7 +781,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         checker.enable_test_only_imports();
         let result = checker.type_check_program(&program);
         assert!(
@@ -829,36 +832,67 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let result = checker.type_check_program(&program);
         assert!(
             result.is_ok(),
-            "core prerequisite signatures should type-check under the internal gate: {result:?}",
+            "core prerequisite signatures should type-check when terminal public API prerequisites are satisfied: {result:?}",
         );
     }
 
     #[test]
-    fn test_core_prerequisite_surface_is_future_gated_in_production_mode() {
-        const SOURCE: &str = "
-import system_wait_set_new from 'standard.system'
+    #[expect(
+        clippy::needless_borrowed_reference,
+        reason = "cargo make lint requires borrowed error-pattern matching in this gate test"
+    )]
+    fn test_selected_terminal_modules_report_missing_prerequisites_until_full_feature_set_is_enabled()
+     {
+        const CASES: &[(&str, &str, bool)] = &[
+            ("standard.system", "system_wait_set_new", false),
+            (
+                "standard.terminal",
+                "terminal_session_options_default",
+                false,
+            ),
+            (
+                "standard.terminal.chords",
+                "terminal_chord_modifiers",
+                false,
+            ),
+            (
+                "standard.testing.terminal",
+                "test_runner_terminal_authority",
+                true,
+            ),
+        ];
 
-entry main = f(): void =>
-    return void
-";
-
-        let program = parse_pipeline(SOURCE);
-        let mut checker = TypeChecker::new();
-        let errors = checker
-            .type_check_program(&program)
-            .expect_err("core prerequisite imports must remain future-gated");
-        assert!(
-            errors.iter().any(|error| matches!(
-                *error,
-                TypeError::ModuleUnavailable { ref module, ref reason, .. }
-                    if module == "standard.system" && reason.contains("gated")
-            )),
-            "expected future-gated standard.system rejection, got: {errors:?}",
-        );
+        for prerequisite in TerminalPublicApiPrerequisite::ALL {
+            let expected_name = prerequisite.diagnostic_name();
+            for &(module_path, symbol_name, enable_test_only) in CASES {
+                let program = import_only_program(module_path, symbol_name);
+                let mut checker = TypeChecker::new();
+                checker.disable_terminal_public_api_prerequisite_for_tests(prerequisite);
+                if enable_test_only {
+                    checker.enable_test_only_imports();
+                }
+                let errors = checker.type_check_program(&program).expect_err(&format!(
+                    "{module_path}.{symbol_name} should stay gated when prerequisite {expected_name} is disabled"
+                ));
+                assert!(
+                    errors.iter().any(|error| matches!(
+                        error,
+                        &TypeError::ModuleUnavailable {
+                            ref module,
+                            ref reason,
+                            ref help,
+                            ..
+                        } if module == module_path
+                            && reason.contains(expected_name)
+                            && help.contains(expected_name)
+                    )),
+                    "expected explicit missing prerequisite {expected_name} for {module_path}.{symbol_name}, got: {errors:?}",
+                );
+            }
+        }
     }
 
     #[test]
@@ -910,7 +944,6 @@ entry main = f(): void =>
         ] {
             let program = parse_pipeline(source);
             let mut checker = TypeChecker::new();
-            checker.enable_terminal_proposal_imports_for_tests();
             let errors = checker
                 .type_check_program(&program)
                 .expect_err("imported terminal borrowed calls must require explicit borrow syntax");
@@ -958,7 +991,6 @@ entry main = f(): void =>
         ] {
             let program = parse_pipeline(source);
             let mut checker = TypeChecker::new();
-            checker.enable_terminal_proposal_imports_for_tests();
             if enable_test_only {
                 checker.enable_test_only_imports();
             }
@@ -998,7 +1030,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let result = checker.type_check_program(&program);
         assert!(
             result.is_ok(),
@@ -1025,7 +1056,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let result = checker.type_check_program(&program);
         assert!(
             result.is_ok(),
@@ -1125,7 +1155,6 @@ entry main = f(): void =>
         for &(label, source) in CASES {
             let program = parse_pipeline(source);
             let mut checker = TypeChecker::new();
-            checker.enable_terminal_proposal_imports_for_tests();
             let errors = checker.type_check_program(&program).expect_err(label);
             assert!(
                 errors
@@ -1153,7 +1182,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let errors = checker
             .type_check_program(&program)
             .expect_err("payload binding should not escape the refinement branch");
@@ -1201,7 +1229,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let result = checker.type_check_program(&program);
         assert!(
             result.is_ok(),
@@ -1223,7 +1250,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let errors = checker
             .type_check_program(&program)
             .expect_err("constrain must surface ConstraintViolationError");
@@ -1257,7 +1283,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let errors = checker
             .type_check_program(&program)
             .expect_err("unrefined guard union propagation must require every family");
@@ -1296,7 +1321,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let result = checker.type_check_program(&program);
         assert!(
             result.is_ok(),
@@ -1315,6 +1339,7 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
+        checker.clear_terminal_public_api_prerequisites_for_tests();
         let result = checker.type_check_program(&program);
         assert!(
             result.is_ok(),
@@ -1338,7 +1363,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let result = checker.type_check_program(&program);
         assert!(
             result.is_ok(),
@@ -1360,7 +1384,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let errors = checker
             .type_check_program(&program)
             .expect_err("same primary/cause identity should be rejected");
@@ -1397,7 +1420,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let errors = checker
             .type_check_program(&program)
             .expect_err("erased Error should not manufacture propagatable family identity");
@@ -1424,7 +1446,6 @@ entry main = f(): void =>
 
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
-        checker.enable_terminal_proposal_imports_for_tests();
         let errors = checker
             .type_check_program(&program)
             .expect_err("raw string terminal writes must be rejected");
@@ -1452,7 +1473,6 @@ entry main = f(): void =>
             );
             let program = parse_pipeline(&source);
             let mut checker = TypeChecker::new();
-            checker.enable_terminal_proposal_imports_for_tests();
             let errors = checker
                 .type_check_program(&program)
                 .expect_err("sealed terminal constructors must be rejected");

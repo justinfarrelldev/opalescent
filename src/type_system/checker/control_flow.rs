@@ -208,6 +208,10 @@ impl TypeChecker {
     }
 
     /// Resolve `Family.Variant` to its family and fully-qualified variant owner.
+    #[expect(
+        clippy::needless_borrowed_reference,
+        reason = "cargo make lint requires borrowed AST/CoreType pattern matching here"
+    )]
     fn refinement_variant_identity(
         &self,
         variant: &Expr,
@@ -259,6 +263,10 @@ impl TypeChecker {
     }
 
     /// Check whether a value's static type can contain the requested nominal family.
+    #[expect(
+        clippy::needless_borrowed_reference,
+        reason = "cargo make lint requires borrowed CoreType pattern matching here"
+    )]
     fn refinement_value_type_allows_family(
         &self,
         value_type: &CoreType,

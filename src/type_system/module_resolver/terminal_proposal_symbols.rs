@@ -904,13 +904,15 @@ fn terminal_proposal_specs(module_path: &str) -> Option<&'static [TerminalApiFun
         _ => None,
     }
 }
-
+/// Return whether a module path belongs to the selected terminal proposal inventory.
+pub(super) fn contains_module(module_path: &str) -> bool {
+    terminal_proposal_specs(module_path).is_some()
+}
 /// Return whether a module/symbol pair belongs to the gated terminal proposal.
 pub(super) fn contains_function(module_path: &str, symbol_name: &str) -> bool {
     terminal_proposal_specs(module_path)
         .is_some_and(|specs| specs.iter().any(|spec| spec.name == symbol_name))
 }
-
 /// Return whether a symbol name is any registered gated terminal proposal function.
 pub(super) fn contains_function_name(symbol_name: &str) -> bool {
     CORE_PREREQUISITE_FUNCTIONS

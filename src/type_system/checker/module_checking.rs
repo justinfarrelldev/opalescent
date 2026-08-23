@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use super::super::module_resolver::ModuleInterface;
+use super::super::module_resolver::{ModuleAvailability, ModuleInterface};
 use crate::ast::{ImportItem, TypeDeclarationForm, Visibility as AstVisibility};
 use crate::token::Span;
 use crate::type_system::checker::TypeChecker;
@@ -98,10 +98,27 @@ impl TypeChecker {
         import_span: Span,
     ) -> Result<(), TypeError> {
         if let Some(interface) = self.module_resolver.module_interface(source) {
+            let is_error_inspector_exception =
+                matches!(interface.availability, ModuleAvailability::FuturePublicApi)
+                    && Self::items_are_implemented_error_inspector_imports(items, source);
+            let terminal_public_api_prerequisites_missing =
+                crate::type_system::is_terminal_proposal_module_path(source)
+                    && !self.terminal_public_api_prerequisites_are_satisfied()
+                    && !is_error_inspector_exception
+                    && (!matches!(interface.availability, ModuleAvailability::TestOnly)
+                        || self.allow_test_only_imports);
+            if terminal_public_api_prerequisites_missing {
+                return Err(TypeError::ModuleUnavailable {
+                    module: source.to_owned(),
+                    reason: self.terminal_public_api_prerequisite_reason(),
+                    help: self.terminal_public_api_prerequisite_help(),
+                    span: TypeError::span_from_span(import_span),
+                });
+            }
             if !interface.availability.is_import_allowed(
                 self.allow_test_only_imports,
-                self.allow_terminal_proposal_imports,
-            ) && !Self::items_are_implemented_error_inspector_imports(items, source)
+                self.terminal_public_api_prerequisites_are_satisfied(),
+            ) && !is_error_inspector_exception
             {
                 return Err(TypeError::ModuleUnavailable {
                     module: source.to_owned(),

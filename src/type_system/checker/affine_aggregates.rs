@@ -135,6 +135,10 @@ impl TypeChecker {
     }
 
     /// Allow publishing a freshly sealed registered aggregate constructor into its owner binding.
+    #[expect(
+        clippy::needless_borrowed_reference,
+        reason = "cargo make lint requires borrowed AST/CoreType pattern matching here"
+    )]
     pub(super) fn is_affine_aggregate_constructor_result(
         &self,
         expr: &Expr,
