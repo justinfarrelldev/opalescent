@@ -1,0 +1,41 @@
+# Task 23 API Gate Verification
+
+## Focused gate and ABI checks
+
+- `cargo test test_selected_terminal_modules_report_missing_prerequisites_until_full_feature_set_is_enabled`
+  - PASS
+  - Confirms every Task 13-22 prerequisite can be disabled individually and that `standard.system`, `standard.terminal`, `standard.terminal.chords`, and `standard.testing.terminal` then fail with an explicit missing-prerequisite diagnostic.
+- `cargo test test_error_attachment_inspectors_resolve_without_terminal_gate`
+  - PASS
+  - Confirms the narrow Task 16 error-inspector exception remains importable even with all terminal public API prerequisites cleared.
+- `cargo test test_selected_terminal_signatures_type_check_under_internal_gate`
+  - PASS
+  - Confirms selected terminal signatures type-check once the authoritative prerequisite set is satisfied.
+- `cargo test test_standard_testing_terminal_signatures_type_check_only_in_test_mode`
+  - PASS
+  - Confirms test-only terminal symbols still require test-only mode in addition to the satisfied prerequisite set.
+- `cargo test test_core_prerequisite_signatures_type_check_under_internal_gate`
+  - PASS
+  - Confirms the `standard.system` prerequisite surface remains coherent under the same authoritative prerequisite validator.
+- `cargo test codegen_terminal_proposal_imports_fail_with_gate_diagnostic`
+  - PASS
+  - Confirms codegen no longer emits the stale `terminal proposal gate not complete` diagnostic on the fully enabled path.
+- `cargo test codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic`
+  - PASS
+  - Confirms direct runtime-name lowering now fails with the runtime-readiness diagnostic instead of the old proposal-gate diagnostic.
+- `cargo test terminal_abi_rejects_reused_retired_selected_variant_id`
+  - PASS
+  - Confirms terminal/chord ABI validation still fails before exposure when authoritative metadata is invalid.
+
+## Required repo-wide verification
+
+- `cargo fmt --all -- --check`
+  - PASS
+- `cargo test`
+  - PASS (`1543 passed; 0 failed; 8 ignored` plus integration/doctest success)
+- `cargo build`
+  - PASS
+- `cargo clippy --all-targets --all-features -- -D warnings`
+  - PASS
+- `cargo make c-quality`
+  - PASS

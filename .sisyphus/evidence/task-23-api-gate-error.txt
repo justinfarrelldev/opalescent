@@ -1,0 +1,35 @@
+# Task 23 API Gate Negative / Inherited Failure Evidence
+
+## Negative gate coverage now enforced by Task 23 tests
+
+- `cargo test test_selected_terminal_modules_report_missing_prerequisites_until_full_feature_set_is_enabled`
+  - PASS
+  - The test explicitly disables each prerequisite one at a time and asserts `TypeError::ModuleUnavailable` reason/help text names the missing prerequisite.
+  - Missing-prerequisite names asserted by the test:
+    - `affine ownership`
+    - `cleanup/transfer`
+    - `refinement/constrain`
+    - `immutable errors`
+    - `test-only authority`
+    - `transactional affine aggregates`
+    - `wait/cancellation`
+    - `timers`
+    - `process control`
+    - `terminal coordinator/legacy I/O coordination`
+- `cargo test codegen_terminal_proposal_imports_fail_with_gate_diagnostic`
+  - PASS
+  - Confirms the fully enabled path now reports runtime-lowering unavailability rather than the stale generic proposal-gate diagnostic.
+- `cargo test codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic`
+  - PASS
+  - Confirms directly mapped selected terminal calls still fail before unresolved extern emission.
+- `cargo test terminal_abi_rejects_reused_retired_selected_variant_id`
+  - PASS
+  - Confirms invalid ABI metadata still blocks exposure.
+
+## Inherited out-of-scope branch failure
+
+- `cargo test --all-features`
+  - FAILS in the same known out-of-scope integration assertion noted by the task context:
+    - `tests::terminal_aggregate::terminal_aggregate_proposal_traceability_mentions_private_runtime_contract`
+    - message: `CHORDS.md should name the retarget-to-commit transition`
+  - Task 23 did not modify proposal documentation or the terminal aggregate traceability test, so this remains recorded as inherited branch state rather than fixed in this task.
