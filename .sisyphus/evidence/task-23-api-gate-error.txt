@@ -18,13 +18,28 @@
     - `terminal coordinator/legacy I/O coordination`
 - `cargo test codegen_terminal_proposal_imports_fail_with_gate_diagnostic`
   - PASS
-  - Confirms the fully enabled path now reports runtime-lowering unavailability rather than the stale generic proposal-gate diagnostic.
+  - Confirms later selected terminal/chord/test imports still stop at the runtime-readiness gate after the prerequisite gate opens.
 - `cargo test codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic`
   - PASS
   - Confirms directly mapped selected terminal calls still fail before unresolved extern emission.
+- `cargo test codegen_core_prerequisite_imports_emit_runtime_declarations`
+  - PASS
+  - Confirms the corrective split no longer leaves completed `standard.system` prerequisites behind the same blanket codegen rejection as later TerminalSession APIs.
 - `cargo test terminal_abi_rejects_reused_retired_selected_variant_id`
   - PASS
   - Confirms invalid ABI metadata still blocks exposure.
+
+## Confirmed ready-vs-blocked split
+
+- Ready now after the full prerequisite set is enabled:
+  - wait/cancellation imports and lowering (`system_wait_set_*`, `cancellation_*`)
+  - monotonic timer imports and lowering (`monotonic_timer_*`, `monotonic_clock_now`)
+  - process-control imports and lowering (`process_control_*`)
+  - implemented immutable-error inspectors (`error_*` inspector surface already accepted before the public gate)
+- Still runtime-blocked on purpose pending Tasks 24-32:
+  - selected terminal session APIs under `standard.terminal`
+  - terminal chord APIs under `standard.terminal.chords`
+  - test-only terminal factories under `standard.testing.terminal`
 
 ## Inherited out-of-scope branch failure
 
@@ -32,4 +47,4 @@
   - FAILS in the same known out-of-scope integration assertion noted by the task context:
     - `tests::terminal_aggregate::terminal_aggregate_proposal_traceability_mentions_private_runtime_contract`
     - message: `CHORDS.md should name the retarget-to-commit transition`
-  - Task 23 did not modify proposal documentation or the terminal aggregate traceability test, so this remains recorded as inherited branch state rather than fixed in this task.
+  - This corrective slice reran the command after enabling generated core prerequisite lowering; the only failure remains the unrelated CHORDS traceability assertion, so Task 23 still records it as inherited branch state rather than fixing unrelated proposal documentation.

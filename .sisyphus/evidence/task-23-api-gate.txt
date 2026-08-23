@@ -1,6 +1,6 @@
 # Task 23 API Gate Verification
 
-## Focused gate and ABI checks
+## Focused gate, codegen, and ABI checks
 
 - `cargo test test_selected_terminal_modules_report_missing_prerequisites_until_full_feature_set_is_enabled`
   - PASS
@@ -17,12 +17,21 @@
 - `cargo test test_core_prerequisite_signatures_type_check_under_internal_gate`
   - PASS
   - Confirms the `standard.system` prerequisite surface remains coherent under the same authoritative prerequisite validator.
+- `cargo test codegen_core_prerequisite_imports_emit_runtime_declarations`
+  - PASS
+  - Confirms completed `standard.system` prerequisite imports compile through codegen and emit real runtime declarations for wait, cancellation, timer, and process-control symbols.
+- `cargo test codegen_error_attachment_inspector_imports_emit_runtime_declarations`
+  - PASS
+  - Confirms implemented immutable-error inspectors continue to lower to runtime declarations on the allowed path.
 - `cargo test codegen_terminal_proposal_imports_fail_with_gate_diagnostic`
   - PASS
-  - Confirms codegen no longer emits the stale `terminal proposal gate not complete` diagnostic on the fully enabled path.
+  - Confirms only later selected terminal/chord/test imports stay behind the runtime-readiness diagnostic after the prerequisite gate opens.
 - `cargo test codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic`
   - PASS
-  - Confirms direct runtime-name lowering now fails with the runtime-readiness diagnostic instead of the old proposal-gate diagnostic.
+  - Confirms directly mapped later terminal runtime names still fail with the explicit runtime-readiness diagnostic and emit no unresolved extern.
+- `cargo test --features integration --test integration_e2e terminal_core_prerequisites_generated_runtime_compile_and_run`
+  - PASS
+  - Confirms generated binaries now link and execute real wait/cancellation, timer, process-control, and immutable-error prerequisite targets instead of blanket runtime blocking.
 - `cargo test terminal_abi_rejects_reused_retired_selected_variant_id`
   - PASS
   - Confirms terminal/chord ABI validation still fails before exposure when authoritative metadata is invalid.
@@ -31,11 +40,13 @@
 
 - `cargo fmt --all -- --check`
   - PASS
-- `cargo test`
-  - PASS (`1543 passed; 0 failed; 8 ignored` plus integration/doctest success)
-- `cargo build`
+- `bash scripts/check-line-count.sh`
   - PASS
-- `cargo clippy --all-targets --all-features -- -D warnings`
+- `cargo make lint`
   - PASS
 - `cargo make c-quality`
+  - PASS
+- `cargo test`
+  - PASS (`1544 passed; 0 failed; 8 ignored` plus integration/doctest success)
+- `cargo build`
   - PASS
