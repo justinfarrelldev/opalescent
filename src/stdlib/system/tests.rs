@@ -377,6 +377,7 @@ mod system_tests {
     #[cfg(not(windows))]
     #[test]
     fn process_control_facade_new_returns_supported_source_and_idle_poll() {
+        let _guard = crate::runtime::process_control::production_backend_test_guard();
         let mut source = process_control_source_new().expect("supported host should build");
         let readiness = process_control_readiness_source(&source);
         assert!(readiness.is_same_identity(&process_control_readiness_source(&source)));
