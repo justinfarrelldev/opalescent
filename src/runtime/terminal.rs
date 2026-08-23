@@ -35,16 +35,17 @@ pub use model::{
     TerminalCursorShape, TerminalDiagnostic, TerminalDiagnosticCollection,
     TerminalDiagnosticCollectionLimits, TerminalDiagnosticRetryability,
     TerminalDiagnosticSessionState, TerminalDiagnosticStage, TerminalFeatureCapability,
-    TerminalInputEvent, TerminalInputEventKind, TerminalInputResetReason, TerminalInvalidOptions,
+    TerminalInputEvent, TerminalInputEventKind, TerminalInputResetReason,
     TerminalKeyOccurrence, TerminalLinkedTextPhase, TerminalLogicalKey, TerminalModifiers,
     TerminalMouseAction, TerminalMouseButton, TerminalMouseTracking, TerminalNamedKey,
     TerminalNativeEventKind, TerminalNativeMetadata, TerminalOperation, TerminalOrdinaryFeature,
     TerminalOsCode, TerminalPastePhase, TerminalScrollDirection, TerminalSessionFeaturePolicy,
-    TerminalSessionOptions, TerminalSessionOptionsError, TerminalSessionResourceLimits,
-    TerminalSize, TerminalTextInputOrigin, TerminalTrustedPasteCapability,
+    TerminalSessionOptions, TerminalSessionResourceLimits, TerminalSize,
+    TerminalTextInputOrigin, TerminalTrustedPasteCapability,
     TerminalTrustedPasteEvidence, TerminalUnknownBytesReason,
 };
 pub use tail_types::{
-    TerminalFeature, TerminalRecoveryLedgerKind, TerminalSessionState, TerminalWait,
+    TerminalFeature, TerminalInvalidOptions, TerminalRecoveryLedgerKind,
+    TerminalSessionOptionsError, TerminalSessionState, TerminalWait,
     required_ordinary_features,
 };

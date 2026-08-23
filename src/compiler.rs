@@ -74,6 +74,8 @@ const RUNTIME_SOURCE: &str = concat!(
     "\n",
     include_str!("../runtime/opal_string.c"),
     "\n",
+    include_str!("../runtime/opal_terminal_model.c"),
+    "\n",
     include_str!("../runtime/opal_bytes.c"),
     "\n",
     include_str!("../runtime/opal_rc.c"),

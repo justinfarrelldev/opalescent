@@ -231,6 +231,143 @@ fn terminal_move_cursor_rejects_negative() {
 }
 
 #[test]
+fn terminal_task24_data_model_runtime_links_and_runs() {
+    let temp_dir = unique_probe_target_dir("terminal-task24-data-model-runtime-links-and-runs");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "terminal-task24-data-model-runtime-links-and-runs target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let source_path = temp_dir.join("terminal_task24_runtime.op");
+        let source = "
+import terminal_session_options_default, terminal_session_options_validate, trusted_terminal_output_from_application_text from 'standard.terminal'
+import type TerminalSessionOptionsError from 'standard.terminal'
+
+##
+    Description: Generated runtime smoke test for Task 24 terminal data-model APIs
+##
+entry main = f(): void errors AllocationFailureError, TerminalSessionOptionsError =>
+    let options = terminal_session_options_default()
+    let validated = propagate terminal_session_options_validate(options)
+    let trusted = propagate trusted_terminal_output_from_application_text('safe terminal output')
+    print('TASK24_OK')
+    return void
+";
+
+        let binary_path = compile_program_for_tests(
+            source_path.as_path(),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        )
+        .map_err(|error| {
+            format!(
+                "terminal-task24-data-model-runtime-links-and-runs source should compile into a binary: {error}"
+            )
+        })?;
+
+        let run_output = run_binary_output_with_timeout(
+            &binary_path,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "terminal-task24-data-model-runtime-links-and-runs compiled binary",
+        )?;
+
+        if !run_output.status.success() {
+            let stdout = String::from_utf8_lossy(&run_output.stdout);
+            let stderr = String::from_utf8_lossy(&run_output.stderr);
+            return Err(format!(
+                "terminal-task24-data-model-runtime-links-and-runs binary should exit cleanly but exited with status {status:?}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+                status = run_output.status.code(),
+            ));
+        }
+
+        if run_output.stdout.as_slice() != b"TASK24_OK\n" {
+            return Err(format!(
+                "terminal-task24-data-model-runtime-links-and-runs stdout should equal TASK24_OK\\n, got {:?}",
+                run_output.stdout,
+            ));
+        }
+
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "terminal-task24-data-model-runtime-links-and-runs target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "terminal-task24-data-model-runtime-links-and-runs should compile, link, and run: {failure_message}"
+    );
+}
+
+#[test]
+fn terminal_task24_unimplemented_runtime_api_remains_codegen_gated() {
+    let temp_dir =
+        unique_probe_target_dir("terminal-task24-unimplemented-runtime-api-remains-gated");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "terminal-task24-unimplemented-runtime-api-remains-gated target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let source_path = temp_dir.join("terminal_task24_gate.op");
+        let source = "
+import terminal_session_open_sync, terminal_session_options_default from 'standard.terminal'
+import type TerminalSessionOpenError from 'standard.terminal'
+
+##
+    Description: Generated compile failure proving unimplemented lifecycle API stays gated
+##
+entry main = f(): void errors TerminalSessionOpenError =>
+    let session = propagate terminal_session_open_sync(terminal_session_options_default())
+    return void
+";
+
+        let error = compile_program_for_tests(
+            source_path.as_path(),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        )
+        .expect_err("unimplemented Task 25+ lifecycle API must remain codegen gated");
+        let rendered = error.to_string();
+        if !rendered.contains("runtime lowering")
+            || !rendered.contains("terminal_session_open_sync")
+        {
+            return Err(format!(
+                "expected runtime-readiness diagnostic mentioning terminal_session_open_sync, got: {rendered}"
+            ));
+        }
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "terminal-task24-unimplemented-runtime-api-remains-gated target directory should be removed"
+    );
+
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "terminal-task24-unimplemented-runtime-api-remains-gated should preserve the gate: {failure_message}"
+    );
+}
+
+#[test]
 fn terminal_draw_rows_bytes() {
     let temp_dir = unique_probe_target_dir("terminal-draw-rows-bytes");
     let prepare = prepare_dir(&temp_dir);

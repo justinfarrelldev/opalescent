@@ -4,6 +4,25 @@ extern crate alloc;
 
 use super::constraints::TerminalWaitMilliseconds;
 use super::model::TerminalOrdinaryFeature;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TerminalSessionOptionsError {
+    InvalidOptions {
+        invalid_options: TerminalInvalidOptions,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TerminalInvalidOptions {
+    RetainedCapacityTooSmall {
+        required_bytes: u64,
+        configured_bytes: u64,
+    },
+    CorrelatedGroupTooLarge {
+        required_events: u64,
+        configured_events: u64,
+    },
+}
 use alloc::collections::BTreeSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

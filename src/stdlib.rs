@@ -24,6 +24,7 @@ pub mod io;
 pub mod math;
 pub mod strings;
 pub mod system;
+pub mod terminal;
 pub mod types;
 
 #[cfg(test)]

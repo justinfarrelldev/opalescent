@@ -15,6 +15,7 @@ use super::constraints::{
 };
 #[cfg(test)]
 use super::formatting::{collection_metadata_bytes, diagnostic_accounted_bytes};
+use super::tail_types::{TerminalInvalidOptions, TerminalSessionOptionsError};
 #[cfg(test)]
 use crate::runtime::terminal::TerminalConstraintError;
 use crate::stdlib::bytes::Bytes;
@@ -189,25 +190,6 @@ impl TerminalSessionOptions {
     pub const fn resource_limits(&self) -> TerminalSessionResourceLimits {
         self.resource_limits
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TerminalSessionOptionsError {
-    InvalidOptions {
-        invalid_options: TerminalInvalidOptions,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TerminalInvalidOptions {
-    RetainedCapacityTooSmall {
-        required_bytes: u64,
-        configured_bytes: u64,
-    },
-    CorrelatedGroupTooLarge {
-        required_events: u64,
-        configured_events: u64,
-    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
