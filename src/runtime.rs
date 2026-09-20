@@ -60,6 +60,7 @@ pub use terminal::{
     TerminalRetainedByteLimit, TerminalRetainedEventLimit, TerminalRowCount, TerminalRowIndex,
     TerminalScrollDirection, TerminalSessionFeaturePolicy, TerminalSessionOptions,
     TerminalSessionOptionsError, TerminalSessionResourceLimits, TerminalSessionState, TerminalSize,
+    TerminalTestActivation, TerminalTestFactoryError, TerminalTestFault, TerminalTestScenario,
     TerminalTextInputOrigin, TerminalTrustedPasteCapability, TerminalTrustedPasteEvidence,
     TerminalUnknownByteChunkLimit, TerminalUnknownBytesReason, TerminalWait,
     TerminalWaitMilliseconds, TrustedTerminalOutput, required_ordinary_features,
@@ -83,6 +84,8 @@ mod terminal_output_tests;
 mod terminal_process_workflow_tests;
 #[cfg(test)]
 mod terminal_read_tests;
+#[cfg(test)]
+mod terminal_test_backend_tests;
 #[cfg(test)]
 mod terminal_tests;
 #[cfg(test)]

@@ -24,13 +24,6 @@ use core::sync::atomic::{AtomicU64, Ordering};
 static NEXT_HIDDEN_STREAM_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Allocate a never-reused hidden stream identity.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "production terminal backends allocate stream identities after session lifecycle lands"
-    )
-)]
 pub(crate) fn next_hidden_stream_id() -> u64 {
     NEXT_HIDDEN_STREAM_ID.fetch_add(1, Ordering::Relaxed)
 }
@@ -650,13 +643,6 @@ impl TerminalInputEvent {
     }
 
     /// Return the hidden stream identity associated with this event.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "hidden event metadata is asserted by tests and consumed by later backends"
-        )
-    )]
     pub(crate) const fn hidden_stream_id(&self) -> u64 {
         self.hidden.stream_id
     }
@@ -666,7 +652,7 @@ impl TerminalInputEvent {
         not(test),
         expect(
             dead_code,
-            reason = "hidden event metadata is asserted by tests and consumed by later backends"
+            reason = "hidden event ordering is asserted by task-31 tests"
         )
     )]
     pub(crate) const fn hidden_delivery_ordinal(&self) -> u64 {

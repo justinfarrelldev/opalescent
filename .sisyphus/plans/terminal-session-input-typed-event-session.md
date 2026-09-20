@@ -1402,7 +1402,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(terminal): enforce output trust boundary` | Files: [src/runtime/**, src/stdlib/**, src/type_system/**, src/codegen/**, tests/**]
 
-- [ ] 31. Implement test-only terminal factories, fake backend, and activation scopes
+- [x] 31. Implement test-only terminal factories, fake backend, and activation scopes
 
   **What to do**: Implement `standard.testing.terminal` authority, `TerminalTestScenario`, synthetic event/capability/diagnostic factories, diagnostic collection factory, deterministic fake backend, backend binding/activation, task-local LIFO activation, fault matching, and authentic recovery-token production only through ordinary lifecycle faults. Integrate with gated fixtures and test harness.
   **Must NOT do**: Do not allow test factories to construct `TerminalSession`, recovery tokens, coordinator leases, host handles, `TimedOut`, `Cancelled`, or `EndOfInput` directly. Do not leak test-only symbols into production artifacts.
@@ -1421,10 +1421,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Declarations: `terminal_testing.types.op:1-427`.
 
   **Acceptance Criteria**:
-  - [ ] Factory tests cover event IDs, composition IDs, trusted-paste evidence, every synthetic event category, stream identity, hidden delivery ordinal, wrong-stream/replay/out-of-order scenarios, and delivery ordinal exhaustion.
-  - [ ] Capability/diagnostic factory tests cover duplicate/missing/unknown ordinary features, compatible evidence, illegal coordinator/session pairing, collection truncation/accounting, and saturation.
-  - [ ] Fake backend tests cover binding, activation LIFO, nested distinct scenarios, same-scenario/other-task rejection, deterministic lifecycle faults, and authentic recovery-token generation via ordinary errors.
-  - [ ] Production import/export tests for test-only symbols fail.
+  - [x] Factory tests cover event IDs, composition IDs, trusted-paste evidence, every synthetic event category, stream identity, hidden delivery ordinal, wrong-stream/replay/out-of-order scenarios, and delivery ordinal exhaustion.
+  - [x] Capability/diagnostic factory tests cover duplicate/missing/unknown ordinary features, compatible evidence, illegal coordinator/session pairing, collection truncation/accounting, and saturation.
+  - [x] Fake backend tests cover binding, activation LIFO, nested distinct scenarios, same-scenario/other-task rejection, deterministic lifecycle faults, and authentic recovery-token generation via ordinary errors.
+  - [x] Production import/export tests for test-only symbols fail.
 
   **QA Scenarios**:
   ```

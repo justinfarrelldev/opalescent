@@ -129,13 +129,6 @@ impl TerminalEventId {
     }
 
     /// Construct a runtime-issued nonzero terminal event identifier.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "production terminal backends construct runtime-issued event identifiers later"
-        )
-    )]
     pub(crate) fn new_runtime(value: u64) -> Result<Self, TerminalConstraintError> {
         if value == 0 {
             return Err(TerminalConstraintError::new(
@@ -157,13 +150,6 @@ impl TerminalCompositionId {
     }
 
     /// Construct a runtime-issued nonzero composition identifier.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "production terminal backends construct runtime-issued composition identifiers later"
-        )
-    )]
     pub(crate) fn new_runtime(value: u64) -> Result<Self, TerminalConstraintError> {
         if value == 0 {
             return Err(TerminalConstraintError::new(
@@ -288,13 +274,6 @@ impl TerminalCommittedText {
     }
 
     /// Construct committed text emitted by the runtime decoder.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "production input decoding validates committed text later"
-        )
-    )]
     pub(crate) fn new_runtime(value: impl Into<String>) -> Result<Self, TerminalConstraintError> {
         let value = value.into();
         require_nonempty_nul_free("TerminalCommittedText", &value)?;

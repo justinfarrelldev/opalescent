@@ -1,0 +1,22 @@
+$ cargo test terminal_test_ --quiet
+[exit 0]
+
+running 5 tests
+.....
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 1589 filtered out; finished in 0.00s
+
+Covered:
+- TerminalTestScenario allocates fresh hidden stream identity.
+- Key, linked text, and composition factories preserve hidden stream identity and monotonically increasing delivery ordinals.
+- Cross-scenario linked text is rejected before producing an event.
+- Capability factory rejects duplicate ordinary features and preserves hidden stream identity/correlated limits.
+- Diagnostic factory creates production-shaped TerminalDiagnostic values and constrained collection limits.
+- Task-local activation supports nested distinct scenarios and rejects same-scenario reactivation.
+
+$ cargo test terminal_ --quiet
+[exit 0]
+
+running 120 tests
+....................................................................................... 87/120
+.................................
+test result: ok. 120 passed; 0 failed; 0 ignored; 0 measured; 1474 filtered out; finished in 0.54s

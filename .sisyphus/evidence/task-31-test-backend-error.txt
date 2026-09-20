@@ -1,0 +1,21 @@
+$ cargo test terminal_test_ --quiet
+[exit 0]
+
+running 5 tests
+.....
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 1589 filtered out; finished in 0.00s
+
+Error/fault coverage:
+- WrongScenario for cross-scenario linked events.
+- DeliveryOrdinalExhausted prevents publishing a max ordinal that could not advance without reuse.
+- duplicate capability feature entries return TerminalTestFactoryError::InvalidValue.
+- same-scenario activation returns AlreadyActive.
+- deterministic fake backend fault plan returns FaultNotPlanned for unplanned or replayed faults and consumes planned faults exactly once.
+
+$ cargo clippy --all-targets --all-features -- -D warnings
+[exit 0]
+
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.18s
+
+$ cargo fmt --all -- --check && git diff --check
+[exit 0]

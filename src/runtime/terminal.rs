@@ -22,6 +22,8 @@ pub mod model;
 pub mod process_workflow;
 #[path = "terminal/tail_types.rs"]
 pub mod tail_types;
+#[path = "terminal/test_backend.rs"]
+pub mod test_backend;
 #[path = "terminal/windows_backend.rs"]
 pub mod windows_backend;
 
@@ -78,6 +80,9 @@ pub use process_workflow::{
 pub use tail_types::{
     TerminalFeature, TerminalInvalidOptions, TerminalRecoveryLedgerKind,
     TerminalSessionOptionsError, TerminalSessionState, TerminalWait, required_ordinary_features,
+};
+pub use test_backend::{
+    TerminalTestActivation, TerminalTestFactoryError, TerminalTestFault, TerminalTestScenario,
 };
 pub use windows_backend::{
     WindowsConsoleSnapshot, WindowsTerminalBackendRuntime, WindowsTerminalBackendState,
