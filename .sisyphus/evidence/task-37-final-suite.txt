@@ -1,0 +1,39 @@
+# Task 37 final full-suite verification
+
+Branch/ancestry:
+- `git rev-parse --abbrev-ref HEAD` -> `feature/terminal-session-input-typed-event-session`
+- `git merge-base --is-ancestor main HEAD` -> exit 0
+
+Formatting/lint/static checks:
+- `cargo fmt --all -- --check` -> PASS
+- `cargo clippy --all-targets --all-features -- -D warnings` -> PASS
+- `git diff --check` -> PASS
+
+Tests:
+- Initial `timeout 900 cargo test --all-features` surfaced one documentation traceability assertion failure in `terminal_aggregate_proposal_traceability_mentions_private_runtime_contract`; CHORDS/configure-editor wording was corrected to keep the private retarget-to-commit/no-interposition contract discoverable.
+- `cargo test --features integration --test integration_e2e terminal_aggregate_proposal_traceability_mentions_private_runtime_contract --quiet` -> PASS after correction.
+- `timeout 900 cargo test --all-features` -> PASS (`1592` unit tests; integration suites including `240` e2e all-features tests; doc tests pass; ignored gates remain opt-in only).
+- `cargo test --features integration` -> PASS (`1592` unit tests; integration e2e `232` passed, `7` ignored; doc tests pass).
+- `cargo make c-quality` -> PASS (gcc/clang Werror, clang analyzer, cppcheck).
+
+Required selected terminal fixtures active in default validation:
+1. terminal-key-log
+2. terminal-text-echo-safe
+3. terminal-size-probe
+4. terminal-pause-counter
+5. terminal-legacy-io-rejection
+6. terminal-timeout-menu
+7. terminal-cancel-demo
+8. terminal-diagnostics-inspector
+9. terminal-chord-quit
+10. terminal-paste-quarantine
+11. terminal-game-of-life-interactive
+12. terminal-sokoban-mini
+13. terminal-file-picker
+14. terminal-stopwatch-pomodoro
+
+Validation tests covering fixture activation:
+- `terminal_session_core_fixtures_1_8_are_active` -> PASS
+- `terminal_session_interactive_fixtures_9_14_are_active` -> PASS
+- `terminal_session_all_fixture_summaries_are_unique_and_deterministic` -> PASS
+- `terminal_session_fixture_sources_avoid_nondeterministic_dependencies` -> PASS

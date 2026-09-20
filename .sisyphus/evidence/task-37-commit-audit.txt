@@ -1,0 +1,29 @@
+# Task 37 atomic commit and dependency audit
+
+Branch and ancestry:
+- `git rev-parse --abbrev-ref HEAD` -> `feature/terminal-session-input-typed-event-session`
+- `git merge-base --is-ancestor main HEAD` -> exit 0
+
+History inspected with `git log --oneline main..HEAD`.
+Recent terminal implementation commits are atomic by task:
+- `e358dae feat(terminal): implement selected data model`
+- `aac005a feat(terminal): implement session lifecycle and recovery`
+- `78380c3 feat(terminal): implement one-event input reading`
+- `bcbe240 feat(terminal): implement linux terminal backend`
+- `6010bed feat(terminal): implement windows terminal backends`
+- `cfa6828 feat(terminal): integrate process-control workflow`
+- `83422aa feat(terminal): enforce output trust boundary`
+- `5f259a9 feat(testing): add terminal fake backend support`
+- `b1d83f4 feat(terminal): implement chord router`
+- `86868fa test(terminal): activate terminal fixtures`
+- `de86945 test(terminal): add security and scope regressions`
+- `a5530f4 docs(terminal): document selected terminal session support`
+
+Dependency audit:
+- `git diff --stat main..HEAD -- Cargo.toml Cargo.lock` produced no dependency-file diff output in the final audit command.
+- No unapproved new dependency was identified.
+
+Traceability/audit notes:
+- Task evidence files exist for Tasks 24-36 and this Task 37 evidence pair.
+- `.sisyphus/evidence/terminal-session-input-traceability.md` was verified during Task 36 with no blank Task(s), Test(s), Commit hash, or Status cells.
+- F1-F4 remain unchecked pending review/user approval, as required by the plan.

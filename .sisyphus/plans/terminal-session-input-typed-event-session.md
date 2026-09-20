@@ -1648,7 +1648,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `docs(terminal): document selected terminal session support` | Files: [README.md, STDLIB.md, CONTRIBUTING.md, stdlib-proposals/terminal-session-input/typed-event-session/abi-history.md if needed, .sisyphus/evidence/terminal-session-input-traceability.md]
 
-- [ ] 37. Run final full-suite verification and atomic-commit audit
+- [x] 37. Run final full-suite verification and atomic-commit audit
 
   **What to do**: Run all final commands, inspect git history for atomic/bisect-green commits, verify branch ancestry, verify no uncommitted changes, verify no unapproved dependencies, verify all 14 fixtures active, and update final evidence. Do not mark final verification wave complete until review agents and user approval are done.
   **Must NOT do**: Do not skip slow/all-features tests. Do not mark F1-F4 checked before user approval. Do not squash/amend/rebase unless user explicitly requests.
@@ -1666,15 +1666,15 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Test strategy memory: `cargo test`, `cargo test --features integration`, all-features, clippy, fmt.
 
   **Acceptance Criteria**:
-  - [ ] `git rev-parse --abbrev-ref HEAD` outputs `feature/terminal-session-input-typed-event-session`.
-  - [ ] `git merge-base --is-ancestor main HEAD` exits `0`.
-  - [ ] `git status --short` is empty.
-  - [ ] `cargo fmt --all -- --check` passes.
-  - [ ] `cargo clippy --all-targets --all-features -- -D warnings` passes.
-  - [ ] `timeout 900 cargo test --all-features` passes.
-  - [ ] `cargo test --features integration` passes.
-  - [ ] `cargo make c-quality` passes.
-  - [ ] All 14 `test-projects/terminal-*` fixtures are active and not ignored.
+  - [x] `git rev-parse --abbrev-ref HEAD` outputs `feature/terminal-session-input-typed-event-session`.
+  - [x] `git merge-base --is-ancestor main HEAD` exits `0`.
+  - [x] `git status --short` is empty.
+  - [x] `cargo fmt --all -- --check` passes.
+  - [x] `cargo clippy --all-targets --all-features -- -D warnings` passes.
+  - [x] `timeout 900 cargo test --all-features` passes.
+  - [x] `cargo test --features integration` passes.
+  - [x] `cargo make c-quality` passes.
+  - [x] All 14 `test-projects/terminal-*` fixtures are active and not ignored.
 
   **QA Scenarios**:
   ```

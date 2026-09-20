@@ -32,7 +32,7 @@
 # compiler holds each initialized member obligation provisionally in an inaccessible aggregate
 # shell. Any SystemWaitSetError, TerminalChordValidationError, or AllocationFailureError cleans
 # initialized provisional members exactly once in reverse acquisition order, treats later slots as
-# empty, discards partial value state, and returns no runtime. After every slot exists, one
+# empty, discards partial value state, and returns no runtime. Partial construction instead uses reverse acquisition order. After every slot exists, one
 # allocation-free infallible seal publishes the Ready runtime with Empty capacity recovery and a
 # Full spare pair. Seal and return have no fallible or observable interposition. This initial
 # owner formation is not an external cleanup-authority transfer, so every empty transfer set above
@@ -194,7 +194,7 @@ let replenish_editor_chord_timer_recovery_slot_sync = f(mutable ref runtime: Edi
     let candidate_source = propagate editor_chord_timer_recovery_slot_prepare_candidate_sync(runtime.timer_recovery_slot)
     # Failure leaves the old exhausted source, authority, fairness position, Candidate, and phase unchanged.
     propagate system_owned_wait_registration_retarget(runtime.timer_recovery_slot.owned_registration, candidate_source)
-    # No fallible operation intervenes after retarget. This commits candidate+authority as Full and drops the old timer.
+    # no fallible operation intervenes after retarget. This commits candidate+authority as Full and drops the old timer.
     editor_chord_timer_recovery_slot_commit_retargeted_spare(runtime.timer_recovery_slot)
     return void
 
