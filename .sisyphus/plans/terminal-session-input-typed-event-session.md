@@ -1116,7 +1116,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(stdlib): open terminal API after prerequisites` | Files: [src/type_system/**, src/codegen/**, tests/**, .sisyphus/evidence/terminal-session-input-traceability.md]
 
-- [ ] 24. Implement selected terminal option, capability, diagnostic, event, and trust data model
+- [x] 24. Implement selected terminal option, capability, diagnostic, event, and trust data model
 
   **What to do**: Implement runtime/stdlib representations for `TerminalSessionOptions`, `TerminalSessionFeaturePolicy`, `TerminalSessionResourceLimits`, `TerminalCapabilities`, all selected constrained types, `TerminalInputEvent`, `TerminalDiagnostic`, `TerminalDiagnosticCollection`, `TrustedTerminalOutput`, `SafeTerminalDiagnosticOutput`, inspectors, safe formatting, and explicit trust conversion. Include hidden stream identity, delivery ordinal, correlated limit metadata, retained/omitted accounting, truncation, and constructor visibility.
   **Must NOT do**: Do not expose hidden stream/session/host handles. Do not permit direct string writes. Do not treat diagnostic text as authority. Do not let test-only or core/system types receive terminal ABI IDs.
