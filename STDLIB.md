@@ -619,7 +619,7 @@ The Game of Life project uses this family to redraw the terminal. See `test-proj
 
 ## Terminal session/input APIs
 
-The selected terminal session/input v1 is the `typed-event-session` proposal. It owns the process interactive standard-input/raw-output terminal pair through a coordinator, exposes typed `TerminalInputEvent` values, requires explicit `TrustedTerminalOutput` or `SafeTerminalDiagnosticOutput` for session writes, and rejects legacy standard I/O while a session owns the terminal. There is intentionally no `terminal_session_output_terminal` or `AcquireOutputTerminal` API.
+The selected terminal session/input v1 is the `typed-event-session` proposal. The current branch implements the Rust runtime/stdlib model for owning the process interactive standard-input/raw-output terminal pair through a coordinator, exposing typed `TerminalInputEvent` values, requiring explicit `TrustedTerminalOutput` or `SafeTerminalDiagnosticOutput` for session writes, and rejecting legacy standard I/O while a session owns the terminal. Generated Opalescent programs currently lower only the runtime-ready data-model/core-prerequisite subset until the remaining C ABI is added. There is intentionally no `terminal_session_output_terminal` or `AcquireOutputTerminal` API.
 
 Supported implementation surfaces include selected session lifecycle, one-event reads, pause/resume workflow, Linux and Windows backend contracts, safe diagnostics, deterministic test-only fake backend support under `standard.testing.terminal`, and the companion terminal chord router under `standard.terminal.chords`. Windows process-control remains unavailable and returns the unsupported-host contract from the process-control prerequisite; it is not synthesized as terminal input.
 

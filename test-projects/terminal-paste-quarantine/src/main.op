@@ -6,7 +6,7 @@ import trusted_terminal_output_from_application_text, cancellation_source_new, c
 # Expected final summary: PASTE_QUARANTINE_SUMMARY direct_text=1 trusted_paste=1 quarantined_chunks=2 malformed_chunks=1 unknown_chunks=1 paste_fallback_resets=1 command_activations=0 status=ok
 
 ##
-  Description: Proposal RED fixture distinguishing trusted paste chunks from quarantined malformed and unknown bytes.
+  Description: Selected typed-event-session fixture distinguishing trusted paste chunks from quarantined malformed and unknown bytes.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let source = propagate cancellation_source_new()

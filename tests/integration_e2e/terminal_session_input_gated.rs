@@ -25,7 +25,7 @@ const CORE_TERMINAL_SESSION_FIXTURES: &[TerminalSessionFixtureMetadata] = &[
         opal_toml_path: "test-projects/terminal-key-log/opal.toml",
         source_path: "test-projects/terminal-key-log/src/main.op",
         input_plan: "Key(Text x), TimedOut, Key(Named Escape), Cancelled, EndOfInput",
-        fault_plan: "none; selected typed-event-session APIs are expected to be missing until implementation",
+        fault_plan: "none; deterministic typed-event-session scenario uses the selected public proposal surface",
         expected_stdout_summary: "KEY_LOG_SUMMARY keys=2 last_key=named+control timeouts=1 cancellations=1 termination=cancelled",
         expected_stderr: "",
         expected_status: 0,
@@ -35,7 +35,7 @@ const CORE_TERMINAL_SESSION_FIXTURES: &[TerminalSessionFixtureMetadata] = &[
         opal_toml_path: "test-projects/terminal-text-echo-safe/opal.toml",
         source_path: "test-projects/terminal-text-echo-safe/src/main.op",
         input_plan: "TextInput(complete safe text), Paste(discard), UnknownBytes(discard), InputReset(PasteFallback), Key(non-text), TimedOut, EndOfInput",
-        fault_plan: "none; selected typed-event-session APIs are expected to be missing until implementation",
+        fault_plan: "none; deterministic typed-event-session scenario uses the selected public proposal surface",
         expected_stdout_summary: "<committed text>\nSAFE_ECHO_SUMMARY text=1 paste=1 unknown=1 resets=1 non_text=2 raw_session_writes=0",
         expected_stderr: "",
         expected_status: 0,
@@ -45,7 +45,7 @@ const CORE_TERMINAL_SESSION_FIXTURES: &[TerminalSessionFixtureMetadata] = &[
         opal_toml_path: "test-projects/terminal-size-probe/opal.toml",
         source_path: "test-projects/terminal-size-probe/src/main.op",
         input_plan: "Open with deterministic 80x24 size and fixed capability snapshot; no input events",
-        fault_plan: "none; selected typed-event-session APIs are expected to be missing until implementation",
+        fault_plan: "none; deterministic typed-event-session scenario uses the selected public proposal surface",
         expected_stdout_summary: "SIZE_PROBE_SUMMARY columns=80 rows=24 ordinary_capability=queried trusted_paste=queried",
         expected_stderr: "",
         expected_status: 0,
@@ -55,7 +55,7 @@ const CORE_TERMINAL_SESSION_FIXTURES: &[TerminalSessionFixtureMetadata] = &[
         opal_toml_path: "test-projects/terminal-pause-counter/opal.toml",
         source_path: "test-projects/terminal-pause-counter/src/main.op",
         input_plan: "Pre-pause Key, TextInput; pause delivery UnknownBytes, InputReset(PauseBoundary)",
-        fault_plan: "none; selected typed-event-session APIs are expected to be missing until implementation",
+        fault_plan: "none; deterministic typed-event-session scenario uses the selected public proposal surface",
         expected_stdout_summary: "PAUSE_COUNTER_SUMMARY pre_pause_reads=2 pause_events=2 input_resets=1 final_boundary=InputReset.PauseBoundary observed=true",
         expected_stderr: "",
         expected_status: 0,
@@ -300,7 +300,7 @@ fn should_run_terminal_session_red() -> bool {
 }
 
 #[test]
-#[ignore = "RED test: opt-in via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
+#[ignore = "compile-gap probe: opt-in via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
 fn terminal_session_input_gated_selected_api_red() {
     if !should_run_terminal_session_red() {
         eprintln!(
@@ -343,22 +343,22 @@ entry main = f(args: string[]): void =>
 
     let failure_message = match compile_result {
         Ok(binary_path) => format!(
-            "selected terminal session RED fixture unexpectedly compiled before terminal session support landed: {}",
+            "selected terminal session compile probe unexpectedly compiled through generated-program lowering: {}",
             binary_path.display()
         ),
         Err(error) => format!(
-            "selected terminal session RED fixture should compile only after the selected typed-event-session API is implemented; current compiler rejection is expected RED evidence:\n{error}"
+            "selected terminal session compile probe documents the current generated-program lowering gap while Rust runtime support exists:\n{error}"
         ),
     };
 
     assert!(
         failure_message.is_empty(),
-        "terminal_session_input_gated selected API probe is intentionally RED until implementation: {failure_message}"
+        "terminal_session_input_gated selected API compile probe is expected to fail until generated-program lowering is complete: {failure_message}"
     );
 }
 
 #[test]
-#[ignore = "RED test: opt-in core terminal fixtures via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
+#[ignore = "compile-gap probe for core fixtures via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
 fn terminal_session_input_gated_core_fixtures_red() {
     if !should_run_terminal_session_red() {
         eprintln!(
@@ -396,7 +396,7 @@ fn terminal_session_input_gated_core_fixtures_red() {
         let prepare = prepare_dir(&temp_dir);
         if let Err(error) = prepare {
             setup_failures.push(format!(
-                "{} target directory should be created before RED compile: {error}",
+                "{} target directory should be created before compile-gap probe: {error}",
                 fixture.name
             ));
             continue;
@@ -412,14 +412,14 @@ fn terminal_session_input_gated_core_fixtures_red() {
         let cleanup = cleanup_dir(&temp_dir);
         if let Err(error) = cleanup {
             setup_failures.push(format!(
-                "{} target directory should be removed after RED compile: {error}",
+                "{} target directory should be removed after compile-gap probe: {error}",
                 fixture.name
             ));
         }
 
         let fixture_evidence = match compile_result {
             Ok(binary_path) => format!(
-                "{} unexpectedly compiled before selected terminal session support landed: {}\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}",
+                "{} unexpectedly compiled through current generated-program lowering: {}\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}",
                 fixture.name,
                 binary_path.display(),
                 fixture.input_plan,
@@ -429,7 +429,7 @@ fn terminal_session_input_gated_core_fixtures_red() {
                 fixture.expected_status,
             ),
             Err(error) => format!(
-                "{} should compile only after selected typed-event-session support is implemented; current compiler rejection is expected RED evidence.\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}\ncompiler rejection:\n{error}",
+                "{} documents the current generated-program lowering gap for selected typed-event-session fixture source.\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}\ncompiler rejection:\n{error}",
                 fixture.name,
                 fixture.input_plan,
                 fixture.fault_plan,
@@ -443,19 +443,19 @@ fn terminal_session_input_gated_core_fixtures_red() {
 
     assert!(
         setup_failures.is_empty(),
-        "core terminal fixture RED setup should use valid on-disk project layouts:\n{}",
+        "core terminal fixture compile-probe setup should use valid on-disk project layouts:\n{}",
         setup_failures.join("\n\n")
     );
 
     assert!(
         red_evidence.is_empty(),
-        "core terminal fixtures are intentionally RED until selected terminal session support lands:\n{}",
+        "core terminal fixture compile probes document current generated-program lowering gaps:\n{}",
         red_evidence.join("\n\n")
     );
 }
 
 #[test]
-#[ignore = "RED test: opt-in coordination and diagnostic terminal fixtures via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
+#[ignore = "compile-gap probe for coordination/diagnostic fixtures via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
 fn terminal_session_input_gated_coordination_and_diagnostics_fixtures_red() {
     if !should_run_terminal_session_red() {
         eprintln!(
@@ -493,7 +493,7 @@ fn terminal_session_input_gated_coordination_and_diagnostics_fixtures_red() {
         let prepare = prepare_dir(&temp_dir);
         if let Err(error) = prepare {
             setup_failures.push(format!(
-                "{} target directory should be created before RED compile: {error}",
+                "{} target directory should be created before compile-gap probe: {error}",
                 fixture.name
             ));
             continue;
@@ -509,14 +509,14 @@ fn terminal_session_input_gated_coordination_and_diagnostics_fixtures_red() {
         let cleanup = cleanup_dir(&temp_dir);
         if let Err(error) = cleanup {
             setup_failures.push(format!(
-                "{} target directory should be removed after RED compile: {error}",
+                "{} target directory should be removed after compile-gap probe: {error}",
                 fixture.name
             ));
         }
 
         let fixture_evidence = match compile_result {
             Ok(binary_path) => format!(
-                "{} unexpectedly compiled before selected terminal session support landed: {}\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}",
+                "{} unexpectedly compiled through current generated-program lowering: {}\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}",
                 fixture.name,
                 binary_path.display(),
                 fixture.input_plan,
@@ -526,7 +526,7 @@ fn terminal_session_input_gated_coordination_and_diagnostics_fixtures_red() {
                 fixture.expected_status,
             ),
             Err(error) => format!(
-                "{} should compile only after selected typed-event-session support is implemented; current compiler rejection is expected RED evidence.\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}\ncompiler rejection:\n{error}",
+                "{} documents the current generated-program lowering gap for selected typed-event-session fixture source.\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}\ncompiler rejection:\n{error}",
                 fixture.name,
                 fixture.input_plan,
                 fixture.fault_plan,
@@ -540,19 +540,19 @@ fn terminal_session_input_gated_coordination_and_diagnostics_fixtures_red() {
 
     assert!(
         setup_failures.is_empty(),
-        "coordination and diagnostic terminal fixture RED setup should use valid on-disk project layouts:\n{}",
+        "coordination and diagnostic terminal fixture compile-probe setup should use valid on-disk project layouts:\n{}",
         setup_failures.join("\n\n")
     );
 
     assert!(
         red_evidence.is_empty(),
-        "coordination and diagnostic terminal fixtures are intentionally RED until selected terminal session support lands:\n{}",
+        "coordination and diagnostic terminal fixture compile probes document current generated-program lowering gaps:\n{}",
         red_evidence.join("\n\n")
     );
 }
 
 #[test]
-#[ignore = "RED test: opt-in remaining interactive terminal fixtures via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
+#[ignore = "compile-gap probe for remaining interactive fixtures via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
 fn terminal_session_input_gated_remaining_interactive_fixtures_red() {
     if !should_run_terminal_session_red() {
         eprintln!(
@@ -590,7 +590,7 @@ fn terminal_session_input_gated_remaining_interactive_fixtures_red() {
         let prepare = prepare_dir(&temp_dir);
         if let Err(error) = prepare {
             setup_failures.push(format!(
-                "{} target directory should be created before RED compile: {error}",
+                "{} target directory should be created before compile-gap probe: {error}",
                 fixture.name
             ));
             continue;
@@ -606,14 +606,14 @@ fn terminal_session_input_gated_remaining_interactive_fixtures_red() {
         let cleanup = cleanup_dir(&temp_dir);
         if let Err(error) = cleanup {
             setup_failures.push(format!(
-                "{} target directory should be removed after RED compile: {error}",
+                "{} target directory should be removed after compile-gap probe: {error}",
                 fixture.name
             ));
         }
 
         let fixture_evidence = match compile_result {
             Ok(binary_path) => format!(
-                "{} unexpectedly compiled before selected terminal session support landed: {}\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}",
+                "{} unexpectedly compiled through current generated-program lowering: {}\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}",
                 fixture.name,
                 binary_path.display(),
                 fixture.input_plan,
@@ -623,7 +623,7 @@ fn terminal_session_input_gated_remaining_interactive_fixtures_red() {
                 fixture.expected_status,
             ),
             Err(error) => format!(
-                "{} should compile only after selected typed-event-session and chord/test support is implemented; current compiler rejection is expected RED evidence.\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}\ncompiler rejection:\n{error}",
+                "{} documents the current generated-program lowering gap for selected typed-event-session/chord fixture source.\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}\ncompiler rejection:\n{error}",
                 fixture.name,
                 fixture.input_plan,
                 fixture.fault_plan,
@@ -637,13 +637,13 @@ fn terminal_session_input_gated_remaining_interactive_fixtures_red() {
 
     assert!(
         setup_failures.is_empty(),
-        "remaining interactive terminal fixture RED setup should use valid on-disk project layouts:\n{}",
+        "remaining interactive terminal fixture compile-probe setup should use valid on-disk project layouts:\n{}",
         setup_failures.join("\n\n")
     );
 
     assert!(
         red_evidence.is_empty(),
-        "remaining interactive terminal fixtures are intentionally RED until selected terminal session support lands:\n{}",
+        "remaining interactive terminal fixture compile probes document current generated-program lowering gaps:\n{}",
         red_evidence.join("\n\n")
     );
 }

@@ -105,7 +105,7 @@ let create_horizontal_seed_board = f(): int8[] =>
     return board
 
 ##
-  Description: Proposal RED fixture for deterministic interactive Game of Life controls and final state accounting.
+  Description: Selected typed-event-session fixture for deterministic interactive Game of Life controls and final state accounting.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let source = propagate cancellation_source_new()

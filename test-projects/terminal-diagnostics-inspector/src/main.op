@@ -106,7 +106,7 @@ let inspect_collection_open_failure_sync = f(options: TerminalSessionOptions): b
     return false
 
 ##
-  Description: Proposal RED fixture inspecting structured terminal diagnostics before safe formatting output.
+  Description: Selected typed-event-session fixture inspecting structured terminal diagnostics before safe formatting output.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionRestoreError, IndexOutOfBoundsError, AllocationFailureError =>
     let mutable invalid_options_count: int64 = 0

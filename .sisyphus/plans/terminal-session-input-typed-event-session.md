@@ -198,10 +198,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Planning rule: commits are bisect-green; gated RED evidence only.
 
   **Acceptance Criteria** (agent-executable only):
-  - [ ] `git rev-parse --abbrev-ref HEAD` outputs exactly `feature/terminal-session-input-typed-event-session`.
-  - [ ] `git merge-base --is-ancestor main HEAD` exits `0`.
-  - [ ] `git status --short` is empty immediately before first implementation edit.
-  - [ ] `.sisyphus/evidence/task-1-branch-todo.md` contains all Tasks 1-37 and F1-F4.
+  - [x] `git rev-parse --abbrev-ref HEAD` outputs exactly `feature/terminal-session-input-typed-event-session`.
+  - [x] `git merge-base --is-ancestor main HEAD` exits `0`.
+  - [x] `git status --short` is empty immediately before first implementation edit.
+  - [x] `.sisyphus/evidence/task-1-branch-todo.md` contains all Tasks 1-37 and F1-F4.
 
   **QA Scenarios** (MANDATORY - task incomplete without these):
   ```
@@ -240,10 +240,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Pattern: `tests/integration_e2e/game_of_life_full_memory_stress.rs` ignored/stress gate style.
 
   **Acceptance Criteria**:
-  - [ ] `.sisyphus/evidence/terminal-session-input-traceability.md` has rows for `COMPARISON`, `core-prerequisites`, selected proposal, selected declarations, ABI history, chords, and testing contracts.
-  - [ ] The matrix includes columns: Obligation ID, Source, Task(s), Test(s), Commit hash, Status.
-  - [ ] `cargo test` passes with gated fixtures present.
-  - [ ] An opt-in RED command exists and records expected failure without failing the default suite.
+  - [x] `.sisyphus/evidence/terminal-session-input-traceability.md` has rows for `COMPARISON`, `core-prerequisites`, selected proposal, selected declarations, ABI history, chords, and testing contracts.
+  - [x] The matrix includes columns: Obligation ID, Source, Task(s), Test(s), Commit hash, Status.
+  - [x] `cargo test` passes with gated fixtures present.
+  - [x] An opt-in RED command exists and records expected failure without failing the default suite.
 
   **QA Scenarios**:
   ```
@@ -282,10 +282,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Pattern: `tests/integration_e2e/terminal_stdlib.rs:10-230` exact terminal-byte assertions.
 
   **Acceptance Criteria**:
-  - [ ] Four project directories exist with `opal.toml` and `src/main.op`.
-  - [ ] Each fixture has a deterministic final summary line.
-  - [ ] Gated RED run reports parse/type/runtime failure from missing terminal implementation, not malformed fixture setup.
-  - [ ] `cargo test` remains green because these fixtures are gated.
+  - [x] Four project directories exist with `opal.toml` and `src/main.op`.
+  - [x] Each fixture has a deterministic final summary line.
+  - [x] Gated RED run reports parse/type/runtime failure from missing terminal implementation, not malformed fixture setup.
+  - [x] `cargo test` remains green because these fixtures are gated.
 
   **QA Scenarios**:
   ```
@@ -324,10 +324,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Pattern: `src/type_system/module_resolver/standard_symbols_core_io_and_bytes.rs:44-50`, `462-605` existing standard I/O/terminal symbols.
 
   **Acceptance Criteria**:
-  - [ ] Four project directories exist with deterministic expected outputs.
-  - [ ] `terminal-legacy-io-rejection` names at least `take_input`, `stdout_writer`, `stdout_terminal`, `terminal_supports_ansi`, one writer write/flush, and one cursor/screen mutation.
-  - [ ] `terminal-diagnostics-inspector` refines typed errors and calls every stable diagnostic inspector.
-  - [ ] Gated RED evidence shows missing implementation, not fixture syntax mistakes unrelated to proposal support.
+  - [x] Four project directories exist with deterministic expected outputs.
+  - [x] `terminal-legacy-io-rejection` names at least `take_input`, `stdout_writer`, `stdout_terminal`, `terminal_supports_ansi`, one writer write/flush, and one cursor/screen mutation.
+  - [x] `terminal-diagnostics-inspector` refines typed errors and calls every stable diagnostic inspector.
+  - [x] Gated RED evidence shows missing implementation, not fixture syntax mistakes unrelated to proposal support.
 
   **QA Scenarios**:
   ```
@@ -365,10 +365,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Pattern: `tests/integration_e2e/fs_helpers.rs` and `fs_state_guard.rs` for deterministic file fixture isolation.
 
   **Acceptance Criteria**:
-  - [ ] Six project directories exist with `opal.toml`, `src/main.op`, deterministic expected outputs, and final summary lines.
-  - [ ] `terminal-chord-quit` covers Ctrl-Q and Escape bindings with one activation.
-  - [ ] `terminal-file-picker` uses fixed ordering, not host directory order.
-  - [ ] Gated RED command captures expected missing implementation failures; default `cargo test` passes.
+  - [x] Six project directories exist with `opal.toml`, `src/main.op`, deterministic expected outputs, and final summary lines.
+  - [x] `terminal-chord-quit` covers Ctrl-Q and Escape bindings with one activation.
+  - [x] `terminal-file-picker` uses fixed ordering, not host directory order.
+  - [x] Gated RED command captures expected missing implementation failures; default `cargo test` passes.
 
   **QA Scenarios**:
   ```
@@ -405,10 +405,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Type AST files: `src/type_system/types.rs`, `src/type_system/checker/declarations.rs`.
 
   **Acceptance Criteria**:
-  - [ ] Parser accepts representative snippets from selected/chord/testing `.types.op` declarations.
-  - [ ] Parser rejects unknown annotation names, duplicate ABI IDs on one declaration, malformed `where`, and `@availability(test_only)` on local statements.
-  - [ ] Existing parser tests pass with `cargo test parser` or equivalent targeted parser test command.
-  - [ ] Full `cargo test` passes.
+  - [x] Parser accepts representative snippets from selected/chord/testing `.types.op` declarations.
+  - [x] Parser rejects unknown annotation names, duplicate ABI IDs on one declaration, malformed `where`, and `@availability(test_only)` on local statements.
+  - [x] Existing parser tests pass with `cargo test parser` or equivalent targeted parser test command.
+  - [x] Full `cargo test` passes.
 
   **QA Scenarios**:
   ```
@@ -446,9 +446,9 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Parser files: `src/parser/expressions.rs`, `src/parser/statements.rs`, `src/parser/statements_guard.rs`, `src/parser/precedence.rs`, `src/parser/types.rs`.
 
   **Acceptance Criteria**:
-  - [ ] Accepted parser tests cover each syntax form used in proposal examples.
-  - [ ] Negative tests reject `into` after equality, `is not ... into`, compound-left refinement, payloadless `into`, and `using` owner escaping syntactically where parser can know.
-  - [ ] Existing guard, import, and statement parser tests continue passing.
+  - [x] Accepted parser tests cover each syntax form used in proposal examples.
+  - [x] Negative tests reject `into` after equality, `is not ... into`, compound-left refinement, payloadless `into`, and `using` owner escaping syntactically where parser can know.
+  - [x] Existing guard, import, and statement parser tests continue passing.
 
   **QA Scenarios**:
   ```
@@ -486,10 +486,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Proposal examples: `inspect_terminal_capabilities.op`, `run_editor_event_loop.op`, `configure_editor_chords.op`.
 
   **Acceptance Criteria**:
-  - [ ] Formatting preserves all proposal annotations and declaration modifiers in representative snippets.
-  - [ ] Doc generation either documents new public declarations or emits a precise unsupported diagnostic until semantic implementation lands.
-  - [ ] `cargo fmt --all -- --check` passes.
-  - [ ] `cargo test` passes.
+  - [x] Formatting preserves all proposal annotations and declaration modifiers in representative snippets.
+  - [x] Doc generation either documents new public declarations or emits a precise unsupported diagnostic until semantic implementation lands.
+  - [x] `cargo fmt --all -- --check` passes.
+  - [x] `cargo test` passes.
 
   **QA Scenarios**:
   ```
@@ -526,10 +526,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Authority: `abi-history.md:25-43` active vs retired ownership.
 
   **Acceptance Criteria**:
-  - [ ] Production imports can resolve selected terminal and chord public types/functions only after gate conditions in Task 23.
-  - [ ] Test-only imports resolve only under test artifact compilation.
-  - [ ] Production import of `standard.testing.terminal` fails with a precise availability diagnostic.
-  - [ ] Existing imports from `standard`, `math`, and `process` still pass.
+  - [x] Production imports can resolve selected terminal and chord public types/functions only after gate conditions in Task 23.
+  - [x] Test-only imports resolve only under test artifact compilation.
+  - [x] Production import of `standard.testing.terminal` fails with a precise availability diagnostic.
+  - [x] Existing imports from `standard`, `math`, and `process` still pass.
 
   **QA Scenarios**:
   ```
@@ -567,10 +567,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - `abi-history.md:179-216` retired/uncommitted IDs.
 
   **Acceptance Criteria**:
-  - [ ] ABI validation test passes for current selected and chord declarations.
-  - [ ] Negative fixture with reused retired ID fails.
-  - [ ] Negative fixture with terminal ABI ID on test-only declaration fails.
-  - [ ] Traceability matrix records ABI check task/test names.
+  - [x] ABI validation test passes for current selected and chord declarations.
+  - [x] Negative fixture with reused retired ID fails.
+  - [x] Negative fixture with terminal ABI ID on test-only declaration fails.
+  - [x] Traceability matrix records ABI check task/test names.
 
   **QA Scenarios**:
   ```
@@ -608,10 +608,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Existing symbol patterns: `src/type_system/checker/stdout_text_builtins.rs:33-249`, `src/type_system/module_resolver/standard_symbols_core_io_and_bytes.rs:462-605`.
 
   **Acceptance Criteria**:
-  - [ ] Type-check tests cover every public terminal/chord/test-only function signature.
-  - [ ] Constructor visibility rejects public construction of `TerminalSession`, `TerminalRecoveryToken`, runtime events, diagnostics, and test-runner-only authority.
-  - [ ] Direct `string` passed to `terminal_session_write_sync` is a type error.
-  - [ ] Existing stdlib symbol tests pass.
+  - [x] Type-check tests cover every public terminal/chord/test-only function signature.
+  - [x] Constructor visibility rejects public construction of `TerminalSession`, `TerminalRecoveryToken`, runtime events, diagnostics, and test-runner-only authority.
+  - [x] Direct `string` passed to `terminal_session_write_sync` is a type error.
+  - [x] Existing stdlib symbol tests pass.
 
   **QA Scenarios**:
   ```
@@ -648,10 +648,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Existing special string-array call: `src/codegen/functions_call/string_array_calls.rs:92-174`.
 
   **Acceptance Criteria**:
-  - [ ] Compile tests for gated terminal calls fail with explicit “terminal proposal gate not complete” diagnostic before runtime implementation.
-  - [ ] No LLVM unresolved external is emitted for gated terminal calls in default mode.
-  - [ ] Existing codegen tests for `take_input` and terminal stdlib continue passing.
-  - [ ] `cargo test` passes.
+  - [x] Compile tests for gated terminal calls fail with explicit “terminal proposal gate not complete” diagnostic before runtime implementation.
+  - [x] No LLVM unresolved external is emitted for gated terminal calls in default mode.
+  - [x] Existing codegen tests for `take_input` and terminal stdlib continue passing.
+  - [x] `cargo test` passes.
 
   **QA Scenarios**:
   ```
@@ -689,10 +689,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Existing checker statements/expressions: `src/type_system/checker/statements.rs`, `src/type_system/checker/expressions.rs`.
 
   **Acceptance Criteria**:
-  - [ ] Type tests reject copying, double move, use-after-move, return/store/capture of affine owners, and escaping borrows.
-  - [ ] Type tests allow `ref session: TerminalSession` and `mutable ref session: TerminalSession` only for one call/full-expression.
-  - [ ] Existing reference-rule tests pass.
-  - [ ] Gated fixture type checking reaches expected missing-runtime errors after ownership syntax is accepted.
+  - [x] Type tests reject copying, double move, use-after-move, return/store/capture of affine owners, and escaping borrows.
+  - [x] Type tests allow `ref session: TerminalSession` and `mutable ref session: TerminalSession` only for one call/full-expression.
+  - [x] Existing reference-rule tests pass.
+  - [x] Gated fixture type checking reaches expected missing-runtime errors after ownership syntax is accepted.
 
   **QA Scenarios**:
   ```
@@ -730,10 +730,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Codegen cleanup patterns: `src/codegen/functions_call/call_arg_cleanup.rs`, `src/codegen/scope_tracker.rs`.
 
   **Acceptance Criteria**:
-  - [ ] Type/effect tests require enclosing `errors` clauses to include acquisition, body, and cleanup error families.
-  - [ ] Runtime/codegen tests prove cleanup runs on fallthrough, return, break, continue, and propagation.
-  - [ ] Nested `using` cleanup order is reverse acquisition order.
-  - [ ] Transfer is legal only for `TerminalSessionRestoreError.CloseRestorePending` cleanup transfer for `TerminalSession` and exact registered test/chord rules.
+  - [x] Type/effect tests require enclosing `errors` clauses to include acquisition, body, and cleanup error families.
+  - [x] Runtime/codegen tests prove cleanup runs on fallthrough, return, break, continue, and propagation.
+  - [x] Nested `using` cleanup order is reverse acquisition order.
+  - [x] Transfer is legal only for `TerminalSessionRestoreError.CloseRestorePending` cleanup transfer for `TerminalSession` and exact registered test/chord rules.
 
   **QA Scenarios**:
   ```
@@ -771,10 +771,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Existing checker files: `src/type_system/checker/expressions_guard.rs`, `src/type_system/checker/fallible_expressions.rs`, `src/type_system/constraints.rs`, `src/type_system/error_families.rs`.
 
   **Acceptance Criteria**:
-  - [ ] Valid `if event is TerminalInputEvent.Key into key_event:` narrows payload in branch.
-  - [ ] Equality `if left is right:` remains unchanged for non-variant right side.
-  - [ ] Unrefined guard error propagation requires all member families in enclosing `errors` clause.
-  - [ ] `constrain TerminalWaitMilliseconds from runtime_value` succeeds/fails with typed constraint behavior.
+  - [x] Valid `if event is TerminalInputEvent.Key into key_event:` narrows payload in branch.
+  - [x] Equality `if left is right:` remains unchanged for non-variant right side.
+  - [x] Unrefined guard error propagation requires all member families in enclosing `errors` clause.
+  - [x] `constrain TerminalWaitMilliseconds from runtime_value` succeeds/fails with typed constraint behavior.
 
   **QA Scenarios**:
   ```
@@ -811,10 +811,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Proposal example: `inspect_terminal_capabilities.op:21-38`, `56-121`.
 
   **Acceptance Criteria**:
-  - [ ] Runtime tests cover cause insertion, existing-cause suppressed fallback, idempotent reattachment, cycle prevention, truncation markers, and bounds.
-  - [ ] Type tests cover `propagate error_value` family inclusion rules.
-  - [ ] `error_cause`, `error_suppressed_length`, `error_suppressed_at`, and `error_attachment_truncation*` resolve and run.
-  - [ ] Existing error-handling tests pass.
+  - [x] Runtime tests cover cause insertion, existing-cause suppressed fallback, idempotent reattachment, cycle prevention, truncation markers, and bounds.
+  - [x] Type tests cover `propagate error_value` family inclusion rules.
+  - [x] `error_cause`, `error_suppressed_length`, `error_suppressed_at`, and `error_attachment_truncation*` resolve and run.
+  - [x] Existing error-handling tests pass.
 
   **QA Scenarios**:
   ```
@@ -852,10 +852,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Module resolver: `src/type_system/module_resolver/standard_modules.rs`.
 
   **Acceptance Criteria**:
-  - [ ] Test artifact compilation can import `standard.testing.terminal` and call `test_runner_terminal_authority()`.
-  - [ ] Production compilation rejects imports, fields, exported signatures, metadata, and manifests that name test-only symbols.
-  - [ ] Test-only declarations carry no production terminal ABI IDs.
-  - [ ] Existing non-terminal test infrastructure still works.
+  - [x] Test artifact compilation can import `standard.testing.terminal` and call `test_runner_terminal_authority()`.
+  - [x] Production compilation rejects imports, fields, exported signatures, metadata, and manifests that name test-only symbols.
+  - [x] Test-only declarations carry no production terminal ABI IDs.
+  - [x] Existing non-terminal test infrastructure still works.
 
   **QA Scenarios**:
   ```
@@ -892,10 +892,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Type checker: `src/type_system/checker/constructors.rs`, `src/type_system/checker/declarations.rs`, `src/type_system/checker/ref_rules.rs`.
 
   **Acceptance Criteria**:
-  - [ ] Tests prove constructor failure cleans initialized provisional members exactly once in reverse acquisition order.
-  - [ ] Tests prove seal publishes all obligations atomically with no provisional leaks.
-  - [ ] Tests reject undeclared layout transitions, duplicate obligations, missing cleanup, exported member owner, and interposed fallible operation after retarget.
-  - [ ] Chord example type-checks through private aggregate declarations once symbols exist.
+  - [x] Tests prove constructor failure cleans initialized provisional members exactly once in reverse acquisition order.
+  - [x] Tests prove seal publishes all obligations atomically with no provisional leaks.
+  - [x] Tests reject undeclared layout transitions, duplicate obligations, missing cleanup, exported member owner, and interposed fallible operation after retarget.
+  - [x] Chord example type-checks through private aggregate declarations once symbols exist.
 
   **QA Scenarios**:
   ```
@@ -932,10 +932,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Runtime modules: `src/runtime/io.rs`, `src/stdlib/system.rs`, `src/stdlib/system/process.rs`.
 
   **Acceptance Criteria**:
-  - [ ] Unit tests cover register/remove, repeated remove idempotence, wrong-set/unauthenticated/lifetime errors, owned registration retarget/remove/drop, wait-set destruction, source clone lifetime, bounded-fair selection, stale Ready handling, and cancellation priority.
-  - [ ] Test-only fake sources can deterministically publish readiness for terminal/chord tests.
-  - [ ] No public API exposes host handles.
-  - [ ] `cargo test` passes.
+  - [x] Unit tests cover register/remove, repeated remove idempotence, wrong-set/unauthenticated/lifetime errors, owned registration retarget/remove/drop, wait-set destruction, source clone lifetime, bounded-fair selection, stale Ready handling, and cancellation priority.
+  - [x] Test-only fake sources can deterministically publish readiness for terminal/chord tests.
+  - [x] No public API exposes host handles.
+  - [x] `cargo test` passes.
 
   **QA Scenarios**:
   ```
@@ -972,10 +972,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Chord timer use: `CHORDS.md:73-83`, `configure_editor_chords.op:98-199`.
 
   **Acceptance Criteria**:
-  - [ ] Timer tests cover new, readiness source stability, arm, disarm, repeated disarm advancing generation, deadline read, not-armed error, equality expiration, stale wake filtering, and generation exhaustion.
-  - [ ] Wait-set tests observe timer readiness through generic source identity.
-  - [ ] Chord timer scenarios have deterministic fake clock support.
-  - [ ] Existing time stdlib tests pass.
+  - [x] Timer tests cover new, readiness source stability, arm, disarm, repeated disarm advancing generation, deadline read, not-armed error, equality expiration, stale wake filtering, and generation exhaustion.
+  - [x] Wait-set tests observe timer readiness through generic source identity.
+  - [x] Chord timer scenarios have deterministic fake clock support.
+  - [x] Existing time stdlib tests pass.
 
   **QA Scenarios**:
   ```
@@ -1013,10 +1013,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Existing process patterns: `src/stdlib/system/process.rs`, `tests/integration_e2e/process_api_smoke.rs`.
 
   **Acceptance Criteria**:
-  - [ ] POSIX tests cover notification queue, Idle stale poll, generation exhaustion, acknowledge retry, continuation, explicit application resume, wrong/stale generation errors.
-  - [ ] Windows tests or cfg tests verify `UnsupportedHost` before allocation.
-  - [ ] Process-control notifications are never `TerminalInputEvent` variants.
-  - [ ] Existing process API smoke tests pass.
+  - [x] POSIX tests cover notification queue, Idle stale poll, generation exhaustion, acknowledge retry, continuation, explicit application resume, wrong/stale generation errors.
+  - [x] Windows tests or cfg tests verify `UnsupportedHost` before allocation.
+  - [x] Process-control notifications are never `TerminalInputEvent` variants.
+  - [x] Existing process API smoke tests pass.
 
   **QA Scenarios**:
   ```
@@ -1054,10 +1054,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Existing interactive tests: `tests/integration_e2e/interactive_io.rs:15-235`.
 
   **Acceptance Criteria**:
-  - [ ] `take_input` future signature and behavior reject with `StandardInputReadError.TerminalCoordinatorUnavailable` when coordinator is not `Free`.
-  - [ ] stdout writer/terminal acquisition/use and terminal operations reject with exact operation/state payloads and no mutation.
-  - [ ] Stale handles acquired before Free→Opening remain stale forever.
-  - [ ] Existing interactive and terminal stdlib regression tests pass.
+  - [x] `take_input` future signature and behavior reject with `StandardInputReadError.TerminalCoordinatorUnavailable` when coordinator is not `Free`.
+  - [x] stdout writer/terminal acquisition/use and terminal operations reject with exact operation/state payloads and no mutation.
+  - [x] Stale handles acquired before Free→Opening remain stale forever.
+  - [x] Existing interactive and terminal stdlib regression tests pass.
 
   **QA Scenarios**:
   ```
@@ -1094,10 +1094,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Symbol gate from Task 11: `src/type_system/module_resolver/**`, `src/type_system/checker/**`.
 
   **Acceptance Criteria**:
-  - [ ] Public selected symbols resolve and codegen only when prerequisite feature set is complete.
-  - [ ] Test configuration disabling one prerequisite restores explicit gate diagnostic.
-  - [ ] Traceability matrix marks core prerequisite rows complete before gate-open commit hash.
-  - [ ] `cargo test` passes.
+  - [x] Public selected symbols resolve and codegen only when prerequisite feature set is complete.
+  - [x] Test configuration disabling one prerequisite restores explicit gate diagnostic.
+  - [x] Traceability matrix marks core prerequisite rows complete before gate-open commit hash.
+  - [x] `cargo test` passes.
 
   **QA Scenarios**:
   ```
@@ -1136,10 +1136,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Output trust: `typed-event-session/proposal.md:292-299`.
 
   **Acceptance Criteria**:
-  - [ ] Unit tests cover every constrained type boundary and constructor visibility path.
-  - [ ] Capability inspectors return every ordinary feature, trusted-paste capability, and color capability.
-  - [ ] Diagnostic collection accounting matches retained/omitted count/byte/truncation rules including saturation.
-  - [ ] Trust conversion is explicit; `SafeTerminalDiagnosticOutput` escapes controls and bounds output.
+  - [x] Unit tests cover every constrained type boundary and constructor visibility path.
+  - [x] Capability inspectors return every ordinary feature, trusted-paste capability, and color capability.
+  - [x] Diagnostic collection accounting matches retained/omitted count/byte/truncation rules including saturation.
+  - [x] Trust conversion is explicit; `SafeTerminalDiagnosticOutput` escapes controls and bounds output.
 
   **QA Scenarios**:
   ```

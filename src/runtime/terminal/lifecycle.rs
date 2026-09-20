@@ -199,8 +199,9 @@ impl TerminalSession {
 
     /// Query a deterministic size while active or paused.
     ///
-    /// Task 26 replaces this placeholder with backend snapshots, but Task 25 owns
-    /// exact state rejection and non-mutating behavior.
+    /// The deterministic backend contract currently exposes an 80x24 snapshot for
+    /// in-process tests while preserving exact state rejection and non-mutating
+    /// behavior.
     pub fn size_sync(&self) -> Result<super::TerminalSize, TerminalSessionStateError> {
         match self.state {
             TerminalSessionState::Active | TerminalSessionState::Paused => {

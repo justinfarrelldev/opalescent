@@ -6,7 +6,7 @@ import trusted_terminal_output_from_application_text, cancellation_source_new, c
 # Expected final summary: TIMEOUT_MENU_SUMMARY displayed_options=3 wait_ms=75 timed_out=true selected=2 reason=default status=ok
 
 ##
-  Description: Proposal RED fixture for a finite-wait timeout menu with deterministic default selection.
+  Description: Selected typed-event-session fixture for a finite-wait timeout menu with deterministic default selection.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let source = propagate cancellation_source_new()

@@ -172,7 +172,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [x] Package-manager help topics exist, but `opal pkg` command execution currently reports `not yet implemented`.
 - [x] Hot-reload components exist in the codebase, but public production guarantees are still being defined.
 - [x] Windows/Wine validation exists in tests and scripts, but host setup is more involved than the Linux quick start.
-- [x] The selected terminal session/input proposal (`typed-event-session`) has runtime, stdlib, fake-backend, chord-router, fixture, and security coverage in this branch. Historical terminal-input alternatives remain archived proposal records, not compatibility APIs. Windows process-control remains unsupported by contract.
+- [x] The selected terminal session/input proposal (`typed-event-session`) has Rust runtime/stdlib model support, fake-backend, chord-router, static fixture inventory, and security coverage in this branch. Generated-program lowering is intentionally limited to the runtime-ready data-model/core-prerequisite subset until the remaining C ABI is implemented. Historical terminal-input alternatives remain archived proposal records, not compatibility APIs. Windows process-control remains unsupported by contract.
 
 ### Planned or proposed, not finished
 
@@ -181,7 +181,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [ ] HTTP/network standard-library layer (`stdlib-proposals/network-http-layer/`)
 - [ ] Subprocess execution API (`stdlib-proposals/subprocess-exec/`)
 - [x] Terminal session/input API (`stdlib-proposals/terminal-session-input/`)
-  - Selected v1 support follows [`typed-event-session`](./stdlib-proposals/terminal-session-input/typed-event-session/proposal.md), with chord companion support from [`CHORDS.md`](./stdlib-proposals/terminal-session-input/CHORDS.md) and test-only fake backend support from [`TESTING.md`](./stdlib-proposals/terminal-session-input/TESTING.md). Historical alternatives remain non-v1 records; do not use packet-stream or batched-pump API names.
+  - Selected v1 implementation work follows [`typed-event-session`](./stdlib-proposals/terminal-session-input/typed-event-session/proposal.md), with chord companion support from [`CHORDS.md`](./stdlib-proposals/terminal-session-input/CHORDS.md) and test-only fake backend support from [`TESTING.md`](./stdlib-proposals/terminal-session-input/TESTING.md). Historical alternatives remain non-v1 records; do not use packet-stream or batched-pump API names.
 - [ ] JSON/TOML serialization APIs (`stdlib-proposals/serialization/`)
 - [ ] Compression APIs (`stdlib-proposals/compression/`)
 - [ ] UUID APIs (`stdlib-proposals/uuid/`)

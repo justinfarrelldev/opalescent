@@ -11,7 +11,7 @@ let released_count = f(input: TerminalChordReleasedInput): int64 =>
     return terminal_chord_released_input_length(input)
 
 ##
-  Description: Proposal RED fixture for Ctrl-Q and Escape chord routing with release-once non-command input accounting.
+  Description: Selected typed-event-session fixture for Ctrl-Q and Escape chord routing with release-once non-command input accounting.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalChordValidationError, TerminalChordProcessError, AllocationFailureError =>
     let source = propagate cancellation_source_new()

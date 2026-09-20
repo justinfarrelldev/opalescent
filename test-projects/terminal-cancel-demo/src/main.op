@@ -6,7 +6,7 @@ import trusted_terminal_output_from_application_text, cancellation_source_new, c
 # Expected final summary: CANCEL_DEMO_SUMMARY read_attempts=1 cancellations=1 consumed_after_cancel=0 sticky=true cleanup=closed
 
 ##
-  Description: Proposal RED fixture for sticky cancellation winning before queued terminal input consumption.
+  Description: Selected typed-event-session fixture for sticky cancellation winning before queued terminal input consumption.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let mutable source = propagate cancellation_source_new()

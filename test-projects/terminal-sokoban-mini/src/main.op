@@ -25,7 +25,7 @@ let is_wall = f(x: int64, y: int64): boolean =>
     return false
 
 ##
-  Description: Proposal RED fixture for deterministic tiny Sokoban movement, reset, redraw, and quit handling.
+  Description: Selected typed-event-session fixture for deterministic tiny Sokoban movement, reset, redraw, and quit handling.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let source = propagate cancellation_source_new()

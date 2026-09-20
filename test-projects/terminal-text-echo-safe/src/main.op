@@ -2,7 +2,7 @@ import terminal_session_options_default, terminal_session_open_sync, terminal_se
 import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
 
 ##
-  Description: Proposal RED fixture proving committed text is echoed only through TrustedTerminalOutput.
+  Description: Selected typed-event-session fixture proving committed text is echoed only through TrustedTerminalOutput.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let source = propagate cancellation_source_new()

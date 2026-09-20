@@ -2,7 +2,7 @@ import terminal_session_options_default, terminal_session_open_sync, terminal_se
 import trusted_terminal_output_from_application_text from standard
 
 ##
-  Description: Proposal RED fixture for capability snapshot and terminal size probing.
+  Description: Selected typed-event-session fixture for capability snapshot and terminal size probing.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let options = terminal_session_options_default()

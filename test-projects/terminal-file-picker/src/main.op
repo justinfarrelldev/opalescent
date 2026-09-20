@@ -26,7 +26,7 @@ let manifest_marker_at = f(row_index: int64, selected_index: int64): string =>
     return ' '
 
 ##
-  Description: Proposal RED fixture for deterministic terminal file picker navigation from a fixed manifest.
+  Description: Selected typed-event-session fixture for deterministic terminal file picker navigation from a fixed manifest.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let source = propagate cancellation_source_new()

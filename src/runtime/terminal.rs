@@ -1,8 +1,8 @@
-//! Selected terminal runtime/stdlib data-model support for Task 24.
+//! Selected terminal runtime/stdlib support for the `typed-event-session` proposal.
 //!
-//! This module intentionally implements only the option, capability, event,
-//! diagnostic, and trust data-model slices. Session lifecycle, test factories,
-//! backend activation, and later terminal behavior stay out of scope.
+//! This module contains the sealed data model, lifecycle/recovery state machine,
+//! deterministic platform-backend contracts, output trust boundary, test-only fake
+//! backend, process-control workflow, and chord router used by the current branch.
 
 #[path = "terminal/chords.rs"]
 pub mod chords;

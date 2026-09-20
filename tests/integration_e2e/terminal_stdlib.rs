@@ -509,7 +509,7 @@ fn terminal_task24_validation_failures_execute() {
 }
 
 #[test]
-fn terminal_task24_unimplemented_runtime_api_remains_codegen_gated() {
+fn terminal_lifecycle_api_remains_codegen_gated_until_c_abi_exists() {
     let temp_dir =
         unique_probe_target_dir("terminal-task24-unimplemented-runtime-api-remains-gated");
     let prepare = prepare_dir(&temp_dir);
@@ -525,7 +525,7 @@ import terminal_session_open_sync, terminal_session_options_default from 'standa
 import type TerminalSessionOpenError from 'standard.terminal'
 
 ##
-    Description: Generated compile failure proving unimplemented lifecycle API stays gated
+    Description: Generated compile failure proving lifecycle API stays gated until generated-program C ABI lowering exists
 ##
 entry main = f(): void errors TerminalSessionOpenError =>
     let session = propagate terminal_session_open_sync(terminal_session_options_default())
@@ -538,7 +538,9 @@ entry main = f(): void errors TerminalSessionOpenError =>
             &temp_dir,
             &TargetTriple::host(),
         )
-        .expect_err("unimplemented Task 25+ lifecycle API must remain codegen gated");
+        .expect_err(
+            "lifecycle API must remain codegen gated until generated-program C ABI lowering exists",
+        );
         let rendered = error.to_string();
         if !rendered.contains("runtime lowering")
             || !rendered.contains("terminal_session_open_sync")

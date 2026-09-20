@@ -6,7 +6,7 @@ import trusted_terminal_output_from_application_text, cancellation_source_new, c
 # Expected final summary: STOPWATCH_POMODORO_SUMMARY elapsed_ticks=1 starts=2 stops=1 resets=1 stale_wakes=1 running=true quit=true status=ok
 
 ##
-  Description: Proposal RED fixture for deterministic stopwatch and Pomodoro-style tick accounting without wall-clock assertions.
+  Description: Selected typed-event-session fixture for deterministic stopwatch and Pomodoro-style tick accounting without wall-clock assertions.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let source = propagate cancellation_source_new()

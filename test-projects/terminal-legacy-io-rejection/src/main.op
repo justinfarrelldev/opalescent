@@ -71,7 +71,7 @@ let stale_terminal_clear_rejected = f(terminal: StdoutTerminal): boolean =>
     return false
 
 ##
-  Description: Proposal RED fixture proving legacy input/output operations reject under active terminal coordination.
+  Description: Selected typed-event-session fixture proving legacy input/output operations reject under active terminal coordination.
 ##
 entry main = f(args: string[]): void errors StandardOutputHandleError, TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let stale_writer = propagate stdout_writer()
