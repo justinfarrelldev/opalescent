@@ -1,0 +1,16 @@
+$ rg -n "typed-event-session|historical alternatives|Windows process-control|standard.testing.terminal|packet streams|batched" README.md STDLIB.md CONTRIBUTING.md .sisyphus/evidence/terminal-session-input-traceability.md
+[exit 0]
+
+README.md documents selected typed-event-session support, historical alternative exclusion, and Windows process-control unsupported status.
+STDLIB.md documents session/input support, test-only fake backend availability, no session-output terminal, no AcquireOutputTerminal, and historical alternative exclusion.
+CONTRIBUTING.md documents src/runtime/terminal ownership and Windows process-control scope fidelity.
+
+$ cargo test terminal_abi_reports_selected_and_chord_inventory_counts --quiet
+[exit 0]
+
+running 1 test
+.
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1599 filtered out; finished in 0.01s
+
+$ cargo fmt --all -- --check
+[exit 0]

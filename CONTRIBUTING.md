@@ -185,6 +185,7 @@ native executable <-------------------------------------------------------'
 - `src/codegen/functions.rs` lowers function and import declarations. `src/codegen/functions_stdlib.rs` bridges language-level standard symbols to runtime function declarations. If you add a stdlib function, this file is usually involved.
 - `emit_object_file` writes LLVM modules to `.o`/`.obj` files through Inkwell's target machine.
 - `runtime/*.c` implements helpers used by generated programs: printing, parsing, bytes, strings, filesystem operations, reference counting, errors, and terminal/time helpers. `RuntimeTempFile` materializes the embedded runtime for native linking.
+- `src/runtime/terminal/` owns the selected `typed-event-session` runtime model, lifecycle, platform backend contracts, fake test backend, output trust boundary, and chord router. Keep historical terminal alternatives out of this surface unless the proposal process explicitly selects a new version. Windows process-control remains an unsupported-host contract, not a terminal event.
 - `src/build_system/targets.rs` describes target triples and file naming; `src/build_system/linker.rs` chooses and configures platform linkers. `link_object_files_with_policy` ties those pieces to the emitted object files.
 - `src/formatter/`, `src/doc_gen/`, `src/lsp/`, and `src/testing/` are sibling tooling paths. They reuse lexer/parser/type information where needed, but they do not all run the full native-code pipeline.
 

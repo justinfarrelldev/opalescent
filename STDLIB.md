@@ -617,6 +617,14 @@ Convenience form that moves the cursor on standard output's terminal.
 
 The Game of Life project uses this family to redraw the terminal. See `test-projects/game-of-life-full/src/render.op`.
 
+## Terminal session/input APIs
+
+The selected terminal session/input v1 is the `typed-event-session` proposal. It owns the process interactive standard-input/raw-output terminal pair through a coordinator, exposes typed `TerminalInputEvent` values, requires explicit `TrustedTerminalOutput` or `SafeTerminalDiagnosticOutput` for session writes, and rejects legacy standard I/O while a session owns the terminal. There is intentionally no `terminal_session_output_terminal` or `AcquireOutputTerminal` API.
+
+Supported implementation surfaces include selected session lifecycle, one-event reads, pause/resume workflow, Linux and Windows backend contracts, safe diagnostics, deterministic test-only fake backend support under `standard.testing.terminal`, and the companion terminal chord router under `standard.terminal.chords`. Windows process-control remains unavailable and returns the unsupported-host contract from the process-control prerequisite; it is not synthesized as terminal input.
+
+Historical alternatives such as portable input packet streams or batched event pumps remain archived proposal records only. Use the selected declarations in `stdlib-proposals/terminal-session-input/typed-event-session/typed_event_session.types.op` and `terminal_chords.types.op` as the source of truth.
+
 ## Time APIs
 
 ```opal

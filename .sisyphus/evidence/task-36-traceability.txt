@@ -1,0 +1,20 @@
+$ python3 - <<'PY'
+from pathlib import Path
+lines=Path('.sisyphus/evidence/terminal-session-input-traceability.md').read_text().splitlines()
+bad=[]
+for i,l in enumerate(lines,1):
+    if l.startswith('| TSI-'):
+        cells=[c.strip() for c in l.strip('|').split('|')]
+        if len(cells)!=6 or any(c=='' for c in cells[2:]):
+            bad.append((i,l))
+print('blank rows:', len(bad))
+for b in bad: print(b)
+PY
+[exit 0]
+blank rows: 0
+
+$ rg -n "TBD|partial|planned|guarded|future|Future|\\|\\s*\\|" .sisyphus/evidence/terminal-session-input-traceability.md
+[exit 1]
+(no matches)
+
+Traceability matrix now has complete task/test/commit/status cells for TSI-001 through TSI-020.

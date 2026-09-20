@@ -172,6 +172,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [x] Package-manager help topics exist, but `opal pkg` command execution currently reports `not yet implemented`.
 - [x] Hot-reload components exist in the codebase, but public production guarantees are still being defined.
 - [x] Windows/Wine validation exists in tests and scripts, but host setup is more involved than the Linux quick start.
+- [x] The selected terminal session/input proposal (`typed-event-session`) has runtime, stdlib, fake-backend, chord-router, fixture, and security coverage in this branch. Historical terminal-input alternatives remain archived proposal records, not compatibility APIs. Windows process-control remains unsupported by contract.
 
 ### Planned or proposed, not finished
 
@@ -179,8 +180,8 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [ ] Crypto hashing standard-library module (`stdlib-proposals/crypto-hashing/`)
 - [ ] HTTP/network standard-library layer (`stdlib-proposals/network-http-layer/`)
 - [ ] Subprocess execution API (`stdlib-proposals/subprocess-exec/`)
-- [ ] Terminal session/input API (`stdlib-proposals/terminal-session-input/`)
-  - Proposal entry points: [comparison and selection](./stdlib-proposals/terminal-session-input/COMPARISON.md), [future core prerequisites](./stdlib-proposals/terminal-session-input/core-prerequisites.md), [selected contract](./stdlib-proposals/terminal-session-input/typed-event-session/proposal.md), [ABI history](./stdlib-proposals/terminal-session-input/typed-event-session/abi-history.md), [chord companion](./stdlib-proposals/terminal-session-input/CHORDS.md), and [test-only contract](./stdlib-proposals/terminal-session-input/TESTING.md). These are proposals and future adoption prerequisites, not current compiler/runtime/stdlib support.
+- [x] Terminal session/input API (`stdlib-proposals/terminal-session-input/`)
+  - Selected v1 support follows [`typed-event-session`](./stdlib-proposals/terminal-session-input/typed-event-session/proposal.md), with chord companion support from [`CHORDS.md`](./stdlib-proposals/terminal-session-input/CHORDS.md) and test-only fake backend support from [`TESTING.md`](./stdlib-proposals/terminal-session-input/TESTING.md). Historical alternatives remain non-v1 records; do not use packet-stream or batched-pump API names.
 - [ ] JSON/TOML serialization APIs (`stdlib-proposals/serialization/`)
 - [ ] Compression APIs (`stdlib-proposals/compression/`)
 - [ ] UUID APIs (`stdlib-proposals/uuid/`)

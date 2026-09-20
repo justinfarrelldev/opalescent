@@ -1606,7 +1606,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `test(terminal): add security and scope regressions` | Files: [tests/**, test-projects/** as needed]
 
-- [ ] 36. Update documentation, examples, ABI history, and traceability evidence
+- [x] 36. Update documentation, examples, ABI history, and traceability evidence
 
   **What to do**: Update user-facing docs (`README.md`, `STDLIB.md`, `CONTRIBUTING.md`, and any standard-library reference files) to describe implemented selected terminal support, prerequisites, test-only availability, branch/commit evidence, platform support, and explicit exclusions. Update `abi-history.md` only if implementation/declaration changes require same-revision history entries. Fill all commit hashes/statuses in `.sisyphus/evidence/terminal-session-input-traceability.md`.
   **Must NOT do**: Do not advertise historical alternatives as implemented. Do not claim Windows process-control support. Do not alter append-only ABI history except with evidenced retirements/representation records.
@@ -1625,11 +1625,11 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Docs style: `STDLIB.md`, `CONTRIBUTING.md`.
 
   **Acceptance Criteria**:
-  - [ ] Docs state selected `typed-event-session` is implemented and historical alternatives remain non-v1 records.
-  - [ ] Docs list Windows process-control as unsupported per contract.
-  - [ ] Traceability matrix has no empty Task(s), Test(s), Commit hash, or Status cells.
-  - [ ] ABI validation still passes after docs/history updates.
-  - [ ] `cargo fmt --all -- --check` passes.
+  - [x] Docs state selected `typed-event-session` is implemented and historical alternatives remain non-v1 records.
+  - [x] Docs list Windows process-control as unsupported per contract.
+  - [x] Traceability matrix has no empty Task(s), Test(s), Commit hash, or Status cells.
+  - [x] ABI validation still passes after docs/history updates.
+  - [x] `cargo fmt --all -- --check` passes.
 
   **QA Scenarios**:
   ```
