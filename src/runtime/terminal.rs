@@ -18,6 +18,8 @@ pub mod lifecycle_errors;
 pub mod linux_backend;
 #[path = "terminal/model.rs"]
 pub mod model;
+#[path = "terminal/process_workflow.rs"]
+pub mod process_workflow;
 #[path = "terminal/tail_types.rs"]
 pub mod tail_types;
 #[path = "terminal/windows_backend.rs"]
@@ -67,6 +69,10 @@ pub use model::{
     TerminalSessionFeaturePolicy, TerminalSessionOptions, TerminalSessionResourceLimits,
     TerminalSize, TerminalTextInputOrigin, TerminalTrustedPasteCapability,
     TerminalTrustedPasteEvidence, TerminalUnknownBytesReason,
+};
+pub use process_workflow::{
+    TerminalProcessWorkflowError, TerminalProcessWorkflowStep,
+    terminal_process_suspend_continue_sync,
 };
 pub use tail_types::{
     TerminalFeature, TerminalInvalidOptions, TerminalRecoveryLedgerKind,

@@ -1,0 +1,27 @@
+$ cargo test terminal_process_workflow --quiet
+[exit 0]
+
+running 4 tests
+....
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 1583 filtered out; finished in 0.00s
+
+Covered:
+- exact normal order: stop work -> pause terminal -> acknowledge suspend -> observe continued -> resume terminal -> resume application -> redraw/work.
+- terminal remains Active after successful workflow.
+- out-of-order initial continuation is rejected/ignored without pausing or acknowledging.
+
+$ cargo test terminal_ --quiet
+[exit 0]
+
+running 113 tests
+....................................................................................... 87/113
+..........................
+test result: ok. 113 passed; 0 failed; 0 ignored; 0 measured; 1474 filtered out; finished in 0.53s
+
+$ cargo clippy --all-targets --all-features -- -D warnings
+[exit 0]
+
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.33s
+
+$ cargo fmt --all -- --check && git diff --check
+[exit 0]

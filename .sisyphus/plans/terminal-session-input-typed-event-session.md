@@ -1321,7 +1321,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(terminal): implement windows terminal backends` | Files: [src/runtime/**, runtime/**, src/stdlib/**, tests/**]
 
-- [ ] 29. Integrate terminal pause/resume with process-control workflow
+- [x] 29. Integrate terminal pause/resume with process-control workflow
 
   **What to do**: Implement the application-visible workflow support for process-control readiness alongside terminal readiness: stop ordinary work before pause, deliver every pause event through final `PauseBoundary`, acknowledge suspend only after pause boundary, wait only for matching `Continued` while paused, resume terminal, resume application process, then allow redraw/work. Add deterministic tests and update examples if needed.
   **Must NOT do**: Do not read terminal input, expire chords, render, or resume child/application work while awaiting continuation. Do not acknowledge if pause fails and leaves session `Active`. Do not resume application if terminal resume enters `RestorePending`.
@@ -1339,10 +1339,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Wait/cancellation rules: `core-prerequisites.md:150-164`, `core-prerequisites.md:231-245`.
 
   **Acceptance Criteria**:
-  - [ ] Integration tests cover normal suspend/continue, stale process wake `Idle`, duplicate/out-of-order notifications, pause failure, resume failure, and Windows unsupported source.
-  - [ ] Tests prove no terminal read or timer/chord expiry occurs while awaiting matching continuation.
-  - [ ] Fail-closed cases propagate structured errors and keep application work stopped.
-  - [ ] Example/harness follows exact order from proposal.
+  - [x] Integration tests cover normal suspend/continue, stale process wake `Idle`, duplicate/out-of-order notifications, pause failure, resume failure, and Windows unsupported source.
+  - [x] Tests prove no terminal read or timer/chord expiry occurs while awaiting matching continuation.
+  - [x] Fail-closed cases propagate structured errors and keep application work stopped.
+  - [x] Example/harness follows exact order from proposal.
 
   **QA Scenarios**:
   ```

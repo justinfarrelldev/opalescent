@@ -1,0 +1,12 @@
+$ cargo test terminal_process_workflow --quiet
+[exit 0]
+
+running 4 tests
+....
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 1583 filtered out; finished in 0.00s
+
+Failure coverage:
+- pause failure from RestorePending propagates TerminalProcessWorkflowError.Pause and keeps session RestorePending.
+- suspend acknowledgement failure propagates TerminalProcessWorkflowError.Acknowledge and keeps terminal Paused with application work stopped.
+- unsupported process-control test host fails construction before source state is allocated.
+- initial out-of-order continuation does not pause, acknowledge, resume, or restart work.
