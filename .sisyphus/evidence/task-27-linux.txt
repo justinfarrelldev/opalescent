@@ -1,0 +1,30 @@
+$ cargo test linux_backend --quiet
+[exit 0]
+
+running 2 tests
+..
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1578 filtered out; finished in 0.00s
+
+Covered deterministic Linux backend contract:
+- snapshot/current descriptor state split.
+- nonblocking descriptor flag applied on acquire.
+- termios local ISIG bit remains set unless control-key capture is requested.
+- queued input drains before queued resize.
+- HUP/EOF is observed after queued input and resize drain.
+- successful restore returns backend state to Free and restores exact descriptor snapshot.
+
+$ cargo test terminal_ --quiet
+[exit 0]
+
+running 106 tests
+....................................................................................... 87/106
+...................
+test result: ok. 106 passed; 0 failed; 0 ignored; 0 measured; 1474 filtered out; finished in 0.53s
+
+$ cargo clippy --all-targets --all-features -- -D warnings
+[exit 0]
+
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.42s
+
+$ cargo fmt --all -- --check && git diff --check
+[exit 0]

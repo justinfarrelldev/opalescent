@@ -76,6 +76,8 @@ pub use wait::{
 };
 
 #[cfg(test)]
+mod terminal_linux_tests;
+#[cfg(test)]
 mod terminal_read_tests;
 #[cfg(test)]
 mod terminal_tests;

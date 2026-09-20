@@ -14,6 +14,8 @@ pub mod formatting;
 pub mod lifecycle;
 #[path = "terminal/lifecycle_errors.rs"]
 pub mod lifecycle_errors;
+#[path = "terminal/linux_backend.rs"]
+pub mod linux_backend;
 #[path = "terminal/model.rs"]
 pub mod model;
 #[path = "terminal/tail_types.rs"]
@@ -46,6 +48,10 @@ pub use lifecycle_errors::{
     TerminalCloseOutcome, TerminalPauseEvents, TerminalPauseResult, TerminalRecoveryToken,
     TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionRestoreError,
     TerminalSessionStateError,
+};
+pub use linux_backend::{
+    LinuxTerminalBackendRuntime, LinuxTerminalBackendState, LinuxTerminalDescriptorSnapshot,
+    LinuxTerminalInverseStep,
 };
 pub use model::{
     TerminalBackend, TerminalCapabilities, TerminalCapabilitySupportedEvidence,

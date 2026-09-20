@@ -1241,7 +1241,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(terminal): implement one-event input reading` | Files: [src/runtime/**, src/stdlib/**, src/type_system/**, src/codegen/**, tests/**]
 
-- [ ] 27. Implement Linux terminal backend contract
+- [x] 27. Implement Linux terminal backend contract
 
   **What to do**: Implement Linux/VT backend for snapshot/restore, nonblocking descriptor setup, termios flag changes, raw input decoding, SIGWINCH self-pipe/equivalent, poll/ppoll wait integration, resize ordering, EOF/HUP handling, cancellation wake, parser deadlines, output mode/cursor/flush behavior, ledger inverses, and exact restoration.
   **Must NOT do**: Do not flush pending input with `TCSANOW`. Do not clear `ISIG` unless control-key capture is requested. Do not process `POLLHUP` before draining readable bytes. Do not perform non-async-signal-safe SIGWINCH handler work.
@@ -1259,10 +1259,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Existing terminal e2e style: `tests/integration_e2e/terminal_stdlib.rs:10-230`.
 
   **Acceptance Criteria**:
-  - [ ] Linux unit/integration tests cover termios snapshot/restore, descriptor flags, nonblocking reads, resize self-pipe, input-before-resize ordering, cancellation, HUP/EOF, and inverse ledger order.
-  - [ ] Fault injection proves partial restoration enters `RestorePending` with diagnostics and retry authority.
-  - [ ] No test leaks raw terminal mode after failure.
-  - [ ] Linux terminal fixtures pass under deterministic fake backend and host-backed smoke where CI TTY support exists.
+  - [x] Linux unit/integration tests cover termios snapshot/restore, descriptor flags, nonblocking reads, resize self-pipe, input-before-resize ordering, cancellation, HUP/EOF, and inverse ledger order.
+  - [x] Fault injection proves partial restoration enters `RestorePending` with diagnostics and retry authority.
+  - [x] No test leaks raw terminal mode after failure.
+  - [x] Linux terminal fixtures pass under deterministic fake backend and host-backed smoke where CI TTY support exists.
 
   **QA Scenarios**:
   ```

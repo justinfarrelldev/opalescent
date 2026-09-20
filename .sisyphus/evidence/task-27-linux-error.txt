@@ -1,0 +1,12 @@
+$ cargo test linux_backend --quiet
+[exit 0]
+
+running 2 tests
+..
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1578 filtered out; finished in 0.00s
+
+Failure coverage:
+- deterministic inverse fault injection can fail the Termios inverse once.
+- failed inverse pushes an ordered diagnostic with operation RestorePendingClose.
+- backend enters RestorePending with retryable diagnostics instead of reporting success.
+- retry executes remaining inverse ledger and restores the exact descriptor snapshot.
