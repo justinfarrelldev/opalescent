@@ -1598,16 +1598,40 @@ fn codegen_terminal_proposal_imports_fail_with_gate_diagnostic() {
 #[test]
 fn codegen_terminal_data_model_imports_emit_runtime_declarations() {
     let source = "
-import terminal_session_options_default, terminal_session_options_validate, trusted_terminal_output_from_application_text from 'standard.terminal'
-import type TerminalSessionOptions, TerminalSessionOptionsError, TrustedTerminalOutput from 'standard.terminal'
+import terminal_session_options_default, terminal_session_options_with_feature_policy, terminal_session_options_with_resource_limits, terminal_session_options_validate, trusted_terminal_output_from_application_text from 'standard.terminal'
+import type TerminalInputSequenceTimeoutMilliseconds, TerminalCommittedTextByteLimit, TerminalCompositionPreeditByteLimit, TerminalPasteChunkByteLimit, TerminalUnknownByteChunkLimit, TerminalPendingSequenceByteLimit, TerminalRetainedEventLimit, TerminalRetainedByteLimit, TerminalCorrelatedEventLimit, TerminalCorrelatedByteLimit, TerminalDiagnosticCountLimit, TerminalDiagnosticCollectionByteLimit, TerminalMouseTracking, TerminalSessionOptionsError, TerminalSessionFeaturePolicy, TerminalSessionResourceLimits from 'standard.terminal'
 
 ##
-    Description: Entry point exercising selected terminal data-model lowering
+    Description: Entry point exercising generated terminal option setters and trust conversion
 ##
-entry main = f(): void errors AllocationFailureError, TerminalSessionOptionsError =>
-    let options: TerminalSessionOptions = terminal_session_options_default()
-    let validated: TerminalSessionOptions = propagate terminal_session_options_validate(options)
-    let trusted: TrustedTerminalOutput = propagate trusted_terminal_output_from_application_text('hello')
+entry main = f(): void errors AllocationFailureError, ConstraintViolationError, TerminalSessionOptionsError =>
+    let defaults = terminal_session_options_default()
+    let policy = new TerminalSessionFeaturePolicy:
+        use_alternate_screen: true
+        hide_cursor: false
+        enable_bracketed_paste: true
+        require_trusted_paste_framing: false
+        enable_enhanced_key_identity: true
+        enable_focus_events: true
+        mouse_tracking: new TerminalMouseTracking.AllMotion
+        capture_control_keys: true
+        require_requested_features: false
+    let limits = new TerminalSessionResourceLimits:
+        input_sequence_timeout: propagate constrain TerminalInputSequenceTimeoutMilliseconds from 25 as int32
+        maximum_committed_text_bytes: propagate constrain TerminalCommittedTextByteLimit from 4096 as int32
+        maximum_composition_preedit_bytes: propagate constrain TerminalCompositionPreeditByteLimit from 4096 as int32
+        maximum_paste_chunk_bytes: propagate constrain TerminalPasteChunkByteLimit from 4096 as int32
+        maximum_unknown_chunk_bytes: propagate constrain TerminalUnknownByteChunkLimit from 1024 as int32
+        maximum_pending_sequence_bytes: propagate constrain TerminalPendingSequenceByteLimit from 1024 as int32
+        maximum_retained_events: propagate constrain TerminalRetainedEventLimit from 1024 as int32
+        maximum_retained_bytes: propagate constrain TerminalRetainedByteLimit from 1048576 as int32
+        maximum_correlated_events: propagate constrain TerminalCorrelatedEventLimit from 64 as int32
+        maximum_correlated_bytes: propagate constrain TerminalCorrelatedByteLimit from 65536 as int32
+        maximum_diagnostics: propagate constrain TerminalDiagnosticCountLimit from 16 as int32
+        maximum_diagnostic_bytes: propagate constrain TerminalDiagnosticCollectionByteLimit from 65536 as int32
+    let updated = propagate terminal_session_options_with_resource_limits(propagate terminal_session_options_with_feature_policy(defaults, policy), limits)
+    let _checked = propagate terminal_session_options_validate(updated)
+    let _trusted = propagate trusted_terminal_output_from_application_text('hello')
     return void
 ";
 
@@ -1624,6 +1648,8 @@ entry main = f(): void errors AllocationFailureError, TerminalSessionOptionsErro
     let ir = module.print_to_string().to_string();
     for runtime_name in [
         "terminal_session_options_default",
+        "terminal_session_options_with_feature_policy",
+        "terminal_session_options_with_resource_limits",
         "terminal_session_options_validate",
         "trusted_terminal_output_from_application_text",
     ] {
@@ -1633,8 +1659,12 @@ entry main = f(): void errors AllocationFailureError, TerminalSessionOptionsErro
         );
     }
     assert!(
-        !ir.contains("runtime lowering for 'terminal_session_options_default'"),
-        "runtime-ready terminal data-model imports should not hit the runtime-readiness gate: {ir}"
+        ir.contains("store i64 4") && ir.contains("sum.tag.ptr"),
+        "terminal mouse tracking constructor should store the authoritative AllMotion variant tag: {ir}"
+    );
+    assert!(
+        !ir.contains("runtime lowering for 'terminal_session_options_with_feature_policy'"),
+        "runtime-ready terminal setter imports should not hit the runtime-readiness gate: {ir}"
     );
 }
 

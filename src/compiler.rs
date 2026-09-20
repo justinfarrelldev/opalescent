@@ -34,9 +34,9 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use compiler_helpers::{
     collect_imported_adt_field_layouts, collect_imported_symbol_signatures,
     collect_module_symbol_signatures, collect_program_adt_field_indices,
-    collect_program_adt_field_layouts, merge_interface_adt_field_layouts,
-    compile_checked_program_to_module, is_main_module_path, lambda_body_to_function_body,
-    parse_source_to_program, validate_entry_declarations_for_module,
+    collect_program_adt_field_layouts, compile_checked_program_to_module, is_main_module_path,
+    lambda_body_to_function_body, merge_interface_adt_field_layouts, parse_source_to_program,
+    validate_entry_declarations_for_module,
 };
 use inkwell::context::Context;
 use inkwell::module::Module;

@@ -15,6 +15,7 @@ pub fn codegen_sum_variant_constructor<'context>(
     env: &mut CodegenEnv<'context>,
     fields: &[crate::ast::ConstructorField],
     expected_type: Option<&CoreType>,
+    variant_tag: i64,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let tagged_type = codegen_context.context.struct_type(
         &[
@@ -40,7 +41,10 @@ pub fn codegen_sum_variant_constructor<'context>(
     };
     let _store_tag = codegen_context.builder.build_store(
         tag_ptr,
-        codegen_context.context.i64_type().const_int(0, false),
+        codegen_context
+            .context
+            .i64_type()
+            .const_int(u64::try_from(variant_tag).unwrap_or_default(), true),
     )?;
 
     if let Some(first_field) = fields.first() {

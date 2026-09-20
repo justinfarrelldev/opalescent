@@ -170,9 +170,6 @@ FsVoidResult terminal_draw_rows_sync(OpalStdoutTerminal* terminal, const char** 
 FsVoidResult terminal_clear_screen_sync(void);
 FsVoidResult terminal_move_cursor_sync(int32_t row, int32_t column);
 #ifdef OPAL_ENABLE_INTERNAL_TESTING
-void* opal_terminal_test_make_capabilities(void);
-void* opal_terminal_test_make_diagnostic(const char* detail, _Bool truncated);
-void* opal_terminal_test_make_collection(void);
 #define OPAL_TERMINAL_TEST_FREE 0
 #define OPAL_TERMINAL_TEST_OPENING 1
 #define OPAL_TERMINAL_TEST_ACTIVE 2
@@ -184,6 +181,16 @@ void opal_terminal_test_reset(void);
 void opal_terminal_test_set_state(int state);
 int opal_terminal_test_reserve_opening(void);
 void opal_terminal_test_return_free(void);
+void opal_terminal_test_reset_invalid_options_errors(void);
+int32_t opal_terminal_test_options_use_alternate_screen(void* options);
+int64_t opal_terminal_test_options_mouse_tracking_tag(void* options);
+int32_t opal_terminal_test_options_maximum_retained_bytes(void* options);
+int32_t opal_terminal_test_options_maximum_correlated_bytes(void* options);
+int32_t opal_terminal_test_options_maximum_retained_events(void* options);
+int32_t opal_terminal_test_options_maximum_correlated_events(void* options);
+int32_t opal_terminal_test_invalid_options_kind(const char* error);
+uint64_t opal_terminal_test_invalid_options_required(const char* error);
+uint64_t opal_terminal_test_invalid_options_configured(const char* error);
 #endif
 FsVoidResult sleep_ms_sync(int32_t milliseconds);
 FsFrameClockResult frame_clock_new(int32_t frames_per_second);
@@ -214,28 +221,7 @@ void* terminal_session_options_default(void);
 FsHandleResult terminal_session_options_with_feature_policy(void* options, void* policy);
 FsHandleResult terminal_session_options_with_resource_limits(void* options, void* limits);
 FsHandleResult terminal_session_options_validate(void* options);
-void* terminal_capabilities_feature(void* capabilities, void* feature);
-void* terminal_capabilities_trusted_paste_framing(void* capabilities);
-void* terminal_capabilities_color(void* capabilities);
 FsHandleResult trusted_terminal_output_from_application_text(const char* text);
-FsHandleResult safe_terminal_diagnostic_format(void* diagnostic);
-FsHandleResult safe_terminal_diagnostic_collection_format(void* diagnostics);
-void* terminal_diagnostic_backend(void* diagnostic);
-void* terminal_diagnostic_operation(void* diagnostic);
-void* terminal_diagnostic_stage(void* diagnostic);
-void* terminal_diagnostic_coordinator_state(void* diagnostic);
-void* terminal_diagnostic_session_state(void* diagnostic);
-void* terminal_diagnostic_os_code(void* diagnostic);
-void* terminal_diagnostic_detail(void* diagnostic);
-void* terminal_diagnostic_retryability(void* diagnostic);
-_Bool terminal_diagnostic_was_truncated(void* diagnostic);
-int64_t terminal_diagnostics_length(void* diagnostics);
-void* terminal_diagnostics_at(void* diagnostics, int64_t index);
-uint64_t terminal_diagnostics_retained_count(void* diagnostics);
-uint64_t terminal_diagnostics_omitted_count(void* diagnostics);
-uint64_t terminal_diagnostics_retained_bytes(void* diagnostics);
-uint64_t terminal_diagnostics_omitted_bytes(void* diagnostics);
-_Bool terminal_diagnostics_was_truncated(void* diagnostics);
 FsHandleResult opal_terminal_constrain_i32_range(int32_t value, int32_t min, int32_t max);
 FsHandleResult opal_terminal_constrain_u8_control_code(uint8_t value);
 void system_wait_set_drop(void* wait_set);

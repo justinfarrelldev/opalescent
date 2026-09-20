@@ -212,7 +212,8 @@ pub fn collect_imported_adt_field_layouts(
                     for variant in variants {
                         let mut field_layout = Vec::new();
                         for field in &variant.fields {
-                            let Ok(core_type) = ast_type_to_core_type(&field.type_annotation) else {
+                            let Ok(core_type) = ast_type_to_core_type(&field.type_annotation)
+                            else {
                                 continue;
                             };
                             field_layout.push((field.name.clone(), core_type));
@@ -243,7 +244,9 @@ pub fn merge_interface_adt_field_layouts(
                     };
                     field_layout.push((field.name.clone(), core_type));
                 }
-                adt_field_layouts.entry(type_name.clone()).or_insert(field_layout);
+                adt_field_layouts
+                    .entry(type_name.clone())
+                    .or_insert(field_layout);
             }
             TypeDef::Sum { variants, .. } => {
                 for variant in variants {

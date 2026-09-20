@@ -144,6 +144,18 @@ pub(crate) fn terminal_proposal_function_signature(
         .map(|symbol| symbol.core_type)
 }
 
+/// Return whether a terminal proposal type name uses the selected product constructor surface.
+#[must_use]
+pub(crate) fn is_terminal_proposal_constructible_product_type(type_name: &str) -> bool {
+    module_resolver::is_terminal_proposal_constructible_product_type(type_name)
+}
+
+/// Resolve an authoritative terminal proposal sum-variant ABI tag when one exists.
+#[must_use]
+pub(crate) fn terminal_proposal_variant_id(type_name: &str, variant_name: &str) -> Option<i64> {
+    module_resolver::terminal_proposal_variant_id(type_name, variant_name)
+}
+
 #[cfg(test)]
 mod tests;
 

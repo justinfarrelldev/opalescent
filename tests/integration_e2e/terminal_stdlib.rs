@@ -242,17 +242,45 @@ fn terminal_task24_data_model_runtime_links_and_runs() {
     let execution_result: Result<(), String> = (|| {
         let source_path = temp_dir.join("terminal_task24_runtime.op");
         let source = "
-import terminal_session_options_default, terminal_session_options_validate, trusted_terminal_output_from_application_text from 'standard.terminal'
-import type TerminalSessionOptionsError from 'standard.terminal'
+import print from standard
+import type AllocationFailureError from standard
+import terminal_session_options_default, terminal_session_options_with_feature_policy, terminal_session_options_with_resource_limits, terminal_session_options_validate, trusted_terminal_output_from_application_text from 'standard.terminal'
+import type TerminalInputSequenceTimeoutMilliseconds, TerminalCommittedTextByteLimit, TerminalCompositionPreeditByteLimit, TerminalPasteChunkByteLimit, TerminalUnknownByteChunkLimit, TerminalPendingSequenceByteLimit, TerminalRetainedEventLimit, TerminalRetainedByteLimit, TerminalCorrelatedEventLimit, TerminalCorrelatedByteLimit, TerminalDiagnosticCountLimit, TerminalDiagnosticCollectionByteLimit, TerminalMouseTracking, TerminalSessionFeaturePolicy, TerminalSessionOptionsError, TerminalSessionResourceLimits from 'standard.terminal'
 
 ##
-    Description: Generated runtime smoke test for Task 24 terminal data-model APIs
+    Description: Generated runtime smoke test for Task 24 terminal option setters and trust conversion
 ##
-entry main = f(): void errors AllocationFailureError, TerminalSessionOptionsError =>
-    let options = terminal_session_options_default()
-    let validated = propagate terminal_session_options_validate(options)
-    let trusted = propagate trusted_terminal_output_from_application_text('safe terminal output')
-    print('TASK24_OK')
+entry main = f(): void errors AllocationFailureError, ConstraintViolationError, TerminalSessionOptionsError =>
+    let defaults = terminal_session_options_default()
+    let policy = new TerminalSessionFeaturePolicy:
+        use_alternate_screen: true
+        hide_cursor: false
+        enable_bracketed_paste: true
+        require_trusted_paste_framing: false
+        enable_enhanced_key_identity: true
+        enable_focus_events: true
+        mouse_tracking: new TerminalMouseTracking.ButtonsAndDrag
+        capture_control_keys: true
+        require_requested_features: false
+    let limits = new TerminalSessionResourceLimits:
+        input_sequence_timeout: propagate constrain TerminalInputSequenceTimeoutMilliseconds from 25 as int32
+        maximum_committed_text_bytes: propagate constrain TerminalCommittedTextByteLimit from 4096 as int32
+        maximum_composition_preedit_bytes: propagate constrain TerminalCompositionPreeditByteLimit from 4096 as int32
+        maximum_paste_chunk_bytes: propagate constrain TerminalPasteChunkByteLimit from 4096 as int32
+        maximum_unknown_chunk_bytes: propagate constrain TerminalUnknownByteChunkLimit from 1024 as int32
+        maximum_pending_sequence_bytes: propagate constrain TerminalPendingSequenceByteLimit from 1024 as int32
+        maximum_retained_events: propagate constrain TerminalRetainedEventLimit from 1024 as int32
+        maximum_retained_bytes: propagate constrain TerminalRetainedByteLimit from 1048576 as int32
+        maximum_correlated_events: propagate constrain TerminalCorrelatedEventLimit from 64 as int32
+        maximum_correlated_bytes: propagate constrain TerminalCorrelatedByteLimit from 65536 as int32
+        maximum_diagnostics: propagate constrain TerminalDiagnosticCountLimit from 16 as int32
+        maximum_diagnostic_bytes: propagate constrain TerminalDiagnosticCollectionByteLimit from 65536 as int32
+    let updated_a = propagate terminal_session_options_with_resource_limits(propagate terminal_session_options_with_feature_policy(defaults, policy), limits)
+    let updated_b = propagate terminal_session_options_with_feature_policy(propagate terminal_session_options_with_resource_limits(defaults, limits), policy)
+    let _checked_a = propagate terminal_session_options_validate(updated_a)
+    let _checked_b = propagate terminal_session_options_validate(updated_b)
+    let _trusted = propagate trusted_terminal_output_from_application_text('safe terminal output')
+    print('TASK24_SETTERS_OK')
     return void
 ";
 
@@ -283,9 +311,9 @@ entry main = f(): void errors AllocationFailureError, TerminalSessionOptionsErro
             ));
         }
 
-        if run_output.stdout.as_slice() != b"TASK24_OK\n" {
+        if run_output.stdout.as_slice() != b"TASK24_SETTERS_OK\n" {
             return Err(format!(
-                "terminal-task24-data-model-runtime-links-and-runs stdout should equal TASK24_OK\\n, got {:?}",
+                "terminal-task24-data-model-runtime-links-and-runs stdout should equal TASK24_SETTERS_OK\\n, got {:?}",
                 run_output.stdout,
             ));
         }
@@ -397,9 +425,18 @@ entry main = f(): void errors AllocationFailureError, ConstraintViolationError, 
     })();
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "terminal-task24-options-setters-link-and-run target directory should be removed");
-    let failure_message = match execution_result { Ok(()) => String::new(), Err(message) => message };
-    assert!(failure_message.is_empty(), "terminal-task24-options-setters-link-and-run should compile, link, and run: {failure_message}");
+    assert!(
+        cleanup.is_ok(),
+        "terminal-task24-options-setters-link-and-run target directory should be removed"
+    );
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "terminal-task24-options-setters-link-and-run should compile, link, and run: {failure_message}"
+    );
 }
 
 #[test]
@@ -435,7 +472,9 @@ fn terminal_task24_validation_failures_execute() {
             let run_output = run_binary_output_with_timeout(
                 &binary_path,
                 GENERATED_BINARY_TEST_TIMEOUT,
-                &format!("terminal-task24-validation-failures-execute {project_name} compiled binary"),
+                &format!(
+                    "terminal-task24-validation-failures-execute {project_name} compiled binary"
+                ),
             )?;
             let stdout = String::from_utf8_lossy(&run_output.stdout);
             let stderr = String::from_utf8_lossy(&run_output.stderr);
@@ -455,9 +494,18 @@ fn terminal_task24_validation_failures_execute() {
     })();
 
     let cleanup = cleanup_dir(&temp_dir);
-    assert!(cleanup.is_ok(), "terminal-task24-validation-failures-execute target directory should be removed");
-    let failure_message = match execution_result { Ok(()) => String::new(), Err(message) => message };
-    assert!(failure_message.is_empty(), "terminal-task24-validation-failures-execute should compile, link, and run: {failure_message}");
+    assert!(
+        cleanup.is_ok(),
+        "terminal-task24-validation-failures-execute target directory should be removed"
+    );
+    let failure_message = match execution_result {
+        Ok(()) => String::new(),
+        Err(message) => message,
+    };
+    assert!(
+        failure_message.is_empty(),
+        "terminal-task24-validation-failures-execute should compile, link, and run: {failure_message}"
+    );
 }
 
 #[test]

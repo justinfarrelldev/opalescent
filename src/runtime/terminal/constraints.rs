@@ -100,7 +100,12 @@ constrained_int!(
 );
 constrained_int!(TerminalPasteChunkByteLimit, i32, 4_i32, 0x0100_0000_i32);
 constrained_int!(TerminalUnknownByteChunkLimit, i32, 1_i32, 0x0010_0000_i32);
-constrained_int!(TerminalPendingSequenceByteLimit, i32, 4_i32, 0x0010_0000_i32);
+constrained_int!(
+    TerminalPendingSequenceByteLimit,
+    i32,
+    4_i32,
+    0x0010_0000_i32
+);
 constrained_int!(TerminalRetainedEventLimit, i32, 8_i32, 0x0010_0000_i32);
 constrained_int!(TerminalRetainedByteLimit, i32, 4_096_i32, 0x4000_0000_i32);
 constrained_int!(TerminalCorrelatedEventLimit, i32, 2_i32, 0x0001_0000_i32);
@@ -123,8 +128,14 @@ impl TerminalEventId {
         self.0
     }
 
-    #[cfg(test)]
-    #[cfg(test)]
+    /// Construct a runtime-issued nonzero terminal event identifier.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "production terminal backends construct runtime-issued event identifiers later"
+        )
+    )]
     pub(crate) fn new_runtime(value: u64) -> Result<Self, TerminalConstraintError> {
         if value == 0 {
             return Err(TerminalConstraintError::new(
@@ -145,7 +156,14 @@ impl TerminalCompositionId {
         self.0
     }
 
-    #[cfg(test)]
+    /// Construct a runtime-issued nonzero composition identifier.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "production terminal backends construct runtime-issued composition identifiers later"
+        )
+    )]
     pub(crate) fn new_runtime(value: u64) -> Result<Self, TerminalConstraintError> {
         if value == 0 {
             return Err(TerminalConstraintError::new(
@@ -166,7 +184,14 @@ impl TerminalCompositionScalarIndex {
         self.0
     }
 
-    #[cfg(test)]
+    /// Construct a composition cursor index validated against a preedit scalar count.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "production composition updates validate scalar cursor positions later"
+        )
+    )]
     pub(crate) fn new_runtime(
         value: i64,
         scalar_count: usize,
@@ -212,7 +237,14 @@ impl TerminalNativeEventName {
         self.0.as_str()
     }
 
-    #[cfg(test)]
+    /// Construct a bounded native event name for opaque backend records.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "production backends validate native event names later"
+        )
+    )]
     pub(crate) fn new_runtime(value: impl Into<String>) -> Result<Self, TerminalConstraintError> {
         let value = value.into();
         require_nonempty_nul_free_max_bytes("TerminalNativeEventName", &value, 256)?;
@@ -237,7 +269,14 @@ impl TerminalDiagnosticDetail {
         self.0.as_str()
     }
 
-    #[cfg(test)]
+    /// Construct bounded diagnostic detail text without NUL bytes.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "production diagnostics validate bounded detail later"
+        )
+    )]
     pub(crate) fn new_runtime(value: impl Into<String>) -> Result<Self, TerminalConstraintError> {
         let value = value.into();
         require_nul_free_max_bytes("TerminalDiagnosticDetail", &value, 4_096)?;
@@ -262,7 +301,14 @@ impl TerminalCommittedText {
         self.0.as_str()
     }
 
-    #[cfg(test)]
+    /// Construct committed text emitted by the runtime decoder.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "production input decoding validates committed text later"
+        )
+    )]
     pub(crate) fn new_runtime(value: impl Into<String>) -> Result<Self, TerminalConstraintError> {
         let value = value.into();
         require_nonempty_nul_free("TerminalCommittedText", &value)?;
@@ -318,7 +364,7 @@ impl TerminalCompositionPreeditText {
     }
 }
 
-#[cfg(test)]
+/// Require nonempty text with no NUL byte.
 fn require_nonempty_nul_free(
     type_name: &'static str,
     value: &str,
@@ -332,7 +378,7 @@ fn require_nonempty_nul_free(
     require_nul_free(type_name, value)
 }
 
-#[cfg(test)]
+/// Require nonempty text with no NUL byte and bounded UTF-8 byte length.
 fn require_nonempty_nul_free_max_bytes(
     type_name: &'static str,
     value: &str,
@@ -342,7 +388,7 @@ fn require_nonempty_nul_free_max_bytes(
     require_max_bytes(type_name, value, max_bytes)
 }
 
-#[cfg(test)]
+/// Require text with no NUL byte.
 fn require_nul_free(type_name: &'static str, value: &str) -> Result<(), TerminalConstraintError> {
     if value.chars().any(|character| character == '\0') {
         return Err(TerminalConstraintError::new(
@@ -353,7 +399,7 @@ fn require_nul_free(type_name: &'static str, value: &str) -> Result<(), Terminal
     Ok(())
 }
 
-#[cfg(test)]
+/// Require text with no NUL byte and bounded UTF-8 byte length.
 fn require_nul_free_max_bytes(
     type_name: &'static str,
     value: &str,
@@ -363,7 +409,7 @@ fn require_nul_free_max_bytes(
     require_max_bytes(type_name, value, max_bytes)
 }
 
-#[cfg(test)]
+/// Require a maximum UTF-8 byte length.
 fn require_max_bytes(
     type_name: &'static str,
     value: &str,

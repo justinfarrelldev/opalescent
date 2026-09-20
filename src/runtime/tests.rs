@@ -1664,6 +1664,7 @@ fn compile_and_run_terminal_model_c_test(test_name: &str, source: &str) {
             "-Wextra",
             "-Werror",
             source_path.to_str().expect("utf-8 source path"),
+            "runtime/opal_rc.c",
             "runtime/opal_terminal_model.c",
             "-Iruntime",
             "-o",
@@ -1749,22 +1750,16 @@ fn compile_and_run_terminal_coordinator_c_test(test_name: &str, source: &str) {
 }
 
 #[test]
-fn terminal_model_c_inspectors_and_formatters_work() {
+fn terminal_model_c_setters_validate_and_preserve_structured_invalid_options() {
     compile_and_run_terminal_model_c_test(
-        "terminal-model-c-inspectors-and-formatters-work",
+        "terminal-model-c-setters-validate-and-preserve-structured-invalid-options",
         r#"
 #include "opal_runtime.h"
+#include "opal_rc.h"
 #include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-
-typedef struct {
-    int64_t tag;
-    int32_t evidence;
-    int32_t count;
-} OpalTerminalCapabilityValue;
 
 typedef struct {
     int64_t tag;
@@ -1772,77 +1767,249 @@ typedef struct {
 } OpalTerminalTaggedValue;
 
 typedef struct {
-    uint32_t magic;
-    int64_t backend;
-    int64_t operation;
-    int64_t stage;
-    int64_t coordinator_state;
-    int64_t session_state;
-    int64_t os_code_tag;
-    int64_t os_code_i64;
-    char* detail;
-    int64_t retryability;
-    _Bool was_truncated;
-    uint64_t accounted_bytes;
-} OpalTerminalDiagnostic;
+    bool use_alternate_screen;
+    bool hide_cursor;
+    bool enable_bracketed_paste;
+    bool require_trusted_paste_framing;
+    bool enable_enhanced_key_identity;
+    bool enable_focus_events;
+    void* mouse_tracking;
+    bool capture_control_keys;
+    bool require_requested_features;
+} OpalTerminalSessionFeaturePolicyInputRecord;
+
+typedef struct {
+    void* input_sequence_timeout;
+    void* maximum_committed_text_bytes;
+    void* maximum_composition_preedit_bytes;
+    void* maximum_paste_chunk_bytes;
+    void* maximum_unknown_chunk_bytes;
+    void* maximum_pending_sequence_bytes;
+    void* maximum_retained_events;
+    void* maximum_retained_bytes;
+    void* maximum_correlated_events;
+    void* maximum_correlated_bytes;
+    void* maximum_diagnostics;
+    void* maximum_diagnostic_bytes;
+} OpalTerminalSessionResourceLimitsInputRecord;
+
+static void* must_i32(int32_t value, int32_t minimum, int32_t maximum) {
+    FsHandleResult result = opal_terminal_constrain_i32_range(value, minimum, maximum);
+    assert(result.error == NULL);
+    assert(result.value != NULL);
+    return result.value;
+}
+
+static OpalTerminalSessionResourceLimitsInputRecord valid_limits(void) {
+    OpalTerminalSessionResourceLimitsInputRecord limits;
+    limits.input_sequence_timeout = must_i32(25, 1, 60000);
+    limits.maximum_committed_text_bytes = must_i32(4096, 4, 0x00100000);
+    limits.maximum_composition_preedit_bytes = must_i32(4096, 4, 0x00100000);
+    limits.maximum_paste_chunk_bytes = must_i32(4096, 4, 0x01000000);
+    limits.maximum_unknown_chunk_bytes = must_i32(1024, 1, 0x00100000);
+    limits.maximum_pending_sequence_bytes = must_i32(1024, 4, 0x00100000);
+    limits.maximum_retained_events = must_i32(1024, 8, 0x00100000);
+    limits.maximum_retained_bytes = must_i32(8192, 4096, 0x40000000);
+    limits.maximum_correlated_events = must_i32(64, 2, 0x00010000);
+    limits.maximum_correlated_bytes = must_i32(4096, 64, 0x01000000);
+    limits.maximum_diagnostics = must_i32(16, 1, 256);
+    limits.maximum_diagnostic_bytes = must_i32(65536, 256, 0x00100000);
+    return limits;
+}
 
 int main(void) {
-    void* caps = opal_terminal_test_make_capabilities();
-    assert(caps != NULL);
-    OpalTerminalTaggedValue feature = {1, {0}};
-    OpalTerminalCapabilityValue* ordinary = (OpalTerminalCapabilityValue*)terminal_capabilities_feature(caps, &feature);
-    assert(ordinary != NULL);
-    assert(ordinary->tag == 2);
-    OpalTerminalCapabilityValue* trusted = (OpalTerminalCapabilityValue*)terminal_capabilities_trusted_paste_framing(caps);
-    assert(trusted != NULL);
-    assert(trusted->tag == 3);
-    OpalTerminalCapabilityValue* color = (OpalTerminalCapabilityValue*)terminal_capabilities_color(caps);
-    assert(color != NULL);
-    assert(color->tag == 3);
-    assert(color->count == 256);
+    void* defaults = terminal_session_options_default();
+    OpalTerminalTaggedValue buttons_and_drag = {3, {0}};
+    OpalTerminalSessionFeaturePolicyInputRecord policy = {
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        &buttons_and_drag,
+        true,
+        true,
+    };
+    OpalTerminalSessionResourceLimitsInputRecord limits = valid_limits();
+    FsHandleResult with_policy;
+    FsHandleResult with_limits;
+    FsHandleResult swapped;
+    FsHandleResult reversed;
+    FsHandleResult validated;
+    FsHandleResult invalid_bytes_result;
+    FsHandleResult invalid_bytes_validation;
+    FsHandleResult invalid_events_result;
+    FsHandleResult invalid_events_validation;
+    OpalTerminalSessionResourceLimitsInputRecord invalid_bytes = valid_limits();
+    OpalTerminalSessionResourceLimitsInputRecord invalid_events = valid_limits();
 
-    void* diagnostic = opal_terminal_test_make_diagnostic("bad\x1B[31m", 1);
-    assert(diagnostic != NULL);
-    OpalTerminalTaggedValue* backend = (OpalTerminalTaggedValue*)terminal_diagnostic_backend(diagnostic);
-    OpalTerminalTaggedValue* operation = (OpalTerminalTaggedValue*)terminal_diagnostic_operation(diagnostic);
-    OpalTerminalTaggedValue* stage = (OpalTerminalTaggedValue*)terminal_diagnostic_stage(diagnostic);
-    OpalTerminalTaggedValue* coordinator = (OpalTerminalTaggedValue*)terminal_diagnostic_coordinator_state(diagnostic);
-    OpalTerminalTaggedValue* session = (OpalTerminalTaggedValue*)terminal_diagnostic_session_state(diagnostic);
-    OpalTerminalTaggedValue* os_code = (OpalTerminalTaggedValue*)terminal_diagnostic_os_code(diagnostic);
-    OpalTerminalTaggedValue* retry = (OpalTerminalTaggedValue*)terminal_diagnostic_retryability(diagnostic);
-    char* detail = (char*)terminal_diagnostic_detail(diagnostic);
-    assert(backend && backend->tag == 1);
-    assert(operation && operation->tag == 16);
-    assert(stage && stage->tag == 13);
-    assert(coordinator && coordinator->tag == 1);
-    assert(session && session->tag == 1);
-    assert(os_code && os_code->tag == 2);
-    assert(retry && retry->tag == 1);
-    assert(detail != NULL && strcmp(detail, "bad\x1B[31m") == 0);
-    assert(terminal_diagnostic_was_truncated(diagnostic));
+    assert(defaults != NULL);
+    opal_terminal_test_reset_invalid_options_errors();
+    assert(opal_terminal_test_options_use_alternate_screen(defaults) == 0);
+    assert(opal_terminal_test_options_mouse_tracking_tag(defaults) == 1);
+    assert(opal_terminal_test_options_maximum_retained_bytes(defaults) == 0x00100000);
+    assert(opal_terminal_test_options_maximum_correlated_bytes(defaults) == 0x00010000);
 
-    FsHandleResult safe = safe_terminal_diagnostic_format(diagnostic);
-    assert(safe.error == NULL);
-    assert(safe.value != NULL);
-    assert(strstr((char*)safe.value, "\\u{1B}") != NULL);
+    with_policy = terminal_session_options_with_feature_policy(defaults, &policy);
+    assert(with_policy.error == NULL);
+    assert(with_policy.value != NULL);
+    assert(opal_terminal_test_options_use_alternate_screen(defaults) == 0);
+    assert(opal_terminal_test_options_use_alternate_screen(with_policy.value) == 1);
+    assert(opal_terminal_test_options_mouse_tracking_tag(with_policy.value) == 3);
+    assert(opal_terminal_test_options_maximum_retained_bytes(with_policy.value) == 0x00100000);
 
-    void* collection = opal_terminal_test_make_collection();
-    assert(collection != NULL);
-    assert(terminal_diagnostics_length(collection) == 1);
-    assert(terminal_diagnostics_retained_count(collection) == 1u);
-    assert(terminal_diagnostics_omitted_count(collection) == 2u);
-    assert(terminal_diagnostics_omitted_bytes(collection) == UINT64_MAX);
-    assert(terminal_diagnostics_was_truncated(collection));
-    assert(terminal_diagnostics_at(collection, 0) != NULL);
-    FsHandleResult formatted_collection = safe_terminal_diagnostic_collection_format(collection);
-    assert(formatted_collection.error == NULL);
-    assert(formatted_collection.value != NULL);
-    assert(strstr((char*)formatted_collection.value, "omitted_count=2") != NULL);
+    with_limits = terminal_session_options_with_resource_limits(defaults, &limits);
+    assert(with_limits.error == NULL);
+    assert(with_limits.value != NULL);
+    assert(opal_terminal_test_options_use_alternate_screen(with_limits.value) == 0);
+    assert(opal_terminal_test_options_maximum_retained_bytes(with_limits.value) == 8192);
+    assert(opal_terminal_test_options_maximum_correlated_bytes(with_limits.value) == 4096);
 
-    FsHandleResult trusted_text = trusted_terminal_output_from_application_text("render\x1B[2J");
-    assert(trusted_text.error == NULL);
-    assert(trusted_text.value != NULL);
-    assert(strcmp((char*)trusted_text.value, "render\x1B[2J") == 0);
+    swapped = terminal_session_options_with_resource_limits(with_policy.value, &limits);
+    reversed = terminal_session_options_with_feature_policy(with_limits.value, &policy);
+    assert(swapped.error == NULL && swapped.value != NULL);
+    assert(reversed.error == NULL && reversed.value != NULL);
+    assert(opal_terminal_test_options_use_alternate_screen(swapped.value) == 1);
+    assert(opal_terminal_test_options_use_alternate_screen(reversed.value) == 1);
+    assert(opal_terminal_test_options_mouse_tracking_tag(swapped.value) == 3);
+    assert(opal_terminal_test_options_mouse_tracking_tag(reversed.value) == 3);
+    assert(opal_terminal_test_options_maximum_retained_bytes(swapped.value) == 8192);
+    assert(opal_terminal_test_options_maximum_retained_bytes(reversed.value) == 8192);
+    validated = terminal_session_options_validate(swapped.value);
+    assert(validated.error == NULL);
+    assert(validated.value == swapped.value);
+
+    invalid_bytes.maximum_retained_bytes = must_i32(4096, 4096, 0x40000000);
+    invalid_bytes.maximum_correlated_bytes = must_i32(8192, 64, 0x01000000);
+    invalid_bytes_result = terminal_session_options_with_resource_limits(defaults, &invalid_bytes);
+    assert(invalid_bytes_result.error == NULL && invalid_bytes_result.value != NULL);
+    invalid_bytes_validation = terminal_session_options_validate(invalid_bytes_result.value);
+    assert(invalid_bytes_validation.value == NULL);
+    assert(invalid_bytes_validation.error != NULL);
+    assert(strcmp(invalid_bytes_validation.error, "TerminalSessionOptionsError.InvalidOptions") == 0);
+    assert(opal_terminal_test_invalid_options_kind(invalid_bytes_validation.error) == 2);
+    assert(opal_terminal_test_invalid_options_required(invalid_bytes_validation.error) == 8192u);
+    assert(opal_terminal_test_invalid_options_configured(invalid_bytes_validation.error) == 4096u);
+
+    invalid_events.maximum_retained_events = must_i32(8, 8, 0x00100000);
+    invalid_events.maximum_correlated_events = must_i32(64, 2, 0x00010000);
+    invalid_events_result = terminal_session_options_with_resource_limits(defaults, &invalid_events);
+    assert(invalid_events_result.error == NULL && invalid_events_result.value != NULL);
+    invalid_events_validation = terminal_session_options_validate(invalid_events_result.value);
+    assert(invalid_events_validation.value == NULL);
+    assert(invalid_events_validation.error != NULL);
+    assert(strcmp(invalid_events_validation.error, "TerminalSessionOptionsError.InvalidOptions") == 0);
+    assert(opal_terminal_test_invalid_options_kind(invalid_events_validation.error) == 3);
+    assert(opal_terminal_test_invalid_options_required(invalid_events_validation.error) == 64u);
+    assert(opal_terminal_test_invalid_options_configured(invalid_events_validation.error) == 8u);
+    return 0;
+}
+"#,
+    );
+}
+
+#[test]
+fn terminal_model_c_setters_and_trust_conversion_report_allocation_failure() {
+    compile_and_run_terminal_model_c_test(
+        "terminal-model-c-setters-and-trust-conversion-report-allocation-failure",
+        r#"
+#include "opal_runtime.h"
+#include "opal_rc.h"
+#include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+
+typedef struct {
+    int64_t tag;
+    uint8_t payload[64];
+} OpalTerminalTaggedValue;
+
+typedef struct {
+    bool use_alternate_screen;
+    bool hide_cursor;
+    bool enable_bracketed_paste;
+    bool require_trusted_paste_framing;
+    bool enable_enhanced_key_identity;
+    bool enable_focus_events;
+    void* mouse_tracking;
+    bool capture_control_keys;
+    bool require_requested_features;
+} OpalTerminalSessionFeaturePolicyInputRecord;
+
+typedef struct {
+    void* input_sequence_timeout;
+    void* maximum_committed_text_bytes;
+    void* maximum_composition_preedit_bytes;
+    void* maximum_paste_chunk_bytes;
+    void* maximum_unknown_chunk_bytes;
+    void* maximum_pending_sequence_bytes;
+    void* maximum_retained_events;
+    void* maximum_retained_bytes;
+    void* maximum_correlated_events;
+    void* maximum_correlated_bytes;
+    void* maximum_diagnostics;
+    void* maximum_diagnostic_bytes;
+} OpalTerminalSessionResourceLimitsInputRecord;
+
+static void* must_i32(int32_t value, int32_t minimum, int32_t maximum) {
+    FsHandleResult result = opal_terminal_constrain_i32_range(value, minimum, maximum);
+    assert(result.error == NULL);
+    assert(result.value != NULL);
+    return result.value;
+}
+
+int main(void) {
+    void* defaults = terminal_session_options_default();
+    OpalTerminalTaggedValue disabled = {1, {0}};
+    OpalTerminalSessionFeaturePolicyInputRecord policy = {
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        &disabled,
+        false,
+        false,
+    };
+    OpalTerminalSessionResourceLimitsInputRecord limits = {
+        must_i32(25, 1, 60000),
+        must_i32(4096, 4, 0x00100000),
+        must_i32(4096, 4, 0x00100000),
+        must_i32(4096, 4, 0x01000000),
+        must_i32(1024, 1, 0x00100000),
+        must_i32(1024, 4, 0x00100000),
+        must_i32(1024, 8, 0x00100000),
+        must_i32(8192, 4096, 0x40000000),
+        must_i32(64, 2, 0x00010000),
+        must_i32(4096, 64, 0x01000000),
+        must_i32(16, 1, 256),
+        must_i32(65536, 256, 0x00100000),
+    };
+    FsHandleResult failed_feature;
+    FsHandleResult failed_limits;
+    FsHandleResult failed_trust;
+
+    assert(defaults != NULL);
+    opal_test_fail_next_allocation_for_test();
+    failed_feature = terminal_session_options_with_feature_policy(defaults, &policy);
+    assert(failed_feature.value == NULL);
+    assert(failed_feature.error != NULL);
+    assert(strcmp(failed_feature.error, "AllocationFailureError") == 0);
+
+    opal_test_fail_next_allocation_for_test();
+    failed_limits = terminal_session_options_with_resource_limits(defaults, &limits);
+    assert(failed_limits.value == NULL);
+    assert(failed_limits.error != NULL);
+    assert(strcmp(failed_limits.error, "AllocationFailureError") == 0);
+
+    opal_test_fail_next_allocation_for_test();
+    failed_trust = trusted_terminal_output_from_application_text("safe terminal output");
+    assert(failed_trust.value == NULL);
+    assert(failed_trust.error != NULL);
+    assert(strcmp(failed_trust.error, "AllocationFailureError") == 0);
     return 0;
 }
 "#,

@@ -5,9 +5,9 @@ use super::{
     Expr, String, codegen_array_access, codegen_array_literal, codegen_binary,
     codegen_call_expression, codegen_cast, codegen_constructor_expression,
     codegen_field_access_expression, codegen_guard_expression, codegen_identifier,
-    codegen_if_expression, codegen_literal, codegen_match_expression,
-    codegen_propagate_expression, codegen_string_access, codegen_string_interpolation,
-    codegen_unary, format, infer_expression_core_type,
+    codegen_if_expression, codegen_literal, codegen_match_expression, codegen_propagate_expression,
+    codegen_string_access, codegen_string_interpolation, codegen_unary, format,
+    infer_expression_core_type,
 };
 
 fn codegen_terminal_constrain_expression<'context>(
@@ -18,9 +18,13 @@ fn codegen_terminal_constrain_expression<'context>(
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
     let (runtime_symbol, value_expected_type, lower_bound, upper_bound, is_control_code) =
         match target_type {
-            crate::ast::Type::Basic { name, .. } if name == "TerminalControlCode" => {
-                ("opal_terminal_constrain_u8_control_code", CoreType::UInt8, 0_i32, 0_i32, true)
-            }
+            crate::ast::Type::Basic { name, .. } if name == "TerminalControlCode" => (
+                "opal_terminal_constrain_u8_control_code",
+                CoreType::UInt8,
+                0_i32,
+                0_i32,
+                true,
+            ),
             crate::ast::Type::Basic { name, .. } => {
                 let bounds = match name.as_str() {
                     "TerminalFunctionKeyNumber" => Some((1_i32, 0x7FFF_i32)),
@@ -33,8 +37,9 @@ fn codegen_terminal_constrain_expression<'context>(
                     "TerminalCommittedTextByteLimit"
                     | "TerminalCompositionPreeditByteLimit"
                     | "TerminalPendingSequenceByteLimit" => Some((4_i32, 0x0010_0000_i32)),
-                    "TerminalPasteChunkByteLimit"
-                    | "TerminalColorCount" => Some((1_i32, 0x0100_0000_i32)),
+                    "TerminalPasteChunkByteLimit" | "TerminalColorCount" => {
+                        Some((1_i32, 0x0100_0000_i32))
+                    }
                     "TerminalUnknownByteChunkLimit" => Some((1_i32, 0x0010_0000_i32)),
                     "TerminalRetainedEventLimit" => Some((8_i32, 0x0010_0000_i32)),
                     "TerminalRetainedByteLimit" => Some((4_096_i32, 0x4000_0000_i32)),
@@ -64,17 +69,11 @@ fn codegen_terminal_constrain_expression<'context>(
             }
         };
 
-    let runtime_function = crate::codegen::functions_stdlib::declare_stdlib_function(
-        codegen_context,
-        runtime_symbol,
-    )
-    .ok_or_else(|| CodegenError::new(format!("{runtime_symbol} declaration missing")))?;
-    let lowered_value = super::codegen_expression(
-        codegen_context,
-        env,
-        value,
-        Some(&value_expected_type),
-    )?;
+    let runtime_function =
+        crate::codegen::functions_stdlib::declare_stdlib_function(codegen_context, runtime_symbol)
+            .ok_or_else(|| CodegenError::new(format!("{runtime_symbol} declaration missing")))?;
+    let lowered_value =
+        super::codegen_expression(codegen_context, env, value, Some(&value_expected_type))?;
     let mut args: Vec<BasicMetadataValueEnum<'context>> = vec![lowered_value.into()];
     if !is_control_code {
         let lowered_minimum = crate::codegen::types::integer_literal_bits(i64::from(lower_bound))

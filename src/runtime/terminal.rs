@@ -6,6 +6,8 @@
 
 #[path = "terminal/constraints.rs"]
 pub mod constraints;
+#[path = "terminal/diagnostics.rs"]
+pub mod diagnostics;
 #[path = "terminal/formatting.rs"]
 pub mod formatting;
 #[path = "terminal/model.rs"]
@@ -25,6 +27,9 @@ pub use constraints::{
     TerminalRetainedEventLimit, TerminalRowCount, TerminalRowIndex, TerminalUnknownByteChunkLimit,
     TerminalWaitMilliseconds,
 };
+pub use diagnostics::{
+    TerminalDiagnostic, TerminalDiagnosticCollection, TerminalDiagnosticCollectionLimits,
+};
 pub use formatting::{
     SAFE_TERMINAL_DIAGNOSTIC_OUTPUT_MAX_BYTES, SafeTerminalDiagnosticOutput, TrustedTerminalOutput,
     safe_terminal_diagnostic_collection_format, safe_terminal_diagnostic_format,
@@ -32,20 +37,17 @@ pub use formatting::{
 pub use model::{
     TerminalBackend, TerminalCapabilities, TerminalCapabilitySupportedEvidence,
     TerminalCapabilityUnsupportedEvidence, TerminalColorCapability, TerminalCoordinatorState,
-    TerminalCursorShape, TerminalDiagnostic, TerminalDiagnosticCollection,
-    TerminalDiagnosticCollectionLimits, TerminalDiagnosticRetryability,
-    TerminalDiagnosticSessionState, TerminalDiagnosticStage, TerminalFeatureCapability,
-    TerminalInputEvent, TerminalInputEventKind, TerminalInputResetReason,
-    TerminalKeyOccurrence, TerminalLinkedTextPhase, TerminalLogicalKey, TerminalModifiers,
-    TerminalMouseAction, TerminalMouseButton, TerminalMouseTracking, TerminalNamedKey,
-    TerminalNativeEventKind, TerminalNativeMetadata, TerminalOperation, TerminalOrdinaryFeature,
-    TerminalOsCode, TerminalPastePhase, TerminalScrollDirection, TerminalSessionFeaturePolicy,
-    TerminalSessionOptions, TerminalSessionResourceLimits, TerminalSize,
-    TerminalTextInputOrigin, TerminalTrustedPasteCapability,
+    TerminalCursorShape, TerminalDiagnosticRetryability, TerminalDiagnosticSessionState,
+    TerminalDiagnosticStage, TerminalFeatureCapability, TerminalInputEvent, TerminalInputEventKind,
+    TerminalInputResetReason, TerminalKeyOccurrence, TerminalLinkedTextPhase, TerminalLogicalKey,
+    TerminalModifiers, TerminalMouseAction, TerminalMouseButton, TerminalMouseTracking,
+    TerminalNamedKey, TerminalNativeEventKind, TerminalNativeMetadata, TerminalOperation,
+    TerminalOrdinaryFeature, TerminalOsCode, TerminalPastePhase, TerminalScrollDirection,
+    TerminalSessionFeaturePolicy, TerminalSessionOptions, TerminalSessionResourceLimits,
+    TerminalSize, TerminalTextInputOrigin, TerminalTrustedPasteCapability,
     TerminalTrustedPasteEvidence, TerminalUnknownBytesReason,
 };
 pub use tail_types::{
     TerminalFeature, TerminalInvalidOptions, TerminalRecoveryLedgerKind,
-    TerminalSessionOptionsError, TerminalSessionState, TerminalWait,
-    required_ordinary_features,
+    TerminalSessionOptionsError, TerminalSessionState, TerminalWait, required_ordinary_features,
 };

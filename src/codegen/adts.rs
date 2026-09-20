@@ -101,12 +101,31 @@ pub fn codegen_constructor_expression<'context>(
                 }
             }
         }
-        if matches!(callee.as_ref(), &Expr::Member { .. }) {
+        if let Expr::Member {
+            ref object,
+            ref member,
+            ..
+        } = *callee.as_ref()
+        {
+            let variant_tag = if let Expr::Identifier {
+                name: ref type_name,
+                ..
+            } = *object.as_ref()
+            {
+                crate::type_system::terminal_proposal_variant_id(
+                    type_name.as_str(),
+                    member.as_str(),
+                )
+                .unwrap_or(0)
+            } else {
+                0
+            };
             return adts_sum::codegen_sum_variant_constructor(
                 codegen_context,
                 env,
                 fields.as_slice(),
                 expected_type,
+                variant_tag,
             );
         }
         return codegen_product_constructor(codegen_context, env, fields.as_slice(), expected_type);

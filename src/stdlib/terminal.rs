@@ -6,14 +6,12 @@
 //! later tasks.
 
 use crate::runtime::terminal::{
-    SafeTerminalDiagnosticOutput, TerminalBackend, TerminalCapabilities,
-    TerminalColorCapability, TerminalCoordinatorState, TerminalDiagnostic,
-    TerminalDiagnosticCollection, TerminalDiagnosticRetryability,
-    TerminalDiagnosticSessionState, TerminalDiagnosticStage,
-    TerminalFeatureCapability, TerminalOperation,
-    TerminalOrdinaryFeature, TerminalSessionFeaturePolicy, TerminalSessionOptions,
-    TerminalSessionOptionsError, TerminalSessionResourceLimits,
-    TerminalTrustedPasteCapability, TrustedTerminalOutput,
+    SafeTerminalDiagnosticOutput, TerminalBackend, TerminalCapabilities, TerminalColorCapability,
+    TerminalCoordinatorState, TerminalDiagnostic, TerminalDiagnosticCollection,
+    TerminalDiagnosticRetryability, TerminalDiagnosticSessionState, TerminalDiagnosticStage,
+    TerminalFeatureCapability, TerminalOperation, TerminalOrdinaryFeature,
+    TerminalSessionFeaturePolicy, TerminalSessionOptions, TerminalSessionOptionsError,
+    TerminalSessionResourceLimits, TerminalTrustedPasteCapability, TrustedTerminalOutput,
     safe_terminal_diagnostic_collection_format as runtime_safe_collection_format,
     safe_terminal_diagnostic_format as runtime_safe_format,
 };
@@ -72,7 +70,9 @@ pub const fn terminal_capabilities_trusted_paste_framing(
 
 /// Inspect color capability.
 #[must_use]
-pub const fn terminal_capabilities_color(capabilities: &TerminalCapabilities) -> TerminalColorCapability {
+pub const fn terminal_capabilities_color(
+    capabilities: &TerminalCapabilities,
+) -> TerminalColorCapability {
     capabilities.color()
 }
 
@@ -181,7 +181,9 @@ pub fn terminal_diagnostics_at(
 
 /// Stable collection inspector for retained count.
 #[must_use]
-pub const fn terminal_diagnostics_retained_count(diagnostics: &TerminalDiagnosticCollection) -> u64 {
+pub const fn terminal_diagnostics_retained_count(
+    diagnostics: &TerminalDiagnosticCollection,
+) -> u64 {
     diagnostics.retained_count()
 }
 
@@ -193,7 +195,9 @@ pub const fn terminal_diagnostics_omitted_count(diagnostics: &TerminalDiagnostic
 
 /// Stable collection inspector for retained bytes.
 #[must_use]
-pub const fn terminal_diagnostics_retained_bytes(diagnostics: &TerminalDiagnosticCollection) -> u64 {
+pub const fn terminal_diagnostics_retained_bytes(
+    diagnostics: &TerminalDiagnosticCollection,
+) -> u64 {
     diagnostics.retained_bytes()
 }
 
@@ -205,6 +209,8 @@ pub const fn terminal_diagnostics_omitted_bytes(diagnostics: &TerminalDiagnostic
 
 /// Stable collection inspector for truncation.
 #[must_use]
-pub const fn terminal_diagnostics_was_truncated(diagnostics: &TerminalDiagnosticCollection) -> bool {
+pub const fn terminal_diagnostics_was_truncated(
+    diagnostics: &TerminalDiagnosticCollection,
+) -> bool {
     diagnostics.was_truncated()
 }

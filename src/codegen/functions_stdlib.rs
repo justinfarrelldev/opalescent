@@ -218,14 +218,14 @@ pub fn declare_stdlib_function<'context>(
             Some(module.add_function("bool_to_string", ft, None))
         }),
         "opal_terminal_constrain_i32_range" => module.get_function(name).or_else(|| {
-            Some(module.add_function(
-                name,
-                pointer_error_result_type.fn_type(
-                    &[i32_type.into(), i32_type.into(), i32_type.into()],
-                    false,
+            Some(
+                module.add_function(
+                    name,
+                    pointer_error_result_type
+                        .fn_type(&[i32_type.into(), i32_type.into(), i32_type.into()], false),
+                    None,
                 ),
-                None,
-            ))
+            )
         }),
         "opal_terminal_constrain_u8_control_code" => module.get_function(name).or_else(|| {
             Some(module.add_function(

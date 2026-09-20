@@ -68,6 +68,50 @@ pub(super) fn is_terminal_proposal_codegen_gated_runtime_name(symbol_name: &str)
         && !terminal_proposal_runtime_ready::contains_runtime_name(symbol_name)
 }
 
+/// Return whether a selected terminal proposal type name uses product-constructor syntax.
+#[must_use]
+pub(super) fn is_terminal_proposal_constructible_product_type(type_name: &str) -> bool {
+    if !type_name.starts_with("Terminal") {
+        return false;
+    }
+
+    terminal_proposal_type_declaration(type_name)
+        .is_some_and(|declaration| matches!(declaration.type_def, TypeDef::Product { .. }))
+}
+
+/// Resolve the authoritative selected terminal proposal ABI tag for one variant.
+#[must_use]
+pub(super) fn terminal_proposal_variant_id(type_name: &str, variant_name: &str) -> Option<i64> {
+    if !type_name.starts_with("Terminal") {
+        return None;
+    }
+
+    let declaration = terminal_proposal_type_declaration(type_name)?;
+    let TypeDef::Sum { ref variants, .. } = declaration.type_def else {
+        return None;
+    };
+    variants
+        .iter()
+        .find(|variant| variant.name == variant_name)
+        .and_then(|variant| variant.explicit_id)
+}
+
+/// Resolve a terminal proposal type declaration by name from the selected terminal modules.
+fn terminal_proposal_type_declaration(type_name: &str) -> Option<ModuleTypeDeclaration> {
+    let resolver = ModuleResolver::new();
+    [
+        terminal_proposal_modules::TERMINAL_TYPES_MODULE_PATH,
+        terminal_proposal_modules::TERMINAL_CHORDS_MODULE_PATH,
+        terminal_proposal_modules::TERMINAL_TESTING_MODULE_PATH,
+    ]
+    .iter()
+    .find_map(|module_path| {
+        resolver
+            .module_interface(module_path)
+            .and_then(|interface| interface.type_declaration(type_name).cloned())
+    })
+}
+
 /// Import availability for a registered module interface.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModuleAvailability {

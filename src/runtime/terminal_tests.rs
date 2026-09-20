@@ -10,6 +10,7 @@ use crate::runtime::terminal::constraints::{
     TerminalKeyRepeatCount, TerminalNativeEventName, TerminalPasteChunkByteLimit,
     TerminalPasteText, TerminalPendingSequenceByteLimit, TerminalRetainedByteLimit,
     TerminalRetainedEventLimit, TerminalRowCount, TerminalRowIndex, TerminalUnknownByteChunkLimit,
+    TerminalWaitMilliseconds,
 };
 use crate::runtime::terminal::formatting::collection_metadata_bytes_for_tests;
 use crate::runtime::terminal::model::{TerminalCompositionEnd, next_hidden_stream_id};
@@ -52,49 +53,49 @@ use alloc::vec::Vec;
     reason = "Task 24 requires explicit boundary and neighbor checks for every constrained type"
 )]
 fn terminal_numeric_constraints_accept_boundaries_and_reject_neighbors() {
+    macro_rules! assert_i32_constraint {
+        ($type_name:ident, $minimum:expr, $maximum:expr) => {{
+            assert!($type_name::new($minimum).is_ok());
+            assert!($type_name::new($maximum).is_ok());
+            if $minimum > i32::MIN {
+                assert!($type_name::new($minimum - 1_i32).is_err());
+            }
+            if $maximum < i32::MAX {
+                assert!($type_name::new($maximum + 1_i32).is_err());
+            }
+        }};
+    }
+
+    assert!(TerminalControlCode::new(0).is_ok());
     assert!(TerminalControlCode::new(31).is_ok());
     assert!(TerminalControlCode::new(127).is_ok());
     assert!(TerminalControlCode::new(32).is_err());
-    assert!(TerminalFunctionKeyNumber::new(1).is_ok());
-    assert!(TerminalFunctionKeyNumber::new(0x7FFF).is_ok());
-    assert!(TerminalFunctionKeyNumber::new(0).is_err());
-    assert!(TerminalColumnCount::new(1).is_ok());
-    assert!(TerminalColumnCount::new(0).is_err());
-    assert!(TerminalRowCount::new(1).is_ok());
-    assert!(TerminalRowCount::new(0).is_err());
-    assert!(TerminalColumnIndex::new(0).is_ok());
-    assert!(TerminalColumnIndex::new(-1).is_err());
-    assert!(TerminalRowIndex::new(0).is_ok());
-    assert!(TerminalRowIndex::new(-1).is_err());
-    assert!(TerminalKeyRepeatCount::new(1).is_ok());
-    assert!(TerminalKeyRepeatCount::new(0).is_err());
-    assert!(TerminalInputSequenceTimeoutMilliseconds::new(1).is_ok());
-    assert!(TerminalInputSequenceTimeoutMilliseconds::new(60_000).is_ok());
-    assert!(TerminalInputSequenceTimeoutMilliseconds::new(60_001).is_err());
-    assert!(TerminalCommittedTextByteLimit::new(4).is_ok());
-    assert!(TerminalCommittedTextByteLimit::new(3).is_err());
-    assert!(TerminalCompositionPreeditByteLimit::new(4).is_ok());
-    assert!(TerminalCompositionPreeditByteLimit::new(3).is_err());
-    assert!(TerminalPasteChunkByteLimit::new(4).is_ok());
-    assert!(TerminalPasteChunkByteLimit::new(3).is_err());
-    assert!(TerminalUnknownByteChunkLimit::new(1).is_ok());
-    assert!(TerminalUnknownByteChunkLimit::new(0).is_err());
-    assert!(TerminalPendingSequenceByteLimit::new(4).is_ok());
-    assert!(TerminalPendingSequenceByteLimit::new(3).is_err());
-    assert!(TerminalRetainedEventLimit::new(8).is_ok());
-    assert!(TerminalRetainedEventLimit::new(7).is_err());
-    assert!(TerminalRetainedByteLimit::new(4_096).is_ok());
-    assert!(TerminalRetainedByteLimit::new(4_095).is_err());
-    assert!(TerminalCorrelatedEventLimit::new(2).is_ok());
-    assert!(TerminalCorrelatedEventLimit::new(1).is_err());
-    assert!(TerminalCorrelatedByteLimit::new(64).is_ok());
-    assert!(TerminalCorrelatedByteLimit::new(63).is_err());
-    assert!(TerminalDiagnosticCountLimit::new(1).is_ok());
-    assert!(TerminalDiagnosticCountLimit::new(0).is_err());
-    assert!(TerminalDiagnosticCollectionByteLimit::new(256).is_ok());
-    assert!(TerminalDiagnosticCollectionByteLimit::new(255).is_err());
-    assert!(TerminalColorCount::new(1).is_ok());
-    assert!(TerminalColorCount::new(0).is_err());
+    assert!(TerminalControlCode::new(126).is_err());
+
+    assert_i32_constraint!(TerminalFunctionKeyNumber, 1_i32, 0x7FFF_i32);
+    assert_i32_constraint!(TerminalColumnCount, 1_i32, i32::MAX);
+    assert_i32_constraint!(TerminalRowCount, 1_i32, i32::MAX);
+    assert_i32_constraint!(TerminalColumnIndex, 0_i32, i32::MAX);
+    assert_i32_constraint!(TerminalRowIndex, 0_i32, i32::MAX);
+    assert_i32_constraint!(TerminalKeyRepeatCount, 1_i32, i32::MAX);
+    assert_i32_constraint!(TerminalWaitMilliseconds, 1_i32, i32::MAX);
+    assert_i32_constraint!(TerminalInputSequenceTimeoutMilliseconds, 1_i32, 60_000_i32);
+    assert_i32_constraint!(TerminalCommittedTextByteLimit, 4_i32, 0x0010_0000_i32);
+    assert_i32_constraint!(TerminalCompositionPreeditByteLimit, 4_i32, 0x0010_0000_i32);
+    assert_i32_constraint!(TerminalPasteChunkByteLimit, 4_i32, 0x0100_0000_i32);
+    assert_i32_constraint!(TerminalUnknownByteChunkLimit, 1_i32, 0x0010_0000_i32);
+    assert_i32_constraint!(TerminalPendingSequenceByteLimit, 4_i32, 0x0010_0000_i32);
+    assert_i32_constraint!(TerminalRetainedEventLimit, 8_i32, 0x0010_0000_i32);
+    assert_i32_constraint!(TerminalRetainedByteLimit, 4_096_i32, 0x4000_0000_i32);
+    assert_i32_constraint!(TerminalCorrelatedEventLimit, 2_i32, 0x0001_0000_i32);
+    assert_i32_constraint!(TerminalCorrelatedByteLimit, 64_i32, 0x0100_0000_i32);
+    assert_i32_constraint!(TerminalDiagnosticCountLimit, 1_i32, 256_i32);
+    assert_i32_constraint!(
+        TerminalDiagnosticCollectionByteLimit,
+        256_i32,
+        0x0010_0000_i32
+    );
+    assert_i32_constraint!(TerminalColorCount, 1_i32, 0x0100_0000_i32);
 }
 
 #[test]
@@ -127,7 +128,10 @@ fn terminal_runtime_only_constrained_values_enforce_nonzero_and_scalar_bounds() 
 #[test]
 fn terminal_options_defaults_and_validation_match_proposal() {
     let defaults = terminal_session_options_default();
-    assert_eq!(defaults.resource_limits().input_sequence_timeout.get(), 25_i32);
+    assert_eq!(
+        defaults.resource_limits().input_sequence_timeout.get(),
+        25_i32
+    );
     assert_eq!(
         defaults.resource_limits().maximum_retained_events.get(),
         1_024_i32
@@ -143,38 +147,77 @@ fn terminal_options_defaults_and_validation_match_proposal() {
     );
     assert!(!defaults.feature_policy().require_trusted_paste_framing);
 
+    let custom_policy = TerminalSessionFeaturePolicy {
+        use_alternate_screen: true,
+        hide_cursor: true,
+        enable_bracketed_paste: true,
+        require_trusted_paste_framing: false,
+        enable_enhanced_key_identity: true,
+        enable_focus_events: true,
+        mouse_tracking: TerminalMouseTracking::AllMotion,
+        capture_control_keys: true,
+        require_requested_features: true,
+    };
+    let custom_limits = TerminalSessionResourceLimits {
+        maximum_retained_events: TerminalRetainedEventLimit::new(128).unwrap(),
+        maximum_retained_bytes: TerminalRetainedByteLimit::new(8_192).unwrap(),
+        maximum_correlated_events: TerminalCorrelatedEventLimit::new(64).unwrap(),
+        maximum_correlated_bytes: TerminalCorrelatedByteLimit::new(4_096).unwrap(),
+        ..TerminalSessionResourceLimits::default()
+    };
+
+    let with_policy = terminal_session_options_with_feature_policy(&defaults, custom_policy);
+    assert_ne!(with_policy.feature_policy(), defaults.feature_policy());
+    assert_eq!(
+        with_policy.resource_limits(),
+        defaults.resource_limits(),
+        "feature setter must not mutate resource limits"
+    );
+    assert_eq!(
+        defaults.feature_policy().mouse_tracking,
+        TerminalMouseTracking::Disabled,
+        "feature setter must leave the original options snapshot unchanged"
+    );
+
+    let with_limits = terminal_session_options_with_resource_limits(&defaults, custom_limits);
+    assert_eq!(
+        with_limits.feature_policy(),
+        defaults.feature_policy(),
+        "resource-limit setter must not mutate feature policy"
+    );
+    assert_ne!(with_limits.resource_limits(), defaults.resource_limits());
+    assert_eq!(
+        defaults.resource_limits().maximum_retained_bytes.get(),
+        0x0010_0000_i32,
+        "resource-limit setter must leave the original options snapshot unchanged"
+    );
+
     let swapped = terminal_session_options_with_feature_policy(
-        &terminal_session_options_with_resource_limits(
-            &defaults,
-            TerminalSessionResourceLimits::default(),
-        ),
-        TerminalSessionFeaturePolicy::default(),
+        &terminal_session_options_with_resource_limits(&defaults, custom_limits),
+        custom_policy,
     );
     let reversed = terminal_session_options_with_resource_limits(
-        &terminal_session_options_with_feature_policy(
-            &defaults,
-            TerminalSessionFeaturePolicy::default(),
-        ),
-        TerminalSessionResourceLimits::default(),
+        &terminal_session_options_with_feature_policy(&defaults, custom_policy),
+        custom_limits,
     );
     assert_eq!(swapped, reversed);
     assert!(terminal_session_options_validate(&defaults).is_ok());
+    assert!(terminal_session_options_validate(&swapped).is_ok());
 }
 
 #[test]
 fn terminal_options_validation_reports_exact_invalid_metadata() {
-    let invalid_limits = TerminalSessionResourceLimits {
-        maximum_retained_bytes: TerminalRetainedByteLimit::new(4_096).unwrap(),
-        maximum_correlated_bytes: TerminalCorrelatedByteLimit::new(8_192).unwrap(),
-        ..TerminalSessionResourceLimits::default()
-    };
-    let invalid = terminal_session_options_with_resource_limits(
+    let invalid_bytes = terminal_session_options_with_resource_limits(
         &TerminalSessionOptions::default(),
-        invalid_limits,
+        TerminalSessionResourceLimits {
+            maximum_retained_bytes: TerminalRetainedByteLimit::new(4_096).unwrap(),
+            maximum_correlated_bytes: TerminalCorrelatedByteLimit::new(8_192).unwrap(),
+            ..TerminalSessionResourceLimits::default()
+        },
     );
-    let error =
-        terminal_session_options_validate(&invalid).expect_err("must reject bytes mismatch");
-    let TerminalSessionOptionsError::InvalidOptions { invalid_options } = error;
+    let bytes_error =
+        terminal_session_options_validate(&invalid_bytes).expect_err("must reject bytes mismatch");
+    let TerminalSessionOptionsError::InvalidOptions { invalid_options } = bytes_error;
     assert!(matches!(
         invalid_options,
         crate::runtime::terminal::TerminalInvalidOptions::RetainedCapacityTooSmall { .. }
@@ -188,6 +231,33 @@ fn terminal_options_validation_reports_exact_invalid_metadata() {
     };
     assert_eq!(required_bytes, 8_192);
     assert_eq!(configured_bytes, 4_096);
+
+    let invalid_events = terminal_session_options_with_resource_limits(
+        &TerminalSessionOptions::default(),
+        TerminalSessionResourceLimits {
+            maximum_retained_events: TerminalRetainedEventLimit::new(8).unwrap(),
+            maximum_correlated_events: TerminalCorrelatedEventLimit::new(64).unwrap(),
+            ..TerminalSessionResourceLimits::default()
+        },
+    );
+    let events_error = terminal_session_options_validate(&invalid_events)
+        .expect_err("must reject correlated-event mismatch");
+    let TerminalSessionOptionsError::InvalidOptions {
+        invalid_options: event_invalid_options,
+    } = events_error;
+    assert!(matches!(
+        event_invalid_options,
+        crate::runtime::terminal::TerminalInvalidOptions::CorrelatedGroupTooLarge { .. }
+    ));
+    let crate::runtime::terminal::TerminalInvalidOptions::CorrelatedGroupTooLarge {
+        required_events,
+        configured_events,
+    } = event_invalid_options
+    else {
+        return;
+    };
+    assert_eq!(required_events, 64);
+    assert_eq!(configured_events, 8);
 }
 
 fn sample_diagnostic(detail: &str) -> TerminalDiagnostic {

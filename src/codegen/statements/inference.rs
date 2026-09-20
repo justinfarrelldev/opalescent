@@ -119,11 +119,37 @@ pub(super) fn infer_core_type_from_expr<'context>(
             ref fields,
             ..
         } => {
-            if fields.is_empty() {
-                if let Expr::Identifier { ref name, .. } = **callee {
-                    if lookup_propertyless_constructor(name.as_str()).is_some() {
+            if let Expr::Identifier { ref name, .. } = **callee {
+                if (fields.is_empty() && lookup_propertyless_constructor(name.as_str()).is_some())
+                    || crate::type_system::is_terminal_proposal_constructible_product_type(
+                        name.as_str(),
+                    )
+                {
+                    return CoreType::Generic {
+                        name: name.clone(),
+                        type_args: alloc::vec::Vec::new(),
+                    };
+                }
+            }
+            if let Expr::Member {
+                ref object,
+                ref member,
+                ..
+            } = **callee
+            {
+                if let Expr::Identifier {
+                    name: ref type_name,
+                    ..
+                } = **object
+                {
+                    if crate::type_system::terminal_proposal_variant_id(
+                        type_name.as_str(),
+                        member.as_str(),
+                    )
+                    .is_some()
+                    {
                         return CoreType::Generic {
-                            name: name.clone(),
+                            name: type_name.clone(),
                             type_args: alloc::vec::Vec::new(),
                         };
                     }

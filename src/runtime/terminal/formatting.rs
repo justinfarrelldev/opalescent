@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use super::model::{TerminalDiagnostic, TerminalDiagnosticCollection};
+use super::diagnostics::{TerminalDiagnostic, TerminalDiagnosticCollection};
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -159,7 +159,7 @@ pub(crate) fn collection_metadata_bytes_for_tests() -> u64 {
     u64::try_from(total).expect("usize fits u64")
 }
 
-#[cfg(test)]
+/// Return production-accounting bytes reserved for collection metadata.
 pub(crate) fn collection_metadata_bytes() -> u64 {
     #[cfg(test)]
     {
@@ -184,7 +184,7 @@ pub(crate) fn diagnostic_accounted_bytes_for_tests(detail: &str) -> u64 {
     base.saturating_add(detail_bytes)
 }
 
-#[cfg(test)]
+/// Return production-accounting bytes for one complete diagnostic.
 pub(crate) fn diagnostic_accounted_bytes(detail: &str) -> u64 {
     #[cfg(test)]
     {
