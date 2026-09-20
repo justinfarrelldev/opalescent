@@ -1,0 +1,28 @@
+$ cargo test windows_ --quiet
+[exit 0]
+
+running 22 tests
+......................
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 1561 filtered out; finished in 0.03s
+
+Covered deterministic Windows backend contract:
+- Console snapshot covers input/output modes, cursor visibility/shape, active buffer, alternate buffer, and Quick Edit.
+- acquisition disables Quick Edit, updates modes/cursor, and activates alternate buffer when requested.
+- restore returns backend state to Free and exactly restores original Console snapshot.
+- ConPTY runtime follows the same restoration-ledger behavior under the WindowsConPty backend identity.
+
+$ cargo test terminal_ --quiet
+[exit 0]
+
+running 109 tests
+....................................................................................... 87/109
+......................
+test result: ok. 109 passed; 0 failed; 0 ignored; 0 measured; 1474 filtered out; finished in 0.55s
+
+$ cargo clippy --all-targets --all-features -- -D warnings
+[exit 0]
+
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.40s
+
+$ cargo fmt --all -- --check && git diff --check
+[exit 0]

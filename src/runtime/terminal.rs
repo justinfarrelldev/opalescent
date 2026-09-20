@@ -20,6 +20,8 @@ pub mod linux_backend;
 pub mod model;
 #[path = "terminal/tail_types.rs"]
 pub mod tail_types;
+#[path = "terminal/windows_backend.rs"]
+pub mod windows_backend;
 
 pub use constraints::{
     TerminalColorCount, TerminalColumnCount, TerminalColumnIndex, TerminalCommittedText,
@@ -69,4 +71,8 @@ pub use model::{
 pub use tail_types::{
     TerminalFeature, TerminalInvalidOptions, TerminalRecoveryLedgerKind,
     TerminalSessionOptionsError, TerminalSessionState, TerminalWait, required_ordinary_features,
+};
+pub use windows_backend::{
+    WindowsConsoleSnapshot, WindowsTerminalBackendRuntime, WindowsTerminalBackendState,
+    WindowsTerminalInverseStep,
 };

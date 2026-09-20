@@ -1281,7 +1281,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(terminal): implement linux terminal backend` | Files: [src/runtime/**, runtime/**, src/stdlib/**, tests/**]
 
-- [ ] 28. Implement Windows Console and ConPTY backend contract
+- [x] 28. Implement Windows Console and ConPTY backend contract
 
   **What to do**: Implement Windows Console and ConPTY/VT backend behavior: snapshot modes/cursor/original screen buffer, restore active buffer before closing alternate, input mode changes, window/mouse mode rules, `WaitForMultipleObjects`, `ReadConsoleInputW`, viewport coordinate normalization, UTF-16 surrogate handling, unknown native records, ConPTY overlapped/VT stream wait integration, cancellation, resize, parser deadlines, and restoration ledger.
   **Must NOT do**: Do not invent Windows process-control source. Do not lossy-convert invalid UTF-16 to replacement text. Do not leave Quick Edit flags changed. Do not close original screen buffer.
@@ -1299,10 +1299,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - CI command: `cargo test --features "integration windows-wine" --test integration_e2e -- --nocapture wine_msvc_file_ops`.
 
   **Acceptance Criteria**:
-  - [ ] cfg/unit tests cover Console mode/cursor/buffer snapshot and restore order.
-  - [ ] Tests cover input records, resize viewport math, mouse coordinates, unpaired surrogate -> `UnknownNative` + `BackendReset`, and ConPTY VT parser path.
-  - [ ] Windows process-control construction returns `UnsupportedHost` per Task 21.
-  - [ ] Wine/Windows integration command passes or records existing environment skip without failure.
+  - [x] cfg/unit tests cover Console mode/cursor/buffer snapshot and restore order.
+  - [x] Tests cover input records, resize viewport math, mouse coordinates, unpaired surrogate -> `UnknownNative` + `BackendReset`, and ConPTY VT parser path.
+  - [x] Windows process-control construction returns `UnsupportedHost` per Task 21.
+  - [x] Wine/Windows integration command passes or records existing environment skip without failure.
 
   **QA Scenarios**:
   ```

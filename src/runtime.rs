@@ -82,6 +82,8 @@ mod terminal_read_tests;
 #[cfg(test)]
 mod terminal_tests;
 #[cfg(test)]
+mod terminal_windows_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod timer_tests;

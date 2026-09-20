@@ -238,13 +238,6 @@ impl TerminalNativeEventName {
     }
 
     /// Construct a bounded native event name for opaque backend records.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "production backends validate native event names later"
-        )
-    )]
     pub(crate) fn new_runtime(value: impl Into<String>) -> Result<Self, TerminalConstraintError> {
         let value = value.into();
         require_nonempty_nul_free_max_bytes("TerminalNativeEventName", &value, 256)?;

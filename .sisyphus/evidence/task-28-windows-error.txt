@@ -1,0 +1,12 @@
+$ cargo test windows_ --quiet
+[exit 0]
+
+running 22 tests
+......................
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 1561 filtered out; finished in 0.03s
+
+Failure and quarantine coverage:
+- unpaired surrogate input is quarantined as UnknownNative plus bounded unknown data; no replacement TextInput is synthesized.
+- unsupported native records remain UnknownNative with bounded native-event metadata.
+- active-buffer restoration fault enters RestorePending and returns RestorePendingClose diagnostic.
+- retry completes remaining inverse ledger and restores exact original snapshot.
