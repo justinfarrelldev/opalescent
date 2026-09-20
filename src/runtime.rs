@@ -93,6 +93,8 @@ mod terminal_process_workflow_tests;
 #[cfg(test)]
 mod terminal_read_tests;
 #[cfg(test)]
+mod terminal_security_tests;
+#[cfg(test)]
 mod terminal_test_backend_tests;
 #[cfg(test)]
 mod terminal_tests;

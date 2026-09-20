@@ -1565,7 +1565,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `test(terminal): activate interactive terminal fixtures` | Files: [test-projects/terminal-*/**, tests/**]
 
-- [ ] 35. Add security, compile-fail, and scope-fidelity regression suite
+- [x] 35. Add security, compile-fail, and scope-fidelity regression suite
 
   **What to do**: Add comprehensive compile-fail/security tests for forged sealed values/evidence, wrong-session/stale/replayed recovery tokens, direct string writes, implicit trust conversion, stale legacy leases, public host handles, production test-only imports, affine/ref escapes, chord wrong-stream/replay/out-of-order events, historical API names, and scope-exclusion attempts.
   **Must NOT do**: Do not rely on runtime-only checks where the compiler should reject. Do not leave errors vague. Do not permit compatibility shims for historical alternatives.
@@ -1584,10 +1584,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Security obligations: `TESTING.md:75-134`, `CHORDS.md:85-113`.
 
   **Acceptance Criteria**:
-  - [ ] Compile-fail suite covers every forbidden construction/import/output/trust/historical API class listed in this task.
-  - [ ] Runtime security tests cover token validation, stale lease rejection, fake backend sealed authority, and chord stream/order rejection.
-  - [ ] Diagnostics are precise enough to distinguish availability, constructor visibility, affine ownership, trust boundary, ABI, and coordinator errors.
-  - [ ] `cargo test --features integration` passes.
+  - [x] Compile-fail suite covers every forbidden construction/import/output/trust/historical API class listed in this task.
+  - [x] Runtime security tests cover token validation, stale lease rejection, fake backend sealed authority, and chord stream/order rejection.
+  - [x] Diagnostics are precise enough to distinguish availability, constructor visibility, affine ownership, trust boundary, ABI, and coordinator errors.
+  - [x] `cargo test --features integration` passes.
 
   **QA Scenarios**:
   ```

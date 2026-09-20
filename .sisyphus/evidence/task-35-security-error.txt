@@ -1,0 +1,17 @@
+$ cargo test terminal_security --quiet
+[exit 0]
+
+running 2 tests
+..
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1598 filtered out; finished in 0.00s
+
+Runtime authority rejection details:
+- WrongInputStream returns before router accepts or advances stream order.
+- DeliveryAlreadyConsumed rejects replayed event after first acceptance.
+- Subsequent valid event still processes, proving wrong-stream/replay attempts did not mutate binding state.
+- TerminalTestActivation rejects duplicate same-scenario authority with AlreadyActive.
+
+$ cargo clippy --all-targets --all-features -- -D warnings
+[exit 0]
+
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.70s
