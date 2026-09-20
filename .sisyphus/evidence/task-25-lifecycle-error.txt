@@ -1,0 +1,28 @@
+$ cargo test terminal_recovery_token --quiet
+[exit 0]
+
+running 2 tests
+..
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1571 filtered out; finished in 0.00s
+
+Covered failure cases:
+- WrongKind: a CloseRestore token passed to terminal_session_recover_open_sync is rejected without consuming the token.
+- Consumed: a successful close recovery consumes the shared capability cell; every alias fails Consumed afterwards.
+- WrongSession: a token with the wrong hidden host id fails before mutation and remains unconsumed.
+- Stale: a zero-generation token is rejected without mutation.
+- RecoveryInProgress: a pre-claimed token is rejected without mutation.
+
+$ cargo test terminal_session_lifecycle --quiet
+[exit 0]
+
+running 7 tests
+.......
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1567 filtered out; finished in 0.06s
+
+Covered state matrix and generation cases:
+- open returns Active with cleanup obligation and reserved recovery generation.
+- Active resume rejects non-mutating as SessionActive.
+- Active pause transitions to Paused; Paused pause is a non-transition; Paused resume returns Active.
+- explicit close returns Clean, consumes cleanup obligation and reservation, leaves Closed inspectable and idempotently closeable.
+- Closed/RestorePending state errors preserve state and hidden generation.
+- opening generation exhaustion is preflight, returns `TerminalSessionOpenError.GenerationExhausted`, and does not use restore-family generation exhaustion.

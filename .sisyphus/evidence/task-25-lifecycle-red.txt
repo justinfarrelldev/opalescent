@@ -1,0 +1,9 @@
+$ cargo test terminal_session_lifecycle --quiet
+[exit 101]
+
+Initial Task 25 RED after adding lifecycle tests and runtime module stubs failed to compile. Representative failures:
+- lifecycle.rs/lifecycle_errors.rs missing `extern crate alloc` for alloc collections/sync/vec use.
+- default capability construction used nonexistent `TerminalTrustedPasteCapability::Unavailable` and `TerminalColorCapability::Unavailable` variants.
+- test branch used `return panic!` and imported an unused state error.
+
+This is expected RED evidence for the Task 25 lifecycle/recovery implementation slice before green fixes.

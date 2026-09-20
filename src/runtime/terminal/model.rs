@@ -321,13 +321,6 @@ impl fmt::Debug for TerminalCapabilities {
 
 impl TerminalCapabilities {
     /// Construct an immutable capability snapshot with hidden stream metadata.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "production terminal backends construct capability snapshots after session lifecycle lands"
-        )
-    )]
     #[expect(
         clippy::missing_const_for_fn,
         reason = "BTreeMap-backed runtime constructor cannot be const"

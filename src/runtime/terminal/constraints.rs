@@ -270,13 +270,6 @@ impl TerminalDiagnosticDetail {
     }
 
     /// Construct bounded diagnostic detail text without NUL bytes.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "production diagnostics validate bounded detail later"
-        )
-    )]
     pub(crate) fn new_runtime(value: impl Into<String>) -> Result<Self, TerminalConstraintError> {
         let value = value.into();
         require_nul_free_max_bytes("TerminalDiagnosticDetail", &value, 4_096)?;

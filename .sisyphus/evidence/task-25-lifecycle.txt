@@ -1,0 +1,29 @@
+$ cargo test terminal_session_ --quiet
+[exit 0]
+
+running 7 tests
+.......
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 1567 filtered out; finished in 0.05s
+
+$ cargo test terminal_recovery_token --quiet
+[exit 0]
+
+running 2 tests
+..
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1572 filtered out; finished in 0.00s
+
+$ cargo test terminal_ --quiet
+[exit 0]
+
+running 100 tests
+....................................................................................... 87/100
+.............
+test result: ok. 100 passed; 0 failed; 0 ignored; 0 measured; 1474 filtered out; finished in 0.53s
+
+$ cargo clippy --all-targets --all-features -- -D warnings
+[exit 0]
+
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.25s
+
+$ cargo fmt --all -- --check && git diff --check
+[exit 0]

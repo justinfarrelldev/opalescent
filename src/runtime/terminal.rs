@@ -10,6 +10,10 @@ pub mod constraints;
 pub mod diagnostics;
 #[path = "terminal/formatting.rs"]
 pub mod formatting;
+#[path = "terminal/lifecycle.rs"]
+pub mod lifecycle;
+#[path = "terminal/lifecycle_errors.rs"]
+pub mod lifecycle_errors;
 #[path = "terminal/model.rs"]
 pub mod model;
 #[path = "terminal/tail_types.rs"]
@@ -33,6 +37,14 @@ pub use diagnostics::{
 pub use formatting::{
     SAFE_TERMINAL_DIAGNOSTIC_OUTPUT_MAX_BYTES, SafeTerminalDiagnosticOutput, TrustedTerminalOutput,
     safe_terminal_diagnostic_collection_format, safe_terminal_diagnostic_format,
+};
+pub use lifecycle::{
+    TerminalSession, terminal_session_open_sync, terminal_session_recover_close_sync,
+    terminal_session_recover_open_sync,
+};
+pub use lifecycle_errors::{
+    TerminalCloseOutcome, TerminalPauseEvents, TerminalPauseResult, TerminalRecoveryToken,
+    TerminalSessionOpenError, TerminalSessionRestoreError, TerminalSessionStateError,
 };
 pub use model::{
     TerminalBackend, TerminalCapabilities, TerminalCapabilitySupportedEvidence,

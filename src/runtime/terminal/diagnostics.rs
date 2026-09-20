@@ -56,13 +56,6 @@ impl fmt::Debug for TerminalDiagnostic {
 
 impl TerminalDiagnostic {
     /// Construct one immutable runtime-origin structured diagnostic.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "production backends construct structured diagnostics after lifecycle/backend tasks land"
-        )
-    )]
     #[expect(
         clippy::too_many_arguments,
         reason = "diagnostic construction mirrors the sealed proposal field set"

@@ -9,11 +9,16 @@ use crate::runtime::terminal::{
     SafeTerminalDiagnosticOutput, TerminalBackend, TerminalCapabilities, TerminalColorCapability,
     TerminalCoordinatorState, TerminalDiagnostic, TerminalDiagnosticCollection,
     TerminalDiagnosticRetryability, TerminalDiagnosticSessionState, TerminalDiagnosticStage,
-    TerminalFeatureCapability, TerminalOperation, TerminalOrdinaryFeature,
-    TerminalSessionFeaturePolicy, TerminalSessionOptions, TerminalSessionOptionsError,
-    TerminalSessionResourceLimits, TerminalTrustedPasteCapability, TrustedTerminalOutput,
+    TerminalFeatureCapability, TerminalOperation, TerminalOrdinaryFeature, TerminalRecoveryToken,
+    TerminalSession, TerminalSessionFeaturePolicy, TerminalSessionOpenError,
+    TerminalSessionOptions, TerminalSessionOptionsError, TerminalSessionResourceLimits,
+    TerminalSessionRestoreError, TerminalSessionState, TerminalTrustedPasteCapability,
+    TrustedTerminalOutput,
     safe_terminal_diagnostic_collection_format as runtime_safe_collection_format,
     safe_terminal_diagnostic_format as runtime_safe_format,
+    terminal_session_open_sync as runtime_session_open,
+    terminal_session_recover_close_sync as runtime_recover_close,
+    terminal_session_recover_open_sync as runtime_recover_open,
 };
 
 /// Return the ABI-stable default terminal options snapshot.
@@ -49,6 +54,47 @@ pub fn terminal_session_options_validate(
     options: &TerminalSessionOptions,
 ) -> Result<TerminalSessionOptions, TerminalSessionOptionsError> {
     options.validate()
+}
+
+/// Open a terminal session.
+pub fn terminal_session_open_sync(
+    options: &TerminalSessionOptions,
+) -> Result<TerminalSession, TerminalSessionOpenError> {
+    runtime_session_open(options)
+}
+
+/// Recover a failed open rollback using a sealed token.
+pub fn terminal_session_recover_open_sync(
+    recovery_token: &TerminalRecoveryToken,
+) -> Result<(), TerminalSessionRestoreError> {
+    runtime_recover_open(recovery_token)
+}
+
+/// Recover a failed close restore using a sealed token.
+pub fn terminal_session_recover_close_sync(
+    recovery_token: &TerminalRecoveryToken,
+) -> Result<(), TerminalSessionRestoreError> {
+    runtime_recover_close(recovery_token)
+}
+
+/// Inspect a terminal recovery-token kind.
+#[must_use]
+pub fn terminal_recovery_token_kind(
+    recovery_token: &TerminalRecoveryToken,
+) -> crate::runtime::terminal::TerminalRecoveryLedgerKind {
+    recovery_token.kind()
+}
+
+/// Inspect a terminal recovery-token generation.
+#[must_use]
+pub fn terminal_recovery_token_generation(recovery_token: &TerminalRecoveryToken) -> u64 {
+    recovery_token.generation()
+}
+
+/// Inspect a terminal session state.
+#[must_use]
+pub const fn terminal_session_state(session: &TerminalSession) -> TerminalSessionState {
+    session.state()
 }
 
 /// Inspect one ordinary capability field.

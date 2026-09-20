@@ -13,20 +13,24 @@ use crate::runtime::terminal::constraints::{
     TerminalWaitMilliseconds,
 };
 use crate::runtime::terminal::formatting::collection_metadata_bytes_for_tests;
+use crate::runtime::terminal::lifecycle::{
+    clear_next_recovery_generation_for_tests, set_next_recovery_generation_for_tests,
+};
 use crate::runtime::terminal::model::{TerminalCompositionEnd, next_hidden_stream_id};
 use crate::runtime::terminal::{
     SAFE_TERMINAL_DIAGNOSTIC_OUTPUT_MAX_BYTES, TerminalBackend, TerminalCapabilities,
     TerminalCapabilitySupportedEvidence, TerminalCapabilityUnsupportedEvidence,
-    TerminalColorCapability, TerminalCoordinatorState, TerminalDiagnostic,
+    TerminalCloseOutcome, TerminalColorCapability, TerminalCoordinatorState, TerminalDiagnostic,
     TerminalDiagnosticCollection, TerminalDiagnosticCollectionLimits,
     TerminalDiagnosticRetryability, TerminalDiagnosticSessionState, TerminalDiagnosticStage,
     TerminalFeatureCapability, TerminalInputEvent, TerminalInputEventKind,
     TerminalInputResetReason, TerminalKeyOccurrence, TerminalLinkedTextPhase, TerminalLogicalKey,
     TerminalModifiers, TerminalMouseAction, TerminalMouseTracking, TerminalNamedKey,
     TerminalNativeEventKind, TerminalNativeMetadata, TerminalOperation, TerminalOrdinaryFeature,
-    TerminalOsCode, TerminalPastePhase, TerminalScrollDirection, TerminalSessionFeaturePolicy,
-    TerminalSessionOptions, TerminalSessionOptionsError, TerminalSessionResourceLimits,
-    TerminalSize, TerminalTextInputOrigin, TerminalTrustedPasteCapability,
+    TerminalOsCode, TerminalPastePhase, TerminalRecoveryLedgerKind, TerminalScrollDirection,
+    TerminalSessionFeaturePolicy, TerminalSessionOpenError, TerminalSessionOptions,
+    TerminalSessionOptionsError, TerminalSessionResourceLimits, TerminalSessionRestoreError,
+    TerminalSessionState, TerminalSize, TerminalTextInputOrigin, TerminalTrustedPasteCapability,
     TerminalTrustedPasteEvidence, TerminalUnknownBytesReason, required_ordinary_features,
     safe_terminal_diagnostic_collection_format, safe_terminal_diagnostic_format,
 };
@@ -40,9 +44,12 @@ use crate::stdlib::terminal::{
     terminal_diagnostic_was_truncated, terminal_diagnostics_at, terminal_diagnostics_length,
     terminal_diagnostics_omitted_bytes, terminal_diagnostics_omitted_count,
     terminal_diagnostics_retained_bytes, terminal_diagnostics_retained_count,
-    terminal_diagnostics_was_truncated, terminal_session_options_default,
+    terminal_diagnostics_was_truncated, terminal_recovery_token_generation,
+    terminal_recovery_token_kind, terminal_session_open_sync, terminal_session_options_default,
     terminal_session_options_validate, terminal_session_options_with_feature_policy,
-    terminal_session_options_with_resource_limits, trusted_terminal_output_from_application_text,
+    terminal_session_options_with_resource_limits, terminal_session_recover_close_sync,
+    terminal_session_recover_open_sync, terminal_session_state,
+    trusted_terminal_output_from_application_text,
 };
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -633,4 +640,232 @@ fn terminal_input_events_cover_every_variant_and_hide_hidden_metadata() {
         assert!(!debug.contains("stream_id"));
         assert!(!debug.contains("delivery_ordinal"));
     }
+}
+
+#[test]
+fn terminal_session_lifecycle_state_matrix_and_close_obligation_are_exact() {
+    let options = terminal_session_options_default();
+    let mut session = terminal_session_open_sync(&options).expect("open should succeed");
+    assert_eq!(
+        terminal_session_state(&session),
+        TerminalSessionState::Active
+    );
+    assert!(session.cleanup_obligation());
+    assert_ne!(session.session_id_for_tests(), 0);
+    assert_ne!(session.reserved_recovery_generation_for_tests(), 0);
+    assert!(session.size_sync().is_ok());
+
+    let resume_error = session
+        .resume_sync()
+        .expect_err("active resume must reject");
+    assert_eq!(resume_error.state(), TerminalSessionState::Active);
+    assert_eq!(
+        terminal_session_state(&session),
+        TerminalSessionState::Active
+    );
+
+    session
+        .pause_sync()
+        .expect("active pause should transition");
+    assert_eq!(
+        terminal_session_state(&session),
+        TerminalSessionState::Paused
+    );
+    assert!(session.size_sync().is_ok());
+    session
+        .pause_sync()
+        .expect("paused pause is a non-transition");
+    assert_eq!(
+        terminal_session_state(&session),
+        TerminalSessionState::Paused
+    );
+    session
+        .resume_sync()
+        .expect("paused resume should transition");
+    assert_eq!(
+        terminal_session_state(&session),
+        TerminalSessionState::Active
+    );
+
+    let close_outcome = session.close_sync().expect("active close should succeed");
+    assert_eq!(close_outcome, TerminalCloseOutcome::Clean);
+    assert_eq!(
+        terminal_session_state(&session),
+        TerminalSessionState::Closed
+    );
+    assert!(!session.cleanup_obligation());
+    assert_eq!(session.reserved_recovery_generation_for_tests(), 0);
+    assert_eq!(session.close_sync(), Ok(TerminalCloseOutcome::Clean));
+
+    let size_error = session.size_sync().expect_err("closed size must reject");
+    assert_eq!(size_error.state(), TerminalSessionState::Closed);
+    assert_eq!(
+        terminal_session_state(&session),
+        TerminalSessionState::Closed
+    );
+}
+
+#[test]
+fn terminal_session_restore_pending_rejections_are_non_mutating() {
+    let options = terminal_session_options_default();
+    let mut session = terminal_session_open_sync(&options).expect("open should succeed");
+    session.force_restore_pending_for_tests();
+    let before_generation = session.reserved_recovery_generation_for_tests();
+
+    let size_error = session
+        .size_sync()
+        .expect_err("restore-pending size must reject");
+    assert_eq!(size_error.state(), TerminalSessionState::RestorePending);
+    assert_eq!(
+        terminal_session_state(&session),
+        TerminalSessionState::RestorePending
+    );
+    assert_eq!(
+        session.reserved_recovery_generation_for_tests(),
+        before_generation
+    );
+
+    let pause_error = session
+        .pause_sync()
+        .expect_err("restore-pending pause must reject");
+    assert_eq!(pause_error.state(), TerminalSessionState::RestorePending);
+    assert_eq!(
+        terminal_session_state(&session),
+        TerminalSessionState::RestorePending
+    );
+}
+
+#[test]
+fn terminal_session_open_generation_exhaustion_is_preflight_and_not_restore_family() {
+    set_next_recovery_generation_for_tests(u64::MAX);
+    let options = terminal_session_options_default();
+    let error = terminal_session_open_sync(&options).expect_err("generation exhaustion fails open");
+    assert!(matches!(
+        error,
+        TerminalSessionOpenError::GenerationExhausted {
+            last_issued_generation: u64::MAX,
+            ..
+        }
+    ));
+
+    set_next_recovery_generation_for_tests(1);
+    let session = terminal_session_open_sync(&options).expect("reset generation should open");
+    assert_eq!(
+        terminal_session_state(&session),
+        TerminalSessionState::Active
+    );
+    clear_next_recovery_generation_for_tests();
+}
+
+#[test]
+fn terminal_session_open_validation_surfaces_structured_invalid_options() {
+    let invalid_options = terminal_session_options_with_resource_limits(
+        &terminal_session_options_default(),
+        TerminalSessionResourceLimits {
+            maximum_retained_events: TerminalRetainedEventLimit::new(8).unwrap(),
+            maximum_correlated_events: TerminalCorrelatedEventLimit::new(64).unwrap(),
+            ..TerminalSessionResourceLimits::default()
+        },
+    );
+    let error = terminal_session_open_sync(&invalid_options).expect_err("invalid options fail");
+    assert!(matches!(
+        error,
+        TerminalSessionOpenError::InvalidOptions { .. }
+    ));
+    let TerminalSessionOpenError::InvalidOptions {
+        invalid_options: reported_invalid_options,
+        ..
+    } = error
+    else {
+        return;
+    };
+    assert!(matches!(
+        reported_invalid_options,
+        crate::runtime::terminal::TerminalInvalidOptions::CorrelatedGroupTooLarge { .. }
+    ));
+}
+
+#[test]
+fn terminal_recovery_token_validation_order_and_one_shot_aliases_are_exact() {
+    let options = terminal_session_options_default();
+    let mut session = terminal_session_open_sync(&options).expect("open should succeed");
+    session.force_restore_pending_for_tests();
+    let close_token = session.cleanup_transfer_token_for_tests();
+    let close_alias = Clone::clone(&close_token);
+
+    assert_eq!(
+        terminal_recovery_token_kind(&close_token),
+        TerminalRecoveryLedgerKind::CloseRestore
+    );
+    assert_eq!(
+        terminal_recovery_token_generation(&close_token),
+        session.reserved_recovery_generation_for_tests()
+    );
+    let wrong_kind = terminal_session_recover_open_sync(&close_token)
+        .expect_err("close token cannot recover open");
+    assert!(matches!(
+        wrong_kind,
+        TerminalSessionRestoreError::WrongKind { .. }
+    ));
+    assert!(!close_token.is_consumed());
+
+    terminal_session_recover_close_sync(&close_token).expect("first close recovery succeeds");
+    assert!(close_token.is_consumed());
+    let consumed = terminal_session_recover_close_sync(&close_alias)
+        .expect_err("alias must observe consumed authority");
+    assert!(matches!(
+        consumed,
+        TerminalSessionRestoreError::Consumed { .. }
+    ));
+}
+
+#[test]
+fn terminal_recovery_token_wrong_session_stale_and_in_progress_are_non_mutating() {
+    let wrong_session = crate::runtime::terminal::TerminalRecoveryToken::new_runtime(
+        999,
+        1,
+        1,
+        1,
+        TerminalRecoveryLedgerKind::CloseRestore,
+    );
+    let wrong_session_error = terminal_session_recover_close_sync(&wrong_session)
+        .expect_err("wrong host must reject first");
+    assert!(matches!(
+        wrong_session_error,
+        TerminalSessionRestoreError::WrongSession { .. }
+    ));
+    assert!(!wrong_session.is_consumed());
+
+    let stale = crate::runtime::terminal::TerminalRecoveryToken::new_runtime(
+        1,
+        1,
+        1,
+        0,
+        TerminalRecoveryLedgerKind::CloseRestore,
+    );
+    let stale_error =
+        terminal_session_recover_close_sync(&stale).expect_err("zero generation is stale");
+    assert!(matches!(
+        stale_error,
+        TerminalSessionRestoreError::Stale { .. }
+    ));
+    assert!(!stale.is_consumed());
+
+    let in_progress = crate::runtime::terminal::TerminalRecoveryToken::new_runtime(
+        1,
+        1,
+        1,
+        1,
+        TerminalRecoveryLedgerKind::CloseRestore,
+    );
+    in_progress
+        .claimed()
+        .store(true, core::sync::atomic::Ordering::Release);
+    let busy = terminal_session_recover_close_sync(&in_progress)
+        .expect_err("claimed token rejects as in progress");
+    assert!(matches!(
+        busy,
+        TerminalSessionRestoreError::RecoveryInProgress { .. }
+    ));
+    assert!(!in_progress.is_consumed());
 }

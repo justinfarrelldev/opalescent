@@ -1158,7 +1158,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(terminal): implement selected data model` | Files: [src/runtime/**, src/stdlib/**, src/type_system/**, src/codegen/**, tests/**]
 
-- [ ] 25. Implement TerminalSession lifecycle, coordinator state machine, and recovery tokens
+- [x] 25. Implement TerminalSession lifecycle, coordinator state machine, and recovery tokens
 
   **What to do**: Implement affine `TerminalSession` runtime state (`Active`, `Paused`, `RestorePending`, `Closed`), coordinator state transitions, option validation/open, explicit close, lexical cleanup transfer, failed-open/failed-close process recovery, sealed immutable recovery-token aliases, exact token validation order, one-shot consumption, retryable partial recovery, diagnostics, and generation reservation/exhaustion rules.
   **Must NOT do**: Do not expose sessions in `Opening`, `FailedOpenRecovery`, or `FailedCloseRecovery`. Do not issue recovery tokens for direct close while live binding owns retry authority. Do not allow authority-free recovery or token authority in causes/text.
@@ -1177,10 +1177,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Proposal example: `inspect_terminal_capabilities.op:123-178`.
 
   **Acceptance Criteria**:
-  - [ ] Unit tests cover all session operation/state matrix entries and non-mutating state rejection.
-  - [ ] Recovery-token tests cover WrongSession, WrongKind, Consumed, Stale, RecoveryInProgress, retryable partial failure, and one-shot success.
-  - [ ] Generation reservation/exhaustion tests prove open preflight behavior and no restore-family generation-exhaustion path.
-  - [ ] Cleanup transfer returns `CloseRestorePending` only from lexical cleanup transfer path.
+  - [x] Unit tests cover all session operation/state matrix entries and non-mutating state rejection.
+  - [x] Recovery-token tests cover WrongSession, WrongKind, Consumed, Stale, RecoveryInProgress, retryable partial failure, and one-shot success.
+  - [x] Generation reservation/exhaustion tests prove open preflight behavior and no restore-family generation-exhaustion path.
+  - [x] Cleanup transfer returns `CloseRestorePending` only from lexical cleanup transfer path.
 
   **QA Scenarios**:
   ```
