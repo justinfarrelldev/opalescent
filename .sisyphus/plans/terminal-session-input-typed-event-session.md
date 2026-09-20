@@ -1199,7 +1199,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(terminal): implement session lifecycle and recovery` | Files: [src/runtime/**, src/stdlib/**, src/type_system/**, src/codegen/**, tests/**]
 
-- [ ] 26. Implement one-event read, parser queues, input accounting, pause, close, EOF, cancellation
+- [x] 26. Implement one-event read, parser queues, input accounting, pause, close, EOF, cancellation
 
   **What to do**: Implement `terminal_session_readiness_source`, `terminal_session_read_event_sync`, size/read/pause/close behavior, one-event-per-success API, bounded-fair Poll drain semantics, queued events before EOF/cancellation, sticky EOF, sticky identifier exhaustion, pause delivery ending in `InputReset.PauseBoundary`, retained byte/event accounting, close `DiscardedInput`, and no-drop backpressure.
   **Must NOT do**: Do not return hidden batches. Do not starve wait-set cancellation/process/timer sources under sustained input. Do not silently drop consumed undecoded bytes. Do not split correlated Key/TextInput groups.
@@ -1218,11 +1218,11 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Pause fixture requirements: `typed-event-session/proposal.md:329`.
 
   **Acceptance Criteria**:
-  - [ ] Tests prove one event per successful read and strict positive finite drain budget in example/harness code.
-  - [ ] Tests prove `TimedOut` is returned for stale/drained Poll before budget exhaustion.
-  - [ ] Tests prove pause returns events ending with one `InputReset.PauseBoundary` even with no parser bytes.
-  - [ ] Tests prove identifier exhaustion is sticky and does not publish reused IDs.
-  - [ ] Tests prove close `DiscardedInput` reports discarded bytes/events without error.
+  - [x] Tests prove one event per successful read and strict positive finite drain budget in example/harness code.
+  - [x] Tests prove `TimedOut` is returned for stale/drained Poll before budget exhaustion.
+  - [x] Tests prove pause returns events ending with one `InputReset.PauseBoundary` even with no parser bytes.
+  - [x] Tests prove identifier exhaustion is sticky and does not publish reused IDs.
+  - [x] Tests prove close `DiscardedInput` reports discarded bytes/events without error.
 
   **QA Scenarios**:
   ```

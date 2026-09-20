@@ -33,10 +33,6 @@ pub struct TerminalPauseEvents {
 
 impl TerminalPauseEvents {
     /// Construct a sealed pause delivery inside the runtime.
-    #[expect(
-        dead_code,
-        reason = "Task 26 pause delivery will construct this sealed collection"
-    )]
     pub(crate) const fn new_runtime(events: alloc::vec::Vec<super::TerminalInputEvent>) -> Self {
         Self { events }
     }
@@ -100,6 +96,19 @@ pub enum TerminalSessionOpenError {
     },
     /// Backend opening failed and rollback completed.
     ModeWriteFailed { diagnostic: TerminalDiagnostic },
+}
+
+/// Read and pause-delivery failures.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TerminalSessionReadError {
+    /// Host read failed.
+    ReadFailed { diagnostic: TerminalDiagnostic },
+    /// Allocation failed before publication.
+    AllocationFailed { diagnostic: TerminalDiagnostic },
+    /// Pause delivery failed before transition.
+    PauseDeliveryFailed { diagnostic: TerminalDiagnostic },
+    /// A required monotonic identifier was exhausted.
+    IdentifierExhausted { diagnostic: TerminalDiagnostic },
 }
 
 /// Non-mutating session-state rejection.

@@ -4,19 +4,22 @@ extern crate alloc;
 
 use super::diagnostics::TerminalDiagnostic;
 use super::lifecycle_errors::{
-    TerminalCloseOutcome, TerminalRecoveryToken, TerminalSessionOpenError,
-    TerminalSessionRestoreError, TerminalSessionStateError,
+    TerminalCloseOutcome, TerminalPauseEvents, TerminalPauseResult, TerminalRecoveryToken,
+    TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionRestoreError,
+    TerminalSessionStateError,
 };
 use super::model::{
     TerminalBackend, TerminalCapabilities, TerminalCapabilityUnsupportedEvidence,
     TerminalCoordinatorState, TerminalDiagnosticRetryability, TerminalDiagnosticSessionState,
-    TerminalDiagnosticStage, TerminalOperation, TerminalOsCode, TerminalSessionOptions,
+    TerminalDiagnosticStage, TerminalInputEvent, TerminalInputEventKind, TerminalInputResetReason,
+    TerminalOperation, TerminalOsCode, TerminalSessionOptions,
 };
 use super::tail_types::{
     TerminalRecoveryLedgerKind, TerminalSessionOptionsError, TerminalSessionState,
 };
 use crate::runtime::terminal::constraints::TerminalCorrelatedEventLimit;
-use alloc::collections::BTreeMap;
+use crate::runtime::wait::{CancellationToken, SourceAvailability, SystemReadinessSource};
+use alloc::collections::{BTreeMap, VecDeque};
 #[cfg(test)]
 use core::cell::Cell;
 use core::sync::atomic::{AtomicU64, Ordering};
@@ -35,6 +38,63 @@ static NEXT_LEDGER_ID: AtomicU64 = AtomicU64::new(1);
 thread_local! {
     /// Per-test deterministic recovery-generation override.
     static NEXT_RECOVERY_GENERATION_OVERRIDE: Cell<Option<u64>> = const { Cell::new(None) };
+}
+
+/// Combined read-event failure preserving independent proposal families.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TerminalReadEventError {
+    /// Read-family failure.
+    Read(TerminalSessionReadError),
+    /// State-family failure.
+    State(TerminalSessionStateError),
+}
+
+impl TerminalReadEventError {
+    /// Return the rejected state for state-family failures.
+    #[must_use]
+    #[expect(
+        clippy::pattern_type_mismatch,
+        reason = "matching by reference keeps this const accessor non-moving"
+    )]
+    pub const fn state(&self) -> TerminalSessionState {
+        match self {
+            Self::State(error) => error.state(),
+            Self::Read(_error) => TerminalSessionState::Active,
+        }
+    }
+}
+
+/// Combined pause failure preserving independent proposal families.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TerminalPauseError {
+    /// Read-family failure.
+    Read(TerminalSessionReadError),
+    /// State-family failure.
+    State(TerminalSessionStateError),
+}
+
+impl TerminalPauseError {
+    /// Return the rejected state for state-family failures.
+    #[must_use]
+    #[expect(
+        clippy::pattern_type_mismatch,
+        reason = "matching by reference keeps this const accessor non-moving"
+    )]
+    pub const fn state(&self) -> TerminalSessionState {
+        match self {
+            Self::State(error) => error.state(),
+            Self::Read(_error) => TerminalSessionState::Active,
+        }
+    }
+}
+
+impl From<TerminalPauseError> for TerminalReadEventError {
+    fn from(error: TerminalPauseError) -> Self {
+        match error {
+            TerminalPauseError::Read(read_error) => Self::Read(read_error),
+            TerminalPauseError::State(state_error) => Self::State(state_error),
+        }
+    }
 }
 
 /// Affine terminal-session runtime value.
@@ -66,6 +126,16 @@ pub struct TerminalSession {
     cleanup_obligation: bool,
     /// Exclusive unissued recovery generation reservation.
     reserved_recovery_generation: u64,
+    /// Stable readiness source identity for this session.
+    readiness_source: SystemReadinessSource,
+    /// Decoded events awaiting one-event reads.
+    event_queue: VecDeque<TerminalInputEvent>,
+    /// Next hidden event delivery ordinal.
+    next_delivery_ordinal: u64,
+    /// Sticky EOF state for this active parser generation.
+    end_of_input: bool,
+    /// Sticky identifier-exhausted read state.
+    identifier_exhausted: bool,
 }
 
 impl TerminalSession {
@@ -119,17 +189,67 @@ impl TerminalSession {
         }
     }
 
-    /// Pause the session without input delivery; Task 26 fills pause events.
-    pub fn pause_sync(&mut self) -> Result<(), TerminalSessionStateError> {
+    /// Return this session's stable readiness-source identity.
+    #[must_use]
+    pub fn readiness_source(&self) -> SystemReadinessSource {
+        self.readiness_source.clone()
+    }
+
+    /// Read one normalized event or terminal status marker.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TerminalSessionReadError`] for sticky identifier exhaustion and
+    /// [`TerminalSessionStateError`] before mutation for invalid states.
+    pub fn read_event_sync(
+        &mut self,
+        wait: super::TerminalWait,
+        cancellation: &CancellationToken,
+    ) -> Result<TerminalInputEvent, TerminalReadEventError> {
+        if self.identifier_exhausted {
+            return Err(TerminalReadEventError::Read(identifier_exhausted_error()));
+        }
+        if self.state != TerminalSessionState::Active {
+            return Err(TerminalReadEventError::State(state_error(
+                self.state,
+                TerminalOperation::Read,
+            )));
+        }
+        if let Some(event) = self.event_queue.pop_front() {
+            return Ok(event);
+        }
+        if self.end_of_input {
+            return self.status_event(TerminalInputEventKind::EndOfInput);
+        }
+        if cancellation.is_cancelled() {
+            return self.status_event(TerminalInputEventKind::Cancelled);
+        }
+        match wait {
+            super::TerminalWait::Poll
+            | super::TerminalWait::For { .. }
+            | super::TerminalWait::Forever => self.status_event(TerminalInputEventKind::TimedOut),
+        }
+    }
+
+    /// Pause the session and independently retain queued input plus a boundary.
+    pub fn pause_sync(&mut self) -> Result<TerminalPauseResult, TerminalPauseError> {
         match self.state {
             TerminalSessionState::Active => {
+                let mut events = self.event_queue.drain(..).collect::<alloc::vec::Vec<_>>();
+                events.push(self.make_event(TerminalInputEventKind::InputReset {
+                    reason: TerminalInputResetReason::PauseBoundary,
+                })?);
                 self.state = TerminalSessionState::Paused;
-                Ok(())
+                self.readiness_source
+                    .publish_transition(SourceAvailability::Idle);
+                Ok(TerminalPauseResult {
+                    events: TerminalPauseEvents::new_runtime(events),
+                })
             }
-            TerminalSessionState::Paused => Ok(()),
-            TerminalSessionState::RestorePending | TerminalSessionState::Closed => {
-                Err(state_error(self.state, TerminalOperation::Pause))
-            }
+            TerminalSessionState::Paused => Ok(TerminalPauseResult::default()),
+            TerminalSessionState::RestorePending | TerminalSessionState::Closed => Err(
+                TerminalPauseError::State(state_error(self.state, TerminalOperation::Pause)),
+            ),
         }
     }
 
@@ -149,9 +269,7 @@ impl TerminalSession {
     }
 
     /// Explicit close consumes cleanup obligation on success and remains inspectable.
-    pub const fn close_sync(
-        &mut self,
-    ) -> Result<TerminalCloseOutcome, TerminalSessionRestoreError> {
+    pub fn close_sync(&mut self) -> Result<TerminalCloseOutcome, TerminalSessionRestoreError> {
         match self.state {
             TerminalSessionState::Active
             | TerminalSessionState::Paused
@@ -159,10 +277,77 @@ impl TerminalSession {
                 self.state = TerminalSessionState::Closed;
                 self.cleanup_obligation = false;
                 self.reserved_recovery_generation = 0;
-                Ok(TerminalCloseOutcome::Clean)
+                self.readiness_source
+                    .publish_transition(SourceAvailability::Ready);
+                let discarded_events = u64::try_from(self.event_queue.len()).unwrap_or(u64::MAX);
+                self.event_queue.clear();
+                if discarded_events == 0 {
+                    Ok(TerminalCloseOutcome::Clean)
+                } else {
+                    Ok(TerminalCloseOutcome::DiscardedInput {
+                        discarded_bytes: discarded_events,
+                        discarded_events,
+                    })
+                }
             }
             TerminalSessionState::Closed => Ok(TerminalCloseOutcome::Clean),
         }
+    }
+
+    /// Build one runtime event and advance the sticky ordinal state.
+    fn make_event(
+        &mut self,
+        kind: TerminalInputEventKind,
+    ) -> Result<TerminalInputEvent, TerminalPauseError> {
+        let ordinal = self.next_delivery_ordinal;
+        if ordinal == u64::MAX {
+            self.identifier_exhausted = true;
+            return Err(TerminalPauseError::Read(identifier_exhausted_error()));
+        }
+        self.next_delivery_ordinal = self.next_delivery_ordinal.saturating_add(1);
+        TerminalInputEvent::new_runtime(self.capabilities.hidden_stream_id(), ordinal, kind)
+            .map_err(|_error| TerminalPauseError::Read(identifier_exhausted_error()))
+    }
+
+    /// Build one runtime status event.
+    fn status_event(
+        &mut self,
+        kind: TerminalInputEventKind,
+    ) -> Result<TerminalInputEvent, TerminalReadEventError> {
+        self.make_event(kind).map_err(|error| match error {
+            TerminalPauseError::Read(read_error) => TerminalReadEventError::Read(read_error),
+            TerminalPauseError::State(state_error) => TerminalReadEventError::State(state_error),
+        })
+    }
+
+    /// Queue a synthetic decoded event for deterministic tests.
+    #[cfg(test)]
+    pub(crate) fn enqueue_input_event_for_tests(
+        &mut self,
+        kind: TerminalInputEventKind,
+    ) -> Result<(), TerminalSessionReadError> {
+        let event = self.make_event(kind).map_err(|error| match error {
+            TerminalPauseError::Read(read_error) => read_error,
+            TerminalPauseError::State(_state_error) => identifier_exhausted_error(),
+        })?;
+        self.event_queue.push_back(event);
+        self.readiness_source
+            .publish_transition(SourceAvailability::Ready);
+        Ok(())
+    }
+
+    /// Mark sticky end-of-input for deterministic tests.
+    #[cfg(test)]
+    pub(crate) fn mark_end_of_input_for_tests(&mut self) {
+        self.end_of_input = true;
+        self.readiness_source
+            .publish_transition(SourceAvailability::Ready);
+    }
+
+    /// Force the next hidden delivery ordinal for deterministic tests.
+    #[cfg(test)]
+    pub(crate) const fn force_next_delivery_ordinal_for_tests(&mut self, ordinal: u64) {
+        self.next_delivery_ordinal = ordinal;
     }
 
     /// Test hook: move a live binding into restore pending without producing a token.
@@ -251,6 +436,11 @@ pub fn terminal_session_open_sync(
         capabilities,
         cleanup_obligation: true,
         reserved_recovery_generation: generation,
+        readiness_source: SystemReadinessSource::new(),
+        event_queue: VecDeque::new(),
+        next_delivery_ordinal: 1,
+        end_of_input: false,
+        identifier_exhausted: false,
     })
 }
 
@@ -346,6 +536,13 @@ fn default_capabilities(
         1,
         correlated_event_limit,
     )
+}
+
+/// Build a sticky identifier-exhausted error.
+fn identifier_exhausted_error() -> TerminalSessionReadError {
+    TerminalSessionReadError::IdentifierExhausted {
+        diagnostic: diagnostic(TerminalOperation::Read, TerminalSessionState::Active),
+    }
 }
 
 /// Build a state rejection error with a diagnostic.

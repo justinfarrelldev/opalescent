@@ -1,0 +1,159 @@
+error[E0432]: unresolved imports `crate::stdlib::terminal::terminal_pause_events_at`, `crate::stdlib::terminal::terminal_pause_events_length`, `crate::stdlib::terminal::terminal_session_pause_sync`, `crate::stdlib::terminal::terminal_session_read_event_sync`, `crate::stdlib::terminal::terminal_session_readiness_source`
+  --> src/runtime/terminal_tests.rs:51:5
+   |
+51 |     terminal_pause_events_at, terminal_pause_events_length,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no `terminal_pause_events_length` in `stdlib::terminal`
+   |     |
+   |     no `terminal_pause_events_at` in `stdlib::terminal`
+52 |     terminal_session_options_with_resource_limits, terminal_session_pause_sync,
+   |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^ no `terminal_session_pause_sync` in `stdlib::terminal`
+53 |     terminal_session_read_event_sync, terminal_session_readiness_source,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no `terminal_session_readiness_source` in `stdlib::terminal`
+   |     |
+   |     no `terminal_session_read_event_sync` in `stdlib::terminal`
+   |
+help: a similar name exists in the module
+   |
+52 -     terminal_session_options_with_resource_limits, terminal_session_pause_sync,
+52 +     terminal_session_options_with_resource_limits, terminal_session_open_sync,
+   |
+help: a similar name exists in the module
+   |
+53 -     terminal_session_read_event_sync, terminal_session_readiness_source,
+53 +     terminal_session_open_sync, terminal_session_readiness_source,
+   |
+
+error[E0433]: failed to resolve: could not find `TerminalSessionReadError` in `terminal`
+   --> src/runtime/terminal_tests.rs:873:35
+    |
+873 |         crate::runtime::terminal::TerminalSessionReadError::IdentifierExhausted { .. }
+    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^
+    |                                   |
+    |                                   could not find `TerminalSessionReadError` in `terminal`
+    |                                   help: an enum with a similar name exists: `TerminalSessionOpenError`
+
+error[E0433]: failed to resolve: could not find `TerminalSessionReadError` in `terminal`
+   --> src/runtime/terminal_tests.rs:883:35
+    |
+883 |         crate::runtime::terminal::TerminalSessionReadError::IdentifierExhausted { .. }
+    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^
+    |                                   |
+    |                                   could not find `TerminalSessionReadError` in `terminal`
+    |                                   help: an enum with a similar name exists: `TerminalSessionOpenError`
+
+error[E0599]: no method named `enqueue_input_event_for_tests` found for struct `TerminalSession` in the current scope
+   --> src/runtime/terminal_tests.rs:750:10
+    |
+749 | /     session
+750 | |         .enqueue_input_event_for_tests(TerminalInputEventKind::FocusGained)
+    | |         -^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `TerminalSession`
+    | |_________|
+    |
+    |
+   ::: src/runtime/terminal/lifecycle.rs:42:1
+    |
+42  |   pub struct TerminalSession {
+    |   -------------------------- method `enqueue_input_event_for_tests` not found for this struct
+
+error[E0599]: no method named `enqueue_input_event_for_tests` found for struct `TerminalSession` in the current scope
+   --> src/runtime/terminal_tests.rs:753:10
+    |
+752 | /     session
+753 | |         .enqueue_input_event_for_tests(TerminalInputEventKind::FocusLost)
+    | |         -^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `TerminalSession`
+    | |_________|
+    |
+    |
+   ::: src/runtime/terminal/lifecycle.rs:42:1
+    |
+42  |   pub struct TerminalSession {
+    |   -------------------------- method `enqueue_input_event_for_tests` not found for this struct
+
+error[E0599]: no method named `enqueue_input_event_for_tests` found for struct `TerminalSession` in the current scope
+   --> src/runtime/terminal_tests.rs:786:10
+    |
+785 | /     session
+786 | |         .enqueue_input_event_for_tests(TerminalInputEventKind::FocusGained)
+    | |         -^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `TerminalSession`
+    | |_________|
+    |
+    |
+   ::: src/runtime/terminal/lifecycle.rs:42:1
+    |
+42  |   pub struct TerminalSession {
+    |   -------------------------- method `enqueue_input_event_for_tests` not found for this struct
+
+error[E0599]: no method named `mark_end_of_input_for_tests` found for struct `TerminalSession` in the current scope
+   --> src/runtime/terminal_tests.rs:788:13
+    |
+788 |     session.mark_end_of_input_for_tests();
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `TerminalSession`
+    |
+   ::: src/runtime/terminal/lifecycle.rs:42:1
+    |
+42  | pub struct TerminalSession {
+    | -------------------------- method `mark_end_of_input_for_tests` not found for this struct
+
+error[E0599]: no method named `enqueue_input_event_for_tests` found for struct `TerminalSession` in the current scope
+   --> src/runtime/terminal_tests.rs:821:10
+    |
+820 | /     session
+821 | |         .enqueue_input_event_for_tests(TerminalInputEventKind::FocusGained)
+    | |         -^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `TerminalSession`
+    | |_________|
+    |
+    |
+   ::: src/runtime/terminal/lifecycle.rs:42:1
+    |
+42  |   pub struct TerminalSession {
+    |   -------------------------- method `enqueue_input_event_for_tests` not found for this struct
+
+error[E0599]: no method named `enqueue_input_event_for_tests` found for struct `TerminalSession` in the current scope
+   --> src/runtime/terminal_tests.rs:838:10
+    |
+837 | /     session
+838 | |         .enqueue_input_event_for_tests(TerminalInputEventKind::FocusLost)
+    | |         -^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `TerminalSession`
+    | |_________|
+    |
+    |
+   ::: src/runtime/terminal/lifecycle.rs:42:1
+    |
+42  |   pub struct TerminalSession {
+    |   -------------------------- method `enqueue_input_event_for_tests` not found for this struct
+
+error[E0599]: no method named `force_next_delivery_ordinal_for_tests` found for struct `TerminalSession` in the current scope
+   --> src/runtime/terminal_tests.rs:867:13
+    |
+867 |     session.force_next_delivery_ordinal_for_tests(u64::MAX);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: src/runtime/terminal/lifecycle.rs:42:1
+    |
+42  | pub struct TerminalSession {
+    | -------------------------- method `force_next_delivery_ordinal_for_tests` not found for this struct
+    |
+help: there is a method `force_restore_pending_for_tests` with a similar name, but with different arguments
+   --> src/runtime/terminal/lifecycle.rs:170:5
+    |
+170 |     pub(crate) const fn force_restore_pending_for_tests(&mut self) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `enqueue_input_event_for_tests` found for struct `TerminalSession` in the current scope
+   --> src/runtime/terminal_tests.rs:869:10
+    |
+868 |       let exhausted = session
+    |  _____________________-
+869 | |         .enqueue_input_event_for_tests(TerminalInputEventKind::FocusGained)
+    | |         -^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `TerminalSession`
+    | |_________|
+    |
+    |
+   ::: src/runtime/terminal/lifecycle.rs:42:1
+    |
+42  |   pub struct TerminalSession {
+    |   -------------------------- method `enqueue_input_event_for_tests` not found for this struct
+
+Some errors have detailed explanations: E0432, E0433, E0599.
+For more information about an error, try `rustc --explain E0432`.
+error: could not compile `opalescent` (lib test) due to 11 previous errors

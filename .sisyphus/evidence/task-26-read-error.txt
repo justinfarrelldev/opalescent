@@ -1,0 +1,22 @@
+Task 26 failure/edge coverage:
+
+$ cargo test terminal_session_read --quiet
+[exit 0]
+
+Covered:
+- one-event-per-success queue draining: FocusGained then FocusLost in two reads.
+- stale/drained readiness: Poll after queue drain returns TerminalInputEvent.TimedOut.
+- stable readiness source identity across repeated inspectors.
+- queued decoded event precedes EOF/cancellation.
+- cancellation wins after queued input drains when EOF is not sticky.
+- sticky EOF repeats EndOfInput after queued input drains, before cancellation.
+- Paused read returns TerminalSessionStateError.SessionPaused before mutation.
+- delivery ordinal exhaustion is sticky and returns TerminalSessionReadError.IdentifierExhausted without publishing an event.
+
+$ cargo test terminal_session_pause --quiet
+[exit 0]
+
+Covered:
+- Active pause independently retains queued events and appends InputReset.PauseBoundary.
+- Paused pause returns empty non-transition delivery.
+- successful close reports DiscardedInput when retained input remains.

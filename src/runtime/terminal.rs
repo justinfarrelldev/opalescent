@@ -39,12 +39,13 @@ pub use formatting::{
     safe_terminal_diagnostic_collection_format, safe_terminal_diagnostic_format,
 };
 pub use lifecycle::{
-    TerminalSession, terminal_session_open_sync, terminal_session_recover_close_sync,
-    terminal_session_recover_open_sync,
+    TerminalPauseError, TerminalReadEventError, TerminalSession, terminal_session_open_sync,
+    terminal_session_recover_close_sync, terminal_session_recover_open_sync,
 };
 pub use lifecycle_errors::{
     TerminalCloseOutcome, TerminalPauseEvents, TerminalPauseResult, TerminalRecoveryToken,
-    TerminalSessionOpenError, TerminalSessionRestoreError, TerminalSessionStateError,
+    TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionRestoreError,
+    TerminalSessionStateError,
 };
 pub use model::{
     TerminalBackend, TerminalCapabilities, TerminalCapabilitySupportedEvidence,

@@ -362,13 +362,6 @@ impl TerminalCapabilities {
     }
 
     /// Return the hidden stream identity associated with this snapshot.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "hidden capability metadata is asserted by tests and consumed by later backends"
-        )
-    )]
     pub(crate) const fn hidden_stream_id(&self) -> u64 {
         self.hidden_stream_id
     }
@@ -625,13 +618,6 @@ pub enum TerminalInputEventKind {
 
 impl TerminalInputEvent {
     /// Construct one runtime-origin input event with hidden delivery metadata.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "production input backends construct events after session read lands"
-        )
-    )]
     pub(crate) fn new_runtime(
         hidden_stream_id: u64,
         delivery_ordinal: u64,

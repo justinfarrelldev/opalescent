@@ -6,20 +6,22 @@
 //! later tasks.
 
 use crate::runtime::terminal::{
-    SafeTerminalDiagnosticOutput, TerminalBackend, TerminalCapabilities, TerminalColorCapability,
-    TerminalCoordinatorState, TerminalDiagnostic, TerminalDiagnosticCollection,
-    TerminalDiagnosticRetryability, TerminalDiagnosticSessionState, TerminalDiagnosticStage,
-    TerminalFeatureCapability, TerminalOperation, TerminalOrdinaryFeature, TerminalRecoveryToken,
-    TerminalSession, TerminalSessionFeaturePolicy, TerminalSessionOpenError,
-    TerminalSessionOptions, TerminalSessionOptionsError, TerminalSessionResourceLimits,
-    TerminalSessionRestoreError, TerminalSessionState, TerminalTrustedPasteCapability,
-    TrustedTerminalOutput,
+    SafeTerminalDiagnosticOutput, TerminalBackend, TerminalCapabilities, TerminalCloseOutcome,
+    TerminalColorCapability, TerminalCoordinatorState, TerminalDiagnostic,
+    TerminalDiagnosticCollection, TerminalDiagnosticRetryability, TerminalDiagnosticSessionState,
+    TerminalDiagnosticStage, TerminalFeatureCapability, TerminalInputEvent, TerminalOperation,
+    TerminalOrdinaryFeature, TerminalPauseError, TerminalPauseEvents, TerminalPauseResult,
+    TerminalReadEventError, TerminalRecoveryToken, TerminalSession, TerminalSessionFeaturePolicy,
+    TerminalSessionOpenError, TerminalSessionOptions, TerminalSessionOptionsError,
+    TerminalSessionResourceLimits, TerminalSessionRestoreError, TerminalSessionState,
+    TerminalSessionStateError, TerminalTrustedPasteCapability, TerminalWait, TrustedTerminalOutput,
     safe_terminal_diagnostic_collection_format as runtime_safe_collection_format,
     safe_terminal_diagnostic_format as runtime_safe_format,
     terminal_session_open_sync as runtime_session_open,
     terminal_session_recover_close_sync as runtime_recover_close,
     terminal_session_recover_open_sync as runtime_recover_open,
 };
+use crate::runtime::wait::{CancellationToken, SystemReadinessSource};
 
 /// Return the ABI-stable default terminal options snapshot.
 #[must_use]
@@ -95,6 +97,70 @@ pub fn terminal_recovery_token_generation(recovery_token: &TerminalRecoveryToken
 #[must_use]
 pub const fn terminal_session_state(session: &TerminalSession) -> TerminalSessionState {
     session.state()
+}
+
+/// Inspect terminal session capabilities.
+#[must_use]
+pub fn terminal_session_capabilities(session: &TerminalSession) -> TerminalCapabilities {
+    session.capabilities()
+}
+
+/// Return a session's stable readiness source identity.
+#[must_use]
+pub fn terminal_session_readiness_source(session: &TerminalSession) -> SystemReadinessSource {
+    session.readiness_source()
+}
+
+/// Query terminal size through the session state matrix.
+pub fn terminal_session_size_sync(
+    session: &TerminalSession,
+) -> Result<crate::runtime::terminal::TerminalSize, TerminalSessionStateError> {
+    session.size_sync()
+}
+
+/// Read exactly one terminal input event.
+pub fn terminal_session_read_event_sync(
+    session: &mut TerminalSession,
+    wait: TerminalWait,
+    cancellation: &CancellationToken,
+) -> Result<TerminalInputEvent, TerminalReadEventError> {
+    session.read_event_sync(wait, cancellation)
+}
+
+/// Pause input delivery and return independently retained events.
+pub fn terminal_session_pause_sync(
+    session: &mut TerminalSession,
+) -> Result<TerminalPauseResult, TerminalPauseError> {
+    session.pause_sync()
+}
+
+/// Resume a paused session.
+pub fn terminal_session_resume_sync(
+    session: &mut TerminalSession,
+) -> Result<(), TerminalSessionStateError> {
+    session.resume_sync()
+}
+
+/// Close a terminal session explicitly.
+pub fn terminal_session_close_sync(
+    session: &mut TerminalSession,
+) -> Result<TerminalCloseOutcome, TerminalSessionRestoreError> {
+    session.close_sync()
+}
+
+/// Return retained pause event count.
+#[must_use]
+pub fn terminal_pause_events_length(events: &TerminalPauseEvents) -> i64 {
+    events.len()
+}
+
+/// Return one retained pause event.
+#[must_use]
+pub fn terminal_pause_events_at(
+    events: &TerminalPauseEvents,
+    index: i64,
+) -> Option<TerminalInputEvent> {
+    events.at(index)
 }
 
 /// Inspect one ordinary capability field.
