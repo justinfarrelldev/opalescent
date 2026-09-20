@@ -1697,13 +1697,13 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit "okay" before completing.
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 > **Never mark F1-F4 as checked before getting user's okay.** Rejection or user feedback -> fix -> re-run -> present again -> wait for okay.
-- [ ] F1. Plan Compliance Audit — oracle
+- [x] F1. Plan Compliance Audit — oracle
   - Check every task acceptance criterion, evidence file, commit hash, and traceability row against this plan.
-- [ ] F2. Code Quality Review — unspecified-high
+- [x] F2. Code Quality Review — unspecified-high
   - Review Rust architecture, module boundaries, error handling, allocations, platform abstractions, and absence of AI slop.
-- [ ] F3. Real Manual QA — unspecified-high
+- [x] F3. Real Manual QA — unspecified-high
   - Execute terminal integration scenarios via the deterministic fake backend and existing integration harness; use Playwright only if a UI artifact appears, otherwise Bash.
-- [ ] F4. Scope Fidelity Check — deep
+- [x] F4. Scope Fidelity Check — deep
   - Verify selected `typed-event-session` only, no historical API revival, no unapproved dependencies, and no unrelated language/runtime expansion.
 
 ## Commit Strategy
