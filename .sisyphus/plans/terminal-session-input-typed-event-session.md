@@ -1443,7 +1443,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(testing): add terminal fake backend support` | Files: [src/runtime/**, src/stdlib/**, src/type_system/**, src/codegen/**, tests/**]
 
-- [ ] 32. Implement terminal chord router and application-side lifecycle support
+- [x] 32. Implement terminal chord router and application-side lifecycle support
 
   **What to do**: Implement selected companion chord API: modifiers, chord construction, sequence append, router construction from authenticated `TerminalCapabilities`, registration/replace/unregister, binding IDs, process/expire/reset, released input accessors, hidden stream/delivery-order validation, prefix policies, timer deadline outputs, capacity recovery protocol, no-callback side-map separation, and affine router cleanup. Add tests using test-only scenario events.
   **Must NOT do**: Do not store application commands, callbacks, closures, payloads, module objects, or map nodes inside router. Do not interpret TextInput/paste/unknown/native/reset events as commands. Do not split correlated groups or create a scheduler/timer inside router.
@@ -1462,10 +1462,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - ABI history: `abi-history.md:121-178` chord inventory and representation notes.
 
   **Acceptance Criteria**:
-  - [ ] Tests cover Control/Named/Function/EnhancedText construction, modifiers, lock masks, sequence limits, duplicate/prefix ambiguity policies, registration count, ID ordinal preservation/retirement, replace/unregister atomicity, and capability validation.
-  - [ ] Process tests cover all event categories in expected order, wrong stream, already consumed, out of order, capacity overflow, allocation failure before mutation, release-once, activation-once, and one activation per Key occurrence count.
-  - [ ] Timer tests cover Pending deadline, AwaitingCorrelatedInput disarm, stale wake filtering, Idle, expiration allocation failure, reset release order, and generation-exhaustion spare/retarget recovery.
-  - [ ] Router cleanup never touches application side-map payloads and releases buffered input/registrations deterministically.
+  - [x] Tests cover Control/Named/Function/EnhancedText construction, modifiers, lock masks, sequence limits, duplicate/prefix ambiguity policies, registration count, ID ordinal preservation/retirement, replace/unregister atomicity, and capability validation.
+  - [x] Process tests cover all event categories in expected order, wrong stream, already consumed, out of order, capacity overflow, allocation failure before mutation, release-once, activation-once, and one activation per Key occurrence count.
+  - [x] Timer tests cover Pending deadline, AwaitingCorrelatedInput disarm, stale wake filtering, Idle, expiration allocation failure, reset release order, and generation-exhaustion spare/retarget recovery.
+  - [x] Router cleanup never touches application side-map payloads and releases buffered input/registrations deterministically.
 
   **QA Scenarios**:
   ```

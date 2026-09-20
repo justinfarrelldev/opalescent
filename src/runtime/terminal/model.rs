@@ -360,13 +360,6 @@ impl TerminalCapabilities {
     }
 
     /// Return the hidden correlated-event limit captured with this snapshot.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "hidden capability metadata is asserted by tests and consumed by later backends"
-        )
-    )]
     pub(crate) const fn hidden_correlated_event_limit(&self) -> TerminalCorrelatedEventLimit {
         self.hidden_correlated_event_limit
     }
@@ -648,13 +641,6 @@ impl TerminalInputEvent {
     }
 
     /// Return the hidden delivery ordinal assigned by the runtime.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "hidden event ordering is asserted by task-31 tests"
-        )
-    )]
     pub(crate) const fn hidden_delivery_ordinal(&self) -> u64 {
         self.hidden.delivery_ordinal
     }

@@ -4,6 +4,8 @@
 //! diagnostic, and trust data-model slices. Session lifecycle, test factories,
 //! backend activation, and later terminal behavior stay out of scope.
 
+#[path = "terminal/chords.rs"]
+pub mod chords;
 #[path = "terminal/constraints.rs"]
 pub mod constraints;
 #[path = "terminal/diagnostics.rs"]
@@ -27,6 +29,14 @@ pub mod test_backend;
 #[path = "terminal/windows_backend.rs"]
 pub mod windows_backend;
 
+pub use chords::{
+    TerminalChord, TerminalChordBindingId, TerminalChordKey, TerminalChordModifiers,
+    TerminalChordMutationError, TerminalChordMutationResult, TerminalChordPrefixPolicy,
+    TerminalChordProcessError, TerminalChordReleasedInput, TerminalChordResetReason,
+    TerminalChordRouter, TerminalChordRouterOutput, TerminalChordRouterPolicy,
+    TerminalChordSequence, TerminalChordTextPolicy, TerminalChordTrigger,
+    TerminalChordValidationError, TerminalLockModifierMask,
+};
 pub use constraints::{
     TerminalColorCount, TerminalColumnCount, TerminalColumnIndex, TerminalCommittedText,
     TerminalCommittedTextByteLimit, TerminalCompositionId, TerminalCompositionPreeditByteLimit,

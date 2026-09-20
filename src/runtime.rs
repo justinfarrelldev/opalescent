@@ -40,8 +40,13 @@ pub use strings::{
 pub use terminal::{
     SAFE_TERMINAL_DIAGNOSTIC_OUTPUT_MAX_BYTES, SafeTerminalDiagnosticOutput, TerminalBackend,
     TerminalCapabilities, TerminalCapabilitySupportedEvidence,
-    TerminalCapabilityUnsupportedEvidence, TerminalColorCapability, TerminalColorCount,
-    TerminalColumnCount, TerminalColumnIndex, TerminalCommittedText,
+    TerminalCapabilityUnsupportedEvidence, TerminalChord, TerminalChordBindingId, TerminalChordKey,
+    TerminalChordModifiers, TerminalChordMutationError, TerminalChordMutationResult,
+    TerminalChordPrefixPolicy, TerminalChordProcessError, TerminalChordReleasedInput,
+    TerminalChordResetReason, TerminalChordRouter, TerminalChordRouterOutput,
+    TerminalChordRouterPolicy, TerminalChordSequence, TerminalChordTextPolicy,
+    TerminalChordTrigger, TerminalChordValidationError, TerminalColorCapability,
+    TerminalColorCount, TerminalColumnCount, TerminalColumnIndex, TerminalCommittedText,
     TerminalCommittedTextByteLimit, TerminalCompositionId, TerminalCompositionPreeditByteLimit,
     TerminalCompositionPreeditText, TerminalCompositionScalarIndex, TerminalConstraintError,
     TerminalControlCode, TerminalCoordinatorState, TerminalCorrelatedByteLimit,
@@ -52,19 +57,20 @@ pub use terminal::{
     TerminalEventId, TerminalFeature, TerminalFeatureCapability, TerminalFunctionKeyNumber,
     TerminalInputEvent, TerminalInputEventKind, TerminalInputResetReason,
     TerminalInputSequenceTimeoutMilliseconds, TerminalInvalidOptions, TerminalKeyOccurrence,
-    TerminalKeyRepeatCount, TerminalLinkedTextPhase, TerminalLogicalKey, TerminalModifiers,
-    TerminalMouseAction, TerminalMouseButton, TerminalMouseTracking, TerminalNamedKey,
-    TerminalNativeEventKind, TerminalNativeEventName, TerminalNativeMetadata, TerminalOperation,
-    TerminalOrdinaryFeature, TerminalOsCode, TerminalPasteChunkByteLimit, TerminalPastePhase,
-    TerminalPasteText, TerminalPendingSequenceByteLimit, TerminalRecoveryLedgerKind,
-    TerminalRetainedByteLimit, TerminalRetainedEventLimit, TerminalRowCount, TerminalRowIndex,
-    TerminalScrollDirection, TerminalSessionFeaturePolicy, TerminalSessionOptions,
-    TerminalSessionOptionsError, TerminalSessionResourceLimits, TerminalSessionState, TerminalSize,
-    TerminalTestActivation, TerminalTestFactoryError, TerminalTestFault, TerminalTestScenario,
-    TerminalTextInputOrigin, TerminalTrustedPasteCapability, TerminalTrustedPasteEvidence,
-    TerminalUnknownByteChunkLimit, TerminalUnknownBytesReason, TerminalWait,
-    TerminalWaitMilliseconds, TrustedTerminalOutput, required_ordinary_features,
-    safe_terminal_diagnostic_collection_format, safe_terminal_diagnostic_format,
+    TerminalKeyRepeatCount, TerminalLinkedTextPhase, TerminalLockModifierMask, TerminalLogicalKey,
+    TerminalModifiers, TerminalMouseAction, TerminalMouseButton, TerminalMouseTracking,
+    TerminalNamedKey, TerminalNativeEventKind, TerminalNativeEventName, TerminalNativeMetadata,
+    TerminalOperation, TerminalOrdinaryFeature, TerminalOsCode, TerminalPasteChunkByteLimit,
+    TerminalPastePhase, TerminalPasteText, TerminalPendingSequenceByteLimit,
+    TerminalRecoveryLedgerKind, TerminalRetainedByteLimit, TerminalRetainedEventLimit,
+    TerminalRowCount, TerminalRowIndex, TerminalScrollDirection, TerminalSessionFeaturePolicy,
+    TerminalSessionOptions, TerminalSessionOptionsError, TerminalSessionResourceLimits,
+    TerminalSessionState, TerminalSize, TerminalTestActivation, TerminalTestFactoryError,
+    TerminalTestFault, TerminalTestScenario, TerminalTextInputOrigin,
+    TerminalTrustedPasteCapability, TerminalTrustedPasteEvidence, TerminalUnknownByteChunkLimit,
+    TerminalUnknownBytesReason, TerminalWait, TerminalWaitMilliseconds, TrustedTerminalOutput,
+    required_ordinary_features, safe_terminal_diagnostic_collection_format,
+    safe_terminal_diagnostic_format,
 };
 pub use timer::{
     MonotonicDeadline, MonotonicTimer, MonotonicTimerError, MonotonicTimerNotArmedError,
@@ -76,6 +82,8 @@ pub use wait::{
     SystemWaitWake,
 };
 
+#[cfg(test)]
+mod terminal_chord_tests;
 #[cfg(test)]
 mod terminal_linux_tests;
 #[cfg(test)]
