@@ -45,13 +45,14 @@ pub use formatting::{
     safe_terminal_diagnostic_collection_format, safe_terminal_diagnostic_format,
 };
 pub use lifecycle::{
-    TerminalPauseError, TerminalReadEventError, TerminalSession, terminal_session_open_sync,
-    terminal_session_recover_close_sync, terminal_session_recover_open_sync,
+    TerminalPauseError, TerminalReadEventError, TerminalSession, TerminalWriteOperationError,
+    terminal_session_open_sync, terminal_session_recover_close_sync,
+    terminal_session_recover_open_sync,
 };
 pub use lifecycle_errors::{
     TerminalCloseOutcome, TerminalPauseEvents, TerminalPauseResult, TerminalRecoveryToken,
     TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionRestoreError,
-    TerminalSessionStateError,
+    TerminalSessionStateError, TerminalSessionWriteError,
 };
 pub use linux_backend::{
     LinuxTerminalBackendRuntime, LinuxTerminalBackendState, LinuxTerminalDescriptorSnapshot,

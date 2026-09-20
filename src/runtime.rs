@@ -78,6 +78,8 @@ pub use wait::{
 #[cfg(test)]
 mod terminal_linux_tests;
 #[cfg(test)]
+mod terminal_output_tests;
+#[cfg(test)]
 mod terminal_process_workflow_tests;
 #[cfg(test)]
 mod terminal_read_tests;

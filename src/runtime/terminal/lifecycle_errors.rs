@@ -98,6 +98,17 @@ pub enum TerminalSessionOpenError {
     ModeWriteFailed { diagnostic: TerminalDiagnostic },
 }
 
+/// Session output/cursor/flush failures.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TerminalSessionWriteError {
+    /// Output write failed.
+    WriteFailed { diagnostic: TerminalDiagnostic },
+    /// Flush failed.
+    FlushFailed { diagnostic: TerminalDiagnostic },
+    /// Cursor shape unsupported.
+    UnsupportedCursorShape { diagnostic: TerminalDiagnostic },
+}
+
 /// Read and pause-delivery failures.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TerminalSessionReadError {

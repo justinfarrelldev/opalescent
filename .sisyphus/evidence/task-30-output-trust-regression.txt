@@ -1,0 +1,13 @@
+$ cargo test terminal_ --quiet
+[exit 0]
+
+running 115 tests
+....................................................................................... 87/115
+............................
+test result: ok. 115 passed; 0 failed; 0 ignored; 0 measured; 1474 filtered out; finished in 0.51s
+
+Regression coverage:
+- existing terminal data/lifecycle/read/backend/process workflow tests remain green.
+- Free-state trusted output writes are captured exactly.
+- coordinator-unavailable Paused state rejects output/cursor/flush before output mutation.
+- no session-derived stdout terminal or AcquireOutputTerminal API was introduced.

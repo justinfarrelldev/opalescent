@@ -3,16 +3,18 @@
 extern crate alloc;
 
 use super::diagnostics::TerminalDiagnostic;
+use super::formatting::{SafeTerminalDiagnosticOutput, TrustedTerminalOutput};
 use super::lifecycle_errors::{
     TerminalCloseOutcome, TerminalPauseEvents, TerminalPauseResult, TerminalRecoveryToken,
     TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionRestoreError,
-    TerminalSessionStateError,
+    TerminalSessionStateError, TerminalSessionWriteError,
 };
 use super::model::{
     TerminalBackend, TerminalCapabilities, TerminalCapabilityUnsupportedEvidence,
-    TerminalCoordinatorState, TerminalDiagnosticRetryability, TerminalDiagnosticSessionState,
-    TerminalDiagnosticStage, TerminalInputEvent, TerminalInputEventKind, TerminalInputResetReason,
-    TerminalOperation, TerminalOsCode, TerminalSessionOptions,
+    TerminalCoordinatorState, TerminalCursorShape, TerminalDiagnosticRetryability,
+    TerminalDiagnosticSessionState, TerminalDiagnosticStage, TerminalInputEvent,
+    TerminalInputEventKind, TerminalInputResetReason, TerminalOperation, TerminalOsCode,
+    TerminalSessionOptions,
 };
 use super::tail_types::{
     TerminalRecoveryLedgerKind, TerminalSessionOptionsError, TerminalSessionState,
@@ -88,6 +90,30 @@ impl TerminalPauseError {
     }
 }
 
+/// Combined write failure preserving proposal families.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TerminalWriteOperationError {
+    /// Write-family failure.
+    Write(TerminalSessionWriteError),
+    /// State-family failure.
+    State(TerminalSessionStateError),
+}
+
+impl TerminalWriteOperationError {
+    /// Return the rejected state for state-family failures.
+    #[must_use]
+    #[expect(
+        clippy::pattern_type_mismatch,
+        reason = "matching by reference keeps this const accessor non-moving"
+    )]
+    pub const fn state(&self) -> TerminalSessionState {
+        match self {
+            Self::State(error) => error.state(),
+            Self::Write(_error) => TerminalSessionState::Active,
+        }
+    }
+}
+
 impl From<TerminalPauseError> for TerminalReadEventError {
     fn from(error: TerminalPauseError) -> Self {
         match error {
@@ -136,6 +162,8 @@ pub struct TerminalSession {
     end_of_input: bool,
     /// Sticky identifier-exhausted read state.
     identifier_exhausted: bool,
+    /// Trusted output captured by deterministic backend tests.
+    output_log: alloc::vec::Vec<alloc::string::String>,
 }
 
 impl TerminalSession {
@@ -189,6 +217,16 @@ impl TerminalSession {
         }
     }
 
+    /// Return captured trusted output for deterministic tests.
+    #[cfg(test)]
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "Vec slice dereference is not const-stable"
+    )]
+    pub(crate) fn output_log_for_tests(&self) -> &[alloc::string::String] {
+        &self.output_log
+    }
+
     /// Return this session's stable readiness-source identity.
     #[must_use]
     pub fn readiness_source(&self) -> SystemReadinessSource {
@@ -228,6 +266,62 @@ impl TerminalSession {
             super::TerminalWait::Poll
             | super::TerminalWait::For { .. }
             | super::TerminalWait::Forever => self.status_event(TerminalInputEventKind::TimedOut),
+        }
+    }
+
+    /// Write explicit trusted output.
+    pub fn write_sync(
+        &mut self,
+        output: &TrustedTerminalOutput,
+    ) -> Result<(), TerminalWriteOperationError> {
+        self.ensure_output_state(TerminalOperation::Write)?;
+        self.output_log.push(output.as_str().to_owned());
+        Ok(())
+    }
+
+    /// Write safe diagnostic output.
+    pub fn write_diagnostic_sync(
+        &mut self,
+        output: &SafeTerminalDiagnosticOutput,
+    ) -> Result<(), TerminalWriteOperationError> {
+        self.ensure_output_state(TerminalOperation::Write)?;
+        self.output_log.push(output.as_str().to_owned());
+        Ok(())
+    }
+
+    /// Flush session output.
+    pub fn flush_sync(&self) -> Result<(), TerminalWriteOperationError> {
+        self.ensure_output_state(TerminalOperation::Flush)
+    }
+
+    /// Set cursor visibility.
+    pub fn set_cursor_visible_sync(
+        &self,
+        _visible: bool,
+    ) -> Result<(), TerminalWriteOperationError> {
+        self.ensure_output_state(TerminalOperation::SetCursorVisibility)
+    }
+
+    /// Set cursor shape.
+    pub fn set_cursor_shape_sync(
+        &self,
+        _shape: TerminalCursorShape,
+    ) -> Result<(), TerminalWriteOperationError> {
+        self.ensure_output_state(TerminalOperation::SetCursorShape)
+    }
+
+    /// Validate output operation state before mutation.
+    fn ensure_output_state(
+        &self,
+        operation: TerminalOperation,
+    ) -> Result<(), TerminalWriteOperationError> {
+        match self.state {
+            TerminalSessionState::Active => Ok(()),
+            TerminalSessionState::Paused
+            | TerminalSessionState::RestorePending
+            | TerminalSessionState::Closed => Err(TerminalWriteOperationError::State(state_error(
+                self.state, operation,
+            ))),
         }
     }
 
@@ -441,6 +535,7 @@ pub fn terminal_session_open_sync(
         next_delivery_ordinal: 1,
         end_of_input: false,
         identifier_exhausted: false,
+        output_log: alloc::vec::Vec::new(),
     })
 }
 

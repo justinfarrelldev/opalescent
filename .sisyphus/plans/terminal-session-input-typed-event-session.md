@@ -1361,7 +1361,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(terminal): integrate process-control workflow` | Files: [src/runtime/**, src/stdlib/**, tests/**]
 
-- [ ] 30. Enforce session output trust boundary and legacy I/O regressions end-to-end
+- [x] 30. Enforce session output trust boundary and legacy I/O regressions end-to-end
 
   **What to do**: Wire `terminal_session_write_sync`, diagnostic write, flush, cursor visibility/shape, and safe diagnostic formatting through the trust boundary and coordinator. Add compile-fail/security tests rejecting direct strings, implicit conversions, session-derived `StdoutTerminal`, stale legacy leases, and public host handles. Re-run existing stdout/text/writer/terminal integration suites.
   **Must NOT do**: Do not add `terminal_session_output_terminal`. Do not create `AcquireOutputTerminal`. Do not let environment/input/diagnostic text become trusted output without explicit application conversion.
@@ -1380,10 +1380,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Existing tests: `tests/integration_e2e/stdout_text_stdlib.rs`, `stdout_writer_stdlib.rs`, `terminal_stdlib.rs`.
 
   **Acceptance Criteria**:
-  - [ ] Compile-fail tests reject direct `string` session writes and implicit conversions.
-  - [ ] Compile-fail/import tests confirm no `terminal_session_output_terminal` or `AcquireOutputTerminal` exists.
-  - [ ] Runtime tests prove diagnostic write escapes unsafe controls and bounds output.
-  - [ ] Existing stdout/terminal integration tests pass in Free state and coordinator-unavailable states.
+  - [x] Compile-fail tests reject direct `string` session writes and implicit conversions.
+  - [x] Compile-fail/import tests confirm no `terminal_session_output_terminal` or `AcquireOutputTerminal` exists.
+  - [x] Runtime tests prove diagnostic write escapes unsafe controls and bounds output.
+  - [x] Existing stdout/terminal integration tests pass in Free state and coordinator-unavailable states.
 
   **QA Scenarios**:
   ```

@@ -1,0 +1,28 @@
+$ cargo test terminal_session_output --quiet
+[exit 0]
+
+running 2 tests
+..
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1587 filtered out; finished in 0.00s
+
+Covered:
+- session writes accept explicit TrustedTerminalOutput.
+- diagnostic writes accept SafeTerminalDiagnosticOutput produced by safe formatter.
+- unsafe ESC control in diagnostic detail is escaped before output capture.
+- paused output/cursor/flush operations reject before mutation with TerminalSessionStateError.SessionPaused.
+
+$ cargo test terminal_ --quiet
+[exit 0]
+
+running 115 tests
+....................................................................................... 87/115
+............................
+test result: ok. 115 passed; 0 failed; 0 ignored; 0 measured; 1474 filtered out; finished in 0.51s
+
+$ cargo clippy --all-targets --all-features -- -D warnings
+[exit 0]
+
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.31s
+
+$ cargo fmt --all -- --check && git diff --check
+[exit 0]

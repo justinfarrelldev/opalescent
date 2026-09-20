@@ -7,14 +7,15 @@
 
 use crate::runtime::terminal::{
     SafeTerminalDiagnosticOutput, TerminalBackend, TerminalCapabilities, TerminalCloseOutcome,
-    TerminalColorCapability, TerminalCoordinatorState, TerminalDiagnostic,
+    TerminalColorCapability, TerminalCoordinatorState, TerminalCursorShape, TerminalDiagnostic,
     TerminalDiagnosticCollection, TerminalDiagnosticRetryability, TerminalDiagnosticSessionState,
     TerminalDiagnosticStage, TerminalFeatureCapability, TerminalInputEvent, TerminalOperation,
     TerminalOrdinaryFeature, TerminalPauseError, TerminalPauseEvents, TerminalPauseResult,
     TerminalReadEventError, TerminalRecoveryToken, TerminalSession, TerminalSessionFeaturePolicy,
     TerminalSessionOpenError, TerminalSessionOptions, TerminalSessionOptionsError,
     TerminalSessionResourceLimits, TerminalSessionRestoreError, TerminalSessionState,
-    TerminalSessionStateError, TerminalTrustedPasteCapability, TerminalWait, TrustedTerminalOutput,
+    TerminalSessionStateError, TerminalTrustedPasteCapability, TerminalWait,
+    TerminalWriteOperationError, TrustedTerminalOutput,
     safe_terminal_diagnostic_collection_format as runtime_safe_collection_format,
     safe_terminal_diagnostic_format as runtime_safe_format,
     terminal_session_open_sync as runtime_session_open,
@@ -139,6 +140,45 @@ pub fn terminal_session_resume_sync(
     session: &mut TerminalSession,
 ) -> Result<(), TerminalSessionStateError> {
     session.resume_sync()
+}
+
+/// Write trusted terminal output.
+pub fn terminal_session_write_sync(
+    session: &mut TerminalSession,
+    output: &TrustedTerminalOutput,
+) -> Result<(), TerminalWriteOperationError> {
+    session.write_sync(output)
+}
+
+/// Write safe diagnostic output.
+pub fn terminal_session_write_diagnostic_sync(
+    session: &mut TerminalSession,
+    output: &SafeTerminalDiagnosticOutput,
+) -> Result<(), TerminalWriteOperationError> {
+    session.write_diagnostic_sync(output)
+}
+
+/// Flush trusted terminal output.
+pub fn terminal_session_flush_sync(
+    session: &TerminalSession,
+) -> Result<(), TerminalWriteOperationError> {
+    session.flush_sync()
+}
+
+/// Set cursor visibility.
+pub fn terminal_session_set_cursor_visible_sync(
+    session: &TerminalSession,
+    visible: bool,
+) -> Result<(), TerminalWriteOperationError> {
+    session.set_cursor_visible_sync(visible)
+}
+
+/// Set cursor shape.
+pub fn terminal_session_set_cursor_shape_sync(
+    session: &TerminalSession,
+    shape: TerminalCursorShape,
+) -> Result<(), TerminalWriteOperationError> {
+    session.set_cursor_shape_sync(shape)
 }
 
 /// Close a terminal session explicitly.
