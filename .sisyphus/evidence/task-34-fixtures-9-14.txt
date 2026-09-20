@@ -1,0 +1,16 @@
+$ cargo test --features integration --test integration_e2e terminal_session_interactive_fixtures_9_14_are_active --quiet
+[exit 0]
+
+running 1 test
+.
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 238 filtered out; finished in 0.00s
+
+Activated fixture coverage:
+- terminal-chord-quit
+- terminal-paste-quarantine
+- terminal-game-of-life-interactive
+- terminal-sokoban-mini
+- terminal-file-picker
+- terminal-stopwatch-pomodoro
+
+Each fixture has opal.toml, source, deterministic expected status/stderr, and stable summary marker in the normal integration suite.

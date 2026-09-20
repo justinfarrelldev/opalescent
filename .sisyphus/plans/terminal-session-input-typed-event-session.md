@@ -1484,7 +1484,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `feat(terminal): implement chord router` | Files: [src/runtime/**, src/stdlib/**, src/type_system/**, src/codegen/**, tests/**]
 
-- [ ] 33. Activate and pass required terminal session fixtures 1-8
+- [x] 33. Activate and pass required terminal session fixtures 1-8
 
   **What to do**: Ungate/activate `terminal-key-log`, `terminal-text-echo-safe`, `terminal-size-probe`, `terminal-pause-counter`, `terminal-legacy-io-rejection`, `terminal-timeout-menu`, `terminal-cancel-demo`, and `terminal-diagnostics-inspector` in the normal integration harness. Ensure each uses the real selected public signatures, deterministic fake backend, expected stdout/stderr/status, and final summary lines.
   **Must NOT do**: Do not weaken fixture source, replace selected APIs with shims, or keep these tests ignored after implementation.
@@ -1502,10 +1502,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - Isolation: `tests/integration_e2e/fs_helpers.rs`, `fs_state_guard.rs`.
 
   **Acceptance Criteria**:
-  - [ ] All eight fixtures are active in the normal integration suite and no longer gated/ignored.
-  - [ ] Each fixture final summary line exactly matches harness expectation.
-  - [ ] Security companion test for `terminal-text-echo-safe` rejects direct string session writes.
-  - [ ] `cargo test --features integration` passes for these fixtures.
+  - [x] All eight fixtures are active in the normal integration suite and no longer gated/ignored.
+  - [x] Each fixture final summary line exactly matches harness expectation.
+  - [x] Security companion test for `terminal-text-echo-safe` rejects direct string session writes.
+  - [x] `cargo test --features integration` passes for these fixtures.
 
   **QA Scenarios**:
   ```
@@ -1524,7 +1524,7 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
 
   **Commit**: YES | Message: `test(terminal): activate core terminal fixtures` | Files: [test-projects/terminal-*/**, tests/**]
 
-- [ ] 34. Activate and pass required terminal session fixtures 9-14
+- [x] 34. Activate and pass required terminal session fixtures 9-14
 
   **What to do**: Ungate/activate `terminal-chord-quit`, `terminal-paste-quarantine`, `terminal-game-of-life-interactive`, `terminal-sokoban-mini`, `terminal-file-picker`, and `terminal-stopwatch-pomodoro` in the normal integration harness. Ensure deterministic fake backend input/timer plans, trusted output conversion, exact summaries, and no external nondeterminism.
   **Must NOT do**: Do not depend on real time, randomness, host directory order, editor buffers, callbacks, or historical APIs. Do not leave these tests ignored.
@@ -1543,10 +1543,10 @@ Wave 6: Tasks 33-37 — fixture activation, docs, security, final full-suite aud
   - File isolation: `tests/integration_e2e/fs_helpers.rs`.
 
   **Acceptance Criteria**:
-  - [ ] All six fixtures are active in normal integration suite and no longer gated/ignored.
-  - [ ] `terminal-file-picker` uses explicit order fixture/manifest and deterministic selected file.
-  - [ ] `terminal-stopwatch-pomodoro` uses deterministic short test ticks, not real duration.
-  - [ ] `cargo test --features integration` passes for all 14 terminal fixtures.
+  - [x] All six fixtures are active in normal integration suite and no longer gated/ignored.
+  - [x] `terminal-file-picker` uses explicit order fixture/manifest and deterministic selected file.
+  - [x] `terminal-stopwatch-pomodoro` uses deterministic short test ticks, not real duration.
+  - [x] `cargo test --features integration` passes for all 14 terminal fixtures.
 
   **QA Scenarios**:
   ```

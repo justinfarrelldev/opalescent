@@ -168,6 +168,131 @@ const REMAINING_INTERACTIVE_TERMINAL_SESSION_FIXTURES: &[TerminalSessionFixtureM
     },
 ];
 
+fn all_terminal_session_fixtures() -> Vec<TerminalSessionFixtureMetadata> {
+    CORE_TERMINAL_SESSION_FIXTURES
+        .iter()
+        .chain(COORDINATION_AND_DIAGNOSTIC_TERMINAL_SESSION_FIXTURES.iter())
+        .chain(REMAINING_INTERACTIVE_TERMINAL_SESSION_FIXTURES.iter())
+        .copied()
+        .collect()
+}
+
+fn assert_fixture_group_active(fixtures: &[TerminalSessionFixtureMetadata]) {
+    let mut failures = Vec::new();
+    for fixture in fixtures {
+        let source_path = Path::new(fixture.source_path);
+        if !Path::new(fixture.opal_toml_path).is_file() {
+            failures.push(format!("{} is missing opal.toml", fixture.name));
+            continue;
+        }
+        let source = match fs::read_to_string(source_path) {
+            Ok(source) => source,
+            Err(error) => {
+                failures.push(format!("{} source is unreadable: {error}", fixture.name));
+                continue;
+            }
+        };
+        let summary_marker = fixture
+            .expected_stdout_summary
+            .split_whitespace()
+            .find(|part| part.ends_with("_SUMMARY"))
+            .expect("fixture summaries include a stable summary marker");
+        if !source.contains(summary_marker) {
+            failures.push(format!(
+                "{} source does not contain final summary marker {summary_marker}",
+                fixture.name
+            ));
+        }
+        if source.contains("terminal_session_output_terminal")
+            || source.contains("AcquireOutputTerminal")
+            || source.contains("terminal_input_packet")
+            || source.contains("terminal_event_batch")
+        {
+            failures.push(format!(
+                "{} source contains forbidden historical/session-output API",
+                fixture.name
+            ));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "terminal session fixtures should be active proposal fixtures:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn terminal_session_core_fixtures_1_8_are_active() {
+    assert_fixture_group_active(CORE_TERMINAL_SESSION_FIXTURES);
+    assert_fixture_group_active(COORDINATION_AND_DIAGNOSTIC_TERMINAL_SESSION_FIXTURES);
+}
+
+#[test]
+fn terminal_session_interactive_fixtures_9_14_are_active() {
+    assert_fixture_group_active(REMAINING_INTERACTIVE_TERMINAL_SESSION_FIXTURES);
+}
+
+#[test]
+fn terminal_session_all_fixture_summaries_are_unique_and_deterministic() {
+    let fixtures = all_terminal_session_fixtures();
+    assert_eq!(
+        fixtures.len(),
+        14,
+        "all required terminal fixtures are listed"
+    );
+    let mut summaries = fixtures
+        .iter()
+        .map(|fixture| fixture.expected_stdout_summary)
+        .collect::<Vec<_>>();
+    summaries.sort_unstable();
+    summaries.dedup();
+    assert_eq!(summaries.len(), 14, "fixture summaries must be unique");
+    for fixture in fixtures {
+        assert_eq!(
+            fixture.expected_status, 0_i32,
+            "{} exits successfully",
+            fixture.name
+        );
+        assert_eq!(
+            fixture.expected_stderr, "",
+            "{} has deterministic empty stderr",
+            fixture.name
+        );
+    }
+}
+
+#[test]
+fn terminal_session_fixture_sources_avoid_nondeterministic_dependencies() {
+    let forbidden_needles = [
+        "random(",
+        "sleep(",
+        "read_directory",
+        "list_directory",
+        "host_directory",
+        "callback",
+        "editor_buffer",
+        "Date.now",
+    ];
+    let mut failures = Vec::new();
+    for fixture in all_terminal_session_fixtures() {
+        let source = fs::read_to_string(fixture.source_path)
+            .expect("terminal fixture source should be readable");
+        for needle in forbidden_needles {
+            if source.contains(needle) {
+                failures.push(format!(
+                    "{} contains nondeterministic dependency {needle}",
+                    fixture.name
+                ));
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "terminal fixtures should be deterministic:\n{}",
+        failures.join("\n")
+    );
+}
+
 fn should_run_terminal_session_red() -> bool {
     std::env::var(TERMINAL_SESSION_RED_ENV)
         .map(|value| value.trim() == "1")

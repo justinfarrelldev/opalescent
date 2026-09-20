@@ -1,0 +1,19 @@
+$ cargo test --features integration --test integration_e2e terminal_session_fixture_sources_avoid_nondeterministic_dependencies --quiet
+[exit 0]
+
+running 1 test
+.
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 238 filtered out; finished in 0.00s
+
+Static compliance checks reject forbidden fixture dependencies/API names:
+- terminal_session_output_terminal
+- AcquireOutputTerminal
+- terminal_input_packet / terminal_event_batch historical APIs
+- random(), sleep(), host directory listing terms, callbacks, and editor buffer terms.
+
+$ cargo test --features integration --test integration_e2e terminal_session_all_fixture_summaries_are_unique_and_deterministic --quiet
+[exit 0]
+
+running 1 test
+.
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 238 filtered out; finished in 0.00s
