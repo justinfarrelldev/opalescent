@@ -36,7 +36,7 @@ use compiler_helpers::{
     collect_module_symbol_signatures, collect_program_adt_field_indices,
     collect_program_adt_field_layouts, compile_checked_program_to_module, is_main_module_path,
     lambda_body_to_function_body, merge_adt_field_indices_from_layouts,
-    merge_interface_adt_field_layouts, parse_source_to_program,
+    merge_interface_adt_field_layouts, merge_standard_adt_field_layouts, parse_source_to_program,
     validate_entry_declarations_for_module,
 };
 use inkwell::context::Context;
@@ -984,6 +984,7 @@ pub fn compile_project_with_run_policy(
             merge_interface_adt_field_layouts(interface, &mut global_adt_field_layouts);
         }
     }
+    merge_standard_adt_field_layouts(&mut global_adt_field_layouts);
     merge_adt_field_indices_from_layouts(&mut global_adt_field_indices, &global_adt_field_layouts);
 
     let mut object_paths: Vec<PathBuf> = Vec::new();

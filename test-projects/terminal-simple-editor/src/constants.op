@@ -1,0 +1,189 @@
+##
+  Description: Normal mode accepts movement and command-entry keys.
+##
+public let mode_normal: int64 = 0
+
+##
+  Description: Insert mode commits text edits into the buffer.
+##
+public let mode_insert: int64 = 1
+
+##
+  Description: Command mode collects a small colon command.
+##
+public let mode_command: int64 = 2
+
+##
+  Description: Empty command buffer state.
+##
+public let command_none: int64 = 0
+
+##
+  Description: Command buffer contains w.
+##
+public let command_write: int64 = 1
+
+##
+  Description: Command buffer contains q.
+##
+public let command_quit: int64 = 2
+
+##
+  Description: Command buffer contains wq.
+##
+public let command_write_quit: int64 = 3
+
+##
+  Description: Command buffer contains q!.
+##
+public let command_force_quit: int64 = 4
+
+##
+  Description: Command buffer contains unsupported input.
+##
+public let command_invalid: int64 = 5
+
+##
+  Description: Status shown for a new unnamed empty buffer.
+##
+public let status_new_empty: int64 = 0
+
+##
+  Description: Status shown after a file is opened.
+##
+public let status_opened: int64 = 1
+
+##
+  Description: Status shown after returning to normal mode.
+##
+public let status_normal_mode: int64 = 2
+
+##
+  Description: Status shown after entering insert mode.
+##
+public let status_insert_mode: int64 = 3
+
+##
+  Description: Status shown after entering command mode.
+##
+public let status_command_mode: int64 = 4
+
+##
+  Description: Status shown after cursor movement.
+##
+public let status_moved: int64 = 5
+
+##
+  Description: Status shown after moving to line start.
+##
+public let status_line_start: int64 = 6
+
+##
+  Description: Status shown after moving to line end.
+##
+public let status_line_end: int64 = 7
+
+##
+  Description: Status shown after inserting text.
+##
+public let status_inserted_text: int64 = 8
+
+##
+  Description: Status shown after splitting a line.
+##
+public let status_line_split: int64 = 9
+
+##
+  Description: Status shown after deleting text.
+##
+public let status_deleted: int64 = 10
+
+##
+  Description: Status shown after writing the file.
+##
+public let status_written: int64 = 11
+
+##
+  Description: Status shown for a successful terminal command.
+##
+public let status_ok: int64 = 12
+
+##
+  Description: Status shown when unsaved changes block quitting.
+##
+public let status_unsaved: int64 = 13
+
+##
+  Description: Status shown for an invalid key.
+##
+public let status_invalid_key: int64 = 14
+
+##
+  Description: Status shown when Enter is used outside insert or command mode.
+##
+public let status_enter_insert_only: int64 = 15
+
+##
+  Description: Status shown after receiving a resize event.
+##
+public let status_resized: int64 = 16
+
+##
+  Description: Status shown after cancellation.
+##
+public let status_cancelled: int64 = 17
+
+##
+  Description: Status shown after end-of-input.
+##
+public let status_end_of_input: int64 = 18
+
+##
+  Description: Status shown after force quitting without saving.
+##
+public let status_quit_without_saving: int64 = 19
+
+##
+  Description: Status shown after moving to file end.
+##
+public let status_file_end: int64 = 20
+
+##
+  Description: Status shown for an unsupported colon command.
+##
+public let status_invalid_command: int64 = 21
+
+##
+  Description: Running termination state.
+##
+public let termination_running: int64 = 0
+
+##
+  Description: Termination from normal-mode q.
+##
+public let termination_normal_q: int64 = 1
+
+##
+  Description: Termination from colon q.
+##
+public let termination_command_q: int64 = 2
+
+##
+  Description: Termination from colon wq.
+##
+public let termination_command_wq: int64 = 3
+
+##
+  Description: Termination from colon q bang.
+##
+public let termination_command_q_bang: int64 = 4
+
+##
+  Description: Termination from cancellation.
+##
+public let termination_cancelled: int64 = 5
+
+##
+  Description: Termination from end-of-input.
+##
+public let termination_end_of_input: int64 = 6

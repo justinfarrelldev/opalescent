@@ -1,0 +1,7 @@
+import string_insert_at from standard
+
+##
+  Description: Returns an owned copy of text for safe cross-helper string ownership.
+##
+public let copy_text = f(text: string): string errors StringRangeOutOfBoundsError, AllocationFailureError =>
+    return propagate string_insert_at('', 0 as int64, text)

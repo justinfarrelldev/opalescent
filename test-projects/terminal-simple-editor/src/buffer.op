@@ -1,0 +1,155 @@
+import path_from, write_text_atomic_sync, string_join, string_length from standard
+import string_insert_at, string_delete_range, string_extract_range from standard
+
+##
+  Description: Ensures a text buffer always has at least one editable line.
+##
+public let ensure_nonempty_lines = f(lines: string[]): string[] =>
+    let mutable result: string[] = lines
+    if result.length is 0:
+        result.push('')
+    return result
+
+##
+  Description: Returns the Unicode scalar length of a line in the buffer.
+##
+public let line_length_at = f(lines: string[], line_index: int64): int64 errors IndexOutOfBoundsError =>
+    let line = propagate lines.at(line_index)
+    return string_length(line)
+
+##
+  Description: Clamps a requested cursor column to the selected line length.
+##
+public let clamp_column_to_line = f(lines: string[], line_index: int64, column: int64): int64 errors IndexOutOfBoundsError =>
+    let length = propagate line_length_at(lines, line_index)
+    if column < 0:
+        return 0
+    if column > length:
+        return length
+    return column
+
+##
+  Description: Scrolls the viewport enough to keep the cursor visible.
+##
+public let update_viewport = f(cursor_line: int64, viewport_top: int64, visible_rows: int64): int64 =>
+    if cursor_line < viewport_top:
+        return cursor_line
+    if cursor_line >= viewport_top + visible_rows:
+        return cursor_line - visible_rows + 1
+    return viewport_top
+
+##
+  Description: Inserts text at the current cursor position.
+##
+public let insert_text_at_cursor = f(lines: string[], cursor_line: int64, cursor_column: int64, text: string): updated_lines: string[], updated_cursor_line: int64, updated_cursor_column: int64 errors IndexOutOfBoundsError, StringRangeOutOfBoundsError, AllocationFailureError =>
+    let line = propagate lines.at(cursor_line)
+    let updated_line = propagate string_insert_at(line, cursor_column, text)
+    let mutable changed: string[] = lines
+    changed[cursor_line] = updated_line
+    return updated_lines: changed, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column + string_length(text)
+
+##
+  Description: Splits the current line at the cursor position.
+##
+public let split_line_at_cursor = f(lines: string[], cursor_line: int64, cursor_column: int64): updated_lines: string[], updated_cursor_line: int64, updated_cursor_column: int64 errors IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+    let line = propagate lines.at(cursor_line)
+    let before = propagate string_extract_range(line, 0 as int64, cursor_column)
+    let after = propagate string_extract_range(line, cursor_column, string_length(line))
+    let mutable changed: string[] = lines
+    changed[cursor_line] = before
+    let inserted = propagate changed.insert(cursor_line + 1, after)
+    return updated_lines: inserted, updated_cursor_line: cursor_line + 1, updated_cursor_column: 0
+
+##
+  Description: Deletes before the cursor or joins with the previous line.
+##
+public let backspace_at_cursor = f(lines: string[], cursor_line: int64, cursor_column: int64): updated_lines: string[], updated_cursor_line: int64, updated_cursor_column: int64 errors IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+    if cursor_column > 0:
+        let line = propagate lines.at(cursor_line)
+        let updated_line = propagate string_delete_range(line, cursor_column - 1, cursor_column)
+        let mutable changed: string[] = lines
+        changed[cursor_line] = updated_line
+        return updated_lines: changed, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column - 1
+
+    if cursor_line > 0:
+        let previous = propagate lines.at(cursor_line - 1)
+        let current = propagate lines.at(cursor_line)
+        let joined = '{previous}{current}'
+        let mutable changed: string[] = lines
+        changed[cursor_line - 1] = joined
+        let updated, _removed = propagate changed.remove_at(cursor_line)
+        return updated_lines: updated, updated_cursor_line: cursor_line - 1, updated_cursor_column: string_length(previous)
+
+    return updated_lines: lines, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column
+
+##
+  Description: Deletes under the cursor or joins with the next line.
+##
+public let delete_at_cursor = f(lines: string[], cursor_line: int64, cursor_column: int64): updated_lines: string[], updated_cursor_line: int64, updated_cursor_column: int64 errors IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+    let line = propagate lines.at(cursor_line)
+    if cursor_column < string_length(line):
+        let updated_line = propagate string_delete_range(line, cursor_column, cursor_column + 1)
+        let mutable changed: string[] = lines
+        changed[cursor_line] = updated_line
+        return updated_lines: changed, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column
+
+    if cursor_line + 1 < lines.length:
+        let next_line = propagate lines.at(cursor_line + 1)
+        let joined = '{line}{next_line}'
+        let mutable changed: string[] = lines
+        changed[cursor_line] = joined
+        let updated, _removed = propagate changed.remove_at(cursor_line + 1)
+        return updated_lines: updated, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column
+
+    return updated_lines: lines, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column
+
+##
+  Description: Writes all lines with newline separators using an atomic filesystem write.
+##
+public let save_lines = f(file_path_text: string, lines: string[]): void errors FilesystemWriteError, AllocationFailureError =>
+    let path = path_from(file_path_text)
+    let text = propagate string_join(lines, '\n')
+    propagate write_text_atomic_sync(path, text)
+    return void
+
+##
+  Description: Moves the cursor left, wrapping to the previous line when needed.
+##
+public let move_left = f(lines: string[], cursor_line: int64, cursor_column: int64): updated_cursor_line: int64, updated_cursor_column: int64 errors IndexOutOfBoundsError =>
+    if cursor_column > 0:
+        return updated_cursor_line: cursor_line, updated_cursor_column: cursor_column - 1
+    if cursor_line > 0:
+        let previous_length = propagate line_length_at(lines, cursor_line - 1)
+        return updated_cursor_line: cursor_line - 1, updated_cursor_column: previous_length
+    return updated_cursor_line: cursor_line, updated_cursor_column: cursor_column
+
+##
+  Description: Moves the cursor right, wrapping to the next line when needed.
+##
+public let move_right = f(lines: string[], cursor_line: int64, cursor_column: int64): updated_cursor_line: int64, updated_cursor_column: int64 errors IndexOutOfBoundsError =>
+    let current_length = propagate line_length_at(lines, cursor_line)
+    if cursor_column < current_length:
+        return updated_cursor_line: cursor_line, updated_cursor_column: cursor_column + 1
+    if cursor_line + 1 < lines.length:
+        return updated_cursor_line: cursor_line + 1, updated_cursor_column: 0
+    return updated_cursor_line: cursor_line, updated_cursor_column: cursor_column
+
+##
+  Description: Moves the cursor up and clamps the column to the destination line.
+##
+public let move_up = f(lines: string[], cursor_line: int64, cursor_column: int64): updated_cursor_line: int64, updated_cursor_column: int64 errors IndexOutOfBoundsError =>
+    if cursor_line > 0:
+        let new_line = cursor_line - 1
+        let new_column = propagate clamp_column_to_line(lines, new_line, cursor_column)
+        return updated_cursor_line: new_line, updated_cursor_column: new_column
+    return updated_cursor_line: cursor_line, updated_cursor_column: cursor_column
+
+##
+  Description: Moves the cursor down and clamps the column to the destination line.
+##
+public let move_down = f(lines: string[], cursor_line: int64, cursor_column: int64): updated_cursor_line: int64, updated_cursor_column: int64 errors IndexOutOfBoundsError =>
+    if cursor_line + 1 < lines.length:
+        let new_line = cursor_line + 1
+        let new_column = propagate clamp_column_to_line(lines, new_line, cursor_column)
+        return updated_cursor_line: new_line, updated_cursor_column: new_column
+    return updated_cursor_line: cursor_line, updated_cursor_column: cursor_column

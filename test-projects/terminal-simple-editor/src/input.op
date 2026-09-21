@@ -1,0 +1,170 @@
+import mode_normal, mode_insert, mode_command from ./constants
+import command_none, command_write, command_quit, command_write_quit, command_force_quit, command_invalid from ./constants
+import status_insert_mode, status_command_mode, status_unsaved, status_ok, status_moved from ./constants
+import status_line_start, status_line_end, status_inserted_text, status_line_split from ./constants
+import status_deleted, status_written, status_invalid_key, status_enter_insert_only from ./constants
+import status_quit_without_saving, status_file_end, status_invalid_command, status_normal_mode from ./constants
+import termination_running, termination_normal_q, termination_command_q, termination_command_wq, termination_command_q_bang from ./constants
+import insert_text_at_cursor, split_line_at_cursor, backspace_at_cursor, delete_at_cursor, save_lines from ./buffer
+import line_length_at, clamp_column_to_line, move_left, move_right, move_up, move_down from ./buffer
+import type TerminalNamedKey from 'standard.terminal'
+
+##
+  Description: Updates the compact colon-command state with committed text.
+##
+public let update_command = f(command_code: int64, text: string): int64 =>
+    if command_code is command_none:
+        if text is 'w':
+            return command_write
+        if text is 'q':
+            return command_quit
+        if text is 'wq':
+            return command_write_quit
+        if text is 'q!':
+            return command_force_quit
+        return command_invalid
+
+    if command_code is command_write:
+        if text is 'q':
+            return command_write_quit
+        return command_invalid
+
+    if command_code is command_quit:
+        if text is '!':
+            return command_force_quit
+        return command_invalid
+
+    return command_invalid
+
+##
+  Description: Applies a finite colon command to the editor state.
+##
+public let execute_command = f(file_path_text: string, lines: string[], dirty: boolean, command_code: int64): updated_dirty: boolean, saved: boolean, updated_mode: int64, updated_command_code: int64, status_code: int64, running: boolean, termination_code: int64, should_bell: boolean errors FilesystemWriteError, AllocationFailureError =>
+    if command_code is command_write:
+        propagate save_lines(file_path_text, lines)
+        return updated_dirty: false, saved: true, updated_mode: mode_normal, updated_command_code: command_none, status_code: status_written, running: true, termination_code: termination_running, should_bell: false
+
+    if command_code is command_quit:
+        if dirty:
+            return updated_dirty: dirty, saved: false, updated_mode: mode_normal, updated_command_code: command_none, status_code: status_unsaved, running: true, termination_code: termination_running, should_bell: true
+        return updated_dirty: dirty, saved: false, updated_mode: mode_normal, updated_command_code: command_none, status_code: status_ok, running: false, termination_code: termination_command_q, should_bell: false
+
+    if command_code is command_write_quit:
+        propagate save_lines(file_path_text, lines)
+        return updated_dirty: false, saved: true, updated_mode: mode_normal, updated_command_code: command_none, status_code: status_ok, running: false, termination_code: termination_command_wq, should_bell: false
+
+    if command_code is command_force_quit:
+        return updated_dirty: dirty, saved: false, updated_mode: mode_normal, updated_command_code: command_none, status_code: status_quit_without_saving, running: false, termination_code: termination_command_q_bang, should_bell: false
+
+    return updated_dirty: dirty, saved: false, updated_mode: mode_normal, updated_command_code: command_none, status_code: status_invalid_command, running: true, termination_code: termination_running, should_bell: true
+
+##
+  Description: Applies committed text or text-key identity to the editor state.
+##
+public let apply_text_input = f(lines: string[], mode: int64, dirty: boolean, cursor_line: int64, cursor_column: int64, command_code: int64, text: string): updated_lines: string[], updated_mode: int64, updated_dirty: boolean, updated_cursor_line: int64, updated_cursor_column: int64, updated_command_code: int64, status_code: int64, running: boolean, termination_code: int64, should_bell: boolean errors IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+    if mode is mode_insert:
+        let updated_lines: inserted_lines, updated_cursor_line: inserted_cursor_line, updated_cursor_column: inserted_cursor_column = propagate insert_text_at_cursor(lines, cursor_line, cursor_column, text)
+        return updated_lines: inserted_lines, updated_mode: mode, updated_dirty: true, updated_cursor_line: inserted_cursor_line, updated_cursor_column: inserted_cursor_column, updated_command_code: command_code, status_code: status_inserted_text, running: true, termination_code: termination_running, should_bell: false
+
+    if mode is mode_command:
+        let new_command = update_command(command_code, text)
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: new_command, status_code: status_command_mode, running: true, termination_code: termination_running, should_bell: false
+
+    if text is 'i':
+        return updated_lines: lines, updated_mode: mode_insert, updated_dirty: dirty, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_code, status_code: status_insert_mode, running: true, termination_code: termination_running, should_bell: false
+
+    if text is ':':
+        return updated_lines: lines, updated_mode: mode_command, updated_dirty: dirty, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_none, status_code: status_command_mode, running: true, termination_code: termination_running, should_bell: false
+
+    if text is 'q':
+        if dirty:
+            return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_code, status_code: status_unsaved, running: true, termination_code: termination_running, should_bell: true
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_code, status_code: status_ok, running: false, termination_code: termination_normal_q, should_bell: false
+
+    if text is 'h':
+        let updated_cursor_line: h_line, updated_cursor_column: h_column = propagate move_left(lines, cursor_line, cursor_column)
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, updated_cursor_line: h_line, updated_cursor_column: h_column, updated_command_code: command_code, status_code: status_moved, running: true, termination_code: termination_running, should_bell: false
+
+    if text is 'l':
+        let updated_cursor_line: l_line, updated_cursor_column: l_column = propagate move_right(lines, cursor_line, cursor_column)
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, updated_cursor_line: l_line, updated_cursor_column: l_column, updated_command_code: command_code, status_code: status_moved, running: true, termination_code: termination_running, should_bell: false
+
+    if text is 'k':
+        let updated_cursor_line: k_line, updated_cursor_column: k_column = propagate move_up(lines, cursor_line, cursor_column)
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, updated_cursor_line: k_line, updated_cursor_column: k_column, updated_command_code: command_code, status_code: status_moved, running: true, termination_code: termination_running, should_bell: false
+
+    if text is 'j':
+        let updated_cursor_line: j_line, updated_cursor_column: j_column = propagate move_down(lines, cursor_line, cursor_column)
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, updated_cursor_line: j_line, updated_cursor_column: j_column, updated_command_code: command_code, status_code: status_moved, running: true, termination_code: termination_running, should_bell: false
+
+    if text is '0':
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, updated_cursor_line: cursor_line, updated_cursor_column: 0, updated_command_code: command_code, status_code: status_line_start, running: true, termination_code: termination_running, should_bell: false
+
+    if text is '$':
+        let end_column = propagate line_length_at(lines, cursor_line)
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, updated_cursor_line: cursor_line, updated_cursor_column: end_column, updated_command_code: command_code, status_code: status_line_end, running: true, termination_code: termination_running, should_bell: false
+
+    if text is 'G':
+        let end_line = lines.length - 1
+        let end_column = propagate clamp_column_to_line(lines, end_line, cursor_column)
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, updated_cursor_line: end_line, updated_cursor_column: end_column, updated_command_code: command_code, status_code: status_file_end, running: true, termination_code: termination_running, should_bell: false
+
+    return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_code, status_code: status_invalid_key, running: true, termination_code: termination_running, should_bell: true
+
+##
+  Description: Applies a terminal named key to the editor state.
+##
+public let apply_named_key = f(file_path_text: string, lines: string[], mode: int64, dirty: boolean, cursor_line: int64, cursor_column: int64, command_code: int64, named_key: TerminalNamedKey): updated_lines: string[], updated_mode: int64, updated_dirty: boolean, saved: boolean, updated_cursor_line: int64, updated_cursor_column: int64, updated_command_code: int64, status_code: int64, running: boolean, termination_code: int64, should_bell: boolean errors FilesystemWriteError, IndexOutOfBoundsError, StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+    if named_key is TerminalNamedKey.Escape:
+        if mode is mode_insert or mode is mode_command:
+            return updated_lines: lines, updated_mode: mode_normal, updated_dirty: dirty, saved: false, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_none, status_code: status_normal_mode, running: true, termination_code: termination_running, should_bell: false
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_code, status_code: status_normal_mode, running: true, termination_code: termination_running, should_bell: true
+
+    if named_key is TerminalNamedKey.Enter:
+        if mode is mode_insert:
+            let updated_lines: split_lines, updated_cursor_line: split_cursor_line, updated_cursor_column: split_cursor_column = propagate split_line_at_cursor(lines, cursor_line, cursor_column)
+            return updated_lines: split_lines, updated_mode: mode, updated_dirty: true, saved: false, updated_cursor_line: split_cursor_line, updated_cursor_column: split_cursor_column, updated_command_code: command_code, status_code: status_line_split, running: true, termination_code: termination_running, should_bell: false
+        if mode is mode_command:
+            let updated_dirty: command_dirty, saved: command_saved, updated_mode: command_mode, updated_command_code: command_after, status_code: command_status, running: command_running, termination_code: command_termination, should_bell: command_bell = propagate execute_command(file_path_text, lines, dirty, command_code)
+            return updated_lines: lines, updated_mode: command_mode, updated_dirty: command_dirty, saved: command_saved, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_after, status_code: command_status, running: command_running, termination_code: command_termination, should_bell: command_bell
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_code, status_code: status_enter_insert_only, running: true, termination_code: termination_running, should_bell: true
+
+    if named_key is TerminalNamedKey.Backspace:
+        if mode is mode_insert:
+            let updated_lines: backspace_lines, updated_cursor_line: backspace_cursor_line, updated_cursor_column: backspace_cursor_column = propagate backspace_at_cursor(lines, cursor_line, cursor_column)
+            return updated_lines: backspace_lines, updated_mode: mode, updated_dirty: true, saved: false, updated_cursor_line: backspace_cursor_line, updated_cursor_column: backspace_cursor_column, updated_command_code: command_code, status_code: status_deleted, running: true, termination_code: termination_running, should_bell: false
+        if mode is mode_command:
+            return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_none, status_code: status_command_mode, running: true, termination_code: termination_running, should_bell: false
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_code, status_code: status_invalid_key, running: true, termination_code: termination_running, should_bell: true
+
+    if named_key is TerminalNamedKey.Delete:
+        if mode is mode_insert:
+            let updated_lines: delete_lines, updated_cursor_line: delete_cursor_line, updated_cursor_column: delete_cursor_column = propagate delete_at_cursor(lines, cursor_line, cursor_column)
+            return updated_lines: delete_lines, updated_mode: mode, updated_dirty: true, saved: false, updated_cursor_line: delete_cursor_line, updated_cursor_column: delete_cursor_column, updated_command_code: command_code, status_code: status_deleted, running: true, termination_code: termination_running, should_bell: false
+        return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_code, status_code: status_invalid_key, running: true, termination_code: termination_running, should_bell: true
+
+    if named_key is TerminalNamedKey.ArrowLeft:
+        if mode is not mode_command:
+            let updated_cursor_line: left_line, updated_cursor_column: left_column = propagate move_left(lines, cursor_line, cursor_column)
+            return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: left_line, updated_cursor_column: left_column, updated_command_code: command_code, status_code: status_moved, running: true, termination_code: termination_running, should_bell: false
+    if named_key is TerminalNamedKey.ArrowRight:
+        if mode is not mode_command:
+            let updated_cursor_line: right_line, updated_cursor_column: right_column = propagate move_right(lines, cursor_line, cursor_column)
+            return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: right_line, updated_cursor_column: right_column, updated_command_code: command_code, status_code: status_moved, running: true, termination_code: termination_running, should_bell: false
+    if named_key is TerminalNamedKey.ArrowUp:
+        if mode is not mode_command:
+            let updated_cursor_line: up_line, updated_cursor_column: up_column = propagate move_up(lines, cursor_line, cursor_column)
+            return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: up_line, updated_cursor_column: up_column, updated_command_code: command_code, status_code: status_moved, running: true, termination_code: termination_running, should_bell: false
+    if named_key is TerminalNamedKey.ArrowDown:
+        if mode is not mode_command:
+            let updated_cursor_line: down_line, updated_cursor_column: down_column = propagate move_down(lines, cursor_line, cursor_column)
+            return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: down_line, updated_cursor_column: down_column, updated_command_code: command_code, status_code: status_moved, running: true, termination_code: termination_running, should_bell: false
+    if named_key is TerminalNamedKey.Home:
+        if mode is not mode_command:
+            return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: cursor_line, updated_cursor_column: 0, updated_command_code: command_code, status_code: status_line_start, running: true, termination_code: termination_running, should_bell: false
+    if named_key is TerminalNamedKey.End:
+        if mode is not mode_command:
+            let end_column = propagate line_length_at(lines, cursor_line)
+            return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: cursor_line, updated_cursor_column: end_column, updated_command_code: command_code, status_code: status_line_end, running: true, termination_code: termination_running, should_bell: false
+
+    return updated_lines: lines, updated_mode: mode, updated_dirty: dirty, saved: false, updated_cursor_line: cursor_line, updated_cursor_column: cursor_column, updated_command_code: command_code, status_code: status_invalid_key, running: true, termination_code: termination_running, should_bell: true

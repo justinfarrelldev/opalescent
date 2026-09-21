@@ -295,6 +295,23 @@ pub fn merge_interface_adt_field_layouts(
     }
 }
 
+/// Merge standard-library ADT layouts needed by generated project modules.
+pub fn merge_standard_adt_field_layouts(
+    adt_field_layouts: &mut BTreeMap<String, Vec<(String, CoreType)>>,
+) {
+    let standard_layout_checker = TypeChecker::new();
+    for module_path in [
+        "standard",
+        "standard.system",
+        "standard.terminal",
+        "standard.terminal.chords",
+    ] {
+        if let Some(interface) = standard_layout_checker.module_interface(module_path) {
+            merge_interface_adt_field_layouts(&interface, adt_field_layouts);
+        }
+    }
+}
+
 /// Collects the current module's public and private symbol signatures for codegen.
 pub fn collect_module_symbol_signatures(
     checker: &TypeChecker,
