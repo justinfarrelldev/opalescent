@@ -244,7 +244,7 @@ Returns the terminal display-cell width of `text` using Opalescent's Unicode ter
 
 Clips `text` to the largest grapheme-boundary prefix that fits within `max_cells` terminal cells and returns `clipped, used_cells`.
 
-- `TerminalTextLayoutError` — `max_cells < 0`
+- `TerminalTextLayoutError.NegativeCellLimit` (runtime leaf string: `NegativeCellLimit`) — `max_cells < 0`
 - `AllocationFailureError` — allocating the clipped string fails
 - Clipping never splits a combining sequence or zero-width-joiner emoji sequence
 

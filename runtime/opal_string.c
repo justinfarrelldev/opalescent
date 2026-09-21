@@ -1118,7 +1118,7 @@ FsStringInt64Result terminal_text_clip_to_cells(const char* value, int64_t max_c
     r.error = NULL;
     if (!value) { fprintf(stderr, "Runtime error: terminal_text_clip_to_cells called with NULL string pointer\n"); exit(1); }
     if (max_cells < 0) {
-        r.error = "TerminalTextLayoutError";
+        r.error = "NegativeCellLimit";
         return r;
     }
 

@@ -16,10 +16,10 @@ Method: each schism and correctness gap must first be proven with a failing test
 
 ## 2. `TerminalTextLayoutError` shape is collapsed versus proposal variants
 
-- [ ] PROVE: add a failing fixture/test showing negative limits surface only generic `TerminalTextLayoutError` instead of a specific `NegativeCellLimit` variant/leaf.
-- [ ] FIX/DISPROVE: implement a specific negative-limit error name/variant and register/import it consistently, or prove current language error model cannot express proposal variants yet and update proposal/docs accordingly.
-- [ ] REFACTOR: run focused layout error tests.
-- [ ] COMMIT: atomic terminal text layout error-shape commit.
+- [x] PROVE: add a failing fixture/test showing negative limits surface only generic `TerminalTextLayoutError` instead of a specific `NegativeCellLimit` variant/leaf.
+- [x] FIX/DISPROVE: implement a specific negative-limit error name/variant and register/import it consistently, or prove current language error model cannot express proposal variants yet and update proposal/docs accordingly.
+- [x] REFACTOR: run focused layout error tests.
+- [x] COMMIT: atomic terminal text layout error-shape commit.
 
 ## 3. Array editing declares `AllocationFailureError` but generated lowering traps or ignores allocation failures
 

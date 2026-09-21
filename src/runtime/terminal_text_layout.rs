@@ -23,8 +23,8 @@ pub fn terminal_text_cell_width(value: &OpalString) -> i64 {
 ///
 /// # Errors
 ///
-/// Returns `TerminalTextLayoutError` for negative limits and allocator errors
-/// when the clipped text cannot be allocated.
+/// Returns the `NegativeCellLimit` leaf of `TerminalTextLayoutError` for
+/// negative limits and allocator errors when the clipped text cannot be allocated.
 pub fn terminal_text_clip_to_cells<Allocator>(
     allocator: &Allocator,
     value: &OpalString,
@@ -34,7 +34,7 @@ where
     Allocator: RuntimeAllocator,
 {
     if max_cells < 0 {
-        return Err(RuntimeError::user_error(1_201, "TerminalTextLayoutError"));
+        return Err(RuntimeError::user_error(1_201, "NegativeCellLimit"));
     }
 
     let source = value.as_str();
@@ -363,5 +363,19 @@ mod tests {
             .expect("keycap clip should succeed");
         assert_eq!(clipped_keycap.0.as_str(), "1\u{FE0F}\u{20E3}");
         assert_eq!(clipped_keycap.1, 2);
+    }
+
+    #[test]
+    fn terminal_text_layout_negative_limit_reports_specific_leaf() {
+        let allocator = DefaultRuntimeAllocator;
+        let text = allocator
+            .allocate_string("abc")
+            .expect("test string allocation should succeed");
+        let error = terminal_text_clip_to_cells(&allocator, &text, -1)
+            .expect_err("negative limit should report a layout error");
+        assert_eq!(
+            error,
+            RuntimeError::user_error(1_201, "NegativeCellLimit")
+        );
     }
 }

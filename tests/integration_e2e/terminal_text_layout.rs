@@ -73,3 +73,56 @@ fn terminal_text_layout_project_handles_unicode_cell_widths() {
         execution_result.err().unwrap_or_default()
     );
 }
+
+#[test]
+fn terminal_text_layout_negative_limit_reports_specific_error_leaf() {
+    let temp_dir = unique_probe_target_dir("terminal-text-layout-negative-limit");
+    prepare_dir(&temp_dir).expect("terminal-text-layout negative target directory should be created");
+
+    let source = "import terminal_text_clip_to_cells from standard\n\n##\n  Description: Exercises negative terminal text layout limits.\n##\nentry main = f(): void errors TerminalTextLayoutError, AllocationFailureError => {\n    let clipped, used_cells = propagate terminal_text_clip_to_cells('abc', -1 as int64)\n    print('unexpected {clipped} {used_cells}')\n    return void\n}";
+
+    let execution_result: Result<(), String> = (|| {
+        let binary_path = compile_program_for_tests(
+            Path::new("test-projects/terminal-text-layout-negative-limit/src/main.op"),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        )
+        .map_err(|error| format!("terminal-text-layout negative source should compile: {error}"))?;
+
+        let run_output = run_binary_output_with_timeout(
+            &binary_path,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "terminal-text-layout negative compiled binary",
+        )?;
+
+        if run_output.status.success() {
+            let stdout = String::from_utf8_lossy(&run_output.stdout);
+            return Err(format!(
+                "terminal-text-layout negative binary should fail, stdout:\n{stdout}"
+            ));
+        }
+
+        let stderr = String::from_utf8_lossy(&run_output.stderr);
+        if !stderr.contains("NegativeCellLimit") {
+            return Err(format!(
+                "negative limit stderr should mention NegativeCellLimit, got:\n{stderr}"
+            ));
+        }
+        if stderr.contains("Uncaught error: TerminalTextLayoutError") {
+            return Err(format!(
+                "negative limit stderr should not collapse to generic TerminalTextLayoutError, got:\n{stderr}"
+            ));
+        }
+
+        Ok(())
+    })();
+
+    cleanup_dir(&temp_dir).expect("terminal-text-layout negative target directory should be removed");
+
+    assert!(
+        execution_result.is_ok(),
+        "terminal-text-layout negative limit should expose specific leaf: {}",
+        execution_result.err().unwrap_or_default()
+    );
+}
