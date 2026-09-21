@@ -1,0 +1,39 @@
+# Proposal example: imported payload variant checks and payload field access.
+
+import type EditorMode, EditorStatus, EditorState from ./editor.types
+
+##
+  Description: Render a mode value as status-bar text.
+##
+public let render_editor_mode = f(mode: EditorMode): string =>
+    if mode is EditorMode.Normal:
+        return 'NORMAL'
+    if mode is EditorMode.Insert:
+        return 'INSERT'
+    if mode is EditorMode.Command:
+        return 'COMMAND'
+    return 'UNKNOWN'
+
+##
+  Description: Render an editor status value as text.
+##
+public let render_editor_status = f(status: EditorStatus): string =>
+    if status is EditorStatus.Opened into opened:
+        return 'opened {opened.path}'
+    if status is EditorStatus.Written into written:
+        return 'written {written.path}'
+    if status is EditorStatus.UnsavedChanges:
+        return 'unsaved changes'
+    if status is EditorStatus.InvalidKey into invalid:
+        return 'invalid key {invalid.key}'
+    if status is EditorStatus.CommandError into command_error:
+        return 'command error {command_error.text}'
+    return 'unknown status'
+
+##
+  Description: Render a compact state summary.
+##
+public let render_editor_summary = f(state: EditorState): string =>
+    let mode_text = render_editor_mode(state.mode)
+    let status_text = render_editor_status(state.status)
+    return 'mode={mode_text} status={status_text} dirty={state.dirty}'

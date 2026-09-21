@@ -1,0 +1,13 @@
+# Proposal example: transitive use from main.
+
+import create_editor_state from ./state
+import parse_editor_command, apply_editor_command from ./commands
+import render_editor_summary from ./render_status
+
+entry main = f(args: string[]): void =>
+    let lines: string[] = ['alpha', 'beta']
+    let state = create_editor_state('sample.txt', lines)
+    let command = parse_editor_command('q')
+    let next = apply_editor_command(state, command)
+    print(render_editor_summary(next))
+    return void

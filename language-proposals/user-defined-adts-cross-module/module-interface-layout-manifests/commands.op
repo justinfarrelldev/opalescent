@@ -1,0 +1,57 @@
+# Proposal example: parsing and applying nominal command ADTs.
+
+import type EditorCommand, EditorMode, EditorStatus, EditorState from ./editor.types
+
+##
+  Description: Parse command-mode text into a nominal editor command.
+##
+public let parse_editor_command = f(text: string): EditorCommand =>
+    if text is 'w':
+        return new EditorCommand.Write
+    if text is 'q':
+        return new EditorCommand.Quit
+    if text is 'wq':
+        return new EditorCommand.WriteQuit
+    if text is 'q!':
+        return new EditorCommand.ForceQuit
+    return new EditorCommand.Invalid:
+        text: text
+
+##
+  Description: Apply a parsed editor command to editor state.
+##
+public let apply_editor_command = f(state: EditorState, command: EditorCommand): EditorState =>
+    if command is EditorCommand.Quit:
+        if state.dirty:
+            return new EditorState:
+                lines: state.lines
+                cursor: state.cursor
+                viewport_line: state.viewport_line
+                dirty: state.dirty
+                mode: new EditorMode.Command
+                command: command
+                status: new EditorStatus.UnsavedChanges
+                running: true
+        return new EditorState:
+            lines: state.lines
+            cursor: state.cursor
+            viewport_line: state.viewport_line
+            dirty: state.dirty
+            mode: state.mode
+            command: command
+            status: state.status
+            running: false
+
+    if command is EditorCommand.Invalid into invalid:
+        return new EditorState:
+            lines: state.lines
+            cursor: state.cursor
+            viewport_line: state.viewport_line
+            dirty: state.dirty
+            mode: new EditorMode.Command
+            command: command
+            status: new EditorStatus.CommandError:
+                text: invalid.text
+            running: true
+
+    return state

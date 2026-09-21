@@ -1,0 +1,34 @@
+# Proposal example: constructing an imported product and enum variants.
+
+import type EditorMode, EditorCommand, EditorStatus, CursorPosition, EditorState from ./editor.types
+
+##
+  Description: Create editor state after opening a file.
+##
+public let create_editor_state = f(path: string, lines: string[]): EditorState =>
+    return new EditorState:
+        lines: lines
+        cursor: new CursorPosition:
+            line: 0
+            column: 0
+        viewport_line: 0
+        dirty: false
+        mode: new EditorMode.Normal
+        command: new EditorCommand.None
+        status: new EditorStatus.Opened:
+            path: path
+        running: true
+
+##
+  Description: Return a copy of state with an updated status.
+##
+public let with_status = f(state: EditorState, status: EditorStatus): EditorState =>
+    return new EditorState:
+        lines: state.lines
+        cursor: state.cursor
+        viewport_line: state.viewport_line
+        dirty: state.dirty
+        mode: state.mode
+        command: state.command
+        status: status
+        running: state.running
