@@ -11,6 +11,8 @@ This proposal exposes array editing as member-style operations: `values.insert(i
 ## Syntax Design
 No new syntax beyond existing member-call style is introduced.
 
+Selected generated-runtime v1 lowers `insert` and `remove_at` only when the receiver is an identifier-bound array value (for example, `lines.insert(...)`). Expression receivers such as `make_lines().insert(...)` remain future work so codegen can preserve ownership/cleanup semantics explicitly.
+
 ```opal
 let insert_then_remove = f(lines: string[]): string[] errors IndexOutOfBoundsError, AllocationFailureError =>
     let with_line = propagate lines.insert(1 as int64, 'new')

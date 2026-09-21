@@ -55,10 +55,10 @@ Method: each schism and correctness gap must first be proven with a failing test
 
 ## 7. Method-style array editing only supports identifier receivers in codegen
 
-- [ ] PROVE: add failing fixture/test for expression receiver chaining such as `make_values().insert(...)` or prove proposal only requires identifier receivers.
-- [ ] FIX/DISPROVE: support expression receivers or update docs/proposal to explicitly constrain v1 lowering to identifier receivers.
-- [ ] REFACTOR: run focused array expression-receiver tests.
-- [ ] COMMIT: atomic array receiver-scope commit.
+- [x] PROVE: add failing fixture/test for expression receiver chaining such as `make_values().insert(...)` or prove proposal only requires identifier receivers.
+- [x] FIX/DISPROVE: support expression receivers or update docs/proposal to explicitly constrain v1 lowering to identifier receivers.
+- [x] REFACTOR: run focused array expression-receiver tests.
+- [x] COMMIT: atomic array receiver-scope commit.
 
 ## 8. Array editing error coverage is too thin
 

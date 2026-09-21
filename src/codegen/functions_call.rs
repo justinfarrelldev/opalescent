@@ -215,6 +215,16 @@ pub fn codegen_call_expression<'context>(
             }
         }
 
+        if matches!(member.as_str(), "insert" | "remove_at") {
+            return codegen_array_member_call(
+                codegen_context,
+                env,
+                object.as_ref(),
+                member.as_str(),
+                args,
+            );
+        }
+
         if let Expr::Identifier { ref name, .. } = *object.as_ref() {
             if env
                 .variables

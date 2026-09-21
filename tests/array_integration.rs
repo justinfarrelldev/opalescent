@@ -106,6 +106,24 @@ fn array_insert_remove_lines_project_runs() {
     );
 }
 
+#[test]
+fn array_insert_expression_receiver_is_rejected_for_v1() {
+    let temp_dir = write_temp_project_source(
+        "array-insert-expression-receiver",
+        "##\n  Description: Makes array expression receiver for insert rejection coverage.\n##\nlet make_values = f(): int32[] =>\n    return [1 as int32, 2 as int32]\n\n##\n  Description: Entry point verifies expression receivers are outside v1 lowering.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>\n    let updated = propagate make_values().insert(1 as int64, 9 as int32)\n    print('unexpected {updated.length}')\n    return void\n",
+    );
+    let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+    assert!(
+        !output.status.success(),
+        "expression receiver insert should fail while v1 codegen is identifier-only"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("currently requires an identifier array receiver"),
+        "expression receiver failure should mention identifier receiver scope, got: {stderr}"
+    );
+}
+
 fn assert_stdout(project: &str, expected: &str) {
     let output = run_opal_project(project);
     assert!(
