@@ -36,10 +36,10 @@ Keep this checklist current while fixing the review findings.
 
 ## Final verification
 
-- [ ] Run `cargo test terminal_generated_testing:: --features integration --test integration_e2e -- --nocapture`.
-- [ ] Run `cargo test terminal_session_all_fixtures_compile_and_run_with_fake_backend --features integration --test integration_e2e -- --nocapture`.
-- [ ] Run `cargo test terminal_ --lib -- --nocapture`.
-- [ ] Run `cargo test codegen_terminal_proposal --lib -- --nocapture`.
-- [ ] Run broader pre-commit checks through normal commit hook.
-- [ ] Ensure no simple Neovim editor fixture/application was added.
-- [ ] Ensure prior and follow-up checklists are accurate.
+- [x] Run `cargo test terminal_generated_testing:: --features integration --test integration_e2e -- --nocapture`.
+- [x] Run `cargo test terminal_session_all_fixtures_compile_and_run_with_fake_backend --features integration --test integration_e2e -- --nocapture`.
+- [x] Run `cargo test terminal_ --lib -- --nocapture`.
+- [x] Run `cargo test codegen_terminal_proposal --lib -- --nocapture`.
+- [x] Run broader pre-commit checks through normal commit hook.
+- [x] Ensure no simple Neovim editor fixture/application was added.
+- [x] Ensure prior and follow-up checklists are accurate.
