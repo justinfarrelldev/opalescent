@@ -76,6 +76,57 @@ fn generated_terminal_rendering_fixture_uses_high_level_session_operations() {
 }
 
 #[test]
+fn generated_terminal_session_open_without_fake_backend_reports_gated_scope() {
+    let temp_dir = unique_probe_target_dir("terminal-session-open-without-fake");
+    prepare_dir(&temp_dir).expect("terminal open without fake target directory should be created");
+
+    let execution_result: Result<(), String> = (|| {
+        let source_path = Path::new("test-projects/terminal-session-rendering/src/main.op");
+        let source_str = fs::read_to_string(source_path).map_err(|error| {
+            format!("terminal-session-rendering source should be readable: {error}")
+        })?;
+        let binary_path = compile_program_for_tests(
+            source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        )
+        .map_err(|error| format!("terminal-session-rendering source should compile: {error}"))?;
+
+        let child = Command::new(&binary_path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| format!("terminal no-fake binary should execute: {error}"))?;
+        let run_output = fs_helpers::wait_for_child_output_with_timeout(
+            child,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "terminal-session-open-without-fake compiled binary",
+        )?;
+        if run_output.status.success() {
+            return Err(String::from(
+                "terminal no-fake binary should fail while production generated sessions are gated",
+            ));
+        }
+        let stderr = String::from_utf8_lossy(&run_output.stderr);
+        if !stderr.contains("FakeBackendNotInjected") {
+            return Err(format!(
+                "terminal no-fake stderr should mention FakeBackendNotInjected, got: {stderr}"
+            ));
+        }
+        Ok(())
+    })();
+
+    cleanup_dir(&temp_dir).expect("terminal open without fake target directory should be removed");
+    assert!(
+        execution_result.is_ok(),
+        "terminal no-fake run should document generated production gate: {}",
+        execution_result.err().unwrap_or_default()
+    );
+}
+
+#[test]
 fn generated_terminal_invalid_cursor_reports_named_error() {
     let temp_dir = unique_probe_target_dir("terminal-session-invalid-cursor");
     let prepare = prepare_dir(&temp_dir);

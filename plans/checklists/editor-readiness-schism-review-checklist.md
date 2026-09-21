@@ -69,10 +69,10 @@ Method: each schism and correctness gap must first be proven with a failing test
 
 ## 9. Generated terminal session rendering remains fake-backend-only
 
-- [ ] PROVE: add a test or documentation check showing generated `terminal_session_open_sync` without fake backend fails.
-- [ ] FIX/DISPROVE: either implement production generated terminal opening or document that generated production terminal sessions remain gated/future work.
-- [ ] REFACTOR: run focused terminal generated tests.
-- [ ] COMMIT: atomic generated terminal production-scope commit.
+- [x] PROVE: add a test or documentation check showing generated `terminal_session_open_sync` without fake backend fails.
+- [x] FIX/DISPROVE: either implement production generated terminal opening or document that generated production terminal sessions remain gated/future work.
+- [x] REFACTOR: run focused terminal generated tests.
+- [x] COMMIT: atomic generated terminal production-scope commit.
 
 ## 10. Named harness-injected fake-backend proposal file is absent
 
