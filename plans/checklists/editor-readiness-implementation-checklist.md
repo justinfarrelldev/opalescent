@@ -38,12 +38,12 @@ Branch: `implement-editor-readiness-proposals`
 
 ## 4. Full grapheme cell width terminal layout
 
-- [ ] RED: add failing tests for ASCII, combining mark, emoji, CJK wide, and clipping behavior.
-- [ ] GREEN: implement grapheme segmentation and terminal cell width following Rust/Golang precedent.
-- [ ] GREEN: expose `terminal_text_cell_width` and `terminal_text_clip_to_cells` through stdlib/type-check/codegen/runtime as appropriate.
-- [ ] GREEN: update docs/prelude if needed.
-- [ ] REFACTOR: run focused layout/string tests and clean duplication.
-- [ ] COMMIT: atomic grapheme cell width commit.
+- [x] RED: add failing tests for ASCII, combining mark, emoji, CJK wide, and clipping behavior.
+- [x] GREEN: implement grapheme segmentation and terminal cell width following Rust/Golang precedent.
+- [x] GREEN: expose `terminal_text_cell_width` and `terminal_text_clip_to_cells` through stdlib/type-check/codegen/runtime as appropriate.
+- [x] GREEN: update docs/prelude if needed.
+- [x] REFACTOR: run focused layout/string tests and clean duplication.
+- [x] COMMIT: atomic grapheme cell width commit.
 
 ## 5. Harness-injected fake backend
 
@@ -55,7 +55,7 @@ Branch: `implement-editor-readiness-proposals`
 
 ## Final verification
 
-- [ ] Run focused unit/integration tests for all implemented areas.
-- [ ] Run broader test suite required by touched subsystems or document blockers.
-- [ ] Ensure checklist accurately reflects final status.
-- [ ] Ensure all commits are atomic and pre-commit hook is not modified or bypassed.
+- [x] Run focused unit/integration tests for all implemented areas.
+- [x] Run broader test suite required by touched subsystems or document blockers.
+- [x] Ensure checklist accurately reflects final status.
+- [x] Ensure all commits are atomic and pre-commit hook is not modified or bypassed.

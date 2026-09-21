@@ -93,6 +93,7 @@ mod terminal_core_prerequisites;
 mod terminal_generated_testing;
 mod terminal_session_input_gated;
 mod terminal_stdlib;
+mod terminal_text_layout;
 mod time_stdlib;
 
 mod stdlib_error_family_test_projects;

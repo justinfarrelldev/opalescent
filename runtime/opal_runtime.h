@@ -297,6 +297,9 @@ FsStringResult string_extract_range(const char* value, int64_t start, int64_t en
 FsStringResult string_insert_at(const char* value, int64_t scalar_index, const char* inserted);
 FsStringResult string_delete_range(const char* value, int64_t start, int64_t end);
 FsStringResult string_replace_range(const char* value, int64_t start, int64_t end, const char* replacement);
+typedef struct { char* value; int64_t used_cells; const char* error; } FsStringInt64Result;
+int64_t terminal_text_cell_width(const char* value);
+FsStringInt64Result terminal_text_clip_to_cells(const char* value, int64_t max_cells);
 FsBytesResult read_bytes_at_offset_sync(const char* path, int64_t offset, int64_t length);
 FsVoidResult write_contents_sync(const char* path, OpalBytes* data);
 FsVoidResult write_text_sync(const char* path, const char* text);

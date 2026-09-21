@@ -233,6 +233,35 @@ pub(super) fn standard_symbols_string_helpers() -> Vec<(String, CoreType, Symbol
             SymbolType::Function,
         ),
         (
+            String::from("terminal_text_cell_width"),
+            CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: vec![CoreType::String],
+                return_types: vec![CoreType::Int64],
+                error_types: Vec::new(),
+            },
+            SymbolType::Function,
+        ),
+        (
+            String::from("terminal_text_clip_to_cells"),
+            CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: vec![CoreType::String, CoreType::Int64],
+                return_types: vec![CoreType::String, CoreType::Int64],
+                error_types: vec![
+                    CoreType::Generic {
+                        name: String::from("TerminalTextLayoutError"),
+                        type_args: Vec::new(),
+                    },
+                    CoreType::Generic {
+                        name: String::from("AllocationFailureError"),
+                        type_args: Vec::new(),
+                    },
+                ],
+            },
+            SymbolType::Function,
+        ),
+        (
             String::from("AllocationFailureError"),
             CoreType::Generic {
                 name: String::from("AllocationFailureError"),
@@ -276,6 +305,14 @@ pub(super) fn standard_symbols_string_helpers() -> Vec<(String, CoreType, Symbol
             String::from("StringRangeOrderError"),
             CoreType::Generic {
                 name: String::from("StringRangeOrderError"),
+                type_args: Vec::new(),
+            },
+            SymbolType::Type,
+        ),
+        (
+            String::from("TerminalTextLayoutError"),
+            CoreType::Generic {
+                name: String::from("TerminalTextLayoutError"),
                 type_args: Vec::new(),
             },
             SymbolType::Type,

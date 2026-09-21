@@ -30,6 +30,8 @@ const STRING_NEGATIVE_COUNT_ERROR: &str = "StringNegativeCountError";
 const STRING_RANGE_OUT_OF_BOUNDS_ERROR: &str = "StringRangeOutOfBoundsError";
 /// Interned error name for reversed string ranges.
 const STRING_RANGE_ORDER_ERROR: &str = "StringRangeOrderError";
+/// Interned error name for terminal text layout failures.
+const TERMINAL_TEXT_LAYOUT_ERROR: &str = "TerminalTextLayoutError";
 
 impl TypeChecker {
     /// Register additive string helpers and the nominal `StringBuilder` type.
@@ -118,6 +120,7 @@ impl TypeChecker {
         );
 
         self.register_string_range_editing_builtins();
+        self.register_terminal_text_layout_builtins();
 
         self.register_string_builtin(
             "string_builder_new",
@@ -187,6 +190,26 @@ impl TypeChecker {
         );
     }
 
+    /// Register terminal display-cell layout helpers.
+    fn register_terminal_text_layout_builtins(&mut self) {
+        self.register_string_builtin(
+            "terminal_text_cell_width",
+            vec![CoreType::String],
+            vec![CoreType::Int64],
+            Vec::new(),
+        );
+
+        self.register_string_builtin(
+            "terminal_text_clip_to_cells",
+            vec![CoreType::String, CoreType::Int64],
+            vec![CoreType::String, CoreType::Int64],
+            vec![
+                stdlib_error_core_type(TERMINAL_TEXT_LAYOUT_ERROR),
+                stdlib_error_core_type(ALLOCATION_FAILURE_ERROR),
+            ],
+        );
+    }
+
     /// Register the opaque `StringBuilder` and related error nominal types.
     fn register_string_nominal_types(&mut self) {
         self.environment.register_type(
@@ -220,6 +243,10 @@ impl TypeChecker {
         self.environment.register_type(
             STRING_RANGE_ORDER_ERROR.to_owned(),
             stdlib_error_core_type(STRING_RANGE_ORDER_ERROR),
+        );
+        self.environment.register_type(
+            TERMINAL_TEXT_LAYOUT_ERROR.to_owned(),
+            stdlib_error_core_type(TERMINAL_TEXT_LAYOUT_ERROR),
         );
     }
 

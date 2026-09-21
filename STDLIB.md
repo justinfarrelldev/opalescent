@@ -127,6 +127,7 @@ import string_length, string_find_index_or, string_find_last_index_of_text,
     string_split_lines, string_is_blank, string_trim_whitespace,
     string_take_prefix, string_take_suffix, string_extract_range,
     string_insert_at, string_delete_range, string_replace_range,
+    terminal_text_cell_width, terminal_text_clip_to_cells,
     string_join, string_builder_new, string_builder_push,
     string_builder_finish
 from standard
@@ -234,6 +235,18 @@ Returns a new string with the Unicode scalar range `[start, end)` replaced by `r
 - `start == end` inserts `replacement` at `start`
 - `StringRangeOrderError` — `end < start`
 - `StringRangeOutOfBoundsError` — negative index or `end > text.length`
+
+### `terminal_text_cell_width(text: string): int64`
+
+Returns the terminal display-cell width of `text` using grapheme-cluster boundaries and Opalescent's Unicode terminal width policy. Combining marks, variation selectors, emoji modifiers, and zero-width joiners do not add cells by themselves; CJK wide characters and supported emoji presentation scalars count as two cells.
+
+### `terminal_text_clip_to_cells(text: string, max_cells: int64): string, int64 errors TerminalTextLayoutError, AllocationFailureError`
+
+Clips `text` to the largest grapheme-boundary prefix that fits within `max_cells` terminal cells and returns `clipped, used_cells`.
+
+- `TerminalTextLayoutError` — `max_cells < 0`
+- `AllocationFailureError` — allocating the clipped string fails
+- Clipping never splits a combining sequence or zero-width-joiner emoji sequence
 
 ### `string_join(parts: string[], separator: string): string errors AllocationFailureError`
 

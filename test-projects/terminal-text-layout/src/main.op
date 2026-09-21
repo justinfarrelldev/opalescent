@@ -1,0 +1,25 @@
+import terminal_text_cell_width, terminal_text_clip_to_cells from standard
+
+##
+    Description: Exercises Unicode grapheme and terminal cell width helpers.
+##
+entry main = f(): void errors TerminalTextLayoutError, AllocationFailureError => {
+    let ascii_width = terminal_text_cell_width('abc')
+    let combining_width = terminal_text_cell_width('é')
+    let cjk_width = terminal_text_cell_width('界')
+    let emoji_width = terminal_text_cell_width('🙂')
+    let zwj_width = terminal_text_cell_width('👩‍💻')
+    let clipped_ascii, used_ascii = propagate terminal_text_clip_to_cells('abcdef', 4 as int64)
+    let clipped_combining, used_combining = propagate terminal_text_clip_to_cells('éx', 1 as int64)
+    let clipped_cjk, used_cjk = propagate terminal_text_clip_to_cells('a界b', 3 as int64)
+    let clipped_emoji, used_emoji = propagate terminal_text_clip_to_cells('🙂x', 2 as int64)
+    print('WIDTH_ASCII={ascii_width}')
+    print('WIDTH_COMBINING={combining_width}')
+    print('WIDTH_CJK={cjk_width}')
+    print('WIDTH_EMOJI={emoji_width}')
+    print('WIDTH_ZWJ={zwj_width}')
+    print('CLIP_ASCII=[{clipped_ascii}]/{used_ascii}')
+    print('CLIP_COMBINING=[{clipped_combining}]/{used_combining}')
+    print('CLIP_CJK=[{clipped_cjk}]/{used_cjk}')
+    print('CLIP_EMOJI=[{clipped_emoji}]/{used_emoji}')
+}

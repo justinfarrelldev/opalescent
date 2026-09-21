@@ -22,6 +22,8 @@ pub(super) const STRING_STDLIB_NAMES: &[&str] = &[
     "string_insert_at",
     "string_delete_range",
     "string_replace_range",
+    "terminal_text_cell_width",
+    "terminal_text_clip_to_cells",
     "string_split_lines",
     "string_is_blank",
     "string_trim_whitespace",
@@ -52,6 +54,8 @@ pub(super) fn declare_string_stdlib_function<'context>(
         ],
         false,
     );
+    let fs_string_i64_result_type =
+        ctx.struct_type(&[i8_ptr.into(), i64_type.into(), i8_ptr.into()], false);
 
     match name {
         "string_length" => module.get_function("string_length").or_else(|| {
@@ -145,6 +149,22 @@ pub(super) fn declare_string_stdlib_function<'context>(
                 ],
             ))
         }),
+        "terminal_text_cell_width" => {
+            module.get_function("terminal_text_cell_width").or_else(|| {
+                let ft = i64_type.fn_type(&[i8_ptr.into()], false);
+                Some(module.add_function("terminal_text_cell_width", ft, None))
+            })
+        }
+        "terminal_text_clip_to_cells" => module
+            .get_function("terminal_text_clip_to_cells")
+            .or_else(|| {
+                Some(declare_fs_result_function(
+                    codegen_context,
+                    "terminal_text_clip_to_cells",
+                    fs_string_i64_result_type,
+                    &[i8_ptr.into(), i64_type.into()],
+                ))
+            }),
         "string_join" => module.get_function("string_join").or_else(|| {
             Some(declare_fs_result_function(
                 codegen_context,

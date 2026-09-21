@@ -12,6 +12,7 @@ pub mod reporting;
 pub mod stdlib;
 pub mod strings;
 pub mod terminal;
+pub mod terminal_text_layout;
 pub mod timer;
 pub mod wait;
 
@@ -73,6 +74,7 @@ pub use terminal::{
     required_ordinary_features, safe_terminal_diagnostic_collection_format,
     safe_terminal_diagnostic_format,
 };
+pub use terminal_text_layout::{terminal_text_cell_width, terminal_text_clip_to_cells};
 pub use timer::{
     MonotonicDeadline, MonotonicTimer, MonotonicTimerError, MonotonicTimerNotArmedError,
     monotonic_clock_now,

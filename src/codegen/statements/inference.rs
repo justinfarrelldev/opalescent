@@ -211,9 +211,15 @@ pub(super) fn infer_call_return_types<'context>(
     }
 
     if let Some(runtime_name) = env.imported_functions.get(name) {
+        if runtime_name == "terminal_text_clip_to_cells" {
+            return Some(vec![CoreType::String, CoreType::Int64]);
+        }
         if let Some(runtime_return_type) = known_runtime_return_type(runtime_name.as_str()) {
             return Some(vec![runtime_return_type]);
         }
+    }
+    if name == "terminal_text_clip_to_cells" {
+        return Some(vec![CoreType::String, CoreType::Int64]);
     }
     if let Some(runtime_return_type) = known_runtime_return_type(name) {
         return Some(vec![runtime_return_type]);

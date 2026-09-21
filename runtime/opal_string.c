@@ -117,6 +117,7 @@ typedef struct OpalStringBuilder {
 
 typedef struct { void* value; const char* error; } StringBuilderVoidResult;
 typedef struct { char* value; const char* error; } StringBuilderStringResult;
+typedef struct { char* value; int64_t used_cells; const char* error; } FsStringInt64Result;
 #ifndef OPAL_PARSE_RESULT_I64_DEFINED
 typedef struct { int64_t value; const char* error; } ParseResultI64;
 #define OPAL_PARSE_RESULT_I64_DEFINED 1
@@ -846,6 +847,272 @@ FsStringResult string_replace_range(const char* value, int64_t start_index, int6
     result[total_len] = '\0';
     opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     r.value = result;
+    return r;
+}
+
+static int opal_terminal_layout_is_extend(uint32_t codepoint) {
+    return (codepoint >= 0x0300u && codepoint <= 0x036Fu)
+        || (codepoint >= 0x0483u && codepoint <= 0x0489u)
+        || (codepoint >= 0x0591u && codepoint <= 0x05BDu)
+        || codepoint == 0x05BFu
+        || (codepoint >= 0x05C1u && codepoint <= 0x05C2u)
+        || (codepoint >= 0x05C4u && codepoint <= 0x05C5u)
+        || codepoint == 0x05C7u
+        || (codepoint >= 0x0610u && codepoint <= 0x061Au)
+        || (codepoint >= 0x064Bu && codepoint <= 0x065Fu)
+        || codepoint == 0x0670u
+        || (codepoint >= 0x06D6u && codepoint <= 0x06DCu)
+        || (codepoint >= 0x06DFu && codepoint <= 0x06E4u)
+        || (codepoint >= 0x06E7u && codepoint <= 0x06E8u)
+        || (codepoint >= 0x06EAu && codepoint <= 0x06EDu)
+        || (codepoint >= 0x0711u && codepoint <= 0x074Au)
+        || (codepoint >= 0x07A6u && codepoint <= 0x07B0u)
+        || (codepoint >= 0x07EBu && codepoint <= 0x07F3u)
+        || (codepoint >= 0x0816u && codepoint <= 0x082Du)
+        || (codepoint >= 0x0859u && codepoint <= 0x085Bu)
+        || (codepoint >= 0x08D3u && codepoint <= 0x0903u)
+        || codepoint == 0x093Au
+        || codepoint == 0x093Cu
+        || (codepoint >= 0x0941u && codepoint <= 0x0948u)
+        || codepoint == 0x094Du
+        || (codepoint >= 0x0951u && codepoint <= 0x0957u)
+        || (codepoint >= 0x0962u && codepoint <= 0x0963u)
+        || codepoint == 0x0981u
+        || codepoint == 0x09BCu
+        || (codepoint >= 0x09C1u && codepoint <= 0x09C4u)
+        || codepoint == 0x09CDu
+        || (codepoint >= 0x09E2u && codepoint <= 0x09E3u)
+        || (codepoint >= 0x0A01u && codepoint <= 0x0A02u)
+        || codepoint == 0x0A3Cu
+        || (codepoint >= 0x0A41u && codepoint <= 0x0A4Du)
+        || codepoint == 0x0A51u
+        || (codepoint >= 0x0A70u && codepoint <= 0x0A75u)
+        || (codepoint >= 0x0A81u && codepoint <= 0x0A82u)
+        || codepoint == 0x0ABCu
+        || (codepoint >= 0x0AC1u && codepoint <= 0x0ACDu)
+        || (codepoint >= 0x0AE2u && codepoint <= 0x0AE3u)
+        || codepoint == 0x0B01u
+        || codepoint == 0x0B3Cu
+        || codepoint == 0x0B3Fu
+        || (codepoint >= 0x0B41u && codepoint <= 0x0B44u)
+        || codepoint == 0x0B4Du
+        || codepoint == 0x0B56u
+        || (codepoint >= 0x0B62u && codepoint <= 0x0B63u)
+        || codepoint == 0x0B82u
+        || codepoint == 0x0BC0u
+        || codepoint == 0x0BCDu
+        || codepoint == 0x0C00u
+        || codepoint == 0x0C04u
+        || (codepoint >= 0x0C3Eu && codepoint <= 0x0C4Du)
+        || (codepoint >= 0x0C55u && codepoint <= 0x0C56u)
+        || (codepoint >= 0x0C62u && codepoint <= 0x0C63u)
+        || codepoint == 0x0C81u
+        || codepoint == 0x0CBCu
+        || codepoint == 0x0CBFu
+        || codepoint == 0x0CC6u
+        || (codepoint >= 0x0CCCu && codepoint <= 0x0CCDu)
+        || (codepoint >= 0x0CE2u && codepoint <= 0x0CE3u)
+        || (codepoint >= 0x0D00u && codepoint <= 0x0D01u)
+        || (codepoint >= 0x0D3Bu && codepoint <= 0x0D3Cu)
+        || (codepoint >= 0x0D41u && codepoint <= 0x0D44u)
+        || codepoint == 0x0D4Du
+        || (codepoint >= 0x0D62u && codepoint <= 0x0D63u)
+        || codepoint == 0x0DCAu
+        || (codepoint >= 0x0DD2u && codepoint <= 0x0DD6u)
+        || codepoint == 0x0E31u
+        || (codepoint >= 0x0E34u && codepoint <= 0x0E3Au)
+        || (codepoint >= 0x0E47u && codepoint <= 0x0E4Eu)
+        || codepoint == 0x0EB1u
+        || (codepoint >= 0x0EB4u && codepoint <= 0x0EBCu)
+        || (codepoint >= 0x0EC8u && codepoint <= 0x0ECDu)
+        || (codepoint >= 0x0F18u && codepoint <= 0x0F19u)
+        || codepoint == 0x0F35u
+        || codepoint == 0x0F37u
+        || codepoint == 0x0F39u
+        || (codepoint >= 0x0F71u && codepoint <= 0x0F84u)
+        || (codepoint >= 0x0F86u && codepoint <= 0x0F87u)
+        || (codepoint >= 0x0F8Du && codepoint <= 0x0FBCu)
+        || codepoint == 0x0FC6u
+        || (codepoint >= 0x1AB0u && codepoint <= 0x1AFFu)
+        || (codepoint >= 0x1DC0u && codepoint <= 0x1DFFu)
+        || (codepoint >= 0x20D0u && codepoint <= 0x20FFu)
+        || (codepoint >= 0xFE00u && codepoint <= 0xFE0Fu)
+        || (codepoint >= 0xE0100u && codepoint <= 0xE01EFu)
+        || (codepoint >= 0x1F3FBu && codepoint <= 0x1F3FFu);
+}
+
+static int opal_terminal_layout_is_wide(uint32_t codepoint) {
+    return (codepoint >= 0x1100u && codepoint <= 0x115Fu)
+        || (codepoint >= 0x231Au && codepoint <= 0x231Bu)
+        || (codepoint >= 0x2329u && codepoint <= 0x232Au)
+        || (codepoint >= 0x23E9u && codepoint <= 0x23ECu)
+        || codepoint == 0x23F0u
+        || codepoint == 0x23F3u
+        || (codepoint >= 0x25FDu && codepoint <= 0x25FEu)
+        || (codepoint >= 0x2614u && codepoint <= 0x2615u)
+        || (codepoint >= 0x2648u && codepoint <= 0x2653u)
+        || codepoint == 0x267Fu
+        || codepoint == 0x2693u
+        || codepoint == 0x26A1u
+        || (codepoint >= 0x26AAu && codepoint <= 0x26ABu)
+        || (codepoint >= 0x26BDu && codepoint <= 0x26BEu)
+        || (codepoint >= 0x26C4u && codepoint <= 0x26C5u)
+        || codepoint == 0x26CEu
+        || codepoint == 0x26D4u
+        || codepoint == 0x26EAu
+        || (codepoint >= 0x26F2u && codepoint <= 0x26F3u)
+        || codepoint == 0x26F5u
+        || codepoint == 0x26FAu
+        || codepoint == 0x26FDu
+        || codepoint == 0x2705u
+        || (codepoint >= 0x270Au && codepoint <= 0x270Bu)
+        || codepoint == 0x2728u
+        || codepoint == 0x274Cu
+        || codepoint == 0x274Eu
+        || (codepoint >= 0x2753u && codepoint <= 0x2755u)
+        || codepoint == 0x2757u
+        || (codepoint >= 0x2795u && codepoint <= 0x2797u)
+        || codepoint == 0x27B0u
+        || codepoint == 0x27BFu
+        || (codepoint >= 0x2B1Bu && codepoint <= 0x2B1Cu)
+        || codepoint == 0x2B50u
+        || codepoint == 0x2B55u
+        || (codepoint >= 0x2E80u && codepoint <= 0xA4CFu)
+        || (codepoint >= 0xAC00u && codepoint <= 0xD7A3u)
+        || (codepoint >= 0xF900u && codepoint <= 0xFAFFu)
+        || (codepoint >= 0xFE10u && codepoint <= 0xFE19u)
+        || (codepoint >= 0xFE30u && codepoint <= 0xFE6Fu)
+        || (codepoint >= 0xFF00u && codepoint <= 0xFF60u)
+        || (codepoint >= 0xFFE0u && codepoint <= 0xFFE6u)
+        || (codepoint >= 0x1F000u && codepoint <= 0x1FAFFu)
+        || (codepoint >= 0x20000u && codepoint <= 0x3FFFDu);
+}
+
+static int opal_terminal_layout_is_emoji(uint32_t codepoint) {
+    return (codepoint >= 0x2600u && codepoint <= 0x27BFu)
+        || (codepoint >= 0x1F000u && codepoint <= 0x1FAFFu);
+}
+
+static const unsigned char* opal_terminal_layout_next_scalar_end(const unsigned char* cursor) {
+    if (!cursor || *cursor == '\0') {
+        return cursor;
+    }
+    cursor++;
+    while (*cursor != '\0' && !opal_utf8_is_scalar_start(*cursor)) {
+        cursor++;
+    }
+    return cursor;
+}
+
+static const unsigned char* opal_terminal_layout_next_grapheme_end(const unsigned char* start) {
+    const unsigned char* cursor = opal_terminal_layout_next_scalar_end(start);
+    int join_next = 0;
+    while (*cursor != '\0') {
+        uint32_t codepoint = 0u;
+        size_t scalar_len = 0u;
+        if (!opal_utf8_decode_scalar(cursor, &codepoint, &scalar_len)) {
+            return opal_terminal_layout_next_scalar_end(cursor);
+        }
+        if (opal_terminal_layout_is_extend(codepoint)) {
+            cursor += scalar_len;
+            continue;
+        }
+        if (codepoint == 0x200Du) {
+            cursor += scalar_len;
+            join_next = 1;
+            continue;
+        }
+        if (join_next) {
+            cursor += scalar_len;
+            join_next = 0;
+            continue;
+        }
+        break;
+    }
+    return cursor;
+}
+
+static int64_t opal_terminal_layout_grapheme_width(const unsigned char* start, const unsigned char* end) {
+    int has_joiner = 0;
+    int has_emoji = 0;
+    int64_t width = 0;
+    const unsigned char* cursor = start;
+    while (cursor < end && *cursor != '\0') {
+        uint32_t codepoint = 0u;
+        size_t scalar_len = 0u;
+        if (!opal_utf8_decode_scalar(cursor, &codepoint, &scalar_len)) {
+            break;
+        }
+        if (codepoint == 0x200Du) {
+            has_joiner = 1;
+        }
+        if (opal_terminal_layout_is_emoji(codepoint)) {
+            has_emoji = 1;
+        }
+        if (codepoint == 0x200Du || opal_terminal_layout_is_extend(codepoint) || codepoint < 0x20u || (codepoint >= 0x7Fu && codepoint < 0xA0u)) {
+            width += 0;
+        } else if (opal_terminal_layout_is_wide(codepoint)) {
+            width += 2;
+        } else {
+            width += 1;
+        }
+        cursor += scalar_len;
+    }
+    if (has_joiner && has_emoji) {
+        return 2;
+    }
+    return width;
+}
+
+int64_t terminal_text_cell_width(const char* value) {
+    if (!value) { fprintf(stderr, "Runtime error: terminal_text_cell_width called with NULL string pointer\n"); exit(1); }
+    int64_t width = 0;
+    const unsigned char* cursor = (const unsigned char*)value;
+    while (*cursor != '\0') {
+        const unsigned char* next = opal_terminal_layout_next_grapheme_end(cursor);
+        width += opal_terminal_layout_grapheme_width(cursor, next);
+        cursor = next;
+    }
+    return width;
+}
+
+FsStringInt64Result terminal_text_clip_to_cells(const char* value, int64_t max_cells) {
+    FsStringInt64Result r;
+    r.value = NULL;
+    r.used_cells = 0;
+    r.error = NULL;
+    if (!value) { fprintf(stderr, "Runtime error: terminal_text_clip_to_cells called with NULL string pointer\n"); exit(1); }
+    if (max_cells < 0) {
+        r.error = "TerminalTextLayoutError";
+        return r;
+    }
+
+    const unsigned char* start = (const unsigned char*)value;
+    const unsigned char* cursor = start;
+    const unsigned char* end = start;
+    int64_t used_cells = 0;
+    while (*cursor != '\0') {
+        const unsigned char* next = opal_terminal_layout_next_grapheme_end(cursor);
+        int64_t width = opal_terminal_layout_grapheme_width(cursor, next);
+        if (width > max_cells - used_cells) {
+            break;
+        }
+        used_cells += width;
+        end = next;
+        cursor = next;
+    }
+
+    size_t byte_len = (size_t)(end - start);
+    char* result = (char*)malloc(byte_len + 1u);
+    if (!result) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+    memcpy(result, value, byte_len);
+    result[byte_len] = '\0';
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    r.value = result;
+    r.used_cells = used_cells;
     return r;
 }
 

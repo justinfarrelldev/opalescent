@@ -58,9 +58,10 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "string_replace_range"
         | "get_environment_variable"
         | "get_environment_variable_or" => Some(CoreType::String),
-        "string_find_index_or" | "string_find_last_index_of_text" | "error_suppressed_length" => {
-            Some(CoreType::Int64)
-        }
+        "string_find_index_or"
+        | "string_find_last_index_of_text"
+        | "terminal_text_cell_width"
+        | "error_suppressed_length" => Some(CoreType::Int64),
         "monotonic_timer_arm" | "monotonic_timer_disarm" | "monotonic_timer_generation" => {
             Some(CoreType::UInt64)
         }
@@ -256,9 +257,10 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
 /// Map known runtime result wrappers to the success type produced by `guard`.
 pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
     match name {
-        "string_find_last_index_of_text" | "string_find_index_or" | "error_suppressed_length" => {
-            Some(CoreType::Int64)
-        }
+        "string_find_last_index_of_text"
+        | "string_find_index_or"
+        | "terminal_text_cell_width"
+        | "error_suppressed_length" => Some(CoreType::Int64),
         "monotonic_timer_arm" | "monotonic_timer_disarm" => Some(CoreType::UInt64),
         "string_split_lines" => Some(CoreType::Array(alloc::boxed::Box::new(CoreType::String))),
         "error_cause" | "error_suppressed_at" => Some(CoreType::Generic {
