@@ -90,6 +90,7 @@ mod string_stdlib_projects;
 mod string_stdlib_success;
 mod terminal_aggregate;
 mod terminal_core_prerequisites;
+mod terminal_generated_testing;
 mod terminal_session_input_gated;
 mod terminal_stdlib;
 mod time_stdlib;

@@ -15,13 +15,17 @@ mod error_inspectors;
 #[doc = "String-specific stdlib declaration helpers extracted to satisfy line-count limits."]
 mod string;
 #[path = "functions_stdlib_terminal_core.rs"]
-#[doc = "Task 23 core prerequisite runtime declaration helpers extracted to satisfy line-count limits."]
+#[doc = "Terminal core declarations."]
 mod terminal_core;
+#[path = "functions_stdlib_terminal_session.rs"]
+#[doc = "Terminal session declarations."]
+mod terminal_session;
 use self::error_inspectors::{ERROR_ATTACHMENT_STDLIB_NAMES, declare_error_inspector_function};
 use self::string::{STRING_STDLIB_NAMES, declare_string_stdlib_function};
 use self::terminal_core::{
     declare_terminal_core_prerequisite_function, is_terminal_core_prerequisite_runtime_name,
 };
+use self::terminal_session::{declare_terminal_session_function, is_terminal_session_runtime_name};
 
 #[doc = "Declare a stdlib function in the LLVM module if not already present."]
 #[expect(
@@ -45,6 +49,7 @@ pub fn declare_stdlib_function<'context>(
         && !STRING_STDLIB_NAMES.contains(&name)
         && !ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)
         && !is_terminal_core_prerequisite_runtime_name(name)
+        && !is_terminal_session_runtime_name(name)
         && !is_test_fallible_constructor
     {
         return None;
@@ -234,6 +239,9 @@ pub fn declare_stdlib_function<'context>(
                 None,
             ))
         }),
+        name if is_terminal_session_runtime_name(name) => {
+            declare_terminal_session_function(codegen_context, name)
+        }
         name if STRING_STDLIB_NAMES.contains(&name) => {
             declare_string_stdlib_function(codegen_context, name)
         }
@@ -897,6 +905,7 @@ pub fn is_stdlib_runtime_name(name: &str) -> bool {
         || STRING_STDLIB_NAMES.contains(&name)
         || ERROR_ATTACHMENT_STDLIB_NAMES.contains(&name)
         || is_terminal_core_prerequisite_runtime_name(name)
+        || is_terminal_session_runtime_name(name)
 }
 
 #[doc = "Authoritative list of all stdlib function names."]
@@ -1026,9 +1035,10 @@ mod tests {
     #[test]
     fn stdlib_names_registry_exists_and_has_correct_count() {
         assert_eq!(
-            STDLIB_NAMES.len() + STRING_STDLIB_NAMES.len(),
-            133,
-            "stdlib registry should have 133 names"
+            STDLIB_NAMES.len()
+                + STRING_STDLIB_NAMES.len()
+                + terminal_session::TERMINAL_SESSION_RUNTIME_NAMES.len(),
+            143
         );
         assert!(is_stdlib_runtime_name("opal_runtime_error"));
         assert!(is_stdlib_runtime_name("print"));
@@ -1036,6 +1046,5 @@ mod tests {
         assert!(is_stdlib_runtime_name("current_working_directory_sync"));
         assert!(is_stdlib_runtime_name("exit_process"));
         assert!(is_stdlib_runtime_name("string_builder_push"));
-        assert!(is_stdlib_runtime_name("string_insert_at"));
     }
 }

@@ -47,11 +47,11 @@ Branch: `implement-editor-readiness-proposals`
 
 ## 5. Harness-injected fake backend
 
-- [ ] RED: add failing integration test proving a generated terminal fixture can receive injected fake events and assert captured output.
-- [ ] GREEN: implement test harness injection path without production `standard.testing.terminal` leakage.
-- [ ] GREEN: activate the smallest terminal generated fixture as a real compile/run test.
-- [ ] REFACTOR: run focused terminal generated tests and clean duplication.
-- [ ] COMMIT: atomic harness-injected fake backend commit.
+- [x] RED: add failing integration test proving a generated terminal fixture can receive injected fake events and assert captured output.
+- [x] GREEN: implement test harness injection path without production `standard.testing.terminal` leakage.
+- [x] GREEN: activate the smallest terminal generated fixture as a real compile/run test.
+- [x] REFACTOR: run focused terminal generated tests and clean duplication.
+- [x] COMMIT: atomic harness-injected fake backend commit.
 
 ## Final verification
 

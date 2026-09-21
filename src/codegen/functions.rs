@@ -385,6 +385,10 @@ pub fn codegen_top_level_value_declaration<'context>(
 }
 
 #[doc = "Lower import declarations by declaring known stdlib externs and alias mappings."]
+#[expect(
+    clippy::too_many_lines,
+    reason = "import declaration lowering handles local, standard, and terminal proposal imports"
+)]
 pub fn codegen_import_declaration<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -444,14 +448,23 @@ pub fn codegen_import_declaration<'context>(
                             "missing imported signature for terminal proposal symbol '{name}'"
                         )));
                     };
-                    let extern_fn = declare_external_imported_function(
+                    let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
                         codegen_context,
                         name.as_str(),
-                        &signature,
+                    )
+                    .map_or_else(
+                        || {
+                            declare_external_imported_function(
+                                codegen_context,
+                                name.as_str(),
+                                &signature,
+                            )
+                        },
+                        Ok,
                     )?;
                     env.imported_functions.insert(
                         local_name,
-                        extern_fn
+                        runtime_fn
                             .get_name()
                             .to_str()
                             .map_or_else(|_| name.clone(), alloc::borrow::ToOwned::to_owned),

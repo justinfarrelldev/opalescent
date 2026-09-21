@@ -106,6 +106,23 @@ static const char *OPAL_INVALID_CURSOR_POSITION_ERROR =
     "InvalidCursorPositionError";
 static const char *OPAL_INVALID_DURATION_ERROR = "InvalidDurationError";
 static const char *OPAL_INVALID_FRAME_RATE_ERROR = "InvalidFrameRateError";
+static const char *OPAL_TERMINAL_FAKE_BACKEND_REQUIRED_ERROR =
+    "TerminalSessionOpenError: FakeBackendNotInjected";
+static const char *OPAL_TERMINAL_FAKE_END_OF_INPUT_ERROR =
+    "TerminalSessionReadError: EndOfInput";
+static const char *OPAL_TERMINAL_SESSION_CLOSED_ERROR =
+    "TerminalSessionStateError: SessionClosed";
+
+typedef struct OpalTerminalSession {
+  int closed;
+  int fake_backend;
+  int read_count;
+} OpalTerminalSession;
+
+typedef struct OpalTerminalWaitValue {
+  int64_t tag;
+  uint8_t payload[64];
+} OpalTerminalWaitValue;
 
 static FsVoidResult stdout_void_success(void) {
   FsVoidResult result = {NULL, NULL};
@@ -820,4 +837,82 @@ FsVoidResult terminal_move_cursor_sync(int32_t row, int32_t column) {
   }
   return terminal_move_cursor_on_sync((OpalStdoutTerminal *)terminal_result.value,
                                       row, column);
+}
+
+static int opal_terminal_fake_backend_enabled(void) {
+  const char *enabled = getenv("OPAL_TERMINAL_FAKE_BACKEND");
+  return enabled != NULL && strcmp(enabled, "1") == 0;
+}
+
+static char *opal_terminal_duplicate_cstr(const char *text) {
+  const char *safe_text = text ? text : "";
+  size_t length = strlen(safe_text);
+  char *copy = (char *)malloc(length + 1u);
+  if (copy == NULL) {
+    return NULL;
+  }
+  memcpy(copy, safe_text, length + 1u);
+  return copy;
+}
+
+FsHandleResult terminal_session_open_sync(void *options) {
+  (void)options;
+  if (!opal_terminal_fake_backend_enabled()) {
+    return stdout_handle_error(OPAL_TERMINAL_FAKE_BACKEND_REQUIRED_ERROR);
+  }
+  OpalTerminalSession *session =
+      (OpalTerminalSession *)calloc(1u, sizeof(OpalTerminalSession));
+  if (session == NULL) {
+    return stdout_handle_error("TerminalSessionOpenError: AllocationFailure");
+  }
+  session->fake_backend = 1;
+  OPAL_TERMINAL_STATE = OPAL_TERMINAL_ACTIVE;
+  return stdout_handle_success(session);
+}
+
+FsHandleResult terminal_session_read_event_sync(void *opaque_session,
+                                                OpalTerminalWaitValue wait,
+                                                void *cancellation_token) {
+  (void)wait;
+  (void)cancellation_token;
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  if (session == NULL || session->closed) {
+    return stdout_handle_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
+  }
+  const char *events = getenv("OPAL_TERMINAL_FAKE_EVENTS");
+  if (events == NULL || events[0] == '\0' || session->read_count > 0) {
+    return stdout_handle_error(OPAL_TERMINAL_FAKE_END_OF_INPUT_ERROR);
+  }
+  session->read_count += 1;
+  char *event_copy = opal_terminal_duplicate_cstr(events);
+  if (event_copy == NULL) {
+    return stdout_handle_error("TerminalSessionReadError: AllocationFailure");
+  }
+  return stdout_handle_success(event_copy);
+}
+
+FsVoidResult terminal_session_write_sync(void *opaque_session, void *trusted_output) {
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  if (session == NULL || session->closed) {
+    return stdout_void_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
+  }
+  return terminal_write_stream(stdout, (const char *)trusted_output);
+}
+
+FsVoidResult terminal_session_flush_sync(void *opaque_session) {
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  if (session == NULL || session->closed) {
+    return stdout_void_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
+  }
+  return stdout_flush_stream(stdout);
+}
+
+FsHandleResult terminal_session_close_sync(void *opaque_session) {
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  if (session == NULL || session->closed) {
+    return stdout_handle_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
+  }
+  session->closed = 1;
+  OPAL_TERMINAL_STATE = OPAL_TERMINAL_FREE;
+  return stdout_handle_success(opal_terminal_duplicate_cstr("TerminalCloseOutcome.Ok"));
 }

@@ -13,6 +13,11 @@ const SELECTED_DATA_MODEL_RUNTIME_NAMES: &[&str] = &[
     "terminal_session_options_with_resource_limits",
     "terminal_session_options_validate",
     "trusted_terminal_output_from_application_text",
+    "terminal_session_open_sync",
+    "terminal_session_read_event_sync",
+    "terminal_session_write_sync",
+    "terminal_session_flush_sync",
+    "terminal_session_close_sync",
 ];
 
 /// Return whether a module/symbol pair is implemented enough to lower today.

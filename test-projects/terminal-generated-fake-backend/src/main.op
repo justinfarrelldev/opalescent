@@ -1,0 +1,21 @@
+import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync from 'standard.terminal'
+import terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from 'standard.terminal'
+import trusted_terminal_output_from_application_text from 'standard.terminal'
+import cancellation_source_new, cancellation_token from 'standard.system'
+import type TerminalWait, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from 'standard.terminal'
+
+##
+  Description: Generated terminal fixture that reads one injected fake event and writes trusted output.
+##
+entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
+    let source = propagate cancellation_source_new()
+    let token = cancellation_token(ref source)
+    let options = terminal_session_options_default()
+    let mutable session = propagate terminal_session_open_sync(options)
+    let _event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)
+    let frame = propagate trusted_terminal_output_from_application_text('FAKE_FRAME_OK\n')
+    propagate terminal_session_write_sync(ref session, frame)
+    propagate terminal_session_flush_sync(ref session)
+    let _close_outcome = propagate terminal_session_close_sync(mutable ref session)
+    print('TERMINAL_FAKE_DONE')
+    return void

@@ -1584,7 +1584,7 @@ entry main = f(): void errors StandardInputReadError => {
 #[test]
 fn codegen_terminal_proposal_imports_fail_with_gate_diagnostic() {
     for (source, symbol_name) in [
-        ("standard.terminal", "terminal_session_open_sync"),
+        ("standard.terminal", "terminal_session_pause_sync"),
         ("standard.terminal.chords", "terminal_chord_modifiers"),
         (
             "standard.testing.terminal",
@@ -1749,7 +1749,7 @@ fn codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic() {
     let mut env = CodegenEnv::new(true);
     env.imported_functions.insert(
         String::from("open_options"),
-        String::from("terminal_session_open_sync"),
+        String::from("terminal_session_pause_sync"),
     );
 
     let result = codegen_call_expression(
@@ -1768,14 +1768,14 @@ fn codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic() {
     assert!(
         err_msg.contains("runtime lowering")
             && err_msg.contains("prerequisites are satisfied")
-            && err_msg.contains("terminal_session_open_sync")
+            && err_msg.contains("terminal_session_pause_sync")
             && !err_msg.contains("terminal proposal gate not complete"),
         "directly mapped proposal call should use the runtime-readiness diagnostic, got: {err_msg}"
     );
 
     let ir = codegen_context.module.print_to_string().to_string();
     assert!(
-        !ir.contains("@terminal_session_open_sync"),
+        !ir.contains("@terminal_session_pause_sync"),
         "gated direct call must not emit unresolved terminal proposal external: {ir}"
     );
 }

@@ -222,6 +222,12 @@ FsHandleResult terminal_session_options_with_feature_policy(void* options, void*
 FsHandleResult terminal_session_options_with_resource_limits(void* options, void* limits);
 FsHandleResult terminal_session_options_validate(void* options);
 FsHandleResult trusted_terminal_output_from_application_text(const char* text);
+typedef struct OpalTerminalWaitValue { int64_t tag; uint8_t payload[64]; } OpalTerminalWaitValue;
+FsHandleResult terminal_session_open_sync(void* options);
+FsHandleResult terminal_session_read_event_sync(void* session, OpalTerminalWaitValue wait, void* cancellation_token);
+FsVoidResult terminal_session_write_sync(void* session, void* trusted_output);
+FsVoidResult terminal_session_flush_sync(void* session);
+FsHandleResult terminal_session_close_sync(void* session);
 FsHandleResult opal_terminal_constrain_i32_range(int32_t value, int32_t min, int32_t max);
 FsHandleResult opal_terminal_constrain_u8_control_code(uint8_t value);
 void system_wait_set_drop(void* wait_set);
