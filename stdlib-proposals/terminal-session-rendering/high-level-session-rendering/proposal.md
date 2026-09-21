@@ -1,9 +1,12 @@
 # High-Level Session Rendering Operations
 
 ## Overview
-This proposal adds effectful rendering helpers that operate directly on `mutable ref TerminalSession`. They are convenience wrappers for common full-screen operations such as clear screen, cursor movement, drawing rows, flushing, cursor visibility, and chime feedback.
+This proposal adds effectful rendering helpers that operate directly on `mutable ref TerminalSession`. They are convenience wrappers for common full-screen operations such as clear screen, cursor movement, drawing rows, flushing, and chime feedback.
 
 The design favors simple editor code over explicit trusted-output construction, while still preserving the selected terminal-session ownership model.
+
+## Selected Generated Runtime v1 Surface
+The generated-runtime v1 subset is intentionally limited to `terminal_session_clear_screen_sync`, `terminal_session_move_cursor_sync`, `terminal_session_draw_rows_sync`, and `terminal_session_bell_sync`. Cursor visibility and cursor shape remain part of the broader typed-event-session proposal/Rust runtime surface, but are not selected for generated high-level rendering v1.
 
 ## Assumes
 - `TerminalSession` exists and owns raw terminal output.

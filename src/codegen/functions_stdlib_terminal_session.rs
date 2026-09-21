@@ -116,3 +116,28 @@ pub(super) fn declare_terminal_session_function<'context>(
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::is_terminal_session_runtime_name;
+
+    #[test]
+    fn generated_high_level_rendering_v1_excludes_cursor_visibility_and_shape() {
+        assert!(is_terminal_session_runtime_name(
+            "terminal_session_clear_screen_sync"
+        ));
+        assert!(is_terminal_session_runtime_name(
+            "terminal_session_move_cursor_sync"
+        ));
+        assert!(is_terminal_session_runtime_name(
+            "terminal_session_draw_rows_sync"
+        ));
+        assert!(is_terminal_session_runtime_name("terminal_session_bell_sync"));
+        assert!(!is_terminal_session_runtime_name(
+            "terminal_session_set_cursor_visible_sync"
+        ));
+        assert!(!is_terminal_session_runtime_name(
+            "terminal_session_set_cursor_shape_sync"
+        ));
+    }
+}

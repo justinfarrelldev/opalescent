@@ -32,10 +32,10 @@ Method: each schism and correctness gap must first be proven with a failing test
 
 ## 4. High-level session rendering is only a subset of the proposed surface
 
-- [ ] PROVE: add failing generated/runtime tests for `terminal_session_set_cursor_visible_sync` and `terminal_session_set_cursor_shape_sync` readiness or explicitly prove they are out of selected v1 scope.
-- [ ] FIX/DISPROVE: either implement generated C/runtime readiness for cursor visibility/shape or update proposal/checklist/docs to state clear/move/draw/bell is the selected v1 subset.
-- [ ] REFACTOR: run focused terminal rendering tests.
-- [ ] COMMIT: atomic session rendering surface commit.
+- [x] PROVE: add failing generated/runtime tests for `terminal_session_set_cursor_visible_sync` and `terminal_session_set_cursor_shape_sync` readiness or explicitly prove they are out of selected v1 scope.
+- [x] FIX/DISPROVE: either implement generated C/runtime readiness for cursor visibility/shape or update proposal/checklist/docs to state clear/move/draw/bell is the selected v1 subset.
+- [x] REFACTOR: run focused terminal rendering tests.
+- [x] COMMIT: atomic session rendering surface commit.
 
 ## 5. Invalid cursor position error behavior diverges between Rust and C/session metadata
 
