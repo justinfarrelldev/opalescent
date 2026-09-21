@@ -47,11 +47,11 @@ Method: each schism and correctness gap must first be proven with a failing test
 
 ## 6. Harness-injected fake backend is minimal compared with selected generated testing concern
 
-- [ ] PROVE: add failing tests for multi-event fake input or typed event inspection expectations, or prove selected implementation intentionally chose a smoke subset.
-- [ ] PROVE: add a source-level check that required production leakage protections remain enforced.
-- [ ] FIX/DISPROVE: implement multi-event scripted fake backend support and output assertions or document narrow v1 scope with tests.
-- [ ] REFACTOR: run focused terminal fake-backend tests.
-- [ ] COMMIT: atomic fake-backend scope/conformance commit.
+- [x] PROVE: add failing tests for multi-event fake input or typed event inspection expectations, or prove selected implementation intentionally chose a smoke subset.
+- [x] PROVE: add a source-level check that required production leakage protections remain enforced.
+- [x] FIX/DISPROVE: implement multi-event scripted fake backend support and output assertions or document narrow v1 scope with tests.
+- [x] REFACTOR: run focused terminal fake-backend tests.
+- [x] COMMIT: atomic fake-backend scope/conformance commit.
 
 ## 7. Method-style array editing only supports identifier receivers in codegen
 

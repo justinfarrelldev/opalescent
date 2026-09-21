@@ -449,6 +449,29 @@ entry main = f(): void =>
     }
 
     #[test]
+    fn test_standard_testing_terminal_fake_backend_import_is_rejected_in_production_mode() {
+        const SOURCE: &str = "
+import terminal_test_fake_backend from 'standard.testing.terminal'
+
+entry main = f(): void =>
+    return void
+";
+
+        let program = parse_pipeline(SOURCE);
+        let mut checker = TypeChecker::new();
+        let result = checker.type_check_program(&program);
+        let errors = result.expect_err("test-only fake backend import must fail in production mode");
+        assert!(
+            errors.iter().any(|error| matches!(
+                *error,
+                TypeError::ModuleUnavailable { ref module, ref reason, .. }
+                    if module == "standard.testing.terminal" && reason.contains("test-only")
+            )),
+            "expected test-only ModuleUnavailable diagnostic, got: {errors:?}",
+        );
+    }
+
+    #[test]
     fn test_standard_testing_terminal_authority_call_type_checks_in_test_mode() {
         const SOURCE: &str = "
 import test_runner_terminal_authority from 'standard.testing.terminal'

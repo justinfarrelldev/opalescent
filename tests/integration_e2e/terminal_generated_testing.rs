@@ -159,7 +159,7 @@ fn generated_terminal_fixture_uses_injected_fake_backend() {
 
         let child = Command::new(&binary_path)
             .env("OPAL_TERMINAL_FAKE_BACKEND", "1")
-            .env("OPAL_TERMINAL_FAKE_EVENTS", "text:hello")
+            .env("OPAL_TERMINAL_FAKE_EVENTS", "text:hello|text:world")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

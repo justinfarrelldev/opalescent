@@ -850,6 +850,33 @@ static char *opal_terminal_duplicate_cstr(const char *text) {
   return copy;
 }
 
+static char *opal_terminal_fake_event_at(const char *events, size_t ordinal) {
+  const char *start = events;
+  size_t current = 0u;
+  if (events == NULL || events[0] == '\0') {
+    return NULL;
+  }
+  while (start != NULL) {
+    const char *separator = strchr(start, '|');
+    size_t length = separator == NULL ? strlen(start) : (size_t)(separator - start);
+    if (current == ordinal) {
+      char *copy = (char *)malloc(length + 1u);
+      if (copy == NULL) {
+        return NULL;
+      }
+      memcpy(copy, start, length);
+      copy[length] = '\0';
+      return copy;
+    }
+    if (separator == NULL) {
+      return NULL;
+    }
+    start = separator + 1;
+    current += 1u;
+  }
+  return NULL;
+}
+
 FsHandleResult terminal_session_open_sync(void *options) {
   (void)options;
   if (!opal_terminal_fake_backend_enabled()) {
@@ -874,14 +901,11 @@ FsHandleResult terminal_session_read_event_sync(void *opaque_session, void *wait
     return stdout_handle_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
   }
   const char *events = getenv("OPAL_TERMINAL_FAKE_EVENTS");
-  if (events == NULL || events[0] == '\0' || session->read_count > 0) {
+  char *event_copy = opal_terminal_fake_event_at(events, session->read_count);
+  if (event_copy == NULL) {
     return stdout_handle_error(OPAL_TERMINAL_FAKE_END_OF_INPUT_ERROR);
   }
   session->read_count += 1;
-  char *event_copy = opal_terminal_duplicate_cstr(events);
-  if (event_copy == NULL) {
-    return stdout_handle_error("TerminalSessionReadError: AllocationFailure");
-  }
   return stdout_handle_success(event_copy);
 }
 
