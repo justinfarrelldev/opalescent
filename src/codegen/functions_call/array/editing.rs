@@ -11,7 +11,6 @@ use super::helpers::{
     allocate_array_with_capacity_or_null, resolve_array_identifier_binding,
     retain_rc_element_if_needed, set_array_payload_length, validate_array_operation_metadata,
 };
-use crate::codegen::expressions_array::load_array_data_ptr_for_element_type;
 use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
@@ -20,14 +19,15 @@ use crate::codegen::error_abi::{
     intern_variant_name,
 };
 use crate::codegen::expressions::{CodegenEnv, codegen_expression};
+use crate::codegen::expressions_array::load_array_data_ptr_for_element_type;
 use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
+use inkwell::AddressSpace;
 use inkwell::basic_block::BasicBlock;
 use inkwell::types::StructType;
 use inkwell::values::{BasicValue, BasicValueEnum, IntValue, PointerValue};
-use inkwell::AddressSpace;
 
 #[expect(
     clippy::too_many_lines,
@@ -462,15 +462,18 @@ fn branch_on_allocation_result<'context>(
     name_prefix: &str,
 ) -> Result<(), CodegenError> {
     let current_fn = current_function(codegen_context)?;
-    let error_block = codegen_context
-        .context
-        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.error").as_str()));
-    let ok_block = codegen_context
-        .context
-        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.ok").as_str()));
-    let is_null = codegen_context
-        .builder
-        .build_is_null(allocated_array, &env.next_name(format!("{name_prefix}.is_null").as_str()))?;
+    let error_block = codegen_context.context.append_basic_block(
+        current_fn,
+        &env.next_name(format!("{name_prefix}.error").as_str()),
+    );
+    let ok_block = codegen_context.context.append_basic_block(
+        current_fn,
+        &env.next_name(format!("{name_prefix}.ok").as_str()),
+    );
+    let is_null = codegen_context.builder.build_is_null(
+        allocated_array,
+        &env.next_name(format!("{name_prefix}.is_null").as_str()),
+    )?;
     codegen_context
         .builder
         .build_conditional_branch(is_null, error_block, ok_block)?;
@@ -500,15 +503,18 @@ fn branch_on_error_pointer_result<'context>(
     name_prefix: &str,
 ) -> Result<(), CodegenError> {
     let current_fn = current_function(codegen_context)?;
-    let error_block = codegen_context
-        .context
-        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.error").as_str()));
-    let ok_block = codegen_context
-        .context
-        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.ok").as_str()));
-    let is_error = codegen_context
-        .builder
-        .build_is_not_null(error_ptr, &env.next_name(format!("{name_prefix}.is_error").as_str()))?;
+    let error_block = codegen_context.context.append_basic_block(
+        current_fn,
+        &env.next_name(format!("{name_prefix}.error").as_str()),
+    );
+    let ok_block = codegen_context.context.append_basic_block(
+        current_fn,
+        &env.next_name(format!("{name_prefix}.ok").as_str()),
+    );
+    let is_error = codegen_context.builder.build_is_not_null(
+        error_ptr,
+        &env.next_name(format!("{name_prefix}.is_error").as_str()),
+    )?;
     codegen_context
         .builder
         .build_conditional_branch(is_error, error_block, ok_block)?;

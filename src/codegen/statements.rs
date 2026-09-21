@@ -402,7 +402,9 @@ fn codegen_let_destructure_statement<'context>(
         let alloca = codegen_context
             .builder
             .build_alloca(slot_type, binding.name.as_str())?;
-        codegen_context.builder.build_store(alloca, slot_type.const_zero())?;
+        codegen_context
+            .builder
+            .build_store(alloca, slot_type.const_zero())?;
         env.variables.insert(
             binding.name.clone(),
             VariableBinding {

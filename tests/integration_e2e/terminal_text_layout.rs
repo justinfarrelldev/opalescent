@@ -77,7 +77,8 @@ fn terminal_text_layout_project_handles_unicode_cell_widths() {
 #[test]
 fn terminal_text_layout_negative_limit_reports_specific_error_leaf() {
     let temp_dir = unique_probe_target_dir("terminal-text-layout-negative-limit");
-    prepare_dir(&temp_dir).expect("terminal-text-layout negative target directory should be created");
+    prepare_dir(&temp_dir)
+        .expect("terminal-text-layout negative target directory should be created");
 
     let source = "import terminal_text_clip_to_cells from standard\n\n##\n  Description: Exercises negative terminal text layout limits.\n##\nentry main = f(): void errors TerminalTextLayoutError, AllocationFailureError => {\n    let clipped, used_cells = propagate terminal_text_clip_to_cells('abc', -1 as int64)\n    print('unexpected {clipped} {used_cells}')\n    return void\n}";
 
@@ -118,7 +119,8 @@ fn terminal_text_layout_negative_limit_reports_specific_error_leaf() {
         Ok(())
     })();
 
-    cleanup_dir(&temp_dir).expect("terminal-text-layout negative target directory should be removed");
+    cleanup_dir(&temp_dir)
+        .expect("terminal-text-layout negative target directory should be removed");
 
     assert!(
         execution_result.is_ok(),

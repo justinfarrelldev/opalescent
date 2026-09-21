@@ -373,9 +373,6 @@ mod tests {
             .expect("test string allocation should succeed");
         let error = terminal_text_clip_to_cells(&allocator, &text, -1)
             .expect_err("negative limit should report a layout error");
-        assert_eq!(
-            error,
-            RuntimeError::user_error(1_201, "NegativeCellLimit")
-        );
+        assert_eq!(error, RuntimeError::user_error(1_201, "NegativeCellLimit"));
     }
 }

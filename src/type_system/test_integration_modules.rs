@@ -460,7 +460,8 @@ entry main = f(): void =>
         let program = parse_pipeline(SOURCE);
         let mut checker = TypeChecker::new();
         let result = checker.type_check_program(&program);
-        let errors = result.expect_err("test-only fake backend import must fail in production mode");
+        let errors =
+            result.expect_err("test-only fake backend import must fail in production mode");
         assert!(
             errors.iter().any(|error| matches!(
                 *error,
