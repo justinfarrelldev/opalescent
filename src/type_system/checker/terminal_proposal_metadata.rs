@@ -5,11 +5,11 @@
 
 use super::TypeChecker;
 use crate::{
-    ast::DeclarationAnnotation,
+    ast::{DeclarationAnnotation, TypeDeclarationForm, TypeDef},
     token::Span,
     type_system::{
         errors::TypeError, terminal_public_api_prerequisites::TerminalPublicApiPrerequisite,
-        types::CoreType,
+        type_mapping::ast_type_to_core_type, types::CoreType,
     },
 };
 
@@ -137,6 +137,55 @@ impl TypeChecker {
             visibility: visibility.clone(),
             span: TypeError::span_from_span(span),
         })
+    }
+
+    /// Return the source type for an in-scope constrained alias type.
+    pub(super) fn constrained_alias_source_core_type(
+        &self,
+        core_type: &CoreType,
+    ) -> Option<CoreType> {
+        let &CoreType::Generic {
+            ref name,
+            ref type_args,
+        } = core_type
+        else {
+            return None;
+        };
+        if !type_args.is_empty() {
+            return None;
+        }
+
+        for module_path in [
+            "standard",
+            "standard.terminal",
+            "standard.terminal.chords",
+            "standard.testing.terminal",
+        ] {
+            let Some(interface) = self.module_resolver.module_interface(module_path) else {
+                continue;
+            };
+            let Some(declaration) = interface.type_declaration(name.as_str()) else {
+                continue;
+            };
+            if declaration.form != TypeDeclarationForm::Constrained {
+                continue;
+            }
+            let &TypeDef::Alias {
+                ref target_type,
+                ref constraint,
+                ..
+            } = &declaration.type_def
+            else {
+                continue;
+            };
+            if constraint.is_none() {
+                continue;
+            }
+            if let Ok(source_type) = ast_type_to_core_type(target_type) {
+                return Some(source_type);
+            }
+        }
+        None
     }
 
     /// Register prerequisite nominal types required by the selected public API.

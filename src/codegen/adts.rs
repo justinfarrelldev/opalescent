@@ -107,18 +107,21 @@ pub fn codegen_constructor_expression<'context>(
             ..
         } = *callee.as_ref()
         {
-            let variant_tag = if let Expr::Identifier {
+            let (variant_tag, variant_layout_name) = if let Expr::Identifier {
                 name: ref type_name,
                 ..
             } = *object.as_ref()
             {
-                crate::type_system::terminal_proposal_variant_id(
-                    type_name.as_str(),
-                    member.as_str(),
+                (
+                    crate::type_system::terminal_proposal_variant_id(
+                        type_name.as_str(),
+                        member.as_str(),
+                    )
+                    .unwrap_or(0),
+                    Some(format!("{type_name}.{member}")),
                 )
-                .unwrap_or(0)
             } else {
-                0
+                (0, None)
             };
             return adts_sum::codegen_sum_variant_constructor(
                 codegen_context,
@@ -126,6 +129,7 @@ pub fn codegen_constructor_expression<'context>(
                 fields.as_slice(),
                 expected_type,
                 variant_tag,
+                variant_layout_name.as_deref(),
             );
         }
         return codegen_product_constructor(codegen_context, env, fields.as_slice(), expected_type);
@@ -258,10 +262,12 @@ pub fn codegen_field_access_expression<'context>(
                 .as_slice(),
             false,
         );
-        let typed_ptr = codegen_context.builder.build_pointer_cast(
+        let typed_ptr = adts_sum::pointer_for_pointer_backed_field_access(
+            codegen_context,
+            env,
+            name,
             object_value.into_pointer_value(),
-            struct_type.ptr_type(inkwell::AddressSpace::default()),
-            &env.next_name("field.ptr.cast"),
+            struct_type,
         )?;
         let field_ptr = unsafe {
             codegen_context.builder.build_in_bounds_gep(

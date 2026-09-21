@@ -6,7 +6,7 @@ use super::{
     codegen_call_expression, codegen_cast, codegen_constructor_expression,
     codegen_field_access_expression, codegen_guard_expression, codegen_identifier,
     codegen_if_expression, codegen_literal, codegen_match_expression, codegen_propagate_expression,
-    codegen_string_access, codegen_string_interpolation, codegen_unary, format,
+    codegen_refinement, codegen_string_access, codegen_string_interpolation, codegen_unary, format,
     infer_expression_core_type,
 };
 
@@ -147,9 +147,11 @@ pub fn codegen_expression<'context>(
             ref value,
             ..
         } => codegen_terminal_constrain_expression(codegen_context, env, target_type, value),
-        Expr::Refinement { .. } => Err(CodegenError::new(String::from(
-            "affine expression semantics are not implemented yet",
-        ))),
+        Expr::Refinement {
+            ref value,
+            ref variant,
+            ..
+        } => codegen_refinement(codegen_context, env, value.as_ref(), variant.as_ref()),
         Expr::Array { ref elements, .. } => {
             codegen_array_literal(codegen_context, env, elements.as_slice(), expected_type)
         }

@@ -28,6 +28,12 @@ use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
+#[path = "control_flow_variant_refinement.rs"]
+mod control_flow_variant_refinement;
+
+use self::control_flow_variant_refinement::{
+    apply_variant_refinement, restore_variant_refinement, variant_refinement_request,
+};
 use inkwell::IntPredicate;
 use inkwell::types::StructType;
 use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue};
@@ -117,6 +123,7 @@ pub fn codegen_if_statement<'context>(
     let condition_value =
         codegen_expression(codegen_context, env, condition, Some(&CoreType::Boolean))?;
     let condition_int = coerce_condition_to_i1(codegen_context, env, condition_value)?;
+    let refinement_request = variant_refinement_request(condition);
     let function = current_function(codegen_context)?;
     let then_block = codegen_context
         .context
@@ -134,6 +141,8 @@ pub fn codegen_if_statement<'context>(
 
     codegen_context.builder.position_at_end(then_block);
     let _then_scope_depth = env.enter_scope();
+    let applied_refinement =
+        apply_variant_refinement(codegen_context, env, refinement_request.as_ref())?;
     codegen_statement(codegen_context, env, then_branch)?;
     if let Some(current_block) = codegen_context.builder.get_insert_block() {
         if current_block.get_terminator().is_none() {
@@ -152,6 +161,7 @@ pub fn codegen_if_statement<'context>(
     } else {
         unwind_scope_without_cleanup(env);
     }
+    restore_variant_refinement(env, applied_refinement);
 
     codegen_context.builder.position_at_end(else_block);
     let _else_scope_depth = env.enter_scope();

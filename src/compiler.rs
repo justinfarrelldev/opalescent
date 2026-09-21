@@ -35,7 +35,8 @@ use compiler_helpers::{
     collect_imported_adt_field_layouts, collect_imported_symbol_signatures,
     collect_module_symbol_signatures, collect_program_adt_field_indices,
     collect_program_adt_field_layouts, compile_checked_program_to_module, is_main_module_path,
-    lambda_body_to_function_body, merge_interface_adt_field_layouts, parse_source_to_program,
+    lambda_body_to_function_body, merge_adt_field_indices_from_layouts,
+    merge_interface_adt_field_layouts, parse_source_to_program,
     validate_entry_declarations_for_module,
 };
 use inkwell::context::Context;
@@ -316,9 +317,11 @@ pub fn compile_to_module_for_target<'context>(
 
     let module_symbol_signatures =
         collect_module_symbol_signatures(&checker, source_path.display().to_string().as_str());
-    let adt_field_indices = collect_program_adt_field_indices(&program);
+    let mut adt_field_indices = collect_program_adt_field_indices(&program);
     let mut adt_field_layouts = collect_program_adt_field_layouts(&program);
-    adt_field_layouts.extend(collect_imported_adt_field_layouts(&checker, &program));
+    let imported_adt_field_layouts = collect_imported_adt_field_layouts(&checker, &program);
+    merge_adt_field_indices_from_layouts(&mut adt_field_indices, &imported_adt_field_layouts);
+    adt_field_layouts.extend(imported_adt_field_layouts);
     let codegen_context = CodegenContext::for_triple(context, "opalescent_module", target)
         .map_err(|error| {
             let mut codegen_report = CompilationErrorReport::new();
@@ -981,6 +984,7 @@ pub fn compile_project_with_run_policy(
             merge_interface_adt_field_layouts(interface, &mut global_adt_field_layouts);
         }
     }
+    merge_adt_field_indices_from_layouts(&mut global_adt_field_indices, &global_adt_field_layouts);
 
     let mut object_paths: Vec<PathBuf> = Vec::new();
     for (index, module_path) in discovered_module_paths.iter().enumerate() {

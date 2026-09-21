@@ -1038,7 +1038,7 @@ mod tests {
             STDLIB_NAMES.len()
                 + STRING_STDLIB_NAMES.len()
                 + terminal_session::TERMINAL_SESSION_RUNTIME_NAMES.len(),
-            149
+            157
         );
         assert!(is_stdlib_runtime_name("opal_runtime_error"));
         assert!(is_stdlib_runtime_name("print"));

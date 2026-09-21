@@ -2,6 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
+#if !OPAL_WINDOWS
+#include <sys/ioctl.h>
+#include <sys/select.h>
+#include <termios.h>
+#endif
 
 #ifndef OPAL_FS_VOID_RESULT_TYPE_DEFINED
 typedef struct {
@@ -106,10 +112,8 @@ static const char *OPAL_INVALID_CURSOR_POSITION_ERROR =
     "InvalidCursorPositionError";
 static const char *OPAL_INVALID_DURATION_ERROR = "InvalidDurationError";
 static const char *OPAL_INVALID_FRAME_RATE_ERROR = "InvalidFrameRateError";
-static const char *OPAL_TERMINAL_FAKE_BACKEND_REQUIRED_ERROR =
-    "TerminalSessionOpenError: FakeBackendNotInjected";
-static const char *OPAL_TERMINAL_FAKE_END_OF_INPUT_ERROR =
-    "TerminalSessionReadError: EndOfInput";
+static const char *OPAL_TERMINAL_OPEN_FAILURE_ERROR =
+    "TerminalSessionOpenError: HostOpenFailed";
 static const char *OPAL_TERMINAL_SESSION_CLOSED_ERROR =
     "TerminalSessionStateError: SessionClosed";
 
@@ -117,7 +121,73 @@ typedef struct OpalTerminalSession {
   int closed;
   int fake_backend;
   int read_count;
+  uint64_t next_event_id;
+#if !OPAL_WINDOWS
+  int raw_mode_active;
+  struct termios original_stdin;
+#endif
 } OpalTerminalSession;
+
+typedef struct OpalIoTerminalTaggedValue {
+  int64_t tag;
+  unsigned char payload[64];
+} OpalIoTerminalTaggedValue;
+
+typedef struct OpalTerminalTextInputPayload {
+  void *text;
+  void *origin;
+  void *linked_phase;
+} OpalTerminalTextInputPayload;
+
+typedef struct OpalTerminalKeyPayload {
+  void *event_id;
+  void *key;
+  void *occurrence;
+  void *modifiers;
+} OpalTerminalKeyPayload;
+
+typedef struct OpalTerminalLogicalKeyNamedPayload {
+  void *key;
+} OpalTerminalLogicalKeyNamedPayload;
+
+typedef struct OpalTerminalKeyOccurrencePressPayload {
+  void *count;
+} OpalTerminalKeyOccurrencePressPayload;
+
+typedef struct OpalTerminalResizePayload {
+  void *size;
+} OpalTerminalResizePayload;
+
+typedef struct OpalTerminalSizePayload {
+  void *columns;
+  void *rows;
+} OpalTerminalSizePayload;
+
+typedef struct OpalTerminalModifiersPayload {
+  bool shift;
+  bool control;
+  bool alt;
+  bool super_key;
+  bool caps_lock;
+  bool num_lock;
+} OpalTerminalModifiersPayload;
+
+typedef struct OpalTerminalCapabilityWithEvidencePayload {
+  void *evidence;
+} OpalTerminalCapabilityWithEvidencePayload;
+
+typedef struct OpalTerminalColorIndexedPayload {
+  void *count;
+  void *evidence;
+} OpalTerminalColorIndexedPayload;
+
+typedef struct OpalTerminalI32Box {
+  int32_t value;
+} OpalTerminalI32Box;
+
+typedef struct OpalTerminalU64Box {
+  uint64_t value;
+} OpalTerminalU64Box;
 
 static FsVoidResult stdout_void_success(void) {
   FsVoidResult result = {NULL, NULL};
@@ -834,6 +904,176 @@ FsVoidResult terminal_move_cursor_sync(int32_t row, int32_t column) {
                                       row, column);
 }
 
+static char *opal_terminal_duplicate_cstr(const char *text);
+
+static void *opal_terminal_box_i32(int32_t value) {
+  OpalTerminalI32Box *box = (OpalTerminalI32Box *)malloc(sizeof(OpalTerminalI32Box));
+  if (box == NULL) {
+    return NULL;
+  }
+  box->value = value;
+  return box;
+}
+
+static void *opal_terminal_box_u64(uint64_t value) {
+  OpalTerminalU64Box *box = (OpalTerminalU64Box *)malloc(sizeof(OpalTerminalU64Box));
+  if (box == NULL) {
+    return NULL;
+  }
+  box->value = value;
+  return box;
+}
+
+static OpalIoTerminalTaggedValue *opal_terminal_tagged_new(int64_t tag) {
+  OpalIoTerminalTaggedValue *value =
+      (OpalIoTerminalTaggedValue *)calloc(1u, sizeof(OpalIoTerminalTaggedValue));
+  if (value == NULL) {
+    return NULL;
+  }
+  value->tag = tag;
+  return value;
+}
+
+static void *opal_terminal_tagged_payload(int64_t tag, const void *payload,
+                                          size_t payload_size) {
+  OpalIoTerminalTaggedValue *value = opal_terminal_tagged_new(tag);
+  if (value == NULL) {
+    return NULL;
+  }
+  if (payload != NULL && payload_size > 0u) {
+    if (payload_size > sizeof(value->payload)) {
+      payload_size = sizeof(value->payload);
+    }
+    memcpy(value->payload, payload, payload_size);
+  }
+  return value;
+}
+
+static void *opal_terminal_tagged(int64_t tag) {
+  return opal_terminal_tagged_payload(tag, NULL, 0u);
+}
+
+static int64_t opal_terminal_tag_of(const void *opaque_value) {
+  const OpalIoTerminalTaggedValue *value = (const OpalIoTerminalTaggedValue *)opaque_value;
+  return value == NULL ? 0 : value->tag;
+}
+
+static void *opal_terminal_named_key(const char *name) {
+  if (name == NULL) {
+    return opal_terminal_tagged(5);
+  }
+  if (strcmp(name, "Enter") == 0) return opal_terminal_tagged(1);
+  if (strcmp(name, "Escape") == 0 || strcmp(name, "Esc") == 0) return opal_terminal_tagged(2);
+  if (strcmp(name, "Backspace") == 0) return opal_terminal_tagged(3);
+  if (strcmp(name, "Tab") == 0) return opal_terminal_tagged(4);
+  if (strcmp(name, "BackTab") == 0) return opal_terminal_tagged(5);
+  if (strcmp(name, "ArrowUp") == 0 || strcmp(name, "Up") == 0) return opal_terminal_tagged(6);
+  if (strcmp(name, "ArrowDown") == 0 || strcmp(name, "Down") == 0) return opal_terminal_tagged(7);
+  if (strcmp(name, "ArrowLeft") == 0 || strcmp(name, "Left") == 0) return opal_terminal_tagged(8);
+  if (strcmp(name, "ArrowRight") == 0 || strcmp(name, "Right") == 0) return opal_terminal_tagged(9);
+  if (strcmp(name, "Insert") == 0) return opal_terminal_tagged(10);
+  if (strcmp(name, "Delete") == 0) return opal_terminal_tagged(11);
+  if (strcmp(name, "Home") == 0) return opal_terminal_tagged(12);
+  if (strcmp(name, "End") == 0) return opal_terminal_tagged(13);
+  if (strcmp(name, "PageUp") == 0) return opal_terminal_tagged(14);
+  if (strcmp(name, "PageDown") == 0) return opal_terminal_tagged(15);
+  return opal_terminal_tagged(2);
+}
+
+static void *opal_terminal_modifiers_none(void) {
+  OpalTerminalModifiersPayload payload;
+  memset(&payload, 0, sizeof(payload));
+  OpalTerminalModifiersPayload *boxed =
+      (OpalTerminalModifiersPayload *)malloc(sizeof(OpalTerminalModifiersPayload));
+  if (boxed == NULL) {
+    return NULL;
+  }
+  *boxed = payload;
+  return boxed;
+}
+
+static void *opal_terminal_size_new(int32_t columns, int32_t rows) {
+  OpalTerminalSizePayload *size =
+      (OpalTerminalSizePayload *)calloc(1u, sizeof(OpalTerminalSizePayload));
+  if (size == NULL) {
+    return NULL;
+  }
+  size->columns = opal_terminal_box_i32(columns <= 0 ? 80 : columns);
+  size->rows = opal_terminal_box_i32(rows <= 0 ? 24 : rows);
+  if (size->columns == NULL || size->rows == NULL) {
+    free(size->columns);
+    free(size->rows);
+    free(size);
+    return NULL;
+  }
+  return size;
+}
+
+static void *opal_terminal_text_origin_direct(void) {
+  return opal_terminal_tagged(1);
+}
+
+static void *opal_terminal_linked_text_complete(void) {
+  return opal_terminal_tagged(1);
+}
+
+static void *opal_terminal_key_occurrence_press(void) {
+  OpalTerminalKeyOccurrencePressPayload payload;
+  payload.count = opal_terminal_box_i32(1);
+  if (payload.count == NULL) {
+    return NULL;
+  }
+  return opal_terminal_tagged_payload(1, &payload, sizeof(payload));
+}
+
+static void *opal_terminal_logical_key_named(void *named_key) {
+  OpalTerminalLogicalKeyNamedPayload payload;
+  payload.key = named_key;
+  return opal_terminal_tagged_payload(3, &payload, sizeof(payload));
+}
+
+static void *opal_terminal_text_event(const char *text) {
+  char *copy = opal_terminal_duplicate_cstr(text);
+  OpalTerminalTextInputPayload payload;
+  if (copy == NULL) {
+    return NULL;
+  }
+  payload.text = copy;
+  payload.origin = opal_terminal_text_origin_direct();
+  payload.linked_phase = opal_terminal_linked_text_complete();
+  if (payload.origin == NULL || payload.linked_phase == NULL) {
+    free(copy);
+    return NULL;
+  }
+  return opal_terminal_tagged_payload(2, &payload, sizeof(payload));
+}
+
+static void *opal_terminal_key_event(OpalTerminalSession *session, const char *name) {
+  OpalTerminalKeyPayload payload;
+  memset(&payload, 0, sizeof(payload));
+  payload.event_id = opal_terminal_box_u64(session == NULL ? 1u : session->next_event_id++);
+  payload.key = opal_terminal_logical_key_named(opal_terminal_named_key(name));
+  payload.occurrence = opal_terminal_key_occurrence_press();
+  payload.modifiers = opal_terminal_modifiers_none();
+  if (payload.event_id == NULL || payload.key == NULL || payload.occurrence == NULL || payload.modifiers == NULL) {
+    return NULL;
+  }
+  return opal_terminal_tagged_payload(1, &payload, sizeof(payload));
+}
+
+static void *opal_terminal_resize_event(int32_t rows, int32_t columns) {
+  OpalTerminalResizePayload payload;
+  payload.size = opal_terminal_size_new(columns, rows);
+  if (payload.size == NULL) {
+    return NULL;
+  }
+  return opal_terminal_tagged_payload(8, &payload, sizeof(payload));
+}
+
+static void *opal_terminal_simple_event(int64_t tag) {
+  return opal_terminal_tagged(tag);
+}
+
 static int opal_terminal_fake_backend_enabled(void) {
   const char *enabled = getenv("OPAL_TERMINAL_FAKE_BACKEND");
   return enabled != NULL && strcmp(enabled, "1") == 0;
@@ -877,36 +1117,241 @@ static char *opal_terminal_fake_event_at(const char *events, size_t ordinal) {
   return NULL;
 }
 
+static int opal_terminal_enable_raw_mode(OpalTerminalSession *session) {
+#if !OPAL_WINDOWS
+  struct termios raw;
+  if (session == NULL || !isatty(STDIN_FILENO)) {
+    return 1;
+  }
+  if (tcgetattr(STDIN_FILENO, &session->original_stdin) != 0) {
+    return 0;
+  }
+  raw = session->original_stdin;
+  raw.c_iflag &= (tcflag_t)~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+  raw.c_oflag &= (tcflag_t)~(OPOST);
+  raw.c_cflag |= (tcflag_t)CS8;
+  raw.c_lflag &= (tcflag_t)~(ECHO | ICANON | IEXTEN | ISIG);
+  raw.c_cc[VMIN] = 1;
+  raw.c_cc[VTIME] = 0;
+  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) != 0) {
+    return 0;
+  }
+  session->raw_mode_active = 1;
+#else
+  (void)session;
+#endif
+  return 1;
+}
+
+static void opal_terminal_restore_session(OpalTerminalSession *session) {
+#if !OPAL_WINDOWS
+  if (session != NULL && session->raw_mode_active) {
+    (void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &session->original_stdin);
+    session->raw_mode_active = 0;
+  }
+#else
+  (void)session;
+#endif
+}
+
+static int opal_terminal_wait_has_input(int poll_only) {
+#if !OPAL_WINDOWS
+  fd_set read_fds;
+  struct timeval timeout;
+  int ready;
+  if (!isatty(STDIN_FILENO)) {
+    return 1;
+  }
+  if (!poll_only) {
+    return 1;
+  }
+  FD_ZERO(&read_fds);
+  FD_SET(STDIN_FILENO, &read_fds);
+  timeout.tv_sec = 0;
+  timeout.tv_usec = 0;
+  ready = select(STDIN_FILENO + 1, &read_fds, NULL, NULL, &timeout);
+  return ready > 0;
+#else
+  (void)poll_only;
+  return 1;
+#endif
+}
+
+static void *opal_terminal_event_from_fake_spec(OpalTerminalSession *session, const char *spec) {
+  if (spec == NULL) {
+    return opal_terminal_simple_event(13);
+  }
+  if (strncmp(spec, "text:", 5u) == 0) {
+    return opal_terminal_text_event(spec + 5u);
+  }
+  if (strncmp(spec, "key:", 4u) == 0) {
+    return opal_terminal_key_event(session, spec + 4u);
+  }
+  if (strncmp(spec, "resize:", 7u) == 0) {
+    int rows = 24;
+    int columns = 80;
+    (void)sscanf(spec + 7u, "%dx%d", &rows, &columns);
+    return opal_terminal_resize_event(rows, columns);
+  }
+  if (strcmp(spec, "timeout") == 0) return opal_terminal_simple_event(11);
+  if (strcmp(spec, "cancelled") == 0) return opal_terminal_simple_event(12);
+  if (strcmp(spec, "eof") == 0 || strcmp(spec, "end") == 0 || strcmp(spec, "end-of-input") == 0) {
+    return opal_terminal_simple_event(13);
+  }
+  return opal_terminal_text_event(spec);
+}
+
+static void *opal_terminal_real_event_from_byte(OpalTerminalSession *session, int ch) {
+  char text[2];
+  if (ch == EOF) {
+    return opal_terminal_simple_event(13);
+  }
+  if (ch == 0x04) {
+    return opal_terminal_simple_event(13);
+  }
+  if (ch == '\r' || ch == '\n') {
+    return opal_terminal_key_event(session, "Enter");
+  }
+  if (ch == '\t') {
+    return opal_terminal_key_event(session, "Tab");
+  }
+  if (ch == 0x7f || ch == '\b') {
+    return opal_terminal_key_event(session, "Backspace");
+  }
+  if (ch == 0x1b) {
+    int next1 = EOF;
+    int next2 = EOF;
+#if !OPAL_WINDOWS
+    if (opal_terminal_wait_has_input(1)) {
+      next1 = fgetc(stdin);
+      if (next1 == '[' && opal_terminal_wait_has_input(1)) {
+        next2 = fgetc(stdin);
+        if (next2 == 'A') return opal_terminal_key_event(session, "ArrowUp");
+        if (next2 == 'B') return opal_terminal_key_event(session, "ArrowDown");
+        if (next2 == 'C') return opal_terminal_key_event(session, "ArrowRight");
+        if (next2 == 'D') return opal_terminal_key_event(session, "ArrowLeft");
+        if (next2 == 'H') return opal_terminal_key_event(session, "Home");
+        if (next2 == 'F') return opal_terminal_key_event(session, "End");
+      }
+    }
+#endif
+    return opal_terminal_key_event(session, "Escape");
+  }
+  text[0] = (char)ch;
+  text[1] = '\0';
+  return opal_terminal_text_event(text);
+}
+
 FsHandleResult terminal_session_open_sync(void *options) {
   (void)options;
-  if (!opal_terminal_fake_backend_enabled()) {
-    return stdout_handle_error(OPAL_TERMINAL_FAKE_BACKEND_REQUIRED_ERROR);
-  }
   OpalTerminalSession *session =
       (OpalTerminalSession *)calloc(1u, sizeof(OpalTerminalSession));
   if (session == NULL) {
     return stdout_handle_error("TerminalSessionOpenError: AllocationFailure");
   }
-  session->fake_backend = 1;
+  session->fake_backend = opal_terminal_fake_backend_enabled();
+  session->next_event_id = 1u;
+  if (!session->fake_backend && !opal_terminal_enable_raw_mode(session)) {
+    free(session);
+    return stdout_handle_error(OPAL_TERMINAL_OPEN_FAILURE_ERROR);
+  }
   OPAL_TERMINAL_STATE = OPAL_TERMINAL_ACTIVE;
   return stdout_handle_success(session);
 }
 
-FsHandleResult terminal_session_read_event_sync(void *opaque_session, void *wait,
-                                                void *cancellation_token) {
-  (void)wait;
-  (void)cancellation_token;
+void *terminal_session_state(void *opaque_session) {
   OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  if (session == NULL || session->closed) {
+    return opal_terminal_tagged(4);
+  }
+  return opal_terminal_tagged(1);
+}
+
+void *terminal_session_capabilities(void *opaque_session) {
+  (void)opaque_session;
+  return calloc(1u, 1u);
+}
+
+void *terminal_capabilities_feature(void *capabilities, void *feature) {
+  (void)capabilities;
+  (void)feature;
+  OpalTerminalCapabilityWithEvidencePayload payload;
+  payload.evidence = opal_terminal_tagged(4);
+  if (payload.evidence == NULL) {
+    return NULL;
+  }
+  return opal_terminal_tagged_payload(2, &payload, sizeof(payload));
+}
+
+void *terminal_capabilities_trusted_paste_framing(void *capabilities) {
+  (void)capabilities;
+  OpalTerminalCapabilityWithEvidencePayload payload;
+  payload.evidence = opal_terminal_tagged(2);
+  if (payload.evidence == NULL) {
+    return NULL;
+  }
+  return opal_terminal_tagged_payload(2, &payload, sizeof(payload));
+}
+
+void *terminal_capabilities_color(void *capabilities) {
+  (void)capabilities;
+  OpalTerminalCapabilityWithEvidencePayload payload;
+  payload.evidence = opal_terminal_tagged(4);
+  if (payload.evidence == NULL) {
+    return NULL;
+  }
+  return opal_terminal_tagged_payload(4, &payload, sizeof(payload));
+}
+
+FsHandleResult terminal_session_size_sync(void *opaque_session) {
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  int rows = 24;
+  int columns = 80;
   if (session == NULL || session->closed) {
     return stdout_handle_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
   }
-  const char *events = getenv("OPAL_TERMINAL_FAKE_EVENTS");
-  char *event_copy = opal_terminal_fake_event_at(events, session->read_count);
-  if (event_copy == NULL) {
-    return stdout_handle_error(OPAL_TERMINAL_FAKE_END_OF_INPUT_ERROR);
+#if !OPAL_WINDOWS
+  if (isatty(STDOUT_FILENO)) {
+    struct winsize size;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) == 0 && size.ws_col > 0 && size.ws_row > 0) {
+      columns = (int)size.ws_col;
+      rows = (int)size.ws_row;
+    }
   }
-  session->read_count += 1;
-  return stdout_handle_success(event_copy);
+#endif
+  void *terminal_size = opal_terminal_size_new(columns, rows);
+  if (terminal_size == NULL) {
+    return stdout_handle_error("AllocationFailureError");
+  }
+  return stdout_handle_success(terminal_size);
+}
+
+FsHandleResult terminal_session_read_event_sync(void *opaque_session, void *wait,
+                                                void *cancellation_token) {
+  (void)cancellation_token;
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  void *event = NULL;
+  if (session == NULL || session->closed) {
+    return stdout_handle_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
+  }
+  if (session->fake_backend) {
+    const char *events = getenv("OPAL_TERMINAL_FAKE_EVENTS");
+    char *event_copy = opal_terminal_fake_event_at(events, session->read_count);
+    session->read_count += 1;
+    event = opal_terminal_event_from_fake_spec(session, event_copy);
+    free(event_copy);
+  } else {
+    int wait_tag = (int)opal_terminal_tag_of(wait);
+    if (wait_tag == 1 && !opal_terminal_wait_has_input(1)) {
+      event = opal_terminal_simple_event(11);
+    } else {
+      event = opal_terminal_real_event_from_byte(session, fgetc(stdin));
+    }
+  }
+  if (event == NULL) {
+    return stdout_handle_error("AllocationFailureError");
+  }
+  return stdout_handle_success(event);
 }
 
 FsVoidResult terminal_session_write_sync(void *opaque_session, void *trusted_output) {
@@ -983,12 +1428,45 @@ FsVoidResult terminal_session_bell_sync(void *opaque_session) {
   return terminal_write_stream(stdout, "\a");
 }
 
+FsVoidResult terminal_session_set_cursor_visible_sync(void *opaque_session, int8_t visible) {
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  if (session == NULL || session->closed) {
+    return stdout_void_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
+  }
+  return terminal_write_stream(stdout, visible ? "\x1b[?25h" : "\x1b[?25l");
+}
+
+FsVoidResult terminal_session_set_cursor_shape_sync(void *opaque_session, void *shape) {
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  int64_t tag = opal_terminal_tag_of(shape);
+  const char *sequence = "\x1b[0 q";
+  if (session == NULL || session->closed) {
+    return stdout_void_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
+  }
+  switch (tag) {
+    case 2: sequence = "\x1b[1 q"; break;
+    case 3: sequence = "\x1b[2 q"; break;
+    case 4: sequence = "\x1b[3 q"; break;
+    case 5: sequence = "\x1b[4 q"; break;
+    case 6: sequence = "\x1b[5 q"; break;
+    case 7: sequence = "\x1b[6 q"; break;
+    default: sequence = "\x1b[0 q"; break;
+  }
+  return terminal_write_stream(stdout, sequence);
+}
+
 FsHandleResult terminal_session_close_sync(void *opaque_session) {
   OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
   if (session == NULL || session->closed) {
     return stdout_handle_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
   }
+  opal_terminal_restore_session(session);
   session->closed = 1;
   OPAL_TERMINAL_STATE = OPAL_TERMINAL_FREE;
-  return stdout_handle_success(opal_terminal_duplicate_cstr("TerminalCloseOutcome.Ok"));
+  return stdout_handle_success(opal_terminal_tagged(1));
+}
+
+void *__opal_using_cleanup_terminal_session_close_sync(void *opaque_session) {
+  FsHandleResult result = terminal_session_close_sync(opaque_session);
+  return (void *)result.error;
 }

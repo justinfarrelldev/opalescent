@@ -872,17 +872,17 @@ impl TypeChecker {
     /// This method performs deep structural comparison for complex types like
     /// arrays, functions, and generics, ensuring all nested components are compatible.
     /// For simple equality checking, use the `==` operator on `CoreType` directly.
-    #[expect(
-        clippy::only_used_in_recursion,
-        reason = "self parameter needed for structural recursion"
-    )]
     pub fn types_compatible(&self, left: &CoreType, right: &CoreType) -> bool {
-        // Clone to owned values to allow safe pattern matching without moving out of borrows.
-        // This trades some performance for clarity and lint compliance; core types are small.
+        if let Some(right_source_type) = self.constrained_alias_source_core_type(right) {
+            if right_source_type == CoreType::String
+                && self.types_compatible(left, &right_source_type)
+            {
+                return true;
+            }
+        }
         let l = left.clone();
         let r = right.clone();
         match (l, r) {
-            // All primitive types
             (CoreType::Int8, CoreType::Int8)
             | (CoreType::Int16, CoreType::Int16)
             | (CoreType::Int32, CoreType::Int32)
@@ -896,13 +896,10 @@ impl TypeChecker {
             | (CoreType::Boolean, CoreType::Boolean)
             | (CoreType::String, CoreType::String)
             | (CoreType::Unit, CoreType::Unit) => true,
-            // Type variables are compatible with themselves
             (CoreType::Variable(var1), CoreType::Variable(var2)) => var1.id == var2.id,
-            // Arrays are compatible if their element types are compatible
             (CoreType::Array(left_elem), CoreType::Array(right_elem)) => {
                 self.types_compatible(left_elem.as_ref(), right_elem.as_ref())
             }
-            // Functions are compatible if parameters and return types are compatible
             (
                 CoreType::Function {
                     parameters: left_params,
@@ -943,7 +940,6 @@ impl TypeChecker {
                 }
                 true
             }
-            // Generic types are compatible if names and type arguments match
             (
                 CoreType::Generic {
                     name: left_name,
@@ -972,10 +968,10 @@ impl TypeChecker {
                 }
                 true
             }
-            // Different types are not compatible
             _ => false,
         }
     }
+
     /// Validate a cast expression and classify it as safe or unsafe.
     ///
     /// See [`is_safe_cast`](super::checker::helpers::is_safe_cast) for detailed cast safety rules.

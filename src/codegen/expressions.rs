@@ -150,6 +150,10 @@ impl<'context> CodegenEnv<'context> {
 
 #[path = "expressions_dispatch.rs"]
 mod expressions_dispatch;
+#[path = "expressions_variant.rs"]
+mod expressions_variant;
+
+use self::expressions_variant::codegen_variant_tag_compare;
 
 pub fn codegen_expression<'context>(
     codegen_context: &CodegenContext<'context>,
@@ -345,6 +349,19 @@ fn infer_cast_source_core_type(expr: &Expr, env: &CodegenEnv<'_>) -> Option<Core
     }
 }
 
+fn codegen_refinement<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    value: &Expr,
+    variant: &Expr,
+) -> Result<BasicValueEnum<'context>, CodegenError> {
+    codegen_variant_tag_compare(codegen_context, env, value, variant, false)?.ok_or_else(|| {
+        CodegenError::new(String::from(
+            "nominal refinement variant does not have a runtime tag",
+        ))
+    })
+}
+
 fn codegen_binary<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
@@ -353,6 +370,18 @@ fn codegen_binary<'context>(
     right: &Expr,
     expected_type: Option<&CoreType>,
 ) -> Result<BasicValueEnum<'context>, CodegenError> {
+    if matches!(*operator, BinaryOp::Is | BinaryOp::IsNot) {
+        if let Some(comparison) = codegen_variant_tag_compare(
+            codegen_context,
+            env,
+            left,
+            right,
+            matches!(*operator, BinaryOp::IsNot),
+        )? {
+            return Ok(comparison);
+        }
+    }
+
     let operand_expected_type = match *operator {
         BinaryOp::Equal
         | BinaryOp::NotEqual

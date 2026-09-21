@@ -509,44 +509,49 @@ fn terminal_task24_validation_failures_execute() {
 }
 
 #[test]
-fn terminal_lifecycle_api_remains_codegen_gated_until_c_abi_exists() {
-    let temp_dir =
-        unique_probe_target_dir("terminal-task24-unimplemented-runtime-api-remains-gated");
+fn terminal_lifecycle_api_lowers_and_runs_generated_session() {
+    let temp_dir = unique_probe_target_dir("terminal-lifecycle-api-lowers");
     let prepare = prepare_dir(&temp_dir);
     assert!(
         prepare.is_ok(),
-        "terminal-task24-unimplemented-runtime-api-remains-gated target directory should be created"
+        "terminal-lifecycle-api-lowers target directory should be created"
     );
 
     let execution_result: Result<(), String> = (|| {
-        let source_path = temp_dir.join("terminal_task24_gate.op");
+        let source_path = temp_dir.join("terminal_lifecycle_lowers.op");
         let source = "
-import terminal_session_open_sync, terminal_session_options_default from 'standard.terminal'
-import type TerminalSessionOpenError from 'standard.terminal'
+import terminal_session_open_sync, terminal_session_options_default, terminal_session_close_sync from 'standard.terminal'
+import type TerminalSessionOpenError, TerminalSessionRestoreError from 'standard.terminal'
 
 ##
-    Description: Generated compile failure proving lifecycle API stays gated until generated-program C ABI lowering exists
+    Description: Generated lifecycle API lowering opens and closes a terminal session.
 ##
-entry main = f(): void errors TerminalSessionOpenError =>
-    let session = propagate terminal_session_open_sync(terminal_session_options_default())
+entry main = f(): void errors TerminalSessionOpenError, TerminalSessionRestoreError =>
+    let mutable session = propagate terminal_session_open_sync(terminal_session_options_default())
+    let _closed = propagate terminal_session_close_sync(mutable ref session)
     return void
 ";
 
-        let error = compile_program_for_tests(
+        let binary_path = compile_program_for_tests(
             source_path.as_path(),
             source,
             &temp_dir,
             &TargetTriple::host(),
         )
-        .expect_err(
-            "lifecycle API must remain codegen gated until generated-program C ABI lowering exists",
-        );
-        let rendered = error.to_string();
-        if !rendered.contains("runtime lowering")
-            || !rendered.contains("terminal_session_open_sync")
-        {
+        .map_err(|error| {
+            format!("lifecycle API should compile after generated lowering: {error}")
+        })?;
+        let run_output = run_binary_output_with_timeout(
+            &binary_path,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "terminal-lifecycle-api-lowers compiled binary",
+        )?;
+        if !run_output.status.success() {
             return Err(format!(
-                "expected runtime-readiness diagnostic mentioning terminal_session_open_sync, got: {rendered}"
+                "lifecycle API binary should exit cleanly, status {:?}\nstdout:\n{}\nstderr:\n{}",
+                run_output.status.code(),
+                String::from_utf8_lossy(&run_output.stdout),
+                String::from_utf8_lossy(&run_output.stderr),
             ));
         }
         Ok(())
@@ -555,7 +560,7 @@ entry main = f(): void errors TerminalSessionOpenError =>
     let cleanup = cleanup_dir(&temp_dir);
     assert!(
         cleanup.is_ok(),
-        "terminal-task24-unimplemented-runtime-api-remains-gated target directory should be removed"
+        "terminal-lifecycle-api-lowers target directory should be removed"
     );
 
     let failure_message = match execution_result {
@@ -564,7 +569,7 @@ entry main = f(): void errors TerminalSessionOpenError =>
     };
     assert!(
         failure_message.is_empty(),
-        "terminal-task24-unimplemented-runtime-api-remains-gated should preserve the gate: {failure_message}"
+        "terminal lifecycle API should compile, link, and run: {failure_message}"
     );
 }
 

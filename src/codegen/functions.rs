@@ -427,13 +427,11 @@ pub fn codegen_import_declaration<'context>(
                     env.imported_functions.insert(local_name, name.clone());
                     continue;
                 }
-                if source == "standard.terminal"
-                    && !crate::type_system::is_terminal_proposal_codegen_gated_import(
-                        source.as_str(),
-                        name.as_str(),
-                    )
-                {
-                    let Some(signature) = env
+                if matches!(
+                    source.as_str(),
+                    "standard" | "standard.terminal" | "standard.system"
+                ) {
+                    let terminal_signature = env
                         .imported_signatures
                         .get(name.as_str())
                         .cloned()
@@ -442,36 +440,51 @@ pub fn codegen_import_declaration<'context>(
                                 source.as_str(),
                                 name.as_str(),
                             )
-                        })
-                    else {
-                        return Err(CodegenError::new(format!(
-                            "missing imported signature for terminal proposal symbol '{name}'"
-                        )));
-                    };
-                    let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
-                        codegen_context,
-                        name.as_str(),
-                    )
-                    .map_or_else(
-                        || {
-                            declare_external_imported_function(
-                                codegen_context,
+                        });
+                    if let Some(signature) = terminal_signature {
+                        let gate_error = if source == "standard" {
+                            crate::codegen::functions_stdlib::terminal_proposal_runtime_gate_error(
                                 name.as_str(),
-                                &signature,
                             )
-                        },
-                        Ok,
-                    )?;
-                    env.imported_signatures
-                        .insert(local_name.clone(), signature.clone());
-                    env.imported_functions.insert(
-                        local_name,
-                        runtime_fn
-                            .get_name()
-                            .to_str()
-                            .map_or_else(|_| name.clone(), alloc::borrow::ToOwned::to_owned),
-                    );
-                    continue;
+                        } else {
+                            crate::codegen::functions_stdlib::terminal_proposal_import_gate_error(
+                                source.as_str(),
+                                name.as_str(),
+                            )
+                            .or_else(|| {
+                                crate::codegen::functions_stdlib::terminal_proposal_runtime_gate_error(
+                                    name.as_str(),
+                                )
+                            })
+                        };
+                        if let Some(error) = gate_error {
+                            return Err(error);
+                        }
+                        let runtime_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
+                            codegen_context,
+                            name.as_str(),
+                        )
+                        .map_or_else(
+                            || {
+                                declare_external_imported_function(
+                                    codegen_context,
+                                    name.as_str(),
+                                    &signature,
+                                )
+                            },
+                            Ok,
+                        )?;
+                        env.imported_signatures
+                            .insert(local_name.clone(), signature.clone());
+                        env.imported_functions.insert(
+                            local_name,
+                            runtime_fn
+                                .get_name()
+                                .to_str()
+                                .map_or_else(|_| name.clone(), alloc::borrow::ToOwned::to_owned),
+                        );
+                        continue;
+                    }
                 }
                 let runtime_name = crate::codegen::functions_stdlib::resolve_imported_runtime_name(
                     source.as_str(),

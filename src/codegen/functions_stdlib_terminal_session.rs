@@ -12,6 +12,12 @@ pub(super) const TERMINAL_SESSION_RUNTIME_NAMES: &[&str] = &[
     "terminal_session_options_validate",
     "trusted_terminal_output_from_application_text",
     "terminal_session_open_sync",
+    "terminal_session_state",
+    "terminal_session_capabilities",
+    "terminal_capabilities_feature",
+    "terminal_capabilities_trusted_paste_framing",
+    "terminal_capabilities_color",
+    "terminal_session_size_sync",
     "terminal_session_read_event_sync",
     "terminal_session_write_sync",
     "terminal_session_flush_sync",
@@ -19,6 +25,8 @@ pub(super) const TERMINAL_SESSION_RUNTIME_NAMES: &[&str] = &[
     "terminal_session_move_cursor_sync",
     "terminal_session_draw_rows_sync",
     "terminal_session_bell_sync",
+    "terminal_session_set_cursor_visible_sync",
+    "terminal_session_set_cursor_shape_sync",
     "terminal_session_close_sync",
 ];
 
@@ -29,6 +37,10 @@ pub(super) fn is_terminal_session_runtime_name(name: &str) -> bool {
 }
 
 /// Declare an implemented selected terminal runtime function.
+#[expect(
+    clippy::too_many_lines,
+    reason = "terminal runtime declarations are centralized for ABI readability"
+)]
 pub(super) fn declare_terminal_session_function<'context>(
     codegen_context: &CodegenContext<'context>,
     name: &str,
@@ -56,10 +68,28 @@ pub(super) fn declare_terminal_session_function<'context>(
         "terminal_session_options_validate"
         | "trusted_terminal_output_from_application_text"
         | "terminal_session_open_sync"
+        | "terminal_session_size_sync"
         | "terminal_session_close_sync" => module.get_function(name).or_else(|| {
             Some(module.add_function(
                 name,
                 pointer_error_result_type.fn_type(&[i8_ptr.into()], false),
+                None,
+            ))
+        }),
+        "terminal_session_state" | "terminal_session_capabilities" => {
+            module.get_function(name).or_else(|| {
+                Some(module.add_function(name, i8_ptr.fn_type(&[i8_ptr.into()], false), None))
+            })
+        }
+        "terminal_capabilities_trusted_paste_framing" | "terminal_capabilities_color" => {
+            module.get_function(name).or_else(|| {
+                Some(module.add_function(name, i8_ptr.fn_type(&[i8_ptr.into()], false), None))
+            })
+        }
+        "terminal_capabilities_feature" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                i8_ptr.fn_type(&[i8_ptr.into(), i8_ptr.into()], false),
                 None,
             ))
         }),
@@ -99,6 +129,20 @@ pub(super) fn declare_terminal_session_function<'context>(
                 None,
             ))
         }),
+        "terminal_session_set_cursor_visible_sync" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                void_error_result_type.fn_type(&[i8_ptr.into(), ctx.bool_type().into()], false),
+                None,
+            ))
+        }),
+        "terminal_session_set_cursor_shape_sync" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                void_error_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false),
+                None,
+            ))
+        }),
         "terminal_session_draw_rows_sync" => module.get_function(name).or_else(|| {
             Some(module.add_function(
                 name,
@@ -122,7 +166,7 @@ mod tests {
     use super::is_terminal_session_runtime_name;
 
     #[test]
-    fn generated_high_level_rendering_v1_excludes_cursor_visibility_and_shape() {
+    fn generated_high_level_rendering_v1_includes_cursor_visibility_and_shape() {
         assert!(is_terminal_session_runtime_name(
             "terminal_session_clear_screen_sync"
         ));
@@ -132,11 +176,13 @@ mod tests {
         assert!(is_terminal_session_runtime_name(
             "terminal_session_draw_rows_sync"
         ));
-        assert!(is_terminal_session_runtime_name("terminal_session_bell_sync"));
-        assert!(!is_terminal_session_runtime_name(
+        assert!(is_terminal_session_runtime_name(
+            "terminal_session_bell_sync"
+        ));
+        assert!(is_terminal_session_runtime_name(
             "terminal_session_set_cursor_visible_sync"
         ));
-        assert!(!is_terminal_session_runtime_name(
+        assert!(is_terminal_session_runtime_name(
             "terminal_session_set_cursor_shape_sync"
         ));
     }

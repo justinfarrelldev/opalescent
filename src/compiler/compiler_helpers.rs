@@ -183,7 +183,35 @@ pub fn collect_program_adt_field_layouts(
     adt_field_layouts
 }
 
-/// Collect imported ADT field layouts from authoritative module metadata.
+/// Build field-index metadata from lowered ADT field layouts.
+pub fn collect_adt_field_indices_from_layouts(
+    layouts: &BTreeMap<String, Vec<(String, CoreType)>>,
+) -> BTreeMap<String, BTreeMap<String, u32>> {
+    let mut adt_field_indices = BTreeMap::new();
+    for (name, fields) in layouts {
+        let mut field_indices = BTreeMap::new();
+        for (index, (field_name, _field_type)) in fields.iter().enumerate() {
+            let Ok(converted_index) = u32::try_from(index) else {
+                continue;
+            };
+            field_indices.insert(field_name.clone(), converted_index);
+        }
+        adt_field_indices.insert(name.clone(), field_indices);
+    }
+    adt_field_indices
+}
+
+/// Merge field-index metadata derived from ADT field layouts without replacing local metadata.
+pub fn merge_adt_field_indices_from_layouts(
+    adt_field_indices: &mut BTreeMap<String, BTreeMap<String, u32>>,
+    adt_field_layouts: &BTreeMap<String, Vec<(String, CoreType)>>,
+) {
+    for (owner, field_indices) in collect_adt_field_indices_from_layouts(adt_field_layouts) {
+        adt_field_indices.entry(owner).or_insert(field_indices);
+    }
+}
+
+/// Collect ADT field layouts from modules imported by the current program.
 pub fn collect_imported_adt_field_layouts(
     checker: &TypeChecker,
     program: &Program,

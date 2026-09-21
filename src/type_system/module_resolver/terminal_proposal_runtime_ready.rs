@@ -14,6 +14,12 @@ const SELECTED_DATA_MODEL_RUNTIME_NAMES: &[&str] = &[
     "terminal_session_options_validate",
     "trusted_terminal_output_from_application_text",
     "terminal_session_open_sync",
+    "terminal_session_state",
+    "terminal_session_capabilities",
+    "terminal_capabilities_feature",
+    "terminal_capabilities_trusted_paste_framing",
+    "terminal_capabilities_color",
+    "terminal_session_size_sync",
     "terminal_session_read_event_sync",
     "terminal_session_write_sync",
     "terminal_session_flush_sync",
@@ -21,6 +27,8 @@ const SELECTED_DATA_MODEL_RUNTIME_NAMES: &[&str] = &[
     "terminal_session_move_cursor_sync",
     "terminal_session_draw_rows_sync",
     "terminal_session_bell_sync",
+    "terminal_session_set_cursor_visible_sync",
+    "terminal_session_set_cursor_shape_sync",
     "terminal_session_close_sync",
 ];
 
