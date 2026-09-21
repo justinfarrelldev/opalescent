@@ -4508,6 +4508,82 @@ entry main = f(): void => {
 }
 
 #[test]
+fn test_array_insert_allocation_failure_lowers_to_error_abi() {
+    let source = "
+import print from standard
+
+##
+    Description: Entry function validates array insert allocation failure lowering uses error ABI.
+##
+entry main = f(): void errors IndexOutOfBoundsError, AllocationFailureError => {
+    let values: int32[] = [1 as int32, 2 as int32]
+    let updated = propagate values.insert(1 as int64, 9 as int32)
+    print('{updated.length}')
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "array insert lowering should compile: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("AllocationFailureError"),
+        "array insert should materialize AllocationFailureError for allocation failure: {ir}"
+    );
+    assert!(
+        !ir.contains("insert array allocation failed"),
+        "array insert allocation failure should return through the error ABI instead of trapping: {ir}"
+    );
+}
+
+#[test]
+fn test_array_remove_string_duplicate_allocation_failure_is_checked() {
+    let source = "
+import print from standard
+
+##
+    Description: Entry function validates array remove_at string duplication checks allocation errors.
+##
+entry main = f(): void errors IndexOutOfBoundsError, AllocationFailureError => {
+    let values: string[] = ['alpha', 'beta']
+    let updated, removed = propagate values.remove_at(0 as int64)
+    print('{updated.length}:{removed}')
+    return void
+}
+";
+
+    let context = Context::create();
+    let module_result = compile_to_module(&context, Path::new("test.op"), source);
+    assert!(
+        module_result.is_ok(),
+        "array remove_at string lowering should compile: {module_result:?}"
+    );
+    let Ok(module) = module_result else {
+        return;
+    };
+    let ir = module.print_to_string().to_string();
+    assert!(
+        ir.contains("array.remove_at.duplicate.error"),
+        "array remove_at string lowering should inspect the string_insert_at error field: {ir}"
+    );
+    assert!(
+        ir.contains("AllocationFailureError"),
+        "array remove_at should materialize AllocationFailureError for array or removed string allocation failures: {ir}"
+    );
+    assert!(
+        !ir.contains("remove_at array allocation failed"),
+        "array remove_at allocation failure should return through the error ABI instead of trapping: {ir}"
+    );
+}
+
+#[test]
 fn test_array_length_member_emits_i64_return() {
     let source = "
 ##

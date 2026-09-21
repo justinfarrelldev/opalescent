@@ -8,9 +8,10 @@ extern crate alloc;
 
 use super::super::functions_call_helpers::current_function;
 use super::helpers::{
-    allocate_array_with_capacity, resolve_array_identifier_binding, retain_rc_element_if_needed,
-    set_array_payload_length, validate_array_operation_metadata,
+    allocate_array_with_capacity_or_null, resolve_array_identifier_binding,
+    retain_rc_element_if_needed, set_array_payload_length, validate_array_operation_metadata,
 };
+use crate::codegen::expressions_array::load_array_data_ptr_for_element_type;
 use crate::ast::Expr;
 use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
@@ -23,7 +24,10 @@ use crate::codegen::types::core_type_to_llvm;
 use crate::type_system::types::CoreType;
 use alloc::format;
 use alloc::string::String;
+use inkwell::basic_block::BasicBlock;
+use inkwell::types::StructType;
 use inkwell::values::{BasicValue, BasicValueEnum, IntValue, PointerValue};
+use inkwell::AddressSpace;
 
 #[expect(
     clippy::too_many_lines,
@@ -118,12 +122,28 @@ pub(super) fn codegen_array_insert_call<'context>(
         codegen_context.context.i64_type().const_int(1, false),
         &env.next_name("array.insert.len"),
     )?;
-    let (result_array, result_ptr) = allocate_array_with_capacity(
+    let result_array = allocate_array_with_capacity_or_null(
         codegen_context,
         env,
         operation,
         &element_core_type,
         next_length,
+    )?;
+    branch_on_allocation_result(
+        codegen_context,
+        env,
+        result_array,
+        result_type,
+        result_alloca,
+        cont_block,
+        "array.insert.alloc",
+    )?;
+    let result_ptr = load_array_data_ptr_for_element_type(
+        codegen_context,
+        env,
+        result_array,
+        &element_core_type,
+        operation,
     )?;
     copy_array_range_with_offsets(
         codegen_context,
@@ -303,11 +323,20 @@ pub(super) fn codegen_array_remove_at_call<'context>(
     let removed_value = codegen_context
         .builder
         .build_load(removed_slot, &env.next_name("array.remove_at.removed"))?;
-    let returned_removed_value = duplicate_removed_string_if_needed(
+    let (returned_removed_value, duplicate_error) = duplicate_removed_string_if_needed(
         codegen_context,
         env,
         &element_core_type,
         removed_value,
+    )?;
+    branch_on_error_pointer_result(
+        codegen_context,
+        env,
+        duplicate_error,
+        result_type,
+        result_alloca,
+        cont_block,
+        "array.remove_at.duplicate",
     )?;
     retain_rc_element_if_needed(
         codegen_context,
@@ -321,12 +350,28 @@ pub(super) fn codegen_array_remove_at_call<'context>(
         codegen_context.context.i64_type().const_int(1, false),
         &env.next_name("array.remove_at.len"),
     )?;
-    let (result_array, result_ptr) = allocate_array_with_capacity(
+    let result_array = allocate_array_with_capacity_or_null(
         codegen_context,
         env,
         operation,
         &element_core_type,
         next_length,
+    )?;
+    branch_on_allocation_result(
+        codegen_context,
+        env,
+        result_array,
+        result_type,
+        result_alloca,
+        cont_block,
+        "array.remove_at.alloc",
+    )?;
+    let result_ptr = load_array_data_ptr_for_element_type(
+        codegen_context,
+        env,
+        result_array,
+        &element_core_type,
+        operation,
     )?;
     copy_array_range_with_offsets(
         codegen_context,
@@ -407,14 +452,93 @@ pub(super) fn codegen_array_remove_at_call<'context>(
         .map_err(Into::into)
 }
 
+fn branch_on_allocation_result<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    allocated_array: PointerValue<'context>,
+    result_type: StructType<'context>,
+    result_alloca: PointerValue<'context>,
+    cont_block: BasicBlock<'context>,
+    name_prefix: &str,
+) -> Result<(), CodegenError> {
+    let current_fn = current_function(codegen_context)?;
+    let error_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.error").as_str()));
+    let ok_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.ok").as_str()));
+    let is_null = codegen_context
+        .builder
+        .build_is_null(allocated_array, &env.next_name(format!("{name_prefix}.is_null").as_str()))?;
+    codegen_context
+        .builder
+        .build_conditional_branch(is_null, error_block, ok_block)?;
+
+    codegen_context.builder.position_at_end(error_block);
+    let error_ptr = intern_variant_name(codegen_context, env, "AllocationFailureError")?;
+    let error_result =
+        build_error_aggregate_for_return_type(codegen_context, result_type, error_ptr)?;
+    codegen_context
+        .builder
+        .build_store(result_alloca, error_result)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(cont_block)?;
+
+    codegen_context.builder.position_at_end(ok_block);
+    Ok(())
+}
+
+fn branch_on_error_pointer_result<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    error_ptr: PointerValue<'context>,
+    result_type: StructType<'context>,
+    result_alloca: PointerValue<'context>,
+    cont_block: BasicBlock<'context>,
+    name_prefix: &str,
+) -> Result<(), CodegenError> {
+    let current_fn = current_function(codegen_context)?;
+    let error_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.error").as_str()));
+    let ok_block = codegen_context
+        .context
+        .append_basic_block(current_fn, &env.next_name(format!("{name_prefix}.ok").as_str()));
+    let is_error = codegen_context
+        .builder
+        .build_is_not_null(error_ptr, &env.next_name(format!("{name_prefix}.is_error").as_str()))?;
+    codegen_context
+        .builder
+        .build_conditional_branch(is_error, error_block, ok_block)?;
+
+    codegen_context.builder.position_at_end(error_block);
+    let error_result =
+        build_error_aggregate_for_return_type(codegen_context, result_type, error_ptr)?;
+    codegen_context
+        .builder
+        .build_store(result_alloca, error_result)?;
+    codegen_context
+        .builder
+        .build_unconditional_branch(cont_block)?;
+
+    codegen_context.builder.position_at_end(ok_block);
+    Ok(())
+}
+
 fn duplicate_removed_string_if_needed<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     element_core_type: &CoreType,
     removed_value: BasicValueEnum<'context>,
-) -> Result<BasicValueEnum<'context>, CodegenError> {
+) -> Result<(BasicValueEnum<'context>, PointerValue<'context>), CodegenError> {
+    let i8_ptr = codegen_context
+        .context
+        .i8_type()
+        .ptr_type(AddressSpace::default());
     if !matches!(element_core_type, CoreType::String) {
-        return Ok(removed_value);
+        return Ok((removed_value, i8_ptr.const_null()));
     }
     let duplicate_fn = crate::codegen::functions_stdlib::declare_stdlib_function(
         codegen_context,
@@ -436,11 +560,15 @@ fn duplicate_removed_string_if_needed<'context>(
         .basic()
         .ok_or_else(|| CodegenError::new(String::from("string_insert_at returned void")))?
         .into_struct_value();
-    codegen_context
+    let value = codegen_context
         .builder
-        .build_extract_value(result, 0, &env.next_name("array.remove_at.duplicate.value"))
-        .map(|value| value.as_basic_value_enum())
-        .map_err(Into::into)
+        .build_extract_value(result, 0, &env.next_name("array.remove_at.duplicate.value"))?
+        .as_basic_value_enum();
+    let error = codegen_context
+        .builder
+        .build_extract_value(result, 1, &env.next_name("array.remove_at.duplicate.error"))?
+        .into_pointer_value();
+    Ok((value, error))
 }
 
 fn copy_array_range_with_offsets<'context>(

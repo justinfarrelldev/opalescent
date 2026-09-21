@@ -15,8 +15,9 @@ use crate::codegen::context::CodegenContext;
 use crate::codegen::error::CodegenError;
 use crate::codegen::expressions::{CodegenEnv, VariableBinding};
 use crate::codegen::expressions_array::{
-    allocate_array_payload, load_array_capacity_from_value, load_array_data_ptr_for_element_type,
-    load_array_length_from_value, load_array_payload_ptr_from_binding, requires_rc_runtime_hooks,
+    allocate_array_payload, allocate_array_payload_or_null, load_array_capacity_from_value,
+    load_array_data_ptr_for_element_type, load_array_length_from_value,
+    load_array_payload_ptr_from_binding, requires_rc_runtime_hooks,
 };
 use crate::codegen::rc_emitter::RcEmitter;
 use crate::type_system::types::CoreType;
@@ -413,6 +414,23 @@ pub(super) fn allocate_array_with_capacity<'context>(
     capacity: IntValue<'context>,
 ) -> Result<(PointerValue<'context>, PointerValue<'context>), CodegenError> {
     allocate_array_payload(
+        codegen_context,
+        env,
+        element_core_type,
+        codegen_context.context.i64_type().const_zero(),
+        capacity,
+        operation,
+    )
+}
+
+pub(super) fn allocate_array_with_capacity_or_null<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    operation: &str,
+    element_core_type: &CoreType,
+    capacity: IntValue<'context>,
+) -> Result<PointerValue<'context>, CodegenError> {
+    allocate_array_payload_or_null(
         codegen_context,
         env,
         element_core_type,

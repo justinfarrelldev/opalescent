@@ -23,12 +23,12 @@ Method: each schism and correctness gap must first be proven with a failing test
 
 ## 3. Array editing declares `AllocationFailureError` but generated lowering traps or ignores allocation failures
 
-- [ ] PROVE: add a codegen or runtime-internal test showing `insert` allocation failure currently lowers to `opal_runtime_error`/trap instead of an error aggregate.
-- [ ] PROVE: add a test showing string `remove_at` removed-value duplication ignores the `string_insert_at` error field.
-- [ ] FIX/DISPROVE: change `insert` and `remove_at` lowering to return `AllocationFailureError` for array allocation failure.
-- [ ] FIX/DISPROVE: handle removed string duplication allocation failure through the declared error path.
-- [ ] REFACTOR: run focused array/codegen tests.
-- [ ] COMMIT: atomic array allocation-error contract commit.
+- [x] PROVE: add a codegen or runtime-internal test showing `insert` allocation failure currently lowers to `opal_runtime_error`/trap instead of an error aggregate.
+- [x] PROVE: add a test showing string `remove_at` removed-value duplication ignores the `string_insert_at` error field.
+- [x] FIX/DISPROVE: change `insert` and `remove_at` lowering to return `AllocationFailureError` for array allocation failure.
+- [x] FIX/DISPROVE: handle removed string duplication allocation failure through the declared error path.
+- [x] REFACTOR: run focused array/codegen tests.
+- [x] COMMIT: atomic array allocation-error contract commit.
 
 ## 4. High-level session rendering is only a subset of the proposed surface
 

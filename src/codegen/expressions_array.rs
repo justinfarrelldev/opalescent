@@ -827,14 +827,14 @@ fn codegen_flat_array_literal<'context>(
     Ok(array_value.as_basic_value_enum())
 }
 
-pub(crate) fn allocate_array_payload<'context>(
+pub(crate) fn allocate_array_payload_or_null<'context>(
     codegen_context: &CodegenContext<'context>,
     env: &mut CodegenEnv<'context>,
     element_core_type: &CoreType,
     length: IntValue<'context>,
     capacity: IntValue<'context>,
     name_prefix: &str,
-) -> Result<(PointerValue<'context>, PointerValue<'context>), CodegenError> {
+) -> Result<PointerValue<'context>, CodegenError> {
     let (element_size, element_align) = array_element_layout(codegen_context, element_core_type)?;
     let alloc_fn = declare_or_get_opal_array_alloc(codegen_context);
     let drop_children_fn = array_drop_children_fn_ptr(codegen_context, element_core_type)?;
@@ -849,11 +849,28 @@ pub(crate) fn allocate_array_payload<'context>(
         ],
         &env.next_name(format!("{name_prefix}.alloc").as_str()),
     )?;
-    let array_value = call
-        .try_as_basic_value()
+    call.try_as_basic_value()
         .basic()
-        .ok_or_else(|| CodegenError::new(String::from("opal_array_alloc returned no value")))?
-        .into_pointer_value();
+        .ok_or_else(|| CodegenError::new(String::from("opal_array_alloc returned no value")))
+        .map(BasicValueEnum::into_pointer_value)
+}
+
+pub(crate) fn allocate_array_payload<'context>(
+    codegen_context: &CodegenContext<'context>,
+    env: &mut CodegenEnv<'context>,
+    element_core_type: &CoreType,
+    length: IntValue<'context>,
+    capacity: IntValue<'context>,
+    name_prefix: &str,
+) -> Result<(PointerValue<'context>, PointerValue<'context>), CodegenError> {
+    let array_value = allocate_array_payload_or_null(
+        codegen_context,
+        env,
+        element_core_type,
+        length,
+        capacity,
+        name_prefix,
+    )?;
     trap_on_null_array_allocation(codegen_context, env, array_value, name_prefix)?;
     let data_ptr = load_array_data_ptr_for_element_type(
         codegen_context,
