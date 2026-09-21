@@ -47,10 +47,14 @@ fn terminal_text_layout_project_handles_unicode_cell_widths() {
             "WIDTH_CJK=2\n",
             "WIDTH_EMOJI=2\n",
             "WIDTH_ZWJ=2\n",
+            "WIDTH_FLAG=2\n",
+            "WIDTH_KEYCAP=2\n",
             "CLIP_ASCII=[abcd]/4\n",
             "CLIP_COMBINING=[e\u{301}]/1\n",
             "CLIP_CJK=[a界]/3\n",
             "CLIP_EMOJI=[🙂]/2\n",
+            "CLIP_FLAG=[🇺🇸]/2\n",
+            "CLIP_KEYCAP=[1\u{FE0F}\u{20E3}]/2\n",
         );
         if stdout != expected {
             return Err(format!(

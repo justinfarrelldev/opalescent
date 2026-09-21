@@ -71,7 +71,18 @@ fn text_cell_width(text: &str) -> i64 {
 
 #[must_use]
 fn next_grapheme_end(text: &str, start: usize) -> usize {
+    let Some(first_char) = text[start..].chars().next() else {
+        return start;
+    };
     let mut end = next_scalar_end(text, start);
+    if is_regional_indicator(first_char) && end < text.len() {
+        if let Some(second_char) = text[end..].chars().next() {
+            if is_regional_indicator(second_char) {
+                return next_scalar_end(text, end);
+            }
+        }
+    }
+
     let mut join_next = false;
     while end < text.len() {
         let Some(next_char) = text[end..].chars().next() else {
@@ -111,6 +122,16 @@ fn grapheme_width(cluster: &str) -> i64 {
     {
         return 2;
     }
+    if cluster.chars().any(|value| value == '\u{20E3}') {
+        return 2;
+    }
+    let regional_count = cluster
+        .chars()
+        .filter(|value| is_regional_indicator(*value))
+        .count();
+    if regional_count >= 2 {
+        return 2;
+    }
     cluster.chars().map(scalar_width).sum()
 }
 
@@ -118,6 +139,8 @@ fn grapheme_width(cluster: &str) -> i64 {
 fn scalar_width(value: char) -> i64 {
     if value == '\u{200D}' || is_grapheme_extend(value) || value.is_control() {
         0
+    } else if is_regional_indicator(value) {
+        1
     } else if is_wide_scalar(value) {
         2
     } else {
@@ -236,6 +259,12 @@ const fn is_grapheme_extend(value: char) -> bool {
 }
 
 #[must_use]
+const fn is_regional_indicator(value: char) -> bool {
+    let scalar = value as u32;
+    matches!(scalar, 0x1F1E6..=0x1F1FF)
+}
+
+#[must_use]
 const fn is_wide_scalar(value: char) -> bool {
     let scalar = value as u32;
     matches!(
@@ -316,5 +345,23 @@ mod tests {
             .expect("clip should succeed for positive limit");
         assert_eq!(clipped.0.as_str(), "a界e\u{301}");
         assert_eq!(clipped.1, 4);
+
+        let flag = allocator
+            .allocate_string("🇺🇸x")
+            .expect("flag string allocation should succeed");
+        assert_eq!(terminal_text_cell_width(&flag), 3);
+        let clipped_flag =
+            terminal_text_clip_to_cells(&allocator, &flag, 2).expect("flag clip should succeed");
+        assert_eq!(clipped_flag.0.as_str(), "🇺🇸");
+        assert_eq!(clipped_flag.1, 2);
+
+        let keycap = allocator
+            .allocate_string("1\u{FE0F}\u{20E3}x")
+            .expect("keycap string allocation should succeed");
+        assert_eq!(terminal_text_cell_width(&keycap), 3);
+        let clipped_keycap = terminal_text_clip_to_cells(&allocator, &keycap, 2)
+            .expect("keycap clip should succeed");
+        assert_eq!(clipped_keycap.0.as_str(), "1\u{FE0F}\u{20E3}");
+        assert_eq!(clipped_keycap.1, 2);
     }
 }

@@ -6,13 +6,13 @@ Method: each schism and correctness gap must first be proven with a failing test
 
 ## 1. Full grapheme/cell-width layout is incomplete
 
-- [ ] PROVE: add failing Rust runtime tests for regional-indicator flag graphemes, keycap emoji sequences, and clipping that must not split them.
-- [ ] PROVE: add/generated fixture coverage for at least flag and keycap layout behavior in compiled Opalescent.
-- [ ] FIX/DISPROVE: update Rust terminal text layout segmentation/width policy to pass the new cases or document why the suspected case is outside the proposal.
-- [ ] FIX/DISPROVE: update C generated-runtime layout segmentation/width policy to match Rust behavior.
-- [ ] FIX/DISPROVE: document Unicode version/scope and ambiguous-width policy.
-- [ ] REFACTOR: run focused layout unit/integration tests and formatting.
-- [ ] COMMIT: atomic grapheme conformance schism commit.
+- [x] PROVE: add failing Rust runtime tests for regional-indicator flag graphemes, keycap emoji sequences, and clipping that must not split them.
+- [x] PROVE: add/generated fixture coverage for at least flag and keycap layout behavior in compiled Opalescent.
+- [x] FIX/DISPROVE: update Rust terminal text layout segmentation/width policy to pass the new cases or document why the suspected case is outside the proposal.
+- [x] FIX/DISPROVE: update C generated-runtime layout segmentation/width policy to match Rust behavior.
+- [x] FIX/DISPROVE: document Unicode version/scope and ambiguous-width policy.
+- [x] REFACTOR: run focused layout unit/integration tests and formatting.
+- [x] COMMIT: atomic grapheme conformance schism commit.
 
 ## 2. `TerminalTextLayoutError` shape is collapsed versus proposal variants
 

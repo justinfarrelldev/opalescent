@@ -238,7 +238,7 @@ Returns a new string with the Unicode scalar range `[start, end)` replaced by `r
 
 ### `terminal_text_cell_width(text: string): int64`
 
-Returns the terminal display-cell width of `text` using grapheme-cluster boundaries and Opalescent's Unicode terminal width policy. Combining marks, variation selectors, emoji modifiers, and zero-width joiners do not add cells by themselves; CJK wide characters and supported emoji presentation scalars count as two cells.
+Returns the terminal display-cell width of `text` using Opalescent's Unicode terminal width policy. The current policy tracks Unicode 15.1-style extended grapheme behavior for combining marks, variation selectors, emoji modifiers, regional-indicator flag pairs, keycap sequences, and zero-width-joiner emoji sequences. Ambiguous-width scalars are treated as single-cell; CJK wide characters and supported emoji presentation scalars count as two cells.
 
 ### `terminal_text_clip_to_cells(text: string, max_cells: int64): string, int64 errors TerminalTextLayoutError, AllocationFailureError`
 

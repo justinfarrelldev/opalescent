@@ -941,6 +941,10 @@ static int opal_terminal_layout_is_extend(uint32_t codepoint) {
         || (codepoint >= 0x1F3FBu && codepoint <= 0x1F3FFu);
 }
 
+static int opal_terminal_layout_is_regional_indicator(uint32_t codepoint) {
+    return codepoint >= 0x1F1E6u && codepoint <= 0x1F1FFu;
+}
+
 static int opal_terminal_layout_is_wide(uint32_t codepoint) {
     return (codepoint >= 0x1100u && codepoint <= 0x115Fu)
         || (codepoint >= 0x231Au && codepoint <= 0x231Bu)
@@ -1006,7 +1010,19 @@ static const unsigned char* opal_terminal_layout_next_scalar_end(const unsigned 
 
 static const unsigned char* opal_terminal_layout_next_grapheme_end(const unsigned char* start) {
     const unsigned char* cursor = opal_terminal_layout_next_scalar_end(start);
+    uint32_t first_codepoint = 0u;
+    size_t first_len = 0u;
     int join_next = 0;
+    if (opal_utf8_decode_scalar(start, &first_codepoint, &first_len)
+        && opal_terminal_layout_is_regional_indicator(first_codepoint)
+        && *cursor != '\0') {
+        uint32_t second_codepoint = 0u;
+        size_t second_len = 0u;
+        if (opal_utf8_decode_scalar(cursor, &second_codepoint, &second_len)
+            && opal_terminal_layout_is_regional_indicator(second_codepoint)) {
+            return cursor + second_len;
+        }
+    }
     while (*cursor != '\0') {
         uint32_t codepoint = 0u;
         size_t scalar_len = 0u;
@@ -1051,6 +1067,8 @@ static int64_t opal_terminal_layout_grapheme_width(const unsigned char* start, c
         }
         if (codepoint == 0x200Du || opal_terminal_layout_is_extend(codepoint) || codepoint < 0x20u || (codepoint >= 0x7Fu && codepoint < 0xA0u)) {
             width += 0;
+        } else if (opal_terminal_layout_is_regional_indicator(codepoint)) {
+            width += 1;
         } else if (opal_terminal_layout_is_wide(codepoint)) {
             width += 2;
         } else {
@@ -1058,7 +1076,24 @@ static int64_t opal_terminal_layout_grapheme_width(const unsigned char* start, c
         }
         cursor += scalar_len;
     }
-    if (has_joiner && has_emoji) {
+    int regional_count = 0;
+    int has_keycap = 0;
+    cursor = start;
+    while (cursor < end && *cursor != '\0') {
+        uint32_t codepoint = 0u;
+        size_t scalar_len = 0u;
+        if (!opal_utf8_decode_scalar(cursor, &codepoint, &scalar_len)) {
+            break;
+        }
+        if (opal_terminal_layout_is_regional_indicator(codepoint)) {
+            regional_count++;
+        }
+        if (codepoint == 0x20E3u) {
+            has_keycap = 1;
+        }
+        cursor += scalar_len;
+    }
+    if ((has_joiner && has_emoji) || regional_count >= 2 || has_keycap) {
         return 2;
     }
     return width;
