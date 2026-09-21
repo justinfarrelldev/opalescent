@@ -124,12 +124,36 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
             name: String::from("TerminalPauseResult"),
             type_args: Vec::new(),
         }),
-        "terminal_pause_events_at" | "terminal_session_read_event_sync" => {
+        "terminal_chord_sequence_single" | "terminal_chord_sequence_append" => {
             Some(CoreType::Generic {
-                name: String::from("TerminalInputEvent"),
+                name: String::from("TerminalChordSequence"),
                 type_args: Vec::new(),
             })
         }
+        "terminal_chord_router_new" => Some(CoreType::Generic {
+            name: String::from("TerminalChordRouter"),
+            type_args: Vec::new(),
+        }),
+        "terminal_chord_router_register" => Some(CoreType::Generic {
+            name: String::from("TerminalChordBindingId"),
+            type_args: Vec::new(),
+        }),
+        "terminal_chord_router_process" | "terminal_chord_router_expire_sync" => {
+            Some(CoreType::Generic {
+                name: String::from("TerminalChordRouterOutput"),
+                type_args: Vec::new(),
+            })
+        }
+        "terminal_chord_router_reset" => Some(CoreType::Generic {
+            name: String::from("TerminalChordReleasedInput"),
+            type_args: Vec::new(),
+        }),
+        "terminal_pause_events_at"
+        | "terminal_session_read_event_sync"
+        | "terminal_chord_released_input_at" => Some(CoreType::Generic {
+            name: String::from("TerminalInputEvent"),
+            type_args: Vec::new(),
+        }),
         "terminal_session_open_sync" => Some(CoreType::Generic {
             name: String::from("TerminalSession"),
             type_args: Vec::new(),
@@ -138,6 +162,20 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
             name: String::from("TerminalSize"),
             type_args: Vec::new(),
         }),
+        "terminal_session_capabilities" => Some(CoreType::Generic {
+            name: String::from("TerminalCapabilities"),
+            type_args: Vec::new(),
+        }),
+        "terminal_chord_modifiers" => Some(CoreType::Generic {
+            name: String::from("TerminalChordModifiers"),
+            type_args: Vec::new(),
+        }),
+        "terminal_chord_new" | "terminal_chord_with_lock_modifier_mask" => {
+            Some(CoreType::Generic {
+                name: String::from("TerminalChord"),
+                type_args: Vec::new(),
+            })
+        }
         "random_int8" => Some(CoreType::Int8),
         "random_int16" => Some(CoreType::Int16),
         "random_int32" | "bytes_length" => Some(CoreType::Int32),
@@ -341,12 +379,36 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
             name: String::from("TerminalPauseResult"),
             type_args: Vec::new(),
         }),
-        "terminal_pause_events_at" | "terminal_session_read_event_sync" => {
+        "terminal_chord_sequence_single" | "terminal_chord_sequence_append" => {
             Some(CoreType::Generic {
-                name: String::from("TerminalInputEvent"),
+                name: String::from("TerminalChordSequence"),
                 type_args: Vec::new(),
             })
         }
+        "terminal_chord_router_new" => Some(CoreType::Generic {
+            name: String::from("TerminalChordRouter"),
+            type_args: Vec::new(),
+        }),
+        "terminal_chord_router_register" => Some(CoreType::Generic {
+            name: String::from("TerminalChordBindingId"),
+            type_args: Vec::new(),
+        }),
+        "terminal_chord_router_process" | "terminal_chord_router_expire_sync" => {
+            Some(CoreType::Generic {
+                name: String::from("TerminalChordRouterOutput"),
+                type_args: Vec::new(),
+            })
+        }
+        "terminal_chord_router_reset" => Some(CoreType::Generic {
+            name: String::from("TerminalChordReleasedInput"),
+            type_args: Vec::new(),
+        }),
+        "terminal_pause_events_at"
+        | "terminal_session_read_event_sync"
+        | "terminal_chord_released_input_at" => Some(CoreType::Generic {
+            name: String::from("TerminalInputEvent"),
+            type_args: Vec::new(),
+        }),
         "terminal_session_open_sync" => Some(CoreType::Generic {
             name: String::from("TerminalSession"),
             type_args: Vec::new(),
@@ -355,6 +417,20 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
             name: String::from("TerminalSize"),
             type_args: Vec::new(),
         }),
+        "terminal_session_capabilities" => Some(CoreType::Generic {
+            name: String::from("TerminalCapabilities"),
+            type_args: Vec::new(),
+        }),
+        "terminal_chord_modifiers" => Some(CoreType::Generic {
+            name: String::from("TerminalChordModifiers"),
+            type_args: Vec::new(),
+        }),
+        "terminal_chord_new" | "terminal_chord_with_lock_modifier_mask" => {
+            Some(CoreType::Generic {
+                name: String::from("TerminalChord"),
+                type_args: Vec::new(),
+            })
+        }
         "string_to_int8" => Some(CoreType::Int8),
         "string_to_int16" => Some(CoreType::Int16),
         "string_to_int32" => Some(CoreType::Int32),

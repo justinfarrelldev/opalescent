@@ -307,6 +307,7 @@ fn fixture_fake_events(name: &str) -> &'static str {
         "terminal-paste-quarantine" => {
             "text:typed|paste:trusted|unknown:PasteInvalidUtf8|unknown:UnrecognizedSequence|reset:PasteFallback|eof"
         }
+        "terminal-chord-quit" => "text:draft|key:Control:17+control|key:Escape|eof",
         "terminal-game-of-life-interactive" => {
             "key:Text:space|key:Text:+|key:Text:-|key:Text:space|key:Text:r|key:Text:q"
         }

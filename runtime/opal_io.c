@@ -196,14 +196,33 @@ typedef struct OpalTerminalChordReleasedInput {
   void **events;
 } OpalTerminalChordReleasedInput;
 
+typedef struct OpalTerminalChord {
+  void *key;
+  void *modifiers;
+  void *lock_modifier_mask;
+  void *trigger;
+} OpalTerminalChord;
+
+typedef struct OpalTerminalChordSequence {
+  int64_t count;
+  void *chords[8];
+} OpalTerminalChordSequence;
+
+typedef struct OpalTerminalChordRouterBinding {
+  uint64_t ordinal;
+  OpalTerminalChordSequence *sequence;
+  void *text_policy;
+} OpalTerminalChordRouterBinding;
+
 typedef struct OpalTerminalChordRouter {
   uint64_t next_binding_id;
-  void *bindings[16];
-  uint64_t binding_ordinals[16];
+  OpalTerminalChordRouterBinding bindings[16];
   int64_t binding_count;
-  int64_t buffered_count;
-  void *buffered[16];
 } OpalTerminalChordRouter;
+
+typedef struct OpalTerminalSinglePointerPayload {
+  void *value;
+} OpalTerminalSinglePointerPayload;
 
 typedef struct OpalCancellationSourceForIo {
   uint64_t generation;
@@ -253,6 +272,10 @@ typedef struct OpalTerminalI32Box {
 typedef struct OpalTerminalU64Box {
   uint64_t value;
 } OpalTerminalU64Box;
+
+typedef struct OpalTerminalU8Box {
+  uint8_t value;
+} OpalTerminalU8Box;
 
 static FsVoidResult stdout_void_success(void) {
   FsVoidResult result = {NULL, NULL};
@@ -1772,24 +1795,63 @@ uint64_t terminal_diagnostics_retained_bytes(void *collection) { (void)collectio
 uint64_t terminal_diagnostics_omitted_bytes(void *collection) { (void)collection; return 0u; }
 int8_t terminal_diagnostics_was_truncated(void *collection) { (void)collection; return 0; }
 
+static const void *opal_terminal_payload_of(const void *opaque_value) {
+  const OpalIoTerminalTaggedValue *value = (const OpalIoTerminalTaggedValue *)opaque_value;
+  return value == NULL ? NULL : (const void *)value->payload;
+}
+
+static int32_t opal_io_terminal_i32_box_value(const void *opaque_box) {
+  const OpalTerminalI32Box *box = (const OpalTerminalI32Box *)opaque_box;
+  return box == NULL ? 0 : box->value;
+}
+
+static uint8_t opal_io_terminal_u8_box_value(const void *opaque_box) {
+  const OpalTerminalU8Box *box = (const OpalTerminalU8Box *)opaque_box;
+  return box == NULL ? 0u : box->value;
+}
+
 void *terminal_chord_modifiers(int8_t shift, int8_t control, int8_t alt, int8_t super_key) {
   return opal_terminal_modifiers_from_flags(shift, control, alt, super_key);
 }
 
 void *terminal_chord_new(void *key, void *modifiers, void *trigger) {
-  void **chord = (void **)calloc(4u, sizeof(void *));
+  OpalTerminalChord *chord = (OpalTerminalChord *)calloc(1u, sizeof(OpalTerminalChord));
   if (chord == NULL) return NULL;
-  chord[0] = key;
-  chord[1] = modifiers;
-  chord[2] = opal_terminal_tagged(1);
-  chord[3] = trigger;
+  chord->key = key;
+  chord->modifiers = modifiers;
+  chord->lock_modifier_mask = opal_terminal_tagged(1);
+  chord->trigger = trigger;
   return chord;
 }
 
-void *terminal_chord_with_lock_modifier_mask(void *chord, void *mask) { (void)mask; return chord; }
+void *terminal_chord_with_lock_modifier_mask(void *opaque_chord, void *mask) {
+  OpalTerminalChord *chord = (OpalTerminalChord *)opaque_chord;
+  if (chord != NULL) chord->lock_modifier_mask = mask;
+  return chord;
+}
 
-FsHandleResult terminal_chord_sequence_single(void *chord) { return stdout_handle_success(chord); }
-FsHandleResult terminal_chord_sequence_append(void *sequence, void *chord) { (void)chord; return stdout_handle_success(sequence); }
+FsHandleResult terminal_chord_sequence_single(void *chord) {
+  OpalTerminalChordSequence *sequence = (OpalTerminalChordSequence *)calloc(1u, sizeof(OpalTerminalChordSequence));
+  if (sequence == NULL) return stdout_handle_error("AllocationFailureError");
+  sequence->count = 1;
+  sequence->chords[0] = chord;
+  return stdout_handle_success(sequence);
+}
+
+FsHandleResult terminal_chord_sequence_append(void *opaque_sequence, void *chord) {
+  OpalTerminalChordSequence *source = (OpalTerminalChordSequence *)opaque_sequence;
+  OpalTerminalChordSequence *copy;
+  int64_t index;
+  if (source == NULL || source->count < 0 || source->count >= 8) {
+    return stdout_handle_error("TerminalChordValidationError");
+  }
+  copy = (OpalTerminalChordSequence *)calloc(1u, sizeof(OpalTerminalChordSequence));
+  if (copy == NULL) return stdout_handle_error("AllocationFailureError");
+  copy->count = source->count + 1;
+  for (index = 0; index < source->count; index++) copy->chords[index] = source->chords[index];
+  copy->chords[source->count] = chord;
+  return stdout_handle_success(copy);
+}
 
 FsHandleResult terminal_chord_router_new(void *capabilities, void *policy) {
   (void)capabilities; (void)policy;
@@ -1800,15 +1862,16 @@ FsHandleResult terminal_chord_router_new(void *capabilities, void *policy) {
 }
 
 FsHandleResult terminal_chord_router_register(void *opaque_router, void *sequence, void *priority, void *text_policy) {
-  (void)priority; (void)text_policy;
+  (void)priority;
   OpalTerminalChordRouter *router = (OpalTerminalChordRouter *)opaque_router;
   OpalTerminalChordBindingId *id;
-  if (router == NULL || router->binding_count >= 16) return stdout_handle_error("TerminalChordValidationError");
+  if (router == NULL || sequence == NULL || router->binding_count < 0 || router->binding_count >= 16) return stdout_handle_error("TerminalChordValidationError");
   id = (OpalTerminalChordBindingId *)calloc(1u, sizeof(OpalTerminalChordBindingId));
   if (id == NULL) return stdout_handle_error("AllocationFailureError");
   id->ordinal = router->next_binding_id++;
-  router->bindings[router->binding_count] = sequence;
-  router->binding_ordinals[router->binding_count] = id->ordinal;
+  router->bindings[router->binding_count].ordinal = id->ordinal;
+  router->bindings[router->binding_count].sequence = (OpalTerminalChordSequence *)sequence;
+  router->bindings[router->binding_count].text_policy = text_policy;
   router->binding_count += 1;
   return stdout_handle_success(id);
 }
@@ -1817,49 +1880,111 @@ FsHandleResult terminal_chord_router_unregister(void *router, void *binding_id) 
 FsHandleResult terminal_chord_router_replace(void *router, void *binding_id, void *sequence, void *priority, void *text_policy) { (void)router; (void)binding_id; (void)sequence; (void)priority; (void)text_policy; return stdout_handle_success(opal_terminal_tagged(2)); }
 uint64_t terminal_chord_binding_id_ordinal(void *opaque_id) { OpalTerminalChordBindingId *id = (OpalTerminalChordBindingId *)opaque_id; return id == NULL ? 0u : id->ordinal; }
 
-static OpalTerminalChordReleasedInput *opal_terminal_chord_released_empty(void) {
-  return (OpalTerminalChordReleasedInput *)calloc(1u, sizeof(OpalTerminalChordReleasedInput));
-}
-
-static void *opal_terminal_chord_output_released(int64_t count) {
-  OpalTerminalChordReleasedInput *released = opal_terminal_chord_released_empty();
-  void *payload[1];
+static OpalTerminalChordReleasedInput *opal_terminal_chord_released_with_event(void *event) {
+  OpalTerminalChordReleasedInput *released = (OpalTerminalChordReleasedInput *)calloc(1u, sizeof(OpalTerminalChordReleasedInput));
   if (released == NULL) return NULL;
-  released->count = count;
-  payload[0] = released;
-  return opal_terminal_tagged_payload(2, payload, sizeof(payload));
+  if (event == NULL) return released;
+  released->events = (void **)calloc(1u, sizeof(void *));
+  if (released->events == NULL) {
+    free(released);
+    return NULL;
+  }
+  released->events[0] = event;
+  released->count = 1;
+  return released;
 }
 
-static void *opal_terminal_chord_output_activated(void *binding_id) {
+static void *opal_terminal_chord_output_released(void *event) {
+  OpalTerminalChordReleasedInput *released = opal_terminal_chord_released_with_event(event);
+  struct { void *input; } payload;
+  if (released == NULL) return NULL;
+  payload.input = released;
+  return opal_terminal_tagged_payload(2, &payload, sizeof(payload));
+}
+
+static void *opal_terminal_chord_output_activated(uint64_t ordinal) {
   struct { void *binding_id; void *occurrence; void *released_input; } payload;
+  OpalTerminalChordBindingId *binding_id = (OpalTerminalChordBindingId *)calloc(1u, sizeof(OpalTerminalChordBindingId));
+  if (binding_id == NULL) return NULL;
+  binding_id->ordinal = ordinal;
   payload.binding_id = binding_id;
   payload.occurrence = opal_terminal_key_occurrence_press();
-  payload.released_input = opal_terminal_chord_released_empty();
+  payload.released_input = opal_terminal_chord_released_with_event(NULL);
+  if (payload.released_input == NULL) return NULL;
   return opal_terminal_tagged_payload(3, &payload, sizeof(payload));
+}
+
+static int opal_terminal_chord_modifiers_match(void *expected_modifiers, void *event_modifiers) {
+  const OpalTerminalModifiersPayload *expected = (const OpalTerminalModifiersPayload *)expected_modifiers;
+  const OpalTerminalModifiersPayload *actual = (const OpalTerminalModifiersPayload *)event_modifiers;
+  if (expected == NULL || actual == NULL) return 0;
+  return expected->shift == actual->shift && expected->control == actual->control &&
+         expected->alt == actual->alt && expected->super_key == actual->super_key;
+}
+
+static int opal_terminal_chord_key_matches_event_key(void *chord_key, void *event_key) {
+  int64_t chord_tag = opal_terminal_tag_of(chord_key);
+  int64_t event_tag = opal_terminal_tag_of(event_key);
+  const void *chord_payload = opal_terminal_payload_of(chord_key);
+  const void *event_payload = opal_terminal_payload_of(event_key);
+  if (chord_tag == 1 && event_tag == 2) {
+    const OpalTerminalLogicalKeyControlPayload *event_control = (const OpalTerminalLogicalKeyControlPayload *)event_payload;
+    const OpalTerminalSinglePointerPayload *chord_control = (const OpalTerminalSinglePointerPayload *)chord_payload;
+    return chord_control != NULL && event_control != NULL &&
+           opal_io_terminal_u8_box_value(chord_control->value) == (uint8_t)opal_io_terminal_i32_box_value(event_control->code);
+  }
+  if (chord_tag == 2 && event_tag == 3) {
+    const OpalTerminalLogicalKeyNamedPayload *event_named = (const OpalTerminalLogicalKeyNamedPayload *)event_payload;
+    const OpalTerminalSinglePointerPayload *chord_named = (const OpalTerminalSinglePointerPayload *)chord_payload;
+    return chord_named != NULL && event_named != NULL && opal_terminal_tag_of(chord_named->value) == opal_terminal_tag_of(event_named->key);
+  }
+  if (chord_tag == 4 && event_tag == 1) {
+    const OpalTerminalLogicalKeyTextPayload *event_text = (const OpalTerminalLogicalKeyTextPayload *)event_payload;
+    const OpalTerminalSinglePointerPayload *chord_text = (const OpalTerminalSinglePointerPayload *)chord_payload;
+    return chord_text != NULL && event_text != NULL && chord_text->value != NULL && event_text->logical_text != NULL &&
+           strcmp((const char *)chord_text->value, (const char *)event_text->logical_text) == 0;
+  }
+  return 0;
+}
+
+static int opal_terminal_chord_matches_key_event(OpalTerminalChord *chord, void *event) {
+  const OpalTerminalKeyPayload *payload = (const OpalTerminalKeyPayload *)opal_terminal_payload_of(event);
+  if (chord == NULL || payload == NULL) return 0;
+  return opal_terminal_chord_modifiers_match(chord->modifiers, payload->modifiers) &&
+         opal_terminal_chord_key_matches_event_key(chord->key, payload->key);
 }
 
 FsHandleResult terminal_chord_router_process(void *opaque_router, void *event) {
   OpalTerminalChordRouter *router = (OpalTerminalChordRouter *)opaque_router;
   int64_t tag = opal_terminal_tag_of(event);
+  int64_t index;
   if (router == NULL) return stdout_handle_error("TerminalChordProcessError");
-  if (tag == 2) {
-    router->buffered_count += 1;
-    return stdout_handle_success(opal_terminal_chord_output_released(1));
+  if (tag != 1) {
+    void *released = opal_terminal_chord_output_released(event);
+    if (released == NULL) return stdout_handle_error("AllocationFailureError");
+    return stdout_handle_success(released);
   }
-  if (tag == 1 && router->binding_count > 0) {
-    OpalTerminalChordBindingId *id = (OpalTerminalChordBindingId *)calloc(1u, sizeof(OpalTerminalChordBindingId));
-    if (id == NULL) return stdout_handle_error("AllocationFailureError");
-    id->ordinal = router->binding_ordinals[0];
-    return stdout_handle_success(opal_terminal_chord_output_activated(id));
+  for (index = 0; index < router->binding_count; index++) {
+    OpalTerminalChordSequence *sequence = router->bindings[index].sequence;
+    if (sequence != NULL && sequence->count == 1 && opal_terminal_chord_matches_key_event((OpalTerminalChord *)sequence->chords[0], event)) {
+      void *activated = opal_terminal_chord_output_activated(router->bindings[index].ordinal);
+      if (activated == NULL) return stdout_handle_error("AllocationFailureError");
+      return stdout_handle_success(activated);
+    }
   }
-  return stdout_handle_success(opal_terminal_tagged(4));
+  {
+    void *released = opal_terminal_chord_output_released(event);
+    if (released == NULL) return stdout_handle_error("AllocationFailureError");
+    return stdout_handle_success(released);
+  }
 }
 
 FsHandleResult terminal_chord_router_expire_sync(void *router) { (void)router; return stdout_handle_success(opal_terminal_tagged(4)); }
-FsHandleResult terminal_chord_router_reset(void *router, void *reason) { (void)router; (void)reason; return stdout_handle_success(opal_terminal_chord_released_empty()); }
+FsHandleResult terminal_chord_router_reset(void *router, void *reason) { (void)router; (void)reason; return stdout_handle_success(opal_terminal_chord_released_with_event(NULL)); }
 int64_t terminal_chord_released_input_length(void *released) { OpalTerminalChordReleasedInput *r = (OpalTerminalChordReleasedInput *)released; return r == NULL ? 0 : r->count; }
-FsHandleResult terminal_chord_released_input_at(void *released, int64_t index) { OpalTerminalChordReleasedInput *r = (OpalTerminalChordReleasedInput *)released; if (r == NULL || index < 0 || index >= r->count) return stdout_handle_error("IndexOutOfBoundsError"); return stdout_handle_success(r->events[index]); }
+FsHandleResult terminal_chord_released_input_at(void *released, int64_t index) { OpalTerminalChordReleasedInput *r = (OpalTerminalChordReleasedInput *)released; if (r == NULL || index < 0 || index >= r->count || r->events == NULL) return stdout_handle_error("IndexOutOfBoundsError"); return stdout_handle_success(r->events[index]); }
 void terminal_chord_router_drop(void *router) { free(router); }
+void __opal_using_cleanup_terminal_chord_router_drop(void *router) { terminal_chord_router_drop(router); }
 
 FsHandleResult terminal_session_close_sync(void *opaque_session) {
   OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;

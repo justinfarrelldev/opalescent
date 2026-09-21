@@ -10,13 +10,13 @@ Keep this checklist current while fixing the review findings.
 
 ## Phase 2: meaningful chord generated coverage and memory safety
 
-- [ ] RED: add/update generated chord fixture/test coverage that fails against the summary-only/stub implementation.
-- [ ] GREEN: exact chord codegen declarations and return-type metadata.
-- [ ] GREEN: C runtime chord structs/sequences/router/released-input storage.
-- [ ] GREEN: match control, named, enhanced-text, and modifiers for the tested editor subset.
-- [ ] GREEN: released input vectors are allocated/populated and bounds-checked.
-- [ ] REFACTOR: cleanup helper layout and add using-cleanup wrapper if needed.
-- [ ] COMMIT: atomic chord coverage/runtime/codegen fix.
+- [x] RED: add/update generated chord fixture/test coverage that fails against the summary-only/stub implementation.
+- [x] GREEN: exact chord codegen declarations and return-type metadata.
+- [x] GREEN: C runtime chord structs/sequences/router/released-input storage.
+- [x] GREEN: match control, named, enhanced-text, and modifiers for the tested editor subset.
+- [x] GREEN: released input vectors are allocated/populated and bounds-checked.
+- [x] REFACTOR: cleanup helper layout and add using-cleanup wrapper if needed.
+- [x] COMMIT: atomic chord coverage/runtime/codegen fix.
 
 ## Phase 3: diagnostics honesty and stale red-probe cleanup
 

@@ -120,7 +120,7 @@ pub(super) fn declare_terminal_session_function<'context>(
         "terminal_chord_router_new" => module.get_function(name).or_else(|| {
             Some(module.add_function(
                 name,
-                pointer_error_result_type.fn_type(&[i8_ptr.into()], true),
+                pointer_error_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false),
                 None,
             ))
         }),
@@ -262,9 +262,13 @@ pub(super) fn declare_terminal_session_function<'context>(
                 None,
             ))
         }),
-        "terminal_chord_new" => module
-            .get_function(name)
-            .or_else(|| Some(module.add_function(name, i8_ptr.fn_type(&[], true), None))),
+        "terminal_chord_new" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                i8_ptr.fn_type(&[i8_ptr.into(), i8_ptr.into(), i8_ptr.into()], false),
+                None,
+            ))
+        }),
         "terminal_chord_with_lock_modifier_mask" => module.get_function(name).or_else(|| {
             Some(module.add_function(
                 name,
@@ -282,7 +286,10 @@ pub(super) fn declare_terminal_session_function<'context>(
         "terminal_chord_router_register" => module.get_function(name).or_else(|| {
             Some(module.add_function(
                 name,
-                pointer_error_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], true),
+                pointer_error_result_type.fn_type(
+                    &[i8_ptr.into(), i8_ptr.into(), i8_ptr.into(), i8_ptr.into()],
+                    false,
+                ),
                 None,
             ))
         }),
@@ -324,7 +331,9 @@ pub(super) fn declare_terminal_session_function<'context>(
 
 #[cfg(test)]
 mod tests {
-    use super::is_terminal_session_runtime_name;
+    use super::{declare_terminal_session_function, is_terminal_session_runtime_name};
+    use crate::codegen::context::CodegenContext;
+    use inkwell::context::Context;
 
     #[test]
     fn generated_high_level_rendering_v1_includes_cursor_visibility_and_shape() {
@@ -346,5 +355,29 @@ mod tests {
         assert!(is_terminal_session_runtime_name(
             "terminal_session_set_cursor_shape_sync"
         ));
+    }
+
+    #[test]
+    fn generated_chord_declarations_use_exact_non_vararg_abi() {
+        let context = Context::create();
+        let codegen_context = CodegenContext::new(&context, "terminal_chord_exact_abi");
+        for (name, expected_parameter_count) in [
+            ("terminal_chord_new", 3_usize),
+            ("terminal_chord_router_new", 2_usize),
+            ("terminal_chord_router_register", 4_usize),
+        ] {
+            let function = declare_terminal_session_function(&codegen_context, name)
+                .expect("terminal chord declaration should be runtime-ready");
+            let function_type = function.get_type();
+            assert!(
+                !function_type.is_var_arg(),
+                "{name} should use an exact C ABI declaration"
+            );
+            assert_eq!(
+                function_type.get_param_types().len(),
+                expected_parameter_count,
+                "{name} should declare every C ABI parameter explicitly"
+            );
+        }
     }
 }
