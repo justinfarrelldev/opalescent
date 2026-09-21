@@ -76,10 +76,10 @@ Method: each schism and correctness gap must first be proven with a failing test
 
 ## 10. Named harness-injected fake-backend proposal file is absent
 
-- [ ] PROVE: add a repository/docs check or manual checklist entry showing `stdlib-proposals/terminal-generated-testing/harness-injected-fake-backend/proposal.md` is absent.
-- [ ] FIX/DISPROVE: add the proposal file or update references to the selected comparison section.
-- [ ] REFACTOR: validate proposal formatting/links if applicable.
-- [ ] COMMIT: atomic proposal-file consistency commit.
+- [x] PROVE: add a repository/docs check or manual checklist entry showing `stdlib-proposals/terminal-generated-testing/harness-injected-fake-backend/proposal.md` is absent.
+- [x] FIX/DISPROVE: add the proposal file or update references to the selected comparison section.
+- [x] REFACTOR: validate proposal formatting/links if applicable.
+- [x] COMMIT: atomic proposal-file consistency commit.
 
 ## Final verification
 

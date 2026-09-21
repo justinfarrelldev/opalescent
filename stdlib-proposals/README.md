@@ -212,6 +212,7 @@ Alternatives:
 Generated-code fixture activation for deterministic terminal-session programs.
 
 Alternatives:
+- [`harness-injected-fake-backend`](./terminal-generated-testing/harness-injected-fake-backend/)
 - [`deterministic-fixture-runner`](./terminal-generated-testing/deterministic-fixture-runner/)
 
 ## Tier Recommendations
@@ -244,7 +245,7 @@ Recommended “most idiomatic for Opalescent” choice per concern (explicit err
 | string-editing-primitives | `scalar-range-functions` | It extends the current Unicode-scalar string model without prematurely claiming grapheme correctness. |
 | terminal-text-layout | `scalar-width-baseline` first, `unicode-grapheme-cell-width` later | ASCII/single-cell layout is the honest first-editor limit; grapheme cell width is required before broad Unicode correctness claims. |
 | collections-editing | `free-function-array-editing` first | Free functions are the smallest stable lowering surface; method aliases can follow once array method registration is consistently documented. |
-| terminal-generated-testing | `deterministic-fixture-runner` | Harness injection keeps test-only terminal authority out of production source while making terminal fixtures executable. |
+| terminal-generated-testing | `harness-injected-fake-backend` | Harness injection keeps test-only terminal authority out of production source while making terminal fixtures executable. |
 
 ## How to Read a Proposal
 

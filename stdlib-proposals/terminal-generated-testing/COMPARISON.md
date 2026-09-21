@@ -17,7 +17,7 @@ This concern is a companion to `terminal-session-input`. It specifies how genera
 
 ## Analysis
 
-### Harness-injected fake backend — recommended v1
+### [Harness-injected fake backend](./harness-injected-fake-backend/proposal.md) — recommended v1
 - Keeps sealed test authority outside production source.
 - Lets existing terminal fixtures become real compile/run tests.
 - Requires integration-runner support but avoids public scripting leakage.

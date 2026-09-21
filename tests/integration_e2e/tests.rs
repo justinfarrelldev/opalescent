@@ -73,6 +73,7 @@ mod process_cwd;
 mod process_env;
 mod process_exit;
 mod process_paths;
+mod proposal_docs;
 mod project_execution;
 mod project_execution_rc;
 mod rc_counter_negative_fixture;
