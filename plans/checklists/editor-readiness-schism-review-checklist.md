@@ -62,10 +62,10 @@ Method: each schism and correctness gap must first be proven with a failing test
 
 ## 8. Array editing error coverage is too thin
 
-- [ ] PROVE: add currently missing red/focused tests for invalid `remove_at`, negative `insert`, negative `remove_at`, and removed-value behavior.
-- [ ] FIX/DISPROVE: implement fixes if any new tests expose contract failures.
-- [ ] REFACTOR: run focused array tests.
-- [ ] COMMIT: atomic array coverage commit.
+- [x] PROVE: add currently missing red/focused tests for invalid `remove_at`, negative `insert`, negative `remove_at`, and removed-value behavior.
+- [x] FIX/DISPROVE: implement fixes if any new tests expose contract failures.
+- [x] REFACTOR: run focused array tests.
+- [x] COMMIT: atomic array coverage commit.
 
 ## 9. Generated terminal session rendering remains fake-backend-only
 

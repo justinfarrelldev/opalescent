@@ -107,6 +107,56 @@ fn array_insert_remove_lines_project_runs() {
 }
 
 #[test]
+fn array_remove_at_invalid_index_reports_index_error() {
+    let temp_dir = write_temp_project_source(
+        "array-remove-at-invalid-index",
+        "##\n  Description: Verifies remove_at reports out-of-range positive index.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>\n    let values: int32[] = [1 as int32, 2 as int32]\n    let updated, removed = propagate values.remove_at(2 as int64)\n    print('unexpected {updated.length} {removed}')\n    return void\n",
+    );
+    let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+    assert_index_error(&output);
+}
+
+#[test]
+fn array_insert_negative_index_reports_index_error() {
+    let temp_dir = write_temp_project_source(
+        "array-insert-negative-index",
+        "##\n  Description: Verifies insert reports negative index.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>\n    let values: int32[] = [1 as int32, 2 as int32]\n    let updated = propagate values.insert(-1 as int64, 9 as int32)\n    print('unexpected {updated.length}')\n    return void\n",
+    );
+    let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+    assert_index_error(&output);
+}
+
+#[test]
+fn array_remove_at_negative_index_reports_index_error() {
+    let temp_dir = write_temp_project_source(
+        "array-remove-at-negative-index",
+        "##\n  Description: Verifies remove_at reports negative index.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>\n    let values: int32[] = [1 as int32, 2 as int32]\n    let updated, removed = propagate values.remove_at(-1 as int64)\n    print('unexpected {updated.length} {removed}')\n    return void\n",
+    );
+    let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+    assert_index_error(&output);
+}
+
+#[test]
+fn array_remove_at_returns_removed_value_and_updated_array() {
+    let temp_dir = write_temp_project_source(
+        "array-remove-at-removed-value",
+        "##\n  Description: Verifies remove_at returns both updated array and removed value.\n##\nentry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>\n    let values: int32[] = [10 as int32, 20 as int32, 30 as int32]\n    let updated, removed = propagate values.remove_at(1 as int64)\n    print('updated {updated.length} {propagate updated.at(0)} {propagate updated.at(1)}')\n    print('removed {removed}')\n    return void\n",
+    );
+    let output = run_opal_source(&temp_dir.path().join("src").join("main.op"));
+    assert!(
+        output.status.success(),
+        "remove_at removed-value fixture should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout)
+            .strip_prefix("target/program\n")
+            .unwrap_or_else(|| std::str::from_utf8(&output.stdout).unwrap_or("")),
+        "updated 2 10 30\nremoved 20\n"
+    );
+}
+
+#[test]
 fn array_insert_expression_receiver_is_rejected_for_v1() {
     let temp_dir = write_temp_project_source(
         "array-insert-expression-receiver",
@@ -121,6 +171,18 @@ fn array_insert_expression_receiver_is_rejected_for_v1() {
     assert!(
         stderr.contains("currently requires an identifier array receiver"),
         "expression receiver failure should mention identifier receiver scope, got: {stderr}"
+    );
+}
+
+fn assert_index_error(output: &std::process::Output) {
+    assert!(
+        !output.status.success(),
+        "array invalid index fixture should fail"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("IndexOutOfBoundsError"),
+        "stderr should mention IndexOutOfBoundsError, got: {stderr}"
     );
 }
 
