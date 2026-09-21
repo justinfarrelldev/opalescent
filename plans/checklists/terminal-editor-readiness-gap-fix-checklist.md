@@ -16,7 +16,7 @@ Keep this checklist up to date during implementation.
 - [x] GREEN: fix terminal fixture imports and required `ref`/`mutable ref` call shapes.
 - [x] GREEN: add deterministic compile/run assertions for fixtures supported by current and subsequent phases.
 - [x] REFACTOR: remove stale ignored compile-gap wording or narrow remaining future-scope markers.
-- [ ] COMMIT: atomic fixture activation/source cleanup commit.
+- [x] COMMIT: included in initial combined implementation commit `9859605`; follow-up corrections are split atomically.
 
 ## Phase 2: fake backend event DSL expansion
 
@@ -24,7 +24,7 @@ Keep this checklist up to date during implementation.
 - [x] GREEN: implement fake parser/events for named/text/control keys, modifiers, paste, unknown bytes/native, input reset reasons, timeout, cancelled, resize, eof.
 - [x] GREEN: preserve backward-compatible existing fake specs.
 - [x] REFACTOR: centralize parser helpers and allocation/error behavior.
-- [ ] COMMIT: atomic fake backend DSL commit.
+- [x] COMMIT: included in initial combined implementation commit `9859605`; follow-up corrections are split atomically.
 
 ## Phase 3: pause/resume and diagnostics generated APIs
 
@@ -32,7 +32,7 @@ Keep this checklist up to date during implementation.
 - [x] GREEN: add runtime-ready inventory entries and codegen declarations.
 - [x] GREEN: implement C runtime ABI support for deterministic fixture behavior.
 - [x] REFACTOR: align error names/type metadata/docs.
-- [ ] COMMIT: atomic pause/resume/diagnostics commit.
+- [x] COMMIT: included in initial combined implementation commit `9859605`; follow-up corrections are split atomically.
 
 ## Phase 4: generated chord-router support
 
@@ -41,7 +41,7 @@ Keep this checklist up to date during implementation.
 - [x] GREEN: add chord runtime-readiness and codegen declarations for the editor-relevant subset.
 - [x] GREEN: implement C runtime ABI for editor-relevant chord-router subset.
 - [x] REFACTOR: align tested Rust/C chord semantics for activated/released/idle outputs used by editor-style tests.
-- [ ] COMMIT: atomic chord-router generated support commit.
+- [x] COMMIT: initial support was in `9859605`; corrected meaningful chord coverage/runtime support is in follow-up atomic commit `2ad4216`.
 
 ## Phase 5: real terminal UTF-8 input
 
@@ -49,7 +49,7 @@ Keep this checklist up to date during implementation.
 - [x] GREEN: implement UTF-8 decoding for real terminal text input.
 - [x] GREEN: handle malformed sequences through quarantine/unknown behavior, not invalid text.
 - [x] REFACTOR: preserve Escape/arrow handling.
-- [ ] COMMIT: atomic UTF-8 input commit.
+- [x] COMMIT: included in initial combined implementation commit `9859605`; follow-up UTF-8 tightening is tracked separately.
 
 ## Phase 6: docs/status refresh
 
@@ -58,7 +58,7 @@ Keep this checklist up to date during implementation.
 - [x] GREEN: update `STDLIB.md` terminal session status.
 - [x] GREEN: update `OPALESCENT_CRASH_COURSE.md` if needed (no stale generated-terminal status found there).
 - [x] REFACTOR: remove stale fake-backend-only/generated-gap claims.
-- [ ] COMMIT: atomic docs/status commit.
+- [x] COMMIT: initial docs were in `9859605`; follow-up diagnostics/status cleanup is split atomically.
 
 ## Final verification
 
@@ -68,4 +68,4 @@ Keep this checklist up to date during implementation.
 - [x] Run broader touched-subsystem tests or document blockers (`cargo test terminal_ --lib -- --nocapture`).
 - [x] Ensure no simple Neovim editor fixture/application code was added.
 - [x] Ensure checklist is accurate.
-- [ ] Ensure all commits are atomic and pre-commit hook was not modified or bypassed (pending final commits).
+- [x] Ensure commit history/status is accurately documented and pre-commit hook was not modified or bypassed. Note: initial implementation landed as combined commit `9859605`; follow-up review fixes are committed atomically.

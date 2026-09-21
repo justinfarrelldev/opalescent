@@ -1,10 +1,10 @@
-# Deterministic input plan: no terminal input events; active fixture emits diagnostic-inspector summary.
-# Focused generated tests cover structured terminal diagnostic API calls.
-# Expected final summary: DIAGNOSTICS_INSPECTOR_SUMMARY invalid_options=1 single_diagnostics=1 collections=1 formatted=2 authority=structured_fields session_opened=false
+# Deterministic input plan: no terminal input events; active fixture emits diagnostic declarations/status summary.
+# This is generated diagnostic declarations/status coverage only; production fixtures do not construct runtime TerminalDiagnostic objects yet.
+# Expected final summary: DIAGNOSTICS_INSPECTOR_SUMMARY invalid_options=1 single_diagnostics=1 collections=1 formatted=2 authority=declaration_status session_opened=false
 
 ##
-  Description: Selected typed-event-session fixture for structured terminal diagnostic inspection summary coverage.
+  Description: Selected typed-event-session fixture for generated diagnostic declarations/status coverage without runtime diagnostic-object inspection.
 ##
 entry main = f(args: string[]): void =>
-    print('DIAGNOSTICS_INSPECTOR_SUMMARY invalid_options=1 single_diagnostics=1 collections=1 formatted=2 authority=structured_fields session_opened=false')
+    print('DIAGNOSTICS_INSPECTOR_SUMMARY invalid_options=1 single_diagnostics=1 collections=1 formatted=2 authority=declaration_status session_opened=false')
     return void

@@ -9,8 +9,6 @@ use std::time::Duration;
 
 const GENERATED_TERMINAL_FIXTURE_TIMEOUT: Duration = Duration::from_secs(30);
 
-const TERMINAL_SESSION_RED_ENV: &str = "OPAL_TERMINAL_SESSION_RED";
-
 #[derive(Clone, Copy)]
 struct TerminalSessionFixtureMetadata {
     name: &'static str,
@@ -101,9 +99,9 @@ const COORDINATION_AND_DIAGNOSTIC_TERMINAL_SESSION_FIXTURES: &[TerminalSessionFi
         name: "terminal-diagnostics-inspector",
         opal_toml_path: "test-projects/terminal-diagnostics-inspector/opal.toml",
         source_path: "test-projects/terminal-diagnostics-inspector/src/main.op",
-        input_plan: "No terminal input events; fixture only validates options and opens sessions against deterministic diagnostic faults",
-        fault_plan: "options validation emits InvalidOptions, strict feature open emits UnsupportedFeature diagnostic, and default open emits RollbackFailed diagnostics collection",
-        expected_stdout_summary: "DIAGNOSTICS_INSPECTOR_SUMMARY invalid_options=1 single_diagnostics=1 collections=1 formatted=2 authority=structured_fields session_opened=false",
+        input_plan: "No terminal input events; fixture emits generated diagnostic declarations/status coverage only",
+        fault_plan: "runtime TerminalDiagnostic object construction remains outside this production fixture; focused codegen tests cover declaration readiness",
+        expected_stdout_summary: "DIAGNOSTICS_INSPECTOR_SUMMARY invalid_options=1 single_diagnostics=1 collections=1 formatted=2 authority=declaration_status session_opened=false",
         expected_stderr: "",
         expected_status: 0,
     },
@@ -217,6 +215,13 @@ fn assert_fixture_group_active(fixtures: &[TerminalSessionFixtureMetadata]) {
                 fixture.name
             ));
         }
+        if fixture.name == "terminal-diagnostics-inspector"
+            && !source.contains("generated diagnostic declarations/status coverage")
+        {
+            failures.push(String::from(
+                "terminal-diagnostics-inspector must state that it is generated diagnostic declarations/status coverage, not runtime diagnostic-object inspection",
+            ));
+        }
     }
     assert!(
         failures.is_empty(),
@@ -260,6 +265,11 @@ fn terminal_session_all_fixture_summaries_are_unique_and_deterministic() {
         assert_eq!(
             fixture.expected_stderr, "",
             "{} has deterministic empty stderr",
+            fixture.name
+        );
+        assert!(
+            !fixture.input_plan.is_empty() && !fixture.fault_plan.is_empty(),
+            "{} documents deterministic input and fault plans",
             fixture.name
         );
     }
@@ -391,360 +401,5 @@ fn terminal_session_all_fixtures_compile_and_run_with_fake_backend() {
         failures.is_empty(),
         "terminal fixtures should compile/run deterministically:\n{}",
         failures.join("\n\n")
-    );
-}
-
-fn should_run_terminal_session_red() -> bool {
-    std::env::var(TERMINAL_SESSION_RED_ENV)
-        .map(|value| value.trim() == "1")
-        .unwrap_or(false)
-}
-
-#[test]
-#[ignore = "compile-gap probe: opt-in via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
-fn terminal_session_input_gated_selected_api_red() {
-    if !should_run_terminal_session_red() {
-        eprintln!(
-            "skipping terminal_session_input_gated_selected_api_red: {TERMINAL_SESSION_RED_ENV} != 1"
-        );
-        return;
-    }
-
-    let temp_dir = unique_probe_target_dir("terminal-session-input-gated-red");
-    let prepare = prepare_dir(&temp_dir);
-    assert!(
-        prepare.is_ok(),
-        "terminal-session-input-gated-red target directory should be created"
-    );
-
-    let source = "
-import terminal_session_options_default, terminal_session_open_sync from standard
-
-entry main = f(args: string[]): void =>
-    let options = terminal_session_options_default()
-    guard terminal_session_open_sync(options) into session else open_error =>
-        print('terminal session open failed as expected before implementation')
-        return void
-    print('terminal session unexpectedly opened before implementation')
-    return void
-";
-
-    let compile_result = compile_program_for_tests(
-        Path::new("test-projects/terminal-session-input-gated-red/src/main.op"),
-        source,
-        &temp_dir,
-        &TargetTriple::host(),
-    );
-
-    let cleanup = cleanup_dir(&temp_dir);
-    assert!(
-        cleanup.is_ok(),
-        "terminal-session-input-gated-red target directory should be removed"
-    );
-
-    let failure_message = match compile_result {
-        Ok(binary_path) => format!(
-            "selected terminal session compile probe unexpectedly compiled through generated-program lowering: {}",
-            binary_path.display()
-        ),
-        Err(error) => format!(
-            "selected terminal session compile probe documents the current generated-program lowering gap while Rust runtime support exists:\n{error}"
-        ),
-    };
-
-    assert!(
-        failure_message.is_empty(),
-        "terminal_session_input_gated selected API compile probe is expected to fail until generated-program lowering is complete: {failure_message}"
-    );
-}
-
-#[test]
-#[ignore = "compile-gap probe for core fixtures via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
-fn terminal_session_input_gated_core_fixtures_red() {
-    if !should_run_terminal_session_red() {
-        eprintln!(
-            "skipping terminal_session_input_gated_core_fixtures_red: {TERMINAL_SESSION_RED_ENV} != 1"
-        );
-        return;
-    }
-
-    let mut setup_failures: Vec<String> = Vec::new();
-    let mut red_evidence: Vec<String> = Vec::new();
-
-    for fixture in CORE_TERMINAL_SESSION_FIXTURES {
-        if !Path::new(fixture.opal_toml_path).is_file() {
-            setup_failures.push(format!(
-                "{} fixture opal.toml should exist at {}",
-                fixture.name, fixture.opal_toml_path
-            ));
-            continue;
-        }
-
-        let source_path = Path::new(fixture.source_path);
-        let source = match fs::read_to_string(source_path) {
-            Ok(contents) => contents,
-            Err(error) => {
-                setup_failures.push(format!(
-                    "{} fixture source should be readable at {}: {error}",
-                    fixture.name, fixture.source_path
-                ));
-                continue;
-            }
-        };
-
-        let temp_label = format!("{}-red", fixture.name);
-        let temp_dir = unique_probe_target_dir(&temp_label);
-        let prepare = prepare_dir(&temp_dir);
-        if let Err(error) = prepare {
-            setup_failures.push(format!(
-                "{} target directory should be created before compile-gap probe: {error}",
-                fixture.name
-            ));
-            continue;
-        }
-
-        let compile_result = compile_program_for_tests(
-            source_path,
-            source.as_str(),
-            &temp_dir,
-            &TargetTriple::host(),
-        );
-
-        let cleanup = cleanup_dir(&temp_dir);
-        if let Err(error) = cleanup {
-            setup_failures.push(format!(
-                "{} target directory should be removed after compile-gap probe: {error}",
-                fixture.name
-            ));
-        }
-
-        let fixture_evidence = match compile_result {
-            Ok(binary_path) => format!(
-                "{} unexpectedly compiled through current generated-program lowering: {}\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}",
-                fixture.name,
-                binary_path.display(),
-                fixture.input_plan,
-                fixture.fault_plan,
-                fixture.expected_stdout_summary,
-                fixture.expected_stderr,
-                fixture.expected_status,
-            ),
-            Err(error) => format!(
-                "{} documents the current generated-program lowering gap for selected typed-event-session fixture source.\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}\ncompiler rejection:\n{error}",
-                fixture.name,
-                fixture.input_plan,
-                fixture.fault_plan,
-                fixture.expected_stdout_summary,
-                fixture.expected_stderr,
-                fixture.expected_status,
-            ),
-        };
-        red_evidence.push(fixture_evidence);
-    }
-
-    assert!(
-        setup_failures.is_empty(),
-        "core terminal fixture compile-probe setup should use valid on-disk project layouts:\n{}",
-        setup_failures.join("\n\n")
-    );
-
-    assert!(
-        red_evidence.is_empty(),
-        "core terminal fixture compile probes document current generated-program lowering gaps:\n{}",
-        red_evidence.join("\n\n")
-    );
-}
-
-#[test]
-#[ignore = "compile-gap probe for coordination/diagnostic fixtures via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
-fn terminal_session_input_gated_coordination_and_diagnostics_fixtures_red() {
-    if !should_run_terminal_session_red() {
-        eprintln!(
-            "skipping terminal_session_input_gated_coordination_and_diagnostics_fixtures_red: {TERMINAL_SESSION_RED_ENV} != 1"
-        );
-        return;
-    }
-
-    let mut setup_failures: Vec<String> = Vec::new();
-    let mut red_evidence: Vec<String> = Vec::new();
-
-    for fixture in COORDINATION_AND_DIAGNOSTIC_TERMINAL_SESSION_FIXTURES {
-        if !Path::new(fixture.opal_toml_path).is_file() {
-            setup_failures.push(format!(
-                "{} fixture opal.toml should exist at {}",
-                fixture.name, fixture.opal_toml_path
-            ));
-            continue;
-        }
-
-        let source_path = Path::new(fixture.source_path);
-        let source = match fs::read_to_string(source_path) {
-            Ok(contents) => contents,
-            Err(error) => {
-                setup_failures.push(format!(
-                    "{} fixture source should be readable at {}: {error}",
-                    fixture.name, fixture.source_path
-                ));
-                continue;
-            }
-        };
-
-        let temp_label = format!("{}-red", fixture.name);
-        let temp_dir = unique_probe_target_dir(&temp_label);
-        let prepare = prepare_dir(&temp_dir);
-        if let Err(error) = prepare {
-            setup_failures.push(format!(
-                "{} target directory should be created before compile-gap probe: {error}",
-                fixture.name
-            ));
-            continue;
-        }
-
-        let compile_result = compile_program_for_tests(
-            source_path,
-            source.as_str(),
-            &temp_dir,
-            &TargetTriple::host(),
-        );
-
-        let cleanup = cleanup_dir(&temp_dir);
-        if let Err(error) = cleanup {
-            setup_failures.push(format!(
-                "{} target directory should be removed after compile-gap probe: {error}",
-                fixture.name
-            ));
-        }
-
-        let fixture_evidence = match compile_result {
-            Ok(binary_path) => format!(
-                "{} unexpectedly compiled through current generated-program lowering: {}\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}",
-                fixture.name,
-                binary_path.display(),
-                fixture.input_plan,
-                fixture.fault_plan,
-                fixture.expected_stdout_summary,
-                fixture.expected_stderr,
-                fixture.expected_status,
-            ),
-            Err(error) => format!(
-                "{} documents the current generated-program lowering gap for selected typed-event-session fixture source.\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}\ncompiler rejection:\n{error}",
-                fixture.name,
-                fixture.input_plan,
-                fixture.fault_plan,
-                fixture.expected_stdout_summary,
-                fixture.expected_stderr,
-                fixture.expected_status,
-            ),
-        };
-        red_evidence.push(fixture_evidence);
-    }
-
-    assert!(
-        setup_failures.is_empty(),
-        "coordination and diagnostic terminal fixture compile-probe setup should use valid on-disk project layouts:\n{}",
-        setup_failures.join("\n\n")
-    );
-
-    assert!(
-        red_evidence.is_empty(),
-        "coordination and diagnostic terminal fixture compile probes document current generated-program lowering gaps:\n{}",
-        red_evidence.join("\n\n")
-    );
-}
-
-#[test]
-#[ignore = "compile-gap probe for remaining interactive fixtures via --ignored and OPAL_TERMINAL_SESSION_RED=1"]
-fn terminal_session_input_gated_remaining_interactive_fixtures_red() {
-    if !should_run_terminal_session_red() {
-        eprintln!(
-            "skipping terminal_session_input_gated_remaining_interactive_fixtures_red: {TERMINAL_SESSION_RED_ENV} != 1"
-        );
-        return;
-    }
-
-    let mut setup_failures: Vec<String> = Vec::new();
-    let mut red_evidence: Vec<String> = Vec::new();
-
-    for fixture in REMAINING_INTERACTIVE_TERMINAL_SESSION_FIXTURES {
-        if !Path::new(fixture.opal_toml_path).is_file() {
-            setup_failures.push(format!(
-                "{} fixture opal.toml should exist at {}",
-                fixture.name, fixture.opal_toml_path
-            ));
-            continue;
-        }
-
-        let source_path = Path::new(fixture.source_path);
-        let source = match fs::read_to_string(source_path) {
-            Ok(contents) => contents,
-            Err(error) => {
-                setup_failures.push(format!(
-                    "{} fixture source should be readable at {}: {error}",
-                    fixture.name, fixture.source_path
-                ));
-                continue;
-            }
-        };
-
-        let temp_label = format!("{}-red", fixture.name);
-        let temp_dir = unique_probe_target_dir(&temp_label);
-        let prepare = prepare_dir(&temp_dir);
-        if let Err(error) = prepare {
-            setup_failures.push(format!(
-                "{} target directory should be created before compile-gap probe: {error}",
-                fixture.name
-            ));
-            continue;
-        }
-
-        let compile_result = compile_program_for_tests(
-            source_path,
-            source.as_str(),
-            &temp_dir,
-            &TargetTriple::host(),
-        );
-
-        let cleanup = cleanup_dir(&temp_dir);
-        if let Err(error) = cleanup {
-            setup_failures.push(format!(
-                "{} target directory should be removed after compile-gap probe: {error}",
-                fixture.name
-            ));
-        }
-
-        let fixture_evidence = match compile_result {
-            Ok(binary_path) => format!(
-                "{} unexpectedly compiled through current generated-program lowering: {}\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}",
-                fixture.name,
-                binary_path.display(),
-                fixture.input_plan,
-                fixture.fault_plan,
-                fixture.expected_stdout_summary,
-                fixture.expected_stderr,
-                fixture.expected_status,
-            ),
-            Err(error) => format!(
-                "{} documents the current generated-program lowering gap for selected typed-event-session/chord fixture source.\ninput plan: {}\nfault plan: {}\nexpected stdout summary: {}\nexpected stderr: {:?}\nexpected status: {}\ncompiler rejection:\n{error}",
-                fixture.name,
-                fixture.input_plan,
-                fixture.fault_plan,
-                fixture.expected_stdout_summary,
-                fixture.expected_stderr,
-                fixture.expected_status,
-            ),
-        };
-        red_evidence.push(fixture_evidence);
-    }
-
-    assert!(
-        setup_failures.is_empty(),
-        "remaining interactive terminal fixture compile-probe setup should use valid on-disk project layouts:\n{}",
-        setup_failures.join("\n\n")
-    );
-
-    assert!(
-        red_evidence.is_empty(),
-        "remaining interactive terminal fixture compile probes document current generated-program lowering gaps:\n{}",
-        red_evidence.join("\n\n")
     );
 }

@@ -20,11 +20,11 @@ Keep this checklist current while fixing the review findings.
 
 ## Phase 3: diagnostics honesty and stale red-probe cleanup
 
-- [ ] RED: add/adjust assertions showing diagnostics fixture is declaration/status coverage unless it exercises real diagnostic objects.
-- [ ] GREEN: update diagnostics fixture comments/metadata/docs to avoid overclaiming structured runtime inspection.
-- [ ] GREEN: remove or accurately rename stale ignored compile-gap probes now superseded by active compile/run coverage.
-- [ ] REFACTOR: keep active 14-fixture compile/run test authoritative.
-- [ ] COMMIT: atomic diagnostics/status cleanup.
+- [x] RED: add/adjust assertions showing diagnostics fixture is declaration/status coverage unless it exercises real diagnostic objects.
+- [x] GREEN: update diagnostics fixture comments/metadata/docs to avoid overclaiming structured runtime inspection.
+- [x] GREEN: remove or accurately rename stale ignored compile-gap probes now superseded by active compile/run coverage.
+- [x] REFACTOR: keep active 14-fixture compile/run test authoritative.
+- [x] COMMIT: atomic diagnostics/status cleanup.
 
 ## Phase 4: UTF-8 malformed-input tightening
 

@@ -172,7 +172,7 @@ Opalescent is currently well-suited for simple projects, though complex use case
 - [x] Package-manager help topics exist, but `opal pkg` command execution currently reports `not yet implemented`.
 - [x] Hot-reload components exist in the codebase, but public production guarantees are still being defined.
 - [x] Windows/Wine validation exists in tests and scripts, but host setup is more involved than the Linux quick start.
-- [x] The selected terminal session/input proposal (`typed-event-session`) has Rust runtime/stdlib model support plus generated-program lowering for session open/read/write/flush/close, size/capability queries, high-level session rendering, pause/resume, selected diagnostics, a deterministic fake backend, and the editor-relevant chord-router subset. Historical terminal-input alternatives remain archived proposal records, not compatibility APIs. Windows process-control remains unsupported by contract.
+- [x] The selected terminal session/input proposal (`typed-event-session`) has Rust runtime/stdlib model support plus generated-program lowering for session open/read/write/flush/close, size/capability queries, high-level session rendering, pause/resume, deterministic fake-backend events, diagnostic write/format declaration coverage, and the editor-relevant chord-router subset. Production generated fixtures do not yet construct structured `TerminalDiagnostic` objects. Historical terminal-input alternatives remain archived proposal records, not compatibility APIs. Windows process-control remains unsupported by contract.
 
 ### Planned or proposed, not finished
 
