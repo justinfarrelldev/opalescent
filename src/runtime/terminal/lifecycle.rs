@@ -98,6 +98,8 @@ pub enum TerminalWriteOperationError {
     Write(TerminalSessionWriteError),
     /// State-family failure.
     State(TerminalSessionStateError),
+    /// Cursor position was outside terminal-control invariants.
+    InvalidCursorPosition { diagnostic: TerminalDiagnostic },
 }
 
 impl TerminalWriteOperationError {
@@ -110,7 +112,7 @@ impl TerminalWriteOperationError {
     pub const fn state(&self) -> TerminalSessionState {
         match self {
             Self::State(error) => error.state(),
-            Self::Write(_error) => TerminalSessionState::Active,
+            Self::Write(_) | Self::InvalidCursorPosition { .. } => TerminalSessionState::Active,
         }
     }
 }
@@ -312,14 +314,12 @@ impl TerminalSession {
     ) -> Result<(), TerminalWriteOperationError> {
         self.ensure_output_state(TerminalOperation::TerminalMoveCursor)?;
         if row < 1_i32 || column < 1_i32 {
-            return Err(TerminalWriteOperationError::Write(
-                TerminalSessionWriteError::WriteFailed {
-                    diagnostic: diagnostic(
-                        TerminalOperation::TerminalMoveCursor,
-                        TerminalSessionState::Active,
-                    ),
-                },
-            ));
+            return Err(TerminalWriteOperationError::InvalidCursorPosition {
+                diagnostic: diagnostic(
+                    TerminalOperation::TerminalMoveCursor,
+                    TerminalSessionState::Active,
+                ),
+            });
         }
         self.output_log.push(format!("\u{1b}[{row};{column}H"));
         Ok(())

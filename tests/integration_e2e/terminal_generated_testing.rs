@@ -76,6 +76,64 @@ fn generated_terminal_rendering_fixture_uses_high_level_session_operations() {
 }
 
 #[test]
+fn generated_terminal_invalid_cursor_reports_named_error() {
+    let temp_dir = unique_probe_target_dir("terminal-session-invalid-cursor");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "terminal-session-invalid-cursor target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let source = "import terminal_session_options_default, terminal_session_open_sync from 'standard.terminal'\nimport terminal_session_move_cursor_sync from 'standard.terminal'\nimport type TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from 'standard.terminal'\n\n##\n  Description: Generated terminal fixture verifies invalid cursor error naming.\n##\nentry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, InvalidCursorPositionError =>\n    let options = terminal_session_options_default()\n    let mutable session = propagate terminal_session_open_sync(options)\n    propagate terminal_session_move_cursor_sync(mutable ref session, 0 as int32, 1 as int32)\n    print('UNEXPECTED_CURSOR_SUCCESS')\n    return void\n";
+        let binary_path = compile_program_for_tests(
+            Path::new("test-projects/terminal-session-invalid-cursor/src/main.op"),
+            source,
+            &temp_dir,
+            &TargetTriple::host(),
+        )
+        .map_err(|error| format!("terminal invalid cursor source should compile: {error}"))?;
+
+        let child = Command::new(&binary_path)
+            .env("OPAL_TERMINAL_FAKE_BACKEND", "1")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| format!("terminal invalid cursor binary should execute: {error}"))?;
+        let run_output = fs_helpers::wait_for_child_output_with_timeout(
+            child,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "terminal-session-invalid-cursor compiled binary",
+        )?;
+        if run_output.status.success() {
+            return Err(format!(
+                "terminal invalid cursor binary should fail, stdout:\n{}",
+                String::from_utf8_lossy(&run_output.stdout),
+            ));
+        }
+        let stderr = String::from_utf8_lossy(&run_output.stderr);
+        if !stderr.contains("InvalidCursorPositionError") {
+            return Err(format!(
+                "terminal invalid cursor stderr should mention InvalidCursorPositionError, got {stderr}"
+            ));
+        }
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "terminal-session-invalid-cursor target directory should be removed"
+    );
+    assert!(
+        execution_result.is_ok(),
+        "terminal invalid cursor should expose named error: {}",
+        execution_result.err().unwrap_or_default()
+    );
+}
+
+#[test]
 fn generated_terminal_fixture_uses_injected_fake_backend() {
     let temp_dir = unique_probe_target_dir("terminal-generated-fake-backend");
     let prepare = prepare_dir(&temp_dir);

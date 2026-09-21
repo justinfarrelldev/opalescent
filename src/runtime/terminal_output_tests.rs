@@ -1,4 +1,6 @@
-use crate::runtime::terminal::{TerminalCursorShape, TerminalInputEventKind, TerminalSessionState};
+use crate::runtime::terminal::{
+    TerminalCursorShape, TerminalInputEventKind, TerminalSessionState, TerminalWriteOperationError,
+};
 use crate::stdlib::terminal::{
     safe_terminal_diagnostic_format, terminal_session_bell_sync,
     terminal_session_clear_screen_sync, terminal_session_draw_rows_sync,
@@ -59,7 +61,12 @@ fn terminal_session_rendering_helpers_record_trusted_sequences() {
             "\u{7}".to_owned(),
         ]
     );
-    assert!(terminal_session_move_cursor_sync(&mut session, 0, 1).is_err());
+    let invalid_cursor = terminal_session_move_cursor_sync(&mut session, 0, 1)
+        .expect_err("invalid cursor position should reject");
+    assert!(matches!(
+        invalid_cursor,
+        TerminalWriteOperationError::InvalidCursorPosition { .. }
+    ));
 }
 
 #[test]

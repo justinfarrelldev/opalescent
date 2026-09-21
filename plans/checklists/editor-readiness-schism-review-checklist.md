@@ -39,11 +39,11 @@ Method: each schism and correctness gap must first be proven with a failing test
 
 ## 5. Invalid cursor position error behavior diverges between Rust and C/session metadata
 
-- [ ] PROVE: add a failing Rust runtime test that expects invalid cursor position to be distinguishable from generic session write failure.
-- [ ] PROVE: add/focus a generated C fixture or test for invalid cursor position error naming.
-- [ ] FIX/DISPROVE: align Rust terminal session move-cursor invalid-position error with generated C/type metadata, or adjust type metadata to the actual Rust error model.
-- [ ] REFACTOR: run focused terminal error tests.
-- [ ] COMMIT: atomic invalid-cursor-position alignment commit.
+- [x] PROVE: add a failing Rust runtime test that expects invalid cursor position to be distinguishable from generic session write failure.
+- [x] PROVE: add/focus a generated C fixture or test for invalid cursor position error naming.
+- [x] FIX/DISPROVE: align Rust terminal session move-cursor invalid-position error with generated C/type metadata, or adjust type metadata to the actual Rust error model.
+- [x] REFACTOR: run focused terminal error tests.
+- [x] COMMIT: atomic invalid-cursor-position alignment commit.
 
 ## 6. Harness-injected fake backend is minimal compared with selected generated testing concern
 
