@@ -83,7 +83,7 @@ Method: each schism and correctness gap must first be proven with a failing test
 
 ## Final verification
 
-- [ ] Run all focused tests added during schism review.
-- [ ] Run broader pre-commit verification.
-- [ ] Ensure every schism section has PROVE evidence marked complete before FIX/DISPROVE completion.
-- [ ] Ensure commits remain atomic and pre-commit hook is not modified or bypassed.
+- [x] Run all focused tests added during schism review.
+- [x] Run broader pre-commit verification.
+- [x] Ensure every schism section has PROVE evidence marked complete before FIX/DISPROVE completion.
+- [x] Ensure commits remain atomic and pre-commit hook is not modified or bypassed.
