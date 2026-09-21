@@ -165,6 +165,37 @@ pub fn terminal_session_flush_sync(
     session.flush_sync()
 }
 
+/// Clear the session terminal screen.
+pub fn terminal_session_clear_screen_sync(
+    session: &mut TerminalSession,
+) -> Result<(), TerminalWriteOperationError> {
+    session.clear_screen_sync()
+}
+
+/// Move the session terminal cursor.
+pub fn terminal_session_move_cursor_sync(
+    session: &mut TerminalSession,
+    row: i32,
+    column: i32,
+) -> Result<(), TerminalWriteOperationError> {
+    session.move_cursor_sync(row, column)
+}
+
+/// Draw trusted rows through the session terminal.
+pub fn terminal_session_draw_rows_sync(
+    session: &mut TerminalSession,
+    rows: &[TrustedTerminalOutput],
+) -> Result<(), TerminalWriteOperationError> {
+    session.draw_rows_sync(rows)
+}
+
+/// Ring the session terminal bell.
+pub fn terminal_session_bell_sync(
+    session: &mut TerminalSession,
+) -> Result<(), TerminalWriteOperationError> {
+    session.bell_sync()
+}
+
 /// Set cursor visibility.
 pub fn terminal_session_set_cursor_visible_sync(
     session: &TerminalSession,

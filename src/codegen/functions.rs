@@ -462,6 +462,8 @@ pub fn codegen_import_declaration<'context>(
                         },
                         Ok,
                     )?;
+                    env.imported_signatures
+                        .insert(local_name.clone(), signature.clone());
                     env.imported_functions.insert(
                         local_name,
                         runtime_fn

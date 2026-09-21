@@ -119,11 +119,6 @@ typedef struct OpalTerminalSession {
   int read_count;
 } OpalTerminalSession;
 
-typedef struct OpalTerminalWaitValue {
-  int64_t tag;
-  uint8_t payload[64];
-} OpalTerminalWaitValue;
-
 static FsVoidResult stdout_void_success(void) {
   FsVoidResult result = {NULL, NULL};
   return result;
@@ -870,8 +865,7 @@ FsHandleResult terminal_session_open_sync(void *options) {
   return stdout_handle_success(session);
 }
 
-FsHandleResult terminal_session_read_event_sync(void *opaque_session,
-                                                OpalTerminalWaitValue wait,
+FsHandleResult terminal_session_read_event_sync(void *opaque_session, void *wait,
                                                 void *cancellation_token) {
   (void)wait;
   (void)cancellation_token;
@@ -905,6 +899,64 @@ FsVoidResult terminal_session_flush_sync(void *opaque_session) {
     return stdout_void_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
   }
   return stdout_flush_stream(stdout);
+}
+
+FsVoidResult terminal_session_clear_screen_sync(void *opaque_session) {
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  if (session == NULL || session->closed) {
+    return stdout_void_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
+  }
+  return terminal_write_stream(stdout, "\x1b[2J\x1b[3J\x1b[H");
+}
+
+FsVoidResult terminal_session_move_cursor_sync(void *opaque_session, int32_t row,
+                                              int32_t column) {
+  char escape_sequence[64];
+  int written = 0;
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  if (session == NULL || session->closed) {
+    return stdout_void_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
+  }
+  if (row < 1 || column < 1) {
+    return terminal_invalid_cursor_position_error();
+  }
+  written = snprintf(escape_sequence, sizeof(escape_sequence),
+                     "\x1b[%" PRId32 ";%" PRId32 "H", row, column);
+  if (written < 0 || (size_t)written >= sizeof(escape_sequence)) {
+    return stdout_void_error(OPAL_TERMINAL_WRITE_FAILURE_ERROR);
+  }
+  return terminal_write_stream(stdout, escape_sequence);
+}
+
+FsVoidResult terminal_session_draw_rows_sync(void *opaque_session,
+                                            const char **rows, int64_t count) {
+  int64_t index = 0;
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  if (session == NULL || session->closed) {
+    return stdout_void_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
+  }
+  if (count <= 0 || rows == NULL) {
+    return stdout_void_success();
+  }
+  for (index = 0; index < count; index++) {
+    FsVoidResult write_result = terminal_write_stream(stdout, rows[index]);
+    if (write_result.error != NULL) {
+      return write_result;
+    }
+    write_result = terminal_write_stream(stdout, "\n");
+    if (write_result.error != NULL) {
+      return write_result;
+    }
+  }
+  return stdout_void_success();
+}
+
+FsVoidResult terminal_session_bell_sync(void *opaque_session) {
+  OpalTerminalSession *session = (OpalTerminalSession *)opaque_session;
+  if (session == NULL || session->closed) {
+    return stdout_void_error(OPAL_TERMINAL_SESSION_CLOSED_ERROR);
+  }
+  return terminal_write_stream(stdout, "\a");
 }
 
 FsHandleResult terminal_session_close_sync(void *opaque_session) {

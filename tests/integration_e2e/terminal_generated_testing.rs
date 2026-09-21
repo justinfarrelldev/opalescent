@@ -9,6 +9,73 @@ use std::time::Duration;
 const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[test]
+fn generated_terminal_rendering_fixture_uses_high_level_session_operations() {
+    let temp_dir = unique_probe_target_dir("terminal-session-rendering");
+    let prepare = prepare_dir(&temp_dir);
+    assert!(
+        prepare.is_ok(),
+        "terminal-session-rendering target directory should be created"
+    );
+
+    let execution_result: Result<(), String> = (|| {
+        let source_path = Path::new("test-projects/terminal-session-rendering/src/main.op");
+        let source_str = fs::read_to_string(source_path).map_err(|error| {
+            format!("terminal-session-rendering source should be readable: {error}")
+        })?;
+        let binary_path = compile_program_for_tests(
+            source_path,
+            source_str.as_str(),
+            &temp_dir,
+            &TargetTriple::host(),
+        )
+        .map_err(|error| format!("terminal-session-rendering source should compile: {error}"))?;
+
+        let child = Command::new(&binary_path)
+            .env("OPAL_TERMINAL_FAKE_BACKEND", "1")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| {
+                format!("terminal-session-rendering binary should execute: {error}")
+            })?;
+        let run_output = fs_helpers::wait_for_child_output_with_timeout(
+            child,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            "terminal-session-rendering compiled binary",
+        )?;
+        if !run_output.status.success() {
+            return Err(format!(
+                "terminal-session-rendering should exit cleanly, status {:?}\nstdout:\n{}\nstderr:\n{}",
+                run_output.status.code(),
+                String::from_utf8_lossy(&run_output.stdout),
+                String::from_utf8_lossy(&run_output.stderr),
+            ));
+        }
+        let stdout = String::from_utf8_lossy(&run_output.stdout);
+        if !stdout.contains(
+            "\u{1b}[2J\u{1b}[3J\u{1b}[H\u{1b}[2;3Halpha\nbeta\n\u{7}TERMINAL_RENDER_DONE\n",
+        ) {
+            return Err(format!(
+                "terminal-session-rendering stdout should include clear, cursor move, rows, bell, and summary, got {stdout:?}"
+            ));
+        }
+        Ok(())
+    })();
+
+    let cleanup = cleanup_dir(&temp_dir);
+    assert!(
+        cleanup.is_ok(),
+        "terminal-session-rendering target directory should be removed"
+    );
+    assert!(
+        execution_result.is_ok(),
+        "terminal-session-rendering should compile and run: {}",
+        execution_result.err().unwrap_or_default()
+    );
+}
+
+#[test]
 fn generated_terminal_fixture_uses_injected_fake_backend() {
     let temp_dir = unique_probe_target_dir("terminal-generated-fake-backend");
     let prepare = prepare_dir(&temp_dir);

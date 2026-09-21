@@ -27,14 +27,14 @@ Branch: `implement-editor-readiness-proposals`
 
 ## 3. High-level session rendering
 
-- [ ] RED: add failing Rust/runtime tests for session clear/move/draw/bell helpers against the fake backend.
-- [ ] RED: add generated-code/type-check probes for high-level rendering symbols.
-- [ ] GREEN: add Rust stdlib/runtime model helpers.
-- [ ] GREEN: add selected symbols, borrow metadata, and generated runtime readiness where supported.
-- [ ] GREEN: add C runtime ABI helpers if generated programs can call these helpers in this phase.
-- [ ] GREEN: update docs/prelude if needed.
-- [ ] REFACTOR: run terminal rendering tests and clean duplication.
-- [ ] COMMIT: atomic high-level session rendering commit.
+- [x] RED: add failing Rust/runtime tests for session clear/move/draw/bell helpers against the fake backend.
+- [x] RED: add generated-code/type-check probes for high-level rendering symbols.
+- [x] GREEN: add Rust stdlib/runtime model helpers.
+- [x] GREEN: add selected symbols, borrow metadata, and generated runtime readiness where supported.
+- [x] GREEN: add C runtime ABI helpers if generated programs can call these helpers in this phase.
+- [x] GREEN: update docs/prelude if needed.
+- [x] REFACTOR: run terminal rendering tests and clean duplication.
+- [x] COMMIT: atomic high-level session rendering commit.
 
 ## 4. Full grapheme cell width terminal layout
 

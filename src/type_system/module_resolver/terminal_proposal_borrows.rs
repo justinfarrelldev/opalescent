@@ -57,6 +57,10 @@ const REF_FIRST_PARAMETER_FUNCTIONS: &[&str] = &[
 /// Proposal functions whose first parameter is `mutable ref`.
 const MUTABLE_REF_FIRST_PARAMETER_FUNCTIONS: &[&str] = &[
     "terminal_session_read_event_sync",
+    "terminal_session_clear_screen_sync",
+    "terminal_session_move_cursor_sync",
+    "terminal_session_draw_rows_sync",
+    "terminal_session_bell_sync",
     "terminal_session_pause_sync",
     "terminal_session_resume_sync",
     "terminal_session_close_sync",

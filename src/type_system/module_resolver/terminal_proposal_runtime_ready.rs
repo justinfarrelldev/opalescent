@@ -17,6 +17,10 @@ const SELECTED_DATA_MODEL_RUNTIME_NAMES: &[&str] = &[
     "terminal_session_read_event_sync",
     "terminal_session_write_sync",
     "terminal_session_flush_sync",
+    "terminal_session_clear_screen_sync",
+    "terminal_session_move_cursor_sync",
+    "terminal_session_draw_rows_sync",
+    "terminal_session_bell_sync",
     "terminal_session_close_sync",
 ];
 

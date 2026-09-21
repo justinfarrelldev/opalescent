@@ -22,6 +22,7 @@ use super::tail_types::{
 use crate::runtime::terminal::constraints::TerminalCorrelatedEventLimit;
 use crate::runtime::wait::{CancellationToken, SourceAvailability, SystemReadinessSource};
 use alloc::collections::{BTreeMap, VecDeque};
+use alloc::format;
 #[cfg(test)]
 use core::cell::Cell;
 use core::sync::atomic::{AtomicU64, Ordering};
@@ -293,6 +294,54 @@ impl TerminalSession {
     /// Flush session output.
     pub fn flush_sync(&self) -> Result<(), TerminalWriteOperationError> {
         self.ensure_output_state(TerminalOperation::Flush)
+    }
+
+    /// Clear the terminal screen through a trusted runtime-controlled sequence.
+    pub fn clear_screen_sync(&mut self) -> Result<(), TerminalWriteOperationError> {
+        self.ensure_output_state(TerminalOperation::TerminalClearScreen)?;
+        self.output_log
+            .push("\u{1b}[2J\u{1b}[3J\u{1b}[H".to_owned());
+        Ok(())
+    }
+
+    /// Move the terminal cursor through a trusted runtime-controlled sequence.
+    pub fn move_cursor_sync(
+        &mut self,
+        row: i32,
+        column: i32,
+    ) -> Result<(), TerminalWriteOperationError> {
+        self.ensure_output_state(TerminalOperation::TerminalMoveCursor)?;
+        if row < 1_i32 || column < 1_i32 {
+            return Err(TerminalWriteOperationError::Write(
+                TerminalSessionWriteError::WriteFailed {
+                    diagnostic: diagnostic(
+                        TerminalOperation::TerminalMoveCursor,
+                        TerminalSessionState::Active,
+                    ),
+                },
+            ));
+        }
+        self.output_log.push(format!("\u{1b}[{row};{column}H"));
+        Ok(())
+    }
+
+    /// Draw trusted rows through the session output log.
+    pub fn draw_rows_sync(
+        &mut self,
+        rows: &[TrustedTerminalOutput],
+    ) -> Result<(), TerminalWriteOperationError> {
+        self.ensure_output_state(TerminalOperation::TerminalDrawRows)?;
+        for row in rows {
+            self.output_log.push(format!("{}\n", row.as_str()));
+        }
+        Ok(())
+    }
+
+    /// Ring the terminal bell through a trusted runtime-controlled sequence.
+    pub fn bell_sync(&mut self) -> Result<(), TerminalWriteOperationError> {
+        self.ensure_output_state(TerminalOperation::Write)?;
+        self.output_log.push("\u{7}".to_owned());
+        Ok(())
     }
 
     /// Set cursor visibility.

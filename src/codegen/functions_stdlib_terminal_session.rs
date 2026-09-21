@@ -15,6 +15,10 @@ pub(super) const TERMINAL_SESSION_RUNTIME_NAMES: &[&str] = &[
     "terminal_session_read_event_sync",
     "terminal_session_write_sync",
     "terminal_session_flush_sync",
+    "terminal_session_clear_screen_sync",
+    "terminal_session_move_cursor_sync",
+    "terminal_session_draw_rows_sync",
+    "terminal_session_bell_sync",
     "terminal_session_close_sync",
 ];
 
@@ -35,11 +39,6 @@ pub(super) fn declare_terminal_session_function<'context>(
     let i64_type = ctx.i64_type();
     let pointer_error_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
     let void_error_result_type = ctx.struct_type(&[i8_ptr.into(), i8_ptr.into()], false);
-    let terminal_wait_type = ctx.struct_type(
-        &[i64_type.into(), ctx.i8_type().array_type(64).into()],
-        false,
-    );
-
     match name {
         "terminal_session_options_default" => module
             .get_function(name)
@@ -65,14 +64,14 @@ pub(super) fn declare_terminal_session_function<'context>(
             ))
         }),
         "terminal_session_read_event_sync" => module.get_function(name).or_else(|| {
-            Some(module.add_function(
-                name,
-                pointer_error_result_type.fn_type(
-                    &[i8_ptr.into(), terminal_wait_type.into(), i8_ptr.into()],
-                    false,
+            Some(
+                module.add_function(
+                    name,
+                    pointer_error_result_type
+                        .fn_type(&[i8_ptr.into(), i8_ptr.into(), i8_ptr.into()], false),
+                    None,
                 ),
-                None,
-            ))
+            )
         }),
         "terminal_session_write_sync" => module.get_function(name).or_else(|| {
             Some(module.add_function(
@@ -81,10 +80,36 @@ pub(super) fn declare_terminal_session_function<'context>(
                 None,
             ))
         }),
-        "terminal_session_flush_sync" => module.get_function(name).or_else(|| {
+        "terminal_session_flush_sync"
+        | "terminal_session_clear_screen_sync"
+        | "terminal_session_bell_sync" => module.get_function(name).or_else(|| {
             Some(module.add_function(
                 name,
                 void_error_result_type.fn_type(&[i8_ptr.into()], false),
+                None,
+            ))
+        }),
+        "terminal_session_move_cursor_sync" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                void_error_result_type.fn_type(
+                    &[i8_ptr.into(), ctx.i32_type().into(), ctx.i32_type().into()],
+                    false,
+                ),
+                None,
+            ))
+        }),
+        "terminal_session_draw_rows_sync" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                void_error_result_type.fn_type(
+                    &[
+                        i8_ptr.into(),
+                        i8_ptr.ptr_type(AddressSpace::default()).into(),
+                        i64_type.into(),
+                    ],
+                    false,
+                ),
                 None,
             ))
         }),
