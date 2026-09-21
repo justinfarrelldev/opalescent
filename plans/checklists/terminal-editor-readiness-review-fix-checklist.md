@@ -28,11 +28,11 @@ Keep this checklist current while fixing the review findings.
 
 ## Phase 4: UTF-8 malformed-input tightening
 
-- [ ] RED: add focused runtime test/probe for valid multibyte and malformed UTF-8 decoding.
-- [ ] GREEN: validate scalar ranges and continuation rules.
-- [ ] GREEN: quarantine malformed sequences as UnknownBytes without invalid text emission.
-- [ ] REFACTOR: isolate UTF-8 helper logic while preserving ASCII/Escape behavior.
-- [ ] COMMIT: atomic UTF-8 tightening fix.
+- [x] RED: add focused runtime test/probe for valid multibyte and malformed UTF-8 decoding.
+- [x] GREEN: validate scalar ranges and continuation rules.
+- [x] GREEN: quarantine malformed sequences as UnknownBytes without invalid text emission.
+- [x] REFACTOR: isolate UTF-8 helper logic while preserving ASCII/Escape behavior.
+- [x] COMMIT: atomic UTF-8 tightening fix.
 
 ## Final verification
 

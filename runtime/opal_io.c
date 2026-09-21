@@ -1429,7 +1429,31 @@ static int opal_terminal_utf8_expected_length(int first_byte) {
   return 0;
 }
 
+static int opal_terminal_utf8_sequence_is_valid(const unsigned char *bytes, int length) {
+  if (bytes == NULL) return 0;
+  if (length == 1) return bytes[0] < 0x80u;
+  if (length == 2) {
+    return bytes[0] >= 0xC2u && bytes[0] <= 0xDFu &&
+           bytes[1] >= 0x80u && bytes[1] <= 0xBFu;
+  }
+  if (length == 3) {
+    if (bytes[1] < 0x80u || bytes[1] > 0xBFu || bytes[2] < 0x80u || bytes[2] > 0xBFu) return 0;
+    if (bytes[0] == 0xE0u) return bytes[1] >= 0xA0u;
+    if (bytes[0] == 0xEDu) return bytes[1] <= 0x9Fu;
+    return bytes[0] >= 0xE1u && bytes[0] <= 0xEFu;
+  }
+  if (length == 4) {
+    if (bytes[1] < 0x80u || bytes[1] > 0xBFu || bytes[2] < 0x80u || bytes[2] > 0xBFu ||
+        bytes[3] < 0x80u || bytes[3] > 0xBFu) return 0;
+    if (bytes[0] == 0xF0u) return bytes[1] >= 0x90u;
+    if (bytes[0] == 0xF4u) return bytes[1] <= 0x8Fu;
+    return bytes[0] >= 0xF1u && bytes[0] <= 0xF3u;
+  }
+  return 0;
+}
+
 static void *opal_terminal_real_utf8_text_event(OpalTerminalSession *session, int first_byte) {
+  unsigned char bytes[4];
   char text[5];
   int expected = opal_terminal_utf8_expected_length(first_byte);
   int index;
@@ -1437,13 +1461,22 @@ static void *opal_terminal_real_utf8_text_event(OpalTerminalSession *session, in
   if (expected <= 0) {
     return opal_terminal_unknown_bytes_event("UnrecognizedSequence");
   }
+  bytes[0] = (unsigned char)first_byte;
   text[0] = (char)first_byte;
   for (index = 1; index < expected; index++) {
     int next = fgetc(stdin);
-    if (next == EOF || (((unsigned char)next) & 0xC0u) != 0x80u) {
+    if (next == EOF) {
       return opal_terminal_unknown_bytes_event("UnrecognizedSequence");
     }
+    if ((((unsigned char)next) & 0xC0u) != 0x80u) {
+      (void)ungetc(next, stdin);
+      return opal_terminal_unknown_bytes_event("UnrecognizedSequence");
+    }
+    bytes[index] = (unsigned char)next;
     text[index] = (char)next;
+  }
+  if (!opal_terminal_utf8_sequence_is_valid(bytes, expected)) {
+    return opal_terminal_unknown_bytes_event("UnrecognizedSequence");
   }
   text[expected] = '\0';
   return opal_terminal_text_event(text);

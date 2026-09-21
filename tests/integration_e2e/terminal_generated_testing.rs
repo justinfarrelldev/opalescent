@@ -2,11 +2,58 @@
 
 use super::fs_helpers::unique_probe_target_dir;
 use super::*;
+use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
 const GENERATED_BINARY_TEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+fn run_terminal_real_utf8_probe(label: &str, input_bytes: &[u8]) -> Result<String, String> {
+    let temp_dir = unique_probe_target_dir(label);
+    prepare_dir(&temp_dir)
+        .map_err(|error| format!("{label} target directory setup failed: {error}"))?;
+
+    let result: Result<String, String> = (|| {
+        let source_path = Path::new("test-projects/terminal-real-utf8-probe/src/main.op");
+        let source = "import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync, trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard\nimport type TerminalWait, TerminalInputEvent, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from standard\n\n##\n  Description: Generated terminal fixture verifies real terminal UTF-8 text vs unknown-byte classification.\n##\nentry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>\n    let source = propagate cancellation_source_new()\n    let token = cancellation_token(ref source)\n    let options = terminal_session_options_default()\n    let mutable session = propagate terminal_session_open_sync(options)\n    let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)\n    if event is TerminalInputEvent.UnknownBytes:\n        let marker = propagate trusted_terminal_output_from_application_text('UTF8_UNKNOWN\\n')\n        propagate terminal_session_write_sync(ref session, marker)\n    if event is TerminalInputEvent.TextInput:\n        let marker = propagate trusted_terminal_output_from_application_text('UTF8_TEXT\\n')\n        propagate terminal_session_write_sync(ref session, marker)\n    propagate terminal_session_flush_sync(ref session)\n    let _close = propagate terminal_session_close_sync(mutable ref session)\n    return void\n";
+        let binary_path =
+            compile_program_for_tests(source_path, source, &temp_dir, &TargetTriple::host())
+                .map_err(|error| format!("{label} fixture should compile: {error}"))?;
+        let mut child = Command::new(&binary_path)
+            .env_remove("OPAL_TERMINAL_FAKE_BACKEND")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| format!("{label} binary should spawn: {error}"))?;
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin
+                .write_all(input_bytes)
+                .map_err(|error| format!("{label} bytes should write to stdin: {error}"))?;
+        } else {
+            return Err(format!("{label} stdin should be piped"));
+        }
+        let output = fs_helpers::wait_for_child_output_with_timeout(
+            child,
+            GENERATED_BINARY_TEST_TIMEOUT,
+            format!("{label} compiled binary").as_str(),
+        )?;
+        if !output.status.success() {
+            return Err(format!(
+                "{label} binary should exit cleanly, status {:?}\nstdout:\n{}\nstderr:\n{}",
+                output.status.code(),
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    })();
+
+    cleanup_dir(&temp_dir)
+        .map_err(|error| format!("{label} target directory cleanup failed: {error}"))?;
+    result
+}
 
 #[test]
 fn generated_terminal_rendering_fixture_uses_high_level_session_operations() {
@@ -73,6 +120,35 @@ fn generated_terminal_rendering_fixture_uses_high_level_session_operations() {
         "terminal-session-rendering should compile and run: {}",
         execution_result.err().unwrap_or_default()
     );
+}
+
+#[test]
+fn generated_terminal_real_utf8_accepts_multibyte_text() {
+    let stdout = run_terminal_real_utf8_probe("terminal-real-utf8-valid", &[0xC3, 0xA9])
+        .expect("valid UTF-8 probe should compile and run");
+    assert!(
+        stdout.contains("UTF8_TEXT") && !stdout.contains("UTF8_UNKNOWN"),
+        "valid UTF-8 bytes should produce TextInput, got stdout {stdout:?}"
+    );
+}
+
+#[test]
+fn generated_terminal_real_utf8_rejects_malformed_sequences() {
+    for (label, bytes) in [
+        ("terminal-real-utf8-surrogate", &[0xED, 0xA0, 0x80][..]),
+        ("terminal-real-utf8-overlong", &[0xE0, 0x80, 0x80][..]),
+        (
+            "terminal-real-utf8-out-of-range",
+            &[0xF4, 0x90, 0x80, 0x80][..],
+        ),
+    ] {
+        let stdout = run_terminal_real_utf8_probe(label, bytes)
+            .expect("malformed UTF-8 probe should compile and run");
+        assert!(
+            stdout.contains("UTF8_UNKNOWN") && !stdout.contains("UTF8_TEXT"),
+            "malformed UTF-8 bytes for {label} should be quarantined as UnknownBytes, got stdout {stdout:?}"
+        );
+    }
 }
 
 #[test]
