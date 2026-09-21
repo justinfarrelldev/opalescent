@@ -1,0 +1,23 @@
+import type TextBuffer from ./text_buffer.types
+
+##
+  Description: Builds a text buffer from logical lines.
+##
+public let text_buffer_from_lines = f(lines: string[]): TextBuffer errors AllocationFailureError => {
+    return new TextBuffer:
+        lines: lines
+}
+
+##
+  Description: Inserts text into one line of an immutable text buffer.
+##
+public let text_buffer_insert_text = f(buffer: TextBuffer, line: int64, column: int64, text: string): TextBuffer errors TextBufferError, StringRangeError, AllocationFailureError => {
+    return intrinsic
+}
+
+##
+  Description: Returns the logical lines from a text buffer.
+##
+public let text_buffer_to_lines = f(buffer: TextBuffer): string[] errors AllocationFailureError => {
+    return buffer.lines
+}

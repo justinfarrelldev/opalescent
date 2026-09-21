@@ -1,0 +1,6 @@
+##
+  Description: Error raised when terminal rendering operations violate session rendering contracts.
+##
+public type TerminalRenderingError:
+    InvalidCursorPosition
+    UnsupportedTerminalControl

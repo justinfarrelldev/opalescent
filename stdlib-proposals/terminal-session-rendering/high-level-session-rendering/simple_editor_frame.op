@@ -1,0 +1,19 @@
+import terminal_session_clear_screen_sync, terminal_session_move_cursor_sync from standard
+
+import terminal_session_draw_rows_sync, terminal_session_flush_sync from standard
+
+import trusted_terminal_output_from_application_text from standard
+
+##
+  Description: Renders a simple editor frame through high-level session operations.
+##
+let render_simple_editor_frame = f(mutable ref session: TerminalSession, rows: string[]): void errors TerminalSessionWriteError, TerminalSessionStateError, TerminalOutputTrustError, InvalidCursorPositionError => {
+    let mutable trusted_rows: TrustedTerminalOutput[] = []
+    for row in rows:
+        trusted_rows.push(propagate trusted_terminal_output_from_application_text(row))
+    propagate terminal_session_clear_screen_sync(mutable ref session)
+    propagate terminal_session_draw_rows_sync(mutable ref session, trusted_rows)
+    propagate terminal_session_move_cursor_sync(mutable ref session, 1 as int32, 1 as int32)
+    propagate terminal_session_flush_sync(mutable ref session)
+    return void
+}

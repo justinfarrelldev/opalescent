@@ -1,0 +1,7 @@
+##
+  Description: Error raised when terminal text layout cannot represent input safely.
+##
+public type TerminalTextLayoutError:
+    UnsupportedNonAsciiText
+    ControlCharacterRejected
+    NegativeCellLimit

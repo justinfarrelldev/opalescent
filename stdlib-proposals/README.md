@@ -179,6 +179,41 @@ Historical alternatives:
 
 The selected proposal is a future adoption target, not implemented support. Its core/test availability, reference/affine enforcement, and deterministic cleanup prerequisites must land in the same compatible release. Historical alternatives retain their recorded API tradeoffs but defer ownership, process control, diagnostics, readiness, recovery, chord lifecycle, testability, output trust, and ABI authority to the selected package.
 
+### 21. [terminal-session-rendering](./terminal-session-rendering/)
+Session-owned rendering helpers for full-screen terminal programs without legacy stdout bypasses.
+
+Alternatives:
+- [`high-level-session-rendering`](./terminal-session-rendering/high-level-session-rendering/)
+- [`trusted-ansi-builder`](./terminal-session-rendering/trusted-ansi-builder/)
+
+### 22. [string-editing-primitives](./string-editing-primitives/)
+Scalar and grapheme string editing helpers for editor buffer operations.
+
+Alternatives:
+- [`scalar-range-functions`](./string-editing-primitives/scalar-range-functions/)
+- [`grapheme-aware-functions`](./string-editing-primitives/grapheme-aware-functions/)
+- [`line-buffer-object`](./string-editing-primitives/line-buffer-object/)
+
+### 23. [terminal-text-layout](./terminal-text-layout/)
+Terminal display-cell measurement and clipping policy for editor rendering.
+
+Alternatives:
+- [`scalar-width-baseline`](./terminal-text-layout/scalar-width-baseline/)
+- [`unicode-grapheme-cell-width`](./terminal-text-layout/unicode-grapheme-cell-width/)
+
+### 24. [collections-editing](./collections-editing/)
+Public array insertion and removal helpers for line-buffer style code.
+
+Alternatives:
+- [`method-style-array-editing`](./collections-editing/method-style-array-editing/)
+- [`free-function-array-editing`](./collections-editing/free-function-array-editing/)
+
+### 25. [terminal-generated-testing](./terminal-generated-testing/)
+Generated-code fixture activation for deterministic terminal-session programs.
+
+Alternatives:
+- [`deterministic-fixture-runner`](./terminal-generated-testing/deterministic-fixture-runner/)
+
 ## Tier Recommendations
 
 Recommended “most idiomatic for Opalescent” choice per concern (explicit errors, verbose names, no exceptions, Perceus model):
@@ -205,6 +240,11 @@ Recommended “most idiomatic for Opalescent” choice per concern (explicit err
 | subprocess-exec | `command-builder` | Builders make process setup explicit, readable, and easier to validate before execution. |
 | testing-framework | `vitest-style-describe-it` | It provides a full, familiar test surface while still mapping failures through explicit error paths. |
 | terminal-session-input | `typed-event-session` | One normalized event at a time is the smallest safe proposed v1 contract; batching can be additive only after measurement, and adoption remains blocked on the linked future prerequisites. |
+| terminal-session-rendering | `trusted-ansi-builder` | It preserves the selected trusted-output boundary while giving editors enough reviewed rendering operations. |
+| string-editing-primitives | `scalar-range-functions` | It extends the current Unicode-scalar string model without prematurely claiming grapheme correctness. |
+| terminal-text-layout | `scalar-width-baseline` first, `unicode-grapheme-cell-width` later | ASCII/single-cell layout is the honest first-editor limit; grapheme cell width is required before broad Unicode correctness claims. |
+| collections-editing | `free-function-array-editing` first | Free functions are the smallest stable lowering surface; method aliases can follow once array method registration is consistently documented. |
+| terminal-generated-testing | `deterministic-fixture-runner` | Harness injection keeps test-only terminal authority out of production source while making terminal fixtures executable. |
 
 ## How to Read a Proposal
 

@@ -1,0 +1,13 @@
+##
+  Description: Method-style insertion for arrays at a zero-based index.
+##
+public let array_insert_method = f(values: T[], index: int64, value: T): T[] errors IndexOutOfBoundsError, AllocationFailureError => {
+    return intrinsic
+}
+
+##
+  Description: Method-style removal for arrays at a zero-based index.
+##
+public let array_remove_at_method = f(values: T[], index: int64): T[], T errors IndexOutOfBoundsError, AllocationFailureError => {
+    return intrinsic
+}

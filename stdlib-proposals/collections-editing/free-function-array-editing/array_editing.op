@@ -1,0 +1,13 @@
+##
+  Description: Returns a new array with value inserted before the zero-based index.
+##
+public let array_insert = f(values: T[], index: int64, value: T): T[] errors IndexOutOfBoundsError, AllocationFailureError => {
+    return intrinsic
+}
+
+##
+  Description: Returns an array with one element removed and the removed value.
+##
+public let array_remove_at = f(values: T[], index: int64): T[], T errors IndexOutOfBoundsError, AllocationFailureError => {
+    return intrinsic
+}

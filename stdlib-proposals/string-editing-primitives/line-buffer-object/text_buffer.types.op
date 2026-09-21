@@ -1,0 +1,9 @@
+##
+  Description: Immutable line-oriented text buffer for editor-style operations.
+##
+public type TextBuffer:
+    lines: string[]
+
+public type TextBufferError:
+    LineOutOfRange
+    ColumnOutOfRange

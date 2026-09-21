@@ -1,0 +1,20 @@
+##
+  Description: Counts Unicode grapheme clusters in text for the release Unicode version.
+##
+public let string_grapheme_length = f(text: string): int64 => {
+    return intrinsic
+}
+
+##
+  Description: Inserts text at a Unicode grapheme cluster index.
+##
+public let string_grapheme_insert_at = f(text: string, grapheme_index: int64, inserted: string): string errors StringRangeError, AllocationFailureError => {
+    return intrinsic
+}
+
+##
+  Description: Deletes a Unicode grapheme cluster range.
+##
+public let string_grapheme_delete_range = f(text: string, start: int64, end: int64): string errors StringRangeError, AllocationFailureError => {
+    return intrinsic
+}

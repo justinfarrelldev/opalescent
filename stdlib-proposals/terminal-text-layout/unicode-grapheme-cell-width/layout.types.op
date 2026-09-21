@@ -1,0 +1,6 @@
+##
+  Description: Error raised when Unicode terminal text layout cannot complete safely.
+##
+public type TerminalTextLayoutError:
+    NegativeCellLimit
+    UnsupportedWidthPolicy

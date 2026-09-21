@@ -1,0 +1,6 @@
+##
+  Description: Error raised when trusted terminal output construction violates a rendering contract.
+##
+public type TerminalOutputTrustError:
+    InvalidCursorPosition
+    UnsupportedTerminalControl

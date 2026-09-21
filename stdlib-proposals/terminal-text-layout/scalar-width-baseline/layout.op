@@ -1,0 +1,15 @@
+import type TerminalTextLayoutError from ./layout.types
+
+##
+  Description: Returns true when text is printable ASCII treated as one terminal cell per scalar.
+##
+public let terminal_ascii_is_single_cell_text = f(text: string): boolean => {
+    return intrinsic
+}
+
+##
+  Description: Clips printable ASCII text to a terminal cell limit.
+##
+public let terminal_ascii_clip_to_cells = f(text: string, max_cells: int64): string errors TerminalTextLayoutError, AllocationFailureError => {
+    return intrinsic
+}

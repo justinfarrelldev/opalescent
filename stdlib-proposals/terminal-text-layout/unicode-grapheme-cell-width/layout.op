@@ -1,0 +1,15 @@
+import type TerminalTextLayoutError from ./layout.types
+
+##
+  Description: Measures the terminal display cell width of text.
+##
+public let terminal_text_cell_width = f(text: string): int64 => {
+    return intrinsic
+}
+
+##
+  Description: Clips text to a terminal cell limit and reports the cells used.
+##
+public let terminal_text_clip_to_cells = f(text: string, max_cells: int64): string, int64 errors TerminalTextLayoutError, AllocationFailureError => {
+    return intrinsic
+}
