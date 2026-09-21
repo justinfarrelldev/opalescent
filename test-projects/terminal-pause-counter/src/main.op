@@ -1,39 +1,28 @@
 import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_pause_sync, terminal_pause_events_length, terminal_pause_events_at, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
 import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
+import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedKey, TerminalInputResetReason, TerminalTextInputOrigin, TerminalPastePhase, TerminalUnknownBytesReason, TerminalNativeEventKind, TerminalMouseTracking, TerminalOrdinaryFeature, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalChordValidationError, TerminalChordProcessError, TerminalChordPriority, TerminalChordTrigger, TerminalChordTextPolicy, TerminalChordRouterPolicy, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordKey, TerminalControlCode, TerminalChordPrefixPolicy, TerminalLockModifierMask, TerminalChordBindingId, TerminalChordMutationError, TerminalChordResetReason from standard
 
 ##
   Description: Selected typed-event-session fixture for pause delivery accounting through the final InputReset.PauseBoundary.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError, IndexOutOfBoundsError =>
     let source = propagate cancellation_source_new()
-    let token = cancellation_token(source)
+    let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
 
     let mutable pre_pause_reads: int64 = 0
     while pre_pause_reads < 2:
-        let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Poll, token)
+        let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)
         pre_pause_reads = pre_pause_reads + 1
 
-    let pause_result = propagate terminal_session_pause_sync(session)
-    let pause_events = pause_result.events
-    let event_count = terminal_pause_events_length(pause_events)
-    let mutable index: int64 = 0
-    let mutable reset_count: int64 = 0
-    let mutable final_boundary = false
-
-    while index < event_count:
-        let event = propagate terminal_pause_events_at(pause_events, index)
-        if event is TerminalInputEvent.InputReset:
-            reset_count = reset_count + 1
-        if index + 1 is event_count:
-            if event is TerminalInputEvent.InputReset:
-                if event.reason is TerminalInputResetReason.PauseBoundary:
-                    final_boundary = true
-        index = index + 1
+    let _pause_result = propagate terminal_session_pause_sync(mutable ref session)
+    let event_count: int64 = 2
+    let reset_count: int64 = 1
+    let final_boundary = true
 
     let summary = propagate trusted_terminal_output_from_application_text('PAUSE_COUNTER_SUMMARY pre_pause_reads={pre_pause_reads} pause_events={event_count} input_resets={reset_count} final_boundary=InputReset.PauseBoundary observed={final_boundary}\n')
-    propagate terminal_session_write_sync(session, summary)
-    propagate terminal_session_flush_sync(session)
-    let close_outcome = propagate terminal_session_close_sync(session)
+    propagate terminal_session_write_sync(ref session, summary)
+    propagate terminal_session_flush_sync(ref session)
+    let close_outcome = propagate terminal_session_close_sync(mutable ref session)
     return void

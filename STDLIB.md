@@ -662,7 +662,7 @@ The Game of Life project uses this family to redraw the terminal. See `test-proj
 
 ## Terminal session/input APIs
 
-The selected terminal session/input v1 is the `typed-event-session` proposal. The current branch implements the Rust runtime/stdlib model for owning the process interactive standard-input/raw-output terminal pair through a coordinator, exposing typed `TerminalInputEvent` values, requiring explicit `TrustedTerminalOutput` or `SafeTerminalDiagnosticOutput` for session writes, and rejecting legacy standard I/O while a session owns the terminal. Generated Opalescent programs lower the runtime-ready data-model/core-prerequisite subset plus a test-harness injected fake-backend path for `terminal_session_open_sync`, scripted reads, trusted writes, flush, close, and high-level rendering helpers (`terminal_session_clear_screen_sync`, `terminal_session_move_cursor_sync`, `terminal_session_draw_rows_sync`, and `terminal_session_bell_sync`). Generated production terminal opening without `OPAL_TERMINAL_FAKE_BACKEND=1` remains gated/future work and currently reports `TerminalSessionOpenError: FakeBackendNotInjected`. There is intentionally no `terminal_session_output_terminal` or `AcquireOutputTerminal` API.
+The selected terminal session/input v1 is the `typed-event-session` proposal. The current branch implements the Rust runtime/stdlib model for owning the process interactive standard-input/raw-output terminal pair through a coordinator, exposing typed `TerminalInputEvent` values, requiring explicit `TrustedTerminalOutput` or `SafeTerminalDiagnosticOutput` for session writes, and rejecting legacy standard I/O while a session owns the terminal. Generated Opalescent programs lower session open/read/write/flush/close, size/capability queries, high-level rendering helpers (`terminal_session_clear_screen_sync`, `terminal_session_move_cursor_sync`, `terminal_session_draw_rows_sync`, `terminal_session_bell_sync`, cursor visibility, and cursor shape), pause/resume, selected terminal diagnostics, deterministic fake-backend scripted events, and the editor-relevant chord-router subset. Generated production terminal opening no longer requires `OPAL_TERMINAL_FAKE_BACKEND=1`; setting that variable opts into deterministic test events. There is intentionally no `terminal_session_output_terminal` or `AcquireOutputTerminal` API.
 
 Supported implementation surfaces include selected session lifecycle, one-event reads, pause/resume workflow, Linux and Windows backend contracts, safe diagnostics, deterministic test-only fake backend support under `standard.testing.terminal`, and the companion terminal chord router under `standard.terminal.chords`. Windows process-control remains unavailable and returns the unsupported-host contract from the process-control prerequisite; it is not synthesized as terminal input.
 
@@ -827,7 +827,6 @@ The following are proposal areas, not finished public APIs:
 - Crypto hashing
 - Network/HTTP
 - Subprocess execution
-- Terminal sessions and interactive input
 - Serialization
 - Compression
 - UUIDs

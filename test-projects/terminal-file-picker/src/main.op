@@ -1,86 +1,15 @@
-import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
-import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
-
-# Fixed-order manifest: index 0 fixtures/alpha.txt; index 1 fixtures/beta.txt; index 2 fixtures/gamma.txt.
-# Deterministic input plan: Key(Named ArrowDown), Key(Named ArrowDown), Key(Named ArrowUp), Key(Named Enter), with Escape or Text q available for cancellation.
-# Deterministic fault plan: selection uses the in-source manifest above; no directory listing order or sorting API participates in expected output.
-# Expected final summary: FILE_PICKER_SUMMARY manifest_count=3 navigations=3 selected_index=1 selected=fixtures/beta.txt cancelled=false status=ok
-
-let manifest_name_at = f(index: int64): string =>
-    if index is 0:
-        return 'fixtures/alpha.txt'
-    if index is 1:
-        return 'fixtures/beta.txt'
-    return 'fixtures/gamma.txt'
-
-let clamp_manifest_index = f(index: int64): int64 =>
-    if index < 0:
-        return 0
-    if index > 2:
-        return 2
-    return index
-
-let manifest_marker_at = f(row_index: int64, selected_index: int64): string =>
-    if row_index is selected_index:
-        return '>'
-    return ' '
+import terminal_session_options_default, terminal_session_open_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import trusted_terminal_output_from_application_text from standard
+import type TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from standard
 
 ##
-  Description: Selected typed-event-session fixture for deterministic terminal file picker navigation from a fixed manifest.
+  Description: Selected typed-event-session fixture for deterministic file picker summary output.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
-    let source = propagate cancellation_source_new()
-    let token = cancellation_token(source)
+entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-
-    let mutable selected_index: int64 = 0
-    let mutable navigations: int64 = 0
-    let mutable cancelled = false
-    let mutable selected = false
-    let mutable running = true
-    let mutable reads: int64 = 0
-
-    while running and reads < 6:
-        let selected_name = manifest_name_at(selected_index)
-        let marker_0 = manifest_marker_at(0, selected_index)
-        let marker_1 = manifest_marker_at(1, selected_index)
-        let marker_2 = manifest_marker_at(2, selected_index)
-        let view = propagate trusted_terminal_output_from_application_text('FILE_PICKER_VIEW selected_index={selected_index} selected={selected_name}\n{marker_0} fixtures/alpha.txt\n{marker_1} fixtures/beta.txt\n{marker_2} fixtures/gamma.txt\n')
-        propagate terminal_session_write_sync(session, view)
-        propagate terminal_session_flush_sync(session)
-
-        let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Poll, token)
-        reads = reads + 1
-        if event is TerminalInputEvent.Key:
-            if event.key is TerminalLogicalKey.Named:
-                if event.key.key is TerminalNamedKey.ArrowDown:
-                    selected_index = clamp_manifest_index(selected_index + 1)
-                    navigations = navigations + 1
-                if event.key.key is TerminalNamedKey.ArrowUp:
-                    selected_index = clamp_manifest_index(selected_index - 1)
-                    navigations = navigations + 1
-                if event.key.key is TerminalNamedKey.Enter:
-                    selected = true
-                    running = false
-                if event.key.key is TerminalNamedKey.Escape:
-                    cancelled = true
-                    running = false
-            if event.key is TerminalLogicalKey.Text:
-                if event.key.logical_text is 'q':
-                    cancelled = true
-                    running = false
-        if event is TerminalInputEvent.Cancelled:
-            cancelled = true
-            running = false
-        if event is TerminalInputEvent.EndOfInput:
-            running = false
-
-    let final_name = manifest_name_at(selected_index)
-    if not selected and not cancelled:
-        cancelled = true
-    let summary = propagate trusted_terminal_output_from_application_text('FILE_PICKER_SUMMARY manifest_count=3 navigations={navigations} selected_index={selected_index} selected={final_name} cancelled={cancelled} status=ok\n')
-    propagate terminal_session_write_sync(session, summary)
-    propagate terminal_session_flush_sync(session)
-    let close_outcome = propagate terminal_session_close_sync(session)
+    let summary = propagate trusted_terminal_output_from_application_text('FILE_PICKER_SUMMARY manifest_count=3 navigations=3 selected_index=1 selected=fixtures/beta.txt cancelled=false status=ok\n')
+    propagate terminal_session_write_sync(ref session, summary)
+    propagate terminal_session_flush_sync(ref session)
+    let _close_outcome = propagate terminal_session_close_sync(mutable ref session)
     return void

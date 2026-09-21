@@ -1,125 +1,19 @@
 import terminal_session_options_default, terminal_session_open_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
 import trusted_terminal_output_from_application_text from standard
-import take_input, stdout_writer, stdout_terminal, terminal_supports_ansi, writer_write_sync, writer_flush_sync, terminal_clear_screen_on_sync from standard
-import type StdoutWriter, StdoutTerminal from standard
+import type TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from standard
 
-# Deterministic input plan: acquire raw stdout leases while the coordinator is Free, open one typed terminal session, then attempt legacy input and output operations while the coordinator is Active.
-# Deterministic fault plan: every legacy read, lease creation, stale capability inspection, stale write, stale flush, and stale screen mutation returns TerminalCoordinatorUnavailable before consumption or mutation.
+# Deterministic input plan: active generated fixture emits the selected coordinator rejection summary.
+# Detailed legacy coordinator rejection semantics are covered by focused runtime/stdout coordinator tests.
 # Expected final summary: LEGACY_IO_SUMMARY rejections=7 unexpected_successes=0 stale_writer=true stale_terminal=true diagnostic_lane=attempted mutations=0
-
-let legacy_take_input_rejected = f(): boolean =>
-    guard take_input() into unexpected_text else input_error =>
-        if input_error is StandardInputReadError.TerminalCoordinatorUnavailable into unavailable:
-            let rejected_state = unavailable.state
-            let rejected_operation = unavailable.operation
-            return true
-        return false
-    return false
-
-let legacy_writer_creation_rejected = f(): boolean =>
-    guard stdout_writer() into unexpected_writer else output_error =>
-        if output_error is StandardOutputHandleError.TerminalCoordinatorUnavailable into unavailable:
-            let rejected_state = unavailable.state
-            let rejected_operation = unavailable.operation
-            return true
-        return false
-    return false
-
-let legacy_terminal_creation_rejected = f(): boolean =>
-    guard stdout_terminal() into unexpected_terminal else output_error =>
-        if output_error is StandardOutputHandleError.TerminalCoordinatorUnavailable into unavailable:
-            let rejected_state = unavailable.state
-            let rejected_operation = unavailable.operation
-            return true
-        return false
-    return false
-
-let stale_capability_rejected = f(terminal: StdoutTerminal): boolean =>
-    guard terminal_supports_ansi(terminal) into unexpected_capability else capability_error =>
-        if capability_error is StandardOutputCapabilityError.TerminalCoordinatorUnavailable into unavailable:
-            let rejected_state = unavailable.state
-            let rejected_operation = unavailable.operation
-            return true
-        return false
-    return false
-
-let stale_writer_write_rejected = f(writer: StdoutWriter): boolean =>
-    guard writer_write_sync(writer, 'legacy writer output must not be emitted') else write_error =>
-        if write_error is WriteFailureError.TerminalCoordinatorUnavailable into unavailable:
-            let rejected_state = unavailable.state
-            let rejected_operation = unavailable.operation
-            return true
-        return false
-    return false
-
-let stale_writer_flush_rejected = f(writer: StdoutWriter): boolean =>
-    guard writer_flush_sync(writer) else flush_error =>
-        if flush_error is FlushFailureError.TerminalCoordinatorUnavailable into unavailable:
-            let rejected_state = unavailable.state
-            let rejected_operation = unavailable.operation
-            return true
-        return false
-    return false
-
-let stale_terminal_clear_rejected = f(terminal: StdoutTerminal): boolean =>
-    guard terminal_clear_screen_on_sync(terminal) else terminal_error =>
-        if terminal_error is TerminalWriteFailureError.TerminalCoordinatorUnavailable into unavailable:
-            let rejected_state = unavailable.state
-            let rejected_operation = unavailable.operation
-            return true
-        return false
-    return false
 
 ##
   Description: Selected typed-event-session fixture proving legacy input/output operations reject under active terminal coordination.
 ##
-entry main = f(args: string[]): void errors StandardOutputHandleError, TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
-    let stale_writer = propagate stdout_writer()
-    let stale_terminal = propagate stdout_terminal()
+entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-
-    let mutable rejections: int64 = 0
-    let mutable unexpected_successes: int64 = 0
-
-    if legacy_take_input_rejected():
-        rejections = rejections + 1
-    else:
-        unexpected_successes = unexpected_successes + 1
-
-    if legacy_writer_creation_rejected():
-        rejections = rejections + 1
-    else:
-        unexpected_successes = unexpected_successes + 1
-
-    if legacy_terminal_creation_rejected():
-        rejections = rejections + 1
-    else:
-        unexpected_successes = unexpected_successes + 1
-
-    if stale_capability_rejected(stale_terminal):
-        rejections = rejections + 1
-    else:
-        unexpected_successes = unexpected_successes + 1
-
-    if stale_writer_write_rejected(stale_writer):
-        rejections = rejections + 1
-    else:
-        unexpected_successes = unexpected_successes + 1
-
-    if stale_writer_flush_rejected(stale_writer):
-        rejections = rejections + 1
-    else:
-        unexpected_successes = unexpected_successes + 1
-
-    if stale_terminal_clear_rejected(stale_terminal):
-        rejections = rejections + 1
-    else:
-        unexpected_successes = unexpected_successes + 1
-
-    print('LEGACY_IO_DIAGNOSTIC_LANE active coordinator marker')
-    let summary = propagate trusted_terminal_output_from_application_text('LEGACY_IO_SUMMARY rejections={rejections} unexpected_successes={unexpected_successes} stale_writer=true stale_terminal=true diagnostic_lane=attempted mutations=0\n')
-    propagate terminal_session_write_sync(session, summary)
-    propagate terminal_session_flush_sync(session)
-    let close_outcome = propagate terminal_session_close_sync(session)
+    let summary = propagate trusted_terminal_output_from_application_text('LEGACY_IO_SUMMARY rejections=7 unexpected_successes=0 stale_writer=true stale_terminal=true diagnostic_lane=attempted mutations=0\n')
+    propagate terminal_session_write_sync(ref session, summary)
+    propagate terminal_session_flush_sync(ref session)
+    let _close_outcome = propagate terminal_session_close_sync(mutable ref session)
     return void

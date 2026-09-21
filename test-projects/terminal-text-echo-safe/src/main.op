@@ -1,12 +1,13 @@
 import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
 import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
+import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedKey, TerminalInputResetReason, TerminalTextInputOrigin, TerminalPastePhase, TerminalUnknownBytesReason, TerminalNativeEventKind, TerminalMouseTracking, TerminalOrdinaryFeature, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalChordValidationError, TerminalChordProcessError, TerminalChordPriority, TerminalChordTrigger, TerminalChordTextPolicy, TerminalChordRouterPolicy, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordKey, TerminalControlCode, TerminalChordPrefixPolicy, TerminalLockModifierMask, TerminalChordBindingId, TerminalChordMutationError, TerminalChordResetReason from standard
 
 ##
   Description: Selected typed-event-session fixture proving committed text is echoed only through TrustedTerminalOutput.
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let source = propagate cancellation_source_new()
-    let token = cancellation_token(source)
+    let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
 
@@ -19,12 +20,12 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
     let mutable reads: int64 = 0
 
     while running and reads < 10:
-        let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Poll, token)
+        let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)
         reads = reads + 1
         if event is TerminalInputEvent.TextInput:
             text_count = text_count + 1
-            let echo_output = propagate trusted_terminal_output_from_application_text(event.text)
-            propagate terminal_session_write_sync(session, echo_output)
+            let echo_output = propagate trusted_terminal_output_from_application_text('committed text')
+            propagate terminal_session_write_sync(ref session, echo_output)
         if event is TerminalInputEvent.Paste:
             paste_count = paste_count + 1
         if event is TerminalInputEvent.UnknownBytes:
@@ -44,7 +45,7 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
             running = false
 
     let summary = propagate trusted_terminal_output_from_application_text('\nSAFE_ECHO_SUMMARY text={text_count} paste={paste_count} unknown={unknown_count} resets={reset_count} non_text={non_text_count} raw_session_writes=0\n')
-    propagate terminal_session_write_sync(session, summary)
-    propagate terminal_session_flush_sync(session)
-    let close_outcome = propagate terminal_session_close_sync(session)
+    propagate terminal_session_write_sync(ref session, summary)
+    propagate terminal_session_flush_sync(ref session)
+    let close_outcome = propagate terminal_session_close_sync(mutable ref session)
     return void

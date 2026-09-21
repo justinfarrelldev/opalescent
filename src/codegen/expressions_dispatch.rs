@@ -34,6 +34,12 @@ fn codegen_terminal_constrain_expression<'context>(
                         Some((1_i32, i32::MAX))
                     }
                     "TerminalInputSequenceTimeoutMilliseconds" => Some((1_i32, 60_000_i32)),
+                    "TerminalChordRegistrationLimit"
+                    | "TerminalChordBufferedEventLimit"
+                    | "TerminalChordPriority" => Some((1_i32, 0x0001_0000_i32)),
+                    "TerminalChordSequenceLengthLimit" | "TerminalDiagnosticCountLimit" => {
+                        Some((1_i32, 256_i32))
+                    }
                     "TerminalCommittedTextByteLimit"
                     | "TerminalCompositionPreeditByteLimit"
                     | "TerminalPendingSequenceByteLimit" => Some((4_i32, 0x0010_0000_i32)),
@@ -45,7 +51,6 @@ fn codegen_terminal_constrain_expression<'context>(
                     "TerminalRetainedByteLimit" => Some((4_096_i32, 0x4000_0000_i32)),
                     "TerminalCorrelatedEventLimit" => Some((2_i32, 0x0001_0000_i32)),
                     "TerminalCorrelatedByteLimit" => Some((64_i32, 0x0100_0000_i32)),
-                    "TerminalDiagnosticCountLimit" => Some((1_i32, 256_i32)),
                     "TerminalDiagnosticCollectionByteLimit" => Some((256_i32, 0x0010_0000_i32)),
                     _ => None,
                 };

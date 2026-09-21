@@ -120,6 +120,24 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
             name: String::from("ProcessControlPollResult"),
             type_args: Vec::new(),
         }),
+        "terminal_session_pause_sync" => Some(CoreType::Generic {
+            name: String::from("TerminalPauseResult"),
+            type_args: Vec::new(),
+        }),
+        "terminal_pause_events_at" | "terminal_session_read_event_sync" => {
+            Some(CoreType::Generic {
+                name: String::from("TerminalInputEvent"),
+                type_args: Vec::new(),
+            })
+        }
+        "terminal_session_open_sync" => Some(CoreType::Generic {
+            name: String::from("TerminalSession"),
+            type_args: Vec::new(),
+        }),
+        "terminal_session_size_sync" => Some(CoreType::Generic {
+            name: String::from("TerminalSize"),
+            type_args: Vec::new(),
+        }),
         "random_int8" => Some(CoreType::Int8),
         "random_int16" => Some(CoreType::Int16),
         "random_int32" | "bytes_length" => Some(CoreType::Int32),
@@ -197,7 +215,9 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
             name: String::from("StdoutTerminal"),
             type_args: Vec::new(),
         }),
-        "terminal_supports_ansi" => Some(CoreType::Boolean),
+        "terminal_supports_ansi"
+        | "terminal_diagnostic_was_truncated"
+        | "terminal_diagnostics_was_truncated" => Some(CoreType::Boolean),
         "frame_clock_new" => Some(CoreType::Generic {
             name: String::from("FrameClock"),
             type_args: Vec::new(),
@@ -220,6 +240,16 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "terminal_draw_rows_sync"
         | "terminal_clear_screen_sync"
         | "terminal_move_cursor_sync"
+        | "terminal_session_write_sync"
+        | "terminal_session_write_diagnostic_sync"
+        | "terminal_session_flush_sync"
+        | "terminal_session_clear_screen_sync"
+        | "terminal_session_move_cursor_sync"
+        | "terminal_session_draw_rows_sync"
+        | "terminal_session_bell_sync"
+        | "terminal_session_set_cursor_visible_sync"
+        | "terminal_session_set_cursor_shape_sync"
+        | "terminal_session_resume_sync"
         | "write_contents_sync"
         | "write_text_sync"
         | "write_contents_atomic_sync"
@@ -307,6 +337,24 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
             name: String::from("ProcessControlPollResult"),
             type_args: Vec::new(),
         }),
+        "terminal_session_pause_sync" => Some(CoreType::Generic {
+            name: String::from("TerminalPauseResult"),
+            type_args: Vec::new(),
+        }),
+        "terminal_pause_events_at" | "terminal_session_read_event_sync" => {
+            Some(CoreType::Generic {
+                name: String::from("TerminalInputEvent"),
+                type_args: Vec::new(),
+            })
+        }
+        "terminal_session_open_sync" => Some(CoreType::Generic {
+            name: String::from("TerminalSession"),
+            type_args: Vec::new(),
+        }),
+        "terminal_session_size_sync" => Some(CoreType::Generic {
+            name: String::from("TerminalSize"),
+            type_args: Vec::new(),
+        }),
         "string_to_int8" => Some(CoreType::Int8),
         "string_to_int16" => Some(CoreType::Int16),
         "string_to_int32" => Some(CoreType::Int32),
@@ -392,6 +440,14 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
             type_args: Vec::new(),
         }),
         "read_lines_sync" => Some(CoreType::Array(alloc::boxed::Box::new(CoreType::String))),
+        "terminal_pause_events_length" | "terminal_chord_released_input_length" => {
+            Some(CoreType::Int64)
+        }
+        "terminal_diagnostics_retained_count"
+        | "terminal_diagnostics_omitted_count"
+        | "terminal_diagnostics_retained_bytes"
+        | "terminal_diagnostics_omitted_bytes"
+        | "terminal_chord_binding_id_ordinal" => Some(CoreType::UInt64),
         "path_exists_sync"
         | "is_file_sync"
         | "is_file_nofollow_sync"

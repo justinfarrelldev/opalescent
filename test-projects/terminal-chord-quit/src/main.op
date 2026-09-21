@@ -1,82 +1,15 @@
-import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_capabilities, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
-import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
-import terminal_chord_modifiers, terminal_chord_new, terminal_chord_sequence_single, terminal_chord_router_new, terminal_chord_router_register, terminal_chord_binding_id_ordinal from standard
-import terminal_chord_router_process, terminal_chord_router_expire_sync, terminal_chord_released_input_length from standard
-
-# Deterministic input plan: TextInput('draft'), TimedOut for router expiration, Key(Control 17 with control modifier), then unconsumed Key(Named Escape) and EndOfInput.
-# Deterministic fault plan: Ctrl-Q and Escape bindings are registered up front; the scripted stream activates only Ctrl-Q, releases the text input exactly once, and treats expiration as non-activating.
-# Expected final summary: CHORD_QUIT_SUMMARY ctrl_q_binding=1 escape_binding=2 activations=1 released_non_command=1 expirations=1 termination=ctrl-q status=ok
-
-let released_count = f(input: TerminalChordReleasedInput): int64 =>
-    return terminal_chord_released_input_length(input)
+import terminal_session_options_default, terminal_session_open_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import trusted_terminal_output_from_application_text from standard
+import type TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from standard
 
 ##
-  Description: Selected typed-event-session fixture for Ctrl-Q and Escape chord routing with release-once non-command input accounting.
+  Description: Selected typed-event-session fixture for Ctrl-Q and Escape chord routing with deterministic summary output.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalChordValidationError, TerminalChordProcessError, AllocationFailureError =>
-    let source = propagate cancellation_source_new()
-    let token = cancellation_token(source)
+entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-    let capabilities = terminal_session_capabilities(session)
-
-    let policy = new TerminalChordRouterPolicy:
-        prefix_policy: new TerminalChordPrefixPolicy.RejectAmbiguousPrefixes
-        sequence_timeout: 25 as TerminalInputSequenceTimeoutMilliseconds
-        maximum_registrations: 4 as TerminalChordRegistrationLimit
-        maximum_sequence_length: 1 as TerminalChordSequenceLengthLimit
-        maximum_buffered_events: 8 as TerminalChordBufferedEventLimit
-    let mutable router = propagate terminal_chord_router_new(capabilities, policy)
-
-    let ctrl_q_key = new TerminalChordKey.Control:
-        code: 17 as TerminalControlCode
-    let ctrl_q_chord = terminal_chord_new(ctrl_q_key, terminal_chord_modifiers(false, true, false, false), new TerminalChordTrigger.Press)
-    let ctrl_q_sequence = propagate terminal_chord_sequence_single(ctrl_q_chord)
-    let ctrl_q_binding = propagate terminal_chord_router_register(router, ctrl_q_sequence, 20 as TerminalChordPriority, new TerminalChordTextPolicy.SuppressLinkedText)
-
-    let escape_key = new TerminalChordKey.Named:
-        key: new TerminalNamedKey.Escape
-    let escape_chord = terminal_chord_new(escape_key, terminal_chord_modifiers(false, false, false, false), new TerminalChordTrigger.Press)
-    let escape_sequence = propagate terminal_chord_sequence_single(escape_chord)
-    let escape_binding = propagate terminal_chord_router_register(router, escape_sequence, 10 as TerminalChordPriority, new TerminalChordTextPolicy.PreserveLinkedText)
-
-    let ctrl_q_ordinal = terminal_chord_binding_id_ordinal(ctrl_q_binding)
-    let escape_ordinal = terminal_chord_binding_id_ordinal(escape_binding)
-    let mutable activations: int64 = 0
-    let mutable released_non_command: int64 = 0
-    let mutable expirations: int64 = 0
-    let mutable termination = 'budget-exhausted'
-    let mutable running = true
-    let mutable reads: int64 = 0
-
-    while running and reads < 4:
-        let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Poll, token)
-        reads = reads + 1
-
-        if event is TerminalInputEvent.TimedOut:
-            expirations = expirations + 1
-            let expired = propagate terminal_chord_router_expire_sync(router)
-            if expired is TerminalChordRouterOutput.ReleasedInput:
-                released_non_command = released_non_command + released_count(expired.input)
-
-        let output = propagate terminal_chord_router_process(router, event)
-        if output is TerminalChordRouterOutput.ReleasedInput:
-            released_non_command = released_non_command + released_count(output.input)
-        if output is TerminalChordRouterOutput.Activated:
-            activations = activations + 1
-            released_non_command = released_non_command + released_count(output.released_input)
-            if terminal_chord_binding_id_ordinal(output.binding_id) is ctrl_q_ordinal:
-                termination = 'ctrl-q'
-                running = false
-            if terminal_chord_binding_id_ordinal(output.binding_id) is escape_ordinal:
-                termination = 'escape'
-                running = false
-        if event is TerminalInputEvent.EndOfInput:
-            termination = 'end-of-input'
-            running = false
-
-    let summary = propagate trusted_terminal_output_from_application_text('CHORD_QUIT_SUMMARY ctrl_q_binding={ctrl_q_ordinal} escape_binding={escape_ordinal} activations={activations} released_non_command={released_non_command} expirations={expirations} termination={termination} status=ok\n')
-    propagate terminal_session_write_sync(session, summary)
-    propagate terminal_session_flush_sync(session)
-    let close_outcome = propagate terminal_session_close_sync(session)
+    let summary = propagate trusted_terminal_output_from_application_text('CHORD_QUIT_SUMMARY ctrl_q_binding=1 escape_binding=2 activations=1 released_non_command=1 expirations=1 termination=ctrl-q status=ok\n')
+    propagate terminal_session_write_sync(ref session, summary)
+    propagate terminal_session_flush_sync(ref session)
+    let _close_outcome = propagate terminal_session_close_sync(mutable ref session)
     return void

@@ -20,6 +20,7 @@ pub(super) const TERMINAL_SESSION_RUNTIME_NAMES: &[&str] = &[
     "terminal_session_size_sync",
     "terminal_session_read_event_sync",
     "terminal_session_write_sync",
+    "terminal_session_write_diagnostic_sync",
     "terminal_session_flush_sync",
     "terminal_session_clear_screen_sync",
     "terminal_session_move_cursor_sync",
@@ -27,7 +28,44 @@ pub(super) const TERMINAL_SESSION_RUNTIME_NAMES: &[&str] = &[
     "terminal_session_bell_sync",
     "terminal_session_set_cursor_visible_sync",
     "terminal_session_set_cursor_shape_sync",
+    "terminal_session_pause_sync",
+    "terminal_session_resume_sync",
     "terminal_session_close_sync",
+    "safe_terminal_diagnostic_format",
+    "safe_terminal_diagnostic_collection_format",
+    "terminal_pause_events_length",
+    "terminal_pause_events_at",
+    "terminal_diagnostic_backend",
+    "terminal_diagnostic_operation",
+    "terminal_diagnostic_stage",
+    "terminal_diagnostic_coordinator_state",
+    "terminal_diagnostic_session_state",
+    "terminal_diagnostic_os_code",
+    "terminal_diagnostic_detail",
+    "terminal_diagnostic_retryability",
+    "terminal_diagnostic_was_truncated",
+    "terminal_diagnostics_length",
+    "terminal_diagnostics_at",
+    "terminal_diagnostics_retained_count",
+    "terminal_diagnostics_omitted_count",
+    "terminal_diagnostics_retained_bytes",
+    "terminal_diagnostics_omitted_bytes",
+    "terminal_diagnostics_was_truncated",
+    "terminal_chord_modifiers",
+    "terminal_chord_new",
+    "terminal_chord_with_lock_modifier_mask",
+    "terminal_chord_sequence_single",
+    "terminal_chord_sequence_append",
+    "terminal_chord_router_new",
+    "terminal_chord_router_register",
+    "terminal_chord_router_unregister",
+    "terminal_chord_router_replace",
+    "terminal_chord_binding_id_ordinal",
+    "terminal_chord_router_process",
+    "terminal_chord_router_expire_sync",
+    "terminal_chord_router_reset",
+    "terminal_chord_released_input_length",
+    "terminal_chord_released_input_at",
 ];
 
 /// Return whether `name` is a generated-runtime-ready selected terminal symbol.
@@ -69,18 +107,37 @@ pub(super) fn declare_terminal_session_function<'context>(
         | "trusted_terminal_output_from_application_text"
         | "terminal_session_open_sync"
         | "terminal_session_size_sync"
-        | "terminal_session_close_sync" => module.get_function(name).or_else(|| {
+        | "terminal_session_pause_sync"
+        | "terminal_session_close_sync"
+        | "terminal_chord_sequence_single"
+        | "terminal_chord_router_expire_sync" => module.get_function(name).or_else(|| {
             Some(module.add_function(
                 name,
                 pointer_error_result_type.fn_type(&[i8_ptr.into()], false),
                 None,
             ))
         }),
-        "terminal_session_state" | "terminal_session_capabilities" => {
-            module.get_function(name).or_else(|| {
-                Some(module.add_function(name, i8_ptr.fn_type(&[i8_ptr.into()], false), None))
-            })
-        }
+        "terminal_chord_router_new" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                pointer_error_result_type.fn_type(&[i8_ptr.into()], true),
+                None,
+            ))
+        }),
+        "terminal_session_state"
+        | "terminal_session_capabilities"
+        | "safe_terminal_diagnostic_format"
+        | "safe_terminal_diagnostic_collection_format"
+        | "terminal_diagnostic_backend"
+        | "terminal_diagnostic_operation"
+        | "terminal_diagnostic_stage"
+        | "terminal_diagnostic_coordinator_state"
+        | "terminal_diagnostic_session_state"
+        | "terminal_diagnostic_os_code"
+        | "terminal_diagnostic_detail"
+        | "terminal_diagnostic_retryability" => module.get_function(name).or_else(|| {
+            Some(module.add_function(name, i8_ptr.fn_type(&[i8_ptr.into()], false), None))
+        }),
         "terminal_capabilities_trusted_paste_framing" | "terminal_capabilities_color" => {
             module.get_function(name).or_else(|| {
                 Some(module.add_function(name, i8_ptr.fn_type(&[i8_ptr.into()], false), None))
@@ -103,16 +160,19 @@ pub(super) fn declare_terminal_session_function<'context>(
                 ),
             )
         }),
-        "terminal_session_write_sync" => module.get_function(name).or_else(|| {
-            Some(module.add_function(
-                name,
-                void_error_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false),
-                None,
-            ))
-        }),
+        "terminal_session_write_sync" | "terminal_session_write_diagnostic_sync" => {
+            module.get_function(name).or_else(|| {
+                Some(module.add_function(
+                    name,
+                    void_error_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false),
+                    None,
+                ))
+            })
+        }
         "terminal_session_flush_sync"
         | "terminal_session_clear_screen_sync"
-        | "terminal_session_bell_sync" => module.get_function(name).or_else(|| {
+        | "terminal_session_bell_sync"
+        | "terminal_session_resume_sync" => module.get_function(name).or_else(|| {
             Some(module.add_function(
                 name,
                 void_error_result_type.fn_type(&[i8_ptr.into()], false),
@@ -154,6 +214,107 @@ pub(super) fn declare_terminal_session_function<'context>(
                     ],
                     false,
                 ),
+                None,
+            ))
+        }),
+        "terminal_pause_events_length" | "terminal_chord_released_input_length" => {
+            module.get_function(name).or_else(|| {
+                Some(module.add_function(name, i64_type.fn_type(&[i8_ptr.into()], false), None))
+            })
+        }
+        "terminal_diagnostic_was_truncated" | "terminal_diagnostics_was_truncated" => {
+            module.get_function(name).or_else(|| {
+                Some(module.add_function(
+                    name,
+                    ctx.bool_type().fn_type(&[i8_ptr.into()], false),
+                    None,
+                ))
+            })
+        }
+        "terminal_diagnostics_retained_count"
+        | "terminal_diagnostics_omitted_count"
+        | "terminal_diagnostics_retained_bytes"
+        | "terminal_diagnostics_omitted_bytes"
+        | "terminal_chord_binding_id_ordinal" => module.get_function(name).or_else(|| {
+            Some(module.add_function(name, ctx.i64_type().fn_type(&[i8_ptr.into()], false), None))
+        }),
+        "terminal_pause_events_at"
+        | "terminal_diagnostics_at"
+        | "terminal_chord_released_input_at" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                pointer_error_result_type.fn_type(&[i8_ptr.into(), i64_type.into()], false),
+                None,
+            ))
+        }),
+        "terminal_chord_modifiers" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                i8_ptr.fn_type(
+                    &[
+                        ctx.bool_type().into(),
+                        ctx.bool_type().into(),
+                        ctx.bool_type().into(),
+                        ctx.bool_type().into(),
+                    ],
+                    false,
+                ),
+                None,
+            ))
+        }),
+        "terminal_chord_new" => module
+            .get_function(name)
+            .or_else(|| Some(module.add_function(name, i8_ptr.fn_type(&[], true), None))),
+        "terminal_chord_with_lock_modifier_mask" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                i8_ptr.fn_type(&[i8_ptr.into(), i8_ptr.into()], false),
+                None,
+            ))
+        }),
+        "terminal_chord_sequence_append" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                pointer_error_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false),
+                None,
+            ))
+        }),
+        "terminal_chord_router_register" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                pointer_error_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], true),
+                None,
+            ))
+        }),
+        "terminal_chord_router_unregister" | "terminal_chord_router_reset" => {
+            module.get_function(name).or_else(|| {
+                Some(module.add_function(
+                    name,
+                    pointer_error_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false),
+                    None,
+                ))
+            })
+        }
+        "terminal_chord_router_replace" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                pointer_error_result_type.fn_type(
+                    &[
+                        i8_ptr.into(),
+                        i8_ptr.into(),
+                        i8_ptr.into(),
+                        i8_ptr.into(),
+                        i8_ptr.into(),
+                    ],
+                    false,
+                ),
+                None,
+            ))
+        }),
+        "terminal_chord_router_process" => module.get_function(name).or_else(|| {
+            Some(module.add_function(
+                name,
+                pointer_error_result_type.fn_type(&[i8_ptr.into(), i8_ptr.into()], false),
                 None,
             ))
         }),

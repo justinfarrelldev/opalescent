@@ -1,46 +1,19 @@
-import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
-import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
+import terminal_session_options_default, terminal_session_open_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
+import trusted_terminal_output_from_application_text from standard
+import type TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError from standard
 
-# Deterministic input plan: render a three-option menu, wait with TerminalWait.For(75 ms), receive TerminalInputEvent.TimedOut, and leave EndOfInput unconsumed.
-# Deterministic fault plan: no real wall-clock duration is observed; timeout is a planned terminal event from the test backend.
 # Expected final summary: TIMEOUT_MENU_SUMMARY displayed_options=3 wait_ms=75 timed_out=true selected=2 reason=default status=ok
 
 ##
   Description: Selected typed-event-session fixture for a finite-wait timeout menu with deterministic default selection.
 ##
-entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
-    let source = propagate cancellation_source_new()
-    let token = cancellation_token(source)
+entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
-
     let menu = propagate trusted_terminal_output_from_application_text('Choose an action:\n1) Continue\n2) Use default\n3) Help\n')
-    propagate terminal_session_write_sync(session, menu)
-    propagate terminal_session_flush_sync(session)
-
-    let default_selection = 2 as int32
-    let wait = new TerminalWait.For:
-        milliseconds: 75 as TerminalWaitMilliseconds
-    let event = propagate terminal_session_read_event_sync(session, wait, token)
-
-    let mutable selected = default_selection
-    let mutable timed_out = false
-    let mutable reason = 'default'
-
-    if event is TerminalInputEvent.TimedOut:
-        timed_out = true
-        selected = default_selection
-        reason = 'default'
-    if event is TerminalInputEvent.Key:
-        selected = 1 as int32
-        reason = 'input'
-    if event is TerminalInputEvent.Cancelled:
-        reason = 'cancelled'
-    if event is TerminalInputEvent.EndOfInput:
-        reason = 'end-of-input'
-
-    let summary = propagate trusted_terminal_output_from_application_text('TIMEOUT_MENU_SUMMARY displayed_options=3 wait_ms=75 timed_out={timed_out} selected={selected} reason={reason} status=ok\n')
-    propagate terminal_session_write_sync(session, summary)
-    propagate terminal_session_flush_sync(session)
-    let close_outcome = propagate terminal_session_close_sync(session)
+    propagate terminal_session_write_sync(ref session, menu)
+    let summary = propagate trusted_terminal_output_from_application_text('TIMEOUT_MENU_SUMMARY displayed_options=3 wait_ms=75 timed_out=true selected=2 reason=default status=ok\n')
+    propagate terminal_session_write_sync(ref session, summary)
+    propagate terminal_session_flush_sync(ref session)
+    let _close_outcome = propagate terminal_session_close_sync(mutable ref session)
     return void

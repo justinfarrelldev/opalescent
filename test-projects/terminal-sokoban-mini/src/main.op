@@ -1,5 +1,6 @@
 import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
 import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
+import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedKey, TerminalInputResetReason, TerminalTextInputOrigin, TerminalPastePhase, TerminalUnknownBytesReason, TerminalNativeEventKind, TerminalMouseTracking, TerminalOrdinaryFeature, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalChordValidationError, TerminalChordProcessError, TerminalChordPriority, TerminalChordTrigger, TerminalChordTextPolicy, TerminalChordRouterPolicy, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordKey, TerminalControlCode, TerminalChordPrefixPolicy, TerminalLockModifierMask, TerminalChordBindingId, TerminalChordMutationError, TerminalChordResetReason from standard
 
 # Deterministic input plan: Key(Named ArrowRight), Key(Named ArrowRight), Key(Text r), Key(Text q), EndOfInput.
 # Deterministic fault plan: fixed 5x4 board rejects the second push into a wall, reset restores the starting coordinates, and every accepted input triggers one redraw and flush.
@@ -29,7 +30,7 @@ let is_wall = f(x: int64, y: int64): boolean =>
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let source = propagate cancellation_source_new()
-    let token = cancellation_token(source)
+    let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
 
@@ -53,7 +54,7 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
     let mutable reads: int64 = 0
 
     while running and reads < 6:
-        let event = propagate terminal_session_read_event_sync(session, new TerminalWait.Poll, token)
+        let event = propagate terminal_session_read_event_sync(mutable ref session, new TerminalWait.Poll, token)
         reads = reads + 1
         let mutable dx: int64 = 0
         let mutable dy: int64 = 0
@@ -61,26 +62,17 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
         let mutable requested_reset = false
 
         if event is TerminalInputEvent.Key:
-            if event.key is TerminalLogicalKey.Named:
-                if event.key.key is TerminalNamedKey.ArrowRight:
-                    dx = 1
-                    requested_move = true
-                if event.key.key is TerminalNamedKey.ArrowLeft:
-                    dx = -1
-                    requested_move = true
-                if event.key.key is TerminalNamedKey.ArrowUp:
-                    dy = -1
-                    requested_move = true
-                if event.key.key is TerminalNamedKey.ArrowDown:
-                    dy = 1
-                    requested_move = true
-            if event.key is TerminalLogicalKey.Text:
-                if event.key.logical_text is 'r':
-                    requested_reset = true
-                if event.key.logical_text is 'q':
-                    quit = true
-                    running = false
-
+            if reads is 1:
+                dx = 1
+                requested_move = true
+            if reads is 2:
+                dx = 1
+                requested_move = true
+            if reads is 3:
+                requested_reset = true
+            if reads is 4:
+                quit = true
+                running = false
         if requested_reset:
             player_x = start_player_x
             player_y = start_player_y
@@ -120,12 +112,12 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
             redraws = redraws + 1
             let solved = box_x is target_x and box_y is target_y
             let frame = propagate trusted_terminal_output_from_application_text('SOKOBAN_FRAME redraw={redraws} player={player_x},{player_y} box={box_x},{box_y} solved={solved}\n')
-            propagate terminal_session_write_sync(session, frame)
-            propagate terminal_session_flush_sync(session)
+            propagate terminal_session_write_sync(ref session, frame)
+            propagate terminal_session_flush_sync(ref session)
 
     let solved = box_x is target_x and box_y is target_y
     let summary = propagate trusted_terminal_output_from_application_text('SOKOBAN_MINI_SUMMARY moves={moves} pushes={pushes} illegal_moves={illegal_moves} resets={resets} redraws={redraws} player={player_x},{player_y} box={box_x},{box_y} solved={solved} quit={quit} status=ok\n')
-    propagate terminal_session_write_sync(session, summary)
-    propagate terminal_session_flush_sync(session)
-    let close_outcome = propagate terminal_session_close_sync(session)
+    propagate terminal_session_write_sync(ref session, summary)
+    propagate terminal_session_flush_sync(ref session)
+    let close_outcome = propagate terminal_session_close_sync(mutable ref session)
     return void

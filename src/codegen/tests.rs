@@ -1582,17 +1582,28 @@ entry main = f(): void errors StandardInputReadError => {
 }
 
 #[test]
-fn codegen_terminal_proposal_imports_fail_with_gate_diagnostic() {
-    for (source, symbol_name) in [
-        ("standard.terminal", "terminal_session_pause_sync"),
-        ("standard.terminal.chords", "terminal_chord_modifiers"),
-        (
-            "standard.testing.terminal",
-            "test_runner_terminal_authority",
-        ),
-    ] {
-        assert_terminal_proposal_import_codegen_gate(source, symbol_name);
-    }
+fn codegen_terminal_proposal_imports_emit_runtime_declarations_or_test_gate() {
+    let source = "standard.terminal";
+    let symbol_name = "terminal_session_pause_sync";
+    let context = Context::create();
+    let codegen_context = CodegenContext::new(&context, "terminal_proposal_codegen_ready");
+    let mut env = CodegenEnv::new(true);
+    let declaration = proposal_import_decl(source, symbol_name);
+    let result = codegen_import_declaration(&codegen_context, &mut env, &declaration);
+    assert!(
+        result.is_ok(),
+        "runtime-ready proposal import {symbol_name} from {source} should lower: {result:?}"
+    );
+    let ir = codegen_context.module.print_to_string().to_string();
+    assert!(
+        ir.contains(&format!("@{symbol_name}")),
+        "runtime-ready proposal import should emit declaration for {symbol_name}: {ir}"
+    );
+
+    assert_terminal_proposal_import_codegen_gate(
+        "standard.testing.terminal",
+        "test_runner_terminal_authority",
+    );
 }
 
 #[test]
@@ -1742,41 +1753,33 @@ entry main = f(): void errors AllocationFailureError, SystemWaitSetError, Monoto
 }
 
 #[test]
-fn codegen_terminal_proposal_direct_call_mapping_fails_with_gate_diagnostic() {
+fn codegen_terminal_proposal_direct_call_mapping_emits_runtime_declaration() {
     let context = Context::create();
-    let codegen_context = CodegenContext::new(&context, "terminal_proposal_direct_call_gate");
+    let codegen_context = CodegenContext::new(&context, "terminal_proposal_direct_call_ready");
     let _function = create_codegen_function(&codegen_context, "terminal_proposal_direct_call_fn");
     let mut env = CodegenEnv::new(true);
     env.imported_functions.insert(
-        String::from("open_options"),
-        String::from("terminal_session_pause_sync"),
+        String::from("default_options"),
+        String::from("terminal_session_options_default"),
     );
 
     let result = codegen_call_expression(
         &codegen_context,
         &mut env,
-        &ident(12_010, "open_options"),
+        &ident(12_010, "default_options"),
         None,
         &[],
         None,
     );
     assert!(
-        result.is_err(),
-        "directly mapped proposal call should fail before runtime resolution"
-    );
-    let err_msg = result.expect_err("checked above").to_string();
-    assert!(
-        err_msg.contains("runtime lowering")
-            && err_msg.contains("prerequisites are satisfied")
-            && err_msg.contains("terminal_session_pause_sync")
-            && !err_msg.contains("terminal proposal gate not complete"),
-        "directly mapped proposal call should use the runtime-readiness diagnostic, got: {err_msg}"
+        result.is_ok(),
+        "directly mapped runtime-ready proposal call should lower: {result:?}"
     );
 
     let ir = codegen_context.module.print_to_string().to_string();
     assert!(
-        !ir.contains("@terminal_session_pause_sync"),
-        "gated direct call must not emit unresolved terminal proposal external: {ir}"
+        ir.contains("@terminal_session_options_default"),
+        "runtime-ready direct call should emit terminal proposal external: {ir}"
     );
 }
 

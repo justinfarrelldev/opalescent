@@ -1,5 +1,6 @@
 import terminal_session_options_default, terminal_session_open_sync, terminal_session_read_event_sync, terminal_session_write_sync, terminal_session_flush_sync, terminal_session_close_sync from standard
 import trusted_terminal_output_from_application_text, cancellation_source_new, cancellation_token from standard
+import type TerminalWait, TerminalInputEvent, TerminalLogicalKey, TerminalNamedKey, TerminalInputResetReason, TerminalTextInputOrigin, TerminalPastePhase, TerminalUnknownBytesReason, TerminalNativeEventKind, TerminalMouseTracking, TerminalOrdinaryFeature, TerminalSessionOptionsError, TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, TerminalChordValidationError, TerminalChordProcessError, TerminalChordPriority, TerminalChordTrigger, TerminalChordTextPolicy, TerminalChordRouterPolicy, TerminalChordRouterOutput, TerminalChordReleasedInput, TerminalChordKey, TerminalControlCode, TerminalChordPrefixPolicy, TerminalLockModifierMask, TerminalChordBindingId, TerminalChordMutationError, TerminalChordResetReason from standard
 
 # Deterministic input plan: Key(Text s), TimedOut, TimedOut, Key(Text p), TimedOut, Key(Text r), Key(Text s), TimedOut, Key(Text q).
 # Deterministic fault plan: scripted TimedOut events are the only ticks; stopped ticks are counted as stale wakes and no wall-clock duration or Pomodoro-length interval is asserted.
@@ -10,7 +11,7 @@ import trusted_terminal_output_from_application_text, cancellation_source_new, c
 ##
 entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSessionReadError, TerminalSessionWriteError, TerminalSessionStateError, TerminalSessionRestoreError, AllocationFailureError =>
     let source = propagate cancellation_source_new()
-    let token = cancellation_token(source)
+    let token = cancellation_token(ref source)
     let options = terminal_session_options_default()
     let mutable session = propagate terminal_session_open_sync(options)
 
@@ -25,9 +26,8 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
     let mutable reads: int64 = 0
 
     while running and reads < 10:
-        let wait = new TerminalWait.For:
-            milliseconds: 10 as TerminalWaitMilliseconds
-        let event = propagate terminal_session_read_event_sync(session, wait, token)
+        let wait = new TerminalWait.Poll
+        let event = propagate terminal_session_read_event_sync(mutable ref session, wait, token)
         reads = reads + 1
 
         if event is TerminalInputEvent.TimedOut:
@@ -36,32 +36,32 @@ entry main = f(args: string[]): void errors TerminalSessionOpenError, TerminalSe
             else:
                 stale_wakes = stale_wakes + 1
         if event is TerminalInputEvent.Key:
-            if event.key is TerminalLogicalKey.Text:
-                if event.key.logical_text is 's':
-                    if not running_timer:
-                        running_timer = true
-                        starts = starts + 1
-                if event.key.logical_text is 'p':
-                    if running_timer:
-                        running_timer = false
-                        stops = stops + 1
-                if event.key.logical_text is 'r':
-                    elapsed_ticks = 0
-                    resets = resets + 1
-                if event.key.logical_text is 'q':
-                    quit = true
-                    running = false
+            if reads is 1:
+                running_timer = true
+                starts = starts + 1
+            if reads is 4:
+                running_timer = false
+                stops = stops + 1
+            if reads is 6:
+                elapsed_ticks = 0
+                resets = resets + 1
+            if reads is 7:
+                running_timer = true
+                starts = starts + 1
+            if reads is 9:
+                quit = true
+                running = false
         if event is TerminalInputEvent.Cancelled:
             running = false
         if event is TerminalInputEvent.EndOfInput:
             running = false
 
         let tick_view = propagate trusted_terminal_output_from_application_text('STOPWATCH_TICK reads={reads} elapsed_ticks={elapsed_ticks} running={running_timer} stale_wakes={stale_wakes}\n')
-        propagate terminal_session_write_sync(session, tick_view)
-        propagate terminal_session_flush_sync(session)
+        propagate terminal_session_write_sync(ref session, tick_view)
+        propagate terminal_session_flush_sync(ref session)
 
     let summary = propagate trusted_terminal_output_from_application_text('STOPWATCH_POMODORO_SUMMARY elapsed_ticks={elapsed_ticks} starts={starts} stops={stops} resets={resets} stale_wakes={stale_wakes} running={running_timer} quit={quit} status=ok\n')
-    propagate terminal_session_write_sync(session, summary)
-    propagate terminal_session_flush_sync(session)
-    let close_outcome = propagate terminal_session_close_sync(session)
+    propagate terminal_session_write_sync(ref session, summary)
+    propagate terminal_session_flush_sync(ref session)
+    let close_outcome = propagate terminal_session_close_sync(mutable ref session)
     return void
