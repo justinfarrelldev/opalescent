@@ -284,6 +284,135 @@ where
     allocator.allocate_string(&result)
 }
 
+/// Insert `inserted` at a zero-based Unicode scalar index.
+pub fn string_insert_at<Allocator>(
+    allocator: &Allocator,
+    value: &OpalString,
+    scalar_index: i64,
+    inserted: &OpalString,
+) -> RuntimeResult<OpalString>
+where
+    Allocator: RuntimeAllocator,
+{
+    if scalar_index < 0 {
+        return Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError",
+        ));
+    }
+    let scalar_index = usize::try_from(scalar_index)
+        .map_err(|_| RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"))?;
+    let source = value.as_str();
+    let char_count = source.chars().count();
+    if scalar_index > char_count {
+        return Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError",
+        ));
+    }
+
+    let prefix: alloc::string::String = source.chars().take(scalar_index).collect();
+    let suffix: alloc::string::String = source.chars().skip(scalar_index).collect();
+    let mut result = alloc::string::String::with_capacity(
+        prefix
+            .len()
+            .saturating_add(inserted.as_str().len())
+            .saturating_add(suffix.len()),
+    );
+    result.push_str(&prefix);
+    result.push_str(inserted.as_str());
+    result.push_str(&suffix);
+    allocator.allocate_string(&result)
+}
+
+/// Delete the Unicode scalar range `[start, end)`.
+pub fn string_delete_range<Allocator>(
+    allocator: &Allocator,
+    value: &OpalString,
+    start: i64,
+    end: i64,
+) -> RuntimeResult<OpalString>
+where
+    Allocator: RuntimeAllocator,
+{
+    if start < 0 || end < 0 {
+        return Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError",
+        ));
+    }
+    if end < start {
+        return Err(RuntimeError::user_error(1_105, "StringRangeOrderError"));
+    }
+    let start = usize::try_from(start)
+        .map_err(|_| RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"))?;
+    let end = usize::try_from(end)
+        .map_err(|_| RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"))?;
+    let source = value.as_str();
+    let char_count = source.chars().count();
+    if end > char_count {
+        return Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError",
+        ));
+    }
+
+    let prefix: alloc::string::String = source.chars().take(start).collect();
+    let suffix: alloc::string::String = source.chars().skip(end).collect();
+    let mut result =
+        alloc::string::String::with_capacity(prefix.len().saturating_add(suffix.len()));
+    result.push_str(&prefix);
+    result.push_str(&suffix);
+    allocator.allocate_string(&result)
+}
+
+/// Replace the Unicode scalar range `[start, end)` with `replacement`.
+pub fn string_replace_range<Allocator>(
+    allocator: &Allocator,
+    value: &OpalString,
+    start: i64,
+    end: i64,
+    replacement: &OpalString,
+) -> RuntimeResult<OpalString>
+where
+    Allocator: RuntimeAllocator,
+{
+    if start < 0 || end < 0 {
+        return Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError",
+        ));
+    }
+    if end < start {
+        return Err(RuntimeError::user_error(1_105, "StringRangeOrderError"));
+    }
+    let start = usize::try_from(start)
+        .map_err(|_| RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"))?;
+    let end = usize::try_from(end)
+        .map_err(|_| RuntimeError::user_error(1_104, "StringRangeOutOfBoundsError"))?;
+    let source = value.as_str();
+    let char_count = source.chars().count();
+    if end > char_count {
+        return Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError",
+        ));
+    }
+
+    let prefix: alloc::string::String = source.chars().take(start).collect();
+    let suffix: alloc::string::String = source.chars().skip(end).collect();
+    let mut result = alloc::string::String::with_capacity(
+        prefix
+            .len()
+            .saturating_add(replacement.as_str().len())
+            .saturating_add(suffix.len()),
+    );
+    result.push_str(&prefix);
+    result.push_str(replacement.as_str());
+    result.push_str(&suffix);
+    allocator.allocate_string(&result)
+}
+
 /// Read a single Unicode scalar by zero-based scalar index.
 ///
 /// # Errors

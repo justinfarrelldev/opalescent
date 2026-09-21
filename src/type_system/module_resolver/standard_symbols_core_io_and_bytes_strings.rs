@@ -163,6 +163,76 @@ pub(super) fn standard_symbols_string_helpers() -> Vec<(String, CoreType, Symbol
             SymbolType::Function,
         ),
         (
+            String::from("string_insert_at"),
+            CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: vec![CoreType::String, CoreType::Int64, CoreType::String],
+                return_types: vec![CoreType::String],
+                error_types: vec![
+                    CoreType::Generic {
+                        name: String::from("StringRangeOutOfBoundsError"),
+                        type_args: Vec::new(),
+                    },
+                    CoreType::Generic {
+                        name: String::from("AllocationFailureError"),
+                        type_args: Vec::new(),
+                    },
+                ],
+            },
+            SymbolType::Function,
+        ),
+        (
+            String::from("string_delete_range"),
+            CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: vec![CoreType::String, CoreType::Int64, CoreType::Int64],
+                return_types: vec![CoreType::String],
+                error_types: vec![
+                    CoreType::Generic {
+                        name: String::from("StringRangeOrderError"),
+                        type_args: Vec::new(),
+                    },
+                    CoreType::Generic {
+                        name: String::from("StringRangeOutOfBoundsError"),
+                        type_args: Vec::new(),
+                    },
+                    CoreType::Generic {
+                        name: String::from("AllocationFailureError"),
+                        type_args: Vec::new(),
+                    },
+                ],
+            },
+            SymbolType::Function,
+        ),
+        (
+            String::from("string_replace_range"),
+            CoreType::Function {
+                generic_params: Vec::new(),
+                parameters: vec![
+                    CoreType::String,
+                    CoreType::Int64,
+                    CoreType::Int64,
+                    CoreType::String,
+                ],
+                return_types: vec![CoreType::String],
+                error_types: vec![
+                    CoreType::Generic {
+                        name: String::from("StringRangeOrderError"),
+                        type_args: Vec::new(),
+                    },
+                    CoreType::Generic {
+                        name: String::from("StringRangeOutOfBoundsError"),
+                        type_args: Vec::new(),
+                    },
+                    CoreType::Generic {
+                        name: String::from("AllocationFailureError"),
+                        type_args: Vec::new(),
+                    },
+                ],
+            },
+            SymbolType::Function,
+        ),
+        (
             String::from("AllocationFailureError"),
             CoreType::Generic {
                 name: String::from("AllocationFailureError"),

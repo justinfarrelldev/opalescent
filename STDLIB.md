@@ -126,6 +126,7 @@ print('roundtrip: ok ({int64_to_string(actual.length)} bytes match)')
 import string_length, string_find_index_or, string_find_last_index_of_text,
     string_split_lines, string_is_blank, string_trim_whitespace,
     string_take_prefix, string_take_suffix, string_extract_range,
+    string_insert_at, string_delete_range, string_replace_range,
     string_join, string_builder_new, string_builder_push,
     string_builder_finish
 from standard
@@ -207,6 +208,30 @@ Returns the Unicode scalar range `[start, end)`.
 
 - `start == end` returns `''`
 - `[0, text.length)` returns the full string
+- `StringRangeOrderError` — `end < start`
+- `StringRangeOutOfBoundsError` — negative index or `end > text.length`
+
+### `string_insert_at(text: string, scalar_index: int64, inserted: string): string errors StringRangeOutOfBoundsError, AllocationFailureError`
+
+Returns a new string with `inserted` placed before the Unicode scalar at `scalar_index`.
+
+- `scalar_index == 0` inserts at the beginning
+- `scalar_index == text.length` appends at the end
+- `StringRangeOutOfBoundsError` — negative index or `scalar_index > text.length`
+
+### `string_delete_range(text: string, start: int64, end: int64): string errors StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError`
+
+Returns a new string with the Unicode scalar range `[start, end)` removed.
+
+- `start == end` returns the original text content in a new string value
+- `StringRangeOrderError` — `end < start`
+- `StringRangeOutOfBoundsError` — negative index or `end > text.length`
+
+### `string_replace_range(text: string, start: int64, end: int64, replacement: string): string errors StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError`
+
+Returns a new string with the Unicode scalar range `[start, end)` replaced by `replacement`.
+
+- `start == end` inserts `replacement` at `start`
 - `StringRangeOrderError` — `end < start`
 - `StringRangeOutOfBoundsError` — negative index or `end > text.length`
 

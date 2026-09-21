@@ -26,9 +26,10 @@ use crate::runtime::stdlib::{
     string_to_int32,
 };
 use crate::runtime::strings::{
-    string_compare, string_concat, string_equals, string_extract_range, string_find_index_or,
-    string_find_last_index_of_text, string_index, string_is_blank, string_length,
-    string_split_lines, string_take_prefix, string_take_suffix, string_trim_whitespace,
+    string_compare, string_concat, string_delete_range, string_equals, string_extract_range,
+    string_find_index_or, string_find_last_index_of_text, string_index, string_insert_at,
+    string_is_blank, string_length, string_replace_range, string_split_lines, string_take_prefix,
+    string_take_suffix, string_trim_whitespace,
 };
 use alloc::collections::VecDeque;
 use alloc::format;
@@ -749,6 +750,55 @@ fn string_stdlib_ranges() {
     );
     assert_eq!(
         string_extract_range(&allocator, &ascii, 0, 8),
+        Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError"
+        ))
+    );
+
+    let inserted = string_insert_at(
+        &allocator,
+        &text,
+        2,
+        &allocator.allocate_string("x").unwrap(),
+    )
+    .expect("insert should succeed");
+    assert_eq!(inserted.as_str(), "héx🙂");
+    let deleted = string_delete_range(&allocator, &text, 1, 2).expect("delete should succeed");
+    assert_eq!(deleted.as_str(), "h🙂");
+    let replaced = string_replace_range(
+        &allocator,
+        &text,
+        1,
+        3,
+        &allocator.allocate_string("ello").unwrap(),
+    )
+    .expect("replace should succeed");
+    assert_eq!(replaced.as_str(), "hello");
+    assert_eq!(
+        string_insert_at(
+            &allocator,
+            &ascii,
+            6,
+            &allocator.allocate_string("!").unwrap()
+        ),
+        Err(RuntimeError::user_error(
+            1_104,
+            "StringRangeOutOfBoundsError"
+        ))
+    );
+    assert_eq!(
+        string_delete_range(&allocator, &ascii, 4, 1),
+        Err(RuntimeError::user_error(1_105, "StringRangeOrderError"))
+    );
+    assert_eq!(
+        string_replace_range(
+            &allocator,
+            &ascii,
+            -1,
+            1,
+            &allocator.allocate_string("x").unwrap()
+        ),
         Err(RuntimeError::user_error(
             1_104,
             "StringRangeOutOfBoundsError"

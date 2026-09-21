@@ -19,6 +19,9 @@ pub(super) const STRING_STDLIB_NAMES: &[&str] = &[
     "string_take_prefix",
     "string_take_suffix",
     "string_extract_range",
+    "string_insert_at",
+    "string_delete_range",
+    "string_replace_range",
     "string_split_lines",
     "string_is_blank",
     "string_trim_whitespace",
@@ -111,6 +114,35 @@ pub(super) fn declare_string_stdlib_function<'context>(
                 "string_extract_range",
                 fs_string_result_type,
                 &[i8_ptr.into(), i64_type.into(), i64_type.into()],
+            ))
+        }),
+        "string_insert_at" => module.get_function("string_insert_at").or_else(|| {
+            Some(declare_fs_result_function(
+                codegen_context,
+                "string_insert_at",
+                fs_string_result_type,
+                &[i8_ptr.into(), i64_type.into(), i8_ptr.into()],
+            ))
+        }),
+        "string_delete_range" => module.get_function("string_delete_range").or_else(|| {
+            Some(declare_fs_result_function(
+                codegen_context,
+                "string_delete_range",
+                fs_string_result_type,
+                &[i8_ptr.into(), i64_type.into(), i64_type.into()],
+            ))
+        }),
+        "string_replace_range" => module.get_function("string_replace_range").or_else(|| {
+            Some(declare_fs_result_function(
+                codegen_context,
+                "string_replace_range",
+                fs_string_result_type,
+                &[
+                    i8_ptr.into(),
+                    i64_type.into(),
+                    i64_type.into(),
+                    i8_ptr.into(),
+                ],
             ))
         }),
         "string_join" => module.get_function("string_join").or_else(|| {

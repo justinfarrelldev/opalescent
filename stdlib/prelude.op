@@ -18,6 +18,9 @@
 # stdout_terminal(): StdoutTerminal errors StandardOutputHandleError
 # terminal_supports_ansi(terminal: StdoutTerminal): boolean errors StandardOutputCapabilityError
 # Strings expose `.length`, which lowers to `string_length(value)` and returns int64.
+# string_insert_at(text: string, scalar_index: int64, inserted: string): string errors StringRangeOutOfBoundsError, AllocationFailureError
+# string_delete_range(text: string, start: int64, end: int64): string errors StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError
+# string_replace_range(text: string, start: int64, end: int64, replacement: string): string errors StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError
 # Arrays expose `.length`, which lowers to `array_length(values, len)` and returns int64.
 
 # Bytes: opaque, immutable byte buffer.

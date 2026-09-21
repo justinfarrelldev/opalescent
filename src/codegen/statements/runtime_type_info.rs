@@ -53,6 +53,9 @@ pub(super) fn known_runtime_return_type(name: &str) -> Option<CoreType> {
         | "string_take_prefix"
         | "string_take_suffix"
         | "string_extract_range"
+        | "string_insert_at"
+        | "string_delete_range"
+        | "string_replace_range"
         | "get_environment_variable"
         | "get_environment_variable_or" => Some(CoreType::String),
         "string_find_index_or" | "string_find_last_index_of_text" | "error_suppressed_length" => {
@@ -330,6 +333,9 @@ pub(super) fn known_guard_success_type(name: &str) -> Option<CoreType> {
         | "string_take_prefix"
         | "string_take_suffix"
         | "string_extract_range"
+        | "string_insert_at"
+        | "string_delete_range"
+        | "string_replace_range"
         | "get_environment_variable"
         | "get_environment_variable_or" => Some(CoreType::String),
         "take_input" => Some(CoreType::String),

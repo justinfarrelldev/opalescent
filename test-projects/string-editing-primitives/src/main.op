@@ -1,0 +1,20 @@
+import string_insert_at, string_delete_range, string_replace_range from standard
+
+##
+  Description: Verifies scalar-indexed string editing primitives.
+##
+entry main = f(): void errors StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError =>
+    let inserted_ascii = propagate string_insert_at('ac', 1 as int64, 'b')
+    let inserted_unicode = propagate string_insert_at('héz', 2 as int64, '🙂')
+    let deleted_ascii = propagate string_delete_range('abcdef', 2 as int64, 4 as int64)
+    let deleted_unicode = propagate string_delete_range('h🙂éz', 1 as int64, 2 as int64)
+    let replaced_ascii = propagate string_replace_range('abcdef', 1 as int64, 5 as int64, 'X')
+    let replaced_unicode = propagate string_replace_range('h🙂éz', 1 as int64, 3 as int64, 'i')
+
+    print('INSERT_ASCII=[{inserted_ascii}]')
+    print('INSERT_UNICODE=[{inserted_unicode}]')
+    print('DELETE_ASCII=[{deleted_ascii}]')
+    print('DELETE_UNICODE=[{deleted_unicode}]')
+    print('REPLACE_ASCII=[{replaced_ascii}]')
+    print('REPLACE_UNICODE=[{replaced_unicode}]')
+    return void

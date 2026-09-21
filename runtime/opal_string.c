@@ -677,6 +677,24 @@ FsStringResult string_take_suffix(const char* value, int64_t count) {
     return r;
 }
 
+static const char* opal_string_scalar_boundary(const char* value, int64_t scalar_index) {
+    if (scalar_index == 0) {
+        return value;
+    }
+    const unsigned char* cursor = (const unsigned char*)value;
+    int64_t seen = 0;
+    while (*cursor != '\0') {
+        if (opal_utf8_is_scalar_start(*cursor)) {
+            if (seen == scalar_index) {
+                return (const char*)cursor;
+            }
+            seen++;
+        }
+        cursor++;
+    }
+    return (const char*)cursor;
+}
+
 FsStringResult string_extract_range(const char* value, int64_t start_index, int64_t end_index) {
     FsStringResult r;
     r.value = NULL;
@@ -695,30 +713,8 @@ FsStringResult string_extract_range(const char* value, int64_t start_index, int6
         r.error = "StringRangeOutOfBoundsError";
         return r;
     }
-    const unsigned char* cursor = (const unsigned char*)value;
-    const char* start = value;
-    const char* end = value;
-    int64_t seen = 0;
-    while (*cursor != '\0') {
-        if (opal_utf8_is_scalar_start(*cursor)) {
-            if (seen == start_index) {
-                start = (const char*)cursor;
-            }
-            if (seen == end_index) {
-                end = (const char*)cursor;
-                break;
-            }
-            seen++;
-        }
-        cursor++;
-    }
-    if (end_index == length) {
-        end = (const char*)cursor;
-    }
-    if (start_index == length) {
-        start = (const char*)cursor;
-        end = (const char*)cursor;
-    }
+    const char* start = opal_string_scalar_boundary(value, start_index);
+    const char* end = opal_string_scalar_boundary(value, end_index);
     size_t range_len = (size_t)(end - start);
     char* result = (char*)malloc(range_len + 1u);
     if (!result) {
@@ -727,6 +723,127 @@ FsStringResult string_extract_range(const char* value, int64_t start_index, int6
     }
     memcpy(result, start, range_len);
     result[range_len] = '\0';
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    r.value = result;
+    return r;
+}
+
+FsStringResult string_insert_at(const char* value, int64_t scalar_index, const char* inserted) {
+    FsStringResult r;
+    r.value = NULL;
+    r.error = NULL;
+    if (!value) { fprintf(stderr, "Runtime error: string_insert_at called with NULL string pointer\n"); exit(1); }
+    if (!inserted) { fprintf(stderr, "Runtime error: string_insert_at called with NULL inserted pointer\n"); exit(1); }
+    if (scalar_index < 0) {
+        r.error = "StringRangeOutOfBoundsError";
+        return r;
+    }
+    int64_t length = string_length(value);
+    if (scalar_index > length) {
+        r.error = "StringRangeOutOfBoundsError";
+        return r;
+    }
+    const char* boundary = opal_string_scalar_boundary(value, scalar_index);
+    size_t prefix_len = (size_t)(boundary - value);
+    size_t inserted_len = strlen(inserted);
+    size_t suffix_len = strlen(boundary);
+    if (prefix_len > SIZE_MAX - inserted_len || prefix_len + inserted_len > SIZE_MAX - suffix_len - 1u) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+    size_t total_len = prefix_len + inserted_len + suffix_len;
+    char* result = (char*)malloc(total_len + 1u);
+    if (!result) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+    memcpy(result, value, prefix_len);
+    memcpy(result + prefix_len, inserted, inserted_len);
+    memcpy(result + prefix_len + inserted_len, boundary, suffix_len);
+    result[total_len] = '\0';
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    r.value = result;
+    return r;
+}
+
+FsStringResult string_delete_range(const char* value, int64_t start_index, int64_t end_index) {
+    FsStringResult r;
+    r.value = NULL;
+    r.error = NULL;
+    if (!value) { fprintf(stderr, "Runtime error: string_delete_range called with NULL string pointer\n"); exit(1); }
+    if (start_index < 0 || end_index < 0) {
+        r.error = "StringRangeOutOfBoundsError";
+        return r;
+    }
+    if (end_index < start_index) {
+        r.error = "StringRangeOrderError";
+        return r;
+    }
+    int64_t length = string_length(value);
+    if (end_index > length) {
+        r.error = "StringRangeOutOfBoundsError";
+        return r;
+    }
+    const char* start = opal_string_scalar_boundary(value, start_index);
+    const char* end = opal_string_scalar_boundary(value, end_index);
+    size_t prefix_len = (size_t)(start - value);
+    size_t suffix_len = strlen(end);
+    if (prefix_len > SIZE_MAX - suffix_len - 1u) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+    size_t total_len = prefix_len + suffix_len;
+    char* result = (char*)malloc(total_len + 1u);
+    if (!result) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+    memcpy(result, value, prefix_len);
+    memcpy(result + prefix_len, end, suffix_len);
+    result[total_len] = '\0';
+    opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
+    r.value = result;
+    return r;
+}
+
+FsStringResult string_replace_range(const char* value, int64_t start_index, int64_t end_index, const char* replacement) {
+    FsStringResult r;
+    r.value = NULL;
+    r.error = NULL;
+    if (!value) { fprintf(stderr, "Runtime error: string_replace_range called with NULL string pointer\n"); exit(1); }
+    if (!replacement) { fprintf(stderr, "Runtime error: string_replace_range called with NULL replacement pointer\n"); exit(1); }
+    if (start_index < 0 || end_index < 0) {
+        r.error = "StringRangeOutOfBoundsError";
+        return r;
+    }
+    if (end_index < start_index) {
+        r.error = "StringRangeOrderError";
+        return r;
+    }
+    int64_t length = string_length(value);
+    if (end_index > length) {
+        r.error = "StringRangeOutOfBoundsError";
+        return r;
+    }
+    const char* start = opal_string_scalar_boundary(value, start_index);
+    const char* end = opal_string_scalar_boundary(value, end_index);
+    size_t prefix_len = (size_t)(start - value);
+    size_t replacement_len = strlen(replacement);
+    size_t suffix_len = strlen(end);
+    if (prefix_len > SIZE_MAX - replacement_len || prefix_len + replacement_len > SIZE_MAX - suffix_len - 1u) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+    size_t total_len = prefix_len + replacement_len + suffix_len;
+    char* result = (char*)malloc(total_len + 1u);
+    if (!result) {
+        r.error = "AllocationFailureError";
+        return r;
+    }
+    memcpy(result, value, prefix_len);
+    memcpy(result + prefix_len, replacement, replacement_len);
+    memcpy(result + prefix_len + replacement_len, end, suffix_len);
+    result[total_len] = '\0';
     opal_rc_debug_note_alloc(OPAL_RC_DEBUG_COUNTER_STRINGS);
     r.value = result;
     return r;

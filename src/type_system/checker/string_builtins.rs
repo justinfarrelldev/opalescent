@@ -117,6 +117,8 @@ impl TypeChecker {
             ],
         );
 
+        self.register_string_range_editing_builtins();
+
         self.register_string_builtin(
             "string_builder_new",
             Vec::new(),
@@ -140,6 +142,46 @@ impl TypeChecker {
             vec![CoreType::String],
             vec![
                 stdlib_error_core_type(BUILDER_FINISHED_ERROR),
+                stdlib_error_core_type(ALLOCATION_FAILURE_ERROR),
+            ],
+        );
+    }
+
+    /// Register scalar-indexed string editing helpers.
+    fn register_string_range_editing_builtins(&mut self) {
+        self.register_string_builtin(
+            "string_insert_at",
+            vec![CoreType::String, CoreType::Int64, CoreType::String],
+            vec![CoreType::String],
+            vec![
+                stdlib_error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
+                stdlib_error_core_type(ALLOCATION_FAILURE_ERROR),
+            ],
+        );
+
+        self.register_string_builtin(
+            "string_delete_range",
+            vec![CoreType::String, CoreType::Int64, CoreType::Int64],
+            vec![CoreType::String],
+            vec![
+                stdlib_error_core_type(STRING_RANGE_ORDER_ERROR),
+                stdlib_error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
+                stdlib_error_core_type(ALLOCATION_FAILURE_ERROR),
+            ],
+        );
+
+        self.register_string_builtin(
+            "string_replace_range",
+            vec![
+                CoreType::String,
+                CoreType::Int64,
+                CoreType::Int64,
+                CoreType::String,
+            ],
+            vec![CoreType::String],
+            vec![
+                stdlib_error_core_type(STRING_RANGE_ORDER_ERROR),
+                stdlib_error_core_type(STRING_RANGE_OUT_OF_BOUNDS_ERROR),
                 stdlib_error_core_type(ALLOCATION_FAILURE_ERROR),
             ],
         );
