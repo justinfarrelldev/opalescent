@@ -1,4 +1,8 @@
 #![cfg(feature = "integration")]
+#![expect(
+    clippy::tests_outside_test_module,
+    reason = "integration test crates place test functions at crate root"
+)]
 
 use std::fs;
 use std::path::PathBuf;
@@ -78,6 +82,28 @@ fn run_opal_source(source: &std::path::Path) -> std::process::Output {
 fn run_opal_project(project: &str) -> std::process::Output {
     let source = array_project_src(project, "main.op");
     run_opal_source(&source)
+}
+
+#[test]
+fn array_insert_remove_errors_project_reports_index_error() {
+    let output = run_opal_project("array-insert-remove-errors");
+    assert!(
+        !output.status.success(),
+        "array-insert-remove-errors should fail at runtime for an invalid insert index"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("IndexOutOfBoundsError"),
+        "array-insert-remove-errors stderr should mention IndexOutOfBoundsError, got: {stderr}"
+    );
+}
+
+#[test]
+fn array_insert_remove_lines_project_runs() {
+    assert_stdout(
+        "array-insert-remove-lines",
+        "inserted length 3\ninserted alpha beta gamma\nupdated length 2\nupdated beta gamma\nremoved alpha\nsource length 2\nsource alpha gamma\n",
+    );
 }
 
 fn assert_stdout(project: &str, expected: &str) {

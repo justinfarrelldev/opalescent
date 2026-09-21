@@ -16,14 +16,14 @@ Branch: `implement-editor-readiness-proposals`
 
 ## 2. Method-style array editing
 
-- [ ] RED: add failing tests/fixtures for `values.insert(index, value)`.
-- [ ] RED: add failing tests/fixtures for `values.remove_at(index)` and labeled multiple return use.
-- [ ] RED: add compile-fail/error tests for invalid indices or unhandled errors.
-- [ ] GREEN: add parser/type-checker/member dispatch support for method-style array insert/remove.
-- [ ] GREEN: implement generated runtime lowering for insert/remove.
-- [ ] GREEN: update docs/prelude if needed.
-- [ ] REFACTOR: run focused array tests and clean duplication.
-- [ ] COMMIT: atomic method-style array editing commit.
+- [x] RED: add failing tests/fixtures for `values.insert(index, value)`.
+- [x] RED: add failing tests/fixtures for `values.remove_at(index)` and labeled multiple return use.
+- [x] RED: add compile-fail/error tests for invalid indices or unhandled errors.
+- [x] GREEN: add parser/type-checker/member dispatch support for method-style array insert/remove.
+- [x] GREEN: implement generated runtime lowering for insert/remove.
+- [x] GREEN: update docs/prelude if needed.
+- [x] REFACTOR: run focused array tests and clean duplication.
+- [x] COMMIT: atomic method-style array editing commit.
 
 ## 3. High-level session rendering
 

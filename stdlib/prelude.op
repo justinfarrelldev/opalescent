@@ -22,6 +22,9 @@
 # string_delete_range(text: string, start: int64, end: int64): string errors StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError
 # string_replace_range(text: string, start: int64, end: int64, replacement: string): string errors StringRangeOrderError, StringRangeOutOfBoundsError, AllocationFailureError
 # Arrays expose `.length`, which lowers to `array_length(values, len)` and returns int64.
+# Arrays support method-style insert/remove:
+# values.insert(index: int64, value: T): T[] errors IndexOutOfBoundsError, AllocationFailureError
+# values.remove_at(index: int64): updated: T[], removed: T errors IndexOutOfBoundsError, AllocationFailureError
 
 # Bytes: opaque, immutable byte buffer.
 # Construct one with `new Bytes`, inspect its size via `buffer.length`, and

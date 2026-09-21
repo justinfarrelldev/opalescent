@@ -55,7 +55,43 @@ impl TypeChecker {
                 }],
             },
         );
+        self.register_array_editing_intrinsics(generic_t.clone(), element_t.clone());
         self.register_array_transform_intrinsics(generic_t, element_t);
+    }
+
+    /// Register method-style array editing helpers.
+    fn register_array_editing_intrinsics(
+        &mut self,
+        generic_t: GenericTypeParameter,
+        element_t: CoreType,
+    ) {
+        let index_error = CoreType::Generic {
+            name: "IndexOutOfBoundsError".to_owned(),
+            type_args: Vec::new(),
+        };
+        let allocation_error = CoreType::Generic {
+            name: "AllocationFailureError".to_owned(),
+            type_args: Vec::new(),
+        };
+
+        self.register_builtin_method(
+            "[t].insert",
+            CoreType::Function {
+                generic_params: vec![generic_t.clone()],
+                parameters: vec![CoreType::Int64, element_t.clone()],
+                return_types: vec![CoreType::Array(Box::new(element_t.clone()))],
+                error_types: vec![index_error.clone(), allocation_error.clone()],
+            },
+        );
+        self.register_builtin_method(
+            "[t].remove_at",
+            CoreType::Function {
+                generic_params: vec![generic_t],
+                parameters: vec![CoreType::Int64],
+                return_types: vec![CoreType::Array(Box::new(element_t.clone())), element_t],
+                error_types: vec![index_error, allocation_error],
+            },
+        );
     }
 
     /// Register higher-order array methods (`map/filter/reduce/zip`) and iterable marker.

@@ -1,0 +1,8 @@
+##
+  Description: Verifies method-style array editing reports invalid indices.
+##
+entry main = f(args: string[]): void errors IndexOutOfBoundsError, AllocationFailureError =>
+    let values: int32[] = [1 as int32, 2 as int32]
+    let updated = propagate values.insert(3 as int64, 9 as int32)
+    print('unexpected {updated.length}')
+    return void

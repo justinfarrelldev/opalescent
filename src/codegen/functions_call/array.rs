@@ -5,6 +5,8 @@
     reason = "internal codegen implementation module"
 )]
 
+#[path = "array/editing.rs"]
+mod editing;
 #[path = "array/helpers.rs"]
 mod helpers;
 #[path = "array/intrinsics.rs"]

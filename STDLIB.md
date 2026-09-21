@@ -322,9 +322,14 @@ let mutable values: int32[] = []
 values.push(1)
 values.push(2)
 let last = values.pop()
+let inserted = propagate values.insert(1 as int64, 9 as int32)
+let updated, removed = propagate inserted.remove_at(0 as int64)
 ```
 
-Implemented/tested fixture areas include `array-map`, `array-filter`, `array-reduce`, `array-zip`, and `array-pair` under `test-projects/`.
+- `values.insert(index, value): T[] errors IndexOutOfBoundsError, AllocationFailureError` returns a new array with `value` inserted before zero-based `index`. `index == values.length` appends.
+- `values.remove_at(index): updated: T[], removed: T errors IndexOutOfBoundsError, AllocationFailureError` returns a new array with the element removed and also returns the removed element.
+
+Implemented/tested fixture areas include `array-map`, `array-filter`, `array-reduce`, `array-zip`, `array-pair`, and method-style array insert/remove fixtures under `test-projects/`.
 
 ### `.at(index: int64): T errors IndexOutOfBoundsError`
 

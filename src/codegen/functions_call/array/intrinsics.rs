@@ -61,6 +61,10 @@ pub(super) fn codegen_array_member_call<'context>(
     match member {
         "push" => codegen_array_push_call(codegen_context, env, receiver, args),
         "pop" => codegen_array_pop_call(codegen_context, env, receiver, args),
+        "insert" => super::editing::codegen_array_insert_call(codegen_context, env, receiver, args),
+        "remove_at" => {
+            super::editing::codegen_array_remove_at_call(codegen_context, env, receiver, args)
+        }
         "map" => codegen_array_map_call(codegen_context, env, receiver, args),
         "filter" => codegen_array_filter_call(codegen_context, env, receiver, args),
         "reduce" => codegen_array_reduce_call(codegen_context, env, receiver, args),

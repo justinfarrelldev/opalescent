@@ -178,6 +178,11 @@ pub(super) fn infer_call_return_types<'context>(
     } = *callee
     {
         let receiver_type = infer_core_type_from_expr(codegen_context, env, object);
+        if let Some(return_types) =
+            infer_member_call_return_types(env, &receiver_type, member.as_str(), args)
+        {
+            return Some(return_types);
+        }
         return infer_member_call_return_type(env, &receiver_type, member.as_str(), args)
             .map(|core_type| vec![core_type]);
     }
@@ -282,6 +287,26 @@ fn llvm_basic_type_to_core_type(llvm_type: &BasicTypeEnum<'_>) -> CoreType {
     clippy::pattern_type_mismatch,
     reason = "matching borrowed receiver core types is clearer than manual dereferencing"
 )]
+/// Infer multiple result types of collection-style member calls used by destructuring.
+fn infer_member_call_return_types(
+    _env: &CodegenEnv<'_>,
+    receiver_type: &CoreType,
+    member: &str,
+    _args: &[Expr],
+) -> Option<Vec<CoreType>> {
+    match (receiver_type, member) {
+        (CoreType::Array(element_type), "remove_at") => Some(vec![
+            CoreType::Array(Box::new(element_type.as_ref().clone())),
+            element_type.as_ref().clone(),
+        ]),
+        _ => None,
+    }
+}
+
+#[expect(
+    clippy::pattern_type_mismatch,
+    reason = "matching borrowed receiver core types is clearer than manual dereferencing"
+)]
 /// Infer the result type of collection-style member calls used by let bindings.
 fn infer_member_call_return_type(
     env: &CodegenEnv<'_>,
@@ -293,11 +318,11 @@ fn infer_member_call_return_type(
         (&CoreType::Array(_), "length") => Some(CoreType::Int64),
         (CoreType::Array(_), "push") => Some(CoreType::Unit),
         (CoreType::Array(element_type), "pop") => Some(element_type.as_ref().clone()),
-        (CoreType::Array(_), "map") => infer_callback_return_core_type(env, args.first()?)
-            .map(|callback_return| CoreType::Array(Box::new(callback_return))),
-        (CoreType::Array(element_type), "filter") => {
+        (CoreType::Array(element_type), "insert" | "filter") => {
             Some(CoreType::Array(Box::new(element_type.as_ref().clone())))
         }
+        (CoreType::Array(_), "map") => infer_callback_return_core_type(env, args.first()?)
+            .map(|callback_return| CoreType::Array(Box::new(callback_return))),
         (CoreType::Array(_), "reduce") => infer_callback_return_core_type(env, args.get(1)?),
         (CoreType::Array(left_type), "zip") => {
             let Expr::Identifier { ref name, .. } = *args.first()? else {
